@@ -2,11 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
-import 'package:macrotracker/dashboard.dart';
+import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/gemini.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

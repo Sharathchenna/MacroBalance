@@ -12,6 +12,10 @@
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
+		<key>NSCameraUsageDescription</key>
+		<string>This app needs access to the camera to take photos.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>This app needs access to the microphone for video recording.</string>
 		<key>CFBundleName</key>
 		<string>macrotracker</string>
 		<key>CFBundlePackageType</key>

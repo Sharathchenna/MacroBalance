@@ -1,8 +1,7 @@
-import 'package:macrotracker/dashboard.dart';
+import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
-
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -17,7 +16,7 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        
+
         final session = snapshot.data?.session;
         if (session == null) {
           return const Welcomescreen();
