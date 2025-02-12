@@ -1,0 +1,12 @@
+flutter_native_splash:
+  ios: true
+  android: true
+  web: false
+  
+  color: "#FFFFFF"
+  image: assets/splash_screen/Fitpro.png
+
+  android_12:
+  # TODO: Add support for Android 12 splash screen
+    color: "#FFFFFF"
+    image: assets/splash_screen/Fitpro.png
