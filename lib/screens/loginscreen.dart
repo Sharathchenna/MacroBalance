@@ -48,9 +48,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _nativeGoogleSignIn() async {
     try {
       /// Web Client ID that you registered with Google Cloud.
-      const webClientId = '362662407469-tq90edhg69p21s816herauenvckhbes6.apps.googleusercontent.com';
+      const webClientId =
+          '362662407469-tq90edhg69p21s816herauenvckhbes6.apps.googleusercontent.com';
+
       /// iOS Client ID that you registered with Google Cloud.
-      const iosClientId = '362662407469-vntsu0nvlv04mrk01bsusddqdtunq154.apps.googleusercontent.com';
+      const iosClientId =
+          '362662407469-vntsu0nvlv04mrk01bsusddqdtunq154.apps.googleusercontent.com';
 
       final GoogleSignIn googleSignIn = GoogleSignIn(
         clientId: iosClientId,
@@ -129,11 +132,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   filled: true,
                   fillColor: Color(0xFFFCFCFC),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
+                    borderSide:
+                        BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
                     borderRadius: BorderRadius.circular(17.60),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
+                    borderSide:
+                        BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
                     borderRadius: BorderRadius.circular(17.60),
                   ),
                 ),
@@ -164,11 +169,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   filled: true,
                   fillColor: Color(0xFFFCFCFC),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
+                    borderSide:
+                        BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
                     borderRadius: BorderRadius.circular(17.60),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
+                    borderSide:
+                        BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
                     borderRadius: BorderRadius.circular(17.60),
                   ),
                   suffixIcon: IconButton(
@@ -233,7 +240,8 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 20),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center, // Center aligns the text
+              mainAxisAlignment:
+                  MainAxisAlignment.center, // Center aligns the text
               children: const [
                 Text(
                   'or',
@@ -257,7 +265,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: ShapeDecoration(
                   color: const Color(0xFFFCFCFC),
                   shape: RoundedRectangleBorder(
-                    side: const BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
+                    side:
+                        const BorderSide(width: 1.17, color: Color(0xFFD1D1D1)),
                     borderRadius: BorderRadius.circular(17.60),
                   ),
                 ),
@@ -287,7 +296,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            
           ],
         ),
       ),

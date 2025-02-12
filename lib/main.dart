@@ -4,15 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/dashboard.dart';
 import 'package:macrotracker/gemini.dart';
-import 'package:macrotracker/searchPage.dart';
-import 'package:macrotracker/welcomescreen.dart';
+import 'package:macrotracker/screens/searchPage.dart';
+import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 
-void main() async{
-    WidgetsFlutterBinding.ensureInitialized();
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   //supabase setup
   await Supabase.initialize(
-    anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
+    anonKey:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
     url: "https://mdivtblabmnftdqlgysv.supabase.co",
   );
   runApp(const MyApp());
@@ -28,11 +29,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'MacroTracker',
       theme: ThemeData(
-        primarySwatch: Colors.green,
-        scaffoldBackgroundColor: Color(0xFFA1CE4F),
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Color(0xFFF5F4F0),
       ),
-      home:  AuthGate(),
+      home: AuthGate(),
     );
   }
 }
-

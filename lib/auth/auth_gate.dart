@@ -1,5 +1,5 @@
 import 'package:macrotracker/dashboard.dart';
-import 'package:macrotracker/welcomescreen.dart';
+import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 

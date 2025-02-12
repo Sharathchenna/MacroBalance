@@ -19,14 +19,15 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
   var usdaApiKey = "HfaUP7Q7WTrFzJgjZ1WblvF3op1eoFjd9OPZ60Be";
   Future<void> _searchFood(String query) async {
     if (query.isEmpty) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       final response = await http.get(
-        Uri.parse('https://api.nal.usda.gov/fdc/v1/foods/search?api_key=$usdaApiKey&query=$query'),
+        Uri.parse(
+            'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=$usdaApiKey&query=$query'),
       );
-      
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
@@ -74,7 +75,8 @@ class SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final Function(String) onSearch;
 
-  const SearchBar({super.key, 
+  const SearchBar({
+    super.key,
     required this.controller,
     required this.onSearch,
   });
@@ -185,7 +187,7 @@ class FoodItem {
 
   static Map<String, double> _parseNutrients(List? nutrients) {
     if (nutrients == null) return {};
-    
+
     final Map<String, double> result = {};
     for (var nutrient in nutrients) {
       if (nutrient['nutrientName'] != null && nutrient['value'] != null) {
@@ -207,7 +209,8 @@ class PortionSelector extends StatefulWidget {
 
 class _PortionSelectorState extends State<PortionSelector> {
   double _grams = 100;
-  final TextEditingController _gramsController = TextEditingController(text: '100');
+  final TextEditingController _gramsController =
+      TextEditingController(text: '100');
 
   @override
   void dispose() {
@@ -247,10 +250,19 @@ class _PortionSelectorState extends State<PortionSelector> {
           ElevatedButton(
             onPressed: () {
               // Create a MealEntry using the selected amount
-              final int calories = (widget.food.calories * _grams / 100).round();
-              final double protein = ((widget.food.nutrients["Protein"] ?? 0.0) * _grams / 100);
-              final double fat = ((widget.food.nutrients["Total lipid (fat)"] ?? 0.0) * _grams / 100);
-              final double carb = ((widget.food.nutrients["Carbohydrate, by difference"] ?? 0.0) * _grams / 100);
+              final int calories =
+                  (widget.food.calories * _grams / 100).round();
+              final double protein =
+                  ((widget.food.nutrients["Protein"] ?? 0.0) * _grams / 100);
+              final double fat =
+                  ((widget.food.nutrients["Total lipid (fat)"] ?? 0.0) *
+                      _grams /
+                      100);
+              final double carb =
+                  ((widget.food.nutrients["Carbohydrate, by difference"] ??
+                          0.0) *
+                      _grams /
+                      100);
               final mealEntry = MealEntry(
                 food: widget.food,
                 grams: _grams,
@@ -291,10 +303,12 @@ class FoodDetailPage extends StatelessWidget {
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             SizedBox(height: 4),
-            Text( food.brandName,
-              style: Theme.of(context).textTheme.headlineSmall!.copyWith(color: Colors.grey),
-              
-              
+            Text(
+              food.brandName,
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall!
+                  .copyWith(color: Colors.grey),
             ),
             SizedBox(height: 16),
             Text(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:macrotracker/loginscreen.dart';
-import 'package:macrotracker/signup.dart';
+import 'package:macrotracker/screens/loginscreen.dart';
+import 'package:macrotracker/screens/signup.dart';
 
 class Welcomescreen extends StatelessWidget {
   const Welcomescreen({super.key});
@@ -30,17 +30,18 @@ class Welcomescreen extends StatelessWidget {
               ),
             ),
           ),
-          Positioned( 
-            bottom: MediaQuery.of(context).size.height * 0.1, // Adjust this value to move up/down
+          Positioned(
+            bottom: MediaQuery.of(context).size.height *
+                0.1, // Adjust this value to move up/down
             left: 15,
             right: 0,
             child: Center(
               child: TextButton(
                 onPressed: () {
                   Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => Signup()),
-                );
+                    context,
+                    MaterialPageRoute(builder: (context) => Signup()),
+                  );
                 },
                 child: Container(
                   width: 295,
@@ -68,39 +69,39 @@ class Welcomescreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Positioned(
-                left: 40,
-                top: 725, // Original position below Create Account button
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => LoginScreen()),
+            left: 40,
+            top: 725, // Original position below Create Account button
+            child: TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => LoginScreen()),
                 );
-                  },
-                  child: Container(
-                    width: 295,
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(vertical: 12), // Simplified padding
-                    decoration: ShapeDecoration(
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(width: 1, color: Color(0xFF0076B8)),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      'Login',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xFF0076B8),
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-    ),
-  ),
-),
-
+              },
+              child: Container(
+                width: 295,
+                height: 50,
+                padding: const EdgeInsets.symmetric(
+                    vertical: 12), // Simplified padding
+                decoration: ShapeDecoration(
+                  shape: RoundedRectangleBorder(
+                    side: const BorderSide(width: 1, color: Color(0xFF0076B8)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text(
+                  'Login',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF0076B8),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
