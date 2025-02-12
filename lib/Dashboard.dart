@@ -16,7 +16,11 @@ class _DashboardState extends State<Dashboard> {
         body: SafeArea(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
-            children: [DateNavigatorbar(), CalorieTracker()],
+            children: [
+              DateNavigatorbar(),
+              CalorieTracker(),
+              Expanded(child: MealSection())
+            ],
           ),
         ));
   }
@@ -219,4 +223,392 @@ Widget _buildMacroBar(
       Text('$intake/$goal'),
     ],
   );
+}
+
+// class MealList extends StatefulWidget {
+//   @override
+//   _MealListState createState() => _MealListState();
+// }
+
+// class _MealListState extends State<MealList> {
+//   bool _isBreakfastExpanded = false;
+//   List<FoodItem> _breakfastItems = [];
+//   double _totalBreakfastCalories = 0;
+
+//   void _toggleBreakfast() {
+//     setState(() {
+//       _isBreakfastExpanded = !_isBreakfastExpanded;
+//     });
+//   }
+
+//   void _addFoodItem() {
+//     setState(() {
+//       _breakfastItems.add(FoodItem());
+//       _recalculateTotalCalories(); // Recalculate immediately after adding
+//     });
+//   }
+
+//   void _removeFoodItem(int index) {
+//     setState(() {
+//       _breakfastItems.removeAt(index);
+//       _recalculateTotalCalories(); // Recalculate immediately after removing
+//     });
+//   }
+
+//   void _updateFoodItem(int index, String foodName, double calories,
+//       {double? carbs, double? fat, double? protein}) {
+//     setState(() {
+//       _breakfastItems[index].foodName = foodName;
+//       _breakfastItems[index].calories = calories;
+//       if (carbs != null) _breakfastItems[index].carbs = carbs;
+//       if (fat != null) _breakfastItems[index].fat = fat;
+//       if (protein != null) _breakfastItems[index].protein = protein;
+//       _recalculateTotalCalories();
+//     });
+//   }
+
+//   void _recalculateTotalCalories() {
+//     _totalBreakfastCalories = 0;
+//     for (var item in _breakfastItems) {
+//       _totalBreakfastCalories += item.calories;
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.all(16.0),
+//       child: Column(
+//         children: [
+//           // Breakfast Section
+//           InkWell(
+//             onTap: _toggleBreakfast,
+//             child: Container(
+//               padding: const EdgeInsets.all(16.0),
+//               child: Row(
+//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                 children: [
+//                   Row(
+//                     children: [
+//                       const Text('Breakfast'),
+//                       Icon(_isBreakfastExpanded
+//                           ? Icons.arrow_drop_up
+//                           : Icons.arrow_drop_down),
+//                     ],
+//                   ),
+//                   Text('${_totalBreakfastCalories.toStringAsFixed(0)} Kcal'),
+//                 ],
+//               ),
+//             ),
+//           ),
+//           if (_isBreakfastExpanded)
+//             Container(
+//               padding: const EdgeInsets.all(16.0),
+//               decoration: BoxDecoration(
+//                 border: Border.all(color: Colors.grey.shade300),
+//                 borderRadius: BorderRadius.circular(8.0),
+//               ),
+//               child: Column(
+//                 children: [
+//                   ElevatedButton(
+//                     onPressed: _addFoodItem,
+//                     child: const Text('+ Add Food'),
+//                   ),
+//                   ..._breakfastItems.asMap().entries.map((entry) {
+//                     int index = entry.key;
+//                     FoodItem item = entry.value;
+//                     return FoodItemRow(
+//                       foodItem: item,
+//                       onRemove: () => _removeFoodItem(index),
+//                       onUpdate: (foodName, calories, {carbs, fat, protein}) =>
+//                           _updateFoodItem(index, foodName, calories,
+//                               carbs: carbs, fat: fat, protein: protein),
+//                     );
+//                   }).toList(),
+//                 ],
+//               ),
+//             ),
+
+//           // Example for other meals (Lunch, Snacks, Dinner) - similar structure
+//           const MealSection(mealName: "Lunch"),
+//           const MealSection(mealName: "Snacks"),
+//           const MealSection(mealName: "Dinner"),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+// class FoodItem {
+//   String foodName = '';
+//   double calories = 0;
+//   double carbs = 0;
+//   double fat = 0;
+//   double protein = 0;
+// }
+
+// class FoodItemRow extends StatefulWidget {
+//   final FoodItem foodItem;
+//   final VoidCallback onRemove;
+//   final Function(String, double, {double? carbs, double? fat, double? protein})
+//       onUpdate;
+
+//   const FoodItemRow({
+//     Key? key,
+//     required this.foodItem,
+//     required this.onRemove,
+//     required this.onUpdate,
+//   }) : super(key: key);
+
+//   @override
+//   _FoodItemRowState createState() => _FoodItemRowState();
+// }
+
+// class _FoodItemRowState extends State<FoodItemRow> {
+//   late TextEditingController _foodNameController;
+//   late TextEditingController _calorieController;
+//   late TextEditingController _carbsController;
+//   late TextEditingController _fatController;
+//   late TextEditingController _proteinController;
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _foodNameController = TextEditingController(text: widget.foodItem.foodName);
+//     _calorieController =
+//         TextEditingController(text: widget.foodItem.calories.toString());
+//     _carbsController =
+//         TextEditingController(text: widget.foodItem.carbs.toString());
+//     _fatController =
+//         TextEditingController(text: widget.foodItem.fat.toString());
+//     _proteinController =
+//         TextEditingController(text: widget.foodItem.protein.toString());
+//   }
+
+//   @override
+//   void dispose() {
+//     _foodNameController.dispose();
+//     _calorieController.dispose();
+//     _carbsController.dispose();
+//     _fatController.dispose();
+//     _proteinController.dispose();
+//     super.dispose();
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       margin: const EdgeInsets.symmetric(vertical: 8.0),
+//       padding: const EdgeInsets.all(8.0),
+//       decoration: BoxDecoration(
+//         border: Border.all(color: Colors.grey.shade300),
+//         borderRadius: BorderRadius.circular(8.0),
+//       ),
+//       child: Row(
+//         children: [
+//           Expanded(
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 TextFormField(
+//                   controller: _foodNameController,
+//                   decoration: const InputDecoration(labelText: 'Food Name'),
+//                   onChanged: (value) {
+//                     widget.onUpdate(
+//                         value, double.tryParse(_calorieController.text) ?? 0,
+//                         carbs: double.tryParse(_carbsController.text),
+//                         fat: double.tryParse(_fatController.text),
+//                         protein: double.tryParse(_proteinController.text));
+//                   },
+//                 ),
+//                 TextFormField(
+//                   controller: _calorieController,
+//                   decoration: const InputDecoration(labelText: 'Calories'),
+//                   keyboardType: TextInputType.number,
+//                   onChanged: (value) {
+//                     widget.onUpdate(
+//                         _foodNameController.text, double.tryParse(value) ?? 0,
+//                         carbs: double.tryParse(_carbsController.text),
+//                         fat: double.tryParse(_fatController.text),
+//                         protein: double.tryParse(_proteinController.text));
+//                   },
+//                 ),
+//                 Row(
+//                   children: [
+//                     Expanded(
+//                       child: TextFormField(
+//                         controller: _carbsController,
+//                         decoration: const InputDecoration(labelText: 'Carbs'),
+//                         keyboardType: TextInputType.number,
+//                         onChanged: (value) {
+//                           widget.onUpdate(_foodNameController.text,
+//                               double.tryParse(_calorieController.text) ?? 0,
+//                               carbs: double.tryParse(value),
+//                               fat: double.tryParse(_fatController.text),
+//                               protein:
+//                                   double.tryParse(_proteinController.text));
+//                         },
+//                       ),
+//                     ),
+//                     const SizedBox(width: 8),
+//                     Expanded(
+//                       child: TextFormField(
+//                         controller: _fatController,
+//                         decoration: const InputDecoration(labelText: 'Fat'),
+//                         keyboardType: TextInputType.number,
+//                         onChanged: (value) {
+//                           widget.onUpdate(_foodNameController.text,
+//                               double.tryParse(_calorieController.text) ?? 0,
+//                               carbs: double.tryParse(_carbsController.text),
+//                               fat: double.tryParse(value),
+//                               protein:
+//                                   double.tryParse(_proteinController.text));
+//                         },
+//                       ),
+//                     ),
+//                     const SizedBox(width: 8),
+//                     Expanded(
+//                       child: TextFormField(
+//                         controller: _proteinController,
+//                         decoration: const InputDecoration(labelText: 'Protein'),
+//                         keyboardType: TextInputType.number,
+//                         onChanged: (value) {
+//                           widget.onUpdate(_foodNameController.text,
+//                               double.tryParse(_calorieController.text) ?? 0,
+//                               carbs: double.tryParse(_carbsController.text),
+//                               fat: double.tryParse(_fatController.text),
+//                               protein: double.tryParse(value));
+//                         },
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           ),
+//           IconButton(
+//             icon: const Icon(Icons.delete),
+//             onPressed: widget.onRemove,
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+// class MealSection extends StatelessWidget {
+//   final String mealName;
+
+//   const MealSection({Key? key, required this.mealName}) : super(key: key);
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.all(16.0),
+//       child: Row(
+//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//         children: [
+//           Text(mealName),
+//           const Text('0 Kcal'), // Placeholder
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+// Add this class after your existing code
+class MealSection extends StatefulWidget {
+  const MealSection({super.key});
+
+  @override
+  State<MealSection> createState() => _MealSectionState();
+}
+
+class _MealSectionState extends State<MealSection> {
+  Map<String, bool> expandedState = {
+    'Breakfast': false,
+    'Lunch': false,
+    'Snacks': false,
+    'Dinner': false,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          _buildMealCard('Breakfast'),
+          _buildMealCard('Lunch'),
+          _buildMealCard('Snacks'),
+          _buildMealCard('Dinner'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMealCard(String mealType) {
+    return Card(
+      margin: EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      mealType,
+                      style: GoogleFonts.roboto(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Icon(
+                      expandedState[mealType]!
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                    ),
+                  ],
+                ),
+                Text(
+                  '0 Kcals',
+                  style: GoogleFonts.roboto(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            onTap: () {
+              setState(() {
+                expandedState[mealType] = !expandedState[mealType]!;
+              });
+            },
+          ),
+          if (expandedState[mealType]!)
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0, bottom: 16.0),
+              child: Row(
+                children: [
+                  Icon(Icons.add, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text(
+                    'Add Food',
+                    style: GoogleFonts.roboto(
+                      color: Colors.blue,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
