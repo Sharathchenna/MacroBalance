@@ -9,8 +9,17 @@ Future<String> processImageWithGemini(String imagePath) async {
       model: 'gemini-2.0-flash-lite-preview-02-05',
       apiKey: apiKey,
     );
-    final prompt = 'Describe the contents of this image.';
-
+    final prompt = '''
+        Analyze the following meal and provide its nutritional content. 
+        Return only the numerical values for calories, protein, carbohydrates, fat, and fiber.
+        Format the response exactly like this example:
+        Nutrition Content:
+        • Calories: X kcal
+        • Protein: X g
+        • Carbohydrates: X g
+        • Fat: X g
+        • Fiber: X g
+        ''';
     final imageBytes = await File(imagePath).readAsBytes();
 
     final content = [

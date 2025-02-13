@@ -1,6 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
+import 'package:cupertino_icons/cupertino_icons.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -56,7 +58,7 @@ class _DashboardState extends State<Dashboard> {
                   children: [
                     Expanded(
                       child: IconButton(
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(CupertinoIcons.add),
                         onPressed: () {
                           // Handle the "add" action
                         },
@@ -65,7 +67,7 @@ class _DashboardState extends State<Dashboard> {
                     ),
                     Expanded(
                       child: IconButton(
-                        icon: const Icon(Icons.camera_alt),
+                        icon: const Icon(CupertinoIcons.camera),
                         onPressed: () {
                           Navigator.push(
                             context,
@@ -87,7 +89,7 @@ class _DashboardState extends State<Dashboard> {
                     ),
                     Expanded(
                       child: IconButton(
-                        icon: const Icon(Icons.person),
+                        icon: const Icon(CupertinoIcons.person),
                         onPressed: () {
                           // Handle the "person" action
                         },
@@ -106,6 +108,8 @@ class _DashboardState extends State<Dashboard> {
 }
 
 class DateNavigatorbar extends StatelessWidget {
+  const DateNavigatorbar({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -144,34 +148,35 @@ Widget _buildNavigationButton({required IconData icon}) {
 }
 
 Widget _buildTodayButton() {
-  return InkWell(
-    borderRadius: BorderRadius.circular(
-        20.0), // clip the splash effect to rounded corners
-    onTap: () {
-      // Add your logic to go back to the current day
-      print('Today button tapped!');
-    },
-    child: Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      decoration: BoxDecoration(
-        color: Color(0xFFF0E9DF), // Background color of the button
-        borderRadius: BorderRadius.circular(20.0),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.calendar_today,
-            color: Colors.black,
-            size: 16,
-          ),
-          SizedBox(width: 8.0),
-          Text('Today', style: TextStyle(color: Colors.black)),
-        ],
+  return Center(
+    child: InkWell(
+      borderRadius: BorderRadius.circular(20.0),
+      onTap: () {
+        print('Today button tapped!');
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: Color(0xFFF0E9DF),
+          borderRadius: BorderRadius.circular(20.0),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              CupertinoIcons.calendar_today,
+              color: Colors.black,
+              size: 16,
+            ),
+            SizedBox(width: 8.0),
+            Text('Today', style: TextStyle(color: Colors.black)),
+          ],
+        ),
       ),
     ),
   );
 }
+
 
 class CalorieTracker extends StatelessWidget {
   const CalorieTracker({super.key});
@@ -327,15 +332,17 @@ class _MealSectionState extends State<MealSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          _buildMealCard('Breakfast'),
-          _buildMealCard('Lunch'),
-          _buildMealCard('Snacks'),
-          _buildMealCard('Dinner'),
-        ],
+    return SingleChildScrollView(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          children: [
+            _buildMealCard('Breakfast'),
+            _buildMealCard('Lunch'),
+            _buildMealCard('Snacks'),
+            _buildMealCard('Dinner'),
+          ],
+        ),
       ),
     );
   }
@@ -343,10 +350,8 @@ class _MealSectionState extends State<MealSection> {
   Widget _buildMealCard(String mealType) {
     return Card(
       color: Colors.white,
-      margin: EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Column(
         children: [
           ListTile(
@@ -391,21 +396,15 @@ class _MealSectionState extends State<MealSection> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: () {
-                    // Add your logic for adding food here
                     print('Add Food button tapped!');
                   },
-                  icon: Icon(Icons.add, color: Colors.blue),
+                  icon: const Icon(Icons.add, color: Colors.blue),
                   label: Text(
                     'Add Food',
                     style: GoogleFonts.roboto(
                       color: Colors.blue,
                       fontSize: 16,
                     ),
-                  ),
-                  style: TextButton.styleFrom(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    backgroundColor: Colors.transparent,
                   ),
                 ),
               ),
