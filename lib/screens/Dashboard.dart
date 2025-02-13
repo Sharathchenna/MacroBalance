@@ -2,8 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
-import 'package:cupertino_icons/cupertino_icons.dart';
-
+import 'package:macrotracker/screens/searchPage.dart';
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
 
@@ -61,6 +60,11 @@ class _DashboardState extends State<Dashboard> {
                         icon: const Icon(CupertinoIcons.add),
                         onPressed: () {
                           // Handle the "add" action
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => FoodSearchPage()),
+                          );
                         },
                         color: const Color(0xFFFFC107),
                       ),
@@ -151,6 +155,7 @@ Widget _buildTodayButton() {
   return Center(
     child: InkWell(
       borderRadius: BorderRadius.circular(20.0),
+      // TODO: Today Animation Not Working;
       onTap: () {
         print('Today button tapped!');
       },

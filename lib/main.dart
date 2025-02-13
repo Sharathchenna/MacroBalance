@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/dashboard.dart';
-import 'package:macrotracker/gemini.dart';
+import 'package:macrotracker/AI/gemini.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';

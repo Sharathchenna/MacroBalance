@@ -3,7 +3,7 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:macrotracker/gemini.dart';
+import 'package:macrotracker/AI/gemini.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
