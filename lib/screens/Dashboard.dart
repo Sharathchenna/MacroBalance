@@ -65,7 +65,7 @@ class _DashboardState extends State<Dashboard> {
                       color: const Color(0xFFFFC107),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.bar_chart),
+                      icon: ImageIcon(AssetImage("assets/icons/AI Icon.png")),
                       onPressed: () {
                         // Handle the "bar chart" action
                       },
@@ -200,36 +200,40 @@ class CalorieTracker extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 8,
-                        backgroundColor: Color(0xFFB8EAC5),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF34C85A)),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: CircularProgressIndicator(
+                          value: progress,
+                          strokeWidth: 8,
+                          backgroundColor: Color(0xFFB8EAC5),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF34C85A)),
+                        ),
                       ),
                     ),
                     Text(
                       '$caloriesRemaining cal\nremaining',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.roboto(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        fontStyle: FontStyle.italic,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              Text(
-                '$caloriesConsumed cal\nconsumed',
-                textAlign: TextAlign.start,
-                style: GoogleFonts.roboto(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FontStyle.italic,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 0, 50, 0),
+                child: Text(
+                  '$caloriesConsumed cal\nconsumed',
+                  textAlign: TextAlign.start,
+                  style: GoogleFonts.roboto(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
