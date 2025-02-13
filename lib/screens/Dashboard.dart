@@ -12,6 +12,10 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   @override
   Widget build(BuildContext context) {
+    // Calculate dynamic sizes based on screen dimensions.
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: Color(0xFFF5F4F0),
       body: SafeArea(
@@ -25,18 +29,22 @@ class _DashboardState extends State<Dashboard> {
                 Expanded(child: MealSection())
               ],
             ),
+            // Use dynamic sizing for positioning
             Positioned(
-              bottom: 10,
-              left: 80,
-              right: 80,
+              bottom:
+                  screenHeight * 0.02, // 2% of screen height from the bottom
+              left: screenWidth * 0.2, // 20% of screen width from the left
+              right: screenWidth * 0.2, // 20% of screen width from the right
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: EdgeInsets.symmetric(
+                    horizontal:
+                        screenWidth * 0.06), // 6% of screen width as padding
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(30.0),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withValues(alpha: 0.3),
+                      color: Colors.grey.withAlpha(77),
                       spreadRadius: 2,
                       blurRadius: 7,
                       offset: Offset(0, 3),
@@ -46,37 +54,45 @@ class _DashboardState extends State<Dashboard> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () {
-                        // Handle the "add" action
-                      },
-                      color: const Color(0xFFFFC107),
+                    Expanded(
+                      child: IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: () {
+                          // Handle the "add" action
+                        },
+                        color: const Color(0xFFFFC107),
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.camera_alt),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => CameraScreen()),
-                        );
-                      },
-                      color: const Color(0xFFFFC107),
+                    Expanded(
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => CameraScreen()),
+                          );
+                        },
+                        color: const Color(0xFFFFC107),
+                      ),
                     ),
-                    IconButton(
-                      icon: ImageIcon(AssetImage("assets/icons/AI Icon.png")),
-                      onPressed: () {
-                        // Handle the "bar chart" action
-                      },
-                      color: const Color(0xFFFFC107),
+                    Expanded(
+                      child: IconButton(
+                        icon: ImageIcon(AssetImage("assets/icons/AI Icon.png")),
+                        onPressed: () {
+                          // Handle the "bar chart" action
+                        },
+                        color: const Color(0xFFFFC107),
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.person),
-                      onPressed: () {
-                        // Handle the "person" action
-                      },
-                      color: const Color(0xFFFFC107),
+                    Expanded(
+                      child: IconButton(
+                        icon: const Icon(Icons.person),
+                        onPressed: () {
+                          // Handle the "person" action
+                        },
+                        color: const Color(0xFFFFC107),
+                      ),
                     ),
                   ],
                 ),
@@ -129,6 +145,8 @@ Widget _buildNavigationButton({required IconData icon}) {
 
 Widget _buildTodayButton() {
   return InkWell(
+    borderRadius: BorderRadius.circular(
+        20.0), // clip the splash effect to rounded corners
     onTap: () {
       // Add your logic to go back to the current day
       print('Today button tapped!');

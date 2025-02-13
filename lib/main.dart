@@ -1,5 +1,6 @@
 // ignore_for_file: unused_import
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/dashboard.dart';
@@ -30,8 +31,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'MacroTracker',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Color(0xFFF5F4F0),
+        primaryColor: CupertinoColors.systemBlue,
+        scaffoldBackgroundColor: const Color(0xFFF5F4F0),
       ),
       home: AuthGate(),
     );
