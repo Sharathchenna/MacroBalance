@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
 import 'package:macrotracker/screens/searchPage.dart';
+
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
 
@@ -181,7 +182,6 @@ Widget _buildTodayButton() {
     ),
   );
 }
-
 
 class CalorieTracker extends StatelessWidget {
   const CalorieTracker({super.key});
@@ -401,7 +401,11 @@ class _MealSectionState extends State<MealSection> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: () {
-                    print('Add Food button tapped!');
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                          builder: (context) => FoodSearchPage()),
+                    );
                   },
                   icon: const Icon(Icons.add, color: Colors.blue),
                   label: Text(
