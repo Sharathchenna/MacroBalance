@@ -196,6 +196,8 @@ class CalorieTracker extends StatelessWidget {
   final int fatGoal = 80;
   final int proteinIntake = 100;
   final int proteinGoal = 150;
+  final int steps = 4000;
+  final int stepsGoal = 9000;
 
   @override
   Widget build(BuildContext context) {
@@ -272,6 +274,11 @@ class CalorieTracker extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
+              _buildMacroBar(
+                  label: 'S',
+                  intake: steps,
+                  goal: stepsGoal,
+                  color: Colors.red),
               _buildMacroBar(
                   label: 'C',
                   intake: carbIntake,
