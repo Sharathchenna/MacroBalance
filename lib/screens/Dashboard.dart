@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
+import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 
 class Dashboard extends StatefulWidget {
@@ -63,7 +64,7 @@ class _DashboardState extends State<Dashboard> {
                           // Handle the "add" action
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
+                            CupertinoSheetRoute(
                                 builder: (context) => FoodSearchPage()),
                           );
                         },
@@ -87,7 +88,12 @@ class _DashboardState extends State<Dashboard> {
                       child: IconButton(
                         icon: ImageIcon(AssetImage("assets/icons/AI Icon.png")),
                         onPressed: () {
-                          // Handle the "bar chart" action
+                          // Handle the "AI" action
+                          Navigator.push(
+                            context,
+                            CupertinoSheetRoute(
+                                builder: (context) => Askai()),
+                          );
                         },
                         color: const Color(0xFFFFC107),
                       ),
