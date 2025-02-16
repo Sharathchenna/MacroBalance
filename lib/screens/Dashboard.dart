@@ -410,7 +410,7 @@ class _MealSectionState extends State<MealSection> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      CupertinoPageRoute(
+                      CupertinoSheetRoute(
                           builder: (context) => FoodSearchPage()),
                     );
                   },
