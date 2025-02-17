@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:macrotracker/screens/foodDetail.dart';
+
 class FoodSearchPage extends StatefulWidget {
   const FoodSearchPage({super.key});
 
@@ -131,22 +133,16 @@ class FoodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.white,
       child: ListTile(
-        title: Text('${food.name} - ${food.brandName}'),
-        subtitle: Text('${food.calories} kcal per 100g'),
-        trailing: IconButton(
-          icon: Icon(Icons.add_circle_outline),
-          onPressed: () async {
-            // Open the portion selector
-            final mealEntry = await showModalBottomSheet(
-              context: context,
-              builder: (context) => PortionSelector(food: food),
-            );
-            if (mealEntry != null) {
-              // Return back to the previous page (FoodSearchPage) with the meal entry.
-              Navigator.pop(context, mealEntry);
-            }
-          },
+        title: Text(food.name),
+        subtitle: Text(
+          '${food.brandName} • ${food.mealType}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        trailing: Text(
+          '${food.calories} kcal',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         onTap: () {
           Navigator.push(
@@ -165,6 +161,7 @@ class FoodItem {
   final double calories;
   final String brandName;
   final Map<String, double> nutrients;
+  final String mealType; // new field
 
   FoodItem({
     required this.fdcId,
@@ -172,6 +169,7 @@ class FoodItem {
     required this.calories,
     required this.nutrients,
     required this.brandName,
+    required this.mealType, // require mealType in constructor
   });
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
@@ -181,6 +179,7 @@ class FoodItem {
       calories: _findNutrient(json['foodNutrients'], 'Energy'),
       nutrients: _parseNutrients(json['foodNutrients']),
       brandName: json['brandOwner'] ?? '',
+      mealType: json['mealType'] ?? 'breakfast', // default to "breakfast"
     );
   }
 
@@ -290,56 +289,56 @@ class _PortionSelectorState extends State<PortionSelector> {
   }
 }
 
-class FoodDetailPage extends StatelessWidget {
-  final FoodItem food;
+// class FoodDetailPage extends StatelessWidget {
+//   final FoodItem food;
 
-  const FoodDetailPage({super.key, required this.food});
+//   const FoodDetailPage({super.key, required this.food});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Food Details'),
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              food.name,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            SizedBox(height: 4),
-            Text(
-              food.brandName,
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall!
-                  .copyWith(color: Colors.grey),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Nutrition Facts (per 100g)',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            SizedBox(height: 8),
-            Expanded(
-              child: ListView(
-                children: food.nutrients.entries.map((entry) {
-                  return ListTile(
-                    title: Text(entry.key),
-                    trailing: Text(entry.value.toStringAsFixed(1)),
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(
+//         title: Text('Food Details'),
+//       ),
+//       body: Padding(
+//         padding: EdgeInsets.all(16),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             Text(
+//               food.name,
+//               style: Theme.of(context).textTheme.headlineMedium,
+//             ),
+//             SizedBox(height: 4),
+//             Text(
+//               food.brandName,
+//               style: Theme.of(context)
+//                   .textTheme
+//                   .headlineSmall!
+//                   .copyWith(color: Colors.grey),
+//             ),
+//             SizedBox(height: 16),
+//             Text(
+//               'Nutrition Facts (per 100g)',
+//               style: Theme.of(context).textTheme.titleLarge,
+//             ),
+//             SizedBox(height: 8),
+//             Expanded(
+//               child: ListView(
+//                 children: food.nutrients.entries.map((entry) {
+//                   return ListTile(
+//                     title: Text(entry.key),
+//                     trailing: Text(entry.value.toStringAsFixed(1)),
+//                   );
+//                 }).toList(),
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
 
 // Add a new model for meal entries
 class MealEntry {
