@@ -48,24 +48,32 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F4F0),
       appBar: AppBar(
         title: Text('Search Foods'),
+        backgroundColor: const Color(0xFFF5F4F0),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SearchBar(
-              controller: _searchController,
-              onSearch: _searchFood,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          FocusScope.of(context).unfocus();
+        },
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SearchBar(
+                controller: _searchController,
+                onSearch: _searchFood,
+              ),
             ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : FoodList(foods: _searchResults),
-          ),
-        ],
+            Expanded(
+              child: _isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : FoodList(foods: _searchResults),
+            ),
+          ],
+        ),
       ),
     );
   }
