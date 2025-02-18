@@ -18,7 +18,7 @@ class _AccountdashboardState extends State<Accountdashboard> {
       await _supabase.auth.signOut();
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const Welcomescreen()),
+          CupertinoPageRoute(builder: (context) => const Welcomescreen()),
         );
       }
     } catch (e) {
@@ -42,7 +42,8 @@ class _AccountdashboardState extends State<Accountdashboard> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.black87),
+            icon: const Icon(CupertinoIcons.square_arrow_right,
+                color: Colors.black87),
             onPressed: () async {
               // Show confirmation dialog before logout
               final confirm = await showDialog<bool>(

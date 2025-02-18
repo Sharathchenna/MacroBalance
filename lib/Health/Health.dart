@@ -38,4 +38,53 @@ class HealthService {
       return false;
     }
   }
+
+  Future<double> getCalories() async {
+    try {
+      final now = DateTime.now();
+      final midnight = DateTime(now.year, now.month, now.day);
+
+      // Request authorization for calories
+      final accessWasGranted = await health.requestAuthorization([
+        HealthDataType.ACTIVE_ENERGY_BURNED,
+        HealthDataType.BASAL_ENERGY_BURNED
+      ]);
+
+      if (!accessWasGranted) {
+        throw Exception('Authorization not granted');
+      }
+
+      // Get active calories
+      final activeCalories = await health.getHealthDataFromTypes(
+          types: [HealthDataType.ACTIVE_ENERGY_BURNED],
+          startTime: midnight,
+          endTime: now);
+
+      // Get basal (resting) calories
+      final basalCalories = await health.getHealthDataFromTypes(
+          types: [HealthDataType.BASAL_ENERGY_BURNED],
+          startTime: midnight,
+          endTime: now);
+
+      // Calculate total calories
+      double totalCalories = 0;
+
+      for (var data in activeCalories) {
+        if (data.value is NumericHealthValue) {
+          totalCalories += (data.value as NumericHealthValue).numericValue;
+        }
+      }
+
+      for (var data in basalCalories) {
+        if (data.value is NumericHealthValue) {
+          totalCalories += (data.value as NumericHealthValue).numericValue;
+        }
+      }
+
+      return totalCalories;
+    } catch (error) {
+      print('Error fetching calories: $error');
+      return 0;
+    }
+  }
 }

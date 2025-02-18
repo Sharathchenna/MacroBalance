@@ -1,4 +1,3 @@
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -206,44 +205,41 @@ class CalorieTracker extends StatefulWidget {
 class _CalorieTrackerState extends State<CalorieTracker> {
   final HealthService _healthService = HealthService();
   int steps = 0;
+  double caloriesBurned = 0;
+
+  // Keep your goals as is
+  final int caloriesGoal = 2000; // Adjust this based on user's goal
+  final int carbGoal = 75;
+  final int fatGoal = 80;
+  final int proteinGoal = 150;
+  final int stepsGoal = 9000;
+  final int carbIntake = 20;
+  final int fatIntake = 10;
+  final int proteinIntake = 80;
 
   @override
   void initState() {
     super.initState();
-    _fetchSteps();
+    _fetchHealthData();
   }
 
-  Future<void> _fetchSteps() async {
+  Future<void> _fetchHealthData() async {
     final fetchedSteps = await _healthService.getSteps();
+    final fetchedCalories = await _healthService.getCalories();
+
     setState(() {
       steps = fetchedSteps;
+      caloriesBurned = fetchedCalories;
     });
   }
 
-  final health = Health();
-  // mock data
-  final int caloriesRemaining = 500;
-
-  final int caloriesConsumed = 1500;
-
-  final int carbIntake = 50;
-
-  final int carbGoal = 75;
-
-  final int fatIntake = 60;
-
-  final int fatGoal = 80;
-
-  final int proteinIntake = 100;
-
-  final int proteinGoal = 150;
-
-  final int stepsGoal = 9000;
-
+  @override
   Widget build(BuildContext context) {
-    // ignore: unused_local_variable
-    double totalCalories = (caloriesConsumed + caloriesRemaining).toDouble();
-    double progress = 0.75;
+    // Calculate remaining calories
+    final int caloriesRemaining = caloriesGoal - caloriesBurned.toInt();
+    double progress = caloriesBurned / caloriesGoal;
+    progress = progress.clamp(0.0, 1.0); // Ensure progress is between 0 and 1
+
     return Container(
       margin: EdgeInsets.all(16),
       padding: EdgeInsets.all(16),
@@ -285,7 +281,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                       ),
                     ),
                     Text(
-                      '$caloriesRemaining cal\nremaining',
+                      '${caloriesRemaining} cal\nremaining',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.roboto(
                         fontSize: 16,
@@ -298,7 +294,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(0, 0, 50, 0),
                 child: Text(
-                  '$caloriesConsumed cal\nconsumed',
+                  '${caloriesBurned.toInt()} cal\nburned',
                   textAlign: TextAlign.start,
                   style: GoogleFonts.roboto(
                     fontSize: 16,
@@ -308,9 +304,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               ),
             ],
           ),
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
