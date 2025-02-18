@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:macrotracker/auth/auth_gate.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,7 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     setState(() {
-      isLoading = true; // Start loading
+      isLoading = true;
     });
 
     try {
@@ -30,8 +31,10 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       if (response.user != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
+        // Replace entire stack with AuthGate
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthGate()),
+          (route) => false,
         );
       }
     } catch (error) {
@@ -40,12 +43,15 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } finally {
       setState(() {
-        isLoading = false; // Stop loading
+        isLoading = false;
       });
     }
   }
 
   Future<void> _nativeGoogleSignIn() async {
+    setState(() {
+      isLoading = true;
+    });
     try {
       /// Web Client ID that you registered with Google Cloud.
       const webClientId =
@@ -80,11 +86,21 @@ class _LoginScreenState extends State<LoginScreen> {
         idToken: idToken,
         accessToken: accessToken,
       );
+
+      // Replace entire stack with AuthGate
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+        (route) => false,
+      );
     } catch (error) {
       // Log error or show error message.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Google sign-in error: $error')),
       );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 

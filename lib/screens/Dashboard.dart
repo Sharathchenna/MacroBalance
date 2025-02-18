@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
+import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 
@@ -77,7 +78,7 @@ class _DashboardState extends State<Dashboard> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
+                            CupertinoSheetRoute(
                                 builder: (context) => CameraScreen()),
                           );
                         },
@@ -91,8 +92,7 @@ class _DashboardState extends State<Dashboard> {
                           // Handle the "AI" action
                           Navigator.push(
                             context,
-                            CupertinoSheetRoute(
-                                builder: (context) => Askai()),
+                            CupertinoSheetRoute(builder: (context) => Askai()),
                           );
                         },
                         color: const Color(0xFFFFC107),
@@ -102,7 +102,11 @@ class _DashboardState extends State<Dashboard> {
                       child: IconButton(
                         icon: const Icon(CupertinoIcons.person),
                         onPressed: () {
-                          // Handle the "person" action
+                          Navigator.push(
+                            context,
+                            CupertinoSheetRoute(
+                                builder: (context) => Accountdashboard()),
+                          );
                         },
                         color: const Color(0xFFFFC107),
                       ),
