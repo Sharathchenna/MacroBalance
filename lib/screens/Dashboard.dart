@@ -1,3 +1,4 @@
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +6,8 @@ import 'package:macrotracker/camera/camera.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
+import 'package:health/health.dart';
+import '../Health/Health.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -193,23 +196,50 @@ Widget _buildTodayButton() {
   );
 }
 
-class CalorieTracker extends StatelessWidget {
+class CalorieTracker extends StatefulWidget {
   const CalorieTracker({super.key});
 
-  // mock data
+  @override
+  State<CalorieTracker> createState() => _CalorieTrackerState();
+}
 
-  final int caloriesRemaining = 500;
-  final int caloriesConsumed = 1500;
-  final int carbIntake = 50;
-  final int carbGoal = 75;
-  final int fatIntake = 60;
-  final int fatGoal = 80;
-  final int proteinIntake = 100;
-  final int proteinGoal = 150;
-  final int steps = 4000;
-  final int stepsGoal = 9000;
+class _CalorieTrackerState extends State<CalorieTracker> {
+  final HealthService _healthService = HealthService();
+  int steps = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _fetchSteps();
+  }
+
+  Future<void> _fetchSteps() async {
+    final fetchedSteps = await _healthService.getSteps();
+    setState(() {
+      steps = fetchedSteps;
+    });
+  }
+
+  final health = Health();
+  // mock data
+  final int caloriesRemaining = 500;
+
+  final int caloriesConsumed = 1500;
+
+  final int carbIntake = 50;
+
+  final int carbGoal = 75;
+
+  final int fatIntake = 60;
+
+  final int fatGoal = 80;
+
+  final int proteinIntake = 100;
+
+  final int proteinGoal = 150;
+
+  final int stepsGoal = 9000;
+
   Widget build(BuildContext context) {
     // ignore: unused_local_variable
     double totalCalories = (caloriesConsumed + caloriesRemaining).toDouble();
