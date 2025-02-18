@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -46,7 +47,7 @@ class _AccountdashboardState extends State<Accountdashboard> {
               // Show confirmation dialog before logout
               final confirm = await showDialog<bool>(
                 context: context,
-                builder: (context) => AlertDialog(
+                builder: (context) => CupertinoAlertDialog(
                   title: const Text('Confirm Logout'),
                   content: const Text('Are you sure you want to logout?'),
                   actions: [
