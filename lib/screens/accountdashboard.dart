@@ -38,6 +38,12 @@ class _AccountdashboardState extends State<Accountdashboard> {
     return Scaffold(
       backgroundColor: Color(0xFFF5F4F0),
       appBar: AppBar(
+        title: Text(
+          "Profile",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
