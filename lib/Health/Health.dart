@@ -1,4 +1,6 @@
 import 'package:health/health.dart';
+import '../Health/Health.dart';
+
 
 class HealthService {
   final health = Health();
@@ -36,6 +38,67 @@ class HealthService {
     } catch (e) {
       print('Error checking health data availability: $e');
       return false;
+    }
+  }
+
+  Future<String> getHeightandWeight() async {
+    try {
+      final now = DateTime.now();
+      final midnight = DateTime(now.year, now.month, now.day);
+
+      // Request authorization for height and weight.
+      final accessWasGranted = await health.requestAuthorization(
+        [
+          HealthDataType.HEIGHT,
+          HealthDataType.WEIGHT,
+        ],
+      );
+
+      if (!accessWasGranted) {
+        throw Exception('Authorization not granted');
+      }
+
+      // Fetch height and weight data.
+      final heightData = await health.getHealthDataFromTypes(
+        types: [HealthDataType.HEIGHT],
+        startTime: midnight,
+        endTime: now,
+      );
+
+      final weightData = await health.getHealthDataFromTypes(
+        types: [HealthDataType.WEIGHT],
+        startTime: midnight,
+        endTime: now,
+      );
+
+      double? heightValue;
+      double? weightValue;
+
+      // Process the height data: Use the most recent entry.
+      if (heightData.isNotEmpty) {
+        final lastHeight = heightData.last;
+        if (lastHeight.value is num) {
+          heightValue = (lastHeight.value as num).toDouble();
+        }
+      }
+
+      // Process the weight data: Use the most recent entry.
+      if (weightData.isNotEmpty) {
+        final lastWeight = weightData.last;
+        if (lastWeight.value is num) {
+          weightValue = (lastWeight.value as num).toDouble();
+        }
+      }
+
+      if (heightValue != null && weightValue != null) {
+        // Adjust units if needed; here we're assuming height is in centimeters and weight in kilograms.
+        return "Height: ${heightValue.toStringAsFixed(1)} cm, Weight: ${weightValue.toStringAsFixed(1)} kg";
+      } else {
+        return "Height or weight data not available";
+      }
+    } catch (error) {
+      print('Error fetching height and weight: $error');
+      return "Error";
     }
   }
 
