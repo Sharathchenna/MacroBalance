@@ -5,7 +5,6 @@ import 'package:macrotracker/camera/camera.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
-import 'package:health/health.dart';
 import '../Health/Health.dart';
 
 class Dashboard extends StatefulWidget {
@@ -80,7 +79,7 @@ class _DashboardState extends State<Dashboard> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            CupertinoSheetRoute(
+                            CupertinoPageRoute(
                                 builder: (context) => CameraScreen()),
                           );
                         },
