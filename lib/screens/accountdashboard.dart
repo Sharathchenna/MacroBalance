@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:macrotracker/screens/settingsScreen.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:intl/intl.dart';
 // Import the custom painter widget:
@@ -764,6 +765,68 @@ class _AccountdashboardState extends State<Accountdashboard> {
                     ),
                   ),
                 ],
+              ),
+            ),
+
+            // Separator Line
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+              child: Container(
+                height: 1,
+                color: Colors.grey.shade300,
+              ),
+            ),
+
+            // Settings Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                        CupertinoPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                        ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    // decoration: BoxDecoration(
+                    //   borderRadius: BorderRadius.circular(8),
+                    //   border: Border.all(color: Colors.grey.shade300),
+                    // ),
+                    child: Row(
+                      children: const [
+                        Icon(
+                          CupertinoIcons.settings,
+                          size: 30,
+                          color: Colors.black87,
+                        ),
+                        SizedBox(width: 12),
+                        Center(
+                          child: Text(
+                            'Settings',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Spacer(),
+                        Icon(
+                          CupertinoIcons.chevron_right,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
 
