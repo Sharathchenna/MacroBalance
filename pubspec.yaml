@@ -45,6 +45,9 @@ dependencies:
   google_fonts: ^6.2.1
   camera: ^0.11.1
   health: ^12.0.1
+  image_picker: ^1.1.2
+  fl_chart: ^0.70.2
+  syncfusion_flutter_charts: ^28.2.6
 
 dev_dependencies:
   flutter_test:
