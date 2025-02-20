@@ -25,7 +25,7 @@ class ChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Set up drawing boundaries
     leftOffsetStart = size.width * 0.1; // leave space for left labels
-    topOffsetEnd = size.height * 0.9;   // bottom area for x labels
+    topOffsetEnd = size.height; // bottom area for x labels
     drawingWidth = size.width - leftOffsetStart - 10;
     drawingHeight = topOffsetEnd - 10;
 
@@ -44,17 +44,29 @@ class ChartPainter extends CustomPainter {
     _drawDataLines(canvas, minWeight, maxWeight);
   }
 
-  void _drawHorizontalLinesAndLabels(Canvas canvas, Size size, double minWeight, double maxWeight) {
+  void _drawHorizontalLinesAndLabels(
+      Canvas canvas, Size size, double minWeight, double maxWeight) {
     final paint = Paint()
       ..color = Colors.grey.shade300
-      ..strokeWidth = 1.0;
+      ..strokeWidth = 0.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.0)
+      ..shader = ui.Gradient.linear(
+        Offset(0, 0),
+        Offset(10, 0),
+        [Colors.grey.shade300, Colors.transparent],
+        [0, 1],
+        TileMode.repeated,
+      );
 
     // Calculate weight step
-    int lineStep = ((maxWeight - minWeight) / (NUMBER_OF_HORIZONTAL_LINES - 1)).round();
+    int lineStep =
+        ((maxWeight - minWeight) / (NUMBER_OF_HORIZONTAL_LINES - 1)).round();
     double offsetStep = drawingHeight / (NUMBER_OF_HORIZONTAL_LINES - 1);
 
     for (int i = 0; i < NUMBER_OF_HORIZONTAL_LINES; i++) {
-      double yOffset = 10 + i * offsetStep;    // starting 10 for some top margin
+      double yOffset = 10 + i * offsetStep; // starting 10 for some top margin
       // Left label: weight value (from top = max to bottom = min)
       double labelWeight = maxWeight - i * lineStep;
       _drawHorizontalLabel(canvas, yOffset, labelWeight);
@@ -98,20 +110,21 @@ class ChartPainter extends CustomPainter {
         ..addText(DateFormat('d MMM').format(labelDate));
       final ui.Paragraph paragraph = builder.build()
         ..layout(ui.ParagraphConstraints(width: 50.0));
-      canvas.drawParagraph(paragraph, Offset(xOffset - 25.0, topOffsetEnd + 2));
+      canvas.drawParagraph(paragraph, Offset(xOffset - 10, topOffsetEnd + 10));
     }
   }
 
   void _drawDataLines(Canvas canvas, double minWeight, double maxWeight) {
     if (entries.length < 2) return;
-    
+
     final paint = Paint()
       ..color = Colors.blue
-      ..strokeWidth = 3.0;
-    
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke;
+
     final DateTime startDate = _getStartDateOfChart();
     double dayWidth = drawingWidth / NUMBER_OF_DAYS;
-    
+
     // Helper to convert entry to canvas coordinate
     Offset _getEntryOffset(WeightEntry entry) {
       int daysFromStart = entry.dateTime.difference(startDate).inDays;
@@ -121,16 +134,44 @@ class ChartPainter extends CustomPainter {
       double y = 10 + drawingHeight - (relativeY * drawingHeight);
       return Offset(x, y);
     }
-    
-    // Draw lines between consecutive points and circles at points.
-    for (int i = 0; i < entries.length - 1; i++) {
-      Offset p1 = _getEntryOffset(entries[i]);
-      Offset p2 = _getEntryOffset(entries[i + 1]);
-      canvas.drawLine(p1, p2, paint);
-      canvas.drawCircle(p2, 3.0, paint);
+
+    // Get all data points
+    final List<Offset> points = entries.map(_getEntryOffset).toList();
+
+    // Build a smooth path using quadratic Bézier curves.
+    final Path path = Path();
+    path.moveTo(points.first.dx, points.first.dy);
+
+    for (int i = 0; i < points.length - 1; i++) {
+      // Calculate the midpoint between the current point and the next point.
+      final midPoint = Offset(
+        (points[i].dx + points[i + 1].dx) / 2,
+        (points[i].dy + points[i + 1].dy) / 2,
+      );
+      // Use the current point as control point to draw a quadratic curve to midpoint.
+      path.quadraticBezierTo(
+        points[i].dx,
+        points[i].dy,
+        midPoint.dx,
+        midPoint.dy,
+      );
     }
+    // Connect the last midpoint with the last point.
+    path.lineTo(points.last.dx, points.last.dy);
+
+    // Draw the smooth path.
+    canvas.drawPath(path, paint);
+
+    // Optionally, draw markers at each data point.
+    final markerPaint = Paint()
+      ..color = Colors.blue
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.fill;
+    // for (final point in points) {
+    //   canvas.drawCircle(point, 3.0, markerPaint);
+    // }
     // Draw a larger circle for the most recent entry.
-    canvas.drawCircle(_getEntryOffset(entries.first), 5.0, paint);
+    canvas.drawCircle(points.first, 5.0, markerPaint);
   }
 
   // Returns the start date (NUMBER_OF_DAYS ago from today)
