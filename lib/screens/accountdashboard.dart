@@ -231,20 +231,15 @@ class _AccountdashboardState extends State<Accountdashboard> {
       backgroundColor: const Color(0xFFF5F4F0),
       appBar: AppBar(
         title: Text(
-          "Profile",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
           'Profile',
           style: GoogleFonts.roboto(
             color: CupertinoColors.black,
             fontWeight: FontWeight.w500,
           ),
         ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        
         actions: [
           IconButton(
             icon: const Icon(
