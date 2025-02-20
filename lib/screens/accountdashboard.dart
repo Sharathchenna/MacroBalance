@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,8 +6,7 @@ import 'package:intl/intl.dart';
 // Import the custom painter widget:
 import 'package:macrotracker/widgets/chart_painter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:image_picker/image_picker.dart'; // if still needed
+// if still needed
 
 // You can keep your model if needed, or simply use WeightEntry from ChartPainter.dart
 
@@ -239,7 +237,6 @@ class _AccountdashboardState extends State<Accountdashboard> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        
         actions: [
           IconButton(
             icon: const Icon(

@@ -51,6 +51,7 @@ dependencies:
   camerawesome: ^2.1.0
   open_file: ^3.5.10
   permission_handler: ^11.3.1
+  google_mlkit_barcode_scanning: ^0.13.0
 
 dev_dependencies:
   flutter_test:
