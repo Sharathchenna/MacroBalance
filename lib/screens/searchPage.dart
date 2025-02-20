@@ -2,6 +2,7 @@
 // ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -27,7 +28,7 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
     try {
       final response = await http.get(
         Uri.parse(
-            'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=$usdaApiKey&query=$query'),
+            'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=$usdaApiKey&query=$query&dataType=Foundation,Survey%20%28FNDDS%29&pageSize=10'),
       );
 
       if (response.statusCode == 200) {
