@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
+import 'package:macrotracker/camera/barcode_results.dart';
 import '../AI/gemini.dart';
 import 'results_page.dart';
 
@@ -173,21 +174,10 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _handleBarcodeResult(String barcode) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Center(child: CircularProgressIndicator(color: Colors.white));
-      },
-    );
-
-    Navigator.pop(context);
     Navigator.push(
       context,
-      CupertinoPageRoute(
-        builder: (context) => ResultsPage(
-          nutritionInfo: "Barcode: $barcode",
-        ),
+      MaterialPageRoute(
+        builder: (context) => BarcodeResults(barcode: barcode),
       ),
     );
   }
