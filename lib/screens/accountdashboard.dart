@@ -558,12 +558,39 @@ class _AccountdashboardState extends State<Accountdashboard> {
   @override
   Widget build(BuildContext context) {
     // For demonstration, create some dummy weight entries.
-    final List<WeightEntry> weightEntries = List.generate(
-      10,
-      (i) => WeightEntry(
-          dateTime: DateTime.now().subtract(Duration(days: i * 3)),
-          weight: 75 + i.toDouble()),
-    );
+    final List<WeightEntry> weightEntries = [
+      WeightEntry(dateTime: DateTime.now(), weight: 75.0),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 3)),
+          weight: 75.8),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 6)),
+          weight: 76.2),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 9)),
+          weight: 75.5),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 12)),
+          weight: 76.0),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 15)),
+          weight: 75.3),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 18)),
+          weight: 74.9),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 21)),
+          weight: 75.7),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 24)),
+          weight: 76.4),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 27)),
+          weight: 76.8),
+      WeightEntry(
+          dateTime: DateTime.now().subtract(const Duration(days: 30)),
+          weight: 77.0),
+    ];
     return Scaffold(
       backgroundColor: const Color(0xFFF5F4F0),
       appBar: AppBar(
