@@ -120,13 +120,12 @@ Meal to analyze: ${_mealController.text}
                   color: CupertinoColors.white,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withValues(alpha: 95.0),
-                      spreadRadius: 1,
-                      blurRadius: 1,
-                      offset: Offset(0, 3),
-                    ),
-                  
+                    // BoxShadow(
+                    //   color: Colors.grey.withValues(alpha: 95.0),
+                    //   spreadRadius: 1,
+                    //   blurRadius: 1,
+                    //   offset: Offset(0, 3),
+                    // ),
                   ],
                 ),
                 child: CupertinoTextField(
@@ -163,12 +162,12 @@ Meal to analyze: ${_mealController.text}
                     color: CupertinoColors.white,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: const [
-                      BoxShadow(
-                        color: CupertinoColors.systemGrey,
-                        spreadRadius: 1,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
+                      // BoxShadow(
+                      //   color: CupertinoColors.systemGrey,
+                      //   spreadRadius: 1,
+                      //   blurRadius: 4,
+                      //   offset: Offset(0, 2),
+                      // ),
                     ],
                   ),
                   child: Text(
