@@ -1,8 +1,7 @@
 // food_search_page.dart
-// ignore_for_file: file_names
+// ignore_for_file: unused_import
 
 import 'package:flutter/material.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -18,38 +17,158 @@ class FoodSearchPage extends StatefulWidget {
 class _FoodSearchPageState extends State<FoodSearchPage> {
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
+  List<String> _autoCompleteResults = [];
   bool _isLoading = false;
-  var usdaApiKey = "HfaUP7Q7WTrFzJgjZ1WblvF3op1eoFjd9OPZ60Be";
+  String? _accessToken;
+
+  // FatSecret API credentials - replace with your own
+  final String _clientId = '5c66a0001059406b8989bd179ab8897d';
+  final String _clientSecret = '5de5f12d25e4418b8c78e6b80e78d9f7';
+
+  @override
+  void initState() {
+    super.initState();
+    _getAccessToken();
+  }
+
+  Future<void> _getAccessToken() async {
+    try {
+      final response = await http.post(
+        Uri.parse('https://oauth.fatsecret.com/connect/token'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization':
+              'Basic ${base64Encode(utf8.encode('$_clientId:$_clientSecret'))}',
+        },
+        body: {
+          'grant_type': 'client_credentials',
+          'scope': 'premier', // Changed from 'basic' to 'premier'
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() => _accessToken = data['access_token']);
+        print('Access token obtained successfully with premier scope');
+      } else {
+        print('Failed to get access token: ${response.statusCode}');
+        print('Error response: ${response.body}');
+      }
+    } catch (e) {
+      print('Error getting access token: $e');
+    }
+  }
+
+  Future<void> _getAutocompleteSuggestions(String query) async {
+    if (query.isEmpty || _accessToken == null) {
+      setState(() => _autoCompleteResults = []);
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://platform.fatsecret.com/rest/food/autocomplete/v2')
+            .replace(
+          queryParameters: {
+            'expression': query,
+            'max_results': '5',
+            'format': 'json' // Added format parameter
+          },
+        ),
+        headers: {
+          'Authorization': 'Bearer $_accessToken',
+          'Accept': 'application/json', // Added Accept header
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['suggestions'] != null &&
+            data['suggestions']['suggestion'] != null) {
+          final suggestions = data['suggestions']['suggestion'] as List;
+          setState(() {
+            _autoCompleteResults = suggestions.cast<String>();
+          });
+        } else {
+          setState(() => _autoCompleteResults = []);
+        }
+      } else if (response.statusCode == 401) {
+        await _getAccessToken();
+        if (_accessToken != null) {
+          await _getAutocompleteSuggestions(query);
+        }
+      } else {
+        print('Error status code: ${response.statusCode}');
+        print('Error response: ${response.body}');
+        setState(() => _autoCompleteResults = []);
+      }
+    } catch (e) {
+      print('Autocomplete error: $e');
+      setState(() => _autoCompleteResults = []);
+    }
+  }
+
+  // Also update the _searchFood method to use the same headers
   Future<void> _searchFood(String query) async {
-    if (query.isEmpty) return;
+    if (query.isEmpty || _accessToken == null) return;
 
     setState(() => _isLoading = true);
 
     try {
       final response = await http.get(
-        Uri.parse(
-            'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=$usdaApiKey&query=$query&dataType=Foundation,Survey%20%28FNDDS%29&pageSize=10'),
+        Uri.parse('https://platform.fatsecret.com/rest/server.api').replace(
+          queryParameters: {
+            'method': 'foods.search',
+            'format': 'json',
+            'search_expression': query,
+            'max_results': '10',
+            'page_number': '0'
+          },
+        ),
+        headers: {
+          'Authorization': 'Bearer $_accessToken',
+          'Accept': 'application/json', // Added Accept header
+          'Content-Type': 'application/json',
+        },
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        setState(() {
-          _searchResults = (data['foods'] as List)
-              .map((food) => FoodItem.fromJson(food))
-              .toList();
-        });
+        if (data['foods'] != null && data['foods']['food'] != null) {
+          final foods = data['foods']['food'] as List;
+          setState(() {
+            _searchResults =
+                foods.map((food) => FoodItem.fromFatSecretJson(food)).toList();
+          });
+        } else {
+          setState(() => _searchResults = []);
+        }
+      } else if (response.statusCode == 401) {
+        await _getAccessToken();
+        if (_accessToken != null) {
+          await _searchFood(query);
+        }
+      } else {
+        // Print error response for debugging
+        print('Error status code: ${response.statusCode}');
+        print('Error response: ${response.body}');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error searching for food: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _autoCompleteResults = [];
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Remove the loading screen check
     return Scaffold(
       backgroundColor: const Color(0xFFF5F4F0),
       appBar: AppBar(
@@ -58,21 +177,33 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
       ),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () {
-          FocusScope.of(context).unfocus();
-        },
+        onTap: () => FocusScope.of(context).unfocus(),
         child: Column(
           children: [
-            // Search Bar Always Visible
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: SearchBar(
                 controller: _searchController,
                 onSearch: _searchFood,
+                onChanged: _getAutocompleteSuggestions,
               ),
             ),
-            // Conditional List Section
-            if (_searchResults.isNotEmpty || _isLoading)
+            if (_autoCompleteResults.isNotEmpty)
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _autoCompleteResults.length,
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      title: Text(_autoCompleteResults[index]),
+                      onTap: () {
+                        _searchController.text = _autoCompleteResults[index];
+                        _searchFood(_autoCompleteResults[index]);
+                      },
+                    );
+                  },
+                ),
+              ),
+            if (_searchResults.isNotEmpty && _autoCompleteResults.isEmpty)
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -88,11 +219,13 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
 class SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final Function(String) onSearch;
+  final Function(String) onChanged;
 
   const SearchBar({
     super.key,
     required this.controller,
     required this.onSearch,
+    required this.onChanged,
   });
 
   @override
@@ -107,6 +240,7 @@ class SearchBar extends StatelessWidget {
         ),
       ),
       onSubmitted: onSearch,
+      onChanged: onChanged,
     );
   }
 }
@@ -122,39 +256,19 @@ class FoodList extends StatelessWidget {
       itemCount: foods.length,
       itemBuilder: (context, index) {
         final food = foods[index];
-        return FoodCard(food: food);
+        return ListTile(
+          title: Text(food.name),
+          subtitle: Text('${food.calories.round()} calories'),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FoodDetailPage(food: food),
+              ),
+            );
+          },
+        );
       },
-    );
-  }
-}
-
-class FoodCard extends StatelessWidget {
-  final FoodItem food;
-
-  const FoodCard({super.key, required this.food});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.white,
-      child: ListTile(
-        title: Text(food.name),
-        subtitle: Text(
-          '${food.brandName} • ${food.mealType}',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        trailing: Text(
-          '${food.calories} kcal',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => FoodDetailPage(food: food)),
-          );
-        },
-      ),
     );
   }
 }
@@ -165,7 +279,7 @@ class FoodItem {
   final double calories;
   final String brandName;
   final Map<String, double> nutrients;
-  final String mealType; // new field
+  final String mealType;
 
   FoodItem({
     required this.fdcId,
@@ -173,192 +287,43 @@ class FoodItem {
     required this.calories,
     required this.nutrients,
     required this.brandName,
-    required this.mealType, // require mealType in constructor
+    required this.mealType,
   });
 
-  factory FoodItem.fromJson(Map<String, dynamic> json) {
+  factory FoodItem.fromFatSecretJson(Map<String, dynamic> json) {
+    final description = json['food_description'] as String;
+    final nutrients = _parseFatSecretNutrients(description);
+
     return FoodItem(
-      fdcId: json['fdcId'].toString(),
-      name: json['description'] ?? '',
-      calories: _findNutrient(json['foodNutrients'], 'Energy'),
-      nutrients: _parseNutrients(json['foodNutrients']),
-      brandName: json['brandOwner'] ?? '',
-      mealType: json['mealType'] ?? 'breakfast', // default to "breakfast"
+      fdcId: json['food_id'].toString(),
+      name: json['food_name'] ?? '',
+      calories: nutrients['calories'] ?? 0.0,
+      nutrients: {
+        'Protein': nutrients['protein'] ?? 0.0,
+        'Total lipid (fat)': nutrients['fat'] ?? 0.0,
+        'Carbohydrate, by difference': nutrients['carbs'] ?? 0.0,
+      },
+      brandName: json['brand_name'] ?? '',
+      mealType:
+          'breakfast', // Default value since FatSecret doesn't provide meal type
     );
   }
 
-  static double _findNutrient(List? nutrients, String name) {
-    if (nutrients == null) return 0.0;
-    final nutrient = nutrients.firstWhere(
-      (n) => n['nutrientName'] == name,
-      orElse: () => {'value': 0.0},
+  static Map<String, double> _parseFatSecretNutrients(String description) {
+    final regex = RegExp(
+      r'Calories:\s*(\d+).*?Fat:\s*(\d+).*?Carbs:\s*(\d+).*?Protein:\s*(\d+)',
+      caseSensitive: false,
     );
-    return (nutrient['value'] ?? 0.0).toDouble();
-  }
 
-  static Map<String, double> _parseNutrients(List? nutrients) {
-    if (nutrients == null) return {};
-
-    final Map<String, double> result = {};
-    for (var nutrient in nutrients) {
-      if (nutrient['nutrientName'] != null && nutrient['value'] != null) {
-        result[nutrient['nutrientName']] = nutrient['value'].toDouble();
-      }
+    final match = regex.firstMatch(description);
+    if (match != null) {
+      return {
+        'calories': double.parse(match.group(1) ?? '0'),
+        'fat': double.parse(match.group(2) ?? '0'),
+        'carbs': double.parse(match.group(3) ?? '0'),
+        'protein': double.parse(match.group(4) ?? '0'),
+      };
     }
-    return result;
+    return {};
   }
-}
-
-class PortionSelector extends StatefulWidget {
-  final FoodItem food;
-
-  const PortionSelector({super.key, required this.food});
-
-  @override
-  _PortionSelectorState createState() => _PortionSelectorState();
-}
-
-class _PortionSelectorState extends State<PortionSelector> {
-  double _grams = 100;
-  final TextEditingController _gramsController =
-      TextEditingController(text: '100');
-
-  @override
-  void dispose() {
-    _gramsController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Select Portion Size'),
-          TextField(
-            controller: _gramsController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Grams',
-              suffixText: 'g',
-            ),
-            onChanged: (value) {
-              final grams = double.tryParse(value);
-              if (grams != null) {
-                setState(() {
-                  _grams = grams;
-                });
-              }
-            },
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Calories: ${(widget.food.calories * _grams / 100).round()} kcal',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // Create a MealEntry using the selected amount
-              final int calories =
-                  (widget.food.calories * _grams / 100).round();
-              final double protein =
-                  ((widget.food.nutrients["Protein"] ?? 0.0) * _grams / 100);
-              final double fat =
-                  ((widget.food.nutrients["Total lipid (fat)"] ?? 0.0) *
-                      _grams /
-                      100);
-              final double carb =
-                  ((widget.food.nutrients["Carbohydrate, by difference"] ??
-                          0.0) *
-                      _grams /
-                      100);
-              final mealEntry = MealEntry(
-                food: widget.food,
-                grams: _grams,
-                calories: calories,
-                protein: protein,
-                fat: fat,
-                carb: carb,
-              );
-              // Return the meal entry to the previous page.
-              Navigator.pop(context, mealEntry);
-            },
-            child: Text('Add to Log'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// class FoodDetailPage extends StatelessWidget {
-//   final FoodItem food;
-
-//   const FoodDetailPage({super.key, required this.food});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text('Food Details'),
-//       ),
-//       body: Padding(
-//         padding: EdgeInsets.all(16),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Text(
-//               food.name,
-//               style: Theme.of(context).textTheme.headlineMedium,
-//             ),
-//             SizedBox(height: 4),
-//             Text(
-//               food.brandName,
-//               style: Theme.of(context)
-//                   .textTheme
-//                   .headlineSmall!
-//                   .copyWith(color: Colors.grey),
-//             ),
-//             SizedBox(height: 16),
-//             Text(
-//               'Nutrition Facts (per 100g)',
-//               style: Theme.of(context).textTheme.titleLarge,
-//             ),
-//             SizedBox(height: 8),
-//             Expanded(
-//               child: ListView(
-//                 children: food.nutrients.entries.map((entry) {
-//                   return ListTile(
-//                     title: Text(entry.key),
-//                     trailing: Text(entry.value.toStringAsFixed(1)),
-//                   );
-//                 }).toList(),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// Add a new model for meal entries
-class MealEntry {
-  final FoodItem food;
-  final double grams;
-  final int calories;
-  final double protein;
-  final double fat;
-  final double carb;
-
-  MealEntry({
-    required this.food,
-    required this.grams,
-    required this.calories,
-    required this.protein,
-    required this.fat,
-    required this.carb,
-  });
 }
