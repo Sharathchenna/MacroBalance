@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/dashboard.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -34,9 +35,9 @@ class _SignupState extends State<Signup> {
           password: _passwordController.text,
           data: {'username': _nameController.text});
       if (response.user != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => Dashboard()),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthGate()),
+          (route) => false,
         );
       }
     } catch (error) {
@@ -84,6 +85,11 @@ class _SignupState extends State<Signup> {
         provider: OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
+      );
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+        (route) => false,
       );
     } catch (error) {
       // Log error or show error message.

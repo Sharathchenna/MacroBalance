@@ -3,25 +3,42 @@ import 'package:health/health.dart';
 class HealthService {
   final health = Health();
 
+  // Add all required health data types
+  static final _healthTypes = [
+    HealthDataType.STEPS,
+    HealthDataType.ACTIVE_ENERGY_BURNED,
+    HealthDataType.BASAL_ENERGY_BURNED,
+    HealthDataType.HEIGHT,
+    HealthDataType.WEIGHT,
+  ];
+
+  // New method to request permissions
+  Future<bool> requestPermissions() async {
+    try {
+      final granted = await health.requestAuthorization(_healthTypes);
+      return granted ?? false;
+    } catch (e) {
+      print('Error requesting health permissions: $e');
+      return false;
+    }
+  }
+
   Future<int> getSteps() async {
     try {
-      // Get everything from midnight until now
       final now = DateTime.now();
       final midnight = DateTime(now.year, now.month, now.day);
 
-      // Define the types to get
-      final types = [HealthDataType.STEPS];
+      final hasPermissions =
+          await health.hasPermissions([HealthDataType.STEPS]);
 
-      // Request authorization
-      final accessWasGranted = await health.requestAuthorization(types);
-
-      if (!accessWasGranted) {
-        throw Exception('Authorization not granted');
+      if (hasPermissions == null || !hasPermissions) {
+        final granted = await requestPermissions();
+        if (!granted) {
+          throw Exception('Health data access not authorized');
+        }
       }
 
-      // Fetch steps from local device
       final steps = await health.getTotalStepsInInterval(midnight, now);
-
       return steps?.toInt() ?? 0;
     } catch (error) {
       print('Error fetching steps: $error');

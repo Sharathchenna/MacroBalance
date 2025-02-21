@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/screens/settingsScreen.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
@@ -133,6 +134,7 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             ),
                           ),
                           onChanged: (value) {
+                            HapticFeedback.selectionClick();
                             setStateDialog(() {
                               newWeight =
                                   value + (newWeight - newWeight.floor());
@@ -166,6 +168,7 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             ),
                           ),
                           onChanged: (value) {
+                            HapticFeedback.selectionClick();
                             setStateDialog(() {
                               newWeight = newWeight.floor() + (value / 10);
                             });
@@ -418,6 +421,7 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             ),
                           ),
                           onChanged: (value) {
+                            HapticFeedback.selectionClick();
                             setStateDialog(() {
                               newGoalWeight = value +
                                   (newGoalWeight - newGoalWeight.floor());
@@ -452,6 +456,7 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             ),
                           ),
                           onChanged: (value) {
+                            HapticFeedback.selectionClick();
                             setStateDialog(() {
                               newGoalWeight =
                                   newGoalWeight.floor() + (value / 10);
@@ -789,9 +794,9 @@ class _AccountdashboardState extends State<Accountdashboard> {
                   onTap: () {
                     Navigator.push(
                       context,
-                        CupertinoPageRoute(
+                      CupertinoPageRoute(
                         builder: (context) => const SettingsScreen(),
-                        ),
+                      ),
                     );
                   },
                   child: Container(

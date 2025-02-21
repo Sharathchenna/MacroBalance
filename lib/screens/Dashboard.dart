@@ -5,7 +5,9 @@ import 'package:macrotracker/camera/camera.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../Health/Health.dart';
+import 'package:app_settings/app_settings.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -205,6 +207,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   final HealthService _healthService = HealthService();
   int steps = 0;
   double caloriesBurned = 0;
+  bool _hasHealthPermissions = false;
 
   // Keep your goals as is
   final int caloriesGoal = 2000; // Adjust this based on user's goal
@@ -219,7 +222,49 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   @override
   void initState() {
     super.initState();
-    _fetchHealthData();
+    _checkAndRequestPermissions();
+  }
+
+  Future<void> _checkAndRequestPermissions() async {
+    try {
+      final granted = await _healthService.requestPermissions();
+      setState(() {
+        _hasHealthPermissions = granted;
+      });
+
+      if (_hasHealthPermissions) {
+        await _fetchHealthData();
+      } else {
+        _showPermissionDialog();
+      }
+    } catch (e) {
+      print('Error checking permissions: $e');
+    }
+  }
+
+  void _showPermissionDialog() {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text('Health Data Access Required'),
+        content: Text(
+            'This app needs access to your health data to track calories and steps.'),
+        actions: [
+          CupertinoDialogAction(
+            child: Text('Cancel'),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            child: Text('Open Settings'),
+            onPressed: () {
+              Navigator.pop(context);
+              // Open app settings
+              openAppSettings();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchHealthData() async {
@@ -234,6 +279,48 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_hasHealthPermissions) {
+      return Container(
+        margin: EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.3),
+              spreadRadius: 1,
+              blurRadius: 1,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Health Data Access Required',
+              style: GoogleFonts.roboto(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Please grant access to health data to see your calories and steps.',
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16),
+            CupertinoButton(
+              color: Theme.of(context).primaryColor,
+              child: Text('Grant Access'),
+              onPressed: _checkAndRequestPermissions,
+            ),
+          ],
+        ),
+      );
+    }
+
     // Calculate remaining calories
     final int caloriesRemaining = caloriesGoal - caloriesBurned.toInt();
     double progress = caloriesBurned / caloriesGoal;

@@ -20,6 +20,14 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _flashOn = false;
   bool _isBarcodeMode = true;
 
+  // Add these new variables
+  bool _isAutoFocusEnabled = true;
+  ExposureMode _exposureMode = ExposureMode.auto;
+  FocusMode _focusMode = FocusMode.auto;
+  double _minAvailableZoom = 1.0;
+  double _maxAvailableZoom = 1.0;
+  double _currentZoom = 1.0;
+
   @override
   void initState() {
     super.initState();
@@ -27,36 +35,115 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _initializeCamera() async {
-    final cameras = await availableCameras();
-    final firstCamera = cameras.first;
+    try {
+      final cameras = await availableCameras();
+      final firstCamera = cameras.first;
 
-    final controller = CameraController(
-      firstCamera,
-      ResolutionPreset.high,
-      enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.bgra8888,
-    );
+      final controller = CameraController(
+        firstCamera,
+        ResolutionPreset.high,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.bgra8888,
+      );
 
-    _initializeControllerFuture = controller.initialize();
-    setState(() {
-      _controller = controller;
-    });
+      await controller.initialize();
 
-    if (_isBarcodeMode) {
-      await _startBarcodeScanning();
+      // Configure camera
+      await Future.wait([
+        controller.setFocusMode(FocusMode.auto),
+        controller.setExposureMode(ExposureMode.auto),
+        controller.setFlashMode(FlashMode.off),
+      ]);
+
+      _minAvailableZoom = await controller.getMinZoomLevel();
+      _maxAvailableZoom = await controller.getMaxZoomLevel();
+
+      if (mounted) {
+        setState(() {
+          _controller = controller;
+          _initializeControllerFuture = Future.value();
+        });
+      }
+    } catch (e) {
+      print('Error initializing camera: $e');
+    }
+  }
+
+  Future<void> _captureAndScanBarcode() async {
+    if (_controller == null || !_controller!.value.isInitialized) {
+      print('Camera not initialized');
+      return;
+    }
+
+    try {
+      final image = await _controller?.takePicture();
+      if (image == null) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Center(child: CircularProgressIndicator(color: Colors.white));
+        },
+      );
+
+      final inputImage = InputImage.fromFilePath(image.path);
+      final barcodes = await _barcodeScanner.processImage(inputImage);
+
+      Navigator.pop(context); // Remove loading dialog
+
+      if (barcodes.isNotEmpty) {
+        await _handleBarcodeResult(barcodes.first.rawValue ?? '');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No barcode found. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error capturing and scanning barcode: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _startBarcodeScanning() async {
-    await _controller?.startImageStream((image) {
-      _processImage(image);
-    });
+    if (_controller == null || !_controller!.value.isInitialized) {
+      print('Camera not initialized');
+      return;
+    }
+
+    try {
+      await _controller?.startImageStream((image) async {
+        if (!_isScanning) {
+          _isScanning = true;
+          try {
+            final List<Barcode> barcodes = await _processImage(image);
+            if (barcodes.isNotEmpty) {
+              await _stopBarcodeScanning();
+              await _handleBarcodeResult(barcodes.first.rawValue ?? '');
+              // Restart scanning after processing
+              if (mounted) {
+                await _startBarcodeScanning();
+              }
+            }
+          } finally {
+            _isScanning = false;
+          }
+        }
+      });
+    } catch (e) {
+      print('Error starting image stream: $e');
+    }
   }
 
-  Future<void> _processImage(CameraImage image) async {
-    if (_isScanning) return;
-    _isScanning = true;
-
+  Future<List<Barcode>> _processImage(CameraImage image) async {
     try {
       final InputImage inputImage = InputImage.fromBytes(
         bytes: image.planes[0].bytes,
@@ -68,27 +155,20 @@ class _CameraScreenState extends State<CameraScreen> {
         ),
       );
 
-      final List<Barcode> barcodes =
-          await _barcodeScanner.processImage(inputImage);
-
-      if (barcodes.isNotEmpty) {
-        _controller?.stopImageStream();
-        final String barcode = barcodes.first.rawValue ?? '';
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Barcode detected: $barcode'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
-          ),
-        );
-
-        await _handleBarcodeResult(barcode);
-      }
+      return await _barcodeScanner.processImage(inputImage);
     } catch (e) {
       print('Error processing image: $e');
-    } finally {
-      _isScanning = false;
+      return [];
+    }
+  }
+
+  Future<void> _stopBarcodeScanning() async {
+    try {
+      if (_controller?.value.isStreamingImages ?? false) {
+        await _controller?.stopImageStream();
+      }
+    } catch (e) {
+      print('Error stopping image stream: $e');
     }
   }
 
@@ -147,10 +227,58 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+  void _switchMode(bool barcode) async {
+    if (_isBarcodeMode == barcode) return;
+
+    await _stopBarcodeScanning();
+
+    setState(() {
+      _isBarcodeMode = barcode;
+    });
+
+    if (barcode) {
+      await _startBarcodeScanning();
+    }
+  }
+
+  // Add method to configure focus
+  Future<void> _configureFocus() async {
+    if (_controller == null) return;
+
+    try {
+      await _controller!.setFocusPoint(null);
+      await _controller!.setFocusMode(
+          _isAutoFocusEnabled ? FocusMode.auto : FocusMode.locked);
+    } catch (e) {
+      print('Error configuring focus: $e');
+    }
+  }
+
+  // Add method to handle zoom
+  Future<void> _setZoomLevel(double zoom) async {
+    if (_controller == null) return;
+
+    try {
+      zoom = zoom.clamp(_minAvailableZoom, _maxAvailableZoom);
+      await _controller!.setZoomLevel(zoom);
+      setState(() {
+        _currentZoom = zoom;
+      });
+    } catch (e) {
+      print('Error setting zoom level: $e');
+    }
+  }
+
+  // Add zoom gesture handler
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    _setZoomLevel(_currentZoom * details.scale);
+  }
+
   @override
   void dispose() {
-    _barcodeScanner.close();
+    _stopBarcodeScanning();
     _controller?.dispose();
+    _barcodeScanner.close();
     super.dispose();
   }
 
@@ -205,12 +333,7 @@ class _CameraScreenState extends State<CameraScreen> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isBarcodeMode = true;
-                            _startBarcodeScanning();
-                          });
-                        },
+                        onTap: () => _switchMode(true),
                         child: Container(
                           decoration: BoxDecoration(
                             color: _isBarcodeMode
@@ -234,12 +357,7 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _isBarcodeMode = false;
-                            _controller?.stopImageStream();
-                          });
-                        },
+                        onTap: () => _switchMode(false),
                         child: Container(
                           decoration: BoxDecoration(
                             color: !_isBarcodeMode
@@ -269,26 +387,30 @@ class _CameraScreenState extends State<CameraScreen> {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: FutureBuilder<void>(
-                      future: _initializeControllerFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.done &&
-                            _controller != null) {
-                          return ClipRect(
-                            child: Transform.scale(
-                              scale: 1.3,
-                              alignment: Alignment.center,
-                              child: CameraPreview(_controller!),
+                    child: GestureDetector(
+                      onScaleUpdate: _handleScaleUpdate,
+                      child: FutureBuilder<void>(
+                        future: _initializeControllerFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                                  ConnectionState.done &&
+                              _controller != null) {
+                            return ClipRect(
+                              child: Transform.scale(
+                                scale: 1.3,
+                                alignment: Alignment.center,
+                                child: CameraPreview(_controller!),
+                              ),
+                            );
+                          }
+                          return Container(
+                            color: Colors.grey[900],
+                            child: Center(
+                              child: CircularProgressIndicator(),
                             ),
                           );
-                        }
-                        return Container(
-                          color: Colors.grey[900],
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      },
+                        },
+                      ),
                     ),
                   ),
                   if (_isBarcodeMode)
@@ -342,9 +464,10 @@ class _CameraScreenState extends State<CameraScreen> {
                   GestureDetector(
                     onTap: () async {
                       if (_isBarcodeMode) {
-                        return;
+                        await _captureAndScanBarcode();
+                      } else {
+                        await _takePicture();
                       }
-                      await _takePicture();
                     },
                     child: Container(
                       width: 80,
