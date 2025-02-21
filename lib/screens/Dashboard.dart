@@ -125,75 +125,129 @@ class _DashboardState extends State<Dashboard> {
   }
 }
 
-class DateNavigatorbar extends StatelessWidget {
+// First, update the DateNavigatorbar class to be stateful
+class DateNavigatorbar extends StatefulWidget {
   const DateNavigatorbar({super.key});
+
+  @override
+  State<DateNavigatorbar> createState() => _DateNavigatorbarState();
+}
+
+class _DateNavigatorbarState extends State<DateNavigatorbar> {
+  DateTime selectedDate = DateTime.now();
+
+  void _navigateDate(int days) {
+    setState(() {
+      selectedDate = selectedDate.add(Duration(days: days));
+    });
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final yesterday = now.subtract(Duration(days: 1));
+    final tomorrow = now.add(Duration(days: 1));
+
+    if (date.year == now.year && date.month == now.month && date.day == now.day) {
+      return 'Today';
+    }
+    if (date.year == tomorrow.year &&
+        date.month == tomorrow.month &&
+        date.day == tomorrow.day) {
+      return 'Tomorrow';
+    }
+    if (date.year == yesterday.year &&
+        date.month == yesterday.month &&
+        date.day == yesterday.day) {
+      return 'Yesterday';
+    }
+    return '${date.day.toString().padLeft(2, '0')}/'
+           '${date.month.toString().padLeft(2, '0')}/'
+           '${date.year.toString().substring(2)}';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
-        // Use spaceEvenly or spaceBetween if you prefer different spacing.
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Expanded(child: _buildNavigationButton(icon: Icons.chevron_left)),
-          Expanded(child: _buildTodayButton()),
-          Expanded(child: _buildNavigationButton(icon: Icons.chevron_right)),
+          Expanded(
+            child: _buildNavigationButton(
+              icon: Icons.chevron_left,
+              onTap: () => _navigateDate(-1),
+            ),
+          ),
+          Expanded(
+            child: _buildDateButton(),
+          ),
+          Expanded(
+            child: _buildNavigationButton(
+              icon: Icons.chevron_right,
+              onTap: () => _navigateDate(1),
+            ),
+          ),
         ],
       ),
     );
   }
-}
 
-Widget _buildNavigationButton({required IconData icon}) {
-  return Material(
-    color: Color(0xFFF0E9DF), // Background color of the button
-    shape: CircleBorder(),
-    child: InkWell(
-      customBorder: CircleBorder(),
-      onTap: () {
-        // Add your navigation logic here (e.g., go to previous/next day)
-        print('Navigation button tapped!');
-      },
-      child: Padding(
-        padding: EdgeInsets.all(8.0),
-        child: Icon(
-          icon,
-          color: Colors.black,
+  Widget _buildNavigationButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFFF0E9DF),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Icon(
+            icon,
+            color: Colors.black,
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-Widget _buildTodayButton() {
-  return Center(
-    child: InkWell(
-      borderRadius: BorderRadius.circular(20.0),
-      // TODO: Today Animation Not Working;
-      onTap: () {
-        print('Today button tapped!');
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        decoration: BoxDecoration(
-          color: Color(0xFFF0E9DF),
-          borderRadius: BorderRadius.circular(20.0),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              CupertinoIcons.calendar_today,
-              color: Colors.black,
-              size: 16,
-            ),
-            SizedBox(width: 8.0),
-            Text('Today', style: TextStyle(color: Colors.black)),
-          ],
+  Widget _buildDateButton() {
+    return Center(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20.0),
+        onTap: () {
+          // Reset to today's date
+          setState(() {
+            selectedDate = DateTime.now();
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0E9DF),
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                CupertinoIcons.calendar_today,
+                color: Colors.black,
+                size: 16,
+              ),
+              const SizedBox(width: 8.0),
+              Text(
+                _formatDate(selectedDate),
+                style: const TextStyle(color: Colors.black),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class CalorieTracker extends StatefulWidget {
