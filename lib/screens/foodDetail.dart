@@ -18,9 +18,9 @@ class MacroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(25),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withAlpha(25)),
       ),
       child: Column(
         children: [
@@ -90,7 +90,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
   // Returns the recalculated nutrient value as a formatted string, or "N/A" if not available.
   String getNutrientValue(String nutrientKey) {
     final nutrientPer100 = widget.food.nutrients[nutrientKey];
-    if (nutrientPer100 == null || nutrientPer100 == 0) {
+    if (nutrientPer100 == null) {
       return "N/A";
     }
     final convertedQty = getConvertedQuantity();
@@ -151,7 +151,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withAlpha(25),
                         spreadRadius: 1,
                         blurRadius: 10,
                         offset: const Offset(0, 2),
@@ -161,15 +161,18 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        (() {
-                          String energy = getNutrientValue("Energy");
-                          return energy != "N/A" ? "$energy kcal" : "N/A";
-                        }()),
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                      Center(
+                        child: Text(
+                          (() {
+                            String energy = food.calories.toString();
+                            // return energy != "N/A" ? "$energy kcal" : "N/A";
+                            return energy = "$energy kcal";
+                          }()),
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -215,7 +218,8 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withAlpha(
+                            25), // Using withAlpha instead of withOpacity
                         spreadRadius: 1,
                         blurRadius: 10,
                         offset: const Offset(0, 2),
@@ -328,7 +332,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: Colors.grey.withAlpha(25),
                         spreadRadius: 1,
                         blurRadius: 10,
                         offset: const Offset(0, 2),
