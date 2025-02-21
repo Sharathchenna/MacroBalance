@@ -10,6 +10,9 @@ import 'package:intl/intl.dart';
 class ChartPainter extends CustomPainter {
   static const int NUMBER_OF_DAYS = 31;
   static const int NUMBER_OF_HORIZONTAL_LINES = 5;
+  static const double MAX_ALLOWED_WEIGHT = 300.0; // Maximum weight to display
+  static const double MIN_ALLOWED_WEIGHT = 0.0; // Minimum weight to display
+  static const double WEIGHT_PADDING = 5.0; // Padding for min/max values
 
   final List<WeightEntry> entries;
 
@@ -19,28 +22,54 @@ class ChartPainter extends CustomPainter {
   late double drawingWidth;
   late double drawingHeight;
 
+  final dashedLinePaint = Paint()
+    ..color = Colors.grey.shade400
+    ..strokeWidth = 1.0
+    ..style = PaintingStyle.stroke;
+
   ChartPainter(this.entries);
+
+  double _calculateMinWeight() {
+    if (entries.isEmpty) return MIN_ALLOWED_WEIGHT;
+
+    final minWeight = entries.map((e) => e.weight).reduce(math.min);
+    // Ensure minimum weight doesn't go below MIN_ALLOWED_WEIGHT
+    final adjustedMin = math.max(
+        (minWeight - WEIGHT_PADDING).floorToDouble(), MIN_ALLOWED_WEIGHT);
+
+    return adjustedMin;
+  }
+
+  double _calculateMaxWeight() {
+    if (entries.isEmpty) return 100.0;
+
+    final maxWeight = entries.map((e) => e.weight).reduce(math.max);
+    // Ensure maximum weight doesn't exceed MAX_ALLOWED_WEIGHT
+    final adjustedMax = math.min(
+        (maxWeight + WEIGHT_PADDING).ceilToDouble(), MAX_ALLOWED_WEIGHT);
+
+    return adjustedMax;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Set up drawing boundaries
-    leftOffsetStart = size.width * 0.1; // leave space for left labels
-    topOffsetEnd = size.height; // bottom area for x labels
+    leftOffsetStart = size.width * 0.1;
+    topOffsetEnd = size.height;
     drawingWidth = size.width - leftOffsetStart - 10;
     drawingHeight = topOffsetEnd - 10;
 
-    // Get data boundaries
     if (entries.isEmpty) return;
-    final minWeight = entries.map((e) => e.weight).reduce(math.min);
-    final maxWeight = entries.map((e) => e.weight).reduce(math.max);
 
-    // Draw horizontal lines and left labels
-    _drawHorizontalLinesAndLabels(canvas, size, minWeight, maxWeight);
+    final minWeight = _calculateMinWeight();
+    final maxWeight = _calculateMaxWeight();
+
+    // Draw left labels with horizontal lines
+    _drawLeftLabels(canvas, size, minWeight, maxWeight);
 
     // Draw bottom labels (dates)
     _drawBottomLabels(canvas, size);
 
-    // Draw the data lines (and markers)
+    // Draw the data lines
     _drawDataLines(canvas, minWeight, maxWeight);
   }
 
@@ -95,32 +124,73 @@ class ChartPainter extends CustomPainter {
   }
 
   void _drawBottomLabels(Canvas canvas, Size size) {
-    // For bottom labels, we label every 7 days.
-    final int interval = 7;
-    final DateTime startDate = _getStartDateOfChart();
+    if (entries.isEmpty) return;
 
-    double dayWidth = drawingWidth / NUMBER_OF_DAYS;
-    for (int day = 0; day <= NUMBER_OF_DAYS; day += interval) {
-      double xOffset = leftOffsetStart + day * dayWidth;
-      DateTime labelDate = startDate.add(Duration(days: day));
+    // Find the earliest and latest dates in the entries
+    final DateTime endDate = entries.first.dateTime;
+    final DateTime startDate = entries.last.dateTime;
+    final int totalDays = endDate.difference(startDate).inDays;
+
+    // Calculate optimal interval for labels (aim for 4-5 labels)
+    final int interval = math.max((totalDays / 4).round(), 1);
+
+    double dayWidth = drawingWidth / totalDays;
+
+    // Draw labels at intervals
+    for (int i = 0; i <= totalDays; i += interval) {
+      DateTime labelDate = startDate.add(Duration(days: i));
+      double xOffset = leftOffsetStart + (i * dayWidth);
+
       final ui.ParagraphBuilder builder = ui.ParagraphBuilder(
-        ui.ParagraphStyle(fontSize: 10.0, textAlign: TextAlign.center),
+        ui.ParagraphStyle(
+          fontSize: 10.0,
+          textAlign: TextAlign.center,
+        ),
       )
         ..pushStyle(ui.TextStyle(color: Colors.black))
-        ..addText(DateFormat('d MMM').format(labelDate));
+        ..addText(DateFormat('MMM d').format(labelDate));
+
       final ui.Paragraph paragraph = builder.build()
         ..layout(ui.ParagraphConstraints(width: 50.0));
-      canvas.drawParagraph(paragraph, Offset(xOffset - 10, topOffsetEnd + 10));
+
+      canvas.drawParagraph(
+        paragraph,
+        Offset(xOffset - 25, topOffsetEnd + 10),
+      );
     }
   }
 
   void _drawDataLines(Canvas canvas, double minWeight, double maxWeight) {
     if (entries.length < 2) return;
 
-    final paint = Paint()
+    // Filter out any weight entries that are outside the allowed range
+    final validEntries = entries
+        .where((entry) =>
+            entry.weight >= MIN_ALLOWED_WEIGHT &&
+            entry.weight <= MAX_ALLOWED_WEIGHT)
+        .toList();
+
+    if (validEntries.length < 2) return;
+
+    final linePaint = Paint()
       ..color = Colors.grey.shade800
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.grey.shade800.withOpacity(0.2),
+          Colors.grey.shade800.withOpacity(0.05),
+        ],
+      ).createShader(Rect.fromLTWH(
+        leftOffsetStart,
+        10,
+        drawingWidth,
+        drawingHeight,
+      ));
 
     final DateTime startDate = _getStartDateOfChart();
     double dayWidth = drawingWidth / NUMBER_OF_DAYS;
@@ -136,11 +206,15 @@ class ChartPainter extends CustomPainter {
     }
 
     // Get all data points
-    final List<Offset> points = entries.map(_getEntryOffset).toList();
+    final List<Offset> points = validEntries.map(_getEntryOffset).toList();
 
     // Build a smooth path using quadratic Bézier curves.
-    final Path path = Path();
-    path.moveTo(points.first.dx, points.first.dy);
+    final Path linePath = Path();
+    final Path fillPath = Path();
+
+    linePath.moveTo(points.first.dx, points.first.dy);
+    fillPath.moveTo(points.first.dx, 10 + drawingHeight); // Start at bottom
+    fillPath.lineTo(points.first.dx, points.first.dy); // Line up to first point
 
     for (int i = 0; i < points.length - 1; i++) {
       // Calculate the midpoint between the current point and the next point.
@@ -148,30 +222,101 @@ class ChartPainter extends CustomPainter {
         (points[i].dx + points[i + 1].dx) / 2,
         (points[i].dy + points[i + 1].dy) / 2,
       );
-      // Use the current point as control point to draw a quadratic curve to midpoint.
-      path.quadraticBezierTo(
+
+      // Add curves to both paths
+      linePath.quadraticBezierTo(
+        points[i].dx,
+        points[i].dy,
+        midPoint.dx,
+        midPoint.dy,
+      );
+      fillPath.quadraticBezierTo(
         points[i].dx,
         points[i].dy,
         midPoint.dx,
         midPoint.dy,
       );
     }
-    // Connect the last midpoint with the last point.
-    path.lineTo(points.last.dx, points.last.dy);
 
-    // Draw the smooth path.
-    canvas.drawPath(path, paint);
+    // Connect the last midpoint with the last point
+    linePath.lineTo(points.last.dx, points.last.dy);
+    fillPath.lineTo(points.last.dx, points.last.dy);
 
-    // Optionally, draw markers at each data point.
+    // Complete the fill path by drawing down to bottom and back to start
+    fillPath.lineTo(points.last.dx, 10 + drawingHeight);
+    fillPath.lineTo(points.first.dx, 10 + drawingHeight);
+
+    // Draw the fill first, then the line on top
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(linePath, linePaint);
+
+    // Draw dashed line from current weight to axis
+    if (points.isNotEmpty) {
+      final currentPoint = points.first;
+      _drawDashedLine(
+        canvas,
+        currentPoint,
+        Offset(leftOffsetStart, currentPoint.dy),
+        dashedLinePaint,
+      );
+    }
+
+    // Draw the marker for the most recent entry
     final markerPaint = Paint()
       ..color = Colors.grey.shade800
       ..strokeWidth = 3.0
       ..style = PaintingStyle.fill;
-    // for (final point in points) {
-    //   canvas.drawCircle(point, 3.0, markerPaint);
-    // }
-    // Draw a larger circle for the most recent entry.
     canvas.drawCircle(points.first, 5.0, markerPaint);
+
+    // Draw current weight label above the point
+    if (entries.isNotEmpty) {
+      final currentWeight = entries.first.weight;
+      final labelText = currentWeight.toStringAsFixed(1);
+
+      final labelPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+
+      final labelBgPaint = Paint()
+        ..color = Colors.grey.shade800
+        ..style = PaintingStyle.fill;
+
+      final textSpan = TextSpan(
+        text: labelText,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: ui.TextDirection.ltr,
+      );
+      textPainter.layout();
+
+      // Draw label background
+      final labelRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: points.first.translate(0, -(textPainter.height + 15)),
+          width: textPainter.width + 16,
+          height: textPainter.height + 8,
+        ),
+        const Radius.circular(6),
+      );
+
+      canvas.drawRRect(labelRect, labelBgPaint);
+
+      // Draw label text
+      textPainter.paint(
+        canvas,
+        points.first.translate(
+          -(textPainter.width / 2),
+          -(textPainter.height + 24),
+        ),
+      );
+    }
   }
 
   // Returns the start date (NUMBER_OF_DAYS ago from today)
@@ -182,6 +327,70 @@ class ChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant ChartPainter oldDelegate) {
     return oldDelegate.entries != entries;
+  }
+
+  void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
+    final dash = 5.0;
+    final gap = 5.0;
+    final steps = (end - start).distance / (dash + gap);
+    final vector = (end - start) / steps;
+
+    for (double i = 0; i < steps.floor(); i++) {
+      final startDash = start + (vector * i * 2);
+      final endDash = startDash + vector;
+      canvas.drawLine(startDash, endDash, paint);
+    }
+  }
+
+  void _drawLeftLabels(
+      Canvas canvas, Size size, double minWeight, double maxWeight) {
+    final labelStyle = TextStyle(
+      color: Colors.grey.shade600,
+      fontSize: 12,
+    );
+
+    // Fixed positions for horizontal lines (5 lines)
+    const numberOfLines = 5;
+    final lineSpacing = drawingHeight / (numberOfLines - 1);
+
+    // Calculate weight step based on min and max weight
+    final weightRange = maxWeight - minWeight;
+    final weightStep = weightRange / (numberOfLines - 1);
+
+    // Draw horizontal lines and labels
+    for (int i = 0; i < numberOfLines; i++) {
+      // Calculate y position (fixed spacing)
+      final y = 10 + (drawingHeight - (i * lineSpacing));
+
+      // Calculate weight value for this line
+      final weight = minWeight + (i * weightStep);
+
+      // Draw weight label
+      final textSpan = TextSpan(
+        text: weight.toStringAsFixed(1),
+        style: labelStyle,
+      );
+
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: ui.TextDirection.ltr,
+      );
+
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(0, y - textPainter.height / 2),
+      );
+
+      // Draw horizontal line
+      canvas.drawLine(
+        Offset(leftOffsetStart, y),
+        Offset(size.width - 10, y),
+        Paint()
+          ..color = Colors.grey.shade300
+          ..strokeWidth = 0.5,
+      );
+    }
   }
 }
 
