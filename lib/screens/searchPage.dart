@@ -53,7 +53,7 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F4F0),
       appBar: AppBar(
-        title: Text('Search Foods'),
+        title: const Text('Search Foods'),
         backgroundColor: const Color(0xFFF5F4F0),
       ),
       body: GestureDetector(
@@ -63,6 +63,7 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
         },
         child: Column(
           children: [
+            // Search Bar Always Visible
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: SearchBar(
@@ -70,11 +71,13 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
                 onSearch: _searchFood,
               ),
             ),
-            Expanded(
-              child: _isLoading
-                  ? Center(child: CircularProgressIndicator())
-                  : FoodList(foods: _searchResults),
-            ),
+            // Conditional List Section
+            if (_searchResults.isNotEmpty || _isLoading)
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : FoodList(foods: _searchResults),
+              ),
           ],
         ),
       ),
