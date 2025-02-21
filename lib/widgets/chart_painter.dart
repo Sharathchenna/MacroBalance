@@ -118,7 +118,7 @@ class ChartPainter extends CustomPainter {
     if (entries.length < 2) return;
 
     final paint = Paint()
-      ..color = Colors.blue
+      ..color = Colors.grey.shade800
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke;
 
@@ -164,7 +164,7 @@ class ChartPainter extends CustomPainter {
 
     // Optionally, draw markers at each data point.
     final markerPaint = Paint()
-      ..color = Colors.blue
+      ..color = Colors.grey.shade800
       ..strokeWidth = 3.0
       ..style = PaintingStyle.fill;
     // for (final point in points) {
