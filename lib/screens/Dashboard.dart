@@ -11,6 +11,8 @@ import '../Health/Health.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import '../providers/dateProvider.dart';
+import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/providers/themeProvider.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -27,7 +29,7 @@ class _DashboardState extends State<Dashboard> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: Color(0xFFF5F4F0),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -50,15 +52,20 @@ class _DashboardState extends State<Dashboard> {
                     horizontal:
                         screenWidth * 0.06), // 6% of screen width as padding
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  // color: Colors.white,
                   borderRadius: BorderRadius.circular(30.0),
+                  color: Theme.of(context)
+                      .extension<CustomColors>()
+                      ?.cardBackground,
                   boxShadow: [
-                    // BoxShadow(
-                    //   color: Colors.grey.withAlpha(77),
-                    //   spreadRadius: 2,
-                    //   blurRadius: 7,
-                    //   offset: Offset(0, 3),
-                    // ),
+                    BoxShadow(
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.grey.shade200
+                          : Colors.black26,
+                      spreadRadius: 2,
+                      blurRadius: 7,
+                      offset: Offset(0, 3),
+                    ),
                   ],
                 ),
                 child: Row(
@@ -72,6 +79,7 @@ class _DashboardState extends State<Dashboard> {
                           Navigator.push(
                             context,
                             CupertinoSheetRoute(
+                              
                                 builder: (context) => FoodSearchPage()),
                           );
                         },
@@ -202,7 +210,8 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: const Color(0xFFF0E9DF),
+      color:
+          Theme.of(context).extension<CustomColors>()?.dateNavigatorBackground,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -211,7 +220,9 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
           padding: const EdgeInsets.all(8.0),
           child: Icon(
             icon,
-            color: Colors.black,
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.black
+                : Colors.white,
           ),
         ),
       ),
@@ -231,21 +242,28 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0E9DF),
+                color: Theme.of(context)
+                    .extension<CustomColors>()
+                    ?.dateNavigatorBackground,
                 borderRadius: BorderRadius.circular(20.0),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     CupertinoIcons.calendar_today,
-                    color: Colors.black,
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.black
+                        : Colors.white,
                     size: 16,
                   ),
                   const SizedBox(width: 8.0),
                   Text(
                     _formatDate(dateProvider.selectedDate),
-                    style: const TextStyle(color: Colors.black),
+                    style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.black
+                            : Colors.white),
                   ),
                 ],
               ),
@@ -375,11 +393,13 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).extension<CustomColors>()?.cardBackground,
             borderRadius: BorderRadius.circular(20.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.shade200,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade200
+                    : Colors.black26,
                 blurRadius: 15,
                 spreadRadius: 5,
                 offset: const Offset(0, 5),
@@ -418,7 +438,9 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                               style: GoogleFonts.roboto(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: Theme.of(context)
+                                    .extension<CustomColors>()
+                                    ?.textPrimary,
                               ),
                             ),
                             Text(
@@ -440,18 +462,21 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildCalorieInfo(
+                          context,
                           'Goal',
                           caloriesGoal,
                           const Color(0xFF34C85A),
                         ),
                         const SizedBox(height: 12),
                         _buildCalorieInfo(
+                          context,
                           'Food',
                           caloriesFromFood.toInt(),
                           Colors.orange,
                         ),
                         const SizedBox(height: 12),
                         _buildCalorieInfo(
+                          context,
                           'Burned',
                           caloriesBurned.toInt(),
                           Colors.blue,
@@ -467,24 +492,28 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildMacroProgress(
+                    context,
                     'Carbs',
                     totalCarbs.round(),
                     carbGoal,
                     Colors.blue,
                   ),
                   _buildMacroProgress(
+                    context,
                     'Protein',
                     totalProtein.round(),
                     proteinGoal,
                     Colors.red,
                   ),
                   _buildMacroProgress(
+                    context,
                     'Fat',
                     totalFat.round(),
                     fatGoal,
                     Colors.orange,
                   ),
                   _buildMacroProgress(
+                    context,
                     'Steps',
                     steps,
                     stepsGoal,
@@ -500,7 +529,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 }
 
-Widget _buildCalorieInfo(String label, int value, Color color) {
+Widget _buildCalorieInfo(
+    BuildContext context, String label, int value, Color color) {
   return Row(
     children: [
       Container(
@@ -524,9 +554,10 @@ Widget _buildCalorieInfo(String label, int value, Color color) {
           ),
           Text(
             '$value',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
+              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
             ),
           ),
         ],
@@ -535,7 +566,8 @@ Widget _buildCalorieInfo(String label, int value, Color color) {
   );
 }
 
-Widget _buildMacroProgress(String label, int value, int goal, Color color) {
+Widget _buildMacroProgress(
+    BuildContext context, String label, int value, int goal, Color color) {
   double progress = (value / goal).clamp(0.0, 1.0);
 
   return Column(
@@ -555,7 +587,7 @@ Widget _buildMacroProgress(String label, int value, int goal, Color color) {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: color.withValues(alpha:0.2),
+                color: color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -577,9 +609,10 @@ Widget _buildMacroProgress(String label, int value, int goal, Color color) {
       const SizedBox(height: 8),
       Text(
         '$value',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
+          color: Theme.of(context).extension<CustomColors>()?.textPrimary,
         ),
       ),
     ],
@@ -630,7 +663,7 @@ class _MealSectionState extends State<MealSection> {
         });
 
         return Card(
-          color: Colors.white,
+          color: Theme.of(context).extension<CustomColors>()?.cardBackground,
           margin: const EdgeInsets.only(bottom: 8),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -647,9 +680,15 @@ class _MealSectionState extends State<MealSection> {
                           style: GoogleFonts.roboto(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
+                            color: Theme.of(context)
+                                .extension<CustomColors>()
+                                ?.textPrimary,
                           ),
                         ),
                         Icon(
+                          color: Theme.of(context)
+                              .extension<CustomColors>()
+                              ?.textPrimary,
                           expandedState[mealType]!
                               ? Icons.keyboard_arrow_up
                               : Icons.keyboard_arrow_down,
@@ -661,6 +700,9 @@ class _MealSectionState extends State<MealSection> {
                       style: GoogleFonts.roboto(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
+                        color: Theme.of(context)
+                            .extension<CustomColors>()
+                            ?.textPrimary,
                       ),
                     ),
                   ],
@@ -673,9 +715,21 @@ class _MealSectionState extends State<MealSection> {
               ),
               if (expandedState[mealType]!) ...[
                 ...entries.map((entry) => ListTile(
-                      title: Text(entry.food.name),
+                      title: Text(
+                        entry.food.name,
+                        style: TextStyle(
+                          color: Theme.of(context)
+                              .extension<CustomColors>()
+                              ?.textPrimary,
+                        ),
+                      ),
                       subtitle: Text(
                         '${entry.quantity}${entry.unit} - ${(entry.food.calories * entry.quantity / 100).toStringAsFixed(0)} kcal',
+                        style: TextStyle(
+                          color: Theme.of(context)
+                              .extension<CustomColors>()
+                              ?.textPrimary,
+                        ),
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline),

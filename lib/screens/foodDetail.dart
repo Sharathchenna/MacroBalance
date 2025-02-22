@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../providers/foodEntryProvider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
+import 'package:macrotracker/theme/app_theme.dart';
+import 'package:flutter/cupertino.dart';
 
 class MacroCard extends StatelessWidget {
   final String label;
@@ -113,8 +115,18 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: const Color(0xFFF5F4F0),
-          title: const Text('Food Details'),
+          leading: CupertinoNavigationBarBackButton(
+            color: Theme.of(context).primaryColor,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          title: Text(
+            'Food Details',
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -160,15 +172,16 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                 // Food Title Section
                 Text(
                   food.name,
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: Theme.of(context).primaryColor,
+                      ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   food.brandName,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall!
-                      .copyWith(color: Colors.grey),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Theme.of(context).primaryColor.withOpacity(0.7),
+                      ),
                 ),
                 const SizedBox(height: 24),
 
@@ -176,16 +189,18 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context)
+                        .extension<CustomColors>()
+                        ?.macroCardBackground,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withAlpha(25),
-                        spreadRadius: 1,
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    // boxShadow: [
+                    //   BoxShadow(
+                    //     color: Colors.grey.withAlpha(25),
+                    //     spreadRadius: 1,
+                    //     blurRadius: 4,
+                    //     offset: const Offset(0, 2),
+                    //   ),
+                    // ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,10 +212,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                             // return energy != "N/A" ? "$energy kcal" : "N/A";
                             return energy = "$energy kcal";
                           }()),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: Theme.of(context).primaryColor,
                           ),
                         ),
                       ),
@@ -243,35 +258,44 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context)
+                        .extension<CustomColors>()
+                        ?.cardBackground,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        spreadRadius: 1,
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    // boxShadow: [
+                    //   BoxShadow(
+                    //     color: Colors.grey.withValues(alpha: 0.1),
+                    //     spreadRadius: 1,
+                    //     blurRadius: 10,
+                    //     offset: const Offset(0, 2),
+                    //   ),
+                    // ],
                   ),
                   child: Column(
                     children: [
                       // Meal Row
                       Row(
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 80,
                             child: Text(
                               "Meal",
-                              style: TextStyle(fontSize: 14),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Theme.of(context).primaryColor,
+                              ),
                             ),
                           ),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              dropdownColor: Colors.white,
+                              dropdownColor:
+                                  Theme.of(context).scaffoldBackgroundColor,
                               value: selectedMeal,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 border: OutlineInputBorder(),
+                              ),
+                              style: TextStyle(
+                                color: Theme.of(context).primaryColor,
                               ),
                               onChanged: (val) {
                                 setState(() {
@@ -288,15 +312,22 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                           ),
                         ],
                       ),
-                      const Divider(),
+                      Divider(
+                        color: Theme.of(context)
+                            .extension<CustomColors>()
+                            ?.dateNavigatorBackground,
+                      ),
                       // Quantity Row
                       Row(
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 80,
                             child: Text(
                               "Quantity",
-                              style: TextStyle(fontSize: 14),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Theme.of(context).primaryColor,
+                              ),
                             ),
                           ),
                           Expanded(
@@ -306,31 +337,48 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                               onChanged: (value) {
                                 setState(() {});
                               },
+                              style: TextStyle(
+                                color: Theme.of(context).primaryColor,
+                              ),
                               decoration: InputDecoration(
                                 border: const OutlineInputBorder(),
                                 suffixText: selectedUnit,
+                                suffixStyle: TextStyle(
+                                  color: Theme.of(context).primaryColor,
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const Divider(),
+                      Divider(
+                        color: Theme.of(context)
+                            .extension<CustomColors>()
+                            ?.dateNavigatorBackground,
+                      ),
                       // Unit Row
                       Row(
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 80,
                             child: Text(
                               "Unit",
-                              style: TextStyle(fontSize: 14),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Theme.of(context).primaryColor,
+                              ),
                             ),
                           ),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              dropdownColor: Colors.white,
+                              dropdownColor:
+                                  Theme.of(context).scaffoldBackgroundColor,
                               value: selectedUnit,
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
+                              ),
+                              style: TextStyle(
+                                color: Theme.of(context).primaryColor,
                               ),
                               onChanged: (val) {
                                 setState(() {
@@ -356,7 +404,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context)
+                        .extension<CustomColors>()
+                        ?.cardBackground,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -374,7 +424,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                         'Nutrition Facts',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              color: Theme.of(context).primaryColor,
                             ),
                       ),
                       Text(
@@ -389,7 +439,9 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: widget.food.nutrients.length,
                         separatorBuilder: (context, index) => Divider(
-                          color: Colors.grey.shade200,
+                          color: Theme.of(context)
+                              .extension<CustomColors>()
+                              ?.dateNavigatorBackground,
                           height: 1,
                         ),
                         itemBuilder: (context, index) {
@@ -402,18 +454,18 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                                 Expanded(
                                   child: Text(
                                     entry.key,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 16,
-                                      color: Colors.black87,
+                                      color: Theme.of(context).primaryColor,
                                     ),
                                   ),
                                 ),
                                 Text(
                                   '${entry.value.toStringAsFixed(1)}g',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
+                                    color: Theme.of(context).primaryColor,
                                   ),
                                 ),
                               ],

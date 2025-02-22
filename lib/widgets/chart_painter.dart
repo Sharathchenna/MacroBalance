@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 
 /// Custom painter for drawing the weight journey line chart.
 ///
@@ -15,7 +16,6 @@ class ChartPainter extends CustomPainter {
   static const double WEIGHT_PADDING = 5.0; // Padding for min/max values
 
   final List<WeightEntry> entries;
-
   // Calculated drawing parameters:
   late double leftOffsetStart;
   late double topOffsetEnd;
@@ -116,7 +116,7 @@ class ChartPainter extends CustomPainter {
         textAlign: TextAlign.right,
       ),
     )
-      ..pushStyle(ui.TextStyle(color: Colors.black))
+      ..pushStyle(ui.TextStyle(color: Colors.grey.shade600))
       ..addText(labelWeight.toStringAsFixed(0));
     final ui.Paragraph paragraph = builder.build()
       ..layout(ui.ParagraphConstraints(width: leftOffsetStart - 4));
@@ -147,7 +147,7 @@ class ChartPainter extends CustomPainter {
           textAlign: TextAlign.center,
         ),
       )
-        ..pushStyle(ui.TextStyle(color: Colors.black))
+        ..pushStyle(ui.TextStyle(color: Colors.grey.shade600))
         ..addText(DateFormat('MMM d').format(labelDate));
 
       final ui.Paragraph paragraph = builder.build()
@@ -162,7 +162,7 @@ class ChartPainter extends CustomPainter {
 
   void _drawDataLines(Canvas canvas, double minWeight, double maxWeight) {
     if (entries.length < 2) return;
-
+    // final customColors = Theme.of(context).extension<CustomColors>();
     // Filter out any weight entries that are outside the allowed range
     final validEntries = entries
         .where((entry) =>
@@ -173,7 +173,7 @@ class ChartPainter extends CustomPainter {
     if (validEntries.length < 2) return;
 
     final linePaint = Paint()
-      ..color = Colors.grey.shade800
+      ..color = Colors.red
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke;
 
@@ -182,8 +182,8 @@ class ChartPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Colors.grey.shade800.withOpacity(0.2),
-          Colors.grey.shade800.withOpacity(0.05),
+          Colors.red.withValues(alpha: 0.2),
+          Colors.red.withValues(alpha: 0.05),
         ],
       ).createShader(Rect.fromLTWH(
         leftOffsetStart,
@@ -263,7 +263,7 @@ class ChartPainter extends CustomPainter {
 
     // Draw the marker for the most recent entry
     final markerPaint = Paint()
-      ..color = Colors.grey.shade800
+      ..color = Colors.red
       ..strokeWidth = 3.0
       ..style = PaintingStyle.fill;
     canvas.drawCircle(points.first, 5.0, markerPaint);
