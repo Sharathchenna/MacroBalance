@@ -290,7 +290,7 @@ class FoodList extends StatelessWidget {
           subtitle: Text(
             '${food.calories.round()} calories',
             style: TextStyle(
-              color: Theme.of(context).primaryColor.withOpacity(0.7),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
             ),
           ),
           onTap: () {
