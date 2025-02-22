@@ -3,9 +3,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:macrotracker/screens/healthPermissionsScreen.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:health/health.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -19,6 +21,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _dailyReminder = true;
   bool _weeklyReport = true;
   bool _goalAchieved = true;
+  bool _healthConnected = false;
 
   // Create a reusable text style for section titles
   TextStyle _getSectionTitleStyle(BuildContext context) {
@@ -36,6 +39,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       fontWeight: FontWeight.w500,
       color: Theme.of(context).primaryColor,
     );
+  }
+
+  Future<void> _requestHealthPermissions() async {
+    final health = Health();
+
+    try {
+      bool authorized = await health.requestAuthorization([
+        HealthDataType.WEIGHT,
+        HealthDataType.STEPS,
+        HealthDataType.ACTIVE_ENERGY_BURNED,
+        HealthDataType.BASAL_ENERGY_BURNED,
+      ]);
+
+      setState(() {
+        _healthConnected = authorized;
+      });
+    } catch (e) {
+      print('Error requesting health permissions: $e');
+    }
   }
 
   @override
@@ -122,6 +144,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         isLast: true,
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'Health',
+                    style: _getSectionTitleStyle(context),
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .extension<CustomColors>()
+                        ?.cardBackground,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: Theme.of(context).colorScheme.surface),
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => const HealthPermissionsScreen(),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 12.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            CupertinoIcons.heart_fill,
+                            size: 22,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Health App',
+                                  style: _getItemTitleStyle(context),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Manage health permissions',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 16,
+                            color: Colors.grey.shade400,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
