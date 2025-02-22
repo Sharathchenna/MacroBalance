@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/cupertino.dart';
 
 class BarcodeResults extends StatefulWidget {
   final String barcode;
@@ -66,12 +67,31 @@ class _BarcodeResultsState extends State<BarcodeResults> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Product Details'),
+        leading: CupertinoNavigationBarBackButton(
+          color: Theme.of(context).primaryColor,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Product Details',
+          style: TextStyle(
+            color: Theme.of(context).primaryColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!))
+              ? Center(
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                )
               : SingleChildScrollView(
                   padding: EdgeInsets.all(16),
                   child: Column(
@@ -91,7 +111,10 @@ class _BarcodeResultsState extends State<BarcodeResults> {
                       // Product Name
                       Text(
                         _productData?['product_name'] ?? 'Unknown Product',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  color: Theme.of(context).primaryColor,
+                                ),
                       ),
                       SizedBox(height: 16),
 
@@ -104,7 +127,12 @@ class _BarcodeResultsState extends State<BarcodeResults> {
                             children: [
                               Text(
                                 'Nutritional Information',
-                                style: Theme.of(context).textTheme.titleLarge,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      color: Theme.of(context).primaryColor,
+                                    ),
                               ),
                               SizedBox(height: 8),
                               _buildNutritionRow(
@@ -132,10 +160,20 @@ class _BarcodeResultsState extends State<BarcodeResults> {
                               children: [
                                 Text(
                                   'Ingredients',
-                                  style: Theme.of(context).textTheme.titleLarge,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        color: Theme.of(context).primaryColor,
+                                      ),
                                 ),
                                 SizedBox(height: 8),
-                                Text(_productData!['ingredients_text']),
+                                Text(
+                                  _productData!['ingredients_text'],
+                                  style: TextStyle(
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -156,8 +194,18 @@ class _BarcodeResultsState extends State<BarcodeResults> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label),
-          Text('${value.toStringAsFixed(1)}${_getNutritionUnit(key)}'),
+          Text(
+            label,
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+            ),
+          ),
+          Text(
+            '${value.toStringAsFixed(1)}${_getNutritionUnit(key)}',
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+            ),
+          ),
         ],
       ),
     );
