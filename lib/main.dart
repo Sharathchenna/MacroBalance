@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/screens/GoalsPage.dart';
 import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/AI/gemini.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
+import 'package:macrotracker/services/api_service.dart';
+import 'package:macrotracker/services/camera_service.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
@@ -17,7 +20,8 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await CameraService().controller;
+  await ApiService().getAccessToken();
   //supabase setup
   await Supabase.initialize(
     anonKey:
