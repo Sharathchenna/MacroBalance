@@ -292,7 +292,47 @@ class _CameraScreenState extends State<CameraScreen> {
                     children: [
                       IconButton(
                         icon: Icon(Icons.keyboard, color: Colors.white),
-                        onPressed: () {},
+                        onPressed: () {
+                          final TextEditingController controller = TextEditingController();
+                          showCupertinoDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return CupertinoAlertDialog(
+                                title: Text('Enter Barcode'),
+                                content: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                                  child: CupertinoTextField(
+                                    controller: controller,
+                                    keyboardType: TextInputType.number,
+                                    placeholder: 'Enter barcode number',
+                                    autofocus: true,
+                                    onSubmitted: (value) {
+                                      if (value.isNotEmpty) {
+                                        Navigator.pop(context);
+                                        _handleBarcodeResult(value);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                actions: [
+                                  CupertinoDialogAction(
+                                    child: Text('Cancel'),
+                                    onPressed: () => Navigator.pop(context),
+                                  ),
+                                  CupertinoDialogAction(
+                                    child: Text('Search'),
+                                    onPressed: () {
+                                      if (controller.text.isNotEmpty) {
+                                        Navigator.pop(context);
+                                        _handleBarcodeResult(controller.text);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
                       ),
                       IconButton(
                         icon: Icon(Icons.info_outline, color: Colors.white),
