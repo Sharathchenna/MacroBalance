@@ -372,18 +372,18 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         progress = progress.clamp(0.0, 1.0);
 
         return Container(
-          margin: EdgeInsets.all(16),
-          padding: EdgeInsets.all(16),
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(10.0),
+            borderRadius: BorderRadius.circular(20.0),
             boxShadow: [
-              // BoxShadow(
-              //   color: Colors.grey.withValues(alpha: 95.0),
-              //   spreadRadius: 1,
-              //   blurRadius: 1,
-              //   offset: Offset(0, 3),
-              // ),
+              BoxShadow(
+                color: Colors.grey.shade200,
+                blurRadius: 15,
+                spreadRadius: 5,
+                offset: const Offset(0, 5),
+              ),
             ],
           ),
           child: Column(
@@ -391,80 +391,107 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Calorie Circle
                   SizedBox(
-                    height: 120,
-                    width: 120,
+                    height: 130,
+                    width: 130,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: SizedBox(
-                            width: 120,
-                            height: 120,
-                            child: CircularProgressIndicator(
-                              value: progress,
-                              strokeWidth: 8,
-                              backgroundColor: Color(0xFFB8EAC5),
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF34C85A)),
+                        SizedBox(
+                          width: 130,
+                          height: 130,
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 10,
+                            backgroundColor: const Color(0xFFEDF3FF),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF34C85A),
                             ),
                           ),
                         ),
-                        Text(
-                          '${caloriesRemaining} cal\nremaining',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.roboto(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              caloriesRemaining.toString(),
+                              style: GoogleFonts.roboto(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              'cal left',
+                              style: GoogleFonts.roboto(
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 0, 50, 0),
+                  // Calories Info
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${caloriesBurned.toInt()} cal\nburned',
-                          style: GoogleFonts.roboto(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        _buildCalorieInfo(
+                          'Goal',
+                          caloriesGoal,
+                          const Color(0xFF34C85A),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildCalorieInfo(
+                          'Food',
+                          caloriesFromFood.toInt(),
+                          Colors.orange,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildCalorieInfo(
+                          'Burned',
+                          caloriesBurned.toInt(),
+                          Colors.blue,
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
+              // Macro Bars
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildMacroBar(
-                      label: 'S',
-                      intake: steps,
-                      goal: stepsGoal,
-                      color: Colors.red),
-                  _buildMacroBar(
-                      label: 'C',
-                      intake: totalCarbs.round(),
-                      goal: carbGoal,
-                      color: Colors.blue),
-                  _buildMacroBar(
-                      label: 'F',
-                      intake: totalFat.round(),
-                      goal: fatGoal,
-                      color: Colors.orange),
-                  _buildMacroBar(
-                      label: 'P',
-                      intake: totalProtein.round(),
-                      goal: proteinGoal,
-                      color: Colors.red),
+                  _buildMacroProgress(
+                    'Carbs',
+                    totalCarbs.round(),
+                    carbGoal,
+                    Colors.blue,
+                  ),
+                  _buildMacroProgress(
+                    'Protein',
+                    totalProtein.round(),
+                    proteinGoal,
+                    Colors.red,
+                  ),
+                  _buildMacroProgress(
+                    'Fat',
+                    totalFat.round(),
+                    fatGoal,
+                    Colors.orange,
+                  ),
+                  _buildMacroProgress(
+                    'Steps',
+                    steps,
+                    stepsGoal,
+                    Colors.green,
+                  ),
                 ],
-              )
+              ),
             ],
           ),
         );
@@ -473,26 +500,88 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 }
 
-Widget _buildMacroBar(
-    {required String label,
-    required int intake,
-    required int goal,
-    required Color color}) {
-  double progress = intake / goal;
-  progress = progress.clamp(0, 1); // Ensure progress is between 0 and 1
+Widget _buildCalorieInfo(String label, int value, Color color) {
+  return Row(
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+        ),
+      ),
+      const SizedBox(width: 8),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          Text(
+            '$value',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+Widget _buildMacroProgress(String label, int value, int goal, Color color) {
+  double progress = (value / goal).clamp(0.0, 1.0);
 
   return Column(
     children: [
-      Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-      SizedBox(
-        width: 50,
-        child: LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.grey[300],
-          valueColor: AlwaysStoppedAnimation<Color>(color),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey.shade600,
         ),
       ),
-      Text('$intake/$goal'),
+      const SizedBox(height: 8),
+      SizedBox(
+        height: 40,
+        width: 6,
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: FractionallySizedBox(
+                heightFactor: progress,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        '$value',
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     ],
   );
 }
