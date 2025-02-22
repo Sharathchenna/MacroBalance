@@ -559,7 +559,7 @@ class _MealSectionState extends State<MealSection> {
         final entries = foodEntryProvider.getEntriesForMeal(
             mealType, dateProvider.selectedDate);
         double totalCalories = entries.fold(0, (sum, entry) {
-          final energy = entry.food.nutrients["Energy"] ?? 0;
+          final energy = entry.food.calories ?? 0;
           return sum + (energy * entry.quantity / 100);
         });
 
@@ -609,7 +609,7 @@ class _MealSectionState extends State<MealSection> {
                 ...entries.map((entry) => ListTile(
                       title: Text(entry.food.name),
                       subtitle: Text(
-                        '${entry.quantity}${entry.unit} - ${(entry.food.nutrients["Energy"] ?? 0 * entry.quantity / 100).toStringAsFixed(0)} kcal',
+                        '${entry.quantity}${entry.unit} - ${(entry.food.calories * entry.quantity / 100).toStringAsFixed(0)} kcal',
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline),
