@@ -42,4 +42,12 @@ class FoodEntryProvider with ChangeNotifier {
       return sum + (energy * entry.quantity / 100);
     });
   }
+
+  List<FoodEntry> getAllEntriesForDate(DateTime date) {
+    return _entries.where((entry) =>
+      entry.date.year == date.year &&
+      entry.date.month == date.month &&
+      entry.date.day == date.day
+    ).toList();
+  }
 }
