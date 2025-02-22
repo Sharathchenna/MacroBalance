@@ -7,6 +7,7 @@ import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart
 import 'package:macrotracker/camera/barcode_results.dart';
 import '../AI/gemini.dart';
 import 'results_page.dart';
+import '../services/camera_service.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -16,6 +17,7 @@ class CameraScreen extends StatefulWidget {
 }
 
 class _CameraScreenState extends State<CameraScreen> {
+  final CameraService _cameraService = CameraService();
   CameraController? _controller;
   Future<void>? _initializeControllerFuture;
   final BarcodeScanner _barcodeScanner = BarcodeScanner();
@@ -39,33 +41,21 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<void> _initializeCamera() async {
     try {
-      final cameras = await availableCameras();
-      final firstCamera = cameras.first;
+      _controller = await _cameraService.controller;
+      if (_controller != null) {
+        // Get zoom levels
+        _minAvailableZoom = await _controller!.getMinZoomLevel();
+        _maxAvailableZoom = await _controller!.getMaxZoomLevel();
 
-      final controller = CameraController(
-        firstCamera,
-        ResolutionPreset.high,
-        enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.bgra8888,
-      );
+        if (mounted) {
+          setState(() {
+            _initializeControllerFuture = Future.value();
+          });
+        }
 
-      await controller.initialize();
-
-      // Configure camera
-      await Future.wait([
-        controller.setFocusMode(FocusMode.auto),
-        controller.setExposureMode(ExposureMode.auto),
-        controller.setFlashMode(FlashMode.off),
-      ]);
-
-      _minAvailableZoom = await controller.getMinZoomLevel();
-      _maxAvailableZoom = await controller.getMaxZoomLevel();
-
-      if (mounted) {
-        setState(() {
-          _controller = controller;
-          _initializeControllerFuture = Future.value();
-        });
+        if (_isBarcodeMode) {
+          await _startBarcodeScanning();
+        }
       }
     } catch (e) {
       print('Error initializing camera: $e');
@@ -269,9 +259,8 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   void dispose() {
     _stopBarcodeScanning();
-    _controller?.dispose();
-    _barcodeScanner.close();
     super.dispose();
+    // Don't dispose of the controller here as it's managed by the service
   }
 
   @override

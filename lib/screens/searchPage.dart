@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:macrotracker/services/api_service.dart';
 
 class FoodSearchPage extends StatefulWidget {
   const FoodSearchPage({super.key});
@@ -20,48 +21,24 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
   List<FoodItem> _searchResults = [];
   List<String> _autoCompleteResults = [];
   bool _isLoading = false;
-  String? _accessToken;
-
-  // FatSecret API credentials - replace with your own
-  final String _clientId = '5c66a0001059406b8989bd179ab8897d';
-  final String _clientSecret = '5de5f12d25e4418b8c78e6b80e78d9f7';
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    _getAccessToken();
+    _initializeApi();
+  }
+
+  Future<void> _initializeApi() async {
+    await _apiService.getAccessToken();
   }
 
   Future<void> _getAccessToken() async {
-    try {
-      final response = await http.post(
-        Uri.parse('https://oauth.fatsecret.com/connect/token'),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization':
-              'Basic ${base64Encode(utf8.encode('$_clientId:$_clientSecret'))}',
-        },
-        body: {
-          'grant_type': 'client_credentials',
-          'scope': 'premier', // Changed from 'basic' to 'premier'
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() => _accessToken = data['access_token']);
-        print('Access token obtained successfully with premier scope');
-      } else {
-        print('Failed to get access token: ${response.statusCode}');
-        print('Error response: ${response.body}');
-      }
-    } catch (e) {
-      print('Error getting access token: $e');
-    }
+    await _apiService.getAccessToken();
   }
 
   Future<void> _getAutocompleteSuggestions(String query) async {
-    if (query.isEmpty || _accessToken == null) {
+    if (query.isEmpty || _apiService.accessToken == null) {
       setState(() => _autoCompleteResults = []);
       return;
     }
@@ -77,7 +54,7 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
           },
         ),
         headers: {
-          'Authorization': 'Bearer $_accessToken',
+          'Authorization': 'Bearer ${_apiService.accessToken}',
           'Accept': 'application/json', // Added Accept header
           'Content-Type': 'application/json',
         },
@@ -96,7 +73,7 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
         }
       } else if (response.statusCode == 401) {
         await _getAccessToken();
-        if (_accessToken != null) {
+        if (_apiService.accessToken != null) {
           await _getAutocompleteSuggestions(query);
         }
       } else {
@@ -110,9 +87,8 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
     }
   }
 
-  // Also update the _searchFood method to use the same headers
   Future<void> _searchFood(String query) async {
-    if (query.isEmpty || _accessToken == null) return;
+    if (query.isEmpty || _apiService.accessToken == null) return;
 
     setState(() => _isLoading = true);
 
@@ -128,7 +104,7 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
           },
         ),
         headers: {
-          'Authorization': 'Bearer $_accessToken',
+          'Authorization': 'Bearer ${_apiService.accessToken}',
           'Accept': 'application/json', // Added Accept header
           'Content-Type': 'application/json',
         },
@@ -147,7 +123,7 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
         }
       } else if (response.statusCode == 401) {
         await _getAccessToken();
-        if (_accessToken != null) {
+        if (_apiService.accessToken != null) {
           await _searchFood(query);
         }
       } else {
