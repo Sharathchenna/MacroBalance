@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
+import 'package:macrotracker/screens/GoalsPage.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
@@ -80,7 +81,6 @@ class _DashboardState extends State<Dashboard> {
                           Navigator.push(
                             context,
                             CupertinoSheetRoute(
-                              
                                 builder: (context) => FoodSearchPage()),
                           );
                         },
@@ -102,12 +102,13 @@ class _DashboardState extends State<Dashboard> {
                     ),
                     Expanded(
                       child: IconButton(
-                        icon: ImageIcon(AssetImage("assets/icons/AI Icon.png")),
+                        icon: Icon(Icons.graphic_eq_outlined),
                         onPressed: () {
                           // Handle the "AI" action
                           Navigator.push(
                             context,
-                            CupertinoSheetRoute(builder: (context) => Askai()),
+                            CupertinoSheetRoute(
+                                builder: (context) => GoalsScreen()),
                           );
                         },
                         color: const Color(0xFFFFC107),
