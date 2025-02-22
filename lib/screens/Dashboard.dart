@@ -276,9 +276,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   final int fatGoal = 80;
   final int proteinGoal = 150;
   final int stepsGoal = 9000;
-  final int carbIntake = 20;
-  final int fatIntake = 10;
-  final int proteinIntake = 80;
 
   @override
   void initState() {
@@ -340,50 +337,30 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_hasHealthPermissions) {
-      return Container(
-        margin: EdgeInsets.all(16),
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10.0),
-          boxShadow: [
-            // BoxShadow(
-            //   color: Colors.grey.withOpacity(0.3),
-            //   spreadRadius: 1,
-            //   blurRadius: 1,
-            //   offset: Offset(0, 3),
-            // ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Health Data Access Required',
-              style: GoogleFonts.roboto(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Please grant access to health data to see your calories and steps.',
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 16),
-            CupertinoButton(
-              color: Theme.of(context).primaryColor,
-              child: Text('Grant Access'),
-              onPressed: _checkAndRequestPermissions,
-            ),
-          ],
-        ),
-      );
-    }
-
     return Consumer2<FoodEntryProvider, DateProvider>(
       builder: (context, foodEntryProvider, dateProvider, child) {
+        // Calculate total macros from all food entries
+        final entries =
+            foodEntryProvider.getAllEntriesForDate(dateProvider.selectedDate);
+
+        double totalCarbs = 0;
+        double totalFat = 0;
+        double totalProtein = 0;
+
+        for (var entry in entries) {
+          // Get macros values from nutrients map
+          final carbs =
+              entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
+          final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
+          final protein = entry.food.nutrients["Protein"] ?? 0;
+
+          // Calculate based on quantity
+          final multiplier = entry.quantity / 100;
+          totalCarbs += carbs * multiplier;
+          totalFat += fat * multiplier;
+          totalProtein += protein * multiplier;
+        }
+
         // Calculate calories from food entries
         final caloriesFromFood = foodEntryProvider
             .getTotalCaloriesForDate(dateProvider.selectedDate);
@@ -473,17 +450,17 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                       color: Colors.red),
                   _buildMacroBar(
                       label: 'C',
-                      intake: carbIntake,
+                      intake: totalCarbs.round(),
                       goal: carbGoal,
                       color: Colors.blue),
                   _buildMacroBar(
                       label: 'F',
-                      intake: fatIntake,
+                      intake: totalFat.round(),
                       goal: fatGoal,
                       color: Colors.orange),
                   _buildMacroBar(
                       label: 'P',
-                      intake: proteinIntake,
+                      intake: totalProtein.round(),
                       goal: proteinGoal,
                       color: Colors.red),
                 ],
