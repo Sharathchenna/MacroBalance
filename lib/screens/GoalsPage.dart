@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
@@ -32,7 +33,7 @@ class _GoalsScreenState extends State<GoalsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -79,22 +80,22 @@ class _GoalsScreenState extends State<GoalsScreen>
       children: [
         IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 20),
-          onPressed: () {},
-          color: Colors.white70,
+          onPressed: () => Navigator.of(context).pop(),
+          color: Theme.of(context).primaryColor,
         ),
-        const Text(
+        Text(
           'Goals',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
-            color: Colors.white,
+            color: Theme.of(context).primaryColor,
           ),
         ),
         IconButton(
           icon: const Icon(Icons.add, size: 24),
           onPressed: () {},
-          color: Colors.white70,
+          color: Theme.of(context).primaryColor,
         ),
       ],
     );
@@ -118,14 +119,14 @@ class _GoalsScreenState extends State<GoalsScreen>
                   children: [
                     Icon(
                       data.icon,
-                      color: data.color.withValues(alpha: 0.9),
+                      color: data.color,
                       size: 20,
                     ),
                     const SizedBox(width: 12),
                     Text(
                       data.title,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: Theme.of(context).primaryColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
@@ -144,7 +145,7 @@ class _GoalsScreenState extends State<GoalsScreen>
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: 0.95),
+                            color: Theme.of(context).primaryColor,
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -153,7 +154,9 @@ class _GoalsScreenState extends State<GoalsScreen>
                           Text(
                             data.subtitle,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
+                              color: Theme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.5),
                               fontSize: 14,
                             ),
                           ),
@@ -251,13 +254,22 @@ class GoalData {
 }
 
 GoalData getGoalData(int index) {
+  final themeColors = [
+    const Color(0xFF64B5F6), // blue
+    const Color(0xFF81C784), // green
+    const Color(0xFFFFB74D), // orange
+    const Color(0xFFE57373), // red
+    const Color(0xFF9575CD), // purple
+    const Color(0xFF4DB6AC), // teal
+  ];
+
   switch (index) {
     case 0:
       return GoalData(
         title: 'Weight',
         value: '69 kg',
         subtitle: 'Feb 11, 2025',
-        color: Colors.cyan,
+        color: themeColors[0],
         icon: Icons.monitor_weight_outlined,
         showProgress: true,
         progress: 0.7,
@@ -267,7 +279,7 @@ GoalData getGoalData(int index) {
         title: 'Calories',
         value: '2,237 cal',
         subtitle: 'remaining',
-        color: Colors.green,
+        color: themeColors[1],
         icon: Icons.local_fire_department_outlined,
         showProgress: true,
         progress: 0.1,
@@ -278,7 +290,7 @@ GoalData getGoalData(int index) {
         title: 'Custom Goal',
         value: '0',
         subtitle: '',
-        color: Colors.grey,
+        color: themeColors[5],
         icon: Icons.flag_outlined,
         showSetGoal: true,
       );
