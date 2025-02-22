@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:google_fonts/google_fonts.dart';
-
+import 'package:macrotracker/theme/app_theme.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 class Askai extends StatefulWidget {
@@ -86,17 +86,17 @@ Meal to analyze: ${_mealController.text}
     super.build(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F4F0),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: CupertinoColors.systemGrey.withOpacity(0.0),
         leading: CupertinoNavigationBarBackButton(
-          color: CupertinoColors.black,
+          color: Theme.of(context).primaryColor,
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           'Ask AI',
           style: GoogleFonts.roboto(
-            color: CupertinoColors.black,
+            color: Theme.of(context).primaryColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -117,7 +117,9 @@ Meal to analyze: ${_mealController.text}
                   maxHeight: 300, // Maximum expansion height
                 ),
                 decoration: BoxDecoration(
-                  color: CupertinoColors.white,
+                  color: Theme.of(context)
+                      .extension<CustomColors>()
+                      ?.cardBackground,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     // BoxShadow(
@@ -132,11 +134,16 @@ Meal to analyze: ${_mealController.text}
                   controller: _mealController,
                   maxLines: null,
                   textAlignVertical: TextAlignVertical.top,
+                  style: GoogleFonts.roboto(
+                    color: Theme.of(context).primaryColor,
+                  ),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   placeholder: 'Describe your meal...',
-                  placeholderStyle:
-                      GoogleFonts.roboto(color: CupertinoColors.systemGrey),
+                  placeholderStyle: GoogleFonts.roboto(
+                      color: Theme.of(context)
+                          .extension<CustomColors>()
+                          ?.textSecondary),
                   // Remove the default inner border since we wrapped the field in a container
                   decoration: const BoxDecoration(),
                   suffix: CupertinoButton(
@@ -159,7 +166,9 @@ Meal to analyze: ${_mealController.text}
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: CupertinoColors.white,
+                    color: Theme.of(context)
+                        .extension<CustomColors>()
+                        ?.cardBackground,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: const [
                       // BoxShadow(
@@ -175,6 +184,9 @@ Meal to analyze: ${_mealController.text}
                     style: GoogleFonts.roboto(
                       fontSize: 16,
                       height: 1.5,
+                      color: Theme.of(context)
+                          .extension<CustomColors>()
+                          ?.textPrimary,
                     ),
                   ),
                 ),

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/screens/settingsScreen.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:intl/intl.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 // Import the custom painter widget:
 import 'package:numberpicker/numberpicker.dart';
 import 'package:macrotracker/widgets/chart_painter.dart';
@@ -92,7 +93,8 @@ class _AccountdashboardState extends State<Accountdashboard> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16.0),
               ),
-              backgroundColor: Colors.white,
+              backgroundColor:
+                  Theme.of(context).extension<CustomColors>()?.cardBackground,
               // title: Center(
               //   child: Text(
               //     "Log New Weight",
@@ -122,8 +124,10 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             color: Colors.grey,
                             fontSize: 20,
                           ),
-                          selectedTextStyle: const TextStyle(
-                            color: Colors.black,
+                          selectedTextStyle: TextStyle(
+                            color: Theme.of(context)
+                                .extension<CustomColors>()
+                                ?.textPrimary,
                             fontSize: 32,
                             fontWeight: FontWeight.w600,
                           ),
@@ -157,8 +161,10 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             color: Colors.grey,
                             fontSize: 20,
                           ),
-                          selectedTextStyle: const TextStyle(
-                            color: Colors.black,
+                          selectedTextStyle: TextStyle(
+                            color: Theme.of(context)
+                                .extension<CustomColors>()
+                                ?.textPrimary,
                             fontSize: 32,
                             fontWeight: FontWeight.w600,
                           ),
@@ -199,14 +205,16 @@ class _AccountdashboardState extends State<Accountdashboard> {
                                 }
                               });
                             },
-                            children: const [
+                            children: [
                               Center(
                                 child: Text(
                                   'kg',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.black,
+                                    color: Theme.of(context)
+                                        .extension<CustomColors>()
+                                        ?.textPrimary,
                                   ),
                                 ),
                               ),
@@ -216,7 +224,9 @@ class _AccountdashboardState extends State<Accountdashboard> {
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.black,
+                                    color: Theme.of(context)
+                                        .extension<CustomColors>()
+                                        ?.textPrimary,
                                   ),
                                 ),
                               ),
@@ -230,11 +240,14 @@ class _AccountdashboardState extends State<Accountdashboard> {
                   // Date Picker Row
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 10.0),
+                        horizontal: 8.0, vertical: 10.0),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.white
+                          : Colors.grey.shade900,
                       borderRadius: BorderRadius.circular(12.0),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(
+                          color: Theme.of(context).colorScheme.onSurface),
                     ),
                     child: Row(
                       children: [
@@ -253,8 +266,11 @@ class _AccountdashboardState extends State<Accountdashboard> {
                         ),
                         const Spacer(),
                         IconButton(
-                          icon: const Icon(CupertinoIcons.calendar,
-                              color: Colors.black),
+                          icon: Icon(CupertinoIcons.calendar,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? Colors.black
+                                  : Colors.white),
                           onPressed: () {
                             if (Theme.of(context).platform ==
                                 TargetPlatform.iOS) {
@@ -337,9 +353,13 @@ class _AccountdashboardState extends State<Accountdashboard> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     TextButton(
-                      child: const Text(
+                      child: Text(
                         "Cancel",
-                        style: TextStyle(color: Colors.black),
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.black
+                                    : Colors.white),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -382,7 +402,8 @@ class _AccountdashboardState extends State<Accountdashboard> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16.0),
               ),
-              backgroundColor: Colors.white,
+              backgroundColor:
+                  Theme.of(context).extension<CustomColors>()?.cardBackground,
               // title: Text(
               //   "Edit Goal Weight",
               //   style: GoogleFonts.roboto(
@@ -409,8 +430,10 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             color: Colors.grey,
                             fontSize: 20,
                           ),
-                          selectedTextStyle: const TextStyle(
-                            color: Colors.black,
+                          selectedTextStyle: TextStyle(
+                            color: Theme.of(context)
+                                .extension<CustomColors>()
+                                ?.textPrimary,
                             fontSize: 32,
                             fontWeight: FontWeight.w600,
                           ),
@@ -445,8 +468,10 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             color: Colors.grey,
                             fontSize: 20,
                           ),
-                          selectedTextStyle: const TextStyle(
-                            color: Colors.black,
+                          selectedTextStyle: TextStyle(
+                            color: Theme.of(context)
+                                .extension<CustomColors>()
+                                ?.textPrimary,
                             fontSize: 32,
                             fontWeight: FontWeight.w600,
                           ),
@@ -486,14 +511,16 @@ class _AccountdashboardState extends State<Accountdashboard> {
                                 }
                               });
                             },
-                            children: const [
+                            children: [
                               Center(
                                 child: Text(
                                   'kg',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.black,
+                                    color: Theme.of(context)
+                                        .extension<CustomColors>()
+                                        ?.textPrimary,
                                   ),
                                 ),
                               ),
@@ -503,7 +530,9 @@ class _AccountdashboardState extends State<Accountdashboard> {
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.black,
+                                    color: Theme.of(context)
+                                        .extension<CustomColors>()
+                                        ?.textPrimary,
                                   ),
                                 ),
                               ),
@@ -520,9 +549,13 @@ class _AccountdashboardState extends State<Accountdashboard> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     TextButton(
-                      child: const Text(
+                      child: Text(
                         "Cancel",
-                        style: TextStyle(color: Colors.black),
+                        style: TextStyle(
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.black
+                                    : Colors.white),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -592,12 +625,16 @@ class _AccountdashboardState extends State<Accountdashboard> {
           weight: 77.0),
     ];
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F4F0),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
+        leading: CupertinoNavigationBarBackButton(
+          color: Theme.of(context).primaryColor,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(
           'Profile',
           style: GoogleFonts.roboto(
-            color: CupertinoColors.black,
+            color: Theme.of(context).primaryColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -605,15 +642,20 @@ class _AccountdashboardState extends State<Accountdashboard> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               CupertinoIcons.square_arrow_right,
-              color: Colors.black87,
+              color: Theme.of(context).primaryColor,
             ),
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => CupertinoAlertDialog(
-                  title: const Text('Confirm Logout'),
+                  title: Text(
+                    'Confirm Logout',
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
                   content: const Text('Are you sure you want to logout?'),
                   actions: [
                     TextButton(
@@ -640,39 +682,137 @@ class _AccountdashboardState extends State<Accountdashboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // User Data Section
-            Padding(
-              padding: const EdgeInsets.all(16.0),
+            Container(
+              margin: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(20.0),
+              decoration: BoxDecoration(
+                color:
+                    Theme.of(context).extension<CustomColors>()?.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                // boxShadow: [
+                //   BoxShadow(
+                //     color: Colors.grey.shade200,
+                //     blurRadius: 10,
+                //     spreadRadius: 1,
+                //     offset: const Offset(0, 2),
+                //   ),
+                // ],
+              ),
               child: Row(
                 children: [
+                  const SizedBox(width: 16),
+                  // User Info
                   Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: DefaultTextStyle.of(context).style,
-                        children: const [
-                          TextSpan(
-                            text: 'John Doe', // replace with dynamic user name
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                              decoration: TextDecoration.none,
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'John Doe', // replace with dynamic user name
+                          style: GoogleFonts.roboto(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context)
+                                .extension<CustomColors>()
+                                ?.textPrimary,
                           ),
-                          WidgetSpan(child: SizedBox(width: 8)),
-                          TextSpan(
-                            text: '30', // replace with dynamic user age
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.black,
-                              decoration: TextDecoration.none,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade100
+                                    : Colors.grey.shade800,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.calendar,
+                                    size: 14,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.light
+                                        ? Colors.grey.shade600
+                                        : Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '30 years', // replace with dynamic user age
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? Colors.grey.shade600
+                                          : Colors.grey.shade300,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade100
+                                    : Colors.grey.shade800,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.arrow_up_arrow_down,
+                                    size: 14,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.light
+                                        ? Colors.grey.shade600
+                                        : Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '175 cm', // replace with dynamic user height
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? Colors.grey.shade600
+                                          : Colors.grey.shade300,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
+                  // Edit Button
                   IconButton(
-                    icon: const Icon(CupertinoIcons.pencil),
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade100
+                            : Colors.grey.shade800,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        CupertinoIcons.pencil,
+                        size: 16,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
                     onPressed: _editUserData,
                   ),
                 ],
@@ -680,13 +820,14 @@ class _AccountdashboardState extends State<Accountdashboard> {
             ),
 
             // Weight Journey Subheading
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
                 'Weight Journey',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
+                  color: Theme.of(context).primaryColor,
                 ),
               ),
             ),
@@ -714,8 +855,14 @@ class _AccountdashboardState extends State<Accountdashboard> {
                       child: Container(
                         padding: const EdgeInsets.all(16.0),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade300),
+                          color: Theme.of(context)
+                              .extension<CustomColors>()
+                              ?.cardBackground,
+                          border: Border.all(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? Colors.grey.shade300
+                                  : Colors.grey.shade800),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -724,26 +871,28 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             // Title with icon on top right
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
+                              children: [
                                 Text(
                                   'Current Weight',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).primaryColor,
                                   ),
                                 ),
                                 Icon(
                                   Icons.add,
                                   size: 20,
-                                  color: Colors.black,
+                                  color: Colors.grey,
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8.0),
                             Text(
                               '$currentWeight kg',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 20,
+                                color: Theme.of(context).primaryColor,
                               ),
                             ),
                           ],
@@ -759,8 +908,14 @@ class _AccountdashboardState extends State<Accountdashboard> {
                       child: Container(
                         padding: const EdgeInsets.all(16.0),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade300),
+                          color: Theme.of(context)
+                              .extension<CustomColors>()
+                              ?.cardBackground,
+                          border: Border.all(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? Colors.grey.shade300
+                                  : Colors.grey.shade800),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -769,12 +924,13 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             // Title with icon on top right
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
+                              children: [
                                 Text(
                                   'Goal Weight',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).primaryColor,
                                   ),
                                 ),
                                 Icon(
@@ -787,8 +943,9 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             const SizedBox(height: 8.0),
                             Text(
                               '$goalWeight kg',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 20,
+                                color: Theme.of(context).primaryColor,
                               ),
                             ),
                           ],
@@ -833,11 +990,11 @@ class _AccountdashboardState extends State<Accountdashboard> {
                     //   border: Border.all(color: Colors.grey.shade300),
                     // ),
                     child: Row(
-                      children: const [
+                      children: [
                         Icon(
                           CupertinoIcons.settings,
                           size: 30,
-                          color: Colors.black87,
+                          color: Theme.of(context).primaryColor,
                         ),
                         SizedBox(width: 12),
                         Center(
@@ -846,6 +1003,7 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
+                              color: Theme.of(context).primaryColor,
                             ),
                           ),
                         ),
@@ -861,7 +1019,7 @@ class _AccountdashboardState extends State<Accountdashboard> {
                 ),
               ),
             ),
-
+            SizedBox(height: 150),
             // ...other content...
           ],
         ),

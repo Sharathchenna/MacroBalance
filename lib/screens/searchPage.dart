@@ -4,8 +4,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
+import 'package:flutter/cupertino.dart';
 
 class FoodSearchPage extends StatefulWidget {
   const FoodSearchPage({super.key});
@@ -170,10 +171,21 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
   Widget build(BuildContext context) {
     // Remove the loading screen check
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F4F0),
+      // backgroundColor: const Color(0xFFF5F4F0),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Search Foods'),
-        backgroundColor: const Color(0xFFF5F4F0),
+        leading: CupertinoNavigationBarBackButton(
+          color: Theme.of(context).primaryColor,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Search Foods',
+          style: TextStyle(
+            color: Theme.of(context).primaryColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -194,7 +206,12 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
                   itemCount: _autoCompleteResults.length,
                   itemBuilder: (context, index) {
                     return ListTile(
-                      title: Text(_autoCompleteResults[index]),
+                      title: Text(
+                        _autoCompleteResults[index],
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
                       onTap: () {
                         _searchController.text = _autoCompleteResults[index];
                         _searchFood(_autoCompleteResults[index]);
@@ -233,11 +250,18 @@ class SearchBar extends StatelessWidget {
     return TextField(
       controller: controller,
       decoration: InputDecoration(
+        prefixIconColor: Theme.of(context).primaryColor,
         hintText: 'Search for food...',
+        hintStyle: TextStyle(
+          color: Theme.of(context).primaryColor,
+        ),
         prefixIcon: Icon(Icons.search),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
         ),
+      ),
+      style: TextStyle(
+        color: Theme.of(context).primaryColor,
       ),
       onSubmitted: onSearch,
       onChanged: onChanged,
@@ -257,8 +281,18 @@ class FoodList extends StatelessWidget {
       itemBuilder: (context, index) {
         final food = foods[index];
         return ListTile(
-          title: Text(food.name),
-          subtitle: Text('${food.calories.round()} calories'),
+          title: Text(
+            food.name,
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+            ),
+          ),
+          subtitle: Text(
+            '${food.calories.round()} calories',
+            style: TextStyle(
+              color: Theme.of(context).primaryColor.withOpacity(0.7),
+            ),
+          ),
           onTap: () {
             Navigator.push(
               context,

@@ -12,6 +12,8 @@ import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:macrotracker/providers/themeProvider.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +30,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => FoodEntryProvider()),
         ChangeNotifierProvider(create: (_) => DateProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const MyApp(),
     ),
@@ -40,14 +43,18 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'MacroTracker',
-      theme: ThemeData(
-        primaryColor: CupertinoColors.systemBlue,
-        scaffoldBackgroundColor: const Color(0xFFF5F4F0),
-      ),
-      home: AuthGate(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'MacroTracker',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode:
+              themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          home: AuthGate(),
+        );
+      },
     );
   }
 }
