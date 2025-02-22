@@ -38,7 +38,7 @@ class FoodEntryProvider with ChangeNotifier {
   double getTotalCaloriesForDate(DateTime date) {
     final entriesForDate = getEntriesForDate(date);
     return entriesForDate.fold(0, (sum, entry) {
-      final energy = entry.food.nutrients["Energy"] ?? 0;
+      final energy = entry.food.calories;
       return sum + (energy * entry.quantity / 100);
     });
   }
