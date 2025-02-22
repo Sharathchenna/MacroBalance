@@ -6,8 +6,11 @@ import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import '../Health/Health.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:macrotracker/providers/foodEntryProvider.dart';
+import '../providers/dateProvider.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -137,9 +140,9 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
   DateTime selectedDate = DateTime.now();
 
   void _navigateDate(int days) {
-    setState(() {
-      selectedDate = selectedDate.add(Duration(days: days));
-    });
+    final dateProvider = Provider.of<DateProvider>(context, listen: false);
+    final newDate = dateProvider.selectedDate.add(Duration(days: days));
+    dateProvider.setDate(newDate);
   }
 
   String _formatDate(DateTime date) {
@@ -147,7 +150,9 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
     final yesterday = now.subtract(Duration(days: 1));
     final tomorrow = now.add(Duration(days: 1));
 
-    if (date.year == now.year && date.month == now.month && date.day == now.day) {
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
       return 'Today';
     }
     if (date.year == tomorrow.year &&
@@ -161,8 +166,8 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
       return 'Yesterday';
     }
     return '${date.day.toString().padLeft(2, '0')}/'
-           '${date.month.toString().padLeft(2, '0')}/'
-           '${date.year.toString().substring(2)}';
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year.toString().substring(2)}';
   }
 
   @override
@@ -214,38 +219,40 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
   }
 
   Widget _buildDateButton() {
-    return Center(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20.0),
-        onTap: () {
-          // Reset to today's date
-          setState(() {
-            selectedDate = DateTime.now();
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0E9DF),
+    return Consumer<DateProvider>(
+      builder: (context, dateProvider, child) {
+        return Center(
+          child: InkWell(
             borderRadius: BorderRadius.circular(20.0),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                CupertinoIcons.calendar_today,
-                color: Colors.black,
-                size: 16,
+            onTap: () {
+              dateProvider.setDate(DateTime.now());
+            },
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0E9DF),
+                borderRadius: BorderRadius.circular(20.0),
               ),
-              const SizedBox(width: 8.0),
-              Text(
-                _formatDate(selectedDate),
-                style: const TextStyle(color: Colors.black),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    CupertinoIcons.calendar_today,
+                    color: Colors.black,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8.0),
+                  Text(
+                    _formatDate(dateProvider.selectedDate),
+                    style: const TextStyle(color: Colors.black),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -375,103 +382,116 @@ class _CalorieTrackerState extends State<CalorieTracker> {
       );
     }
 
-    // Calculate remaining calories
-    final int caloriesRemaining = caloriesGoal - caloriesBurned.toInt();
-    double progress = caloriesBurned / caloriesGoal;
-    progress = progress.clamp(0.0, 1.0); // Ensure progress is between 0 and 1
+    return Consumer2<FoodEntryProvider, DateProvider>(
+      builder: (context, foodEntryProvider, dateProvider, child) {
+        // Calculate calories from food entries
+        final caloriesFromFood = foodEntryProvider
+            .getTotalCaloriesForDate(dateProvider.selectedDate);
 
-    return Container(
-      margin: EdgeInsets.all(16),
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10.0),
-        boxShadow: [
-          // BoxShadow(
-          //   color: Colors.grey.withValues(alpha: 95.0),
-          //   spreadRadius: 1,
-          //   blurRadius: 1,
-          //   offset: Offset(0, 3),
-          // ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              SizedBox(
-                height: 120,
-                width: 120,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: SizedBox(
-                        width: 120,
-                        height: 120,
-                        child: CircularProgressIndicator(
-                          value: progress,
-                          strokeWidth: 8,
-                          backgroundColor: Color(0xFFB8EAC5),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF34C85A)),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${caloriesRemaining} cal\nremaining',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.roboto(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 0, 50, 0),
-                child: Text(
-                  '${caloriesBurned.toInt()} cal\nburned',
-                  textAlign: TextAlign.start,
-                  style: GoogleFonts.roboto(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
+        // Calculate remaining calories
+        final int caloriesRemaining =
+            caloriesGoal - caloriesBurned.toInt() - caloriesFromFood.toInt();
+        double progress = (caloriesBurned + caloriesFromFood) / caloriesGoal;
+        progress = progress.clamp(0.0, 1.0);
+
+        return Container(
+          margin: EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10.0),
+            boxShadow: [
+              // BoxShadow(
+              //   color: Colors.grey.withValues(alpha: 95.0),
+              //   spreadRadius: 1,
+              //   blurRadius: 1,
+              //   offset: Offset(0, 3),
+              // ),
             ],
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          child: Column(
             children: [
-              _buildMacroBar(
-                  label: 'S',
-                  intake: steps,
-                  goal: stepsGoal,
-                  color: Colors.red),
-              _buildMacroBar(
-                  label: 'C',
-                  intake: carbIntake,
-                  goal: carbGoal,
-                  color: Colors.blue),
-              _buildMacroBar(
-                  label: 'F',
-                  intake: fatIntake,
-                  goal: fatGoal,
-                  color: Colors.orange),
-              _buildMacroBar(
-                  label: 'P',
-                  intake: proteinIntake,
-                  goal: proteinGoal,
-                  color: Colors.red),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SizedBox(
+                    height: 120,
+                    width: 120,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: SizedBox(
+                            width: 120,
+                            height: 120,
+                            child: CircularProgressIndicator(
+                              value: progress,
+                              strokeWidth: 8,
+                              backgroundColor: Color(0xFFB8EAC5),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF34C85A)),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${caloriesRemaining} cal\nremaining',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.roboto(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 50, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${caloriesBurned.toInt()} cal\nburned',
+                          style: GoogleFonts.roboto(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildMacroBar(
+                      label: 'S',
+                      intake: steps,
+                      goal: stepsGoal,
+                      color: Colors.red),
+                  _buildMacroBar(
+                      label: 'C',
+                      intake: carbIntake,
+                      goal: carbGoal,
+                      color: Colors.blue),
+                  _buildMacroBar(
+                      label: 'F',
+                      intake: fatIntake,
+                      goal: fatGoal,
+                      color: Colors.orange),
+                  _buildMacroBar(
+                      label: 'P',
+                      intake: proteinIntake,
+                      goal: proteinGoal,
+                      color: Colors.red),
+                ],
+              )
             ],
-          )
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -534,73 +554,98 @@ class _MealSectionState extends State<MealSection> {
   }
 
   Widget _buildMealCard(String mealType) {
-    return Card(
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Column(
-        children: [
-          ListTile(
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
+    return Consumer2<FoodEntryProvider, DateProvider>(
+      builder: (context, foodEntryProvider, dateProvider, child) {
+        final entries = foodEntryProvider.getEntriesForMeal(
+            mealType, dateProvider.selectedDate);
+        double totalCalories = entries.fold(0, (sum, entry) {
+          final energy = entry.food.nutrients["Energy"] ?? 0;
+          return sum + (energy * entry.quantity / 100);
+        });
+
+        return Card(
+          color: Colors.white,
+          margin: const EdgeInsets.only(bottom: 8),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: Column(
+            children: [
+              ListTile(
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Row(
+                      children: [
+                        Text(
+                          mealType,
+                          style: GoogleFonts.roboto(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Icon(
+                          expandedState[mealType]!
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down,
+                        ),
+                      ],
+                    ),
                     Text(
-                      mealType,
+                      '${totalCalories.toStringAsFixed(0)} Kcals',
                       style: GoogleFonts.roboto(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    Icon(
-                      expandedState[mealType]!
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                    ),
                   ],
                 ),
-                Text(
-                  '0 Kcals',
-                  style: GoogleFonts.roboto(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                onTap: () {
+                  setState(() {
+                    expandedState[mealType] = !expandedState[mealType]!;
+                  });
+                },
+              ),
+              if (expandedState[mealType]!) ...[
+                ...entries.map((entry) => ListTile(
+                      title: Text(entry.food.name),
+                      subtitle: Text(
+                        '${entry.quantity}${entry.unit} - ${(entry.food.nutrients["Energy"] ?? 0 * entry.quantity / 100).toStringAsFixed(0)} kcal',
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () {
+                          foodEntryProvider.removeEntry(entry.id);
+                        },
+                      ),
+                    )),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16.0, bottom: 16.0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          CupertinoSheetRoute(
+                              builder: (context) => FoodSearchPage()),
+                        );
+                      },
+                      icon: const Icon(Icons.add, color: Colors.blue),
+                      label: Text(
+                        'Add Food',
+                        style: GoogleFonts.roboto(
+                          color: Colors.blue,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
-            ),
-            onTap: () {
-              setState(() {
-                expandedState[mealType] = !expandedState[mealType]!;
-              });
-            },
+            ],
           ),
-          if (expandedState[mealType]!)
-            Padding(
-              padding: const EdgeInsets.only(left: 16.0, bottom: 16.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      CupertinoSheetRoute(
-                          builder: (context) => FoodSearchPage()),
-                    );
-                  },
-                  icon: const Icon(Icons.add, color: Colors.blue),
-                  label: Text(
-                    'Add Food',
-                    style: GoogleFonts.roboto(
-                      color: Colors.blue,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
