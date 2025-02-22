@@ -56,6 +56,8 @@ dependencies:
   app_settings: ^5.1.1
   oauth2: ^2.0.3
   crypto: ^3.0.6
+  provider: ^6.1.2
+  uuid: ^4.5.1
 
 dev_dependencies:
   flutter_test:

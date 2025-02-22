@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/providers/dateProvider.dart';
 import 'searchPage.dart'; // or import the file where FoodItem is defined
+import 'package:provider/provider.dart';
+import '../providers/foodEntryProvider.dart';
+import '../models/foodEntry.dart';
+import 'package:uuid/uuid.dart';
 
 class MacroCard extends StatelessWidget {
   final String label;
@@ -113,7 +118,31 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
           actions: [
             TextButton(
               onPressed: () {
-                // Add button action here
+                final dateProvider =
+                    Provider.of<DateProvider>(context, listen: false);
+
+                final entry = FoodEntry(
+                  id: const Uuid().v4(),
+                  food: widget.food,
+                  meal: selectedMeal,
+                  quantity: double.parse(quantityController.text),
+                  unit: selectedUnit,
+                  date: dateProvider.selectedDate,
+                );
+
+                Provider.of<FoodEntryProvider>(context, listen: false)
+                    .addEntry(entry);
+
+                // Pop both pages
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Added ${widget.food.name} to $selectedMeal'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
               },
               child: const Text(
                 '+ Add',
