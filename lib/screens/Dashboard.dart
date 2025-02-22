@@ -389,7 +389,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           child: Column(
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   // Calorie Circle
                   SizedBox(
@@ -555,7 +555,7 @@ Widget _buildMacroProgress(String label, int value, int goal, Color color) {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
+                color: color.withValues(alpha:0.2),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -625,7 +625,7 @@ class _MealSectionState extends State<MealSection> {
         final entries = foodEntryProvider.getEntriesForMeal(
             mealType, dateProvider.selectedDate);
         double totalCalories = entries.fold(0, (sum, entry) {
-          final energy = entry.food.calories ?? 0;
+          final energy = entry.food.calories;
           return sum + (energy * entry.quantity / 100);
         });
 
