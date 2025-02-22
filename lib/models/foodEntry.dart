@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:macrotracker/screens/searchPage.dart';
 
 class FoodEntry {

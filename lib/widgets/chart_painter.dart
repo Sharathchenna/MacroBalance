@@ -1,3 +1,5 @@
+// ignore_for_file: depend_on_referenced_packages, unused_local_variable, constant_identifier_names
+
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -182,8 +184,8 @@ class ChartPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Colors.red.withValues(alpha: 0.2),
-          Colors.red.withValues(alpha: 0.05),
+          Colors.grey.shade800.withValues(alpha: 0.2),
+          Colors.grey.shade800.withValues(alpha: 0.05),
         ],
       ).createShader(Rect.fromLTWH(
         leftOffsetStart,

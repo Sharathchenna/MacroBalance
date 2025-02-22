@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:macrotracker/screens/dashboard.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class Signup extends StatefulWidget {

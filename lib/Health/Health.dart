@@ -1,3 +1,5 @@
+// ignore_for_file: file_names, avoid_print
+
 import 'package:health/health.dart';
 
 class HealthService {
@@ -16,7 +18,7 @@ class HealthService {
   Future<bool> requestPermissions() async {
     try {
       final granted = await health.requestAuthorization(_healthTypes);
-      return granted ?? false;
+      return granted;
     } catch (e) {
       print('Error requesting health permissions: $e');
       return false;

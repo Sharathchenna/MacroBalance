@@ -1,3 +1,5 @@
+// ignore_for_file: file_names, avoid_print
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +10,6 @@ import 'package:macrotracker/screens/searchPage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../Health/Health.dart';
-import 'package:app_settings/app_settings.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import '../providers/dateProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';

@@ -1,3 +1,5 @@
+// ignore_for_file: library_private_types_in_public_api, avoid_print, use_build_context_synchronously
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -22,9 +24,9 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isBarcodeMode = true;
 
   // Add these new variables
-  bool _isAutoFocusEnabled = true;
-  ExposureMode _exposureMode = ExposureMode.auto;
-  FocusMode _focusMode = FocusMode.auto;
+  final bool _isAutoFocusEnabled = true;
+  // final ExposureMode _exposureMode = ExposureMode.auto;
+  // final FocusMode _focusMode = FocusMode.auto;
   double _minAvailableZoom = 1.0;
   double _maxAvailableZoom = 1.0;
   double _currentZoom = 1.0;
@@ -293,14 +295,16 @@ class _CameraScreenState extends State<CameraScreen> {
                       IconButton(
                         icon: Icon(Icons.keyboard, color: Colors.white),
                         onPressed: () {
-                          final TextEditingController controller = TextEditingController();
+                          final TextEditingController controller =
+                              TextEditingController();
                           showCupertinoDialog(
                             context: context,
                             builder: (BuildContext context) {
                               return CupertinoAlertDialog(
                                 title: Text('Enter Barcode'),
                                 content: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 16.0),
                                   child: CupertinoTextField(
                                     controller: controller,
                                     keyboardType: TextInputType.number,

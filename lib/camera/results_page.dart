@@ -4,9 +4,9 @@ class ResultsPage extends StatelessWidget {
   final String nutritionInfo;
 
   const ResultsPage({
-    Key? key,
+    super.key,
     required this.nutritionInfo,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
