@@ -13,14 +13,30 @@ Future<String> processImageWithGemini(String imagePath) async {
     );
     final prompt = '''
         Analyze the following meal and provide its nutritional content. 
+        Break down the meal into different foods and do the nutrition analysis for each food.
+        give nutrition info for each food in the meal with different serving sizes. the serving sizes can be in grams, ounces, tablespoons, teaspoons, cups etc.
         Return only the numerical values for calories, protein, carbohydrates, fat, and fiber.
-        Format the response exactly like this example:
-        Nutrition Content:
-        • Calories: X kcal
-        • Protein: X g
-        • Carbohydrates: X g
-        • Fat: X g
-        • Fiber: X g
+        Format the response in json exactly like this example, do not include any other information in the response, just the json object, not even the json title in the response.:
+        meal: [
+          {
+            food: "food name",
+            serving_size: "serving size",
+            calories: 100,
+            protein: 10,
+            carbohydrates: 20,
+            fat: 5,
+            fiber: 3
+          },
+          {
+            food: "food name",
+            serving_size: "serving size",
+            calories: 100,
+            protein: 10,
+            carbohydrates: 20,
+            fat: 5,
+            fiber: 3
+          }
+        ]
         ''';
     final imageBytes = await File(imagePath).readAsBytes();
 
