@@ -12,18 +12,22 @@ class AIFoodItem {
   factory AIFoodItem.fromJson(Map<String, dynamic> json) {
     return AIFoodItem(
       name: json['food'] as String,
-      servingSizes: [
-        ServingSize(
-          unit: json['serving_size'] as String,
-          nutritionInfo: NutritionInfo(
-            calories: (json['calories'] as num).toDouble(),
-            protein: (json['protein'] as num).toDouble(),
-            carbohydrates: (json['carbohydrates'] as num).toDouble(),
-            fat: (json['fat'] as num).toDouble(),
-            fiber: (json['fiber'] as num).toDouble(),
-          ),
-        ),
-      ],
+      servingSizes: (json['servingSizes'] as List)
+          .map((serving) => ServingSize(
+                unit: serving['unit'] as String,
+                nutritionInfo: NutritionInfo(
+                  calories:
+                      (serving['nutritionInfo']['calories'] as num).toDouble(),
+                  protein:
+                      (serving['nutritionInfo']['protein'] as num).toDouble(),
+                  carbohydrates:
+                      (serving['nutritionInfo']['carbohydrates'] as num)
+                          .toDouble(),
+                  fat: (serving['nutritionInfo']['fat'] as num).toDouble(),
+                  fiber: (serving['nutritionInfo']['fiber'] as num).toDouble(),
+                ),
+              ))
+          .toList(),
     );
   }
 
@@ -33,21 +37,26 @@ class AIFoodItem {
 
     for (var json in jsonList) {
       final foodName = json['food'] as String;
-      final servingSize = ServingSize(
-        unit: json['serving_size'] as String,
-        nutritionInfo: NutritionInfo(
-          calories: (json['calories'] as num).toDouble(),
-          protein: (json['protein'] as num).toDouble(),
-          carbohydrates: (json['carbohydrates'] as num).toDouble(),
-          fat: (json['fat'] as num).toDouble(),
-          fiber: (json['fiber'] as num).toDouble(),
-        ),
-      );
+      final servingSizes =
+          (json['servingSizes'] as List).map((serving) => ServingSize(
+                unit: serving['unit'] as String,
+                nutritionInfo: NutritionInfo(
+                  calories:
+                      (serving['nutritionInfo']['calories'] as num).toDouble(),
+                  protein:
+                      (serving['nutritionInfo']['protein'] as num).toDouble(),
+                  carbohydrates:
+                      (serving['nutritionInfo']['carbohydrates'] as num)
+                          .toDouble(),
+                  fat: (serving['nutritionInfo']['fat'] as num).toDouble(),
+                  fiber: (serving['nutritionInfo']['fiber'] as num).toDouble(),
+                ),
+              ));
 
       if (!foodMap.containsKey(foodName)) {
         foodMap[foodName] = [];
       }
-      foodMap[foodName]!.add(servingSize);
+      foodMap[foodName]!.addAll(servingSizes);
     }
 
     return foodMap.entries.map((entry) {

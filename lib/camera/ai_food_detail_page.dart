@@ -155,15 +155,28 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
             style: TextStyle(
               color: Theme.of(context).primaryColor,
               fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          Text(
-            '${value.toStringAsFixed(1)}$unit',
-            style: TextStyle(
-              color: Theme.of(context).primaryColor,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Text(
+                value.toStringAsFixed(1),
+                style: TextStyle(
+                  color: Theme.of(context).primaryColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                unit,
+                style: TextStyle(
+                  color: Theme.of(context).primaryColor.withOpacity(0.7),
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -175,32 +188,61 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
     final foodEntryProvider =
         Provider.of<FoodEntryProvider>(context, listen: false);
 
-    // Convert AI food item to FoodItem
+    // Convert AI food item to FoodItem with selected serving size
     final foodItem = widget.food.toFoodItem();
 
-    // Create food entry
+    // Create food entry with normalized quantity based on serving size
     final entry = FoodEntry(
       id: const Uuid().v4(),
       food: foodItem,
       meal: selectedMeal,
-      quantity: quantity,
+      quantity: _normalizeQuantity(quantity, selectedServing),
       unit: selectedServing.unit,
       date: dateProvider.selectedDate,
     );
 
-    // Add entry to provider
     foodEntryProvider.addEntry(entry);
 
-    // Pop both pages (results and detail)
+    // Pop both pages and show confirmation
     Navigator.pop(context);
     Navigator.pop(context);
 
-    // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Added ${widget.food.name} to $selectedMeal'),
+        content: Text(
+          'Added ${quantity.toStringAsFixed(1)} ${selectedServing.unit} of ${widget.food.name} to $selectedMeal',
+        ),
+        backgroundColor: Theme.of(context).primaryColor,
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  // Helper method to normalize quantity based on serving size
+  double _normalizeQuantity(double qty, ServingSize serving) {
+    // If the serving size is already in grams, return as is
+    if (serving.unit.endsWith('g')) {
+      return qty;
+    }
+
+    // Convert other measurements to their gram equivalent
+    // This would need to be implemented based on your conversion logic
+    return qty * _getGramConversionFactor(serving.unit);
+  }
+
+  double _getGramConversionFactor(String unit) {
+    // Add conversion factors for common measurements
+    switch (unit.toLowerCase()) {
+      case 'cup':
+        return 240.0; // Approximate grams per cup
+      case 'tbsp':
+        return 15.0; // Approximate grams per tablespoon
+      case 'tsp':
+        return 5.0; // Approximate grams per teaspoon
+      case 'oz':
+        return 28.35; // Grams per ounce
+      default:
+        return 1.0; // Default to 1:1 for unknown units
+    }
   }
 }
