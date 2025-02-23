@@ -151,7 +151,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            label, 
+            label,
             style: TextStyle(
               color: Theme.of(context).primaryColor,
               fontSize: 16,
@@ -172,7 +172,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
 
   void _addToMeal() {
     final dateProvider = Provider.of<DateProvider>(context, listen: false);
-    final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
 
     // Convert AI food item to FoodItem
     final foodItem = widget.food.toFoodItem();

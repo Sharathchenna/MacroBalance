@@ -75,38 +75,43 @@ class ResultsPage extends StatelessWidget {
             'Lunch',
             'Snacks',
             'Dinner',
-          ].map((meal) => ListTile(
-            title: Text(
-              meal,
-              style: TextStyle(color: Theme.of(context).primaryColor),
-            ),
-            onTap: () {
-              final dateProvider = Provider.of<DateProvider>(context, listen: false);
-              final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+          ]
+              .map((meal) => ListTile(
+                    title: Text(
+                      meal,
+                      style: TextStyle(color: Theme.of(context).primaryColor),
+                    ),
+                    onTap: () {
+                      final dateProvider =
+                          Provider.of<DateProvider>(context, listen: false);
+                      final foodEntryProvider = Provider.of<FoodEntryProvider>(
+                          context,
+                          listen: false);
 
-              // Convert and add with default serving
-              final foodItem = food.toFoodItem();
-              final entry = FoodEntry(
-                id: const Uuid().v4(),
-                food: foodItem,
-                meal: meal,
-                quantity: 1.0,
-                unit: food.servingSizes.first.unit,
-                date: dateProvider.selectedDate,
-              );
+                      // Convert and add with default serving
+                      final foodItem = food.toFoodItem();
+                      final entry = FoodEntry(
+                        id: const Uuid().v4(),
+                        food: foodItem,
+                        meal: meal,
+                        quantity: 1.0,
+                        unit: food.servingSizes.first.unit,
+                        date: dateProvider.selectedDate,
+                      );
 
-              foodEntryProvider.addEntry(entry);
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Close results page
+                      foodEntryProvider.addEntry(entry);
+                      Navigator.pop(context); // Close dialog
+                      Navigator.pop(context); // Close results page
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Added ${food.name} to $meal'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-          )).toList(),
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Added ${food.name} to $meal'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ))
+              .toList(),
         ),
       ),
     );
