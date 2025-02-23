@@ -18,34 +18,28 @@ class CameraService {
   Future<void> _initializeCamera() async {
     try {
       final cameras = await availableCameras();
-      final firstCamera = cameras.first;
+      if (cameras.isEmpty) return;
 
-      final controller = CameraController(
-        firstCamera,
+      _controller = CameraController(
+        cameras.first,
         ResolutionPreset.high,
         enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.bgra8888,
       );
 
-      await controller.initialize();
-
-      // Configure camera
-      await Future.wait([
-        controller.setFocusMode(FocusMode.auto),
-        controller.setExposureMode(ExposureMode.auto),
-        controller.setFlashMode(FlashMode.off),
-      ]);
-
-      _controller = controller;
+      await _controller?.initialize();
       _initialized = true;
     } catch (e) {
-      print('Error initializing camera service: $e');
+      print('Error initializing camera: $e');
     }
   }
 
-  void dispose() {
-    _controller?.dispose();
-    _controller = null;
-    _initialized = false;
+  Future<void> dispose() async {
+    try {
+      await _controller?.dispose();
+      _controller = null;
+      _initialized = false;
+    } catch (e) {
+      print('Error disposing camera: $e');
+    }
   }
 }
