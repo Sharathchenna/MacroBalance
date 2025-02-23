@@ -67,6 +67,7 @@ class _GoalsScreenState extends State<GoalsScreen>
                   },
                 ),
               ),
+              const SizedBox(height: 60),
             ],
           ),
         ),

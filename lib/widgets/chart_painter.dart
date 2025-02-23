@@ -184,8 +184,8 @@ class ChartPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Colors.grey.shade800.withValues(alpha: 0.2),
-          Colors.grey.shade800.withValues(alpha: 0.05),
+          Colors.red.withValues(alpha: 0.2),
+          Colors.red.withValues(alpha: 0.05),
         ],
       ).createShader(Rect.fromLTWH(
         leftOffsetStart,

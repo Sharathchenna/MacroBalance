@@ -259,9 +259,10 @@ class _AccountdashboardState extends State<Accountdashboard> {
                             const SizedBox(height: 4),
                             Text(
                               DateFormat('EEEE, MMMM d').format(selectedDate),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
+                                color: Theme.of(context).primaryColor,
                               ),
                             ),
                           ],

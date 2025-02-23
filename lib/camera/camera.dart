@@ -1,13 +1,18 @@
 // ignore_for_file: library_private_types_in_public_api, avoid_print, use_build_context_synchronously
 
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:macrotracker/camera/barcode_results.dart';
 import '../AI/gemini.dart';
 import 'results_page.dart';
 import '../services/camera_service.dart';
+// Add import for AIFoodItem model
+import 'package:macrotracker/models/ai_food_item.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -25,6 +30,7 @@ class _CameraScreenState extends State<CameraScreen>
   bool _isScanning = false;
   bool _flashOn = false;
   bool _isBarcodeMode = true;
+  bool _isDisposed = false;
 
   // Add these new variables
   final bool _isAutoFocusEnabled = true;
@@ -176,38 +182,97 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
+  // Update the _takePicture method
   Future<void> _takePicture() async {
     try {
       await _initializeControllerFuture;
+      if (_controller == null || !_controller!.value.isInitialized) {
+        return;
+      }
+
+      // Stop the image stream before taking picture
+      await _controller?.stopImageStream();
       final image = await _controller?.takePicture();
 
-      if (image != null) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return Center(
-                child: CircularProgressIndicator(color: Colors.white));
-          },
-        );
+      if (image != null && !_isDisposed) {
+        // Show loading indicator
+        if (!_isDisposed) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                ),
+              );
+            },
+          );
+        }
 
-        final result = await processImageWithGemini(image.path);
-        Navigator.pop(context);
+        // Process image
+        final jsonResponse = await processImageWithGemini(image.path);
 
-        Navigator.push(
-          context,
-          CupertinoPageRoute(
-            builder: (context) => ResultsPage(nutritionInfo: result),
+        // Handle response and navigation only if not disposed
+        if (!_isDisposed) {
+          // Remove loading dialog
+          Navigator.pop(context);
+
+          // Process response and navigate
+          if (jsonResponse.isNotEmpty) {
+            // Get JSON response from Gemini
+            String jsonResponse = await processImageWithGemini(image.path);
+
+            // Remove code block markers if present
+            if (jsonResponse.startsWith('```json')) {
+              jsonResponse = jsonResponse.substring(7); // Remove '```json'
+            }
+            if (jsonResponse.endsWith('```')) {
+              jsonResponse = jsonResponse.substring(
+                  0, jsonResponse.length - 3); // Remove '```'
+            }
+
+            // Trim any whitespace
+            jsonResponse = jsonResponse.trim();
+            print(jsonResponse);
+            // Parse JSON response into AIFoodItem list
+            final List<dynamic> mealData = json.decode(jsonResponse) as List;
+
+            final List<AIFoodItem> foods = mealData.map((food) {
+              return AIFoodItem.fromJson(food as Map<String, dynamic>);
+            }).toList();
+
+            // Remove loading dialog
+            Navigator.pop(context);
+
+            // Navigate to results page with parsed food items
+            Navigator.push(
+              context,
+              CupertinoPageRoute(
+                builder: (context) => ResultsPage(foods: foods),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (!_isDisposed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error taking picture: ${e.toString()}'),
+            backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    } finally {
+      // Restart the image stream if the camera is still active
+      if (!_isDisposed &&
+          _controller != null &&
+          _controller!.value.isInitialized) {
+        await _controller?.startImageStream((image) {
+          // Handle image stream
+        });
+      }
     }
   }
 
@@ -263,6 +328,8 @@ class _CameraScreenState extends State<CameraScreen>
     WidgetsBinding.instance.removeObserver(this);
     _stopBarcodeScanning();
     _cameraService.dispose();
+    _isDisposed = true;
+    _disposeCamera();
     super.dispose();
     // Don't dispose of the controller here as it's managed by the service
   }
@@ -279,6 +346,26 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  Future<void> _disposeCamera() async {
+    try {
+      final CameraController? cameraController = _controller;
+      if (cameraController != null && cameraController.value.isInitialized) {
+        await cameraController.stopImageStream();
+        await cameraController.dispose();
+      }
+    } catch (e) {
+      // Ignore PlatformException for stream deactivation
+      if (e is PlatformException && e.code == 'error') {
+        print('Ignoring expected platform exception during disposal');
+      } else {
+        print('Error disposing camera: $e');
+      }
+    }
+    if (!_isDisposed) {
+      _controller = null;
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(

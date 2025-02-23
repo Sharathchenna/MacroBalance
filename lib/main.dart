@@ -20,7 +20,7 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // await CameraService().controller;
+  await CameraService().controller;
   await ApiService().getAccessToken();
   //supabase setup
   await Supabase.initialize(
