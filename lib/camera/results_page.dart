@@ -88,12 +88,6 @@ class ResultsPage extends StatelessWidget {
                           context,
                           listen: false);
 
-                      // Get the default serving size (100g)
-                      final defaultServing = food.servingSizes.firstWhere(
-                        (serving) => serving.unit == '100g',
-                        orElse: () => food.servingSizes.first,
-                      );
-
                       // Convert and add with default serving
                       final foodItem = food.toFoodItem();
                       final entry = FoodEntry(
@@ -101,7 +95,7 @@ class ResultsPage extends StatelessWidget {
                         food: foodItem,
                         meal: meal,
                         quantity: 1.0,
-                        unit: defaultServing.unit,
+                        unit: food.servingSizes.first.unit,
                         date: dateProvider.selectedDate,
                       );
 
@@ -111,11 +105,7 @@ class ResultsPage extends StatelessWidget {
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(
-                            'Added 1.0 ${defaultServing.unit} of ${food.name} to $meal',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          backgroundColor: Theme.of(context).primaryColor,
+                          content: Text('Added ${food.name} to $meal'),
                           duration: const Duration(seconds: 2),
                         ),
                       );

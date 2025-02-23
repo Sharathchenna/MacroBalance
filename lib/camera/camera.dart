@@ -190,11 +190,8 @@ class _CameraScreenState extends State<CameraScreen>
         return;
       }
 
-      // Only stop image stream if it's currently streaming
-      if (_controller!.value.isStreamingImages) {
-        await _controller?.stopImageStream();
-      }
-
+      // Stop the image stream before taking picture
+      await _controller?.stopImageStream();
       final image = await _controller?.takePicture();
 
       if (image != null && !_isDisposed) {
@@ -214,63 +211,47 @@ class _CameraScreenState extends State<CameraScreen>
         }
 
         // Process image
-        String jsonResponse = await processImageWithGemini(image.path);
+        final jsonResponse = await processImageWithGemini(image.path);
 
         // Handle response and navigation only if not disposed
-        if (!_isDisposed && jsonResponse.isNotEmpty) {
-          // Clean up the JSON response
-          jsonResponse = jsonResponse.trim();
-          if (jsonResponse.startsWith('```json')) {
-            jsonResponse = jsonResponse.substring(7);
-          }
-          if (jsonResponse.endsWith('```')) {
-            jsonResponse = jsonResponse.substring(0, jsonResponse.length - 3);
-          }
+        if (!_isDisposed) {
+          // Remove loading dialog
+          Navigator.pop(context);
 
-          try {
-            final dynamic decodedJson = json.decode(jsonResponse);
-            if (decodedJson == null) {
-              throw Exception('Invalid JSON response');
+          // Process response and navigate
+          if (jsonResponse.isNotEmpty) {
+            // Get JSON response from Gemini
+            String jsonResponse = await processImageWithGemini(image.path);
+
+            // Remove code block markers if present
+            if (jsonResponse.startsWith('```json')) {
+              jsonResponse = jsonResponse.substring(7); // Remove '```json'
+            }
+            if (jsonResponse.endsWith('```')) {
+              jsonResponse = jsonResponse.substring(
+                  0, jsonResponse.length - 3); // Remove '```'
             }
 
-            List<dynamic> mealData;
-            if (decodedJson is Map<String, dynamic>) {
-              // Single food item - wrap in list
-              mealData = [decodedJson];
-            } else if (decodedJson is List) {
-              // Multiple food items
-              mealData = decodedJson;
-            } else {
-              throw Exception('Unexpected JSON structure');
-            }
+            // Trim any whitespace
+            jsonResponse = jsonResponse.trim();
+            print(jsonResponse);
+            // Parse JSON response into AIFoodItem list
+            final List<dynamic> mealData = json.decode(jsonResponse) as List;
 
-            final List<AIFoodItem> foods = mealData
-                .map(
-                    (food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
-                .toList();
+            final List<AIFoodItem> foods = mealData.map((food) {
+              return AIFoodItem.fromJson(food as Map<String, dynamic>);
+            }).toList();
 
-            if (foods.isEmpty) {
-              throw Exception('No food items found in response');
-            }
+            // Remove loading dialog
+            Navigator.pop(context);
 
-            Navigator.pop(context); // Remove loading dialog
-
+            // Navigate to results page with parsed food items
             Navigator.push(
               context,
               CupertinoPageRoute(
                 builder: (context) => ResultsPage(foods: foods),
               ),
             );
-          } catch (e) {
-            if (!_isDisposed) {
-              Navigator.pop(context); // Remove loading dialog
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error processing response: ${e.toString()}'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
           }
         }
       }
@@ -284,11 +265,10 @@ class _CameraScreenState extends State<CameraScreen>
         );
       }
     } finally {
-      // Only restart the image stream if we're in barcode mode
+      // Restart the image stream if the camera is still active
       if (!_isDisposed &&
           _controller != null &&
-          _controller!.value.isInitialized &&
-          _isBarcodeMode) {
+          _controller!.value.isInitialized) {
         await _controller?.startImageStream((image) {
           // Handle image stream
         });
@@ -385,7 +365,7 @@ class _CameraScreenState extends State<CameraScreen>
       _controller = null;
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
