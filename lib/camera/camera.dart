@@ -190,8 +190,11 @@ class _CameraScreenState extends State<CameraScreen>
         return;
       }
 
-      // Stop the image stream before taking picture
-      await _controller?.stopImageStream();
+      // Only stop image stream if we're in barcode mode and streaming
+      if (_isBarcodeMode && _controller!.value.isStreamingImages) {
+        await _stopBarcodeScanning();
+      }
+
       final image = await _controller?.takePicture();
 
       if (image != null && !_isDisposed) {
@@ -202,54 +205,68 @@ class _CameraScreenState extends State<CameraScreen>
             barrierDismissible: false,
             builder: (BuildContext context) {
               return const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                ),
+                child: CircularProgressIndicator(color: Colors.white),
               );
             },
           );
         }
 
-        // Process image
-        final jsonResponse = await processImageWithGemini(image.path);
+        try {
+          // Process image
+          String jsonResponse = await processImageWithGemini(image.path);
 
-        // Handle response and navigation only if not disposed
-        if (!_isDisposed) {
-          // Remove loading dialog
-          Navigator.pop(context);
-
-          // Process response and navigate
-          if (jsonResponse.isNotEmpty) {
-            // Get JSON response from Gemini
-            String jsonResponse = await processImageWithGemini(image.path);
-
-            // Remove code block markers if present
-            if (jsonResponse.startsWith('```json')) {
-              jsonResponse = jsonResponse.substring(7); // Remove '```json'
-            }
-            if (jsonResponse.endsWith('```')) {
-              jsonResponse = jsonResponse.substring(
-                  0, jsonResponse.length - 3); // Remove '```'
-            }
-
-            // Trim any whitespace
-            jsonResponse = jsonResponse.trim();
-            print(jsonResponse);
-            // Parse JSON response into AIFoodItem list
-            final List<dynamic> mealData = json.decode(jsonResponse) as List;
-
-            final List<AIFoodItem> foods = mealData.map((food) {
-              return AIFoodItem.fromJson(food as Map<String, dynamic>);
-            }).toList();
-
+          if (!_isDisposed) {
             // Remove loading dialog
             Navigator.pop(context);
 
-            // Navigate to results page with parsed food items
-            Navigator.push(
-              context,
-              CupertinoPageRoute(
-                builder: (context) => ResultsPage(foods: foods),
+            if (jsonResponse.isNotEmpty) {
+              // Clean up the response
+              jsonResponse = jsonResponse.trim();
+              if (jsonResponse.startsWith('```json')) {
+                jsonResponse = jsonResponse.substring(7);
+              }
+              if (jsonResponse.endsWith('```')) {
+                jsonResponse =
+                    jsonResponse.substring(0, jsonResponse.length - 3);
+              }
+
+              final dynamic decodedJson = json.decode(jsonResponse);
+              if (decodedJson == null) {
+                throw Exception('Invalid JSON response');
+              }
+
+              List<dynamic> mealData;
+              if (decodedJson is Map<String, dynamic>) {
+                mealData = [decodedJson];
+              } else if (decodedJson is List) {
+                mealData = decodedJson;
+              } else {
+                throw Exception('Unexpected JSON structure');
+              }
+
+              final List<AIFoodItem> foods = mealData
+                  .map((food) =>
+                      AIFoodItem.fromJson(food as Map<String, dynamic>))
+                  .toList();
+
+              if (foods.isNotEmpty) {
+                Navigator.push(
+                  context,
+                  CupertinoPageRoute(
+                    builder: (context) => ResultsPage(foods: foods),
+                  ),
+                );
+              } else {
+                throw Exception('No food items found');
+              }
+            }
+          }
+        } catch (e) {
+          if (!_isDisposed) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error processing image: ${e.toString()}'),
+                backgroundColor: Colors.red,
               ),
             );
           }
@@ -265,13 +282,9 @@ class _CameraScreenState extends State<CameraScreen>
         );
       }
     } finally {
-      // Restart the image stream if the camera is still active
-      if (!_isDisposed &&
-          _controller != null &&
-          _controller!.value.isInitialized) {
-        await _controller?.startImageStream((image) {
-          // Handle image stream
-        });
+      // Restart barcode scanning if needed
+      if (!_isDisposed && _isBarcodeMode) {
+        await _startBarcodeScanning();
       }
     }
   }
@@ -365,7 +378,7 @@ class _CameraScreenState extends State<CameraScreen>
       _controller = null;
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
