@@ -2,12 +2,15 @@
 // ignore_for_file: unused_import, file_names, library_private_types_in_public_api, avoid_print, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:macrotracker/services/api_service.dart';
+import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/widgets/search_header.dart';
 
 class FoodSearchPage extends StatefulWidget {
   const FoodSearchPage({super.key});
@@ -16,17 +19,32 @@ class FoodSearchPage extends StatefulWidget {
   _FoodSearchPageState createState() => _FoodSearchPageState();
 }
 
-class _FoodSearchPageState extends State<FoodSearchPage> {
+class _FoodSearchPageState extends State<FoodSearchPage>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
   List<String> _autoCompleteResults = [];
   bool _isLoading = false;
   final ApiService _apiService = ApiService();
 
+  late AnimationController _loadingController;
+  final _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _initializeApi();
+    _loadingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _loadingController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeApi() async {
@@ -145,66 +163,303 @@ class _FoodSearchPageState extends State<FoodSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Remove the loading screen check
     return Scaffold(
-      // backgroundColor: const Color(0xFFF5F4F0),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        leading: CupertinoNavigationBarBackButton(
-          color: Theme.of(context).primaryColor,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Search Foods',
-          style: TextStyle(
-            color: Theme.of(context).primaryColor,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      ),
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => FocusScope.of(context).unfocus(),
+      body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SearchBar(
-                controller: _searchController,
-                onSearch: _searchFood,
-                onChanged: _getAutocompleteSuggestions,
+            SearchHeader(
+              controller: _searchController,
+              onSearch: _searchFood,
+              onChanged: _getAutocompleteSuggestions,
+              onBack: () => Navigator.pop(context),
+            ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _buildContent(),
               ),
             ),
-            if (_autoCompleteResults.isNotEmpty)
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _autoCompleteResults.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      title: Text(
-                        _autoCompleteResults[index],
-                        style: TextStyle(
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                      onTap: () {
-                        _searchController.text = _autoCompleteResults[index];
-                        _searchFood(_autoCompleteResults[index]);
-                      },
-                    );
-                  },
-                ),
-              ),
-            if (_searchResults.isNotEmpty && _autoCompleteResults.isEmpty)
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : FoodList(foods: _searchResults),
-              ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_isLoading) {
+      return _buildLoadingState();
+    }
+    if (_autoCompleteResults.isNotEmpty) {
+      return _buildSuggestions();
+    }
+    if (_searchResults.isNotEmpty) {
+      return _buildSearchResults();
+    }
+    return _buildEmptyState();
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          RotationTransition(
+            turns: _loadingController,
+            child: Icon(
+              Icons.refresh_rounded,
+              size: 48,
+              color: Theme.of(context).primaryColor.withValues(alpha: .5),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Searching...',
+            style: TextStyle(
+              color: Theme.of(context).primaryColor.withValues(alpha: .5),
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final food = _searchResults[index];
+        return _buildFoodCard(food);
+      },
+    );
+  }
+
+  Widget _buildFoodCard(FoodItem food) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            offset: const Offset(0, 2),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _navigateToFoodDetail(food),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFoodHeader(food),
+                const SizedBox(height: 12),
+                _buildNutrientRow(food),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFoodHeader(FoodItem food) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                food.name,
+                style: AppTypography.body1.copyWith(
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (food.brandName.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  food.brandName,
+                  style: AppTypography.caption.copyWith(
+                    color: Theme.of(context).primaryColor.withOpacity(0.6),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Icon(
+          Icons.arrow_forward_ios_rounded,
+          color: Theme.of(context).primaryColor.withValues(alpha: .3),
+          size: 16,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNutrientRow(FoodItem food) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildNutrientChip(
+            '${food.calories.round()} cal',
+            Icons.local_fire_department_rounded,
+            Colors.orange,
+          ),
+          const SizedBox(width: 8),
+          _buildNutrientChip(
+            '${food.nutrients['Protein']?.round() ?? 0}g protein',
+            Icons.fitness_center_rounded,
+            Colors.blue,
+          ),
+          const SizedBox(width: 8),
+          _buildNutrientChip(
+            '${food.nutrients['Carbohydrate, by difference']?.round() ?? 0}g carbs',
+            Icons.grain_rounded,
+            Colors.green,
+          ),
+          const SizedBox(width: 8),
+          _buildNutrientChip(
+            '${food.nutrients['Total lipid (fat)']?.round() ?? 0}g fat',
+            Icons.circle_outlined,
+            Colors.red,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToFoodDetail(FoodItem food) {
+    HapticFeedback.mediumImpact();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FoodDetailPage(food: food),
+      ),
+    );
+  }
+
+  Widget _buildNutrientChip(String label, IconData icon, Color accentColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: accentColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: accentColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_rounded,
+            size: 64,
+            color: Theme.of(context).primaryColor.withValues(alpha: .5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Search for your favorite foods',
+            style: TextStyle(
+              color: Theme.of(context).primaryColor.withValues(alpha: .5),
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    return ListView.builder(
+      itemCount: _autoCompleteResults.length,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemBuilder: (context, index) {
+        final suggestion = _autoCompleteResults[index];
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .03),
+                offset: const Offset(0, 2),
+                blurRadius: 5,
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                _searchController.text = suggestion;
+                _searchFood(suggestion);
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search_rounded,
+                      color:
+                          Theme.of(context).primaryColor.withValues(alpha: .7),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        suggestion,
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

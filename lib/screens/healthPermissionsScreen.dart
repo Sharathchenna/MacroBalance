@@ -131,7 +131,7 @@ class _HealthPermissionsScreenState extends State<HealthPermissionsScreen> {
                   CupertinoSwitch(
                     value: _permissions[type] ?? false,
                     onChanged: (value) => _requestPermission(type),
-                    activeColor: Theme.of(context).colorScheme.secondary,
+                    activeTrackColor: Theme.of(context).colorScheme.secondary,
                   ),
                 ],
               ),

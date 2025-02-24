@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'typography.dart';
 
 class AppTheme {
   static ThemeData lightTheme = ThemeData(
@@ -26,6 +27,13 @@ class AppTheme {
         textSecondary: Color(0xFF666666),
       )
     ],
+    textTheme: TextTheme(
+      headlineLarge: AppTypography.h1,
+      headlineMedium: AppTypography.h2,
+      bodyLarge: AppTypography.body1,
+      bodyMedium: AppTypography.body2,
+      labelMedium: AppTypography.caption,
+    ),
   );
 
   static ThemeData darkTheme = ThemeData(
