@@ -11,6 +11,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/widgets/search_header.dart';
+import 'dart:async';
 
 class FoodSearchPage extends StatefulWidget {
   const FoodSearchPage({super.key});
@@ -26,6 +27,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   List<String> _autoCompleteResults = [];
   bool _isLoading = false;
   final ApiService _apiService = ApiService();
+  Timer? _debouncer;
 
   late AnimationController _loadingController;
   final _scrollController = ScrollController();
@@ -42,7 +44,9 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   @override
   void dispose() {
+    _debouncer?.cancel();
     _loadingController.dispose();
+    _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -105,6 +109,13 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     }
   }
 
+  void _onSearchChanged(String query) {
+    if (_debouncer?.isActive ?? false) _debouncer!.cancel();
+    _debouncer = Timer(const Duration(milliseconds: 500), () {
+      _getAutocompleteSuggestions(query);
+    });
+  }
+
   Future<void> _searchFood(String query) async {
     if (query.isEmpty || _apiService.accessToken == null) return;
 
@@ -150,15 +161,35 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         print('Error response: ${response.body}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error searching for food: $e')),
-      );
+      _showError('Failed to search foods. Please try again.');
     } finally {
       setState(() {
         _isLoading = false;
         _autoCompleteResults = [];
       });
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.red[700],
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'Retry',
+          onPressed: () => _searchFood(_searchController.text),
+          textColor: Colors.white,
+        ),
+      ),
+    );
   }
 
   @override
@@ -171,7 +202,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             SearchHeader(
               controller: _searchController,
               onSearch: _searchFood,
-              onChanged: _getAutocompleteSuggestions,
+              onChanged: _onSearchChanged,
               onBack: () => Navigator.pop(context),
             ),
             Expanded(
@@ -226,15 +257,37 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildSearchResults() {
-    return ListView.builder(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      itemCount: _searchResults.length,
-      itemBuilder: (context, index) {
-        final food = _searchResults[index];
-        return _buildFoodCard(food);
-      },
+    return RefreshIndicator(
+      onRefresh: () => _searchFood(_searchController.text),
+      child: _searchResults.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.search_off_rounded,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No results found',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: _searchResults.length,
+              itemBuilder: (context, index) =>
+                  _buildFoodCard(_searchResults[index]),
+            ),
     );
   }
 
@@ -246,7 +299,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             offset: const Offset(0, 2),
             blurRadius: 8,
           ),
@@ -295,7 +348,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 Text(
                   food.brandName,
                   style: AppTypography.caption.copyWith(
-                    color: Theme.of(context).primaryColor.withOpacity(0.6),
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -304,7 +358,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         ),
         Icon(
           Icons.arrow_forward_ios_rounded,
-          color: Theme.of(context).primaryColor.withValues(alpha: .3),
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
           size: 16,
         ),
       ],
@@ -358,7 +412,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: accentColor.withValues(alpha: .1),
+        color: accentColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -391,13 +445,13 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           Icon(
             Icons.search_rounded,
             size: 64,
-            color: Theme.of(context).primaryColor.withValues(alpha: .5),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'Search for your favorite foods',
             style: TextStyle(
-              color: Theme.of(context).primaryColor.withValues(alpha: .5),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
               fontSize: 16,
             ),
           ),
@@ -419,7 +473,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: .03),
+                color: Colors.black.withValues(alpha: 0.03),
                 offset: const Offset(0, 2),
                 blurRadius: 5,
               ),
@@ -440,7 +494,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                     Icon(
                       Icons.search_rounded,
                       color:
-                          Theme.of(context).primaryColor.withValues(alpha: .7),
+                          Theme.of(context).primaryColor.withValues(alpha: 0.7),
                       size: 20,
                     ),
                     const SizedBox(width: 12),

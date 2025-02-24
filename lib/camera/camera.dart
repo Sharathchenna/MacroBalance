@@ -40,6 +40,12 @@ class _CameraScreenState extends State<CameraScreen>
   double _maxAvailableZoom = 1.0;
   double _currentZoom = 1.0;
 
+  // Add this flag to control continuous scanning
+  bool _isContinuousScanning = false;
+
+  // Add this variable to track if we've found a barcode
+  bool _barcodeFound = false;
+
   @override
   void initState() {
     super.initState();
@@ -61,9 +67,10 @@ class _CameraScreenState extends State<CameraScreen>
           });
         }
 
-        if (_isBarcodeMode) {
-          await _startBarcodeScanning();
-        }
+        // Remove automatic start of barcode scanning
+        // if (_isBarcodeMode) {
+        //   await _startBarcodeScanning();
+        // }
       }
     } catch (e) {
       print('Error initializing camera: $e');
@@ -77,37 +84,29 @@ class _CameraScreenState extends State<CameraScreen>
     }
 
     try {
-      final image = await _controller?.takePicture();
-      if (image == null) return;
+      setState(() {
+        _barcodeFound = false; // Reset the barcode found flag
+        _isContinuousScanning = true;
+      });
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return Center(child: CircularProgressIndicator(color: Colors.white));
-        },
-      );
+      await _startBarcodeScanning();
 
-      final inputImage = InputImage.fromFilePath(image.path);
-      final barcodes = await _barcodeScanner.processImage(inputImage);
-
-      Navigator.pop(context); // Remove loading dialog
-
-      if (barcodes.isNotEmpty) {
-        await _handleBarcodeResult(barcodes.first.rawValue ?? '');
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No barcode found. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // Set a timeout to stop scanning after 3 seconds
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _isContinuousScanning = false;
+          });
+          if (!_barcodeFound) {
+            _stopBarcodeScanning();
+          }
+        }
+      });
     } catch (e) {
       print('Error capturing and scanning barcode: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
+        const SnackBar(
+          content: Text('Failed to scan barcode. Please try again.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -122,17 +121,15 @@ class _CameraScreenState extends State<CameraScreen>
 
     try {
       await _controller?.startImageStream((image) async {
-        if (!_isScanning) {
+        // Only process if we're scanning and haven't found a barcode yet
+        if (!_isScanning && !_barcodeFound) {
           _isScanning = true;
           try {
             final List<Barcode> barcodes = await _processImage(image);
-            if (barcodes.isNotEmpty) {
+            if (barcodes.isNotEmpty && mounted) {
+              _barcodeFound = true; // Mark that we found a barcode
               await _stopBarcodeScanning();
               await _handleBarcodeResult(barcodes.first.rawValue ?? '');
-              // Restart scanning after processing
-              if (mounted) {
-                await _startBarcodeScanning();
-              }
             }
           } finally {
             _isScanning = false;
@@ -174,12 +171,21 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _handleBarcodeResult(String barcode) async {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BarcodeResults(barcode: barcode),
-      ),
-    );
+    if (mounted) {
+      setState(() {
+        _isContinuousScanning = false;
+      });
+
+      // Navigate only if we haven't already
+      if (_barcodeFound) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BarcodeResults(barcode: barcode),
+          ),
+        );
+      }
+    }
   }
 
   // Update the _takePicture method
@@ -336,8 +342,18 @@ class _CameraScreenState extends State<CameraScreen>
     _setZoomLevel(_currentZoom * details.scale);
   }
 
+  // Add reset method for when returning from results page
+  void _resetBarcodeScanner() {
+    setState(() {
+      _barcodeFound = false;
+      _isScanning = false;
+      _isContinuousScanning = false;
+    });
+  }
+
   @override
   void dispose() {
+    _barcodeFound = false; // Reset on dispose
     WidgetsBinding.instance.removeObserver(this);
     _stopBarcodeScanning();
     _cameraService.dispose();
