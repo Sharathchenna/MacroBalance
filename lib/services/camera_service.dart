@@ -1,4 +1,6 @@
 import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
 
 class CameraService {
   static final CameraService _instance = CameraService._internal();
@@ -6,40 +8,57 @@ class CameraService {
   CameraService._internal();
 
   CameraController? _controller;
-  bool _initialized = false;
+  bool _isStreaming = false;
 
   Future<CameraController?> get controller async {
-    if (!_initialized) {
-      await _initializeCamera();
-    }
+    if (_controller != null) return _controller;
+
+    final cameras = await availableCameras();
+    if (cameras.isEmpty) return null;
+
+    _controller = CameraController(
+      cameras.first,
+      ResolutionPreset.high,
+      enableAudio: false,
+      imageFormatGroup: Platform.isAndroid
+          ? ImageFormatGroup.yuv420
+          : ImageFormatGroup.bgra8888,
+    );
+
+    await _controller?.initialize();
     return _controller;
   }
 
-  Future<void> _initializeCamera() async {
+  Future<void> stopImageStream() async {
     try {
-      final cameras = await availableCameras();
-      if (cameras.isEmpty) return;
-
-      _controller = CameraController(
-        cameras.first,
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-
-      await _controller?.initialize();
-      _initialized = true;
+      if (_controller != null &&
+          _controller!.value.isInitialized &&
+          _isStreaming) {
+        await _controller?.stopImageStream();
+        _isStreaming = false;
+      }
     } catch (e) {
-      print('Error initializing camera: $e');
+      print('Error stopping image stream: $e');
     }
   }
 
-  Future<void> dispose() async {
+  Future<void> startImageStream(Function(CameraImage) onImage) async {
     try {
-      await _controller?.dispose();
-      _controller = null;
-      _initialized = false;
+      if (_controller != null &&
+          _controller!.value.isInitialized &&
+          !_isStreaming) {
+        await _controller?.startImageStream(onImage);
+        _isStreaming = true;
+      }
     } catch (e) {
-      print('Error disposing camera: $e');
+      print('Error starting image stream: $e');
     }
+  }
+
+  void dispose() {
+    stopImageStream();
+    _controller?.dispose();
+    _controller = null;
+    _isStreaming = false;
   }
 }
