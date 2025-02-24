@@ -19,7 +19,7 @@ class FoodSuggestionTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: .03),
             offset: const Offset(0, 2),
             blurRadius: 10,
           ),

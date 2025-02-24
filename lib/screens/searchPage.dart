@@ -293,7 +293,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   Widget _buildFoodCard(FoodItem food) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin:
+          const EdgeInsets.symmetric(vertical: 6), // Remove horizontal margin
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
