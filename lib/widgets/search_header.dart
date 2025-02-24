@@ -19,16 +19,8 @@ class SearchHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, 2),
-            blurRadius: 8,
-            spreadRadius: 0,
-          ),
-        ],
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,15 +34,27 @@ class SearchHeader extends StatelessWidget {
   }
 
   Widget _buildTopBar(BuildContext context) {
-    return Row(
+    return Stack(
+      alignment: Alignment.center,
       children: [
-        _buildBackButton(context),
-        const SizedBox(width: 16),
-        Text(
-          'Search Foods',
-          style: AppTypography.h1.copyWith(
-            color: Theme.of(context).primaryColor,
+        // Center title
+        Positioned.fill(
+          child: Center(
+            child: Text(
+              'Search Foods',
+              style: AppTypography.h1.copyWith(
+                color: Theme.of(context).primaryColor,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.5,
+              ),
+            ),
           ),
+        ),
+        // Back button aligned to the left
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _buildBackButton(context),
         ),
       ],
     );
@@ -58,32 +62,42 @@ class SearchHeader extends StatelessWidget {
 
   Widget _buildBackButton(BuildContext context) {
     return Container(
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: IconButton(
         icon: Icon(
-          Icons.arrow_back_ios_rounded,
-          size: 18,
+          Icons.chevron_left_rounded,
+          size: 24,
           color: Theme.of(context).primaryColor,
         ),
         onPressed: onBack,
+        padding: EdgeInsets.zero,
       ),
     );
   }
 
   Widget _buildSearchField(BuildContext context) {
     return Container(
-      height: 52,
+      height: 56,
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.04),
             offset: const Offset(0, 2),
-            blurRadius: 5,
+            blurRadius: 8,
           ),
         ],
       ),
@@ -91,25 +105,43 @@ class SearchHeader extends StatelessWidget {
         controller: controller,
         style: AppTypography.body1.copyWith(
           color: Theme.of(context).primaryColor,
+          fontSize: 16,
         ),
         decoration: InputDecoration(
           hintText: 'Search foods...',
           hintStyle: AppTypography.body1.copyWith(
-            color: Theme.of(context).primaryColor.withOpacity(0.5),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+            fontSize: 16,
           ),
           prefixIcon: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.only(left: 16, right: 8),
             child: Icon(
               Icons.search_rounded,
-              color: Theme.of(context).primaryColor.withOpacity(0.7),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
               size: 24,
             ),
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(
+                    Icons.clear_rounded,
+                    color:
+                        Theme.of(context).primaryColor.withValues(alpha: 0.5),
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    controller.clear();
+                    onChanged('');
+                  },
+                )
+              : null,
         ),
         onSubmitted: onSearch,
         onChanged: onChanged,
+        textAlignVertical: TextAlignVertical.center,
       ),
     );
   }
