@@ -13,6 +13,7 @@ import 'results_page.dart';
 import '../services/camera_service.dart';
 // Add import for AIFoodItem model
 import 'package:macrotracker/models/ai_food_item.dart';
+import 'package:image_picker/image_picker.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -45,6 +46,9 @@ class _CameraScreenState extends State<CameraScreen>
 
   // Add this variable to track if we've found a barcode
   bool _barcodeFound = false;
+
+  // Add these new state fields
+  double _baseScale = 1.0;
 
   @override
   void initState() {
@@ -113,6 +117,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  // Update _startBarcodeScanning method
   Future<void> _startBarcodeScanning() async {
     if (_controller == null || !_controller!.value.isInitialized) {
       print('Camera not initialized');
@@ -120,7 +125,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
 
     try {
-      await _controller?.startImageStream((image) async {
+      await _cameraService.startImageStream((image) async {
         // Only process if we're scanning and haven't found a barcode yet
         if (!_isScanning && !_barcodeFound) {
           _isScanning = true;
@@ -160,13 +165,12 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  // Update _stopBarcodeScanning method
   Future<void> _stopBarcodeScanning() async {
     try {
-      if (_controller?.value.isStreamingImages ?? false) {
-        await _controller?.stopImageStream();
-      }
+      await _cameraService.stopImageStream();
     } catch (e) {
-      print('Error stopping image stream: $e');
+      print('Error stopping barcode scanning: $e');
     }
   }
 
@@ -220,54 +224,62 @@ class _CameraScreenState extends State<CameraScreen>
         try {
           // Process image
           String jsonResponse = await processImageWithGemini(image.path);
+          // Clean up JSON code blocks
+          jsonResponse = jsonResponse.trim();
+          if (jsonResponse.startsWith('```json')) {
+            jsonResponse = jsonResponse.substring(7);
+          }
+          if (jsonResponse.endsWith('```')) {
+            jsonResponse = jsonResponse.substring(0, jsonResponse.length - 3);
+          }
 
-          if (!_isDisposed) {
-            // Remove loading dialog
-            Navigator.pop(context);
+          dynamic decodedJson;
+          try {
+            decodedJson = json.decode(jsonResponse);
+          } catch (e) {
+            throw Exception('Invalid JSON: $e\nJSON: $jsonResponse');
+          }
 
-            if (jsonResponse.isNotEmpty) {
-              // Clean up the response
-              jsonResponse = jsonResponse.trim();
-              if (jsonResponse.startsWith('```json')) {
-                jsonResponse = jsonResponse.substring(7);
-              }
-              if (jsonResponse.endsWith('```')) {
-                jsonResponse =
-                    jsonResponse.substring(0, jsonResponse.length - 3);
-              }
-
-              final dynamic decodedJson = json.decode(jsonResponse);
-              if (decodedJson == null) {
-                throw Exception('Invalid JSON response');
-              }
-
-              List<dynamic> mealData;
-              if (decodedJson is Map<String, dynamic>) {
-                mealData = [decodedJson];
-              } else if (decodedJson is List) {
-                mealData = decodedJson;
-              } else {
-                throw Exception('Unexpected JSON structure');
-              }
-
-              final List<AIFoodItem> foods = mealData
-                  .map((food) =>
-                      AIFoodItem.fromJson(food as Map<String, dynamic>))
-                  .toList();
-
-              if (foods.isNotEmpty) {
-                Navigator.push(
-                  context,
-                  CupertinoPageRoute(
-                    builder: (context) => ResultsPage(foods: foods),
-                  ),
-                );
-              } else {
-                throw Exception('No food items found');
-              }
+          List<dynamic> mealData;
+          if (decodedJson is Map<String, dynamic>) {
+            // Handle case where response is wrapped in an object
+            if (decodedJson.containsKey('meal') &&
+                decodedJson['meal'] is List) {
+              mealData = decodedJson['meal'] as List;
+            } else {
+              mealData = [decodedJson];
             }
+          } else if (decodedJson is List) {
+            mealData = decodedJson;
+          } else {
+            throw Exception('Unexpected JSON structure');
+          }
+
+          final List<AIFoodItem> foods = mealData
+              .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
+              .toList();
+
+          // Dismiss loading dialog before navigating
+          if (!_isDisposed && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+
+          if (foods.isNotEmpty) {
+            Navigator.push(
+              context,
+              CupertinoPageRoute(
+                builder: (context) => ResultsPage(foods: foods),
+              ),
+            );
+          } else {
+            throw Exception('No food items found');
           }
         } catch (e) {
+          // Make sure to dismiss loading dialog on error
+          if (!_isDisposed && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+
           if (!_isDisposed) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -340,6 +352,17 @@ class _CameraScreenState extends State<CameraScreen>
   // Add zoom gesture handler
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     _setZoomLevel(_currentZoom * details.scale);
+  }
+
+  // Add these new methods
+  void _onScaleStart(ScaleStartDetails details) {
+    _baseScale = _currentZoom;
+  }
+
+  Future<void> _onScaleUpdate(ScaleUpdateDetails details) async {
+    // Multiply the base scale by the scale factor from the gesture
+    double newZoom = _baseScale * details.scale;
+    await _setZoomLevel(newZoom);
   }
 
   // Add reset method for when returning from results page
@@ -488,7 +511,10 @@ class _CameraScreenState extends State<CameraScreen>
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => _switchMode(true),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _switchMode(true);
+                        },
                         child: Container(
                           decoration: BoxDecoration(
                             color: _isBarcodeMode
@@ -512,7 +538,10 @@ class _CameraScreenState extends State<CameraScreen>
                     ),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => _switchMode(false),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _switchMode(false);
+                        },
                         child: Container(
                           decoration: BoxDecoration(
                             color: !_isBarcodeMode
@@ -543,7 +572,8 @@ class _CameraScreenState extends State<CameraScreen>
                 children: [
                   Positioned.fill(
                     child: GestureDetector(
-                      onScaleUpdate: _handleScaleUpdate,
+                      onScaleStart: _onScaleStart,
+                      onScaleUpdate: _onScaleUpdate,
                       child: FutureBuilder<void>(
                         future: _initializeControllerFuture,
                         builder: (context, snapshot) {
@@ -613,7 +643,93 @@ class _CameraScreenState extends State<CameraScreen>
                     height: 48,
                     child: IconButton(
                       icon: Icon(Icons.photo_library, color: Colors.white),
-                      onPressed: () {},
+                      onPressed: () async {
+                        final ImagePicker picker = ImagePicker();
+                        final XFile? pickedFile =
+                            await picker.pickImage(source: ImageSource.gallery);
+                        if (pickedFile != null) {
+                          // Show loading indicator
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (BuildContext context) {
+                              return const Center(
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white));
+                            },
+                          );
+                          try {
+                            String jsonResponse =
+                                await processImageWithGemini(pickedFile.path);
+                            // Clean up JSON code blocks
+                            jsonResponse = jsonResponse.trim();
+                            if (jsonResponse.startsWith('```json')) {
+                              jsonResponse = jsonResponse.substring(7);
+                            }
+                            if (jsonResponse.endsWith('```')) {
+                              jsonResponse = jsonResponse.substring(
+                                  0, jsonResponse.length - 3);
+                            }
+
+                            dynamic decodedJson;
+                            try {
+                              decodedJson = json.decode(jsonResponse);
+                            } catch (e) {
+                              throw Exception(
+                                  'Invalid JSON: $e\nJSON: $jsonResponse');
+                            }
+
+                            List<dynamic> mealData;
+                            if (decodedJson is Map<String, dynamic>) {
+                              // Handle case where response is wrapped in an object
+                              if (decodedJson.containsKey('meal') &&
+                                  decodedJson['meal'] is List) {
+                                mealData = decodedJson['meal'] as List;
+                              } else {
+                                mealData = [decodedJson];
+                              }
+                            } else if (decodedJson is List) {
+                              mealData = decodedJson;
+                            } else {
+                              throw Exception('Unexpected JSON structure');
+                            }
+
+                            final List<AIFoodItem> foods = mealData
+                                .map((food) => AIFoodItem.fromJson(
+                                    food as Map<String, dynamic>))
+                                .toList();
+
+                            // Dismiss loading dialog before navigating
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
+
+                            if (foods.isNotEmpty) {
+                              Navigator.push(
+                                context,
+                                CupertinoPageRoute(
+                                    builder: (context) =>
+                                        ResultsPage(foods: foods)),
+                              );
+                            } else {
+                              throw Exception('No food items found');
+                            }
+                          } catch (e) {
+                            // Always dismiss loading dialog on error
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Error processing image: ${e.toString()}'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
                     ),
                   ),
                   GestureDetector(

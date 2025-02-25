@@ -19,23 +19,23 @@ Future<String> processImageWithGemini(String imagePath) async {
         Format the response in json exactly like this example, do not include any other information in the response, just the json object, not even the json title in the response.:
         meal: [
           {
-            food: "food name",
-            serving_size: "serving size",
-            calories: 100,
-            protein: 10,
-            carbohydrates: 20,
-            fat: 5,
-            fiber: 3
+            food: "food name 1",
+            serving_size: ["serving size 1", "serving size 2", "serving size 3"],
+            calories: [calories for serving 1, calories for serving 2, calories for serving 3],
+            protein: [protein for serving 1, protein for serving 2, protein for serving 3],
+            carbohydrates: [carbohydrates for serving 1, carbohydrates for serving 2, carbohydrates for serving 3],
+            fat: [fat for serving 1, fat for serving 2, fat for serving 3],
+            fiber: [fiber for serving 1, fiber for serving 2, fiber for serving 3]
           },
           {
-            food: "food name",
-            serving_size: "serving size",
-            calories: 100,
-            protein: 10,
-            carbohydrates: 20,
-            fat: 5,
-            fiber: 3
-          }
+            food: "food name 2",
+            serving_size: ["serving size 1", "serving size 2", "serving size 3"],
+            calories: [calories for serving 1, calories for serving 2, calories for serving 3],
+            protein: [protein for serving 1, protein for serving 2, protein for serving 3],
+            carbohydrates: [carbohydrates for serving 1, carbohydrates for serving 2, carbohydrates for serving 3],
+            fat: [fat for serving 1, fat for serving 2, fat for serving 3],
+            fiber: [fiber for serving 1, fiber for serving 2, fiber for serving 3]
+          },
         ]
         ''';
     final imageBytes = await File(imagePath).readAsBytes();
