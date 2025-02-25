@@ -210,55 +210,58 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Container(
-        // decoration: BoxDecoration(
-        //   gradient: LinearGradient(
-        //     begin: Alignment.topCenter,
-        //     end: Alignment.bottomCenter,
-        //     colors: [
-        //       Theme.of(context).primaryColor.withValues(alpha: .05),
-        //       Theme.of(context).scaffoldBackgroundColor,
-        //     ],
-        //     stops: const [0.0, 0.3],
-        //   ),
-        // ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              SearchHeader(
-                controller: _searchController,
-                onSearch: _searchFood,
-                onChanged: _onSearchChanged,
-                onBack: () => Navigator.pop(context),
+    return GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: Container(
+            // decoration: BoxDecoration(
+            //   gradient: LinearGradient(
+            //     begin: Alignment.topCenter,
+            //     end: Alignment.bottomCenter,
+            //     colors: [
+            //       Theme.of(context).primaryColor.withValues(alpha: .05),
+            //       Theme.of(context).scaffoldBackgroundColor,
+            //     ],
+            //     stops: const [0.0, 0.3],
+            //   ),
+            // ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  SearchHeader(
+                    controller: _searchController,
+                    onSearch: _searchFood,
+                    onChanged: _onSearchChanged,
+                    onBack: () => Navigator.pop(context),
+                  ),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      switchInCurve: Curves.easeOutCirc,
+                      switchOutCurve: Curves.easeInCirc,
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.05),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: _buildContent(),
+                    ),
+                  ),
+                  SizedBox(height: 50)
+                ],
               ),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 400),
-                  switchInCurve: Curves.easeOutCirc,
-                  switchOutCurve: Curves.easeInCirc,
-                  transitionBuilder:
-                      (Widget child, Animation<double> animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.05),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: _buildContent(),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 
   Widget _buildContent() {
@@ -681,6 +684,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
+                        FocusScope.of(context).unfocus();
                         _searchController.text = suggestion;
                         _searchFood(suggestion);
                       },
@@ -692,7 +696,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: accentColor.withOpacity(0.15),
+                                color: accentColor.withValues(alpha: 0.15),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -708,8 +712,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
+                                  color: Theme.of(context).primaryColor,
                                 ),
                               ),
                             ),
