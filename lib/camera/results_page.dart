@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:cupertino_icons/cupertino_icons.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/widgets/ai_food_card.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:provider/provider.dart';
@@ -31,23 +31,194 @@ class ResultsPage extends StatelessWidget {
           'Detected Foods',
           style: TextStyle(
             color: Theme.of(context).primaryColor,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: ListView.builder(
-        itemCount: foods.length,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        itemBuilder: (context, index) {
-          final food = foods[index];
-          return AIFoodCard(
-            food: food,
-            onTap: () => _openFoodDetail(context, food),
-            onAdd: () => _quickAddFood(context, food),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        child: foods.isEmpty
+            ? Center(
+                child: Text(
+                  'No foods detected',
+                  style: TextStyle(color: Theme.of(context).primaryColor),
+                ),
+              )
+            : ListView.builder(
+                key: ValueKey<int>(foods.length),
+                itemCount: foods.length,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                itemBuilder: (context, index) {
+                  final food = foods[index];
+                  return _buildFoodCard(context, food, index);
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _buildFoodCard(BuildContext context, AIFoodItem food, int index) {
+    // Default to first serving size
+    final defaultServing = food.servingSizes[0];
+    final calories = food.calories[0];
+    final protein = food.protein[0];
+    final carbs = food.carbohydrates[0];
+    final fat = food.fat[0];
+
+    return Hero(
+      tag: 'food-${food.name}-$index',
+      child: TweenAnimationBuilder<double>(
+        duration: Duration(milliseconds: 400 + (index * 100)),
+        tween: Tween<double>(begin: 0.0, end: 1.0),
+        builder: (context, value, child) {
+          return Transform.scale(
+            scale: 0.8 + (0.2 * value),
+            child: Opacity(
+              opacity: value,
+              child: child,
+            ),
           );
         },
+        child: Card(
+          elevation: 3,
+          margin: const EdgeInsets.only(bottom: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: InkWell(
+            onTap: () => _openFoodDetail(context, food),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Food info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              food.name,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Serving: ${defaultServing}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Add button
+                      Container(
+                        // decoration: BoxDecoration(
+                        // color:
+                        // Theme.of(context).primaryColor.withOpacity(0.1),
+                        // borderRadius: BorderRadius.circular(8),
+                        // ),
+                        child: IconButton(
+                          icon: Icon(
+                            CupertinoIcons.add_circled,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          onPressed: () => _quickAddFood(context, food),
+                          tooltip: 'Add to meal',
+                        ),
+                      )
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Nutrition chips row
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildNutritionChip(
+                            context,
+                            Icons.local_fire_department_outlined,
+                            '${calories.toStringAsFixed(0)} kcal'),
+                        const SizedBox(width: 8),
+                        _buildNutritionChip(
+                            context,
+                            Icons.fitness_center_outlined,
+                            '${protein.toStringAsFixed(1)}g protein'),
+                        const SizedBox(width: 8),
+                        _buildNutritionChip(
+                            context,
+                            Icons.bubble_chart_outlined,
+                            '${carbs.toStringAsFixed(1)}g carbs'),
+                        const SizedBox(width: 8),
+                        _buildNutritionChip(context, Icons.opacity_outlined,
+                            '${fat.toStringAsFixed(1)}g fat'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNutritionChip(
+      BuildContext context, IconData icon, String label) {
+    // Define specific colors for each nutrient type
+    Color chipColor;
+    if (label.contains('kcal')) {
+      chipColor = Colors.green.shade500;
+    } else if (label.contains('protein')) {
+      chipColor = Colors.red.shade500;
+    } else if (label.contains('carbs')) {
+      chipColor = Colors.blue.shade500;
+    } else if (label.contains('fat')) {
+      chipColor = Colors.orange.shade500;
+    } else {
+      chipColor = Theme.of(context).primaryColor;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: chipColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: chipColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: chipColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -55,78 +226,141 @@ class ResultsPage extends StatelessWidget {
   void _openFoodDetail(BuildContext context, AIFoodItem food) {
     Navigator.push(
       context,
-      MaterialPageRoute(
+      CupertinoPageRoute(
         builder: (context) => AIFoodDetailPage(food: food),
       ),
     );
   }
 
   void _quickAddFood(BuildContext context, AIFoodItem food) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Add to Meal',
-          style: TextStyle(color: Theme.of(context).primaryColor),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        content: Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            'Breakfast',
-            'Lunch',
-            'Snacks',
-            'Dinner',
-          ]
-              .map((meal) => ListTile(
-                    title: Text(
-                      meal,
-                      style: TextStyle(color: Theme.of(context).primaryColor),
-                    ),
-                    onTap: () {
-                      final dateProvider =
-                          Provider.of<DateProvider>(context, listen: false);
-                      final foodEntryProvider = Provider.of<FoodEntryProvider>(
-                          context,
-                          listen: false);
-
-                      // Create food entry using the first serving size
-                      final entry = FoodEntry(
-                        id: const Uuid().v4(),
-                        food: FoodItem(
-                          fdcId: food.name.hashCode.toString(),
-                          name: food.name,
-                          brandName: 'AI Detected',
-                          calories: food.calories[0],
-                          nutrients: {
-                            'Protein': food.protein[0],
-                            'Carbohydrate, by difference':
-                                food.carbohydrates[0],
-                            'Total lipid (fat)': food.fat[0],
-                            'Fiber': food.fiber[0],
-                          },
-                          mealType: meal,
-                        ),
-                        meal: meal,
-                        quantity: 1.0,
-                        unit: food.servingSizes[0],
-                        date: dateProvider.selectedDate,
-                      );
-
-                      foodEntryProvider.addEntry(entry);
-                      Navigator.pop(context); // Close dialog
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Added ${food.name} to $meal',
-                              style: TextStyle(
-                                  color: Theme.of(context).primaryColor)),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ))
-              .toList(),
+            Text(
+              'Add to Meal',
+              style: TextStyle(
+                color: Theme.of(context).primaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              food.name,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ...[
+              'Breakfast',
+              'Lunch',
+              'Snacks',
+              'Dinner',
+            ].map((meal) => _buildMealOption(context, food, meal)).toList(),
+            const SizedBox(height: 16),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMealOption(BuildContext context, AIFoodItem food, String meal) {
+    return InkWell(
+      onTap: () => _addFoodToMeal(context, food, meal),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Colors.grey.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              meal,
+              style: TextStyle(
+                color: Theme.of(context).primaryColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Theme.of(context).primaryColor,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addFoodToMeal(BuildContext context, AIFoodItem food, String meal) {
+    final dateProvider = Provider.of<DateProvider>(context, listen: false);
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+
+    // Create food entry using the first serving size
+    final entry = FoodEntry(
+      id: const Uuid().v4(),
+      food: FoodItem(
+        fdcId: food.name.hashCode.toString(),
+        name: food.name,
+        brandName: 'AI Detected',
+        calories: food.calories[0],
+        nutrients: {
+          'Protein': food.protein[0],
+          'Carbohydrate, by difference': food.carbohydrates[0],
+          'Total lipid (fat)': food.fat[0],
+          'Fiber': food.fiber[0],
+        },
+        mealType: meal,
+      ),
+      meal: meal,
+      quantity: 1.0,
+      unit: food.servingSizes[0],
+      date: dateProvider.selectedDate,
+    );
+
+    foodEntryProvider.addEntry(entry);
+    Navigator.pop(context); // Close bottom sheet
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle_outline,
+                color: Theme.of(context).colorScheme.onPrimary),
+            SizedBox(width: 8),
+            Text(
+              'Added to $meal',
+              style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+            ),
+          ],
+        ),
+        backgroundColor: Theme.of(context).primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: EdgeInsets.all(8),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
