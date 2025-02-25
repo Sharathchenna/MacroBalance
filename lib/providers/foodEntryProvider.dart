@@ -41,15 +41,16 @@ class FoodEntryProvider with ChangeNotifier {
     final entriesForDate = getEntriesForDate(date);
     return entriesForDate.fold(0, (sum, entry) {
       final energy = entry.food.calories;
-      return sum + (energy * entry.quantity / 100);
+      return sum + (energy * entry.quantity);
     });
   }
 
   List<FoodEntry> getAllEntriesForDate(DateTime date) {
-    return _entries.where((entry) =>
-      entry.date.year == date.year &&
-      entry.date.month == date.month &&
-      entry.date.day == date.day
-    ).toList();
+    return _entries
+        .where((entry) =>
+            entry.date.year == date.year &&
+            entry.date.month == date.month &&
+            entry.date.day == date.day)
+        .toList();
   }
 }

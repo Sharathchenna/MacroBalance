@@ -375,7 +375,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           final protein = entry.food.nutrients["Protein"] ?? 0;
 
           // Calculate based on quantity
-          final multiplier = entry.quantity / 100;
+          final multiplier = entry.quantity;
           totalCarbs += carbs * multiplier;
           totalFat += fat * multiplier;
           totalProtein += protein * multiplier;
@@ -648,6 +648,7 @@ class _MealSectionState extends State<MealSection> {
             _buildMealCard('Lunch'),
             _buildMealCard('Snacks'),
             _buildMealCard('Dinner'),
+            SizedBox(height: 100),
           ],
         ),
       ),
@@ -661,7 +662,7 @@ class _MealSectionState extends State<MealSection> {
             mealType, dateProvider.selectedDate);
         double totalCalories = entries.fold(0, (sum, entry) {
           final energy = entry.food.calories;
-          return sum + (energy * entry.quantity / 100);
+          return sum + (energy * entry.quantity);
         });
 
         return Card(
@@ -726,7 +727,7 @@ class _MealSectionState extends State<MealSection> {
                         ),
                       ),
                       subtitle: Text(
-                        '${entry.quantity}${entry.unit} - ${(entry.food.calories * entry.quantity / 100).toStringAsFixed(0)} kcal',
+                        '${entry.quantity}${entry.unit} - ${(entry.food.calories * entry.quantity).toStringAsFixed(0)} kcal',
                         style: TextStyle(
                           color: Theme.of(context)
                               .extension<CustomColors>()
@@ -735,6 +736,7 @@ class _MealSectionState extends State<MealSection> {
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline),
+                        color: Colors.red,
                         onPressed: () {
                           foodEntryProvider.removeEntry(entry.id);
                         },

@@ -224,54 +224,62 @@ class _CameraScreenState extends State<CameraScreen>
         try {
           // Process image
           String jsonResponse = await processImageWithGemini(image.path);
+          // Clean up JSON code blocks
+          jsonResponse = jsonResponse.trim();
+          if (jsonResponse.startsWith('```json')) {
+            jsonResponse = jsonResponse.substring(7);
+          }
+          if (jsonResponse.endsWith('```')) {
+            jsonResponse = jsonResponse.substring(0, jsonResponse.length - 3);
+          }
 
-          if (!_isDisposed) {
-            // Remove loading dialog
-            Navigator.pop(context);
+          dynamic decodedJson;
+          try {
+            decodedJson = json.decode(jsonResponse);
+          } catch (e) {
+            throw Exception('Invalid JSON: $e\nJSON: $jsonResponse');
+          }
 
-            if (jsonResponse.isNotEmpty) {
-              // Clean up the response
-              jsonResponse = jsonResponse.trim();
-              if (jsonResponse.startsWith('```json')) {
-                jsonResponse = jsonResponse.substring(7);
-              }
-              if (jsonResponse.endsWith('```')) {
-                jsonResponse =
-                    jsonResponse.substring(0, jsonResponse.length - 3);
-              }
-
-              final dynamic decodedJson = json.decode(jsonResponse);
-              if (decodedJson == null) {
-                throw Exception('Invalid JSON response');
-              }
-
-              List<dynamic> mealData;
-              if (decodedJson is Map<String, dynamic>) {
-                mealData = [decodedJson];
-              } else if (decodedJson is List) {
-                mealData = decodedJson;
-              } else {
-                throw Exception('Unexpected JSON structure');
-              }
-
-              final List<AIFoodItem> foods = mealData
-                  .map((food) =>
-                      AIFoodItem.fromJson(food as Map<String, dynamic>))
-                  .toList();
-
-              if (foods.isNotEmpty) {
-                Navigator.push(
-                  context,
-                  CupertinoPageRoute(
-                    builder: (context) => ResultsPage(foods: foods),
-                  ),
-                );
-              } else {
-                throw Exception('No food items found');
-              }
+          List<dynamic> mealData;
+          if (decodedJson is Map<String, dynamic>) {
+            // Handle case where response is wrapped in an object
+            if (decodedJson.containsKey('meal') &&
+                decodedJson['meal'] is List) {
+              mealData = decodedJson['meal'] as List;
+            } else {
+              mealData = [decodedJson];
             }
+          } else if (decodedJson is List) {
+            mealData = decodedJson;
+          } else {
+            throw Exception('Unexpected JSON structure');
+          }
+
+          final List<AIFoodItem> foods = mealData
+              .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
+              .toList();
+
+          // Dismiss loading dialog before navigating
+          if (!_isDisposed && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+
+          if (foods.isNotEmpty) {
+            Navigator.push(
+              context,
+              CupertinoPageRoute(
+                builder: (context) => ResultsPage(foods: foods),
+              ),
+            );
+          } else {
+            throw Exception('No food items found');
           }
         } catch (e) {
+          // Make sure to dismiss loading dialog on error
+          if (!_isDisposed && Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+
           if (!_isDisposed) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -653,8 +661,7 @@ class _CameraScreenState extends State<CameraScreen>
                           try {
                             String jsonResponse =
                                 await processImageWithGemini(pickedFile.path);
-                            Navigator.pop(context); // Remove loading dialog
-
+                            // Clean up JSON code blocks
                             jsonResponse = jsonResponse.trim();
                             if (jsonResponse.startsWith('```json')) {
                               jsonResponse = jsonResponse.substring(7);
@@ -664,11 +671,23 @@ class _CameraScreenState extends State<CameraScreen>
                                   0, jsonResponse.length - 3);
                             }
 
-                            final dynamic decodedJson =
-                                json.decode(jsonResponse);
+                            dynamic decodedJson;
+                            try {
+                              decodedJson = json.decode(jsonResponse);
+                            } catch (e) {
+                              throw Exception(
+                                  'Invalid JSON: $e\nJSON: $jsonResponse');
+                            }
+
                             List<dynamic> mealData;
                             if (decodedJson is Map<String, dynamic>) {
-                              mealData = [decodedJson];
+                              // Handle case where response is wrapped in an object
+                              if (decodedJson.containsKey('meal') &&
+                                  decodedJson['meal'] is List) {
+                                mealData = decodedJson['meal'] as List;
+                              } else {
+                                mealData = [decodedJson];
+                              }
                             } else if (decodedJson is List) {
                               mealData = decodedJson;
                             } else {
@@ -679,6 +698,11 @@ class _CameraScreenState extends State<CameraScreen>
                                 .map((food) => AIFoodItem.fromJson(
                                     food as Map<String, dynamic>))
                                 .toList();
+
+                            // Dismiss loading dialog before navigating
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
 
                             if (foods.isNotEmpty) {
                               Navigator.push(
@@ -691,7 +715,11 @@ class _CameraScreenState extends State<CameraScreen>
                               throw Exception('No food items found');
                             }
                           } catch (e) {
-                            Navigator.pop(context);
+                            // Always dismiss loading dialog on error
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
+
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(

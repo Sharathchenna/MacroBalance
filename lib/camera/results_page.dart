@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/widgets/ai_food_card.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
@@ -88,24 +89,37 @@ class ResultsPage extends StatelessWidget {
                           context,
                           listen: false);
 
-                      // Convert and add with default serving
-                      final foodItem = food.toFoodItem();
+                      // Create food entry using the first serving size
                       final entry = FoodEntry(
                         id: const Uuid().v4(),
-                        food: foodItem,
+                        food: FoodItem(
+                          fdcId: food.name.hashCode.toString(),
+                          name: food.name,
+                          brandName: 'AI Detected',
+                          calories: food.calories[0],
+                          nutrients: {
+                            'Protein': food.protein[0],
+                            'Carbohydrate, by difference':
+                                food.carbohydrates[0],
+                            'Total lipid (fat)': food.fat[0],
+                            'Fiber': food.fiber[0],
+                          },
+                          mealType: meal,
+                        ),
                         meal: meal,
                         quantity: 1.0,
-                        unit: food.servingSizes.first.unit,
+                        unit: food.servingSizes[0],
                         date: dateProvider.selectedDate,
                       );
 
                       foodEntryProvider.addEntry(entry);
                       Navigator.pop(context); // Close dialog
-                      Navigator.pop(context); // Close results page
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Added ${food.name} to $meal'),
+                          content: Text('Added ${food.name} to $meal',
+                              style: TextStyle(
+                                  color: Theme.of(context).primaryColor)),
                           duration: const Duration(seconds: 2),
                         ),
                       );

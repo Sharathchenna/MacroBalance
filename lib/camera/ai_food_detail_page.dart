@@ -21,21 +21,34 @@ class AIFoodDetailPage extends StatefulWidget {
 }
 
 class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
-  late ServingSize selectedServing;
-  late double quantity;
+  int selectedServingIndex = 0;
+  double quantity = 1.0;
   String selectedMeal = 'Breakfast';
+  final TextEditingController quantityController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    selectedServing = widget.food.servingSizes.first;
-    quantity = 1.0;
+    quantityController.text = '1.0';
+    quantityController.addListener(_updateQuantity);
+  }
+
+  @override
+  void dispose() {
+    quantityController.dispose();
+    super.dispose();
+  }
+
+  void _updateQuantity() {
+    setState(() {
+      quantity = double.tryParse(quantityController.text) ?? 1.0;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final calculatedNutrition =
-        _calculateNutrition(selectedServing.nutritionInfo);
+        widget.food.getNutritionForIndex(selectedServingIndex, quantity);
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
@@ -57,6 +70,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
             ),
           ],
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          elevation: 0,
         ),
         body: Padding(
           padding: const EdgeInsets.all(16),
@@ -64,56 +78,107 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Meal selector
+              Text(
+                'Meal',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: selectedMeal,
+                style: TextStyle(color: Theme.of(context).primaryColor),
                 items: ['Breakfast', 'Lunch', 'Snacks', 'Dinner']
                     .map((meal) => DropdownMenuItem(
                           value: meal,
-                          child: Text(meal,
-                              style: TextStyle(
-                                  color: Theme.of(context).primaryColor)),
+                          child: Text(meal),
                         ))
                     .toList(),
                 onChanged: (value) {
                   setState(() => selectedMeal = value!);
                 },
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // Quantity and unit selector
+              // Quantity and serving size selectors
               Row(
                 children: [
+                  // Quantity input
                   Expanded(
-                    child: TextField(
-                      keyboardType: TextInputType.number,
-                      style: TextStyle(color: Theme.of(context).primaryColor),
-                      onChanged: (value) {
-                        setState(() {
-                          quantity = double.tryParse(value) ?? 1.0;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        labelText: 'Quantity',
-                        labelStyle:
-                            TextStyle(color: Theme.of(context).primaryColor),
-                      ),
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quantity',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: quantityController,
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          keyboardType:
+                              TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 16),
+
+                  // Serving size dropdown
                   Expanded(
-                    child: DropdownButtonFormField<ServingSize>(
-                      value: selectedServing,
-                      items: widget.food.servingSizes
-                          .map((serving) => DropdownMenuItem(
-                                value: serving,
-                                child: Text(serving.unit,
-                                    style: TextStyle(
-                                        color: Theme.of(context).primaryColor)),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() => selectedServing = value!);
-                      },
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Serving Size',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<int>(
+                          value: selectedServingIndex,
+                          items: List.generate(
+                            widget.food.servingSizes.length,
+                            (index) => DropdownMenuItem(
+                              value: index,
+                              child: Text(widget.food.servingSizes[index],
+                                  style: TextStyle(
+                                      color: Theme.of(context).primaryColor)),
+                            ),
+                          ),
+                          onChanged: (value) {
+                            setState(() => selectedServingIndex = value!);
+                          },
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -121,11 +186,26 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
 
               // Nutrition info
               const SizedBox(height: 32),
-              _buildNutritionInfo('Calories', calculatedNutrition.calories),
-              _buildNutritionInfo('Protein', calculatedNutrition.protein),
-              _buildNutritionInfo('Carbs', calculatedNutrition.carbohydrates),
-              _buildNutritionInfo('Fat', calculatedNutrition.fat),
-              _buildNutritionInfo('Fiber', calculatedNutrition.fiber),
+              Text(
+                'Nutrition Information',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildNutritionInfo(
+                  'Calories', calculatedNutrition.calories, 'kcal'),
+              Divider(),
+              _buildNutritionInfo('Protein', calculatedNutrition.protein, 'g'),
+              Divider(),
+              _buildNutritionInfo(
+                  'Carbohydrates', calculatedNutrition.carbohydrates, 'g'),
+              Divider(),
+              _buildNutritionInfo('Fat', calculatedNutrition.fat, 'g'),
+              Divider(),
+              _buildNutritionInfo('Fiber', calculatedNutrition.fiber, 'g'),
             ],
           ),
         ),
@@ -133,18 +213,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
     );
   }
 
-  NutritionInfo _calculateNutrition(NutritionInfo base) {
-    return NutritionInfo(
-      calories: base.calories * quantity,
-      protein: base.protein * quantity,
-      carbohydrates: base.carbohydrates * quantity,
-      fat: base.fat * quantity,
-      fiber: base.fiber * quantity,
-    );
-  }
-
-  Widget _buildNutritionInfo(String label, double value) {
-    String unit = label == 'Calories' ? 'kcal' : 'g';
+  Widget _buildNutritionInfo(String label, double value, String unit) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -158,7 +227,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
             ),
           ),
           Text(
-            '${value.toStringAsFixed(1)}$unit',
+            '${value.toStringAsFixed(1)} $unit',
             style: TextStyle(
               color: Theme.of(context).primaryColor,
               fontSize: 16,
@@ -175,30 +244,42 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
     final foodEntryProvider =
         Provider.of<FoodEntryProvider>(context, listen: false);
 
-    // Convert AI food item to FoodItem
-    final foodItem = widget.food.toFoodItem();
-
     // Create food entry
     final entry = FoodEntry(
       id: const Uuid().v4(),
-      food: foodItem,
+      food: FoodItem(
+        fdcId: widget.food.name.hashCode.toString(),
+        name: widget.food.name,
+        brandName: 'AI Detected',
+        calories: widget.food.calories[selectedServingIndex],
+        nutrients: {
+          'Protein': widget.food.protein[selectedServingIndex],
+          'Carbohydrate, by difference':
+              widget.food.carbohydrates[selectedServingIndex],
+          'Total lipid (fat)': widget.food.fat[selectedServingIndex],
+          'Fiber': widget.food.fiber[selectedServingIndex],
+        },
+        mealType: selectedMeal,
+      ),
       meal: selectedMeal,
       quantity: quantity,
-      unit: selectedServing.unit,
+      unit: widget.food.servingSizes[selectedServingIndex],
       date: dateProvider.selectedDate,
     );
 
     // Add entry to provider
     foodEntryProvider.addEntry(entry);
 
-    // Pop both pages (results and detail)
-    Navigator.pop(context);
+    // Pop only this page to return to results page
     Navigator.pop(context);
 
     // Show confirmation
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Added ${widget.food.name} to $selectedMeal'),
+        content: Text(
+          'Added ${widget.food.name} to $selectedMeal',
+          style: TextStyle(color: Theme.of(context).primaryColor),
+        ),
         duration: const Duration(seconds: 2),
       ),
     );

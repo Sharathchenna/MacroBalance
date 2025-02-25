@@ -18,6 +18,9 @@ class AIFoodCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -39,10 +42,19 @@ class AIFoodCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Available in: ${food.servingSizes.map((s) => s.unit).join(", ")}',
+                      'Available in: ${food.servingSizes.join(", ")}',
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${food.calories[0].toStringAsFixed(0)} calories per ${food.servingSizes[0]}',
+                      style: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -52,6 +64,7 @@ class AIFoodCard extends StatelessWidget {
                 icon: const Icon(Icons.add_circle_outline),
                 color: Theme.of(context).primaryColor,
                 onPressed: onAdd,
+                tooltip: 'Add to meal',
               ),
             ],
           ),
