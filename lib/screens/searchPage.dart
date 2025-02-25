@@ -22,6 +22,22 @@ class FoodSearchPage extends StatefulWidget {
 
 class _FoodSearchPageState extends State<FoodSearchPage>
     with SingleTickerProviderStateMixin {
+  IconData _getFoodIcon(String foodName) {
+    final name = foodName.toLowerCase();
+    if (name.contains('chicken') ||
+        name.contains('meat') ||
+        name.contains('beef')) {
+      return Icons.restaurant;
+    } else if (name.contains('salad') || name.contains('vegetable')) {
+      return Icons.eco;
+    } else if (name.contains('pizza') || name.contains('burger')) {
+      return Icons.fastfood;
+    } else if (name.contains('fruit') || name.contains('apple')) {
+      return Icons.food_bank;
+    }
+    return Icons.restaurant_menu;
+  }
+
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
   List<String> _autoCompleteResults = [];
@@ -196,22 +212,50 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            SearchHeader(
-              controller: _searchController,
-              onSearch: _searchFood,
-              onChanged: _onSearchChanged,
-              onBack: () => Navigator.pop(context),
-            ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: _buildContent(),
+      body: Container(
+        // decoration: BoxDecoration(
+        //   gradient: LinearGradient(
+        //     begin: Alignment.topCenter,
+        //     end: Alignment.bottomCenter,
+        //     colors: [
+        //       Theme.of(context).primaryColor.withValues(alpha: .05),
+        //       Theme.of(context).scaffoldBackgroundColor,
+        //     ],
+        //     stops: const [0.0, 0.3],
+        //   ),
+        // ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              SearchHeader(
+                controller: _searchController,
+                onSearch: _searchFood,
+                onChanged: _onSearchChanged,
+                onBack: () => Navigator.pop(context),
               ),
-            ),
-          ],
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  switchInCurve: Curves.easeOutCirc,
+                  switchOutCurve: Curves.easeInCirc,
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.05),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: _buildContent(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -235,20 +279,34 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          RotationTransition(
-            turns: _loadingController,
-            child: Icon(
-              Icons.refresh_rounded,
-              size: 48,
-              color: Theme.of(context).primaryColor.withValues(alpha: .5),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).primaryColor.withValues(alpha: .1),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: RotationTransition(
+              turns: _loadingController,
+              child: Icon(
+                Icons.restaurant_rounded,
+                size: 48,
+                color: Theme.of(context).primaryColor,
+              ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
-            'Searching...',
-            style: TextStyle(
-              color: Theme.of(context).primaryColor.withValues(alpha: .5),
-              fontSize: 16,
+            'Finding delicious foods...',
+            style: AppTypography.caption.copyWith(
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -290,6 +348,17 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             ),
     );
   }
+
+  void _navigateToFoodDetail(FoodItem food) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FoodDetailPage(food: food),
+      ),
+    );
+  }
+
+  // Removed duplicate _buildFoodCard implementation
 
   Widget _buildFoodCard(FoodItem food) {
     return Container(
@@ -399,38 +468,24 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  void _navigateToFoodDetail(FoodItem food) {
-    HapticFeedback.mediumImpact();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FoodDetailPage(food: food),
-      ),
-    );
-  }
-
-  Widget _buildNutrientChip(String label, IconData icon, Color accentColor) {
+  Widget _buildNutrientChip(String text, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: accentColor.withValues(alpha: 0.1),
+        color: color.withValues(alpha: .1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: accentColor,
-          ),
-          const SizedBox(width: 6),
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 4),
           Text(
-            label,
+            text,
             style: TextStyle(
-              color: accentColor,
-              fontSize: 13,
+              color: color,
               fontWeight: FontWeight.w500,
+              fontSize: 13,
             ),
           ),
         ],
@@ -438,83 +493,237 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_rounded,
-            size: 64,
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+  Widget _buildNutrientItem(
+      String label, String value, Color accentColor, IconData icon) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: .15),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Search for your favorite foods',
-            style: TextStyle(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-              fontSize: 16,
+          child: Icon(
+            icon,
+            size: 12,
+            color: accentColor,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // The illustration container
+              Container(
+                width: 160, // Slightly smaller
+                height: 160, // Slightly smaller
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withValues(alpha: .1),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          Theme.of(context).primaryColor.withValues(alpha: .05),
+                      blurRadius: 15,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.restaurant_menu_rounded,
+                  size: 72,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Find your favorite foods',
+                style: AppTypography.h2.copyWith(
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Search for any food to see detailed nutrition information and track your meals.',
+                style: AppTypography.body1.copyWith(
+                  color: Theme.of(context).primaryColor.withValues(alpha: .7),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              // Add a hint button
+              Material(
+                color: Theme.of(context).primaryColor.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(18),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () {
+                    _searchController.text = "chicken";
+                    _searchFood("chicken");
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.search_rounded,
+                          size: 18,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Try searching "chicken"',
+                          style: AppTypography.button.copyWith(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildSuggestions() {
-    return ListView.builder(
-      itemCount: _autoCompleteResults.length,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemBuilder: (context, index) {
-        final suggestion = _autoCompleteResults[index];
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                offset: const Offset(0, 2),
-                blurRadius: 5,
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                _searchController.text = suggestion;
-                _searchFood(suggestion);
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search_rounded,
-                      color:
-                          Theme.of(context).primaryColor.withValues(alpha: 0.7),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        suggestion,
-                        style: TextStyle(
-                          color: Theme.of(context).primaryColor,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+            child: Text(
+              'Suggestions',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ),
-        );
-      },
+          Expanded(
+            child: ListView.builder(
+              itemCount: _autoCompleteResults.length,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemBuilder: (context, index) {
+                final suggestion = _autoCompleteResults[index];
+                // Generate a unique but consistent color for each suggestion
+                final Color suggestionColor =
+                    Color(suggestion.hashCode).withOpacity(1.0);
+                final hsl = HSLColor.fromColor(suggestionColor);
+                final accentColor = hsl
+                    .withLightness(
+                        Theme.of(context).brightness == Brightness.dark
+                            ? 0.7
+                            : 0.4)
+                    .toColor();
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.black12
+                            : Colors.black.withOpacity(0.05),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        _searchController.text = suggestion;
+                        _searchFood(suggestion);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 16, horizontal: 20),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: accentColor.withOpacity(0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.search_rounded,
+                                color: accentColor,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                suggestion,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

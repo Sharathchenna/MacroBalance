@@ -39,4 +39,10 @@ class AppTypography {
     fontWeight: FontWeight.w500,
     height: 1.4,
   );
+
+  static const TextStyle button = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.25,
+  );
 }
