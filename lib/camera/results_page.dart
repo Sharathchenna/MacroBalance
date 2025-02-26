@@ -126,20 +126,27 @@ class ResultsPage extends StatelessWidget {
 
                       // Add button
                       Container(
-                        // decoration: BoxDecoration(
-                        // color:
-                        // Theme.of(context).primaryColor.withOpacity(0.1),
-                        // borderRadius: BorderRadius.circular(8),
-                        // ),
-                        child: IconButton(
-                          icon: Icon(
-                            CupertinoIcons.add_circled,
-                            color: Theme.of(context).primaryColor,
+                          // decoration: BoxDecoration(
+                          // color:
+                          // Theme.of(context).primaryColor.withOpacity(0.1),
+                          // borderRadius: BorderRadius.circular(8),
+                          // ),
+                          child: Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              CupertinoIcons.add_circled,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                            onPressed: () => _quickAddFood(context, food),
+                            tooltip: 'Add to meal',
                           ),
-                          onPressed: () => _quickAddFood(context, food),
-                          tooltip: 'Add to meal',
-                        ),
-                      )
+                          SizedBox(width: 8),
+                          Icon(
+                            CupertinoIcons.chevron_right,
+                          )
+                        ],
+                      ))
                     ],
                   ),
 

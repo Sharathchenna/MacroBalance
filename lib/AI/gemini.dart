@@ -8,7 +8,7 @@ Future<String> processImageWithGemini(String imagePath) async {
     const apiKey =
         'AIzaSyDe8qpEeJHOYJtJviyr4GVH2_ssCUy9gZc'; // Replace with your actual API key
     final model = GenerativeModel(
-      model: 'gemini-2.0-flash-lite-preview-02-05',
+      model: 'gemini-2.0-flash',
       apiKey: apiKey,
     );
     final prompt = '''
