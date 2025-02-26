@@ -25,7 +25,7 @@ class MacroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
@@ -103,7 +103,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       return "N/A";
     }
     final convertedQty = getConvertedQuantity();
-    final recalculated = nutrientPer100 * (convertedQty / 100);
+    final recalculated = nutrientPer100 * (convertedQty / 10000);
     return recalculated.toStringAsFixed(1);
   }
 
@@ -212,9 +212,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                       Center(
                         child: Text(
                           (() {
-                            String energy = food.calories.toString();
-                            // return energy != "N/A" ? "$energy kcal" : "N/A";
-                            return energy = "$energy kcal";
+                            final convertedQty = getConvertedQuantity();
+                            final caloriesPer100 = widget.food.calories;
+                            final calculatedCalories = caloriesPer100 * (convertedQty / 100);
+                            return "${calculatedCalories.toStringAsFixed(0)} kcal";
                           }()),
                           style: TextStyle(
                             fontSize: 28,
