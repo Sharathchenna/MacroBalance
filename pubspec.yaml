@@ -60,6 +60,8 @@ dependencies:
   uuid: ^4.5.1
   shared_preferences: ^2.5.2
   posthog_flutter: ^4.0.0 
+  smooth_page_indicator: ^1.1.0
+  lottie: ^2.7.0
 
 dev_dependencies:
   flutter_test:
@@ -86,9 +88,8 @@ flutter:
   assets:
     - assets/icons/
     - assets/splash_screen/
-    # - assets/images/
-
-  #   - images/a_dot_ham.jpeg
+    - assets/images/
+    # - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
