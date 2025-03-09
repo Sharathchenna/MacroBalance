@@ -6,14 +6,18 @@ class AppTheme {
     brightness: Brightness.light,
     scaffoldBackgroundColor: const Color(0xFFF8F7F3),
     cardColor: Colors.white,
-    primaryColor: Color(0xFF333333),
-    colorScheme: const ColorScheme.light(
-      primary: Colors.black, // Changed from black87 to full black
-      secondary: Colors.blue,
+    primaryColor: const Color(0xFF2196F3), // Changed to a more vibrant blue
+    colorScheme: ColorScheme.light(
+      primary: const Color(0xFF2196F3), // Vibrant blue
+      secondary: const Color(0xFF03A9F4),
       surface: Colors.white,
-      onSurface: Color(0xFFE0E0E0),
+      background: const Color(0xFFF8F7F3),
+      onSurface: Colors.black87, // Darker text on surface
+      onBackground: Colors.black87,
       onPrimary: Colors.white,
       onSecondary: Colors.white,
+      error: const Color(0xFFD32F2F),
+      tertiary: const Color(0xFF4CAF50), // Added for success states
     ),
     // Add extension colors for custom widgets
     extensions: [
@@ -39,14 +43,18 @@ class AppTheme {
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF121212),
     cardColor: const Color(0xFF1E1E1E),
-    primaryColor: Colors.white,
-    colorScheme: const ColorScheme.dark(
-      primary: Colors.white,
-      secondary: Colors.blue,
-      surface: Color(0xFF1E1E1E),
-      onSurface: Color(0xFF1E1E1E),
+    primaryColor: const Color(0xFF90CAF9), // Lighter blue for dark theme
+    colorScheme: ColorScheme.dark(
+      primary: const Color(0xFF90CAF9), // Lighter blue for better visibility
+      secondary: const Color(0xFF81D4FA),
+      surface: const Color(0xFF1E1E1E),
+      background: const Color(0xFF121212),
+      onSurface: Colors.white, // Brighter text on surface
+      onBackground: Colors.white,
       onPrimary: Colors.black,
       onSecondary: Colors.black,
+      error: const Color(0xFFEF5350),
+      tertiary: const Color(0xFF81C784), // Added for success states
     ),
     // Add extension colors for custom widgets
     extensions: [

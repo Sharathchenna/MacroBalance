@@ -62,6 +62,8 @@ dependencies:
   posthog_flutter: ^4.0.0 
   smooth_page_indicator: ^1.1.0
   lottie: ^2.7.0
+  local_auth: ^2.3.0
+  settings_ui: ^2.0.2
 
 dev_dependencies:
   flutter_test:

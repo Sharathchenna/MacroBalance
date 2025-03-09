@@ -120,8 +120,8 @@ class _DashboardState extends State<Dashboard> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                CupertinoSheetRoute(
-                                    builder: (context) => Accountdashboard()),
+                                CupertinoPageRoute(
+                                    builder: (context) => AccountDashboard()),
                               );
                             },
                           ),
