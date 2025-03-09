@@ -51,6 +51,7 @@ class _ResultsScreenState extends State<ResultsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     final bmr = widget.results['bmr'];
     final tdee = widget.results['tdee'];
     final calorieTarget = widget.results['calorie_target'];
@@ -73,7 +74,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                   title: Text(
                     'Your Personalized Plan',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
+                      color: customColors?.textPrimary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -88,7 +89,9 @@ class _ResultsScreenState extends State<ResultsScreen>
                     children: [
                       Text(
                         "Based on your information, we've calculated your optimal nutrition plan. Here's what we recommend:",
-                        style: Theme.of(context).textTheme.bodyLarge,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: customColors?.textPrimary,
+                            ),
                       ),
                       const SizedBox(height: 32),
 
@@ -98,17 +101,17 @@ class _ResultsScreenState extends State<ResultsScreen>
                           height: 180,
                           width: 180,
                           decoration: BoxDecoration(
-                            color: Theme.of(context).brightness ==
-                                    Brightness.light
-                                ? Colors.white
-                                : Colors.grey.shade900.withValues(alpha: 0.3),
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.white
+                                    : Colors.grey.shade900.withOpacity(0.3),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: Theme.of(context).brightness ==
                                         Brightness.light
-                                    ? Colors.grey.withValues(alpha: 0.1)
-                                    : Colors.black.withValues(alpha: 0.2),
+                                    ? Colors.grey.withOpacity(0.1)
+                                    : Colors.black.withOpacity(0.2),
                                 blurRadius: 10,
                                 spreadRadius: 1,
                                 offset: const Offset(0, 3),
@@ -138,8 +141,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                                     style: GoogleFonts.poppins(
                                       fontSize: 32,
                                       fontWeight: FontWeight.bold,
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
+                                      color: customColors?.textPrimary,
                                     ),
                                   ),
                                   Text(
@@ -147,7 +149,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                                     style: GoogleFonts.poppins(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
-                                      color: Colors.grey.shade600,
+                                      color: customColors?.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -164,6 +166,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                         'Daily Macronutrient Targets',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: customColors?.textPrimary,
                             ),
                       ),
                       const SizedBox(height: 16),
@@ -208,6 +211,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                         'Additional Information',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: customColors?.textPrimary,
                             ),
                       ),
                       const SizedBox(height: 16),
@@ -281,13 +285,15 @@ class _ResultsScreenState extends State<ResultsScreen>
     Color color,
     IconData icon,
   ) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1 * 255),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: color.withValues(alpha: 0.3),
+          color: color.withOpacity(0.3),
           width: 1,
         ),
       ),
@@ -296,14 +302,14 @@ class _ResultsScreenState extends State<ResultsScreen>
           Icon(
             icon,
             size: 28,
-            color: Theme.of(context).colorScheme.primary,
+            color: color,
           ),
           const SizedBox(height: 8),
           Text(
             label,
             style: TextStyle(
               fontSize: 14,
-              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+              color: customColors?.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -313,7 +319,7 @@ class _ResultsScreenState extends State<ResultsScreen>
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+              color: customColors?.textPrimary,
             ),
           ),
         ],
@@ -328,16 +334,18 @@ class _ResultsScreenState extends State<ResultsScreen>
     String description,
     IconData icon,
   ) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<CustomColors>()?.cardBackground,
+        color: customColors?.cardBackground,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).brightness == Brightness.light
-                ? Colors.grey.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: 0.1),
+                ? Colors.grey.withOpacity(0.1)
+                : Colors.black.withOpacity(0.1),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 2),
@@ -349,10 +357,7 @@ class _ResultsScreenState extends State<ResultsScreen>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withValues(alpha: 0.1 * 255),
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -370,9 +375,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context)
-                        .extension<CustomColors>()
-                        ?.textPrimary,
+                    color: customColors?.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -381,7 +384,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: customColors?.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -389,9 +392,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                   description,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade600
-                        : Colors.grey.shade400,
+                    color: customColors?.textSecondary,
                   ),
                 ),
               ],

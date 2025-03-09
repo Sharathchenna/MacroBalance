@@ -210,6 +210,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   @override
   Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
@@ -278,6 +280,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildLoadingState() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -308,7 +312,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           Text(
             'Finding delicious foods...',
             style: AppTypography.caption.copyWith(
-              color: Theme.of(context).primaryColor,
+              color: customColors?.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -318,6 +322,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildSearchResults() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return RefreshIndicator(
       onRefresh: () => _searchFood(_searchController.text),
       child: _searchResults.isEmpty
@@ -334,7 +340,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   Text(
                     'No results found',
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: customColors?.textPrimary,
                       fontSize: 16,
                     ),
                   ),
@@ -401,6 +407,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildFoodHeader(FoodItem food) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Row(
       children: [
         Expanded(
@@ -410,7 +418,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               Text(
                 food.name,
                 style: AppTypography.body1.copyWith(
-                  color: Theme.of(context).primaryColor,
+                  color: customColors?.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
                 maxLines: 2,
@@ -421,8 +429,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 Text(
                   food.brandName,
                   style: AppTypography.caption.copyWith(
-                    color:
-                        Theme.of(context).primaryColor.withValues(alpha: 0.6),
+                    color: customColors?.textSecondary,
                   ),
                 ),
               ],
@@ -431,7 +438,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         ),
         Icon(
           Icons.arrow_forward_ios_rounded,
-          color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+          color: customColors?.textSecondary,
           size: 16,
         ),
       ],
@@ -498,6 +505,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   Widget _buildNutrientItem(
       String label, String value, Color accentColor, IconData icon) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -522,14 +531,14 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: customColors?.textPrimary,
               ),
             ),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                color: customColors?.textSecondary,
               ),
             ),
           ],
@@ -539,6 +548,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildEmptyState() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return SingleChildScrollView(
       child: Center(
         child: Padding(
@@ -572,7 +583,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               Text(
                 'Find your favorite foods',
                 style: AppTypography.h2.copyWith(
-                  color: Theme.of(context).primaryColor,
+                  color: customColors?.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
@@ -581,7 +592,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               Text(
                 'Search for any food to see detailed nutrition information and track your meals.',
                 style: AppTypography.body1.copyWith(
-                  color: Theme.of(context).primaryColor.withValues(alpha: .7),
+                  color: customColors?.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -611,7 +622,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         Text(
                           'Try searching "chicken"',
                           style: AppTypography.button.copyWith(
-                            color: Theme.of(context).primaryColor,
+                            color: customColors?.textPrimary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -628,6 +639,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildSuggestions() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
@@ -642,7 +655,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
+                color: customColors?.textPrimary,
               ),
             ),
           ),
@@ -712,7 +725,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
-                                  color: Theme.of(context).primaryColor,
+                                  color: customColors?.textPrimary,
                                 ),
                               ),
                             ),
@@ -745,13 +758,15 @@ class SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return TextField(
       controller: controller,
       decoration: InputDecoration(
         prefixIconColor: Theme.of(context).primaryColor,
         hintText: 'Search for food...',
         hintStyle: TextStyle(
-          color: Theme.of(context).primaryColor,
+          color: customColors?.textSecondary,
         ),
         prefixIcon: Icon(Icons.search),
         border: OutlineInputBorder(
@@ -759,7 +774,7 @@ class SearchBar extends StatelessWidget {
         ),
       ),
       style: TextStyle(
-        color: Theme.of(context).primaryColor,
+        color: customColors?.textPrimary,
       ),
       onSubmitted: onSearch,
       onChanged: onChanged,
@@ -774,6 +789,8 @@ class FoodList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return ListView.builder(
       itemCount: foods.length,
       itemBuilder: (context, index) {
@@ -782,13 +799,13 @@ class FoodList extends StatelessWidget {
           title: Text(
             food.name,
             style: TextStyle(
-              color: Theme.of(context).primaryColor,
+              color: customColors?.textPrimary,
             ),
           ),
           subtitle: Text(
             '${food.calories.round()} calories',
             style: TextStyle(
-              color: Theme.of(context).primaryColor.withValues(alpha: 0.7),
+              color: customColors?.textSecondary,
             ),
           ),
           onTap: () {

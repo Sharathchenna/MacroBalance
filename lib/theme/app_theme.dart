@@ -8,13 +8,12 @@ class AppTheme {
     cardColor: Colors.white,
     primaryColor: Color(0xFF333333),
     colorScheme: const ColorScheme.light(
-      primary: Colors.black87,
+      primary: Colors.black, // Changed from black87 to full black
       secondary: Colors.blue,
       surface: Colors.white,
       onSurface: Color(0xFFE0E0E0),
       onPrimary: Colors.white,
       onSecondary: Colors.white,
-      // onSurface: Colors.black87,
     ),
     // Add extension colors for custom widgets
     extensions: [
@@ -23,7 +22,7 @@ class AppTheme {
         dateNavigatorBackground: Color(0xFFF0E9DF),
         calorieTrackerBackground: Colors.white,
         macroCardBackground: Colors.white,
-        textPrimary: Colors.black87,
+        textPrimary: Colors.black, // Changed from black87 to full black
         textSecondary: Color(0xFF666666),
       )
     ],
@@ -48,7 +47,6 @@ class AppTheme {
       onSurface: Color(0xFF1E1E1E),
       onPrimary: Colors.black,
       onSecondary: Colors.black,
-      // onSurface: Colors.white,
     ),
     // Add extension colors for custom widgets
     extensions: [

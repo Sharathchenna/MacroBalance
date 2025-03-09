@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
+import 'package:macrotracker/theme/app_theme.dart'; // Import theme
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -70,6 +71,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the custom colors from theme
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -113,7 +117,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _currentPage > 0
                       ? TextButton(
                           onPressed: _previousPage,
-                          child: Text('Back'),
+                          child: Text(
+                            'Back',
+                            style: TextStyle(
+                              color: customColors?.textPrimary ?? Colors.black,
+                            ),
+                          ),
                         )
                       : SizedBox(width: 80),
                   ElevatedButton(
@@ -138,6 +147,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildWelcomePage() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -151,16 +162,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 32),
           Text(
             'Welcome to Macro Tracker',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: customColors?.textPrimary,
+                ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
             'Let\'s personalize your experience by collecting some information to calculate your optimal macro nutrients.',
-            style: Theme.of(context).textTheme.bodyLarge,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: customColors?.textPrimary,
+                ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -169,6 +182,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildGenderPage() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -176,15 +191,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           Text(
             'What\'s your biological sex?',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: customColors?.textPrimary,
+                ),
           ),
           const SizedBox(height: 8),
           Text(
             'We use this for calculating your basal metabolic rate.',
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: customColors?.textPrimary,
+                ),
           ),
           const SizedBox(height: 40),
           Row(
@@ -216,6 +233,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildBodyMeasurementsPage() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -223,15 +242,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           Text(
             'Your body measurements',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: customColors?.textPrimary,
+                ),
           ),
           const SizedBox(height: 32),
 
           // Weight slider
-          Text('Weight (kg)', style: Theme.of(context).textTheme.titleMedium),
+          Text('Weight (kg)',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: customColors?.textPrimary,
+                  )),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -252,14 +274,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               SizedBox(
                 width: 50,
                 child: Text('${_weightKg.toStringAsFixed(1)} kg',
-                    style: Theme.of(context).textTheme.bodyLarge),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: customColors?.textPrimary,
+                        )),
               ),
             ],
           ),
           const SizedBox(height: 24),
 
           // Height slider
-          Text('Height (cm)', style: Theme.of(context).textTheme.titleMedium),
+          Text('Height (cm)',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: customColors?.textPrimary,
+                  )),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -280,14 +307,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               SizedBox(
                 width: 50,
                 child: Text('${_heightCm.round()} cm',
-                    style: Theme.of(context).textTheme.bodyLarge),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: customColors?.textPrimary,
+                        )),
               ),
             ],
           ),
           const SizedBox(height: 24),
 
           // Age slider
-          Text('Age', style: Theme.of(context).textTheme.titleMedium),
+          Text('Age',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: customColors?.textPrimary,
+                  )),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -307,8 +339,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               SizedBox(
                 width: 50,
-                child:
-                    Text('$_age', style: Theme.of(context).textTheme.bodyLarge),
+                child: Text('$_age',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: customColors?.textPrimary,
+                        )),
               ),
             ],
           ),
@@ -318,6 +352,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildActivityLevelPage() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -325,15 +361,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           Text(
             'How active are you?',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: customColors?.textPrimary,
+                ),
           ),
           const SizedBox(height: 8),
           Text(
             'Select the option that best describes your typical week.',
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: customColors?.textPrimary,
+                ),
           ),
           const SizedBox(height: 24),
           _buildActivityLevelCard(
@@ -368,6 +406,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildGoalPage() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -375,10 +415,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           Text(
             'What\'s your goal?',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: customColors?.textPrimary,
+                ),
           ),
           const SizedBox(height: 32),
           _buildGoalCard(
@@ -405,7 +445,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             const SizedBox(height: 24),
             Text(
               'Deficit/Surplus (calories per day)',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: customColors?.textPrimary,
+                  ),
             ),
             const SizedBox(height: 8),
             Row(
@@ -427,7 +469,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 SizedBox(
                   width: 60,
                   child: Text('$_deficit cal',
-                      style: Theme.of(context).textTheme.bodyLarge),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: customColors?.textPrimary,
+                          )),
                 ),
               ],
             ),
@@ -438,6 +482,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildAdvancedSettingsPage() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -445,21 +491,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         children: [
           Text(
             'Advanced Settings',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: customColors?.textPrimary,
+                ),
           ),
           const SizedBox(height: 8),
           Text(
             'Fine-tune your macro distribution (optional)',
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: customColors?.textPrimary,
+                ),
           ),
           const SizedBox(height: 32),
 
           // Protein ratio slider
           Text('Protein (g per kg of bodyweight)',
-              style: Theme.of(context).textTheme.titleMedium),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: customColors?.textPrimary,
+                  )),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -480,19 +530,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               SizedBox(
                 width: 50,
                 child: Text('${_proteinRatio.toStringAsFixed(1)} g/kg',
-                    style: Theme.of(context).textTheme.bodyMedium),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: customColors?.textPrimary,
+                        )),
               ),
             ],
           ),
           Text(
             'Recommended: 1.6-2.0 for active individuals, 1.8-2.2 for building muscle',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: customColors?.textSecondary,
+                ),
           ),
           const SizedBox(height: 24),
 
           // Fat ratio slider
           Text('Fat (% of total calories)',
-              style: Theme.of(context).textTheme.titleMedium),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: customColors?.textPrimary,
+                  )),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -513,13 +569,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               SizedBox(
                 width: 50,
                 child: Text('${(_fatRatio * 100).round()}%',
-                    style: Theme.of(context).textTheme.bodyMedium),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: customColors?.textPrimary,
+                        )),
               ),
             ],
           ),
           Text(
             'Recommended: 20-35% of calories from healthy fats',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: customColors?.textSecondary,
+                ),
           ),
         ],
       ),
@@ -532,6 +592,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     required IconData icon,
     required String label,
   }) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return GestureDetector(
       onTap: onTap,
       child: Card(
@@ -563,7 +625,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: customColors?.textPrimary ?? Colors.black,
                 ),
               ),
             ],
@@ -579,6 +641,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     required String description,
   }) {
     final bool isSelected = _activityLevel == level;
+    final customColors = Theme.of(context).extension<CustomColors>();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -617,17 +680,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           fontSize: 16,
                           fontWeight:
                               isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: customColors?.textPrimary ?? Colors.black,
                         ),
                       ),
                       Text(
                         description,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withAlpha(178),
+                          color: customColors?.textSecondary ?? Colors.black54,
                         ),
                       ),
                     ],
@@ -648,6 +708,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     required String description,
   }) {
     final bool isSelected = _goal == goal;
+    final customColors = Theme.of(context).extension<CustomColors>();
 
     return GestureDetector(
       onTap: () => setState(() => _goal = goal),
@@ -694,7 +755,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         fontSize: 18,
                         fontWeight:
                             isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: customColors?.textPrimary ?? Colors.black,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -702,10 +763,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       description,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withAlpha(178),
+                        color: customColors?.textSecondary ?? Colors.black54,
                       ),
                     ),
                   ],
