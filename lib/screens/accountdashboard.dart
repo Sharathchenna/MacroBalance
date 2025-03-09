@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:macrotracker/screens/GoalsPage.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -31,7 +32,7 @@ class _AccountDashboardState extends State<AccountDashboard>
     'name': 'John Doe',
     'email': 'john.doe@example.com',
   };
-  Map<String, bool> _notificationSettings = {
+  final Map<String, bool> _notificationSettings = {
     'mealReminders': true,
     'hydrationTracking': true,
     'weeklyReports': true,
@@ -152,7 +153,12 @@ class _AccountDashboardState extends State<AccountDashboard>
                     title: 'Macro Goals',
                     subtitle: 'Set your daily macro targets',
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {/* Navigate to macro goals */},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(builder: (context) => GoalsScreen()),
+                      );
+                    },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
@@ -415,7 +421,13 @@ class _AccountDashboardState extends State<AccountDashboard>
         'icon': CupertinoIcons.chart_bar_alt_fill,
         'color': Colors.orange,
         'label': 'Goals',
-        'onTap': () {/* Navigate to goals */},
+        'onTap': () {
+          Navigator.push(
+              context,
+              CupertinoPageRoute(
+                builder: (context) => GoalsScreen(),
+              ));
+        },
       },
       {
         'icon': CupertinoIcons.bell_fill,

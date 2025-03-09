@@ -87,7 +87,7 @@ class _DashboardState extends State<Dashboard> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                CupertinoSheetRoute(
+                                CupertinoPageRoute(
                                     builder: (context) => FoodSearchPage()),
                               );
                             },
@@ -109,7 +109,7 @@ class _DashboardState extends State<Dashboard> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                CupertinoSheetRoute(
+                                CupertinoPageRoute(
                                     builder: (context) => GoalsScreen()),
                               );
                             },

@@ -6,14 +6,12 @@ class AppTheme {
     brightness: Brightness.light,
     scaffoldBackgroundColor: const Color(0xFFF8F7F3),
     cardColor: Colors.white,
-    primaryColor: const Color(0xFF2196F3), // Changed to a more vibrant blue
+    primaryColor: Colors.black, // Changed to a more vibrant blue
     colorScheme: ColorScheme.light(
-      primary: const Color(0xFF2196F3), // Vibrant blue
-      secondary: const Color(0xFF03A9F4),
+      primary: Colors.black87, // Vibrant blue
+      secondary: Colors.black54,
       surface: Colors.white,
-      background: const Color(0xFFF8F7F3),
-      onSurface: Colors.black87, // Darker text on surface
-      onBackground: Colors.black87,
+      onSurface: Colors.black87,
       onPrimary: Colors.white,
       onSecondary: Colors.white,
       error: const Color(0xFFD32F2F),
