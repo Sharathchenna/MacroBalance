@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/screens/GoalsPage.dart';
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
 import 'package:provider/provider.dart';
@@ -118,6 +119,10 @@ class _AccountDashboardState extends State<AccountDashboard>
       // Clear user data from SharedPreferences first
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('macro_results');
+      // Clear food entries
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
+      await foodEntryProvider.clearEntries();
       // Other user-related data can be removed here as well
 
       // Then sign out from Supabase

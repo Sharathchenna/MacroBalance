@@ -1,6 +1,13 @@
 // ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/dateProvider.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
@@ -14,6 +21,27 @@ class _GoalsScreenState extends State<GoalsScreen>
   late AnimationController _controller;
   final ScrollController _scrollController = ScrollController();
 
+  // Goal values
+  int calorieGoal = 2000;
+  int proteinGoal = 150;
+  int carbGoal = 75;
+  int fatGoal = 80;
+  int stepsGoal = 9000;
+  int bmr = 1500;
+  int tdee = 2000;
+
+  // Current values (for progress demonstration)
+  int caloriesConsumed = 0;
+  int proteinConsumed = 0;
+  int carbsConsumed = 0;
+  int fatConsumed = 0;
+  int stepsCompleted = 0;
+
+  // Weekly progress data (for the chart)
+  final List<FlSpot> weeklyCaloriesData = [];
+  final List<FlSpot> weeklyProteinData = [];
+  final List<String> weekDays = [];
+
   @override
   void initState() {
     super.initState();
@@ -21,6 +49,165 @@ class _GoalsScreenState extends State<GoalsScreen>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     )..forward();
+
+    _loadGoals();
+    _loadCurrentValues();
+    _generateWeeklyData();
+  }
+
+  Future<void> _loadGoals() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? resultsString = prefs.getString('macro_results');
+
+      if (resultsString != null && resultsString.isNotEmpty) {
+        final Map<String, dynamic> results = jsonDecode(resultsString);
+        if (mounted) {
+          setState(() {
+            calorieGoal = results['calorie_target'] ?? 2000;
+            proteinGoal = results['protein'] ?? 150;
+            carbGoal = results['carbs'] ?? 75;
+            fatGoal = results['fat'] ?? 80;
+            stepsGoal = results['recommended_steps'] ?? 9000;
+            bmr = results['bmr'] ?? 1500;
+            tdee = results['tdee'] ?? 2000;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading nutrition goals: $e');
+    }
+  }
+
+  // Load current daily values (would normally come from food entry provider)
+  Future<void> _loadCurrentValues() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? dailyProgress = prefs.getString('daily_progress');
+
+      if (dailyProgress != null && dailyProgress.isNotEmpty) {
+        final Map<String, dynamic> progress = jsonDecode(dailyProgress);
+        if (mounted) {
+          setState(() {
+            caloriesConsumed = progress['calories'] ?? 0;
+            proteinConsumed = progress['protein'] ?? 0;
+            carbsConsumed = progress['carbs'] ?? 0;
+            fatConsumed = progress['fat'] ?? 0;
+            stepsCompleted = progress['steps'] ?? 0;
+          });
+        }
+      }
+      // Instead of generating dummy data, initialize with 0 if no progress exists
+      else {
+        setState(() {
+          caloriesConsumed = 0;
+          proteinConsumed = 0;
+          carbsConsumed = 0;
+          fatConsumed = 0;
+          stepsCompleted = 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading daily progress: $e');
+    }
+  }
+
+  // Generate weekly data for the chart
+  void _generateWeeklyData() {
+    final now = DateTime.now();
+    weeklyCaloriesData.clear();
+    weeklyProteinData.clear();
+    weekDays.clear();
+
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+
+    for (int i = 6; i >= 0; i--) {
+      final day = now.subtract(Duration(days: i));
+      final entries = foodEntryProvider.getAllEntriesForDate(day);
+
+      double totalCalories = 0;
+      double totalProtein = 0;
+
+      for (var entry in entries) {
+        double quantityInGrams = entry.quantity;
+        switch (entry.unit) {
+          case "oz":
+            quantityInGrams *= 28.35;
+            break;
+          case "kg":
+            quantityInGrams *= 1000;
+            break;
+          case "lbs":
+            quantityInGrams *= 453.59;
+            break;
+        }
+
+        final multiplier = quantityInGrams / 100;
+        totalCalories += entry.food.calories * multiplier;
+        totalProtein += (entry.food.nutrients["Protein"] ?? 0) * multiplier;
+      }
+
+      weeklyCaloriesData.add(FlSpot(6 - i.toDouble(), totalCalories));
+      weeklyProteinData.add(FlSpot(6 - i.toDouble(), totalProtein));
+      weekDays.add(DateFormat('E').format(day));
+    }
+  }
+
+  Future<void> _saveGoals() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final Map<String, dynamic> results = {
+        'calorie_target': calorieGoal,
+        'protein': proteinGoal,
+        'carbs': carbGoal,
+        'fat': fatGoal,
+        'recommended_steps': stepsGoal,
+        'bmr': bmr,
+        'tdee': tdee,
+      };
+      await prefs.setString('macro_results', jsonEncode(results));
+    } catch (e) {
+      debugPrint('Error saving nutrition goals: $e');
+    }
+  }
+
+  void _showEditDialog(
+      String title, int currentValue, String unit, Function(int) onSave) {
+    final TextEditingController controller =
+        TextEditingController(text: currentValue.toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit $title'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            suffixText: unit,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final newValue = int.tryParse(controller.text);
+              if (newValue != null && newValue > 0) {
+                onSave(newValue);
+                _saveGoals();
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -32,74 +219,333 @@ class _GoalsScreenState extends State<GoalsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).scaffoldBackgroundColor,
-              Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
-            ],
+    return Consumer2<FoodEntryProvider, DateProvider>(
+      builder: (context, foodEntryProvider, dateProvider, _) {
+        // Calculate total macros from all food entries
+        final entries = foodEntryProvider.getAllEntriesForDate(DateTime.now());
+
+        double totalCarbs = 0;
+        double totalFat = 0;
+        double totalProtein = 0;
+        double totalCalories = 0;
+
+        for (var entry in entries) {
+          final carbs =
+              entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
+          final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
+          final protein = entry.food.nutrients["Protein"] ?? 0;
+
+          // Convert quantity to grams
+          double quantityInGrams = entry.quantity;
+          switch (entry.unit) {
+            case "oz":
+              quantityInGrams *= 28.35;
+              break;
+            case "kg":
+              quantityInGrams *= 1000;
+              break;
+            case "lbs":
+              quantityInGrams *= 453.59;
+              break;
+          }
+
+          // Since nutrients are per 100g, divide by 100 to get per gram
+          final multiplier = quantityInGrams / 100;
+          totalCarbs += carbs * multiplier;
+          totalFat += fat * multiplier;
+          totalProtein += protein * multiplier;
+          totalCalories += entry.food.calories * multiplier;
+        }
+
+        // Update the state variables with actual values
+        caloriesConsumed = totalCalories.round();
+        carbsConsumed = totalCarbs.round();
+        fatConsumed = totalFat.round();
+        proteinConsumed = totalProtein.round();
+
+        return Scaffold(
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Theme.of(context).scaffoldBackgroundColor,
+                  Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  _buildSliverAppBar(context),
+
+                  // Weekly progress chart
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                      child: _buildWeeklyProgressChart(context),
+                    ),
+                  ),
+
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.2),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: _controller,
+                              curve: Interval(
+                                index * 0.1,
+                                1.0,
+                                curve: Curves.easeOutQuart,
+                              ),
+                            )),
+                            child: FadeTransition(
+                              opacity: _controller,
+                              child: _buildGoalCard(getGoalData(index)),
+                            ),
+                          );
+                        },
+                        childCount: 6,
+                      ),
+                    ),
+                  ),
+                  const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
+                ],
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              _buildSliverAppBar(context),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      return SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.2),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(
-                          parent: _controller,
-                          curve: Interval(
-                            index * 0.1,
-                            1.0,
-                            curve: Curves.easeOutQuart,
-                          ),
-                        )),
-                        child: FadeTransition(
-                          opacity: _controller,
-                          child: _buildGoalCard(getGoalData(index)),
-                        ),
-                      );
-                    },
-                    childCount: 6,
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {},
+            elevation: 2,
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).primaryColor,
+                    Theme.of(context).primaryColor.withOpacity(0.8),
+                  ],
+                ),
+              ),
+              child: const Icon(Icons.add, size: 28),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWeeklyProgressChart(BuildContext context) {
+    return Container(
+      height: 240,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey[850]
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Weekly Progress',
+                style: TextStyle(
+                  color: Theme.of(context).primaryColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Last 7 Days',
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-              const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
             ],
           ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        elevation: 2,
-        child: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).primaryColor,
-                Theme.of(context).primaryColor.withOpacity(0.8),
-              ],
+          const SizedBox(height: 20),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: calorieGoal / 4,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey.withOpacity(0.15),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        if (value.toInt() >= 0 &&
+                            value.toInt() < weekDays.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              weekDays[value.toInt()],
+                              style: TextStyle(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                                fontSize: 10,
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox();
+                      },
+                      reservedSize: 30,
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: calorieGoal / 2,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          value.toInt().toString(),
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                            fontSize: 10,
+                          ),
+                        );
+                      },
+                      reservedSize: 40,
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 0,
+                maxX: 6,
+                minY: 0,
+                maxY: calorieGoal.toDouble() * 1.2,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: weeklyCaloriesData,
+                    isCurved: true,
+                    color: Theme.of(context).colorScheme.primary,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 4,
+                          color: Theme.of(context).colorScheme.primary,
+                          strokeWidth: 2,
+                          strokeColor: Colors.white,
+                        );
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.2),
+                    ),
+                  ),
+                  LineChartBarData(
+                    spots: weeklyProteinData,
+                    isCurved: true,
+                    color: Colors.red,
+                    barWidth: 2,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: Colors.red.withOpacity(0.1),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          child: const Icon(Icons.add, size: 28),
-        ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendItem(
+                  'Calories', Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 16),
+              _buildLegendItem('Protein', Colors.red),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey[300]
+                : Colors.grey[700],
+          ),
+        ),
+      ],
     );
   }
 
@@ -133,13 +579,17 @@ class _GoalsScreenState extends State<GoalsScreen>
     );
   }
 
-  Widget _buildGoalCard(GoalData data) {
+  Widget _buildGoalCard(Map<String, dynamic> data) {
+    final progress = data['currentValue'] != null
+        ? data['currentValue'] / data['value']
+        : 0.0;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: data['editable'] == true ? data['onEdit'] : null,
           borderRadius: BorderRadius.circular(20),
           child: Container(
             padding: const EdgeInsets.all(20),
@@ -149,12 +599,12 @@ class _GoalsScreenState extends State<GoalsScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  data.color.withOpacity(0.15),
-                  data.color.withOpacity(0.05),
+                  data['color'].withOpacity(0.15),
+                  data['color'].withOpacity(0.05),
                 ],
               ),
               border: Border.all(
-                color: data.color.withOpacity(0.1),
+                color: data['color'].withOpacity(0.1),
                 width: 1,
               ),
             ),
@@ -162,97 +612,97 @@ class _GoalsScreenState extends State<GoalsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: data.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        data.icon,
-                        color: data.color,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: data['color'].withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            data['icon'],
+                            color: data['color'],
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         Text(
-                          data.title,
+                          data['title'],
                           style: TextStyle(
                             color: Theme.of(context).primaryColor,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (data.subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            data.subtitle,
-                            style: TextStyle(
-                              color: Theme.of(context)
-                                  .primaryColor
-                                  .withOpacity(0.5),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
+                    if (data['editable'] == true)
+                      Icon(
+                        Icons.edit,
+                        size: 20,
+                        color: data['color'],
+                      ),
                   ],
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      data.value,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    if (data.showSetGoal)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              data.color,
-                              data.color.withOpacity(0.8),
+                data['currentValue'] != null
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${data['currentValue']} / ${data['value']} ${data['unit']}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).primaryColor,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              Text(
+                                '${(progress * 100).toInt()}%',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: _getProgressColor(progress),
+                                ),
+                              ),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: data.color.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: progress.clamp(0.0, 1.0),
+                              backgroundColor: Colors.grey.withOpacity(0.2),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  _getProgressColor(progress)),
+                              minHeight: 8,
                             ),
-                          ],
-                        ),
-                        child: const Text(
-                          'Set Goal',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            data['secondaryValue'] != null
+                                ? '${data['value']} / ${data['secondaryValue']} ${data['unit']}'
+                                : '${data['value']} ${data['unit']}',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).primaryColor,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-                ),
-                if (data.showProgress) ...[
-                  const SizedBox(height: 20),
-                  _buildProgressIndicator(data),
-                ],
               ],
             ),
           ),
@@ -261,177 +711,114 @@ class _GoalsScreenState extends State<GoalsScreen>
     );
   }
 
-  Widget _buildProgressIndicator(GoalData data) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '${(data.progress * 100).toInt()}% Complete',
-              style: TextStyle(
-                color: Theme.of(context).primaryColor.withOpacity(0.7),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              'Target: ${data.target ?? "Not set"}',
-              style: TextStyle(
-                color: Theme.of(context).primaryColor.withOpacity(0.7),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            return Container(
-              height: 6,
-              width: constraints.maxWidth,
-              decoration: BoxDecoration(
-                color: data.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: data.progress),
-                    duration: const Duration(milliseconds: 1500),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) {
-                      return Container(
-                        width: constraints.maxWidth * value,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              data.color,
-                              data.color.withOpacity(0.8),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: data.color.withOpacity(0.3),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            );
-          },
-        ),
-      ],
-    );
+  Color _getProgressColor(double progress) {
+    if (progress >= 0.9) return Colors.green;
+    if (progress >= 0.7) return Colors.lime;
+    if (progress >= 0.5) return Colors.orange;
+    return Colors.red;
   }
-}
 
-class GoalData {
-  final String title;
-  final String value;
-  final String subtitle;
-  final Color color;
-  final IconData icon;
-  final bool showSetGoal;
-  final bool showProgress;
-  final double progress;
-  final String? target;
-
-  GoalData({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.color,
-    required this.icon,
-    this.showSetGoal = false,
-    this.showProgress = false,
-    this.progress = 0.0,
-    this.target,
-  });
-}
-
-GoalData getGoalData(int index) {
-  final themeColors = [
-    const Color(0xFF64B5F6), // blue
-    const Color(0xFF81C784), // green
-    const Color(0xFFFFB74D), // orange
-    const Color(0xFFE57373), // red
-    const Color(0xFF9575CD), // purple
-    const Color(0xFF4DB6AC), // teal
-  ];
-
-  switch (index) {
-    case 0:
-      return GoalData(
-        title: 'Weight Goal',
-        value: '69 kg',
-        subtitle: 'Target by Feb 11, 2025',
-        color: themeColors[0],
-        icon: Icons.monitor_weight_outlined,
-        showProgress: true,
-        progress: 0.7,
-        target: '65 kg',
-      );
-    case 1:
-      return GoalData(
-        title: 'Daily Calories',
-        value: '2,237',
-        subtitle: 'calories remaining today',
-        color: themeColors[1],
-        icon: Icons.local_fire_department_outlined,
-        showProgress: true,
-        progress: 0.3,
-        target: '2,500 cal',
-      );
-    case 2:
-      return GoalData(
-        title: 'Protein Intake',
-        value: '82g',
-        subtitle: 'of daily target',
-        color: themeColors[2],
-        icon: Icons.fitness_center_outlined,
-        showProgress: true,
-        progress: 0.6,
-        target: '120g',
-      );
-    case 3:
-      return GoalData(
-        title: 'Water Intake',
-        value: '1.8L',
-        subtitle: 'of daily target',
-        color: themeColors[3],
-        icon: Icons.water_drop_outlined,
-        showProgress: true,
-        progress: 0.45,
-        target: '3.0L',
-      );
-    case 4:
-      return GoalData(
-        title: 'Steps',
-        value: '6,789',
-        subtitle: 'steps today',
-        color: themeColors[4],
-        icon: Icons.directions_walk_outlined,
-        showProgress: true,
-        progress: 0.55,
-        target: '10,000',
-      );
-    default:
-      return GoalData(
-        title: 'New Goal',
-        value: 'Tap to set',
-        subtitle: 'Create custom goal',
-        color: themeColors[5],
-        icon: Icons.add_chart,
-        showSetGoal: true,
-      );
+  Map<String, dynamic> getGoalData(int index) {
+    switch (index) {
+      case 0:
+        return {
+          'title': 'Daily Calorie Goal',
+          'value': calorieGoal,
+          'currentValue': caloriesConsumed,
+          'unit': 'kcal',
+          'icon': Icons.local_fire_department,
+          'color': Colors.orange,
+          'editable': true,
+          'onEdit': () => _showEditDialog(
+                'Daily Calorie Goal',
+                calorieGoal,
+                'kcal',
+                (value) => setState(() => calorieGoal = value),
+              ),
+        };
+      case 1:
+        return {
+          'title': 'Protein Goal',
+          'value': proteinGoal,
+          'currentValue': proteinConsumed,
+          'unit': 'g',
+          'icon': Icons.fitness_center,
+          'color': Colors.red,
+          'editable': true,
+          'onEdit': () => _showEditDialog(
+                'Protein Goal',
+                proteinGoal,
+                'g',
+                (value) => setState(() => proteinGoal = value),
+              ),
+        };
+      case 2:
+        return {
+          'title': 'Carbohydrate Goal',
+          'value': carbGoal,
+          'currentValue': carbsConsumed,
+          'unit': 'g',
+          'icon': Icons.grain,
+          'color': Colors.blue,
+          'editable': true,
+          'onEdit': () => _showEditDialog(
+                'Carbohydrate Goal',
+                carbGoal,
+                'g',
+                (value) => setState(() => carbGoal = value),
+              ),
+        };
+      case 3:
+        return {
+          'title': 'Fat Goal',
+          'value': fatGoal,
+          'currentValue': fatConsumed,
+          'unit': 'g',
+          'icon': Icons.opacity,
+          'color': Colors.yellow,
+          'editable': true,
+          'onEdit': () => _showEditDialog(
+                'Fat Goal',
+                fatGoal,
+                'g',
+                (value) => setState(() => fatGoal = value),
+              ),
+        };
+      case 4:
+        return {
+          'title': 'Daily Steps Goal',
+          'value': stepsGoal,
+          'currentValue': stepsCompleted,
+          'unit': 'steps',
+          'icon': Icons.directions_walk,
+          'color': Colors.green,
+          'editable': true,
+          'onEdit': () => _showEditDialog(
+                'Daily Steps Goal',
+                stepsGoal,
+                'steps',
+                (value) => setState(() => stepsGoal = value),
+              ),
+        };
+      case 5:
+        return {
+          'title': 'Metabolic Info',
+          'value': bmr,
+          'secondaryValue': tdee,
+          'unit': 'BMR/TDEE',
+          'icon': Icons.show_chart,
+          'color': Colors.purple,
+          'editable': false,
+        };
+      default:
+        return {
+          'title': '',
+          'value': 0,
+          'unit': '',
+          'icon': Icons.help,
+          'color': Colors.grey,
+          'editable': false,
+        };
+    }
   }
 }
