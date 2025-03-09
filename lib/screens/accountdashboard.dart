@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/screens/GoalsPage.dart';
+import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -11,6 +12,7 @@ import 'package:macrotracker/Health/Health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -47,6 +49,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       vsync: this,
     );
     _checkHealthConnection();
+    _loadUserData(); // Add this line
   }
 
   Future<void> _checkHealthConnection() async {
@@ -54,6 +57,60 @@ class _AccountDashboardState extends State<AccountDashboard>
     setState(() {
       _healthConnected = isAvailable;
     });
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        // Get data from user metadata first
+        final userMetadata = user.userMetadata;
+
+        if (mounted) {
+          setState(() {
+            userData = {
+              'name': userMetadata?['full_name'] ??
+                  userMetadata?['name'] ??
+                  user.email?.split('@')[0] ??
+                  'User',
+              'email': user.email ?? 'No email',
+              'avatar_url':
+                  userMetadata?['avatar_url'] ?? userMetadata?['picture'],
+            };
+          });
+        }
+
+        // Try to get profile data from profiles table if it exists
+        try {
+          final response = await _supabase
+              .from('profiles')
+              .select()
+              .eq('id', user.id)
+              .single();
+
+          if (mounted) {
+            setState(() {
+              userData.update(
+                  'name', (value) => response['full_name'] ?? value);
+              userData.update(
+                  'avatar_url', (value) => response['avatar_url'] ?? value);
+            });
+          }
+        } catch (e) {
+          // Silently handle missing profiles table or no profile data
+          // We already have data from user metadata
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading user data: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -113,32 +170,24 @@ class _AccountDashboardState extends State<AccountDashboard>
                     title: 'Edit Profile',
                     subtitle: 'Update your personal information',
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {/* Navigate to profile editor */},
+                    onTap: () async {
+                      final result = await Navigator.push<Map<String, dynamic>>(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) =>
+                              EditProfileScreen(userData: userData),
+                        ),
+                      );
+                      if (result != null && mounted) {
+                        setState(() {
+                          userData = result;
+                        });
+                      }
+                    },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  if (_healthConnected)
-                    _buildListTile(
-                      icon: CupertinoIcons.heart_fill,
-                      iconColor: Colors.red,
-                      title: 'Health App',
-                      subtitle: 'Connected',
-                      trailing: Icon(Icons.check_circle, color: Colors.green),
-                      onTap: () {/* Health app settings */},
-                      colorScheme: colorScheme,
-                      customColors: customColors,
-                    )
-                  else
-                    _buildListTile(
-                      icon: CupertinoIcons.heart,
-                      iconColor: Colors.red,
-                      title: 'Health App',
-                      subtitle: 'Connect to sync health data',
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {/* Connect health app */},
-                      colorScheme: colorScheme,
-                      customColors: customColors,
-                    ),
+                  _buildHealthAppTile(colorScheme, customColors),
                 ],
               ),
               _buildSection(
@@ -252,16 +301,16 @@ class _AccountDashboardState extends State<AccountDashboard>
                 colorScheme: colorScheme,
                 customColors: customColors,
                 children: [
-                  _buildListTile(
-                    icon: CupertinoIcons.question_diamond_fill,
-                    iconColor: colorScheme.primary,
-                    title: 'Help Center',
-                    subtitle: 'Get answers to common questions',
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {/* Navigate to help center */},
-                    colorScheme: colorScheme,
-                    customColors: customColors,
-                  ),
+                  // _buildListTile(
+                  //   icon: CupertinoIcons.question_diamond_fill,
+                  //   iconColor: colorScheme.primary,
+                  //   title: 'Help Center',
+                  //   subtitle: 'Get answers to common questions',
+                  //   trailing: const Icon(Icons.chevron_right),
+                  //   onTap: () {/* Navigate to help center */},
+                  //   colorScheme: colorScheme,
+                  //   customColors: customColors,
+                  // ),
                   _buildListTile(
                     icon: CupertinoIcons.envelope_fill,
                     iconColor: Colors.teal,
@@ -390,7 +439,20 @@ class _AccountDashboardState extends State<AccountDashboard>
                 ),
               ),
               IconButton(
-                onPressed: () {/* Edit profile */},
+                onPressed: () async {
+                  final result = await Navigator.push<Map<String, dynamic>>(
+                    context,
+                    CupertinoPageRoute(
+                      builder: (context) =>
+                          EditProfileScreen(userData: userData),
+                    ),
+                  );
+                  if (result != null && mounted) {
+                    setState(() {
+                      userData = result;
+                    });
+                  }
+                },
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -439,7 +501,13 @@ class _AccountDashboardState extends State<AccountDashboard>
         'icon': CupertinoIcons.heart_fill,
         'color': Colors.pink,
         'label': 'Health',
-        'onTap': () {/* Health settings */},
+        'onTap': () {
+          Navigator.push(
+              context,
+              CupertinoPageRoute(
+                builder: (context) => const HealthIntegrationScreen(),
+              ));
+        },
       },
       {
         'icon': CupertinoIcons.star_fill,
@@ -766,6 +834,47 @@ class _AccountDashboardState extends State<AccountDashboard>
         ),
       ),
     );
+  }
+
+  Widget _buildHealthAppTile(
+      ColorScheme colorScheme, CustomColors? customColors) {
+    if (_healthConnected) {
+      return _buildListTile(
+        icon: CupertinoIcons.heart_fill,
+        iconColor: Colors.red,
+        title: 'Health App',
+        subtitle: 'Connected',
+        trailing: Icon(Icons.check_circle, color: Colors.green),
+        onTap: () {
+          Navigator.push(
+            context,
+            CupertinoPageRoute(
+              builder: (context) => const HealthIntegrationScreen(),
+            ),
+          );
+        },
+        colorScheme: colorScheme,
+        customColors: customColors,
+      );
+    } else {
+      return _buildListTile(
+        icon: CupertinoIcons.heart,
+        iconColor: Colors.red,
+        title: 'Health App',
+        subtitle: 'Connect to sync health data',
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(
+            context,
+            CupertinoPageRoute(
+              builder: (context) => const HealthIntegrationScreen(),
+            ),
+          );
+        },
+        colorScheme: colorScheme,
+        customColors: customColors,
+      );
+    }
   }
 
   @override
