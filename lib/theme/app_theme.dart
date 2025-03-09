@@ -4,9 +4,9 @@ import 'typography.dart';
 class AppTheme {
   static ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
-    scaffoldBackgroundColor: const Color(0xFFF5F4F0),
+    scaffoldBackgroundColor: const Color(0xFFF8F7F3),
     cardColor: Colors.white,
-    primaryColor: Colors.black87,
+    primaryColor: Color(0xFF333333),
     colorScheme: const ColorScheme.light(
       primary: Colors.black87,
       secondary: Colors.blue,

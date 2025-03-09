@@ -17,6 +17,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
+import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +60,11 @@ class MyApp extends StatelessWidget {
           themeMode:
               themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           home: const AuthGate(),
+          routes: {
+            '/onboarding': (context) => const OnboardingScreen(),
+            '/home': (context) =>
+                const Dashboard(), // Using Dashboard as home screen
+          },
         );
       },
     );

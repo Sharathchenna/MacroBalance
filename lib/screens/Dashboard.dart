@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
 import 'package:macrotracker/screens/GoalsPage.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
-import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +13,9 @@ import '../Health/Health.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import '../providers/dateProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/providers/themeProvider.dart';
+import 'dart:ui';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -35,6 +36,7 @@ class _DashboardState extends State<Dashboard> {
       body: SafeArea(
         child: Stack(
           children: [
+            // Content
             Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
@@ -43,91 +45,90 @@ class _DashboardState extends State<Dashboard> {
                 Expanded(child: MealSection())
               ],
             ),
-            // Use dynamic sizing for positioning
+            // Updated Navigation Bar - frosted and translucent
             Positioned(
-              bottom:
-                  screenHeight * 0.02, // 2% of screen height from the bottom
-              left: screenWidth * 0.2, // 20% of screen width from the left
-              right: screenWidth * 0.2, // 20% of screen width from the right
+              bottom: screenHeight * 0.015,
+              left: screenWidth * 0.1,
+              right: screenWidth * 0.1,
               child: Container(
-                padding: EdgeInsets.symmetric(
-                    horizontal:
-                        screenWidth * 0.06), // 6% of screen width as padding
                 decoration: BoxDecoration(
-                  // color: Colors.white,
-                  borderRadius: BorderRadius.circular(30.0),
-                  color: Theme.of(context)
-                      .extension<CustomColors>()
-                      ?.cardBackground,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.grey.shade200
-                          : Colors.black26,
-                      spreadRadius: 2,
-                      blurRadius: 7,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(14.0),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Expanded(
-                      child: IconButton(
-                        icon: const Icon(CupertinoIcons.add),
-                        onPressed: () {
-                          // Handle the "add" action
-                          Navigator.push(
-                            context,
-                            CupertinoSheetRoute(
-                                builder: (context) => FoodSearchPage()),
-                          );
-                        },
-                        color: const Color(0xFFFFC107),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14.0),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                        sigmaX: 15.0, sigmaY: 15.0), // Increased blur
+                    child: Container(
+                      height: 42,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 2),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14.0),
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.white.withOpacity(
+                                0.6) // Light theme translucent white
+                            : Colors.black.withOpacity(
+                                0.4), // Dark theme translucent black
+                        border: Border.all(
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? Colors.white.withOpacity(0.5)
+                                  : Colors.white.withOpacity(0.1),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildNavItemCompact(
+                            context: context,
+                            icon: CupertinoIcons.add,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                CupertinoSheetRoute(
+                                    builder: (context) => FoodSearchPage()),
+                              );
+                            },
+                          ),
+                          _buildNavItemCompact(
+                            context: context,
+                            icon: CupertinoIcons.camera,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                CupertinoPageRoute(
+                                    builder: (context) => CameraScreen()),
+                              );
+                            },
+                          ),
+                          _buildNavItemCompact(
+                            context: context,
+                            icon: CupertinoIcons.graph_circle,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                CupertinoSheetRoute(
+                                    builder: (context) => GoalsScreen()),
+                              );
+                            },
+                          ),
+                          _buildNavItemCompact(
+                            context: context,
+                            icon: CupertinoIcons.person,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                CupertinoSheetRoute(
+                                    builder: (context) => Accountdashboard()),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                    Expanded(
-                      child: IconButton(
-                        icon: const Icon(CupertinoIcons.camera),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            CupertinoPageRoute(
-                                builder: (context) => CameraScreen()),
-                          );
-                        },
-                        color: const Color(0xFFFFC107),
-                      ),
-                    ),
-                    Expanded(
-                      child: IconButton(
-                        icon: Icon(Icons.graphic_eq_outlined),
-                        onPressed: () {
-                          // Handle the "AI" action
-                          Navigator.push(
-                            context,
-                            CupertinoSheetRoute(
-                                builder: (context) => GoalsScreen()),
-                          );
-                        },
-                        color: const Color(0xFFFFC107),
-                      ),
-                    ),
-                    Expanded(
-                      child: IconButton(
-                        icon: const Icon(CupertinoIcons.person),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            CupertinoSheetRoute(
-                                builder: (context) => Accountdashboard()),
-                          );
-                        },
-                        color: const Color(0xFFFFC107),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -136,6 +137,80 @@ class _DashboardState extends State<Dashboard> {
       ),
     );
   }
+}
+
+// Smaller compact navigation item with updated styling for frosted glass effect
+Widget _buildNavItemCompact({
+  required BuildContext context,
+  required IconData icon,
+  required VoidCallback onTap,
+  bool isActive = false,
+}) {
+  return Expanded(
+    child: InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFFFFC107).withOpacity(0.2)
+              : Colors.transparent,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          color: const Color(0xFFFFC107),
+          size: 20,
+        ),
+      ),
+    ),
+  );
+}
+
+// Keep original _buildNavItem for reference, but we're not using it anymore
+// Helper method to build navigation items
+Widget _buildNavItem({
+  required BuildContext context,
+  required IconData icon,
+  required String label,
+  required VoidCallback onTap,
+  bool isActive = false,
+}) {
+  return Expanded(
+    child: InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? const Color(0xFFFFC107).withOpacity(0.15)
+                  : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: const Color(0xFFFFC107),
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 // First, update the DateNavigatorbar class to be stateful
@@ -219,12 +294,13 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(7.0), // Reduced from 8
           child: Icon(
             icon,
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.black
                 : Colors.white,
+            size: 18, // Add specific size
           ),
         ),
       ),
@@ -236,18 +312,18 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
       builder: (context, dateProvider, child) {
         return Center(
           child: InkWell(
-            borderRadius: BorderRadius.circular(20.0),
+            borderRadius: BorderRadius.circular(18.0), // Slightly reduced
             onTap: () {
               dateProvider.setDate(DateTime.now());
             },
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14.0, vertical: 7.0), // Reduced
               decoration: BoxDecoration(
                 color: Theme.of(context)
                     .extension<CustomColors>()
                     ?.dateNavigatorBackground,
-                borderRadius: BorderRadius.circular(20.0),
+                borderRadius: BorderRadius.circular(18.0), // Slightly reduced
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -257,15 +333,18 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
                     color: Theme.of(context).brightness == Brightness.light
                         ? Colors.black
                         : Colors.white,
-                    size: 16,
+                    size: 14, // Reduced from 16
                   ),
-                  const SizedBox(width: 8.0),
+                  const SizedBox(width: 6.0), // Reduced from 8
                   Text(
                     _formatDate(dateProvider.selectedDate),
-                    style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.black
-                            : Colors.white),
+                    style: GoogleFonts.poppins(
+                      fontSize: 13, // Add specific size
+                      fontWeight: FontWeight.w500, // Make it medium weight
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.black
+                          : Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -290,29 +369,54 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   double caloriesBurned = 0;
   bool _hasHealthPermissions = false;
 
-  // Keep your goals as is
-  final int caloriesGoal = 2000; // Adjust this based on user's goal
-  final int carbGoal = 75;
-  final int fatGoal = 80;
-  final int proteinGoal = 150;
-  final int stepsGoal = 9000;
+  // Nutrition goals loaded from SharedPreferences
+  int caloriesGoal = 2000;
+  int carbGoal = 75;
+  int fatGoal = 80;
+  int proteinGoal = 150;
+  int stepsGoal = 9000;
 
   @override
   void initState() {
     super.initState();
     _checkAndRequestPermissions();
+    _loadNutritionGoals();
+  }
+
+  Future<void> _loadNutritionGoals() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? resultsString = prefs.getString('macro_results');
+      if (resultsString != null && resultsString.isNotEmpty) {
+        final Map<String, dynamic> results = jsonDecode(resultsString);
+        if (mounted) {
+          // Check if the widget is still mounted before calling setState
+          setState(() {
+            caloriesGoal = results['calorie_target'] ?? 2000;
+            proteinGoal = results['protein'] ?? 150;
+            carbGoal = results['carbs'] ?? 75;
+            fatGoal = results['fat'] ?? 80;
+            stepsGoal = results['recommended_steps'] ?? 9000;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading nutrition goals: $e');
+    }
   }
 
   Future<void> _checkAndRequestPermissions() async {
     try {
       final granted = await _healthService.requestPermissions();
+      if (!mounted) return; // Check if widget is still mounted
       setState(() {
         _hasHealthPermissions = granted;
       });
 
       if (_hasHealthPermissions) {
         await _fetchHealthData();
-      } else {
+      } else if (mounted) {
+        // Check if widget is still mounted before showing dialog
         _showPermissionDialog();
       }
     } catch (e) {
@@ -348,11 +452,13 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   Future<void> _fetchHealthData() async {
     final fetchedSteps = await _healthService.getSteps();
     final fetchedCalories = await _healthService.getCalories();
-
-    setState(() {
-      steps = fetchedSteps;
-      caloriesBurned = fetchedCalories;
-    });
+    if (mounted) {
+      // Check if widget is still mounted before calling setState
+      setState(() {
+        steps = fetchedSteps;
+        caloriesBurned = fetchedCalories;
+      });
+    }
   }
 
   @override
@@ -368,13 +474,11 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         double totalProtein = 0;
 
         for (var entry in entries) {
-          // Get macros values from nutrients map
           final carbs =
               entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
           final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
           final protein = entry.food.nutrients["Protein"] ?? 0;
 
-          // Calculate based on quantity
           final multiplier = entry.quantity;
           totalCarbs += carbs * multiplier;
           totalFat += fat * multiplier;
@@ -392,134 +496,231 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         progress = progress.clamp(0.0, 1.0);
 
         return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(20),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(16), // Reduced from 20
           decoration: BoxDecoration(
             color: Theme.of(context).extension<CustomColors>()?.cardBackground,
-            borderRadius: BorderRadius.circular(20.0),
+            borderRadius: BorderRadius.circular(20.0), // Slightly reduced
             boxShadow: [
               BoxShadow(
                 color: Theme.of(context).brightness == Brightness.light
-                    ? Colors.grey.shade200
-                    : Colors.black26,
-                blurRadius: 15,
-                spreadRadius: 5,
-                offset: const Offset(0, 5),
+                    ? Colors.grey.withOpacity(0.08) // More subtle shadow
+                    : Colors.black.withOpacity(0.1),
+                blurRadius: 16,
+                spreadRadius: 1,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, // Align to start
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              // Add a header
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  "Today's Nutrition",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context)
+                        .extension<CustomColors>()
+                        ?.textPrimary,
+                  ),
+                ),
+              ),
+
+              // Rest of your existing code...
+              Column(
                 children: [
-                  // Calorie Circle
-                  SizedBox(
-                    height: 130,
-                    width: 130,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 130,
-                          height: 130,
-                          child: CircularProgressIndicator(
-                            value: progress,
-                            strokeWidth: 10,
-                            backgroundColor: const Color(0xFFEDF3FF),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF34C85A),
-                            ),
-                          ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              caloriesRemaining.toString(),
-                              style: GoogleFonts.roboto(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context)
-                                    .extension<CustomColors>()
-                                    ?.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              'cal left',
-                              style: GoogleFonts.roboto(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
+                  // Calories Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Calorie Circle
+                      Container(
+                        height: 130,
+                        width: 130,
+                        decoration: BoxDecoration(
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? Colors.white
+                                  : Colors.grey.shade900.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? Colors.grey.withOpacity(0.1)
+                                  : Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Progress circle
+                            SizedBox(
+                              width: 110,
+                              height: 110,
+                              child: CircularProgressIndicator(
+                                value: progress,
+                                strokeWidth: 10,
+                                backgroundColor: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade200
+                                    : Colors.grey.shade800,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  progress > 1.0
+                                      ? Colors.red
+                                      : const Color(0xFF34C85A),
+                                ),
+                              ),
+                            ),
+                            // Calorie text
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  caloriesRemaining.toString(),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context)
+                                        .extension<CustomColors>()
+                                        ?.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  'cal left',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.light
+                                        ? Colors.grey.shade600
+                                        : Colors.grey.shade400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Calories Info - Vertical layout with colored cards
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            children: [
+                              _buildCalorieInfoCard(
+                                context,
+                                'Goal',
+                                caloriesGoal,
+                                const Color(0xFF34C85A),
+                                Icons.flag,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCalorieInfoCard(
+                                context,
+                                'Food',
+                                caloriesFromFood.toInt(),
+                                const Color(0xFFFFA726),
+                                Icons.restaurant,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCalorieInfoCard(
+                                context,
+                                'Burned',
+                                caloriesBurned.toInt(),
+                                const Color(0xFF42A5F5),
+                                Icons.local_fire_department,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  // Calories Info
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+
+                  const SizedBox(height: 24),
+
+                  // Macro section header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4.0, vertical: 4.0),
+                    child: Row(
                       children: [
-                        _buildCalorieInfo(
-                          context,
-                          'Goal',
-                          caloriesGoal,
-                          const Color(0xFF34C85A),
+                        Icon(
+                          Icons.pie_chart_outline,
+                          size: 14,
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade400,
                         ),
-                        const SizedBox(height: 12),
-                        _buildCalorieInfo(
-                          context,
-                          'Food',
-                          caloriesFromFood.toInt(),
-                          Colors.orange,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildCalorieInfo(
-                          context,
-                          'Burned',
-                          caloriesBurned.toInt(),
-                          Colors.blue,
+                        const SizedBox(width: 6),
+                        Text(
+                          "Macronutrients & Activity",
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade400,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Macro Bars
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildMacroProgress(
-                    context,
-                    'Carbs',
-                    totalCarbs.round(),
-                    carbGoal,
-                    Colors.blue,
-                  ),
-                  _buildMacroProgress(
-                    context,
-                    'Protein',
-                    totalProtein.round(),
-                    proteinGoal,
-                    Colors.red,
-                  ),
-                  _buildMacroProgress(
-                    context,
-                    'Fat',
-                    totalFat.round(),
-                    fatGoal,
-                    Colors.orange,
-                  ),
-                  _buildMacroProgress(
-                    context,
-                    'Steps',
-                    steps,
-                    stepsGoal,
-                    Colors.green,
+
+                  const SizedBox(height: 16),
+
+                  // Macro circles - Enhanced with circular progress
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Carbs',
+                          totalCarbs.round(),
+                          carbGoal,
+                          const Color(0xFF42A5F5),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Protein',
+                          totalProtein.round(),
+                          proteinGoal,
+                          const Color(0xFFEF5350),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Fat',
+                          totalFat.round(),
+                          fatGoal,
+                          const Color(0xFFFFA726),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Steps',
+                          steps,
+                          stepsGoal,
+                          const Color(0xFF66BB6A),
+                          '',
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -589,7 +790,7 @@ Widget _buildMacroProgress(
           children: [
             Container(
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
+                color: color.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -619,6 +820,169 @@ Widget _buildMacroProgress(
       ),
     ],
   );
+}
+
+Widget _buildCalorieInfoEnhanced(
+    BuildContext context, String label, int value, Color color) {
+  return Row(
+    children: [
+      Container(
+        width: 8, // Reduced size
+        height: 8, // Reduced size
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.2), // More subtle shadow
+              spreadRadius: 1,
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 10),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12, // Reduced from 14
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.grey.shade600
+                  : Colors.grey.shade400,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$value',
+            style: GoogleFonts.poppins(
+              fontSize: 16, // Reduced from 18
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+Widget _buildMacroProgressEnhanced(BuildContext context, String label,
+    int value, int goal, Color color, String unit) {
+  double progress = (value / goal).clamp(0.0, 1.0);
+  double percentage = (progress * 100).roundToDouble();
+
+  return Container(
+    width: 70,
+    child: Column(
+      children: [
+        Container(
+          height: 70,
+          width: 70,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Background circle
+              Container(
+                height: 64,
+                width: 64,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.grey.shade100
+                      : Colors.grey.shade800.withOpacity(0.3),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              // Progress circle
+              SizedBox(
+                height: 64,
+                width: 64,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 6,
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.light
+                          ? color.withOpacity(0.15)
+                          : color.withOpacity(0.1),
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+              // Macro icon
+              Icon(
+                _getMacroIcon(label),
+                color: color,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: '$value',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color:
+                      Theme.of(context).extension<CustomColors>()?.textPrimary,
+                ),
+              ),
+              if (unit.isNotEmpty)
+                TextSpan(
+                  text: unit,
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w400,
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade400,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Text(
+          '${percentage.toInt()}%',
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: color,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// Add this helper method to get appropriate icons for macros
+IconData _getMacroIcon(String label) {
+  switch (label) {
+    case 'Carbs':
+      return Icons.grain;
+    case 'Protein':
+      return Icons.fitness_center;
+    case 'Fat':
+      return Icons.opacity;
+    case 'Steps':
+      return Icons.directions_walk;
+    default:
+      return Icons.circle;
+  }
 }
 
 // Add this class after your existing code
@@ -665,111 +1029,371 @@ class _MealSectionState extends State<MealSection> {
           return sum + (energy * entry.quantity);
         });
 
-        return Card(
-          color: Theme.of(context).extension<CustomColors>()?.cardBackground,
-          margin: const EdgeInsets.only(bottom: 8),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Column(
-            children: [
-              ListTile(
-                title: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+        // Meal type icon mapping
+        IconData getMealIcon() {
+          switch (mealType) {
+            case 'Breakfast':
+              return Icons.breakfast_dining;
+            case 'Lunch':
+              return Icons.lunch_dining;
+            case 'Dinner':
+              return Icons.dinner_dining;
+            case 'Snacks':
+              return Icons.cookie;
+            default:
+              return Icons.restaurant;
+          }
+        }
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).extension<CustomColors>()?.cardBackground,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.withOpacity(0.1)
+                    : Colors.black12,
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              children: [
+                // Header section
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      expandedState[mealType] = !expandedState[mealType]!;
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14), // Reduced padding
+                    child: Row(
                       children: [
-                        Text(
-                          mealType,
-                          style: GoogleFonts.roboto(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Theme.of(context)
-                                .extension<CustomColors>()
-                                ?.textPrimary,
+                        Container(
+                          padding: const EdgeInsets.all(6), // Reduced from 8
+                          decoration: BoxDecoration(
+                            color: _getMealColor(mealType).withOpacity(0.1),
+                            borderRadius:
+                                BorderRadius.circular(10), // More compact
+                          ),
+                          child: Icon(
+                            getMealIcon(),
+                            color: _getMealColor(mealType),
+                            size: 20, // Reduced from 24
                           ),
                         ),
-                        Icon(
-                          color: Theme.of(context)
-                              .extension<CustomColors>()
-                              ?.textPrimary,
-                          expandedState[mealType]!
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
+                        const SizedBox(width: 12), // Reduced from 16
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                mealType,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16, // Reduced from 18
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context)
+                                      .extension<CustomColors>()
+                                      ?.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '${entries.length} item${entries.length != 1 ? 's' : ''}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11, // Reduced from 13
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                      ? Colors.grey.shade600
+                                      : Colors.grey.shade400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${totalCalories.toStringAsFixed(0)} kcal',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14, // Reduced from 16
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context)
+                                    .extension<CustomColors>()
+                                    ?.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            AnimatedRotation(
+                              turns: expandedState[mealType]! ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 300),
+                              child: Icon(
+                                Icons.expand_more,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade400,
+                                size: 18, // Reduced size
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    Text(
-                      '${totalCalories.toStringAsFixed(0)} Kcals',
-                      style: GoogleFonts.roboto(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Theme.of(context)
-                            .extension<CustomColors>()
-                            ?.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                onTap: () {
-                  setState(() {
-                    expandedState[mealType] = !expandedState[mealType]!;
-                  });
-                },
-              ),
-              if (expandedState[mealType]!) ...[
-                ...entries.map((entry) => ListTile(
-                      title: Text(
-                        entry.food.name,
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .extension<CustomColors>()
-                              ?.textPrimary,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${entry.quantity}${entry.unit} - ${(entry.food.calories * entry.quantity).toStringAsFixed(0)} kcal',
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .extension<CustomColors>()
-                              ?.textPrimary,
-                        ),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        color: Colors.red,
-                        onPressed: () {
-                          foodEntryProvider.removeEntry(entry.id);
-                        },
-                      ),
-                    )),
-                Padding(
-                  padding: const EdgeInsets.only(left: 16.0, bottom: 16.0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          CupertinoSheetRoute(
-                              builder: (context) => FoodSearchPage()),
-                        );
-                      },
-                      icon: const Icon(Icons.add, color: Colors.blue),
-                      label: Text(
-                        'Add Food',
-                        style: GoogleFonts.roboto(
-                          color: Colors.blue,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
                   ),
                 ),
+
+                // Food entries list
+                AnimatedCrossFade(
+                  firstChild: const SizedBox(height: 0),
+                  secondChild: Column(
+                    children: [
+                      const Divider(height: 1, thickness: 1),
+                      ...entries.map((entry) =>
+                          _buildFoodItem(context, entry, foodEntryProvider)),
+                      Padding(
+                        padding: const EdgeInsets.all(14.0), // Reduced from 16
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              CupertinoSheetRoute(
+                                  builder: (context) => FoodSearchPage()),
+                            );
+                          },
+                          borderRadius:
+                              BorderRadius.circular(10), // More compact
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 14), // Reduced from 12,16
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? Colors.grey.shade100
+                                  : Colors.grey.shade800,
+                              borderRadius:
+                                  BorderRadius.circular(10), // More compact
+                              border: Border.all(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade300
+                                    : Colors.grey.shade700,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_circle_outline,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                      ? Colors.blue.shade700
+                                      : Colors.blue.shade300,
+                                  size: 16, // Reduced from 20
+                                ),
+                                const SizedBox(width: 6), // Reduced from 8
+                                Text(
+                                  'Add Food to $mealType',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12, // Reduced from 14
+                                    fontWeight: FontWeight.w500,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.light
+                                        ? Colors.blue.shade700
+                                        : Colors.blue.shade300,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  crossFadeState: expandedState[mealType]!
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 300),
+                ),
               ],
-            ],
+            ),
           ),
         );
       },
     );
   }
+}
+
+// Add this helper method for meal color
+Color _getMealColor(String mealType) {
+  switch (mealType) {
+    case 'Breakfast':
+      return Colors.orange;
+    case 'Lunch':
+      return Colors.green;
+    case 'Dinner':
+      return Colors.indigo;
+    case 'Snacks':
+      return Colors.purple;
+    default:
+      return Colors.blue;
+  }
+}
+
+// Add this helper method for food items
+Widget _buildFoodItem(
+    BuildContext context, dynamic entry, FoodEntryProvider provider) {
+  return Dismissible(
+    key: Key(entry.id),
+    background: Container(
+      color: Colors.red,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      child: const Icon(Icons.delete_outline, color: Colors.white),
+    ),
+    direction: DismissDirection.endToStart,
+    onDismissed: (direction) {
+      provider.removeEntry(entry.id);
+    },
+    child: Padding(
+      padding: const EdgeInsets.symmetric(
+          horizontal: 16, vertical: 10), // Reduced padding
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 36, // Reduced from 40
+            height: 36, // Reduced from 40
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.grey.shade100
+                  : Colors.grey.shade800,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.restaurant,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.grey.shade600
+                  : Colors.grey.shade400,
+              size: 18, // Reduced size
+            ),
+          ),
+          const SizedBox(width: 12), // Reduced from 16
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.food.name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14, // Reduced from 16
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context)
+                        .extension<CustomColors>()
+                        ?.textPrimary,
+                  ),
+                ),
+                Text(
+                  '${entry.quantity}${entry.unit}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11, // Reduced from 13
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${(entry.food.calories * entry.quantity).toStringAsFixed(0)} kcal',
+            style: GoogleFonts.poppins(
+              fontSize: 13, // Reduced from 15
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.delete_outline,
+              size: 20, // Reduced size
+            ),
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.red.shade400
+                : Colors.red.shade300,
+            onPressed: () {
+              provider.removeEntry(entry.id);
+            },
+            padding: const EdgeInsets.all(8), // Smaller padding for icon button
+            constraints: const BoxConstraints(), // Remove constraints
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// Add this method after _buildCalorieInfoEnhanced
+
+Widget _buildCalorieInfoCard(
+    BuildContext context, String label, int value, Color color, IconData icon) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: Theme.of(context).brightness == Brightness.light
+          ? color.withOpacity(0.08)
+          : color.withOpacity(0.15),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: color.withOpacity(0.3),
+        width: 1,
+      ),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          icon,
+          color: color,
+          size: 16,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.grey.shade700
+                      : Colors.grey.shade300,
+                ),
+              ),
+              Text(
+                '$value',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color:
+                      Theme.of(context).extension<CustomColors>()?.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }

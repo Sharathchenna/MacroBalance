@@ -12,6 +12,7 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:macrotracker/widgets/chart_painter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 // if still needed
 
 // You can keep your model if needed, or simply use WeightEntry from ChartPainter.dart
@@ -60,7 +61,14 @@ class _AccountdashboardState extends State<Accountdashboard> {
 
   Future<void> _handleLogout() async {
     try {
+      // Clear user data from SharedPreferences first
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('macro_results');
+      // Other user-related data can be removed here as well
+
+      // Then sign out from Supabase
       await _supabase.auth.signOut();
+
       if (mounted) {
         Navigator.of(context).pushReplacement(
             CupertinoPageRoute(builder: (context) => const Welcomescreen()));
