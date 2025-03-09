@@ -829,6 +829,7 @@ class FoodItem {
   final String brandName;
   final Map<String, double> nutrients;
   final String mealType;
+  final double servingSize; // Added serving size
 
   FoodItem({
     required this.fdcId,
@@ -837,12 +838,15 @@ class FoodItem {
     required this.nutrients,
     required this.brandName,
     required this.mealType,
+    required this.servingSize,
   });
 
   factory FoodItem.fromFatSecretJson(Map<String, dynamic> json) {
     final description = json['food_description'] as String;
+    final servingInfo = _parseServingInfo(description);
     final nutrients = _parseFatSecretNutrients(description);
 
+    // All values should be per 100g basis, no need for conversion since we're storing per 100g
     return FoodItem(
       fdcId: json['food_id'].toString(),
       name: json['food_name'] ?? '',
@@ -853,8 +857,8 @@ class FoodItem {
         'Carbohydrate, by difference': nutrients['carbs'] ?? 0.0,
       },
       brandName: json['brand_name'] ?? '',
-      mealType:
-          'breakfast', // Default value since FatSecret doesn't provide meal type
+      mealType: 'breakfast',
+      servingSize: 100.0, // Always store as per 100g
     );
   }
 
@@ -863,7 +867,6 @@ class FoodItem {
       r'Calories:\s*(\d+).*?Fat:\s*(\d+).*?Carbs:\s*(\d+).*?Protein:\s*(\d+)',
       caseSensitive: false,
     );
-
     final match = regex.firstMatch(description);
     if (match != null) {
       return {
@@ -874,5 +877,18 @@ class FoodItem {
       };
     }
     return {};
+  }
+
+  static Map<String, double> _parseServingInfo(String description) {
+    // Try to find serving size in grams
+    final servingSizeRegex =
+        RegExp(r'Per\s+(\d+)\s*g\s+serving', caseSensitive: false);
+    final match = servingSizeRegex.firstMatch(description);
+    if (match != null) {
+      return {
+        'size': double.parse(match.group(1) ?? '100'),
+      };
+    }
+    return {'size': 100.0}; // Default to 100g if no serving size found
   }
 }

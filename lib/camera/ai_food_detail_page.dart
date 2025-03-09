@@ -26,9 +26,9 @@ class MacroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withAlpha(25),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withAlpha(77)),
       ),
       child: Column(
         children: [
@@ -142,7 +142,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
                 // Text(
                 //   'AI Detected Food',
                 //   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                //         color: Theme.of(context).primaryColor.withValues(alpha:0.7),
+                //         color: Theme.of(context).primaryColor.withAlpha(179),
                 //       ),
                 // ),
                 const SizedBox(height: 24),
@@ -349,7 +349,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.1),
+                        color: Colors.grey.withAlpha(25),
                         spreadRadius: 1,
                         blurRadius: 10,
                         offset: const Offset(0, 2),
@@ -446,6 +446,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
         name: widget.food.name,
         brandName: 'AI Detected',
         calories: widget.food.calories[selectedServingIndex],
+        servingSize: 1.0, // Added missing required parameter
         nutrients: {
           'Protein': widget.food.protein[selectedServingIndex],
           'Carbohydrate, by difference':

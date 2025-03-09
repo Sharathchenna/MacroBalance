@@ -7,10 +7,8 @@ import 'package:provider/provider.dart';
 import '../providers/foodEntryProvider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
-import 'package:macrotracker/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
-import 'package:fl_chart/fl_chart.dart';
 
 class MacroCard extends StatelessWidget {
   final String label;
@@ -148,7 +146,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       return "N/A";
     }
     final convertedQty = getConvertedQuantity();
-    final recalculated = nutrientPer100 * (convertedQty / 10000);
+    // Since nutrients are already per 100g, divide by 100 to get per gram, then multiply by quantity
+    final recalculated = nutrientPer100 * (convertedQty / 100);
     return recalculated.toStringAsFixed(1);
   }
 

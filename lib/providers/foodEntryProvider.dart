@@ -40,8 +40,21 @@ class FoodEntryProvider with ChangeNotifier {
   double getTotalCaloriesForDate(DateTime date) {
     final entriesForDate = getEntriesForDate(date);
     return entriesForDate.fold(0, (sum, entry) {
-      final energy = entry.food.calories;
-      return sum + (energy * entry.quantity);
+      double multiplier = entry.quantity;
+      // Convert to grams if needed
+      switch (entry.unit) {
+        case "oz":
+          multiplier *= 28.35;
+          break;
+        case "kg":
+          multiplier *= 1000;
+          break;
+        case "lbs":
+          multiplier *= 453.59;
+          break;
+      }
+      multiplier /= 100; // Since calories are per 100g
+      return sum + (entry.food.calories * multiplier);
     });
   }
 

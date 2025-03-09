@@ -479,7 +479,22 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
           final protein = entry.food.nutrients["Protein"] ?? 0;
 
-          final multiplier = entry.quantity;
+          // Convert quantity to grams
+          double quantityInGrams = entry.quantity;
+          switch (entry.unit) {
+            case "oz":
+              quantityInGrams *= 28.35;
+              break;
+            case "kg":
+              quantityInGrams *= 1000;
+              break;
+            case "lbs":
+              quantityInGrams *= 453.59;
+              break;
+          }
+
+          // Since nutrients are per 100g, divide by 100 to get per gram
+          final multiplier = quantityInGrams / 100;
           totalCarbs += carbs * multiplier;
           totalFat += fat * multiplier;
           totalProtein += protein * multiplier;
@@ -489,10 +504,9 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         final caloriesFromFood = foodEntryProvider
             .getTotalCaloriesForDate(dateProvider.selectedDate);
 
-        // Calculate remaining calories
-        final int caloriesRemaining =
-            caloriesGoal - caloriesBurned.toInt() - caloriesFromFood.toInt();
-        double progress = (caloriesBurned + caloriesFromFood) / caloriesGoal;
+        // Calculate remaining calories (updated logic)
+        final int caloriesRemaining = caloriesGoal - caloriesFromFood.toInt();
+        double progress = caloriesFromFood / caloriesGoal;
         progress = progress.clamp(0.0, 1.0);
 
         return Container(
@@ -1024,9 +1038,23 @@ class _MealSectionState extends State<MealSection> {
       builder: (context, foodEntryProvider, dateProvider, child) {
         final entries = foodEntryProvider.getEntriesForMeal(
             mealType, dateProvider.selectedDate);
+        // Calculate calories with proper unit conversion
         double totalCalories = entries.fold(0, (sum, entry) {
-          final energy = entry.food.calories;
-          return sum + (energy * entry.quantity);
+          double multiplier = entry.quantity;
+          // Convert to grams if needed
+          switch (entry.unit) {
+            case "oz":
+              multiplier *= 28.35;
+              break;
+            case "kg":
+              multiplier *= 1000;
+              break;
+            case "lbs":
+              multiplier *= 453.59;
+              break;
+          }
+          multiplier /= 100; // Since calories are per 100g
+          return sum + (entry.food.calories * multiplier);
         });
 
         // Meal type icon mapping
@@ -1253,6 +1281,21 @@ Color _getMealColor(String mealType) {
 // Add this helper method for food items
 Widget _buildFoodItem(
     BuildContext context, dynamic entry, FoodEntryProvider provider) {
+  // Calculate calories with proper unit conversion
+  double quantityInGrams = entry.quantity;
+  switch (entry.unit) {
+    case "oz":
+      quantityInGrams *= 28.35;
+      break;
+    case "kg":
+      quantityInGrams *= 1000;
+      break;
+    case "lbs":
+      quantityInGrams *= 453.59;
+      break;
+  }
+  final caloriesForQuantity = entry.food.calories * (quantityInGrams / 100);
+
   return Dismissible(
     key: Key(entry.id),
     background: Container(
@@ -1316,7 +1359,7 @@ Widget _buildFoodItem(
             ),
           ),
           Text(
-            '${(entry.food.calories * entry.quantity).toStringAsFixed(0)} kcal',
+            '${caloriesForQuantity.toStringAsFixed(0)} kcal',
             style: GoogleFonts.poppins(
               fontSize: 13, // Reduced from 15
               fontWeight: FontWeight.w600,

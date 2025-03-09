@@ -1,11 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:cupertino_icons/cupertino_icons.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/screens/searchPage.dart';
-import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:provider/provider.dart';
@@ -205,7 +203,7 @@ class ResultsPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: chipColor.withValues(alpha: 0.1),
+        color: chipColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -292,7 +290,7 @@ class ResultsPage extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Colors.grey.withValues(alpha: 0.2),
+              color: Colors.grey.withOpacity(0.2),
               width: 1,
             ),
           ),
@@ -332,6 +330,7 @@ class ResultsPage extends StatelessWidget {
         name: food.name,
         brandName: 'AI Detected',
         calories: food.calories[0],
+        servingSize: 1.0, // Added missing required parameter
         nutrients: {
           'Protein': food.protein[0],
           'Carbohydrate, by difference': food.carbohydrates[0],
