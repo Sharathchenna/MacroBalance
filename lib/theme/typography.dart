@@ -19,6 +19,14 @@ class AppTypography {
     height: 1.3,
   );
 
+  static const TextStyle h3 = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.5,
+    height: 1.3,
+  );
+
   static const TextStyle body1 = TextStyle(
     fontFamily: fontFamily,
     fontSize: 16,

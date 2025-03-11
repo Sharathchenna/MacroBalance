@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
-import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:provider/provider.dart';
@@ -325,12 +324,11 @@ class ResultsPage extends StatelessWidget {
     // Create food entry using the first serving size
     final entry = FoodEntry(
       id: const Uuid().v4(),
-      food: FoodItem(
+      food: FoodEntry.createFood(
         fdcId: food.name.hashCode.toString(),
         name: food.name,
         brandName: 'AI Detected',
         calories: food.calories[0],
-        servingSize: 1.0, // Added missing required parameter
         nutrients: {
           'Protein': food.protein[0],
           'Carbohydrate, by difference': food.carbohydrates[0],

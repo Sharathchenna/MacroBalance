@@ -22,22 +22,6 @@ class FoodSearchPage extends StatefulWidget {
 
 class _FoodSearchPageState extends State<FoodSearchPage>
     with SingleTickerProviderStateMixin {
-  IconData _getFoodIcon(String foodName) {
-    final name = foodName.toLowerCase();
-    if (name.contains('chicken') ||
-        name.contains('meat') ||
-        name.contains('beef')) {
-      return Icons.restaurant;
-    } else if (name.contains('salad') || name.contains('vegetable')) {
-      return Icons.eco;
-    } else if (name.contains('pizza') || name.contains('burger')) {
-      return Icons.fastfood;
-    } else if (name.contains('fruit') || name.contains('apple')) {
-      return Icons.food_bank;
-    }
-    return Icons.restaurant_menu;
-  }
-
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
   List<String> _autoCompleteResults = [];
@@ -100,6 +84,10 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        // Print the autocomplete API response
+        print('Autocomplete API Response:');
+        print(const JsonEncoder.withIndent('  ').convert(data));
+
         if (data['suggestions'] != null &&
             data['suggestions']['suggestion'] != null) {
           final suggestions = data['suggestions']['suggestion'] as List;
@@ -139,13 +127,15 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
     try {
       final response = await http.get(
-        Uri.parse('https://platform.fatsecret.com/rest/server.api').replace(
+        Uri.parse(
+                'https://platform.fatsecret.com/rest/foods/search/v3?flag_default_serving=true')
+            .replace(
           queryParameters: {
             'method': 'foods.search',
             'format': 'json',
             'search_expression': query,
             'max_results': '10',
-            'page_number': '0'
+            'page_number': '0',
           },
         ),
         headers: {
@@ -157,8 +147,14 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['foods'] != null && data['foods']['food'] != null) {
-          final foods = data['foods']['food'] as List;
+        // Print the food search API response
+        print('Food Search API Response:');
+        print(const JsonEncoder.withIndent('  ').convert(data));
+
+        if (data['foods_search'] != null &&
+            data['foods_search']['results'] != null &&
+            data['foods_search']['results']['food'] != null) {
+          final foods = data['foods_search']['results']['food'] as List;
           setState(() {
             _searchResults =
                 foods.map((food) => FoodItem.fromFatSecretJson(food)).toList();
@@ -178,6 +174,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       }
     } catch (e) {
       _showError('Failed to search foods. Please try again.');
+      print('Search food error: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -366,8 +363,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       ),
     );
   }
-
-  // Removed duplicate _buildFoodCard implementation
 
   Widget _buildFoodCard(FoodItem food) {
     return Container(
@@ -829,7 +824,8 @@ class FoodItem {
   final String brandName;
   final Map<String, double> nutrients;
   final String mealType;
-  final double servingSize; // Added serving size
+  final double servingSize;
+  final List<Serving> servings;
 
   FoodItem({
     required this.fdcId,
@@ -839,26 +835,75 @@ class FoodItem {
     required this.brandName,
     required this.mealType,
     required this.servingSize,
+    required this.servings,
   });
 
   factory FoodItem.fromFatSecretJson(Map<String, dynamic> json) {
-    final description = json['food_description'] as String;
-    final servingInfo = _parseServingInfo(description);
-    final nutrients = _parseFatSecretNutrients(description);
+    // Extract food name and brand name
+    final foodName = json['food_name'] ?? '';
+    final brandName = json['brand_name'] ?? '';
+    final foodId = json['food_id']?.toString() ?? '';
 
-    // All values should be per 100g basis, no need for conversion since we're storing per 100g
+    // Store all available servings
+    List<Serving> allServings = [];
+
+    // Find the default serving (usually 100g)
+    Map<String, dynamic>? defaultServing;
+
+    if (json['servings'] != null && json['servings']['serving'] != null) {
+      final servings = json['servings']['serving'];
+
+      // If there's only one serving
+      if (servings is Map) {
+        defaultServing = Map<String, dynamic>.from(servings);
+        allServings.add(Serving.fromJson(defaultServing));
+      }
+      // If there are multiple servings
+      else if (servings is List) {
+        // Add all servings to the list
+        for (var serving in servings) {
+          allServings.add(Serving.fromJson(serving));
+        }
+
+        // Find default (100g) serving for main nutrition display
+        defaultServing = servings.firstWhere(
+            (serving) => serving['serving_description'] == '100 g',
+            orElse: () => servings.first);
+      }
+    }
+
+    // Extract nutrition values or default to 0
+    double calories = 0.0;
+    Map<String, double> nutrients = {};
+    double servingSize = 100.0; // Default to 100g
+
+    if (defaultServing != null) {
+      calories = double.tryParse(defaultServing['calories'] ?? '0') ?? 0.0;
+
+      // Extract standard macros
+      nutrients = {
+        'Protein': double.tryParse(defaultServing['protein'] ?? '0') ?? 0.0,
+        'Total lipid (fat)':
+            double.tryParse(defaultServing['fat'] ?? '0') ?? 0.0,
+        'Carbohydrate, by difference':
+            double.tryParse(defaultServing['carbohydrate'] ?? '0') ?? 0.0,
+      };
+
+      // Try to parse serving size
+      servingSize =
+          double.tryParse(defaultServing['metric_serving_amount'] ?? '100') ??
+              100.0;
+    }
+
     return FoodItem(
-      fdcId: json['food_id'].toString(),
-      name: json['food_name'] ?? '',
-      calories: nutrients['calories'] ?? 0.0,
-      nutrients: {
-        'Protein': nutrients['protein'] ?? 0.0,
-        'Total lipid (fat)': nutrients['fat'] ?? 0.0,
-        'Carbohydrate, by difference': nutrients['carbs'] ?? 0.0,
-      },
-      brandName: json['brand_name'] ?? '',
-      mealType: 'breakfast',
-      servingSize: 100.0, // Always store as per 100g
+      fdcId: foodId,
+      name: foodName,
+      calories: calories,
+      nutrients: nutrients,
+      brandName: brandName,
+      mealType: 'breakfast', // Default meal type
+      servingSize: servingSize,
+      servings: allServings,
     );
   }
 
@@ -890,5 +935,55 @@ class FoodItem {
       };
     }
     return {'size': 100.0}; // Default to 100g if no serving size found
+  }
+}
+
+// Class to represent a single serving option
+class Serving {
+  final String description;
+  final double metricAmount;
+  final String metricUnit;
+  final double calories;
+  final Map<String, double> nutrients;
+
+  Serving({
+    required this.description,
+    required this.metricAmount,
+    required this.metricUnit,
+    required this.calories,
+    required this.nutrients,
+  });
+
+  factory Serving.fromJson(Map<String, dynamic> json) {
+    // Extract all nutrients
+    Map<String, double> nutrients = {
+      'Protein': double.tryParse(json['protein'] ?? '0') ?? 0.0,
+      'Total lipid (fat)': double.tryParse(json['fat'] ?? '0') ?? 0.0,
+      'Carbohydrate, by difference':
+          double.tryParse(json['carbohydrate'] ?? '0') ?? 0.0,
+      'Saturated fat': double.tryParse(json['saturated_fat'] ?? '0') ?? 0.0,
+      'Polyunsaturated fat':
+          double.tryParse(json['polyunsaturated_fat'] ?? '0') ?? 0.0,
+      'Monounsaturated fat':
+          double.tryParse(json['monounsaturated_fat'] ?? '0') ?? 0.0,
+      'Cholesterol': double.tryParse(json['cholesterol'] ?? '0') ?? 0.0,
+      'Sodium': double.tryParse(json['sodium'] ?? '0') ?? 0.0,
+      'Potassium': double.tryParse(json['potassium'] ?? '0') ?? 0.0,
+      'Fiber': double.tryParse(json['fiber'] ?? '0') ?? 0.0,
+      'Sugar': double.tryParse(json['sugar'] ?? '0') ?? 0.0,
+      'Vitamin A': double.tryParse(json['vitamin_a'] ?? '0') ?? 0.0,
+      'Vitamin C': double.tryParse(json['vitamin_c'] ?? '0') ?? 0.0,
+      'Calcium': double.tryParse(json['calcium'] ?? '0') ?? 0.0,
+      'Iron': double.tryParse(json['iron'] ?? '0') ?? 0.0,
+    };
+
+    return Serving(
+      description: json['serving_description'] ?? 'Default serving',
+      metricAmount:
+          double.tryParse(json['metric_serving_amount'] ?? '0') ?? 0.0,
+      metricUnit: json['metric_serving_unit'] ?? 'g',
+      calories: double.tryParse(json['calories'] ?? '0') ?? 0.0,
+      nutrients: nutrients,
+    );
   }
 }

@@ -71,6 +71,9 @@ PODS:
   - image_picker_ios (0.0.1):
     - Flutter
   - JPSVolumeButtonHandler (1.0.5)
+  - local_auth_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - MLImage (1.0.0-beta6)
   - MLKitBarcodeScanning (6.0.0):
     - MLKitCommon (~> 12.0)
@@ -127,6 +130,7 @@ DEPENDENCIES:
   - google_sign_in_ios (from `.symlinks/plugins/google_sign_in_ios/darwin`)
   - health (from `.symlinks/plugins/health/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
   - open_file_ios (from `.symlinks/plugins/open_file_ios/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
@@ -179,6 +183,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/health/ios"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
+  local_auth_darwin:
+    :path: ".symlinks/plugins/local_auth_darwin/darwin"
   open_file_ios:
     :path: ".symlinks/plugins/open_file_ios/ios"
   path_provider_foundation:
@@ -202,7 +208,7 @@ SPEC CHECKSUMS:
   camerawesome: ae69de297ab1a69a0bcaeef8797d3045ed57172f
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  flutter_native_splash: c32d145d68aeda5502d5f543ee38c192065986cf
+  flutter_native_splash: 6cad9122ea0fad137d23137dd14b937f3e90b145
   google_mlkit_barcode_scanning: c0a50c1042484a6ca506967dfa91fa7d7e74f280
   google_mlkit_commons: 92c769cc2e0a2bfdeb3c38091a36e8a9cc8c63d4
   google_sign_in_ios: 19297361f2c51d7d8ac0201b866ef1fa5d1f94a8
@@ -216,6 +222,7 @@ SPEC CHECKSUMS:
   health: 785a9a388095ea6414755ff081bf46a4a5fb01b2
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
   JPSVolumeButtonHandler: 53110330c9168ed325def93eabff39f0fe3e8082
+  local_auth_darwin: 553ce4f9b16d3fdfeafce9cf042e7c9f77c1c391
   MLImage: 0ad1c5f50edd027672d8b26b0fee78a8b4a0fc56
   MLKitBarcodeScanning: 0a3064da0a7f49ac24ceb3cb46a5bc67496facd2
   MLKitCommon: 07c2c33ae5640e5380beaaa6e4b9c249a205542d

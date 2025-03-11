@@ -6,7 +6,6 @@ import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
-import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 
 class MacroCard extends StatelessWidget {
@@ -441,12 +440,11 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
     // Create food entry
     final entry = FoodEntry(
       id: const Uuid().v4(),
-      food: FoodItem(
+      food: FoodEntry.createFood(
         fdcId: widget.food.name.hashCode.toString(),
         name: widget.food.name,
         brandName: 'AI Detected',
         calories: widget.food.calories[selectedServingIndex],
-        servingSize: 1.0, // Added missing required parameter
         nutrients: {
           'Protein': widget.food.protein[selectedServingIndex],
           'Carbohydrate, by difference':

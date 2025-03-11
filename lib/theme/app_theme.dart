@@ -31,6 +31,7 @@ class AppTheme {
     textTheme: TextTheme(
       headlineLarge: AppTypography.h1,
       headlineMedium: AppTypography.h2,
+      headlineSmall: AppTypography.h3, // Added h3 style
       bodyLarge: AppTypography.body1,
       bodyMedium: AppTypography.body2,
       labelMedium: AppTypography.caption,
