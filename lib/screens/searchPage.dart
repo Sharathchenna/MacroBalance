@@ -14,7 +14,9 @@ import 'package:macrotracker/widgets/search_header.dart';
 import 'dart:async';
 
 class FoodSearchPage extends StatefulWidget {
-  const FoodSearchPage({super.key});
+  final String? selectedMeal;
+
+  const FoodSearchPage({Key? key, this.selectedMeal}) : super(key: key);
 
   @override
   _FoodSearchPageState createState() => _FoodSearchPageState();
@@ -359,7 +361,22 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FoodDetailPage(food: food),
+        builder: (context) => FoodDetailPage(
+          food: food,
+          selectedMeal: widget.selectedMeal,
+        ),
+      ),
+    );
+  }
+
+  void _onFoodItemTap(FoodItem food) {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => FoodDetailPage(
+          food: food,
+          selectedMeal: widget.selectedMeal,
+        ),
       ),
     );
   }

@@ -390,8 +390,13 @@ class NutrientRow extends StatelessWidget {
 
 class FoodDetailPage extends StatefulWidget {
   final FoodItem food;
+  final String? selectedMeal; // Add selectedMeal parameter
 
-  const FoodDetailPage({super.key, required this.food});
+  const FoodDetailPage({
+    super.key,
+    required this.food,
+    this.selectedMeal, // Make it optional
+  });
 
   @override
   _FoodDetailPageState createState() => _FoodDetailPageState();
@@ -403,7 +408,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   final List<String> unitOptions = ["g", "oz"];
   final List<double> presetMultipliers = [0.5, 1.0, 1.5, 2.0];
 
-  String selectedMeal = "Breakfast";
+  late String selectedMeal; // Remove initialization
   String selectedUnit = "g";
   double selectedMultiplier = 1.0;
   late TextEditingController quantityController;
@@ -418,6 +423,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   @override
   void initState() {
     super.initState();
+    // Initialize selectedMeal with widget parameter or default to "Breakfast"
+    selectedMeal = widget.selectedMeal ?? "Breakfast";
+
     if (widget.food.servings.isNotEmpty) {
       selectedServing = widget.food.servings.first;
       quantityController =

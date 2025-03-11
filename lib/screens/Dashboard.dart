@@ -1221,7 +1221,8 @@ class _MealSectionState extends State<MealSection> {
                             Navigator.push(
                               context,
                               CupertinoSheetRoute(
-                                  builder: (context) => FoodSearchPage()),
+                                  builder: (context) =>
+                                      FoodSearchPage(selectedMeal: mealType)),
                             );
                           },
                           borderRadius:
