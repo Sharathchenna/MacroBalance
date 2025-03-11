@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -159,7 +160,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _updateProfile,
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _isLoading ? null : _updateProfile();
+                },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(

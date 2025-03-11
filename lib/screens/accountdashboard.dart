@@ -2,6 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/screens/GoalsPage.dart';
@@ -176,6 +177,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                     subtitle: 'Update your personal information',
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () async {
+                      HapticFeedback.lightImpact();
                       final result = await Navigator.push<Map<String, dynamic>>(
                         context,
                         CupertinoPageRoute(
@@ -208,6 +210,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                     subtitle: 'Set your daily macro targets',
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
+                      HapticFeedback.lightImpact();
                       Navigator.push(
                         context,
                         CupertinoPageRoute(builder: (context) => GoalsScreen()),
@@ -232,7 +235,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                     title: 'Unit System',
                     subtitle: 'Current: $_selectedUnit',
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: _showUnitPicker,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      _showUnitPicker();
+                    },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
@@ -254,7 +260,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                         ? 'Switch to light theme'
                         : 'Switch to dark theme',
                     value: isDarkMode,
-                    onChanged: (value) => themeProvider.toggleTheme(),
+                    onChanged: (value) {
+                      themeProvider.toggleTheme();
+                      HapticFeedback.lightImpact();
+                    },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
@@ -273,6 +282,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                     subtitle: 'Tap to toggle',
                     value: entry.value,
                     onChanged: (value) {
+                      HapticFeedback.lightImpact();
                       setState(() {
                         _notificationSettings[entry.key] = value;
                       });
@@ -347,7 +357,7 @@ class _AccountDashboardState extends State<AccountDashboard>
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: colorScheme.primary.withOpacity(0.1),
+            color: colorScheme.primary.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child:
@@ -376,8 +386,8 @@ class _AccountDashboardState extends State<AccountDashboard>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            colorScheme.primary.withOpacity(0.8),
-            colorScheme.primary.withOpacity(0.6),
+            colorScheme.primary.withValues(alpha: 0.8),
+            colorScheme.primary.withValues(alpha: 0.6),
           ],
         ),
         borderRadius: const BorderRadius.only(
@@ -398,7 +408,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                 child: CircleAvatar(
                   radius: 36,
                   backgroundColor:
-                      colorScheme.primaryContainer.withOpacity(0.6),
+                      colorScheme.primaryContainer.withValues(alpha: 0.6),
                   child: Text(
                     userData['name'].toString().substring(0, 1).toUpperCase(),
                     style: GoogleFonts.poppins(
@@ -426,14 +436,15 @@ class _AccountDashboardState extends State<AccountDashboard>
                     Row(
                       children: [
                         Icon(CupertinoIcons.mail,
-                            color: Colors.white.withOpacity(0.9), size: 14),
+                            color: Colors.white.withValues(alpha: 0.9),
+                            size: 14),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             userData['email'],
                             style: GoogleFonts.poppins(
                               fontSize: 14,
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withValues(alpha: 0.9),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -445,6 +456,7 @@ class _AccountDashboardState extends State<AccountDashboard>
               ),
               IconButton(
                 onPressed: () async {
+                  HapticFeedback.lightImpact();
                   final result = await Navigator.push<Map<String, dynamic>>(
                     context,
                     CupertinoPageRoute(
@@ -461,7 +473,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(CupertinoIcons.pencil,
@@ -547,7 +559,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: colorScheme.onSurface.withOpacity(0.05),
+                          color: colorScheme.onSurface.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -609,7 +621,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withOpacity(0.1),
+                    color: colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -636,7 +648,7 @@ class _AccountDashboardState extends State<AccountDashboard>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: colorScheme.shadow.withOpacity(0.04),
+                  color: colorScheme.shadow.withValues(alpha: 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -669,7 +681,7 @@ class _AccountDashboardState extends State<AccountDashboard>
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
+            color: iconColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: iconColor, size: 22),
@@ -685,7 +697,7 @@ class _AccountDashboardState extends State<AccountDashboard>
           subtitle,
           style: GoogleFonts.poppins(
             fontSize: 13,
-            color: colorScheme.onSurface.withOpacity(0.6),
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
         trailing: trailing,
@@ -712,7 +724,7 @@ class _AccountDashboardState extends State<AccountDashboard>
         secondary: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
+            color: iconColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: iconColor, size: 22),
@@ -728,12 +740,12 @@ class _AccountDashboardState extends State<AccountDashboard>
           subtitle,
           style: GoogleFonts.poppins(
             fontSize: 13,
-            color: colorScheme.onSurface.withOpacity(0.6),
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
         value: value,
         activeColor: colorScheme.primary,
-        inactiveThumbColor: colorScheme.onSurface.withOpacity(0.4),
+        inactiveThumbColor: colorScheme.onSurface.withValues(alpha: 0.4),
         onChanged: onChanged,
       ),
     );
@@ -821,6 +833,7 @@ class _AccountDashboardState extends State<AccountDashboard>
           CupertinoActionSheetAction(
             child: const Text('Metric (kg, cm)'),
             onPressed: () {
+              HapticFeedback.lightImpact();
               setState(() => _selectedUnit = 'Metric');
               Navigator.pop(context);
             },
@@ -828,15 +841,18 @@ class _AccountDashboardState extends State<AccountDashboard>
           CupertinoActionSheetAction(
             child: const Text('Imperial (lb, in)'),
             onPressed: () {
+              HapticFeedback.lightImpact();
               setState(() => _selectedUnit = 'Imperial');
               Navigator.pop(context);
             },
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
-          child: const Text('Cancel'),
-          onPressed: () => Navigator.pop(context),
-        ),
+            child: const Text('Cancel'),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(context);
+            }),
       ),
     );
   }
@@ -851,6 +867,7 @@ class _AccountDashboardState extends State<AccountDashboard>
         subtitle: 'Connected',
         trailing: Icon(Icons.check_circle, color: Colors.green),
         onTap: () {
+          HapticFeedback.lightImpact();
           Navigator.push(
             context,
             CupertinoPageRoute(
@@ -869,6 +886,7 @@ class _AccountDashboardState extends State<AccountDashboard>
         subtitle: 'Connect to sync health data',
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
+          HapticFeedback.lightImpact();
           Navigator.push(
             context,
             CupertinoPageRoute(

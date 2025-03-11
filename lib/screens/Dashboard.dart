@@ -2,6 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
 import 'package:macrotracker/screens/GoalsPage.dart';
@@ -48,8 +49,8 @@ class _DashboardState extends State<Dashboard> {
             // Updated Navigation Bar - frosted and translucent
             Positioned(
               bottom: screenHeight * 0.015,
-              left: screenWidth * 0.1,
-              right: screenWidth * 0.1,
+              left: screenWidth * 0.18,
+              right: screenWidth * 0.18,
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14.0),
@@ -57,26 +58,34 @@ class _DashboardState extends State<Dashboard> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14.0),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                        sigmaX: 15.0, sigmaY: 15.0), // Increased blur
+                    filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
                     child: Container(
-                      height: 42,
+                      height: 45,
                       padding: const EdgeInsets.symmetric(
                           vertical: 4, horizontal: 2),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14.0),
                         color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.white.withOpacity(
-                                0.6) // Light theme translucent white
-                            : Colors.black.withOpacity(
-                                0.4), // Dark theme translucent black
+                            ? Colors.grey.shade50.withValues(
+                                alpha: 0.4) // Updated background color
+                            : Colors.black.withValues(alpha: 0.4),
                         border: Border.all(
                           color:
                               Theme.of(context).brightness == Brightness.light
-                                  ? Colors.white.withOpacity(0.5)
-                                  : Colors.white.withOpacity(0.1),
+                                  ? Colors.grey.withValues(alpha: 0.2)
+                                  : Colors.white.withValues(alpha: 0.1),
                           width: 0.5,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.black.withValues(alpha: 0.05)
+                                    : Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 10,
+                            spreadRadius: 0,
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -85,6 +94,7 @@ class _DashboardState extends State<Dashboard> {
                             context: context,
                             icon: CupertinoIcons.add,
                             onTap: () {
+                              HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 CupertinoPageRoute(
@@ -96,6 +106,7 @@ class _DashboardState extends State<Dashboard> {
                             context: context,
                             icon: CupertinoIcons.camera,
                             onTap: () {
+                              HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 CupertinoPageRoute(
@@ -107,6 +118,7 @@ class _DashboardState extends State<Dashboard> {
                             context: context,
                             icon: CupertinoIcons.graph_circle,
                             onTap: () {
+                              HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 CupertinoPageRoute(
@@ -118,6 +130,7 @@ class _DashboardState extends State<Dashboard> {
                             context: context,
                             icon: CupertinoIcons.person,
                             onTap: () {
+                              HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 CupertinoPageRoute(
@@ -154,14 +167,14 @@ Widget _buildNavItemCompact({
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFFFFC107).withOpacity(0.2)
+              ? const Color(0xFFFFC107).withValues(alpha: 0.2)
               : Colors.transparent,
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon,
           color: const Color(0xFFFFC107),
-          size: 20,
+          size: 24,
         ),
       ),
     ),
@@ -188,7 +201,7 @@ Widget _buildNavItem({
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isActive
-                  ? const Color(0xFFFFC107).withOpacity(0.15)
+                  ? const Color(0xFFFFC107).withValues(alpha: 0.15)
                   : Colors.transparent,
               shape: BoxShape.circle,
             ),
@@ -518,8 +531,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
             boxShadow: [
               BoxShadow(
                 color: Theme.of(context).brightness == Brightness.light
-                    ? Colors.grey.withOpacity(0.08) // More subtle shadow
-                    : Colors.black.withOpacity(0.1),
+                    ? Colors.grey.withValues(alpha: 0.08) // More subtle shadow
+                    : Colors.black.withValues(alpha: 0.1),
                 blurRadius: 16,
                 spreadRadius: 1,
                 offset: const Offset(0, 4),
@@ -532,16 +545,29 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               // Add a header
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  "Today's Nutrition",
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context)
-                        .extension<CustomColors>()
-                        ?.textPrimary,
+                child: Row(children: [
+                  Icon(
+                    Icons.pie_chart_outline,
+                    size: 20,
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.grey.shade700
+                        : Colors.grey.shade400,
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Text(
+                    "Today's Nutrition and Activity",
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      // color: Theme.of(context)
+                      //     .extension<CustomColors>()
+                      //     ?.textPrimary,
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.grey.shade700
+                          : Colors.grey.shade400,
+                    ),
+                  ),
+                ]),
               ),
 
               // Rest of your existing code...
@@ -559,14 +585,14 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                           color:
                               Theme.of(context).brightness == Brightness.light
                                   ? Colors.white
-                                  : Colors.grey.shade900.withOpacity(0.3),
+                                  : Colors.grey.shade900.withValues(alpha: 0.3),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: Theme.of(context).brightness ==
                                       Brightness.light
-                                  ? Colors.grey.withOpacity(0.1)
-                                  : Colors.black.withOpacity(0.2),
+                                  ? Colors.grey.withValues(alpha: 0.1)
+                                  : Colors.black.withValues(alpha: 0.2),
                               blurRadius: 10,
                               spreadRadius: 1,
                               offset: const Offset(0, 3),
@@ -664,36 +690,36 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                   const SizedBox(height: 24),
 
                   // Macro section header
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 4.0, vertical: 4.0),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.pie_chart_outline,
-                          size: 14,
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? Colors.grey.shade700
-                                  : Colors.grey.shade400,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Macronutrients & Activity",
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Padding(
+                  //   padding: const EdgeInsets.symmetric(
+                  //       horizontal: 4.0, vertical: 4.0),
+                  //   child: Row(
+                  //     children: [
+                  //       Icon(
+                  //         Icons.pie_chart_outline,
+                  //         size: 14,
+                  //         color:
+                  //             Theme.of(context).brightness == Brightness.light
+                  //                 ? Colors.grey.shade700
+                  //                 : Colors.grey.shade400,
+                  //       ),
+                  //       // const SizedBox(width: 6),
+                  //       // Text(
+                  //       //   "Macronutrients & Activity",
+                  //       //   style: GoogleFonts.poppins(
+                  //       //     fontSize: 12,
+                  //       //     fontWeight: FontWeight.w600,
+                  //       //     color:
+                  //       //         Theme.of(context).brightness == Brightness.light
+                  //       //             ? Colors.grey.shade700
+                  //       //             : Colors.grey.shade400,
+                  //       //   ),
+                  //       // ),
+                  //     ],
+                  //   ),
+                  // ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 0),
 
                   // Macro circles - Enhanced with circular progress
                   Padding(
@@ -804,7 +830,7 @@ Widget _buildMacroProgress(
           children: [
             Container(
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
+                color: color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -848,7 +874,7 @@ Widget _buildCalorieInfoEnhanced(
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.2), // More subtle shadow
+              color: color.withValues(alpha: 0.2), // More subtle shadow
               spreadRadius: 1,
               blurRadius: 2,
               offset: const Offset(0, 1),
@@ -907,7 +933,7 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
                 decoration: BoxDecoration(
                   color: Theme.of(context).brightness == Brightness.light
                       ? Colors.grey.shade100
-                      : Colors.grey.shade800.withOpacity(0.3),
+                      : Colors.grey.shade800.withValues(alpha: 0.3),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -920,8 +946,8 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
                   strokeWidth: 6,
                   backgroundColor:
                       Theme.of(context).brightness == Brightness.light
-                          ? color.withOpacity(0.15)
-                          : color.withOpacity(0.1),
+                          ? color.withValues(alpha: 0.15)
+                          : color.withValues(alpha: 0.1),
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
               ),
@@ -1082,7 +1108,7 @@ class _MealSectionState extends State<MealSection> {
             boxShadow: [
               BoxShadow(
                 color: Theme.of(context).brightness == Brightness.light
-                    ? Colors.grey.withOpacity(0.1)
+                    ? Colors.grey.withValues(alpha: 0.1)
                     : Colors.black12,
                 blurRadius: 10,
                 offset: const Offset(0, 3),
@@ -1108,7 +1134,8 @@ class _MealSectionState extends State<MealSection> {
                         Container(
                           padding: const EdgeInsets.all(6), // Reduced from 8
                           decoration: BoxDecoration(
-                            color: _getMealColor(mealType).withOpacity(0.1),
+                            color:
+                                _getMealColor(mealType).withValues(alpha: 0.1),
                             borderRadius:
                                 BorderRadius.circular(10), // More compact
                           ),
@@ -1394,11 +1421,11 @@ Widget _buildCalorieInfoCard(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
       color: Theme.of(context).brightness == Brightness.light
-          ? color.withOpacity(0.08)
-          : color.withOpacity(0.15),
+          ? color.withValues(alpha: 0.08)
+          : color.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(8),
       border: Border.all(
-        color: color.withOpacity(0.3),
+        color: color.withValues(alpha: 0.3),
         width: 1,
       ),
     ),
