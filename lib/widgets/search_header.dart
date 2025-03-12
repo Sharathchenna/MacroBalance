@@ -18,6 +18,7 @@ class SearchHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -37,7 +38,7 @@ class SearchHeader extends StatelessWidget {
                       child: Icon(
                         Icons.arrow_back_ios_rounded,
                         size: 16,
-                        color: Theme.of(context).primaryColor,
+                        color: customColors!.textPrimary,
                       ),
                     ),
                   ),
@@ -48,7 +49,7 @@ class SearchHeader extends StatelessWidget {
                 child: Text(
                   'Find Foods',
                   style: AppTypography.h2.copyWith(
-                    color: Theme.of(context).primaryColor,
+                    color: customColors.textPrimary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -67,24 +68,23 @@ class SearchHeader extends StatelessWidget {
               onSubmitted: onSearch,
               textInputAction: TextInputAction.search,
               style: AppTypography.body1.copyWith(
-                color: Theme.of(context).primaryColor,
+                color: customColors.textPrimary,
                 fontWeight: FontWeight.w500,
               ),
               decoration: InputDecoration(
                 hintText: 'Search foods, recipes, brands...',
                 hintStyle: AppTypography.body1.copyWith(
-                  color: Theme.of(context).primaryColor.withValues(alpha: .5),
+                  color: customColors.textPrimary.withValues(alpha: .5),
                 ),
                 prefixIcon: Icon(
                   Icons.search_rounded,
-                  color: Theme.of(context).primaryColor.withValues(alpha: .7),
+                  color: customColors.textPrimary.withValues(alpha: .7),
                 ),
                 suffixIcon: controller.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(
                           Icons.close_rounded,
-                          color: Theme.of(context)
-                              .primaryColor
+                          color: customColors.textPrimary
                               .withValues(alpha: .7),
                         ),
                         onPressed: () {
