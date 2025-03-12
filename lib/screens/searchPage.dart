@@ -303,7 +303,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               child: Icon(
                 Icons.restaurant_rounded,
                 size: 48,
-                color: Theme.of(context).primaryColor,
+                color: customColors!.textPrimary,
               ),
             ),
           ),
@@ -574,12 +574,12 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 width: 160, // Slightly smaller
                 height: 160, // Slightly smaller
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: .1),
+                  color: customColors!.cardBackground,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color:
-                          Theme.of(context).primaryColor.withValues(alpha: .05),
+                      color: Theme.of(context).brightness == Brightness.light?
+                          customColors.textPrimary.withValues(alpha: .05): customColors.textPrimary.withValues(alpha: 0),
                       blurRadius: 15,
                       spreadRadius: 5,
                     ),
@@ -588,14 +588,14 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 child: Icon(
                   Icons.restaurant_menu_rounded,
                   size: 72,
-                  color: Theme.of(context).primaryColor,
+                  color: customColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 32),
               Text(
                 'Find your favorite foods',
                 style: AppTypography.h2.copyWith(
-                  color: customColors?.textPrimary,
+                  color: customColors.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
@@ -604,7 +604,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               Text(
                 'Search for any food to see detailed nutrition information and track your meals.',
                 style: AppTypography.body1.copyWith(
-                  color: customColors?.textSecondary,
+                  color: customColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -628,13 +628,13 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         Icon(
                           Icons.search_rounded,
                           size: 18,
-                          color: Theme.of(context).primaryColor,
+                          color: customColors.textPrimary,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Try searching "chicken"',
                           style: AppTypography.button.copyWith(
-                            color: customColors?.textPrimary,
+                            color: customColors.textPrimary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
