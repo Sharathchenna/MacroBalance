@@ -21,6 +21,10 @@ class _GoalsScreenState extends State<GoalsScreen>
   late AnimationController _controller;
   final ScrollController _scrollController = ScrollController();
 
+  // Graph selection state
+  String _selectedGraphType = 'Calories'; // Default to calories
+  bool _isLoadingGraphData = false;
+
   // Goal values
   int calorieGoal = 2000;
   int proteinGoal = 150;
@@ -40,7 +44,9 @@ class _GoalsScreenState extends State<GoalsScreen>
   // Weekly progress data (for the chart)
   final List<FlSpot> weeklyCaloriesData = [];
   final List<FlSpot> weeklyProteinData = [];
+  final List<FlSpot> weightData = [];
   final List<String> weekDays = [];
+  final List<String> weightDates = [];
 
   @override
   void initState() {
@@ -53,6 +59,7 @@ class _GoalsScreenState extends State<GoalsScreen>
     _loadGoals();
     _loadCurrentValues();
     _generateWeeklyData();
+    _loadWeightData();
   }
 
   Future<void> _loadGoals() async {
@@ -112,8 +119,65 @@ class _GoalsScreenState extends State<GoalsScreen>
     }
   }
 
+  // Load weight data
+  Future<void> _loadWeightData() async {
+    setState(() {
+      _isLoadingGraphData = true;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? weightHistoryString = prefs.getString('weight_history');
+
+      weightData.clear();
+      weightDates.clear();
+
+      if (weightHistoryString != null && weightHistoryString.isNotEmpty) {
+        final List<dynamic> weightHistory = jsonDecode(weightHistoryString);
+
+        // Sort by date
+        weightHistory.sort((a, b) =>
+            DateTime.parse(a['date']).compareTo(DateTime.parse(b['date'])));
+
+        // Get the last 30 entries or all if less than 30
+        final historyToShow = weightHistory.length > 30
+            ? weightHistory.sublist(weightHistory.length - 30)
+            : weightHistory;
+
+        for (int i = 0; i < historyToShow.length; i++) {
+          final entry = historyToShow[i];
+          weightData.add(
+              FlSpot(i.toDouble(), double.parse(entry['weight'].toString())));
+
+          final date = DateTime.parse(entry['date']);
+          weightDates.add(DateFormat('MM/dd').format(date));
+        }
+      } else {
+        // Add some sample data if no weight history exists
+        final now = DateTime.now();
+        for (int i = 6; i >= 0; i--) {
+          final day = now.subtract(Duration(days: i));
+          weightData.add(FlSpot(6 - i.toDouble(), 70.0)); // Default weight
+          weightDates.add(DateFormat('MM/dd').format(day));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading weight data: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingGraphData = false;
+        });
+      }
+    }
+  }
+
   // Generate weekly data for the chart
   void _generateWeeklyData() {
+    setState(() {
+      _isLoadingGraphData = true;
+    });
+
     final now = DateTime.now();
     weeklyCaloriesData.clear();
     weeklyProteinData.clear();
@@ -152,6 +216,10 @@ class _GoalsScreenState extends State<GoalsScreen>
       weeklyProteinData.add(FlSpot(6 - i.toDouble(), totalProtein));
       weekDays.add(DateFormat('E').format(day));
     }
+
+    setState(() {
+      _isLoadingGraphData = false;
+    });
   }
 
   Future<void> _saveGoals() async {
@@ -347,7 +415,7 @@ class _GoalsScreenState extends State<GoalsScreen>
 
   Widget _buildWeeklyProgressChart(BuildContext context) {
     return Container(
-      height: 240,
+      height: 280, // Increased height to accommodate buttons
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
@@ -369,7 +437,7 @@ class _GoalsScreenState extends State<GoalsScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Weekly Progress',
+                'Progress Chart',
                 style: TextStyle(
                   color: Theme.of(context).primaryColor,
                   fontSize: 18,
@@ -384,7 +452,9 @@ class _GoalsScreenState extends State<GoalsScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Last 7 Days',
+                  _selectedGraphType == 'Calories'
+                      ? 'Last 7 Days'
+                      : 'Weight History',
                   style: TextStyle(
                     color: Theme.of(context).primaryColor,
                     fontSize: 12,
@@ -396,128 +466,272 @@ class _GoalsScreenState extends State<GoalsScreen>
           ),
           const SizedBox(height: 20),
           Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: calorieGoal / 4,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.withOpacity(0.15),
-                      strokeWidth: 1,
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= 0 &&
-                            value.toInt() < weekDays.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              weekDays[value.toInt()],
-                              style: TextStyle(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
-                                fontSize: 10,
-                              ),
-                            ),
-                          );
-                        }
-                        return const SizedBox();
-                      },
-                      reservedSize: 30,
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: calorieGoal / 2,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          value.toInt().toString(),
-                          style: TextStyle(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
-                            fontSize: 10,
-                          ),
-                        );
-                      },
-                      reservedSize: 40,
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                minX: 0,
-                maxX: 6,
-                minY: 0,
-                maxY: calorieGoal.toDouble() * 1.2,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: weeklyCaloriesData,
-                    isCurved: true,
-                    color: Theme.of(context).colorScheme.primary,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 4,
-                          color: Theme.of(context).colorScheme.primary,
-                          strokeWidth: 2,
-                          strokeColor: Colors.white,
-                        );
-                      },
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.2),
-                    ),
-                  ),
-                  LineChartBarData(
-                    spots: weeklyProteinData,
-                    isCurved: true,
-                    color: Colors.red,
-                    barWidth: 2,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: Colors.red.withOpacity(0.1),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            child: _isLoadingGraphData
+                ? Center(child: CircularProgressIndicator())
+                : _selectedGraphType == 'Calories'
+                    ? _buildCaloriesChart(context)
+                    : _buildWeightChart(context),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 15),
+          // Toggle buttons for chart selection
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildLegendItem(
-                  'Calories', Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 16),
-              _buildLegendItem('Protein', Colors.red),
+              _buildChartToggleButton(context, 'Calories'),
+              const SizedBox(width: 12),
+              _buildChartToggleButton(context, 'Weight'),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartToggleButton(BuildContext context, String type) {
+    final isSelected = _selectedGraphType == type;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedGraphType = type;
+          // Reload data if needed
+          if (type == 'Weight' && weightData.isEmpty) {
+            _loadWeightData();
+          } else if (type == 'Calories' && weeklyCaloriesData.isEmpty) {
+            _generateWeeklyData();
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).primaryColor
+              : Theme.of(context).primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Theme.of(context).primaryColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Text(
+          type,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Theme.of(context).primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCaloriesChart(BuildContext context) {
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: calorieGoal / 4,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.15),
+              strokeWidth: 1,
+            );
+          },
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() >= 0 && value.toInt() < weekDays.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      weekDays[value.toInt()],
+                      style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[400]
+                            : Colors.grey[600],
+                        fontSize: 10,
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox();
+              },
+              reservedSize: 30,
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: calorieGoal / 2,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey[400]
+                        : Colors.grey[600],
+                    fontSize: 10,
+                  ),
+                );
+              },
+              reservedSize: 40,
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        minX: 0,
+        maxX: 6,
+        minY: 0,
+        maxY: calorieGoal.toDouble() * 1.2,
+        lineBarsData: [
+          LineChartBarData(
+            spots: weeklyCaloriesData,
+            isCurved: true,
+            color: Theme.of(context).colorScheme.primary,
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 4,
+                  color: Theme.of(context).colorScheme.primary,
+                  strokeWidth: 2,
+                  strokeColor: Colors.white,
+                );
+              },
+            ),
+            belowBarData: BarAreaData(
+              show: true,
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeightChart(BuildContext context) {
+    // Find min and max weight for proper scaling
+    double minWeight = 50.0; // Default min
+    double maxWeight = 100.0; // Default max
+
+    if (weightData.isNotEmpty) {
+      minWeight =
+          weightData.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) - 5;
+      maxWeight =
+          weightData.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) + 5;
+    }
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: (maxWeight - minWeight) / 4,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.15),
+              strokeWidth: 1,
+            );
+          },
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index >= 0 &&
+                    index < weightDates.length &&
+                    index % 3 == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      weightDates[index],
+                      style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[400]
+                            : Colors.grey[600],
+                        fontSize: 10,
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox();
+              },
+              reservedSize: 30,
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: (maxWeight - minWeight) / 4,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toStringAsFixed(1),
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey[400]
+                        : Colors.grey[600],
+                    fontSize: 10,
+                  ),
+                );
+              },
+              reservedSize: 40,
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        minX: 0,
+        maxX: weightData.isEmpty ? 6 : (weightData.length - 1).toDouble(),
+        minY: minWeight,
+        maxY: maxWeight,
+        lineBarsData: [
+          LineChartBarData(
+            spots: weightData,
+            isCurved: true,
+            color: Colors.green,
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 4,
+                  color: Colors.green,
+                  strokeWidth: 2,
+                  strokeColor: Colors.white,
+                );
+              },
+            ),
+            belowBarData: BarAreaData(
+              show: true,
+              color: Colors.green.withOpacity(0.2),
+            ),
           ),
         ],
       ),
