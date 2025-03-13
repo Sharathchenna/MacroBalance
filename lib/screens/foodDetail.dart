@@ -3,6 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/widgets/macro_progress_ring.dart';
+import 'package:macrotracker/widgets/quantity_selector.dart';
+import 'package:macrotracker/widgets/nutrient_row.dart';
+import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'searchPage.dart'; // This has the FoodItem class we need
 import 'package:provider/provider.dart';
 import '../providers/foodEntryProvider.dart';
@@ -13,374 +17,6 @@ import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../theme/typography.dart';
 import 'dart:math'; // Add missing import for min function and pi constant
-
-class MacroProgressRing extends StatefulWidget {
-  final String label;
-  final String value;
-  final String unit;
-  final Color color;
-  final double percentage;
-  final double size;
-
-  const MacroProgressRing({
-    super.key,
-    required this.label,
-    required this.value,
-    this.unit = 'g',
-    required this.color,
-    required this.percentage,
-    this.size = 70, // Slightly reduced default size
-  });
-
-  @override
-  State<MacroProgressRing> createState() => _MacroProgressRingState();
-}
-
-class _MacroProgressRingState extends State<MacroProgressRing>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _progressAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1500));
-
-    _progressAnimation = Tween<double>(
-      begin: 0.0,
-      end: widget.percentage,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
-
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(MacroProgressRing oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.percentage != widget.percentage) {
-      _progressAnimation = Tween<double>(
-        begin: oldWidget.percentage,
-        end: widget.percentage,
-      ).animate(CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOutCubic,
-      ));
-
-      _animationController
-        ..reset()
-        ..forward();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final bgColor = widget.color.withOpacity(0.12);
-    final highlightColor = HSLColor.fromColor(widget.color)
-        .withLightness(
-            (HSLColor.fromColor(widget.color).lightness + 0.2).clamp(0.0, 1.0))
-        .toColor();
-
-    return SizedBox(
-      width: widget.size + 16, // Reduced padding
-      height: widget.size + 40, // Reduced height since removing percentage
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Title and icon
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _getIconForMacro(widget.label),
-                  color: widget.color,
-                  size: 14,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                widget.label,
-                style: AppTypography.body2.copyWith(
-                  color: widget.color,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-
-          // Progress ring container
-          SizedBox(
-            width: widget.size,
-            height: widget.size,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Background track
-                CustomPaint(
-                  painter: _CircleProgressPainter(
-                    color: bgColor,
-                    progress: 1.0,
-                    strokeWidth: 8,
-                  ),
-                  size: Size(widget.size, widget.size),
-                ),
-
-                // Animated progress
-                AnimatedBuilder(
-                  animation: _progressAnimation,
-                  builder: (context, child) {
-                    return CustomPaint(
-                      painter: _CircleProgressPainter(
-                        color: widget.color,
-                        progress: _progressAnimation.value,
-                        strokeWidth: 8,
-                        useGradient: true,
-                        gradientColors: [widget.color, highlightColor],
-                      ),
-                      size: Size(widget.size, widget.size),
-                    );
-                  },
-                ),
-
-                // Center value
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.value,
-                      style: AppTypography.h3.copyWith(
-                        color: widget.color,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
-                    ),
-                    Text(
-                      widget.unit,
-                      style: AppTypography.caption.copyWith(
-                        color: widget.color.withOpacity(0.8),
-                        fontWeight: FontWeight.w500,
-                        height: 1,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getIconForMacro(String macro) {
-    switch (macro.toLowerCase()) {
-      case 'carbs':
-        return Icons.grain_rounded;
-      case 'protein':
-        return Icons.fitness_center_rounded;
-      case 'fat':
-        return Icons.opacity_rounded;
-      default:
-        return Icons.pie_chart_rounded;
-    }
-  }
-}
-
-class _CircleProgressPainter extends CustomPainter {
-  final Color color;
-  final double progress;
-  final double strokeWidth;
-  final bool useGradient;
-  final List<Color>? gradientColors;
-
-  _CircleProgressPainter({
-    required this.color,
-    required this.progress,
-    required this.strokeWidth,
-    this.useGradient = false,
-    this.gradientColors,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = min(size.width / 2, size.height / 2) - (strokeWidth / 2);
-    final rect = Rect.fromCircle(center: center, radius: radius);
-
-    // Create the progress arc path
-    final path = Path()
-      ..arcTo(
-        rect,
-        -pi / 2, // Start from top
-        2 * pi * progress, // Arc angle
-        false,
-      );
-
-    // Create paint for stroke
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    // Apply color or gradient
-    if (useGradient && gradientColors != null && gradientColors!.length >= 2) {
-      final gradient = SweepGradient(
-        colors: [...gradientColors!, gradientColors!.first],
-        stops: [0.0, progress, 1.0],
-        startAngle: -pi / 2,
-        endAngle: 3 * pi / 2,
-        transform: GradientRotation(-pi / 2),
-      );
-      paint.shader = gradient.createShader(rect);
-    } else {
-      paint.color = color;
-    }
-
-    // Draw path
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_CircleProgressPainter oldDelegate) {
-    return oldDelegate.color != color ||
-        oldDelegate.progress != progress ||
-        oldDelegate.strokeWidth != strokeWidth;
-  }
-}
-
-class QuantitySelector extends StatelessWidget {
-  final List<double> presetMultipliers;
-  final double selectedMultiplier;
-  final Function(double) onMultiplierSelected;
-
-  const QuantitySelector({
-    super.key,
-    required this.presetMultipliers,
-    required this.selectedMultiplier,
-    required this.onMultiplierSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-
-    return Container(
-      height: 44,
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: presetMultipliers.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 18),
-        itemBuilder: (context, index) {
-          final multiplier = presetMultipliers[index];
-          final isSelected = multiplier == selectedMultiplier;
-
-          return GestureDetector(
-            onTap: (){
-              HapticFeedback.selectionClick();
-              onMultiplierSelected(multiplier);
-              },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? customColors!.calorieTrackerBackground
-                    : customColors!.cardBackground,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: isSelected
-                      ? Theme.of(context).brightness == Brightness.dark? Color(0xFFFBBC05).withValues(alpha: 0.8): customColors.textPrimary
-                      : customColors.dateNavigatorBackground,
-                  width: 1.5,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                "${multiplier}x",
-                style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark ? 
-                  Colors.white:
-                  customColors.textPrimary,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class NutrientRow extends StatelessWidget {
-  final String name;
-  final String value;
-  final bool isHighlighted;
-
-  const NutrientRow({
-    super.key,
-    required this.name,
-    required this.value,
-    this.isHighlighted = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            name,
-            style: isHighlighted
-                ? AppTypography.body1.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
-                  )
-                : AppTypography.body2.copyWith(
-                    color: customColors!.textSecondary,
-                  ),
-          ),
-          Text(
-            value,
-            style: isHighlighted
-                ? AppTypography.body1.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  )
-                : AppTypography.body2.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class FoodDetailPage extends StatefulWidget {
   final FoodItem food;
@@ -598,14 +234,11 @@ class _FoodDetailPageState extends State<FoodDetailPage>
               key == 'Sodium' ||
               key == 'Potassium') {
             unit = 'mg';
-          } else if (
-              key == 'Vitamin C' ||
-              key == 'Calcium' ||
-              key == 'Iron') {
+          } else if (key == 'Vitamin C' || key == 'Calcium' || key == 'Iron') {
             unit = 'mg';
           } else if (key == 'Fiber' || key == 'Sugar') {
             unit = 'g';
-          } else if(key == 'Vitamin A' ) {
+          } else if (key == 'Vitamin A') {
             unit = 'mcg';
           }
 
@@ -660,15 +293,15 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 //   Color _getMealColor(String meal) {
 //     switch (meal) {
 //       case 'Breakfast':
-// return const Color(0xFFFBBC05).withValues(alpha: 0.8); 
+// return const Color(0xFFFBBC05).withValues(alpha: 0.8);
 //       case 'Lunch':
-//         return const Color(0xFFFBBC05).withValues(alpha: 0.9); 
+//         return const Color(0xFFFBBC05).withValues(alpha: 0.9);
 //       case 'Dinner':
-// return const Color(0xFFFBBC05).withValues(alpha: 0.9); 
+// return const Color(0xFFFBBC05).withValues(alpha: 0.9);
 //       case 'Snacks':
-// return const Color(0xFFFBBC05).withValues(alpha: 0.9); 
+// return const Color(0xFFFBBC05).withValues(alpha: 0.9);
 //       default:
-// return const Color(0xFFFBBC05).withValues(alpha: 0.9); 
+// return const Color(0xFFFBBC05).withValues(alpha: 0.9);
 //     }
 //   }
 
@@ -737,7 +370,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                     child: Text(
                       food.name,
                       style: TextStyle(
-                        color: Theme.of(context).extension<CustomColors>()!.textPrimary,
+                        color: Theme.of(context)
+                            .extension<CustomColors>()!
+                            .textPrimary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -774,7 +409,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       Text(
                                         food.name,
                                         style: AppTypography.h1.copyWith(
-                                          color: Theme.of(context).extension<CustomColors>()!.textPrimary,
+                                          color: Theme.of(context)
+                                              .extension<CustomColors>()!
+                                              .textPrimary,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -839,7 +476,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                     Text(
                                       calculatedCalories.toStringAsFixed(0),
                                       style: AppTypography.h1.copyWith(
-                                        color: Theme.of(context).extension<CustomColors>()!.textPrimary,
+                                        color: Theme.of(context)
+                                            .extension<CustomColors>()!
+                                            .textPrimary,
                                         fontWeight: FontWeight.bold,
                                         height: 0.9,
                                       ),
@@ -920,7 +559,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                             child: Text(
                               "Serving Size",
                               style: AppTypography.h2.copyWith(
-                                color: Theme.of(context).extension<CustomColors>()!.textPrimary,
+                                color: Theme.of(context)
+                                    .extension<CustomColors>()!
+                                    .textPrimary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -949,8 +590,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       Container(
                                         padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
-                                          color: customColors.textSecondary.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(12),
+                                          color: customColors.textSecondary
+                                              .withOpacity(0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                         child: Icon(
                                           Icons.restaurant_menu_rounded,
@@ -962,8 +605,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       Text(
                                         "Select Serving",
                                         style: AppTypography.h3.copyWith(
-                                          color: Theme.of(context).brightness == Brightness.dark 
-                                              ? Colors.white 
+                                          color: Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors.white
                                               : primaryColor,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -978,34 +622,48 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                     child: ListView.separated(
                                       scrollDirection: Axis.horizontal,
                                       itemCount: widget.food.servings.length,
-                                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                                      separatorBuilder: (context, index) =>
+                                          const SizedBox(width: 12),
                                       itemBuilder: (context, index) {
-                                        final serving = widget.food.servings[index];
-                                        final isSelected = selectedServing?.description == serving.description;
-                                        
+                                        final serving =
+                                            widget.food.servings[index];
+                                        final isSelected =
+                                            selectedServing?.description ==
+                                                serving.description;
+
                                         // Create a more neutral color scheme for dark mode
-                                        final cardColor = isSelected 
-                                            ? Theme.of(context).brightness == Brightness.dark ?
-                                            customColors.cardBackground.withOpacity(1)
+                                        final cardColor = isSelected
+                                            ? Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? customColors.cardBackground
+                                                    .withOpacity(1)
                                                 : primaryColor
-                                            : Theme.of(context).brightness == Brightness.dark
-                                                ? customColors.cardBackground.withOpacity(0.05)
-                                                : primaryColor.withOpacity(0.05);
-                                                
-                                        final textColor = isSelected 
-                                            ? Theme.of(context).brightness == Brightness.dark
-                                                ? Colors.white 
+                                            : Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? customColors.cardBackground
+                                                    .withOpacity(0.05)
+                                                : primaryColor
+                                                    .withOpacity(0.05);
+
+                                        final textColor = isSelected
+                                            ? Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? Colors.white
                                                 : Colors.white
-                                            : Theme.of(context).brightness == Brightness.dark
+                                            : Theme.of(context).brightness ==
+                                                    Brightness.dark
                                                 ? Colors.white.withOpacity(0.87)
-                                                : Theme.of(context).primaryColor;
+                                                : Theme.of(context)
+                                                    .primaryColor;
 
                                         return GestureDetector(
                                           onTap: () {
                                             HapticFeedback.selectionClick();
                                             setState(() {
                                               selectedServing = serving;
-                                              quantityController.text = serving.metricAmount.toString();
+                                              quantityController.text = serving
+                                                  .metricAmount
+                                                  .toString();
                                               selectedUnit = serving.metricUnit;
                                               selectedMultiplier = 1.0;
                                             });
@@ -1015,31 +673,48 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                             padding: const EdgeInsets.all(16),
                                             decoration: BoxDecoration(
                                               color: cardColor,
-                                              borderRadius: BorderRadius.circular(16),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
                                               border: Border.all(
                                                 color: isSelected
-                                                    ? Theme.of(context).brightness == Brightness.dark
-                                                        ? Color(0xFF64748B) // Slate 500
+                                                    ? Theme.of(context)
+                                                                .brightness ==
+                                                            Brightness.dark
+                                                        ? Color(
+                                                            0xFF64748B) // Slate 500
                                                         : primaryColor
-                                                    : Theme.of(context).brightness == Brightness.dark
-                                                        ? Color(0xFF475569).withOpacity(0.5) // Slate 600
-                                                        : primaryColor.withOpacity(0.2),
+                                                    : Theme.of(context)
+                                                                .brightness ==
+                                                            Brightness.dark
+                                                        ? Color(0xFF475569)
+                                                            .withOpacity(
+                                                                0.5) // Slate 600
+                                                        : primaryColor
+                                                            .withOpacity(0.2),
                                                 width: isSelected ? 2 : 1,
                                               ),
                                               boxShadow: isSelected
                                                   ? [
                                                       BoxShadow(
-                                                        color: Theme.of(context).brightness == Brightness.dark
-                                                            ? Color(0xFF0F172A).withOpacity(0.5) // Slate 900
-                                                            : primaryColor.withOpacity(0.2),
+                                                        color: Theme.of(context)
+                                                                    .brightness ==
+                                                                Brightness.dark
+                                                            ? Color(0xFF0F172A)
+                                                                .withOpacity(
+                                                                    0.5) // Slate 900
+                                                            : primaryColor
+                                                                .withOpacity(
+                                                                    0.2),
                                                         blurRadius: 8,
-                                                        offset: const Offset(0, 3),
+                                                        offset:
+                                                            const Offset(0, 3),
                                                       )
                                                     ]
                                                   : null,
                                             ),
                                             child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
                                                 // Check or number indicator
                                                 Container(
@@ -1047,12 +722,24 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                   height: 32,
                                                   decoration: BoxDecoration(
                                                     color: isSelected
-                                                        ? Theme.of(context).brightness == Brightness.dark
-                                                            ? Colors.white.withOpacity(0.15)
-                                                            : Colors.white.withOpacity(0.3)
-                                                        : Theme.of(context).brightness == Brightness.dark
-                                                            ? Colors.white.withOpacity(0.1)
-                                                            : primaryColor.withOpacity(0.1),
+                                                        ? Theme.of(context)
+                                                                    .brightness ==
+                                                                Brightness.dark
+                                                            ? Colors.white
+                                                                .withOpacity(
+                                                                    0.15)
+                                                            : Colors.white
+                                                                .withOpacity(
+                                                                    0.3)
+                                                        : Theme.of(context)
+                                                                    .brightness ==
+                                                                Brightness.dark
+                                                            ? Colors.white
+                                                                .withOpacity(
+                                                                    0.1)
+                                                            : primaryColor
+                                                                .withOpacity(
+                                                                    0.1),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: Center(
@@ -1066,7 +753,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                             "${index + 1}",
                                                             style: TextStyle(
                                                               color: textColor,
-                                                              fontWeight: FontWeight.bold,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
                                                             ),
                                                           ),
                                                   ),
@@ -1074,35 +763,47 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                 const SizedBox(height: 12),
                                                 // Serving name
                                                 Text(
-                                                  _formatServingDescription(serving.description),
-                                                  style: AppTypography.body2.copyWith(
+                                                  _formatServingDescription(
+                                                      serving.description),
+                                                  style: AppTypography.body2
+                                                      .copyWith(
                                                     color: textColor,
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                                   textAlign: TextAlign.center,
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                                 const Spacer(),
                                                 // Amount
                                                 Text(
                                                   "${serving.metricAmount} ${serving.metricUnit}",
-                                                  style: AppTypography.caption.copyWith(
+                                                  style: AppTypography.caption
+                                                      .copyWith(
                                                     color: isSelected
-                                                        ? textColor.withOpacity(0.9)
-                                                        : customColors.textSecondary,
-                                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                                        ? textColor
+                                                            .withOpacity(0.9)
+                                                        : customColors
+                                                            .textSecondary,
+                                                    fontWeight: isSelected
+                                                        ? FontWeight.w600
+                                                        : FontWeight.w500,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 4),
                                                 // Calories
                                                 Text(
                                                   "${serving.calories.toStringAsFixed(0)} kcal",
-                                                  style: AppTypography.caption.copyWith(
+                                                  style: AppTypography.caption
+                                                      .copyWith(
                                                     color: isSelected
                                                         ? textColor
-                                                        : Theme.of(context).brightness == Brightness.dark
-                                                            ? Color(0xFFFBBC05) // Amber color for calories in dark mode
+                                                        : Theme.of(context)
+                                                                    .brightness ==
+                                                                Brightness.dark
+                                                            ? Color(
+                                                                0xFFFBBC05) // Amber color for calories in dark mode
                                                             : primaryColor,
                                                     fontWeight: FontWeight.w600,
                                                   ),
@@ -1123,30 +824,39 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                           onPressed: () {
                                             HapticFeedback.selectionClick();
                                             _showServingSelector(context);
-                                            },
+                                          },
                                           icon: Icon(
                                             Icons.view_list_rounded,
-                                            color: Theme.of(context).brightness == Brightness.dark
-                                                ? Colors.white70
-                                                : primaryColor,
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.white70
+                                                    : primaryColor,
                                             size: 18,
                                           ),
                                           label: Text(
                                             "View all servings",
                                             style: AppTypography.body2.copyWith(
-                                              color: Theme.of(context).brightness == Brightness.dark
+                                              color: Theme.of(context)
+                                                          .brightness ==
+                                                      Brightness.dark
                                                   ? Colors.white70
                                                   : primaryColor,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           style: TextButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                            backgroundColor: Theme.of(context).brightness == Brightness.dark
-                                                ? Color(0xFF334155).withOpacity(0.6) // Slate 700
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 8),
+                                            backgroundColor: Theme.of(context)
+                                                        .brightness ==
+                                                    Brightness.dark
+                                                ? Color(0xFF334155).withOpacity(
+                                                    0.6) // Slate 700
                                                 : primaryColor.withOpacity(0.1),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(20),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
                                             ),
                                           ),
                                         ),
@@ -1306,9 +1016,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                     (currentQty * 28.35)
                                                         .toStringAsFixed(0);
                                               }
-                                              selectedUnit = val!;// Update UI with new values by triggering state refresh
-                                              selectedMultiplier = 0; // Reset multiplier to update calculations
-                                              macroPercentages = getMacroPercentages(); 
+                                              selectedUnit =
+                                                  val!; // Update UI with new values by triggering state refresh
+                                              selectedMultiplier =
+                                                  0; // Reset multiplier to update calculations
+                                              macroPercentages =
+                                                  getMacroPercentages();
                                             });
                                           },
                                           decoration: InputDecoration(
@@ -1366,9 +1079,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         children: mealOptions.map((meal) {
                                           final isSelected =
                                               meal == selectedMeal;
-                                          final mealColor = Theme.of(context).brightness == Brightness.dark ?
-                                           Color(0xFFFBBC05).withValues(alpha: 0.8):
-                                           customColors.textPrimary;
+                                          final mealColor =
+                                              Theme.of(context).brightness ==
+                                                      Brightness.dark
+                                                  ? Color(0xFFFBBC05)
+                                                      .withValues(alpha: 0.8)
+                                                  : customColors.textPrimary;
 
                                           return Expanded(
                                             child: GestureDetector(
@@ -1652,12 +1368,11 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(30),
                     border: Border.all(
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? Colors.black.withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.3),
-                          width: 0.5,
-                        ),
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.black.withValues(alpha: 0.3)
+                          : Colors.white.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
                     boxShadow: [
                       // BoxShadow(
                       //   color: customColors.textPrimary.withOpacity(0.3),
@@ -1680,7 +1395,6 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                         servingDescription: selectedServing?.description,
                       );
 
-
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Row(
@@ -1699,7 +1413,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                             ],
                           ),
                           behavior: SnackBarBehavior.floating,
-                          backgroundColor: const Color(0xFFFBBC05).withValues(alpha: 0.8),
+                          backgroundColor:
+                              const Color(0xFFFBBC05).withValues(alpha: 0.8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -1722,47 +1437,49 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                       ),
                     ),
                     child: Ink(
-                        decoration: BoxDecoration(
+                      decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: ClipRRect(
+                      ),
+                      child: ClipRRect(
                         borderRadius: BorderRadius.circular(30),
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                           child: Container(
-                          decoration: BoxDecoration(
-                            // border: Border.all(
-                            // color: customColors.dateNavigatorBackground,
-                            // width: 1.5,
-                            // ),
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                      child: Container(
-                        height: 60,
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(width: 8),
-                            Text(
-                              'Add to Diary',
-                              style: AppTypography.button.copyWith(
-                                color: Theme.of(context).brightness == Brightness.light
-                                    ? Colors.black
-                                    : const Color(0xFFFFC107).withValues(alpha: 0.9),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                letterSpacing: 0.5,
+                            decoration: BoxDecoration(
+                              // border: Border.all(
+                              // color: customColors.dateNavigatorBackground,
+                              // width: 1.5,
+                              // ),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Container(
+                              height: 60,
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Add to Diary',
+                                    style: AppTypography.button.copyWith(
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? Colors.black
+                                          : const Color(0xFFFFC107)
+                                              .withValues(alpha: 0.9),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
                 ),
               ),
             ),
@@ -1887,7 +1604,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                         Text(
                           "All Serving Options",
                           style: AppTypography.h2.copyWith(
-                            color: Theme.of(context).extension<CustomColors>()!.textPrimary,
+                            color: Theme.of(context)
+                                .extension<CustomColors>()!
+                                .textPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -2080,13 +1799,15 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                       ],
                     ),
                     child: ElevatedButton(
-                      onPressed: (){
+                      onPressed: () {
                         HapticFeedback.lightImpact();
                         Navigator.of(context).pop();
-                        },
+                      },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness == Brightness.dark ?  
-                        customColors.dateNavigatorBackground : customColors.textPrimary,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? customColors.dateNavigatorBackground
+                                : customColors.textPrimary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
