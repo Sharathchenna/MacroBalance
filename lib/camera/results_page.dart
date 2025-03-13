@@ -5,6 +5,7 @@ import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -18,16 +19,17 @@ class ResultsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     return Scaffold(
       appBar: AppBar(
         leading: CupertinoNavigationBarBackButton(
-          color: Theme.of(context).primaryColor,
+          color: customColors!.textPrimary,
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           'Detected Foods',
           style: TextStyle(
-            color: Theme.of(context).primaryColor,
+            color: customColors!.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -40,7 +42,7 @@ class ResultsPage extends StatelessWidget {
             ? Center(
                 child: Text(
                   'No foods detected',
-                  style: TextStyle(color: Theme.of(context).primaryColor),
+                  style: TextStyle(color: customColors.textPrimary),
                 ),
               )
             : ListView.builder(
@@ -58,6 +60,7 @@ class ResultsPage extends StatelessWidget {
   }
 
   Widget _buildFoodCard(BuildContext context, AIFoodItem food, int index) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     // Default to first serving size
     final defaultServing = food.servingSizes[0];
     final calories = food.calories[0];
@@ -106,7 +109,7 @@ class ResultsPage extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
-                                color: Theme.of(context).primaryColor,
+                                color: customColors!.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -123,17 +126,12 @@ class ResultsPage extends StatelessWidget {
 
                       // Add button
                       Container(
-                          // decoration: BoxDecoration(
-                          // color:
-                          // Theme.of(context).primaryColor.withOpacity(0.1),
-                          // borderRadius: BorderRadius.circular(8),
-                          // ),
                           child: Row(
                         children: [
                           IconButton(
                             icon: Icon(
                               CupertinoIcons.add_circled,
-                              color: Theme.of(context).primaryColor,
+                              color: customColors.textPrimary,
                             ),
                             onPressed: () => _quickAddFood(context, food),
                             tooltip: 'Add to meal',
