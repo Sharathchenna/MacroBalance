@@ -326,7 +326,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
               physics: const BouncingScrollPhysics(),
               slivers: [
                 SliverAppBar(
-                  expandedHeight: 200.0,
+                  expandedHeight: 160.0,
                   floating: false,
                   pinned: true,
                   stretch: true,
