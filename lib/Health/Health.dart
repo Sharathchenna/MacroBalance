@@ -1,6 +1,7 @@
 // ignore_for_file: file_names, avoid_print
 
 import 'package:health/health.dart';
+import 'package:intl/intl.dart';
 
 class HealthService {
   final health = Health();
@@ -45,6 +46,109 @@ class HealthService {
     } catch (error) {
       print('Error fetching steps: $error');
       return 0;
+    }
+  }
+
+  // New method to get steps for a specific date range
+  Future<int> getStepsForDateRange(DateTime startDate, DateTime endDate) async {
+    try {
+      final hasPermissions =
+          await health.hasPermissions([HealthDataType.STEPS]);
+
+      if (hasPermissions == null || !hasPermissions) {
+        final granted = await requestPermissions();
+        if (!granted) {
+          throw Exception('Health data access not authorized');
+        }
+      }
+
+      final stepsData = await health.getHealthDataFromTypes(
+        startTime: startDate,
+        endTime: endDate,
+        types: [HealthDataType.STEPS],
+      );
+
+      int totalSteps = 0;
+
+      // Sum up all step entries for the date range
+      for (var dataPoint in stepsData) {
+        if (dataPoint.value is NumericHealthValue) {
+          totalSteps +=
+              (dataPoint.value as NumericHealthValue).numericValue.toInt();
+        } else if (dataPoint.value is int) {
+          totalSteps += dataPoint.value as int;
+        } else if (dataPoint.value is double) {
+          totalSteps += (dataPoint.value as double).toInt();
+        }
+      }
+
+      return totalSteps;
+    } catch (error) {
+      print('Error fetching steps for date range: $error');
+      return 0;
+    }
+  }
+
+  // Enhanced method to get steps for the last 7 days
+  Future<List<Map<String, dynamic>>> getStepsForLastWeek() async {
+    final List<Map<String, dynamic>> result = [];
+    final now = DateTime.now();
+
+    try {
+      final hasPermissions =
+          await health.hasPermissions([HealthDataType.STEPS]);
+
+      if (hasPermissions == null || !hasPermissions) {
+        final granted = await requestPermissions();
+        if (!granted) {
+          throw Exception('Health data access not authorized');
+        }
+      }
+
+      // Fetch steps for each of the last 7 days
+      for (int i = 6; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final startOfDay = DateTime(date.year, date.month, date.day);
+        final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+        int steps = 0;
+
+        // Special case for today - use getTotalStepsInInterval for more accurate data
+        if (i == 0) {
+          final todaySteps =
+              await health.getTotalStepsInInterval(startOfDay, now);
+          steps = todaySteps?.toInt() ?? 0;
+        } else {
+          // For previous days, use the standard approach
+          final stepsData = await health.getHealthDataFromTypes(
+            startTime: startOfDay,
+            endTime: endOfDay,
+            types: [HealthDataType.STEPS],
+          );
+
+          // Sum up all steps for the day
+          for (var dataPoint in stepsData) {
+            if (dataPoint.value is NumericHealthValue) {
+              steps +=
+                  (dataPoint.value as NumericHealthValue).numericValue.toInt();
+            } else if (dataPoint.value is int) {
+              steps += dataPoint.value as int;
+            } else if (dataPoint.value is double) {
+              steps += (dataPoint.value as double).toInt();
+            }
+          }
+        }
+
+        result.add({
+          'date': startOfDay,
+          'day': DateFormat('E').format(startOfDay),
+          'steps': steps
+        });
+      }
+      return result;
+    } catch (error) {
+      print('Error fetching steps for the week: $error');
+      return [];
     }
   }
 
