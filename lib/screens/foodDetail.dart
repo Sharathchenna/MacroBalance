@@ -305,6 +305,53 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 //     }
 //   }
 
+  void _addFoodEntry() async {
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+    final dateProvider = Provider.of<DateProvider>(context, listen: false);
+    final entry = FoodEntry(
+      id: const Uuid().v4(),
+      food: widget.food,
+      meal: selectedMeal,
+      quantity: double.parse(quantityController.text),
+      unit: selectedUnit,
+      date: dateProvider.selectedDate,
+      servingDescription: selectedServing?.description,
+    );
+
+    // Add entry to provider
+    await foodEntryProvider.addEntry(entry);
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                selectedServing != null
+                    ? 'Added ${widget.food.name} (${selectedServing!.description}) to $selectedMeal'
+                    : 'Added ${widget.food.name} to $selectedMeal',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFFFFC107).withValues(alpha: 0.8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+    // Navigate back to Dashboard - replace this line
+    // Navigator.pop(context);
+
+    // With this - pop back to the first route in the stack (Dashboard)
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -1382,51 +1429,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                     ],
                   ),
                   child: ElevatedButton(
-                    onPressed: () {
-                      final dateProvider =
-                          Provider.of<DateProvider>(context, listen: false);
-                      final entry = FoodEntry(
-                        id: const Uuid().v4(),
-                        food: widget.food,
-                        meal: selectedMeal,
-                        quantity: double.parse(quantityController.text),
-                        unit: selectedUnit,
-                        date: dateProvider.selectedDate,
-                        servingDescription: selectedServing?.description,
-                      );
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Row(
-                            children: [
-                              const Icon(Icons.check_circle_outline,
-                                  color: Colors.white),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  selectedServing != null
-                                      ? 'Added ${widget.food.name} (${selectedServing!.description}) to $selectedMeal'
-                                      : 'Added ${widget.food.name} to $selectedMeal',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor:
-                              const Color(0xFFFBBC05).withValues(alpha: 0.8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          margin: const EdgeInsets.all(12),
-                        ),
-                      );
-                      Provider.of<FoodEntryProvider>(context, listen: false)
-                          .addEntry(entry);
-
-                      Navigator.of(context).pop();
-                      Navigator.of(context).pop();
-                    },
+                    onPressed: _addFoodEntry,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       foregroundColor: customColors.textPrimary,

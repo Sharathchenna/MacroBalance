@@ -91,17 +91,36 @@ class _DashboardState extends State<Dashboard> {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           _buildNavItemCompact(
-                            context: context,
-                            icon: CupertinoIcons.add,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                    builder: (context) => FoodSearchPage()),
-                              );
-                            },
-                          ),
+                              context: context,
+                              icon: CupertinoIcons.add,
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    pageBuilder: (context, animation,
+                                            secondaryAnimation) =>
+                                        FoodSearchPage(),
+                                    transitionsBuilder: (context, animation,
+                                        secondaryAnimation, child) {
+                                      var begin = const Offset(0.0, 0.1);
+                                      var end = Offset.zero;
+                                      var curve = Curves.easeOutCubic;
+                                      var tween = Tween(begin: begin, end: end)
+                                          .chain(CurveTween(curve: curve));
+                                      return SlideTransition(
+                                        position: animation.drive(tween),
+                                        child: FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    transitionDuration:
+                                        const Duration(milliseconds: 400),
+                                  ),
+                                );
+                              }),
                           _buildNavItemCompact(
                             context: context,
                             icon: CupertinoIcons.camera,
@@ -1099,8 +1118,8 @@ class _MealSectionState extends State<MealSection> {
           }
         }
 
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
+        // Build the entire card including header and expandable content
+        return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Theme.of(context).extension<CustomColors>()?.cardBackground,
@@ -1115,8 +1134,11 @@ class _MealSectionState extends State<MealSection> {
               ),
             ],
           ),
-          child: ClipRRect(
+          child: Material(
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(16),
+            clipBehavior:
+                Clip.antiAlias, // Important: clip to the border radius
             child: Column(
               children: [
                 // Header section
@@ -1128,24 +1150,23 @@ class _MealSectionState extends State<MealSection> {
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14), // Reduced padding
+                        horizontal: 16, vertical: 14),
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(6), // Reduced from 8
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color:
                                 _getMealColor(mealType).withValues(alpha: 0.1),
-                            borderRadius:
-                                BorderRadius.circular(10), // More compact
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             getMealIcon(),
                             color: _getMealColor(mealType),
-                            size: 20, // Reduced from 24
+                            size: 20,
                           ),
                         ),
-                        const SizedBox(width: 12), // Reduced from 16
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1153,7 +1174,7 @@ class _MealSectionState extends State<MealSection> {
                               Text(
                                 mealType,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 16, // Reduced from 18
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                   color: Theme.of(context)
                                       .extension<CustomColors>()
@@ -1163,7 +1184,7 @@ class _MealSectionState extends State<MealSection> {
                               Text(
                                 '${entries.length} item${entries.length != 1 ? 's' : ''}',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 11, // Reduced from 13
+                                  fontSize: 11,
                                   color: Theme.of(context).brightness ==
                                           Brightness.light
                                       ? Colors.grey.shade600
@@ -1179,7 +1200,7 @@ class _MealSectionState extends State<MealSection> {
                             Text(
                               '${totalCalories.toStringAsFixed(0)} kcal',
                               style: GoogleFonts.poppins(
-                                fontSize: 14, // Reduced from 16
+                                fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: Theme.of(context)
                                     .extension<CustomColors>()
@@ -1196,7 +1217,7 @@ class _MealSectionState extends State<MealSection> {
                                         Brightness.light
                                     ? Colors.grey.shade700
                                     : Colors.grey.shade400,
-                                size: 18, // Reduced size
+                                size: 18,
                               ),
                             ),
                           ],
@@ -1206,38 +1227,37 @@ class _MealSectionState extends State<MealSection> {
                   ),
                 ),
 
-                // Food entries list
+                // Expandable content
                 AnimatedCrossFade(
                   firstChild: const SizedBox(height: 0),
                   secondChild: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Divider(height: 1, thickness: 1),
                       ...entries.map((entry) =>
                           _buildFoodItem(context, entry, foodEntryProvider)),
                       Padding(
-                        padding: const EdgeInsets.all(14.0), // Reduced from 16
+                        padding: const EdgeInsets.all(14.0),
                         child: InkWell(
                           onTap: () {
                             Navigator.push(
                               context,
-                              CupertinoSheetRoute(
-                                  builder: (context) =>
-                                      FoodSearchPage(selectedMeal: mealType)),
+                              CupertinoPageRoute(
+                                builder: (context) =>
+                                    FoodSearchPage(selectedMeal: mealType),
+                              ),
                             );
                           },
-                          borderRadius:
-                              BorderRadius.circular(10), // More compact
+                          borderRadius: BorderRadius.circular(10),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                vertical: 10,
-                                horizontal: 14), // Reduced from 12,16
+                                vertical: 10, horizontal: 14),
                             decoration: BoxDecoration(
                               color: Theme.of(context).brightness ==
                                       Brightness.light
                                   ? Colors.grey.shade100
                                   : Colors.grey.shade800,
-                              borderRadius:
-                                  BorderRadius.circular(10), // More compact
+                              borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: Theme.of(context).brightness ==
                                         Brightness.light
@@ -1255,13 +1275,13 @@ class _MealSectionState extends State<MealSection> {
                                           Brightness.light
                                       ? Colors.blue.shade700
                                       : Colors.blue.shade300,
-                                  size: 16, // Reduced from 20
+                                  size: 16,
                                 ),
-                                const SizedBox(width: 6), // Reduced from 8
+                                const SizedBox(width: 6),
                                 Text(
                                   'Add Food to $mealType',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 12, // Reduced from 14
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                     color: Theme.of(context).brightness ==
                                             Brightness.light

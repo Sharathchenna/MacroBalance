@@ -11,13 +11,14 @@ import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
+import 'package:macrotracker/providers/themeProvider.dart';
+import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
+import 'providers/meal_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:macrotracker/providers/themeProvider.dart';
-import 'package:macrotracker/theme/app_theme.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
-import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,34 +40,35 @@ void main() async {
         ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: const MyApp(),
+      child: MyApp(),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, child) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'MacroTracker',
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode:
-              themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          home: const AuthGate(),
-          routes: {
-            '/onboarding': (context) => const OnboardingScreen(),
-            '/home': (context) =>
-                const Dashboard(), // Using Dashboard as home screen
-          },
-        );
-      },
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => MealProvider()),
+        ChangeNotifierProvider(create: (_) => FoodEntryProvider()),
+        ChangeNotifierProvider(create: (_) => DateProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'MacroTracker',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode:
+            ThemeProvider().isDarkMode ? ThemeMode.dark : ThemeMode.light,
+        home: const AuthGate(),
+        routes: {
+          '/onboarding': (context) => const OnboardingScreen(),
+          '/home': (context) =>
+              const Dashboard(), // Using Dashboard as home screen
+        },
+      ),
     );
   }
 }
