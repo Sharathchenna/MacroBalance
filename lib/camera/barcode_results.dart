@@ -45,10 +45,19 @@ class _BarcodeResultsState extends State<BarcodeResults>
   late Animation<double> _fadeInAnimation;
   late Animation<double> _slideAnimation;
 
+  // Add new state variables for serving selection
+  final List<String> unitOptions = ["g", "oz"];
+  String selectedUnit = "g";
+  double selectedMultiplier = 1.0;
+  late TextEditingController quantityController;
+  List<Serving> servings = [];
+  Serving? selectedServing;
+
   @override
   void initState() {
     super.initState();
     _searchBarcode(widget.barcode);
+    quantityController = TextEditingController(text: "100");
 
     _animationController = AnimationController(
       vsync: this,
@@ -91,6 +100,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
     _animationController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    quantityController.dispose();
     super.dispose();
   }
 
@@ -98,36 +108,226 @@ class _BarcodeResultsState extends State<BarcodeResults>
     if (barcode.isEmpty) return;
 
     try {
+      print('Searching for barcode: $barcode');
       final response = await http.get(
         Uri.parse(
           'https://world.openfoodfacts.org/api/v0/product/$barcode.json',
         ),
       );
+      print('API response status code: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print('API response data status: ${data['status']}');
         if (data['status'] == 1) {
+          // Parse the product data
+          Map<String, dynamic> productData = data['product'];
+          
+          // Parse serving data
+          List<Serving> parsedServings = _parseServingsFromOpenFoodFacts(productData);
+          
           setState(() {
-            _productData = data['product'];
+            _productData = productData;
             _isLoading = false;
+            servings = parsedServings;
+            
+            // Set default serving if available
+            if (servings.isNotEmpty) {
+              selectedServing = servings.first;
+              quantityController.text = selectedServing!.metricAmount.toString();
+              selectedUnit = selectedServing!.metricUnit;
+            }
           });
         } else {
+          print('Product not found in API response');
           setState(() {
             _error = 'Product not found';
             _isLoading = false;
           });
         }
       } else {
+        print('API request failed with status: ${response.statusCode}');
         setState(() {
           _error = 'Failed to fetch product data';
           _isLoading = false;
         });
       }
     } catch (e) {
+      print('Error in barcode search: $e');
       setState(() {
         _error = 'Error: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  // Parse servings from Open Food Facts API response
+  List<Serving> _parseServingsFromOpenFoodFacts(Map<String, dynamic> productData) {
+    List<Serving> results = [];
+    final nutriments = productData['nutriments'] ?? {};
+    
+    // Always add a 100g serving
+    results.add(
+      Serving(
+        description: '100g',
+        metricAmount: 100.0,
+        metricUnit: 'g',
+        calories: (nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0,
+        nutrients: {
+          'Protein': (nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0,
+          'Carbohydrate, by difference': (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0,
+          'Total lipid (fat)': (nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0,
+          'Fiber': (nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0,
+          'Saturated fat': (nutriments['saturated-fat_100g'] as num?)?.toDouble() ?? 0.0,
+          'Sugar': (nutriments['sugars_100g'] as num?)?.toDouble() ?? 0.0,
+          'Sodium': (nutriments['sodium_100g'] as num?)?.toDouble() ?? 0.0,
+          'Salt': (nutriments['salt_100g'] as num?)?.toDouble() ?? 0.0,
+        },
+      ),
+    );
+    
+    // Try to add a serving size from the product data if available
+    if (productData['serving_size'] != null && productData['serving_size'].toString().isNotEmpty) {
+      // Extract serving size in grams if specified that way
+      final servingSizeText = productData['serving_size'].toString();
+      RegExp gramsRegex = RegExp(r'(\d+(?:\.\d+)?)(?:\s*)g');
+      final match = gramsRegex.firstMatch(servingSizeText);
+      
+      if (match != null) {
+        final servingAmount = double.parse(match.group(1) ?? '0');
+        if (servingAmount > 0) {
+          // Calculate nutrient values for this serving size
+          double ratio = servingAmount / 100.0;
+          
+          results.add(
+            Serving(
+              description: 'Serving (${servingSizeText})',
+              metricAmount: servingAmount,
+              metricUnit: 'g',
+              calories: ((nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+              nutrients: {
+                'Protein': ((nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Carbohydrate, by difference': ((nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Total lipid (fat)': ((nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Fiber': ((nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Saturated fat': ((nutriments['saturated-fat_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Sugar': ((nutriments['sugars_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Sodium': ((nutriments['sodium_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Salt': ((nutriments['salt_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+              },
+            ),
+          );
+        }
+      }
+    }
+
+    // Add a per-package serving if 'quantity' field is available
+    if (productData['quantity'] != null && productData['quantity'].toString().isNotEmpty) {
+      final quantityText = productData['quantity'].toString();
+      RegExp gramsRegex = RegExp(r'(\d+(?:\.\d+)?)(?:\s*)g');
+      final match = gramsRegex.firstMatch(quantityText);
+      
+      if (match != null) {
+        final packageSize = double.parse(match.group(1) ?? '0');
+        if (packageSize > 0 && packageSize != 100) {
+          // Calculate nutrient values for this serving size
+          double ratio = packageSize / 100.0;
+          
+          results.add(
+            Serving(
+              description: 'Package (${quantityText})',
+              metricAmount: packageSize,
+              metricUnit: 'g',
+              calories: ((nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+              nutrients: {
+                'Protein': ((nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Carbohydrate, by difference': ((nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Total lipid (fat)': ((nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Fiber': ((nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Saturated fat': ((nutriments['saturated-fat_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Sugar': ((nutriments['sugars_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Sodium': ((nutriments['sodium_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Salt': ((nutriments['salt_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+              },
+            ),
+          );
+        }
+      }
+    }
+    
+    return results;
+  }
+
+  // Get converted quantity based on unit selection
+  double getConvertedQuantity() {
+    double qty = double.tryParse(quantityController.text) ?? 100;
+
+    switch (selectedUnit) {
+      case "oz":
+        return qty * 28.35; // Convert to grams
+      case "g":
+      default:
+        return qty;
+    }
+  }
+
+  // Format nutrient values based on selected serving size
+  String _formatNutrientValue(String key, String unit) {
+    final nutriments = _productData?['nutriments'];
+    if (nutriments == null) return '0.0$unit';
+
+    final value = nutriments[key];
+    if (value == null) return '0.0$unit';
+
+    if (selectedServing != null) {
+      // If a serving is selected, get the value from the serving
+      double? servingValue;
+      switch (key) {
+        case 'energy-kcal_100g':
+          servingValue = selectedServing!.calories;
+          break;
+        case 'proteins_100g':
+          servingValue = selectedServing!.nutrients['Protein'];
+          break;
+        case 'carbohydrates_100g':
+          servingValue = selectedServing!.nutrients['Carbohydrate, by difference'];
+          break;
+        case 'fat_100g':
+          servingValue = selectedServing!.nutrients['Total lipid (fat)'];
+          break;
+        case 'fiber_100g':
+          servingValue = selectedServing!.nutrients['Fiber'];
+          break;
+        case 'sugars_100g':
+          servingValue = selectedServing!.nutrients['Sugar'];
+          break;
+        case 'saturated-fat_100g':
+          servingValue = selectedServing!.nutrients['Saturated fat'];
+          break;
+        case 'sodium_100g':
+          servingValue = selectedServing!.nutrients['Sodium'];
+          break;
+        case 'salt_100g':
+          servingValue = selectedServing!.nutrients['Salt'];
+          break;
+        default:
+          servingValue = 0.0;
+      }
+
+      // Apply quantity multiplier
+      double multiplier = selectedMultiplier;
+      if (selectedMultiplier == 0) {
+        double enteredQty = double.tryParse(quantityController.text) ?? 0;
+        multiplier = enteredQty / selectedServing!.metricAmount;
+      }
+
+      final adjustedValue = (servingValue ?? 0.0) * multiplier;
+      return '${adjustedValue.toStringAsFixed(1)}$unit';
+    } else {
+      // If no specific serving is selected, calculate based on quantity
+      final convertedQty = getConvertedQuantity();
+      final adjustedValue = (value as num).toDouble() * (convertedQty / 100);
+      return '${adjustedValue.toStringAsFixed(1)}$unit';
     }
   }
 
@@ -138,29 +338,36 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
     // Get the nutriments data
     final nutriments = _productData?['nutriments'] ?? {};
+    
+    // Get the quantity to use
+    double quantity = double.tryParse(quantityController.text) ?? 100.0;
 
-    // Create food entry with explicit double conversion
+    // Create food with servings data
+    final food = FoodEntry.createFood(
+      fdcId: widget.barcode,
+      name: _productData?['product_name'] ?? 'Unknown Product',
+      brandName: _productData?['brands'] ?? 'Unknown Brand',
+      calories: (nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0,
+      nutrients: {
+        'Protein': (nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0,
+        'Carbohydrate, by difference':
+            (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0,
+        'Total lipid (fat)':
+            (nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0,
+        'Fiber': (nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0,
+      },
+      mealType: meal,
+    );
+
+    // Create food entry
     final entry = FoodEntry(
       id: const Uuid().v4(),
-      food: FoodEntry.createFood(
-        fdcId: widget.barcode,
-        name: _productData?['product_name'] ?? 'Unknown Product',
-        brandName: _productData?['brands'] ?? 'Unknown Brand',
-        calories: (nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0,
-        nutrients: {
-          'Protein': (nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0,
-          'Carbohydrate, by difference':
-              (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0,
-          'Total lipid (fat)':
-              (nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0,
-          'Fiber': (nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0,
-        },
-        mealType: meal,
-      ),
+      food: food,
       meal: meal,
-      quantity: 100.0,
-      unit: 'g',
+      quantity: quantity,
+      unit: selectedUnit,
       date: dateProvider.selectedDate,
+      servingDescription: selectedServing?.description,
     );
 
     // Add entry to provider
@@ -682,6 +889,353 @@ class _BarcodeResultsState extends State<BarcodeResults>
             ),
           ),
 
+          // Serving Size Section (New)
+          if (servings.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+              child: Text(
+                "Serving Size",
+                style: AppTypography.h2.copyWith(
+                  color: customColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: customColors.cardBackground,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: customColors.textSecondary.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.restaurant_menu_rounded,
+                          color: customColors.textSecondary,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Text(
+                        "Select Serving",
+                        style: AppTypography.h3.copyWith(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Serving Selector Cards
+                  SizedBox(
+                    height: 160,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: servings.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final serving = servings[index];
+                        final isSelected = selectedServing?.description == serving.description;
+
+                        // Create a more neutral color scheme for dark mode
+                        final cardColor = isSelected
+                            ? Theme.of(context).brightness == Brightness.dark
+                                ? customColors.cardBackground.withOpacity(1)
+                                : primaryColor
+                            : Theme.of(context).brightness == Brightness.dark
+                                ? customColors.cardBackground.withOpacity(0.05)
+                                : primaryColor.withOpacity(0.05);
+
+                        final textColor = isSelected
+                            ? Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Colors.white
+                            : Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white.withOpacity(0.87)
+                                : Theme.of(context).primaryColor;
+
+                        return GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() {
+                              selectedServing = serving;
+                              quantityController.text = serving.metricAmount.toString();
+                              selectedUnit = serving.metricUnit;
+                              selectedMultiplier = 1.0;
+                            });
+                          },
+                          child: Container(
+                            width: 140,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Theme.of(context).brightness == Brightness.dark
+                                        ? Color(0xFF64748B) // Slate 500
+                                        : primaryColor
+                                    : Theme.of(context).brightness == Brightness.dark
+                                        ? Color(0xFF475569).withOpacity(0.5) // Slate 600
+                                        : primaryColor.withOpacity(0.2),
+                                width: isSelected ? 2 : 1,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: Theme.of(context).brightness == Brightness.dark
+                                            ? Color(0xFF0F172A).withOpacity(0.5) // Slate 900
+                                            : primaryColor.withOpacity(0.2),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      )
+                                    ]
+                                  : null,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Check or number indicator
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? Theme.of(context).brightness == Brightness.dark
+                                            ? Colors.white.withOpacity(0.15)
+                                            : Colors.white.withOpacity(0.3)
+                                        : Theme.of(context).brightness == Brightness.dark
+                                            ? Colors.white.withOpacity(0.1)
+                                            : primaryColor.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: isSelected
+                                        ? Icon(
+                                            Icons.check_rounded,
+                                            color: textColor,
+                                            size: 18,
+                                          )
+                                        : Text(
+                                            "${index + 1}",
+                                            style: TextStyle(
+                                              color: textColor,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // Serving name
+                                Text(
+                                  _formatServingDescription(serving.description),
+                                  style: AppTypography.body2.copyWith(
+                                    color: textColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const Spacer(),
+                                // Amount
+                                Text(
+                                  "${serving.metricAmount} ${serving.metricUnit}",
+                                  style: AppTypography.caption.copyWith(
+                                    color: isSelected
+                                        ? textColor.withOpacity(0.9)
+                                        : customColors.textSecondary,
+                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // Calories
+                                Text(
+                                  "${serving.calories.toStringAsFixed(0)} kcal",
+                                  style: AppTypography.caption.copyWith(
+                                    color: isSelected
+                                        ? textColor
+                                        : Theme.of(context).brightness == Brightness.dark
+                                            ? Color(0xFFFBBC05) // Amber color for calories in dark mode
+                                            : primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Quantity Input (New)
+          Container(
+            margin: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: customColors.cardBackground,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Quantity",
+                  style: AppTypography.body2.copyWith(
+                    color: customColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: quantityController,
+                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        textInputAction: TextInputAction.done,
+                        onEditingComplete: () {
+                          FocusScope.of(context).unfocus();
+                          setState(() {
+                            selectedMultiplier = 0;
+                          });
+                        },
+                        onChanged: (value) {
+                          setState(() {
+                            selectedMultiplier = 0;
+                          });
+                        },
+                        style: AppTypography.body1.copyWith(
+                          color: customColors.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: "Amount",
+                          labelStyle: TextStyle(
+                            color: customColors.textSecondary,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: customColors.dateNavigatorBackground,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: customColors.dateNavigatorBackground,
+                          ),
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          value: selectedUnit,
+                          items: unitOptions
+                              .map((unit) => DropdownMenuItem(
+                                    value: unit,
+                                    child: Text(unit),
+                                  ))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val == selectedUnit) return;
+
+                            double currentQty =
+                                double.tryParse(quantityController.text) ?? 0.0;
+
+                            setState(() {
+                              // Convert between g and oz
+                              if (val == "oz" && selectedUnit == "g") {
+                                // Convert g to oz (1 oz = 28.35g)
+                                quantityController.text =
+                                    (currentQty / 28.35).toStringAsFixed(1);
+                              } else if (val == "g" && selectedUnit == "oz") {
+                                // Convert oz to g
+                                quantityController.text =
+                                    (currentQty * 28.35).toStringAsFixed(0);
+                              }
+                              selectedUnit = val!;
+                              selectedMultiplier = 0;
+                            });
+                          },
+                          decoration: InputDecoration(
+                            labelText: "Unit",
+                            labelStyle: TextStyle(
+                              color: customColors.textSecondary,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          style: AppTypography.body1.copyWith(
+                            color: customColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          icon: Icon(
+                            Icons.arrow_drop_down_rounded,
+                            color: customColors.textPrimary,
+                          ),
+                          dropdownColor: customColors.cardBackground,
+                          isExpanded: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
           // Nutritional Information Card
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
@@ -711,7 +1265,9 @@ class _BarcodeResultsState extends State<BarcodeResults>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Per 100g serving',
+                  selectedServing != null
+                      ? 'Values shown for ${selectedServing!.description} (${quantityController.text} ${selectedUnit})'
+                      : 'Values shown for ${quantityController.text} ${selectedUnit}',
                   style: AppTypography.caption.copyWith(
                     color: customColors.textSecondary,
                   ),
@@ -910,10 +1466,28 @@ class _BarcodeResultsState extends State<BarcodeResults>
     );
   }
 
-  String _formatNutrientValue(String key, String unit) {
-    final value = _productData?['nutriments']?[key];
-    if (value == null) return '0.0$unit';
-
-    return '${value.toStringAsFixed(1)}$unit';
+  // Helper function to format long serving descriptions
+  String _formatServingDescription(String description) {
+    if (description.length > 18) {
+      return '${description.substring(0, 15)}...';
+    }
+    return description;
   }
+}
+
+// Add Serving class to match the one used in foodDetail.dart
+class Serving {
+  final String description;
+  final double metricAmount;
+  final String metricUnit;
+  final double calories;
+  final Map<String, double> nutrients;
+
+  Serving({
+    required this.description,
+    required this.metricAmount,
+    required this.metricUnit,
+    required this.calories,
+    required this.nutrients,
+  });
 }
