@@ -319,6 +319,18 @@ class ResultsPage extends StatelessWidget {
     final foodEntryProvider =
         Provider.of<FoodEntryProvider>(context, listen: false);
 
+    // The nutrition values from AI are already for the serving size, but the app expects values per 100g
+    // So we need to adjust the values to be per 100g
+    // Default quantity is 1.0 for quick add
+    final double quantity = 1.0;
+    
+    // Adjust nutrients to be per 100g instead of per serving
+    final calories = food.calories[0] / quantity * 100;
+    final protein = food.protein[0] / quantity * 100;
+    final carbs = food.carbohydrates[0] / quantity * 100;
+    final fat = food.fat[0] / quantity * 100;
+    final fiber = food.fiber[0] / quantity * 100;
+
     // Create food entry using the first serving size
     final entry = FoodEntry(
       id: const Uuid().v4(),
@@ -326,17 +338,17 @@ class ResultsPage extends StatelessWidget {
         fdcId: food.name.hashCode.toString(),
         name: food.name,
         brandName: 'AI Detected',
-        calories: food.calories[0],
+        calories: calories, // Use adjusted value
         nutrients: {
-          'Protein': food.protein[0],
-          'Carbohydrate, by difference': food.carbohydrates[0],
-          'Total lipid (fat)': food.fat[0],
-          'Fiber': food.fiber[0],
+          'Protein': protein, // Use adjusted value
+          'Carbohydrate, by difference': carbs, // Use adjusted value
+          'Total lipid (fat)': fat, // Use adjusted value
+          'Fiber': fiber, // Use adjusted value
         },
         mealType: meal,
       ),
       meal: meal,
-      quantity: 1.0,
+      quantity: quantity,
       unit: food.servingSizes[0],
       date: dateProvider.selectedDate,
     );
@@ -365,5 +377,8 @@ class ResultsPage extends StatelessWidget {
         duration: const Duration(seconds: 2),
       ),
     );
+    
+    // Navigate directly to Dashboard instead of staying on results page
+    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
   }
 }

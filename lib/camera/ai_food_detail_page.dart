@@ -30,7 +30,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
   int selectedServingIndex = 0;
   String selectedMeal = 'Breakfast';
   final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
-  final List<double> presetMultipliers = [0.5, 1.0, 1.5, 2.0];
+  final List<double> presetMultipliers = [0.5, 1.0, 1.5, 2.0,];
   double selectedMultiplier = 1.0;
   late TextEditingController quantityController;
   late AnimationController _animationController;
@@ -248,10 +248,18 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                           // Macro Card Section
                           Container(
                             margin: const EdgeInsets.only(bottom: 24),
-                            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                            padding: const EdgeInsets.fromLTRB(
+                                16, 24, 16, 40), // Increased bottom padding
                             decoration: BoxDecoration(
                               color: customColors?.cardBackground,
                               borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
                             ),
                             child: Column(
                               children: [
@@ -266,6 +274,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                         color: customColors?.textPrimary,
                                         fontWeight: FontWeight.bold,
                                         height: 0.9,
+                                        fontSize: 40, // Increased font size
                                       ),
                                     ),
                                     Text(
@@ -277,39 +286,56 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 24),
+                                const SizedBox(height: 36), // Increased spacing
                                 // Macro Rings
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceEvenly,
                                   children: [
                                     Expanded(
-                                      child: MacroProgressRing(
-                                        label: 'Carbs',
-                                        value: nutrition.carbohydrates
-                                            .toStringAsFixed(1),
-                                        color: const Color(0xFF4285F4),
-                                        percentage:
-                                            macroPercentages["carbs"] ?? 0.33,
+                                      child: SizedBox(
+                                        height:
+                                            140, // Increased height for larger rings
+                                        child: MacroProgressRing(
+                                          label: 'Carbs',
+                                          value: nutrition.carbohydrates
+                                              .toStringAsFixed(1),
+                                          color: const Color(0xFF4285F4),
+                                          percentage:
+                                              macroPercentages["carbs"] ?? 0.33,
+                                          // Add larger font size for numbers
+                                        ),
                                       ),
                                     ),
                                     Expanded(
-                                      child: MacroProgressRing(
-                                        label: 'Protein',
-                                        value: nutrition.protein
-                                            .toStringAsFixed(1),
-                                        color: const Color(0xFF34A853),
-                                        percentage:
-                                            macroPercentages["protein"] ?? 0.33,
+                                      child: SizedBox(
+                                        height:
+                                            140, // Increased height for larger rings
+                                        child: MacroProgressRing(
+                                          label: 'Protein',
+                                          value: nutrition.protein
+                                              .toStringAsFixed(1),
+                                          color: const Color(0xFF34A853),
+                                          percentage:
+                                              macroPercentages["protein"] ??
+                                                  0.33,
+                                          // Add larger font size for numbers
+                                        ),
                                       ),
                                     ),
                                     Expanded(
-                                      child: MacroProgressRing(
-                                        label: 'Fat',
-                                        value: nutrition.fat.toStringAsFixed(1),
-                                        color: const Color(0xFFFBBC05),
-                                        percentage:
-                                            macroPercentages["fat"] ?? 0.34,
+                                      child: SizedBox(
+                                        height:
+                                            140, // Increased height for larger rings
+                                        child: MacroProgressRing(
+                                          label: 'Fat',
+                                          value:
+                                              nutrition.fat.toStringAsFixed(1),
+                                          color: const Color(0xFFFBBC05),
+                                          percentage:
+                                              macroPercentages["fat"] ?? 0.34,
+                                          // Add larger font size for numbers
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -797,6 +823,17 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     final foodEntryProvider =
         Provider.of<FoodEntryProvider>(context, listen: false);
 
+    // Get the selected quantity
+    final double quantity = double.tryParse(quantityController.text) ?? 1.0;
+    
+    // The nutrition values from AI are already for the serving size, but the app expects values per 100g
+    // So we need to adjust the values to be per 100g
+    final calories = widget.food.calories[selectedServingIndex] / quantity * 100;
+    final protein = widget.food.protein[selectedServingIndex] / quantity * 100;
+    final carbs = widget.food.carbohydrates[selectedServingIndex] / quantity * 100;
+    final fat = widget.food.fat[selectedServingIndex] / quantity * 100;
+    final fiber = widget.food.fiber[selectedServingIndex] / quantity * 100;
+
     // Create food entry
     final entry = FoodEntry(
       id: const Uuid().v4(),
@@ -804,18 +841,17 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
         fdcId: widget.food.name.hashCode.toString(),
         name: widget.food.name,
         brandName: 'AI Detected',
-        calories: widget.food.calories[selectedServingIndex],
+        calories: calories, // Use adjusted value
         nutrients: {
-          'Protein': widget.food.protein[selectedServingIndex],
-          'Carbohydrate, by difference':
-              widget.food.carbohydrates[selectedServingIndex],
-          'Total lipid (fat)': widget.food.fat[selectedServingIndex],
-          'Fiber': widget.food.fiber[selectedServingIndex],
+          'Protein': protein, // Use adjusted value
+          'Carbohydrate, by difference': carbs, // Use adjusted value
+          'Total lipid (fat)': fat, // Use adjusted value
+          'Fiber': fiber, // Use adjusted value
         },
         mealType: selectedMeal,
       ),
       meal: selectedMeal,
-      quantity: double.tryParse(quantityController.text) ?? 1.0,
+      quantity: quantity,
       unit: widget.food.servingSizes[selectedServingIndex],
       date: dateProvider.selectedDate,
     );
@@ -847,5 +883,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
         duration: const Duration(seconds: 2),
       ),
     );
+    
+    // Navigate directly to Dashboard instead of just popping back to results
+    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
   }
 }

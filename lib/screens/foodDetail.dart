@@ -502,7 +502,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                           Container(
                             margin: const EdgeInsets.only(bottom: 24),
                             padding: const EdgeInsets.fromLTRB(
-                                16, 24, 16, 24), // Adjusted padding
+                                16, 24, 16, 40), // Increased bottom padding
                             decoration: BoxDecoration(
                               color: customColors.cardBackground,
                               borderRadius: BorderRadius.circular(24),
@@ -528,6 +528,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                             .textPrimary,
                                         fontWeight: FontWeight.bold,
                                         height: 0.9,
+                                        fontSize: 40, // Increased font size
                                       ),
                                     ),
                                     Text(
@@ -539,7 +540,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 24),
+                                const SizedBox(height: 36), // Increased spacing
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceEvenly,
@@ -548,16 +549,22 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 4),
-                                        child: MacroProgressRing(
-                                          key: ValueKey(
-                                              'carbs-${quantityController.text}-$selectedUnit'),
-                                          label: 'Carbs',
-                                          value:
-                                              getNutrientValue("carbohydrate"),
-                                          color: const Color(
-                                              0xFF4285F4), // Google blue
-                                          percentage:
-                                              macroPercentages["carbs"] ?? 0.33,
+                                        child: SizedBox(
+                                          height:
+                                              140, // Increased height for larger rings
+                                          child: MacroProgressRing(
+                                            key: ValueKey(
+                                                'carbs-${quantityController.text}-$selectedUnit'),
+                                            label: 'Carbs',
+                                            value: getNutrientValue(
+                                                "carbohydrate"),
+                                            color: const Color(
+                                                0xFF4285F4), // Google blue
+                                            percentage:
+                                                macroPercentages["carbs"] ??
+                                                    0.33,
+                                            // Add larger font size for numbers
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -565,16 +572,20 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 4),
-                                        child: MacroProgressRing(
-                                          key: ValueKey(
-                                              'protein-${quantityController.text}-$selectedUnit}'),
-                                          label: 'Protein',
-                                          value: getNutrientValue("protein"),
-                                          color: const Color(
-                                              0xFFEA4335), // Google red
-                                          percentage:
-                                              macroPercentages["protein"] ??
-                                                  0.33,
+                                        child: SizedBox(
+                                          height:
+                                              140, // Increased height for larger rings
+                                          child: MacroProgressRing(
+                                            key: ValueKey(
+                                                'protein-${quantityController.text}-$selectedUnit}'),
+                                            label: 'Protein',
+                                            value: getNutrientValue("protein"),
+                                            color: const Color(
+                                                0xFFEA4335), // Google red
+                                            percentage: macroPercentages[
+                                                    "protein"] ??
+                                                0.33, // Add larger font size for numbers
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -582,15 +593,20 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 4),
-                                        child: MacroProgressRing(
-                                          key: ValueKey(
-                                              'fat-${quantityController.text}-$selectedUnit'),
-                                          label: 'Fat',
-                                          value: getNutrientValue("fat"),
-                                          color: const Color(
-                                              0xFFFBBC05), // Google yellow
-                                          percentage:
-                                              macroPercentages["fat"] ?? 0.34,
+                                        child: SizedBox(
+                                          height:
+                                              140, // Increased height for larger rings
+                                          child: MacroProgressRing(
+                                            key: ValueKey(
+                                                'fat-${quantityController.text}-$selectedUnit'),
+                                            label: 'Fat',
+                                            value: getNutrientValue("fat"),
+                                            color: const Color(
+                                                0xFFFBBC05), // Google yellow
+                                            percentage:
+                                                macroPercentages["fat"] ?? 0.34,
+                                            // Add larger font size for numbers
+                                          ),
                                         ),
                                       ),
                                     ),

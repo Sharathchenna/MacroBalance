@@ -53,7 +53,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
   late TextEditingController quantityController;
   List<Serving> servings = [];
   Serving? selectedServing;
-  
+
   // Add shared meal selection state
   final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
   String selectedMeal = "Breakfast"; // Default to Breakfast
@@ -63,7 +63,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
     super.initState();
     _searchBarcode(widget.barcode);
     quantityController = TextEditingController(text: "100");
-    
+
     // Add listener to quantityController
     quantityController.addListener(() {
       setState(() {
@@ -135,19 +135,21 @@ class _BarcodeResultsState extends State<BarcodeResults>
         if (data['status'] == 1) {
           // Parse the product data
           Map<String, dynamic> productData = data['product'];
-          
+
           // Parse serving data
-          List<Serving> parsedServings = _parseServingsFromOpenFoodFacts(productData);
-          
+          List<Serving> parsedServings =
+              _parseServingsFromOpenFoodFacts(productData);
+
           setState(() {
             _productData = productData;
             _isLoading = false;
             servings = parsedServings;
-            
+
             // Set default serving if available
             if (servings.isNotEmpty) {
               selectedServing = servings.first;
-              quantityController.text = selectedServing!.metricAmount.toString();
+              quantityController.text =
+                  selectedServing!.metricAmount.toString();
               selectedUnit = selectedServing!.metricUnit;
             }
           });
@@ -175,10 +177,11 @@ class _BarcodeResultsState extends State<BarcodeResults>
   }
 
   // Parse servings from Open Food Facts API response
-  List<Serving> _parseServingsFromOpenFoodFacts(Map<String, dynamic> productData) {
+  List<Serving> _parseServingsFromOpenFoodFacts(
+      Map<String, dynamic> productData) {
     List<Serving> results = [];
     final nutriments = productData['nutriments'] ?? {};
-    
+
     // Always add a 100g serving
     results.add(
       Serving(
@@ -188,45 +191,68 @@ class _BarcodeResultsState extends State<BarcodeResults>
         calories: (nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0,
         nutrients: {
           'Protein': (nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0,
-          'Carbohydrate, by difference': (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0,
-          'Total lipid (fat)': (nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0,
+          'Carbohydrate, by difference':
+              (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0,
+          'Total lipid (fat)':
+              (nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0,
           'Fiber': (nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0,
-          'Saturated fat': (nutriments['saturated-fat_100g'] as num?)?.toDouble() ?? 0.0,
+          'Saturated fat':
+              (nutriments['saturated-fat_100g'] as num?)?.toDouble() ?? 0.0,
           'Sugar': (nutriments['sugars_100g'] as num?)?.toDouble() ?? 0.0,
           'Sodium': (nutriments['sodium_100g'] as num?)?.toDouble() ?? 0.0,
           'Salt': (nutriments['salt_100g'] as num?)?.toDouble() ?? 0.0,
         },
       ),
     );
-    
+
     // Try to add a serving size from the product data if available
-    if (productData['serving_size'] != null && productData['serving_size'].toString().isNotEmpty) {
+    if (productData['serving_size'] != null &&
+        productData['serving_size'].toString().isNotEmpty) {
       // Extract serving size in grams if specified that way
       final servingSizeText = productData['serving_size'].toString();
       RegExp gramsRegex = RegExp(r'(\d+(?:\.\d+)?)(?:\s*)g');
       final match = gramsRegex.firstMatch(servingSizeText);
-      
+
       if (match != null) {
         final servingAmount = double.parse(match.group(1) ?? '0');
         if (servingAmount > 0) {
           // Calculate nutrient values for this serving size
           double ratio = servingAmount / 100.0;
-          
+
           results.add(
             Serving(
               description: 'Serving (${servingSizeText})',
               metricAmount: servingAmount,
               metricUnit: 'g',
-              calories: ((nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+              calories: ((nutriments['energy-kcal_100g'] as num?)?.toDouble() ??
+                      0.0) *
+                  ratio,
               nutrients: {
-                'Protein': ((nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Carbohydrate, by difference': ((nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Total lipid (fat)': ((nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Fiber': ((nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Saturated fat': ((nutriments['saturated-fat_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Sugar': ((nutriments['sugars_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Sodium': ((nutriments['sodium_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Salt': ((nutriments['salt_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Protein':
+                    ((nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Carbohydrate, by difference':
+                    ((nutriments['carbohydrates_100g'] as num?)?.toDouble() ??
+                            0.0) *
+                        ratio,
+                'Total lipid (fat)':
+                    ((nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Fiber':
+                    ((nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Saturated fat':
+                    ((nutriments['saturated-fat_100g'] as num?)?.toDouble() ??
+                            0.0) *
+                        ratio,
+                'Sugar':
+                    ((nutriments['sugars_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Sodium':
+                    ((nutriments['sodium_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Salt': ((nutriments['salt_100g'] as num?)?.toDouble() ?? 0.0) *
+                    ratio,
               },
             ),
           );
@@ -235,39 +261,59 @@ class _BarcodeResultsState extends State<BarcodeResults>
     }
 
     // Add a per-package serving if 'quantity' field is available
-    if (productData['quantity'] != null && productData['quantity'].toString().isNotEmpty) {
+    if (productData['quantity'] != null &&
+        productData['quantity'].toString().isNotEmpty) {
       final quantityText = productData['quantity'].toString();
       RegExp gramsRegex = RegExp(r'(\d+(?:\.\d+)?)(?:\s*)g');
       final match = gramsRegex.firstMatch(quantityText);
-      
+
       if (match != null) {
         final packageSize = double.parse(match.group(1) ?? '0');
         if (packageSize > 0 && packageSize != 100) {
           // Calculate nutrient values for this serving size
           double ratio = packageSize / 100.0;
-          
+
           results.add(
             Serving(
               description: 'Package (${quantityText})',
               metricAmount: packageSize,
               metricUnit: 'g',
-              calories: ((nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+              calories: ((nutriments['energy-kcal_100g'] as num?)?.toDouble() ??
+                      0.0) *
+                  ratio,
               nutrients: {
-                'Protein': ((nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Carbohydrate, by difference': ((nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Total lipid (fat)': ((nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Fiber': ((nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Saturated fat': ((nutriments['saturated-fat_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Sugar': ((nutriments['sugars_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Sodium': ((nutriments['sodium_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
-                'Salt': ((nutriments['salt_100g'] as num?)?.toDouble() ?? 0.0) * ratio,
+                'Protein':
+                    ((nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Carbohydrate, by difference':
+                    ((nutriments['carbohydrates_100g'] as num?)?.toDouble() ??
+                            0.0) *
+                        ratio,
+                'Total lipid (fat)':
+                    ((nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Fiber':
+                    ((nutriments['fiber_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Saturated fat':
+                    ((nutriments['saturated-fat_100g'] as num?)?.toDouble() ??
+                            0.0) *
+                        ratio,
+                'Sugar':
+                    ((nutriments['sugars_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Sodium':
+                    ((nutriments['sodium_100g'] as num?)?.toDouble() ?? 0.0) *
+                        ratio,
+                'Salt': ((nutriments['salt_100g'] as num?)?.toDouble() ?? 0.0) *
+                    ratio,
               },
             ),
           );
         }
       }
     }
-    
+
     return results;
   }
 
@@ -303,7 +349,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
           servingValue = selectedServing!.nutrients['Protein'];
           break;
         case 'carbohydrates_100g':
-          servingValue = selectedServing!.nutrients['Carbohydrate, by difference'];
+          servingValue =
+              selectedServing!.nutrients['Carbohydrate, by difference'];
           break;
         case 'fat_100g':
           servingValue = selectedServing!.nutrients['Total lipid (fat)'];
@@ -334,7 +381,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
   String _getNutrientValue(String nutrient) {
     final nutriments = _productData?['nutriments'];
     if (nutriments == null) return "0.0";
-    
+
     if (selectedServing != null) {
       double multiplier = selectedMultiplier;
 
@@ -353,10 +400,13 @@ class _BarcodeResultsState extends State<BarcodeResults>
           value = (selectedServing!.nutrients['Protein'] ?? 0.0) * multiplier;
           break;
         case "carbohydrate":
-          value = (selectedServing!.nutrients['Carbohydrate, by difference'] ?? 0.0) * multiplier;
+          value = (selectedServing!.nutrients['Carbohydrate, by difference'] ??
+                  0.0) *
+              multiplier;
           break;
         case "fat":
-          value = (selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier;
+          value = (selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) *
+              multiplier;
           break;
       }
 
@@ -365,7 +415,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
     } else {
       // Calculate based on 100g values and current quantity
       final convertedQty = getConvertedQuantity();
-      
+
       double? value;
       switch (nutrient.toLowerCase()) {
         case "calories":
@@ -381,13 +431,13 @@ class _BarcodeResultsState extends State<BarcodeResults>
           value = (nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0;
           break;
       }
-      
+
       if (value == null) return "0.0";
       value = value * (convertedQty / 100);
       return value.toStringAsFixed(1);
     }
   }
-  
+
   Map<String, double> _getMacroPercentages() {
     double carbs = double.tryParse(_getNutrientValue("carbohydrate")) ?? 0;
     double protein = double.tryParse(_getNutrientValue("protein")) ?? 0;
@@ -410,7 +460,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
     // Get the nutriments data
     final nutriments = _productData?['nutriments'] ?? {};
-    
+
     // Get the quantity to use
     double quantity = double.tryParse(quantityController.text) ?? 100.0;
 
@@ -592,7 +642,9 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Theme.of(context).scaffoldBackgroundColor.withOpacity(0.1),
+                        Theme.of(context)
+                            .scaffoldBackgroundColor
+                            .withOpacity(0.1),
                         Theme.of(context).scaffoldBackgroundColor,
                       ],
                     ),
@@ -758,9 +810,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
   Widget _buildProductDetails() {
     final customColors = Theme.of(context).extension<CustomColors>();
     final primaryColor = Theme.of(context).primaryColor;
-    
+
     // Calculate calories and macro percentages
-    final calculatedCalories = double.tryParse(_getNutrientValue("calories")) ?? 0;
+    final calculatedCalories =
+        double.tryParse(_getNutrientValue("calories")) ?? 0;
     final macroPercentages = _getMacroPercentages();
 
     return Padding(
@@ -830,7 +883,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
           // Add Macro Progress Rings after the image
           Container(
             margin: const EdgeInsets.only(bottom: 24),
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+            padding: const EdgeInsets.fromLTRB(
+                16, 24, 16, 40), // Increased bottom padding
             decoration: BoxDecoration(
               color: customColors!.cardBackground,
               borderRadius: BorderRadius.circular(24),
@@ -854,6 +908,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                         color: customColors.textPrimary,
                         fontWeight: FontWeight.bold,
                         height: 0.9,
+                        fontSize: 40, // Increased font size
                       ),
                     ),
                     Text(
@@ -865,43 +920,55 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 36), // Increased spacing
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: MacroProgressRing(
-                          key: ValueKey('carbs-${quantityController.text}-$selectedUnit'),
-                          label: 'Carbs',
-                          value: _getNutrientValue("carbohydrate"),
-                          color: const Color(0xFF4285F4), // Google blue
-                          percentage: macroPercentages["carbs"] ?? 0.33,
+                        child: SizedBox(
+                          height: 140, // Increased height for larger rings
+                          child: MacroProgressRing(
+                            key: ValueKey(
+                                'carbs-${quantityController.text}-$selectedUnit'),
+                            label: 'Carbs',
+                            value: _getNutrientValue("carbohydrate"),
+                            color: const Color(0xFF4285F4), // Google blue
+                            percentage: macroPercentages["carbs"] ?? 0.33,
+                          ),
                         ),
                       ),
                     ),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: MacroProgressRing(
-                          key: ValueKey('protein-${quantityController.text}-$selectedUnit}'),
-                          label: 'Protein',
-                          value: _getNutrientValue("protein"),
-                          color: const Color(0xFFEA4335), // Google red
-                          percentage: macroPercentages["protein"] ?? 0.33,
+                        child: SizedBox(
+                          height: 140, // Increased height for larger rings
+                          child: MacroProgressRing(
+                            key: ValueKey(
+                                'protein-${quantityController.text}-$selectedUnit}'),
+                            label: 'Protein',
+                            value: _getNutrientValue("protein"),
+                            color: const Color(0xFFEA4335), // Google red
+                            percentage: macroPercentages["protein"] ?? 0.33,
+                          ),
                         ),
                       ),
                     ),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: MacroProgressRing(
-                          key: ValueKey('fat-${quantityController.text}-$selectedUnit'),
-                          label: 'Fat',
-                          value: _getNutrientValue("fat"),
-                          color: const Color(0xFFFBBC05), // Google yellow
-                          percentage: macroPercentages["fat"] ?? 0.34,
+                        child: SizedBox(
+                          height: 140, // Increased height for larger rings
+                          child: MacroProgressRing(
+                            key: ValueKey(
+                                'fat-${quantityController.text}-$selectedUnit'),
+                            label: 'Fat',
+                            value: _getNutrientValue("fat"),
+                            color: const Color(0xFFFBBC05), // Google yellow
+                            percentage: macroPercentages["fat"] ?? 0.34,
+                          ),
                         ),
                       ),
                     ),
@@ -956,7 +1023,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                   ],
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Meal selection
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -966,7 +1033,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       height: 60,
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: customColors.dateNavigatorBackground.withOpacity(0.6),
+                        color: customColors.dateNavigatorBackground
+                            .withOpacity(0.6),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
@@ -986,7 +1054,9 @@ class _BarcodeResultsState extends State<BarcodeResults>
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? mealColor : Colors.transparent,
+                                  color: isSelected
+                                      ? mealColor
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Center(
@@ -1124,10 +1194,12 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: servings.length,
-                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 12),
                       itemBuilder: (context, index) {
                         final serving = servings[index];
-                        final isSelected = selectedServing?.description == serving.description;
+                        final isSelected =
+                            selectedServing?.description == serving.description;
 
                         // Create a more neutral color scheme for dark mode
                         final cardColor = isSelected
@@ -1151,7 +1223,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                             HapticFeedback.selectionClick();
                             setState(() {
                               selectedServing = serving;
-                              quantityController.text = serving.metricAmount.toString();
+                              quantityController.text =
+                                  serving.metricAmount.toString();
                               selectedUnit = serving.metricUnit;
                               selectedMultiplier = 1.0;
                             });
@@ -1164,19 +1237,24 @@ class _BarcodeResultsState extends State<BarcodeResults>
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isSelected
-                                    ? Theme.of(context).brightness == Brightness.dark
+                                    ? Theme.of(context).brightness ==
+                                            Brightness.dark
                                         ? Color(0xFF64748B) // Slate 500
                                         : primaryColor
-                                    : Theme.of(context).brightness == Brightness.dark
-                                        ? Color(0xFF475569).withOpacity(0.5) // Slate 600
+                                    : Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Color(0xFF475569)
+                                            .withOpacity(0.5) // Slate 600
                                         : primaryColor.withOpacity(0.2),
                                 width: isSelected ? 2 : 1,
                               ),
                               boxShadow: isSelected
                                   ? [
                                       BoxShadow(
-                                        color: Theme.of(context).brightness == Brightness.dark
-                                            ? Color(0xFF0F172A).withOpacity(0.5) // Slate 900
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Color(0xFF0F172A)
+                                                .withOpacity(0.5) // Slate 900
                                             : primaryColor.withOpacity(0.2),
                                         blurRadius: 8,
                                         offset: const Offset(0, 3),
@@ -1193,10 +1271,12 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                   height: 32,
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? Theme.of(context).brightness == Brightness.dark
+                                        ? Theme.of(context).brightness ==
+                                                Brightness.dark
                                             ? Colors.white.withOpacity(0.15)
                                             : Colors.white.withOpacity(0.3)
-                                        : Theme.of(context).brightness == Brightness.dark
+                                        : Theme.of(context).brightness ==
+                                                Brightness.dark
                                             ? Colors.white.withOpacity(0.1)
                                             : primaryColor.withOpacity(0.1),
                                     shape: BoxShape.circle,
@@ -1220,7 +1300,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                 const SizedBox(height: 12),
                                 // Serving name
                                 Text(
-                                  _formatServingDescription(serving.description),
+                                  _formatServingDescription(
+                                      serving.description),
                                   style: AppTypography.body2.copyWith(
                                     color: textColor,
                                     fontWeight: FontWeight.w600,
@@ -1237,7 +1318,9 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                     color: isSelected
                                         ? textColor.withOpacity(0.9)
                                         : customColors.textSecondary,
-                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -1247,8 +1330,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                   style: AppTypography.caption.copyWith(
                                     color: isSelected
                                         ? textColor
-                                        : Theme.of(context).brightness == Brightness.dark
-                                            ? Color(0xFFFBBC05) // Amber color for calories in dark mode
+                                        : Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Color(
+                                                0xFFFBBC05) // Amber color for calories in dark mode
                                             : primaryColor,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1297,7 +1382,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       flex: 3,
                       child: TextField(
                         controller: quantityController,
-                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        keyboardType:
+                            TextInputType.numberWithOptions(decimal: true),
                         textInputAction: TextInputAction.done,
                         onEditingComplete: () {
                           FocusScope.of(context).unfocus();
