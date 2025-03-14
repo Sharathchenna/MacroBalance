@@ -1,58 +1,17 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
+import 'package:macrotracker/widgets/macro_progress_ring.dart';
+import 'package:macrotracker/widgets/quantity_selector.dart';
+import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-
-class MacroCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-
-  const MacroCard({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withAlpha(77)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+import 'package:macrotracker/theme/typography.dart';
+import 'dart:ui';
 
 class AIFoodDetailPage extends StatefulWidget {
   final AIFoodItem food;
@@ -66,369 +25,770 @@ class AIFoodDetailPage extends StatefulWidget {
   State<AIFoodDetailPage> createState() => _AIFoodDetailPageState();
 }
 
-class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
+class _AIFoodDetailPageState extends State<AIFoodDetailPage>
+    with SingleTickerProviderStateMixin {
   int selectedServingIndex = 0;
-  double quantity = 1.0;
   String selectedMeal = 'Breakfast';
-  final TextEditingController quantityController = TextEditingController();
+  final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
+  final List<double> presetMultipliers = [0.5, 1.0, 1.5, 2.0];
+  double selectedMultiplier = 1.0;
+  late TextEditingController quantityController;
+  late AnimationController _animationController;
+  late Animation<double> _fadeInAnimation;
+  late Animation<double> _slideAnimation;
+  final _scrollController = ScrollController();
+  bool _showFloatingTitle = false;
 
   @override
   void initState() {
     super.initState();
-    quantityController.text = '1.0';
-    quantityController.addListener(_updateQuantity);
+
+    // Initialize animation controller first
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    // Then initialize the animations that depend on it
+    _fadeInAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    );
+
+    _slideAnimation = Tween<double>(
+      begin: 50.0,
+      end: 0.0,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    // Initialize other controllers
+    quantityController = TextEditingController(text: '1.0');
+
+    // Add scroll listener
+    _scrollController.addListener(_onScroll);
+
+    // Start the animation
+    _animationController.forward();
+  }
+
+  void _onScroll() {
+    if (_scrollController.offset > 120 && !_showFloatingTitle) {
+      setState(() => _showFloatingTitle = true);
+    } else if (_scrollController.offset <= 120 && _showFloatingTitle) {
+      setState(() => _showFloatingTitle = false);
+    }
   }
 
   @override
   void dispose() {
     quantityController.dispose();
+    _animationController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _updateQuantity() {
-    setState(() {
-      quantity = double.tryParse(quantityController.text) ?? 1.0;
-    });
+  Map<String, double> getMacroPercentages() {
+    final nutrition = widget.food.getNutritionForIndex(
+      selectedServingIndex,
+      double.tryParse(quantityController.text) ?? 1.0,
+    );
+
+    double total = nutrition.protein + nutrition.carbohydrates + nutrition.fat;
+    if (total <= 0) return {"carbs": 0.33, "protein": 0.33, "fat": 0.34};
+
+    return {
+      "carbs": nutrition.carbohydrates / total,
+      "protein": nutrition.protein / total,
+      "fat": nutrition.fat / total,
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final calculatedNutrition =
-        widget.food.getNutritionForIndex(selectedServingIndex, quantity);
     final customColors = Theme.of(context).extension<CustomColors>();
+    final nutrition = widget.food.getNutritionForIndex(
+      selectedServingIndex,
+      double.tryParse(quantityController.text) ?? 1.0,
+    );
+    final macroPercentages = getMacroPercentages();
+    final primaryColor = Theme.of(context).primaryColor;
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        appBar: AppBar(
-          leading: CupertinoNavigationBarBackButton(
-            color: Theme.of(context).primaryColor,
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          title: Text(
-            'Food Details',
-            style: TextStyle(
-              color: Theme.of(context).primaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: _addToMeal,
-              child: const Text(
-                '+ Add',
-                style: TextStyle(color: Colors.blue, fontSize: 18),
-              ),
-            ),
-          ],
-          elevation: 0,
-        ),
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Food Title Section
-                Text(
-                  widget.food.name,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Theme.of(context).primaryColor,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                // Text(
-                //   'AI Detected Food',
-                //   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                //         color: Theme.of(context).primaryColor.withAlpha(179),
-                //       ),
-                // ),
-                const SizedBox(height: 24),
-
-                // Macros Section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: customColors?.macroCardBackground,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Text(
-                          '${calculatedNutrition.calories.toStringAsFixed(0)} kcal',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).primaryColor,
+        body: Stack(
+          children: [
+            CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 140.0,
+                  floating: false,
+                  pinned: true,
+                  stretch: true,
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  elevation: 0,
+                  leading: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Hero(
+                      tag: 'backButton',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.of(context).pop(),
+                          customBorder: const CircleBorder(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: customColors!.cardBackground,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: customColors.textPrimary,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: MacroCard(
-                              label: 'Carbs',
-                              value:
-                                  '${calculatedNutrition.carbohydrates.toStringAsFixed(1)}g',
-                              color: Colors.blue,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: MacroCard(
-                              label: 'Protein',
-                              value:
-                                  '${calculatedNutrition.protein.toStringAsFixed(1)}g',
-                              color: Colors.red,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: MacroCard(
-                              label: 'Fat',
-                              value:
-                                  '${calculatedNutrition.fat.toStringAsFixed(1)}g',
-                              color: Colors.orange,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // Input Section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: customColors?.cardBackground,
-                    borderRadius: BorderRadius.circular(16),
+                  title: AnimatedOpacity(
+                    opacity: _showFloatingTitle ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      widget.food.name,
+                      style: TextStyle(
+                        color: Theme.of(context)
+                            .extension<CustomColors>()!
+                            .textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      // Meal Row
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              "Meal",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              dropdownColor:
-                                  Theme.of(context).scaffoldBackgroundColor,
-                              value: selectedMeal,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                              ),
-                              style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              onChanged: (val) {
-                                setState(() {
-                                  selectedMeal = val!;
-                                });
-                              },
-                              items: ['Breakfast', 'Lunch', 'Snacks', 'Dinner']
-                                  .map((meal) => DropdownMenuItem(
-                                        value: meal,
-                                        child: Text(meal),
-                                      ))
-                                  .toList(),
-                            ),
-                          ),
-                        ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.grey.withOpacity(0.2),
+                            Theme.of(context).scaffoldBackgroundColor,
+                          ],
+                        ),
                       ),
-                      Divider(
-                        color: customColors?.dateNavigatorBackground,
-                      ),
-
-                      // Quantity Row
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              "Quantity",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: TextField(
-                              controller: quantityController,
-                              keyboardType: TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              onChanged: (value) {
-                                setState(() {});
-                              },
-                              style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              decoration: InputDecoration(
-                                border: const OutlineInputBorder(),
-                                suffixText: widget
-                                    .food.servingSizes[selectedServingIndex],
-                                suffixStyle: TextStyle(
-                                  color: Theme.of(context).primaryColor,
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 60, 24, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              FadeTransition(
+                                opacity: _fadeInAnimation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0, 0.2),
+                                    end: Offset.zero,
+                                  ).animate(_animationController),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.food.name,
+                                        style: AppTypography.h1.copyWith(
+                                          color: Theme.of(context)
+                                              .extension<CustomColors>()!
+                                              .textPrimary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: AnimatedBuilder(
+                    animation: _animationController,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(0, _slideAnimation.value),
+                        child: FadeTransition(
+                          opacity: _fadeInAnimation,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Macro Card Section
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                            decoration: BoxDecoration(
+                              color: customColors?.cardBackground,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Column(
+                              children: [
+                                // Calories Text
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      nutrition.calories.toStringAsFixed(0),
+                                      style: AppTypography.h1.copyWith(
+                                        color: customColors?.textPrimary,
+                                        fontWeight: FontWeight.bold,
+                                        height: 0.9,
+                                      ),
+                                    ),
+                                    Text(
+                                      " kcal",
+                                      style: AppTypography.h3.copyWith(
+                                        color: customColors?.textSecondary,
+                                        fontWeight: FontWeight.w300,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 24),
+                                // Macro Rings
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    Expanded(
+                                      child: MacroProgressRing(
+                                        label: 'Carbs',
+                                        value: nutrition.carbohydrates
+                                            .toStringAsFixed(1),
+                                        color: const Color(0xFF4285F4),
+                                        percentage:
+                                            macroPercentages["carbs"] ?? 0.33,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: MacroProgressRing(
+                                        label: 'Protein',
+                                        value: nutrition.protein
+                                            .toStringAsFixed(1),
+                                        color: const Color(0xFF34A853),
+                                        percentage:
+                                            macroPercentages["protein"] ?? 0.33,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: MacroProgressRing(
+                                        label: 'Fat',
+                                        value: nutrition.fat.toStringAsFixed(1),
+                                        color: const Color(0xFFFBBC05),
+                                        percentage:
+                                            macroPercentages["fat"] ?? 0.34,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                      Divider(
-                        color: customColors?.dateNavigatorBackground,
-                      ),
 
-                      // Serving Size Row
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 80,
+                          // Add Serving Size Section here
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 4),
                             child: Text(
                               "Serving Size",
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Theme.of(context).primaryColor,
+                              style: AppTypography.h2.copyWith(
+                                color: customColors?.textPrimary,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              dropdownColor:
-                                  Theme.of(context).scaffoldBackgroundColor,
-                              value: selectedServingIndex,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                              ),
-                              style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              onChanged: (val) {
-                                setState(() {
-                                  selectedServingIndex = val!;
-                                });
-                              },
-                              items: List.generate(
-                                widget.food.servingSizes.length,
-                                (index) => DropdownMenuItem(
-                                  value: index,
-                                  child: Text(widget.food.servingSizes[index]),
+
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: customColors?.cardBackground,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: customColors?.textSecondary
+                                            .withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        Icons.restaurant_menu_rounded,
+                                        color: customColors?.textSecondary,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Text(
+                                      "Select Serving",
+                                      style: AppTypography.h3.copyWith(
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Colors.white
+                                            : primaryColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Serving Selector Cards
+                                SizedBox(
+                                  height: 160,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: widget.food.servingSizes.length,
+                                    separatorBuilder: (context, index) =>
+                                        const SizedBox(width: 12),
+                                    itemBuilder: (context, index) {
+                                      final isSelected =
+                                          selectedServingIndex == index;
+                                      final servingSize =
+                                          widget.food.servingSizes[index];
+                                      final calories =
+                                          widget.food.calories[index];
+
+                                      return GestureDetector(
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          setState(() {
+                                            selectedServingIndex = index;
+                                            selectedMultiplier = 1.0;
+                                            quantityController.text = '1.0';
+                                          });
+                                        },
+                                        child: Container(
+                                          width: 140,
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? Theme.of(context)
+                                                            .brightness ==
+                                                        Brightness.dark
+                                                    ? customColors
+                                                        .cardBackground
+                                                        .withOpacity(1)
+                                                    : primaryColor
+                                                : Theme.of(context)
+                                                            .brightness ==
+                                                        Brightness.dark
+                                                    ? customColors
+                                                        .cardBackground
+                                                        .withOpacity(0.05)
+                                                    : primaryColor
+                                                        .withOpacity(0.05),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? primaryColor
+                                                  : primaryColor
+                                                      .withOpacity(0.2),
+                                              width: isSelected ? 2 : 1,
+                                            ),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                width: 32,
+                                                height: 32,
+                                                decoration: BoxDecoration(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                          .withOpacity(0.3)
+                                                      : primaryColor
+                                                          .withOpacity(0.1),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Center(
+                                                  child: isSelected
+                                                      ? Icon(
+                                                          Icons.check_rounded,
+                                                          color: Colors.white,
+                                                          size: 18,
+                                                        )
+                                                      : Text(
+                                                          "${index + 1}",
+                                                          style: TextStyle(
+                                                            color: primaryColor,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Text(
+                                                servingSize,
+                                                style: AppTypography.body2
+                                                    .copyWith(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : customColors
+                                                          ?.textPrimary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const Spacer(),
+                                              Text(
+                                                "$calories kcal",
+                                                style: AppTypography.caption
+                                                    .copyWith(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                          .withOpacity(0.9)
+                                                      : Color(0xFFFBBC05),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Quantity Selector
+                          QuantitySelector(
+                            presetMultipliers: presetMultipliers,
+                            selectedMultiplier: selectedMultiplier,
+                            onMultiplierSelected: (multiplier) {
+                              setState(() {
+                                selectedMultiplier = multiplier;
+                                quantityController.text =
+                                    (multiplier).toStringAsFixed(1);
+                              });
+                            },
+                          ),
+
+                          // Add Quantity Input Section
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: customColors?.cardBackground,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: TextField(
+                                        controller: quantityController,
+                                        keyboardType:
+                                            TextInputType.numberWithOptions(
+                                                decimal: true),
+                                        textInputAction: TextInputAction.done,
+                                        onEditingComplete: () {
+                                          FocusScope.of(context).unfocus();
+                                          setState(
+                                              () => selectedMultiplier = 0);
+                                        },
+                                        onSubmitted: (value) {
+                                          FocusScope.of(context).unfocus();
+                                          setState(
+                                              () => selectedMultiplier = 0);
+                                        },
+                                        onChanged: (value) {
+                                          setState(
+                                              () => selectedMultiplier = 0);
+                                        },
+                                        style: AppTypography.body1.copyWith(
+                                          color: customColors?.textPrimary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        decoration: InputDecoration(
+                                          labelText: "Quantity",
+                                          labelStyle: TextStyle(
+                                            color: customColors?.textSecondary,
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            borderSide: BorderSide(
+                                              color: customColors!
+                                                  .dateNavigatorBackground,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            borderSide: BorderSide(
+                                              color: primaryColor,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Add to Meal",
+                                style: AppTypography.body2.copyWith(
+                                  color: customColors!.textSecondary,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
+                              const SizedBox(height: 10),
+                              Container(
+                                height: 60,
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: customColors!.dateNavigatorBackground
+                                      .withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: mealOptions.map((meal) {
+                                    final isSelected = meal == selectedMeal;
+                                    final mealColor =
+                                        Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Color(0xFFFBBC05).withOpacity(0.8)
+                                            : customColors.textPrimary;
+
+                                    return Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          HapticFeedback.lightImpact();
+                                          setState(() => selectedMeal = meal);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 200),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? mealColor
+                                                : Colors.transparent,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              meal,
+                                              style: TextStyle(
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : customColors
+                                                        .textSecondary,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            "Nutrition Facts",
+                            style: AppTypography.h2.copyWith(
+                              color: customColors?.textPrimary,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                          const SizedBox(height: 16),
+                          // Main nutrients section
+                          NutrientSection(
+                            title: "Macronutrients",
+                            nutrients: [
+                              MapEntry("Calories",
+                                  "${nutrition.calories.toStringAsFixed(0)} kcal"),
+                              MapEntry("Protein",
+                                  "${nutrition.protein.toStringAsFixed(1)}g"),
+                              MapEntry("Carbohydrates",
+                                  "${nutrition.carbohydrates.toStringAsFixed(1)}g"),
+                              MapEntry("Fat",
+                                  "${nutrition.fat.toStringAsFixed(1)}g"),
+                              MapEntry("Fiber",
+                                  "${nutrition.fiber.toStringAsFixed(1)}g"),
+                            ],
+                            accentColor: primaryColor,
+                            dividerColor:
+                                customColors?.dateNavigatorBackground ??
+                                    Colors.grey,
+                          ),
+                          const SizedBox(height: 100),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Nutrition Facts Section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: customColors?.cardBackground,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withAlpha(25),
-                        spreadRadius: 1,
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Nutrition Facts',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                      ),
-                      Text(
-                        'Per ${widget.food.servingSizes[selectedServingIndex]}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildNutrientRow('Calories',
-                          '${calculatedNutrition.calories.toStringAsFixed(0)} kcal'),
-                      _buildDivider(context),
-                      _buildNutrientRow('Protein',
-                          '${calculatedNutrition.protein.toStringAsFixed(1)}g'),
-                      _buildDivider(context),
-                      _buildNutrientRow('Carbohydrates',
-                          '${calculatedNutrition.carbohydrates.toStringAsFixed(1)}g'),
-                      _buildDivider(context),
-                      _buildNutrientRow('Fat',
-                          '${calculatedNutrition.fat.toStringAsFixed(1)}g'),
-                      _buildDivider(context),
-                      _buildNutrientRow('Fiber',
-                          '${calculatedNutrition.fiber.toStringAsFixed(1)}g'),
-                    ],
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNutrientRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).primaryColor,
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Theme.of(context)
+                          .scaffoldBackgroundColor
+                          .withOpacity(0.1),
+                      Theme.of(context).scaffoldBackgroundColor,
+                    ],
+                  ),
+                ),
+                child: Container(
+                  height: 60,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.black.withValues(alpha: 0.3)
+                          : Colors.white.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      _addToMeal();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: customColors.textPrimary,
+                      elevation: 0,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(30),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Container(
+                              height: 60,
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Add to Diary',
+                                    style: AppTypography.button.copyWith(
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? Colors.black
+                                          : const Color(0xFFFFC107)
+                                              .withValues(alpha: 0.9),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).primaryColor,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildDivider(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    return Divider(
-      color: customColors?.dateNavigatorBackground,
-      height: 1,
     );
   }
 
@@ -455,7 +815,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage> {
         mealType: selectedMeal,
       ),
       meal: selectedMeal,
-      quantity: quantity,
+      quantity: double.tryParse(quantityController.text) ?? 1.0,
       unit: widget.food.servingSizes[selectedServingIndex],
       date: dateProvider.selectedDate,
     );
