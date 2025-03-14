@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/widgets/shimmer_loading.dart';
 import 'package:macrotracker/widgets/nutrient_row.dart';
+import 'package:macrotracker/widgets/macro_progress_ring.dart';
 import '../theme/app_theme.dart';
 import '../theme/typography.dart';
 import 'package:provider/provider.dart';
@@ -52,12 +53,24 @@ class _BarcodeResultsState extends State<BarcodeResults>
   late TextEditingController quantityController;
   List<Serving> servings = [];
   Serving? selectedServing;
+  
+  // Add shared meal selection state
+  final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
+  String selectedMeal = "Breakfast"; // Default to Breakfast
 
   @override
   void initState() {
     super.initState();
     _searchBarcode(widget.barcode);
     quantityController = TextEditingController(text: "100");
+    
+    // Add listener to quantityController
+    quantityController.addListener(() {
+      setState(() {
+        // This will trigger a UI refresh when quantity changes
+        selectedMultiplier = 0;
+      });
+    });
 
     _animationController = AnimationController(
       vsync: this,
@@ -295,23 +308,6 @@ class _BarcodeResultsState extends State<BarcodeResults>
         case 'fat_100g':
           servingValue = selectedServing!.nutrients['Total lipid (fat)'];
           break;
-        case 'fiber_100g':
-          servingValue = selectedServing!.nutrients['Fiber'];
-          break;
-        case 'sugars_100g':
-          servingValue = selectedServing!.nutrients['Sugar'];
-          break;
-        case 'saturated-fat_100g':
-          servingValue = selectedServing!.nutrients['Saturated fat'];
-          break;
-        case 'sodium_100g':
-          servingValue = selectedServing!.nutrients['Sodium'];
-          break;
-        case 'salt_100g':
-          servingValue = selectedServing!.nutrients['Salt'];
-          break;
-        default:
-          servingValue = 0.0;
       }
 
       // Apply quantity multiplier
@@ -322,13 +318,89 @@ class _BarcodeResultsState extends State<BarcodeResults>
       }
 
       final adjustedValue = (servingValue ?? 0.0) * multiplier;
+      // Trigger UI refresh when nutrient values change
+      setState(() {});
       return '${adjustedValue.toStringAsFixed(1)}$unit';
     } else {
       // If no specific serving is selected, calculate based on quantity
       final convertedQty = getConvertedQuantity();
       final adjustedValue = (value as num).toDouble() * (convertedQty / 100);
+      // Trigger UI refresh when nutrient values change
+      setState(() {});
       return '${adjustedValue.toStringAsFixed(1)}$unit';
     }
+  }
+
+  String _getNutrientValue(String nutrient) {
+    final nutriments = _productData?['nutriments'];
+    if (nutriments == null) return "0.0";
+    
+    if (selectedServing != null) {
+      double multiplier = selectedMultiplier;
+
+      // If custom quantity entered, calculate actual multiplier
+      if (selectedMultiplier == 0) {
+        double enteredQty = double.tryParse(quantityController.text) ?? 0;
+        multiplier = enteredQty / selectedServing!.metricAmount;
+      }
+
+      double? value;
+      switch (nutrient.toLowerCase()) {
+        case "calories":
+          value = selectedServing!.calories * multiplier;
+          break;
+        case "protein":
+          value = (selectedServing!.nutrients['Protein'] ?? 0.0) * multiplier;
+          break;
+        case "carbohydrate":
+          value = (selectedServing!.nutrients['Carbohydrate, by difference'] ?? 0.0) * multiplier;
+          break;
+        case "fat":
+          value = (selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier;
+          break;
+      }
+
+      if (value == null) return "0.0";
+      return value.toStringAsFixed(1);
+    } else {
+      // Calculate based on 100g values and current quantity
+      final convertedQty = getConvertedQuantity();
+      
+      double? value;
+      switch (nutrient.toLowerCase()) {
+        case "calories":
+          value = (nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0;
+          break;
+        case "protein":
+          value = (nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0;
+          break;
+        case "carbohydrate":
+          value = (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0;
+          break;
+        case "fat":
+          value = (nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0;
+          break;
+      }
+      
+      if (value == null) return "0.0";
+      value = value * (convertedQty / 100);
+      return value.toStringAsFixed(1);
+    }
+  }
+  
+  Map<String, double> _getMacroPercentages() {
+    double carbs = double.tryParse(_getNutrientValue("carbohydrate")) ?? 0;
+    double protein = double.tryParse(_getNutrientValue("protein")) ?? 0;
+    double fat = double.tryParse(_getNutrientValue("fat")) ?? 0;
+
+    double total = carbs + protein + fat;
+    if (total <= 0) return {"carbs": 0.33, "protein": 0.33, "fat": 0.34};
+
+    return {
+      "carbs": carbs / total,
+      "protein": protein / total,
+      "fat": fat / total,
+    };
   }
 
   void _addToMeal(String meal) {
@@ -380,67 +452,6 @@ class _BarcodeResultsState extends State<BarcodeResults>
     Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
   }
 
-  Widget _buildMealOption(BuildContext context, String meal, IconData icon) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final primaryColor = Theme.of(context).primaryColor;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            _addToMeal(meal);
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            decoration: BoxDecoration(
-              border: Border.all(color: primaryColor.withOpacity(0.2)),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Icon(icon, color: primaryColor),
-                const SizedBox(width: 16),
-                Text(
-                  meal,
-                  style: AppTypography.body1.copyWith(
-                    color: customColors!.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: customColors.textSecondary,
-                  size: 16,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showSuccessSnackbar(String meal) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Theme.of(context).primaryColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 12),
-            Text('Added to $meal'),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -450,9 +461,6 @@ class _BarcodeResultsState extends State<BarcodeResults>
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        // Remove the floatingActionButton
-        bottomNavigationBar:
-            _isLoading || _error != null ? null : _buildMealSelector(),
         body: Stack(
           children: [
             CustomScrollView(
@@ -571,159 +579,132 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 ),
               ],
             ),
+            if (!_isLoading && _error == null)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: EdgeInsets.fromLTRB(
+                      20, 12, 20, 30 + MediaQuery.of(context).padding.bottom),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Theme.of(context).scaffoldBackgroundColor.withOpacity(0.1),
+                        Theme.of(context).scaffoldBackgroundColor,
+                      ],
+                    ),
+                  ),
+                  child: _buildAddToDiaryButton(),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMealSelector() {
+  Widget _buildAddToDiaryButton() {
     final customColors = Theme.of(context).extension<CustomColors>();
-    final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
     final primaryColor = Theme.of(context).primaryColor;
 
-    // Track selected meal
-    String selectedMeal = mealOptions[0]; // Default to Breakfast
-
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return Container(
-          padding: EdgeInsets.fromLTRB(
-              20, 12, 20, 30 + MediaQuery.of(context).padding.bottom),
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.light
+              ? Colors.black.withOpacity(0.3)
+              : Colors.white.withOpacity(0.3),
+          width: 0.5,
+        ),
+      ),
+      child: ElevatedButton(
+        onPressed: () => _addToMeal(selectedMeal),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: customColors!.textPrimary,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+        child: Ink(
           decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(30),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Meal selection slider
-              Container(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
                 height: 60,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: customColors!.dateNavigatorBackground.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                alignment: Alignment.center,
                 child: Row(
-                  children: mealOptions.map((meal) {
-                    final isSelected = meal == selectedMeal;
-                    final mealColor =
-                        Theme.of(context).brightness == Brightness.dark
-                            ? Color(0xFFFBBC05).withValues(alpha: 0.8)
-                            : customColors.textPrimary;
-
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          setState(() => selectedMeal = meal);
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          decoration: BoxDecoration(
-                            color: isSelected ? mealColor : Colors.transparent,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Center(
-                            child: Text(
-                              meal,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : customColors.textSecondary,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Add to meal button
-              Container(
-                width: double.infinity,
-                height: 60,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.black.withOpacity(0.3)
-                        : Colors.white.withOpacity(0.3),
-                    width: 0.5,
-                  ),
-                ),
-                child: ElevatedButton(
-                  onPressed: () => _addToMeal(selectedMeal),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: customColors.textPrimary,
-                    elevation: 0,
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline,
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.black.withOpacity(0.8)
+                          : const Color(0xFFFFC107).withOpacity(0.9),
                     ),
-                  ),
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(30),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          height: 60,
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add_circle_outline,
-                                color: Theme.of(context).brightness ==
-                                        Brightness.light
-                                    ? Colors.black.withOpacity(0.8)
-                                    : const Color(0xFFFFC107).withOpacity(0.9),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Add to ${selectedMeal}',
-                                style: AppTypography.button.copyWith(
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.light
-                                      ? Colors.black
-                                      : const Color(0xFFFFC107)
-                                          .withOpacity(0.9),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Add to Diary',
+                      style: AppTypography.button.copyWith(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.black
+                            : const Color(0xFFFFC107).withOpacity(0.9),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        letterSpacing: 0.5,
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    // Show which meal is selected
+                    // Container(
+                    //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    //   decoration: BoxDecoration(
+                    //     color: Theme.of(context).brightness == Brightness.light
+                    //         ? Colors.black.withOpacity(0.05)
+                    //         : Colors.white.withOpacity(0.1),
+                    //     borderRadius: BorderRadius.circular(12),
+                    //   ),
+                    //   child: Row(
+                    //     mainAxisSize: MainAxisSize.min,
+                    //     children: [
+                    //       Text(
+                    //         selectedMeal,
+                    //         style: TextStyle(
+                    //           color: Theme.of(context).brightness == Brightness.light
+                    //               ? Colors.black.withOpacity(0.7)
+                    //               : const Color(0xFFFFC107).withOpacity(0.9),
+                    //           fontWeight: FontWeight.bold,
+                    //           fontSize: 12,
+                    //         ),
+                    //       ),
+                    //       const SizedBox(width: 2),
+                    //       Icon(
+                    //         Icons.arrow_drop_down,
+                    //         size: 16,
+                    //         color: Theme.of(context).brightness == Brightness.light
+                    //             ? Colors.black.withOpacity(0.7)
+                    //             : const Color(0xFFFFC107).withOpacity(0.9),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -777,6 +758,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
   Widget _buildProductDetails() {
     final customColors = Theme.of(context).extension<CustomColors>();
     final primaryColor = Theme.of(context).primaryColor;
+    
+    // Calculate calories and macro percentages
+    final calculatedCalories = double.tryParse(_getNutrientValue("calories")) ?? 0;
+    final macroPercentages = _getMacroPercentages();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -842,12 +827,199 @@ class _BarcodeResultsState extends State<BarcodeResults>
               ),
             ),
 
+          // Add Macro Progress Rings after the image
+          Container(
+            margin: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+            decoration: BoxDecoration(
+              color: customColors!.cardBackground,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      calculatedCalories.toStringAsFixed(0),
+                      style: AppTypography.h1.copyWith(
+                        color: customColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        height: 0.9,
+                      ),
+                    ),
+                    Text(
+                      " kcal",
+                      style: AppTypography.h3.copyWith(
+                        color: customColors.textSecondary,
+                        fontWeight: FontWeight.w300,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: MacroProgressRing(
+                          key: ValueKey('carbs-${quantityController.text}-$selectedUnit'),
+                          label: 'Carbs',
+                          value: _getNutrientValue("carbohydrate"),
+                          color: const Color(0xFF4285F4), // Google blue
+                          percentage: macroPercentages["carbs"] ?? 0.33,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: MacroProgressRing(
+                          key: ValueKey('protein-${quantityController.text}-$selectedUnit}'),
+                          label: 'Protein',
+                          value: _getNutrientValue("protein"),
+                          color: const Color(0xFFEA4335), // Google red
+                          percentage: macroPercentages["protein"] ?? 0.33,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: MacroProgressRing(
+                          key: ValueKey('fat-${quantityController.text}-$selectedUnit'),
+                          label: 'Fat',
+                          value: _getNutrientValue("fat"),
+                          color: const Color(0xFFFBBC05), // Google yellow
+                          percentage: macroPercentages["fat"] ?? 0.34,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Add meal selector right after the image
+          Container(
+            margin: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: customColors.cardBackground,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: customColors.textSecondary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.restaurant_menu_rounded,
+                        color: customColors.textSecondary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Text(
+                      "Add to Meal",
+                      style: AppTypography.h3.copyWith(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                
+                // Meal selection
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+                    Container(
+                      height: 60,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: customColors.dateNavigatorBackground.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: mealOptions.map((meal) {
+                          final isSelected = meal == selectedMeal;
+                          final mealColor =
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Color(0xFFFBBC05).withValues(alpha: 0.8)
+                                  : customColors.textPrimary;
+
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setState(() => selectedMeal = meal);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? mealColor : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    meal,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : customColors.textSecondary,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
           // Product Name Card
           Container(
             margin: const EdgeInsets.only(bottom: 24),
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: customColors!.cardBackground,
+              color: customColors.cardBackground,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
@@ -1472,6 +1644,23 @@ class _BarcodeResultsState extends State<BarcodeResults>
       return '${description.substring(0, 15)}...';
     }
     return description;
+  }
+
+  void _showSuccessSnackbar(String meal) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Theme.of(context).primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Text('Added to $meal'),
+          ],
+        ),
+      ),
+    );
   }
 }
 
