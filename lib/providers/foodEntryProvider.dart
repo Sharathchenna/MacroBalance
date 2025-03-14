@@ -4,16 +4,57 @@ import 'package:flutter/foundation.dart';
 import '../models/foodEntry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../services/widget_service.dart';
 
 class FoodEntryProvider with ChangeNotifier {
   final List<FoodEntry> _entries = [];
   static const String _storageKey = 'food_entries';
+  
+  // Daily nutrition goals
+  double _caloriesGoal = 2000.0;
+  double _proteinGoal = 150.0;
+  double _carbsGoal = 225.0;
+  double _fatGoal = 65.0;
 
   FoodEntryProvider() {
     _loadEntries();
+    _loadNutritionGoals();
   }
 
   List<FoodEntry> get entries => _entries;
+  
+  double get caloriesGoal => _caloriesGoal;
+  double get proteinGoal => _proteinGoal;
+  double get carbsGoal => _carbsGoal;
+  double get fatGoal => _fatGoal;
+  
+  set caloriesGoal(double value) {
+    _caloriesGoal = value;
+    _saveNutritionGoals();
+    notifyListeners();
+    _updateWidgets();
+  }
+  
+  set proteinGoal(double value) {
+    _proteinGoal = value;
+    _saveNutritionGoals();
+    notifyListeners();
+    _updateWidgets();
+  }
+  
+  set carbsGoal(double value) {
+    _carbsGoal = value;
+    _saveNutritionGoals();
+    notifyListeners();
+    _updateWidgets();
+  }
+  
+  set fatGoal(double value) {
+    _fatGoal = value;
+    _saveNutritionGoals();
+    notifyListeners();
+    _updateWidgets();
+  }
 
   Future<void> _loadEntries() async {
     try {
@@ -26,9 +67,34 @@ class FoodEntryProvider with ChangeNotifier {
           decodedEntries.map((entry) => FoodEntry.fromJson(entry)).toList(),
         );
         notifyListeners();
+        _updateWidgets();
       }
     } catch (e) {
       debugPrint('Error loading food entries: $e');
+    }
+  }
+  
+  Future<void> _loadNutritionGoals() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _caloriesGoal = prefs.getDouble('calories_goal') ?? 2000.0;
+      _proteinGoal = prefs.getDouble('protein_goal') ?? 150.0;
+      _carbsGoal = prefs.getDouble('carbs_goal') ?? 225.0;
+      _fatGoal = prefs.getDouble('fat_goal') ?? 65.0;
+    } catch (e) {
+      debugPrint('Error loading nutrition goals: $e');
+    }
+  }
+  
+  Future<void> _saveNutritionGoals() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('calories_goal', _caloriesGoal);
+      await prefs.setDouble('protein_goal', _proteinGoal);
+      await prefs.setDouble('carbs_goal', _carbsGoal);
+      await prefs.setDouble('fat_goal', _fatGoal);
+    } catch (e) {
+      debugPrint('Error saving nutrition goals: $e');
     }
   }
 
@@ -39,6 +105,7 @@ class FoodEntryProvider with ChangeNotifier {
         _entries.map((entry) => entry.toJson()).toList(),
       );
       await prefs.setString(_storageKey, entriesJson);
+      _updateWidgets();
     } catch (e) {
       debugPrint('Error saving food entries: $e');
     }
@@ -110,5 +177,48 @@ class FoodEntryProvider with ChangeNotifier {
             entry.date.month == date.month &&
             entry.date.day == date.day)
         .toList();
+  }
+
+  /// Update iOS homescreen widgets with latest data
+  Future<void> _updateWidgets() async {
+    try {
+      // Get today's entries
+      final today = DateTime.now();
+      final todayEntries = getEntriesForDate(today);
+      
+      if (todayEntries.isEmpty) return;
+      
+      // Calculate total macros for today
+      double totalCalories = 0;
+      double totalProtein = 0;
+      double totalCarbs = 0;
+      double totalFat = 0;
+      
+      for (var entry in todayEntries) {
+        // Convert from per 100g to actual amount based on quantity
+        totalCalories += entry.food.calories * entry.quantity / 100;
+        totalProtein += (entry.food.nutrients['Protein'] ?? 0.0) * entry.quantity / 100;
+        totalCarbs += (entry.food.nutrients['Carbohydrate, by difference'] ?? 0.0) * entry.quantity / 100;
+        totalFat += (entry.food.nutrients['Total lipid (fat)'] ?? 0.0) * entry.quantity / 100;
+      }
+      
+      // Update macro widget with current progress
+      await WidgetService.updateMacroWidget(
+        totalCalories,
+        totalProtein,
+        totalCarbs,
+        totalFat,
+        _caloriesGoal,
+        _proteinGoal,
+        _carbsGoal,
+        _fatGoal,
+      );
+      
+      // Update recent meals widget
+      await WidgetService.updateRecentMeals(todayEntries);
+      
+    } catch (e) {
+      debugPrint('Error updating widgets: $e');
+    }
   }
 }

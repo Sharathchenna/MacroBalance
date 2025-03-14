@@ -3,6 +3,7 @@ import 'typography.dart';
 
 class AppTheme {
   static ThemeData lightTheme = ThemeData(
+    useMaterial3: true, // Enable Material 3
     brightness: Brightness.light,
     scaffoldBackgroundColor: const Color(0xFFF8F7F3),
     cardColor: Colors.white,
@@ -16,6 +17,11 @@ class AppTheme {
       onSecondary: Colors.white,
       error: const Color(0xFFD32F2F),
       tertiary: const Color(0xFF4CAF50), // Added for success states
+    ),
+    // Add Material 3 card theme with containerColor
+    cardTheme: const CardTheme(
+      color: Colors.white,
+      surfaceTintColor: Colors.transparent,
     ),
     // Add extension colors for custom widgets
     extensions: [
@@ -39,6 +45,7 @@ class AppTheme {
   );
 
   static ThemeData darkTheme = ThemeData(
+    useMaterial3: true, // Enable Material 3
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF121212),
     cardColor: const Color(0xFF1E1E1E),
@@ -54,6 +61,11 @@ class AppTheme {
       onSecondary: Colors.black,
       error: const Color(0xFFEF5350),
       tertiary: const Color(0xFF81C784), // Added for success states
+    ),
+    // Add Material 3 card theme with containerColor
+    cardTheme: const CardTheme(
+      color: Color(0xFF1E1E1E),
+      surfaceTintColor: Colors.transparent,
     ),
     // Add extension colors for custom widgets
     extensions: [

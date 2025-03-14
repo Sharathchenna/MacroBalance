@@ -11,6 +11,7 @@ import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
+import 'package:macrotracker/services/widget_service.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
@@ -30,6 +31,9 @@ void main() async {
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
     url: "https://mdivtblabmnftdqlgysv.supabase.co",
   );
+
+  // Initialize the widget service
+  await WidgetService.initWidgetService();
 
   await Posthog().screen(screenName: "MainScreen");
 

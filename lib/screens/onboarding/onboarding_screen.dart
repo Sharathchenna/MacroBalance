@@ -133,6 +133,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      elevation: 0,
+                      surfaceTintColor: Colors.transparent,
                     ),
                     child: Text(
                         _currentPage == _totalPages - 1 ? 'Calculate' : 'Next'),
@@ -714,6 +718,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       onTap: () => setState(() => _goal = goal),
       child: Card(
         elevation: isSelected ? 4 : 1,
+        surfaceTintColor: Colors.transparent,
+        color: customColors?.cardBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
