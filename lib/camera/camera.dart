@@ -449,14 +449,16 @@ class _CameraScreenState extends State<CameraScreen>
                           Navigator.of(context).push(
                             PageRouteBuilder(
                               opaque: false, // Make the route transparent
-                              pageBuilder: (context, animation, secondaryAnimation) {
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) {
                                 return BarcodeEntryScreen(
                                   onBarcodeEntered: (barcode) {
                                     _handleBarcodeResult(barcode);
                                   },
                                 );
                               },
-                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
                                 const begin = Offset(0.0, 1.0);
                                 const end = Offset.zero;
                                 const curve = Curves.easeInOut;
@@ -538,8 +540,8 @@ class _CameraScreenState extends State<CameraScreen>
                           AnimatedAlign(
                             duration: const Duration(milliseconds: 200),
                             curve: Curves.easeInOut,
-                            alignment: _isBarcodeMode 
-                                ? Alignment.centerLeft 
+                            alignment: _isBarcodeMode
+                                ? Alignment.centerLeft
                                 : Alignment.centerRight,
                             child: Container(
                               width: 55,
@@ -551,7 +553,9 @@ class _CameraScreenState extends State<CameraScreen>
                               ),
                               child: Center(
                                 child: Icon(
-                                  _isBarcodeMode ? Icons.qr_code : Icons.camera_alt,
+                                  _isBarcodeMode
+                                      ? Icons.qr_code
+                                      : Icons.camera_alt,
                                   color: Colors.black,
                                   size: 14,
                                 ),
@@ -562,7 +566,7 @@ class _CameraScreenState extends State<CameraScreen>
                       ),
                     ),
                   ),
-                  
+
                   // Mode name indicator
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
@@ -661,7 +665,7 @@ class _CameraScreenState extends State<CameraScreen>
                           ),
                         ),
                       ),
-                  
+
                     // Flash indicator
                     if (_flashOn)
                       Positioned(
@@ -883,21 +887,22 @@ class _CameraScreenState extends State<CameraScreen>
 // Create a beautiful, modern barcode entry screen
 class BarcodeEntryScreen extends StatefulWidget {
   final Function(String) onBarcodeEntered;
-  
+
   const BarcodeEntryScreen({
     Key? key,
     required this.onBarcodeEntered,
   }) : super(key: key);
-  
+
   @override
   State<BarcodeEntryScreen> createState() => _BarcodeEntryScreenState();
 }
 
-class _BarcodeEntryScreenState extends State<BarcodeEntryScreen> with SingleTickerProviderStateMixin {
+class _BarcodeEntryScreenState extends State<BarcodeEntryScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController controller = TextEditingController();
   late AnimationController _animationController;
   bool _isFocused = false;
-  
+
   @override
   void initState() {
     super.initState();
@@ -906,313 +911,324 @@ class _BarcodeEntryScreenState extends State<BarcodeEntryScreen> with SingleTick
       vsync: this,
     );
   }
-  
+
   @override
   void dispose() {
     _animationController.dispose();
     controller.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+    return GestureDetector(
+      // Add this GestureDetector to capture taps anywhere
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with subtle gradient
-                ShaderMask(
-                  shaderCallback: (bounds) {
-                    return LinearGradient(
-                      colors: [Colors.white, Colors.white.withOpacity(0.8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(bounds);
-                  },
-                  child: Text(
-                    'Enter Barcode',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Subtitle
-                Text(
-                  'Type the number below the barcode',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 16,
-                  ),
-                ),
-                
-                const SizedBox(height: 40),
-                
-                // Beautiful barcode design
-                Center(
-                  child: Container(
-                    width: double.infinity,
-                    height: 110,
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.grey[900]!,
-                          Colors.grey[800]!,
-                        ],
+        body: SafeArea(
+          bottom: false,
+          child: SingleChildScrollView(
+            // Rest of your code remains the same
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with subtle gradient
+                  ShaderMask(
+                    shaderCallback: (bounds) {
+                      return LinearGradient(
+                        colors: [Colors.white, Colors.white.withOpacity(0.8)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
+                      ).createShader(bounds);
+                    },
+                    child: Text(
+                      'Enter Barcode',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
                     ),
-                    child: Stack(
-                      children: [
-                        // Barcode lines - dynamically created
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(25, (index) {
-                            final width = index % 3 == 0 ? 2.5 : 1.5;
-                            final height = (40 + (Random().nextDouble() * 40));
-                            return Container(
-                              width: width,
-                              height: height,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(0.5),
-                              ),
-                            );
-                          }),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Subtitle
+                  Text(
+                    'Type the number below the barcode',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 16,
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
+
+                  // Beautiful barcode design
+                  Center(
+                    child: Container(
+                      width: double.infinity,
+                      height: 110,
+                      margin: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.grey[900]!,
+                            Colors.grey[800]!,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        
-                        // Barcode number at bottom - subtle effect
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 10,
-                          child: Center(
-                            child: Text(
-                              '12345 67890',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
-                                fontSize: 12,
-                                letterSpacing: 3,
-                                fontFamily: 'monospace',
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          // Barcode lines - dynamically created
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(25, (index) {
+                              final width = index % 3 == 0 ? 2.5 : 1.5;
+                              final height =
+                                  (40 + (Random().nextDouble() * 40));
+                              return Container(
+                                width: width,
+                                height: height,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(0.5),
+                                ),
+                              );
+                            }),
+                          ),
+
+                          // Barcode number at bottom - subtle effect
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 10,
+                            child: Center(
+                              child: Text(
+                                '12345 67890',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 12,
+                                  letterSpacing: 3,
+                                  fontFamily: 'monospace',
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                
-                const SizedBox(height: 48),
-                
-                // Label with animation
-                AnimatedOpacity(
-                  opacity: _isFocused ? 1.0 : 0.7,
-                  duration: const Duration(milliseconds: 200),
-                  child: Text(
-                    'Barcode Number',
-                    style: TextStyle(
-                      color: _isFocused ? Colors.white : Colors.grey[300],
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1.0,
+
+                  const SizedBox(height: 48),
+
+                  // Label with animation
+                  AnimatedOpacity(
+                    opacity: _isFocused ? 1.0 : 0.7,
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      'Barcode Number',
+                      style: TextStyle(
+                        color: _isFocused ? Colors.white : Colors.grey[300],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.0,
+                      ),
                     ),
                   ),
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Beautiful text field with animation
-                FocusScope(
-                  onFocusChange: (focused) {
-                    setState(() {
-                      _isFocused = focused;
-                      if (focused) {
-                        _animationController.forward();
-                      } else {
-                        _animationController.reverse();
-                      }
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: _isFocused ? Colors.grey[850] : Colors.grey[900],
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _isFocused ? Colors.white.withOpacity(0.3) : Colors.transparent,
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _isFocused 
-                            ? Colors.white.withOpacity(0.1) 
-                            : Colors.transparent,
-                          blurRadius: 10,
-                          spreadRadius: 0,
+
+                  const SizedBox(height: 12),
+
+                  // Beautiful text field with animation
+                  FocusScope(
+                    onFocusChange: (focused) {
+                      setState(() {
+                        _isFocused = focused;
+                        if (focused) {
+                          _animationController.forward();
+                        } else {
+                          _animationController.reverse();
+                        }
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: _isFocused ? Colors.grey[850] : Colors.grey[900],
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _isFocused
+                              ? Colors.white.withOpacity(0.3)
+                              : Colors.transparent,
+                          width: 1,
                         ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: controller,
-                      keyboardType: TextInputType.number,
-                      autofocus: true,
-                      onSubmitted: _handleSubmit,
-                      cursorColor: Colors.white,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 2,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _isFocused
+                                ? Colors.white.withOpacity(0.1)
+                                : Colors.transparent,
+                            blurRadius: 10,
+                            spreadRadius: 0,
+                          ),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
-                      decoration: InputDecoration(
-                        hintText: '0000000000000',
-                        hintStyle: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 20,
+                      child: TextField(
+                        controller: controller,
+                        keyboardType: TextInputType.number,
+                        autofocus: true,
+                        onSubmitted: _handleSubmit,
+                        cursorColor: Colors.white,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w400,
                           letterSpacing: 2,
-                          fontWeight: FontWeight.w300,
                         ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                        ),
-                        prefixIcon: AnimatedOpacity(
-                          opacity: _isFocused ? 1.0 : 0.6,
-                          duration: const Duration(milliseconds: 300),
-                          child: Icon(
-                            Icons.qr_code_scanner,
-                            color: _isFocused ? Colors.white : Colors.grey[400],
-                            size: 22,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                          hintText: '0000000000000',
+                          hintStyle: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 20,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.w300,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                          ),
+                          prefixIcon: AnimatedOpacity(
+                            opacity: _isFocused ? 1.0 : 0.6,
+                            duration: const Duration(milliseconds: 300),
+                            child: Icon(
+                              Icons.qr_code_scanner,
+                              color:
+                                  _isFocused ? Colors.white : Colors.grey[400],
+                              size: 22,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                
-                const SizedBox(height: 8),
-                
-                // Helper text
-                Padding(
-                  padding: const EdgeInsets.only(left: 16),
-                  child: Text(
-                    'Usually 8-13 digits found below the barcode',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-                
-                SizedBox(height: MediaQuery.of(context).size.height * 0.15),
-                
-                // Beautiful search button
-                Center(
-                  child: Container(
-                    width: double.infinity,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withOpacity(0.1),
-                          spreadRadius: 0,
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: () => _handleSubmit(controller.text),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                      ),
-                      child: const Text(
-                        'Search',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Cancel link
-                Center(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
+
+                  const SizedBox(height: 8),
+
+                  // Helper text
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16),
                     child: Text(
-                      'Cancel',
+                      'Usually 8-13 digits found below the barcode',
                       style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ),
-                ),
-                
-                // Add extra space to ensure no overflow
-                const SizedBox(height: 30),
-              ],
+
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+
+                  // Beautiful search button
+                  Center(
+                    child: Container(
+                      width: double.infinity,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.1),
+                            spreadRadius: 0,
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () => _handleSubmit(controller.text),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                        ),
+                        child: const Text(
+                          'Search',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Cancel link
+                  Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Add extra space to ensure no overflow
+                  const SizedBox(height: 30),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-  
+
   void _handleSubmit(String value) {
     if (value.isNotEmpty) {
       Navigator.pop(context);
