@@ -6,6 +6,7 @@ import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class Signup extends StatefulWidget {
   const Signup({super.key});
@@ -156,6 +157,50 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Google sign-in error: $error'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Request credential for the user
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      // Use the credential to sign in to Supabase
+      if (credential.identityToken != null) {
+        await _supabase.auth.signInWithIdToken(
+          provider: OAuthProvider.apple,
+          idToken: credential.identityToken!,
+          accessToken: credential.authorizationCode,
+        );
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthGate()),
+          (route) => false,
+        );
+      } else {
+        throw 'No identity token received from Apple';
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Apple sign-in error: $error'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -363,6 +408,33 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                     ),
                     label: Text(
                       'Continue with Google',
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Apple Sign In Button
+                  OutlinedButton.icon(
+                    onPressed: isLoading ? null : _signInWithApple,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                          color: theme.primaryColor.withOpacity(0.3)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: Icon(
+                      Icons.apple,
+                      size: 22,
+                      color: theme.primaryColor,
+                    ),
+                    label: Text(
+                      'Continue with Apple',
                       style: TextStyle(
                         color: theme.primaryColor,
                         fontWeight: FontWeight.w500,
