@@ -21,6 +21,9 @@ import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 
+// Add a global key for widget test access
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // await CameraService().controller;
@@ -34,6 +37,13 @@ void main() async {
 
   // Initialize the widget service
   await WidgetService.initWidgetService();
+
+  // Force refresh widgets when app starts to ensure sync
+  try {
+    await WidgetService.forceWidgetRefresh();
+  } catch (e) {
+    debugPrint('Failed to refresh widgets on app start: $e');
+  }
 
   await Posthog().screen(screenName: "MainScreen");
 
@@ -50,6 +60,8 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -59,20 +71,23 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'MacroTracker',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode:
-            ThemeProvider().isDarkMode ? ThemeMode.dark : ThemeMode.light,
-        home: const AuthGate(),
-        routes: {
-          '/onboarding': (context) => const OnboardingScreen(),
-          '/home': (context) =>
-              const Dashboard(), // Using Dashboard as home screen
-        },
-      ),
+      child: Consumer<ThemeProvider>(builder: (context, themeProvider, child) {
+        return MaterialApp(
+          navigatorKey: navigatorKey, // Add the navigator key
+          debugShowCheckedModeBanner: false,
+          title: 'MacroTracker',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode:
+              themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          home: AuthGate(),
+          routes: {
+            '/onboarding': (context) => const OnboardingScreen(),
+            '/home': (context) =>
+                const Dashboard(), // Using Dashboard as home screen
+          },
+        );
+      }),
     );
   }
 }

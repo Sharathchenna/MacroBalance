@@ -19,6 +19,7 @@ struct MacroTrackerWidgetAttributes: ActivityAttributes {
     var name: String
 }
 
+@available(iOS 16.1, *)
 struct MacroTrackerWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: MacroTrackerWidgetAttributes.self) { context in
@@ -28,11 +29,11 @@ struct MacroTrackerWidgetLiveActivity: Widget {
             }
             .activityBackgroundTint(Color.cyan)
             .activitySystemActionForegroundColor(Color.black)
-
+            
         } dynamicIsland: { context in
+            // For iOS 16.1+, we need a simple implementation of dynamic island
             DynamicIsland {
-                // Expanded UI goes here.  Compose the expanded UI through
-                // various regions, like leading/trailing/center/bottom
+                // Expanded UI goes here - simplified for iOS 16.1 compatibility
                 DynamicIslandExpandedRegion(.leading) {
                     Text("Leading")
                 }
@@ -40,18 +41,15 @@ struct MacroTrackerWidgetLiveActivity: Widget {
                     Text("Trailing")
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text("Bottom \(context.state.emoji)")
-                    // more content
+                    Text("Bottom")
                 }
             } compactLeading: {
                 Text("L")
             } compactTrailing: {
-                Text("T \(context.state.emoji)")
+                Text("T")
             } minimal: {
-                Text(context.state.emoji)
+                Text("Min")
             }
-            .widgetURL(URL(string: "http://www.apple.com"))
-            .keylineTint(Color.red)
         }
     }
 }
@@ -72,9 +70,10 @@ extension MacroTrackerWidgetAttributes.ContentState {
      }
 }
 
-#Preview("Notification", as: .content, using: MacroTrackerWidgetAttributes.preview) {
-   MacroTrackerWidgetLiveActivity()
-} contentStates: {
-    MacroTrackerWidgetAttributes.ContentState.smiley
-    MacroTrackerWidgetAttributes.ContentState.starEyes
-}
+// Commented out the Preview that uses iOS 18 features
+// #Preview("Notification", as: .content, using: MacroTrackerWidgetAttributes.preview) {
+//    MacroTrackerWidgetLiveActivity()
+// } contentStates: {
+//    MacroTrackerWidgetAttributes.ContentState.smiley
+//    MacroTrackerWidgetAttributes.ContentState.starEyes
+// }
