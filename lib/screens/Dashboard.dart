@@ -98,9 +98,8 @@ class _DashboardState extends State<Dashboard> {
                                 Navigator.push(
                                   context,
                                   CupertinoPageRoute(
-                                builder: (context) =>
-                                    FoodSearchPage(),
-                              ),
+                                    builder: (context) => FoodSearchPage(),
+                                  ),
                                 );
                               }),
                           _buildNavItemCompact(
@@ -610,6 +609,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                               child: CircularProgressIndicator(
                                 value: progress,
                                 strokeWidth: 10,
+                                strokeCap: StrokeCap
+                                    .round, // Added circular stroke cap
                                 backgroundColor: Theme.of(context).brightness ==
                                         Brightness.light
                                     ? Colors.grey.shade200
@@ -945,6 +946,7 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
                 child: CircularProgressIndicator(
                   value: progress,
                   strokeWidth: 6,
+                  strokeCap: StrokeCap.round, // Added circular stroke cap
                   backgroundColor:
                       Theme.of(context).brightness == Brightness.light
                           ? color.withValues(alpha: 0.15)
