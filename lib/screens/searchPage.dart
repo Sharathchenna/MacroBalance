@@ -117,7 +117,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   void _onSearchChanged(String query) {
     if (_debouncer?.isActive ?? false) _debouncer!.cancel();
-    _debouncer = Timer(const Duration(milliseconds: 500), () {
+    _debouncer = Timer(const Duration(milliseconds: 300), () {
       _getAutocompleteSuggestions(query);
     });
   }
@@ -578,8 +578,9 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).brightness == Brightness.light?
-                          customColors.textPrimary.withValues(alpha: .05): customColors.textPrimary.withValues(alpha: 0),
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? customColors.textPrimary.withValues(alpha: .05)
+                          : customColors.textPrimary.withValues(alpha: 0),
                       blurRadius: 15,
                       spreadRadius: 5,
                     ),

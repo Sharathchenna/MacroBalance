@@ -10,7 +10,8 @@ class OnboardingScreen extends StatefulWidget {
   _OnboardingScreenState createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerProviderStateMixin {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final int _totalPages = 7; // Increased by 1 for summary page
@@ -27,10 +28,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   int _deficit = 500;
   double _proteinRatio = 1.8;
   double _fatRatio = 0.25;
-  
-  // Unit toggles
-  bool _useMetricSystem = true;
-  
+
+  // Removed unit system toggle - always using metric
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +47,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       curve: Curves.easeInOut,
     ));
   }
-  
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -63,7 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
-      
+
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -82,14 +82,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
-      
+
       _pageController.previousPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
     }
   }
-  
+
   void _goToPage(int page) {
     if (page >= 0 && page < _totalPages) {
       _animationController.animateTo(
@@ -97,7 +97,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
-      
+
       _pageController.animateToPage(
         page,
         duration: const Duration(milliseconds: 400),
@@ -123,16 +123,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
     // Navigate to results screen with a transition
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => 
-          ResultsScreen(results: results),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            ResultsScreen(results: results),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
           const curve = Curves.easeInOutCubic;
-          
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+
+          var tween =
+              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
           var offsetAnimation = animation.drive(tween);
-          
+
           return SlideTransition(
             position: offsetAnimation,
             child: FadeTransition(
@@ -176,7 +177,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                               borderRadius: BorderRadius.circular(6),
                             ),
                           ),
-                          
+
                           // Progress indicator
                           Align(
                             alignment: Alignment.centerLeft,
@@ -194,7 +195,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                                   borderRadius: BorderRadius.circular(6),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withOpacity(0.3),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),
@@ -207,9 +211,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                       );
                     },
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   // Step indicator text
                   Text(
                     'Step ${_currentPage + 1} of $_totalPages',
@@ -253,7 +257,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                       ? TextButton(
                           onPressed: _previousPage,
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -281,12 +286,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                   ElevatedButton(
                     onPressed: _nextPage,
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                       elevation: 2,
-                      shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                      shadowColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.3),
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       surfaceTintColor: Colors.transparent,
@@ -295,7 +304,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _currentPage == _totalPages - 1 ? 'Calculate' : 'Next',
+                          _currentPage == _totalPages - 1
+                              ? 'Calculate'
+                              : 'Next',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -303,9 +314,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                         ),
                         const SizedBox(width: 4),
                         Icon(
-                          _currentPage == _totalPages - 1 
-                            ? Icons.check_circle_outline_rounded
-                            : Icons.arrow_forward_rounded,
+                          _currentPage == _totalPages - 1
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.arrow_forward_rounded,
                           size: 16,
                         ),
                       ],
@@ -353,7 +364,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.3),
                           blurRadius: 12,
                           spreadRadius: 2,
                           offset: const Offset(0, 4),
@@ -373,7 +387,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             },
           ),
           const SizedBox(height: 40),
-          
+
           // Animated title
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -397,7 +411,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             },
           ),
           const SizedBox(height: 16),
-          
+
           // Animated description
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -420,9 +434,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               );
             },
           ),
-          
+
           const SizedBox(height: 40),
-          
+
           // Feature highlights
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -458,10 +472,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       ),
     );
   }
-  
+
   Widget _buildFeatureItem({required IconData icon, required String label}) {
     final customColors = Theme.of(context).extension<CustomColors>();
-    
+
     return Column(
       children: [
         Container(
@@ -560,7 +574,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
           ),
           const SizedBox(height: 32),
 
-          // Weight slider with unit toggle
+          // Weight slider - metric only (kg)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -575,51 +589,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                   ),
                   const SizedBox(width: 8),
                   _buildTooltip(
-                    'Your current body weight is used to calculate your daily caloric needs'),
+                      'Your current body weight is used to calculate your daily caloric needs'),
                 ],
               ),
-              // Unit toggle
-              Row(
-                children: [
-                  Text(
-                    'kg',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: _useMetricSystem
-                          ? Theme.of(context).colorScheme.primary
-                          : customColors?.textSecondary,
-                      fontWeight:
-                          _useMetricSystem ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                  Switch.adaptive(
-                    value: !_useMetricSystem,
-                    activeColor: Theme.of(context).colorScheme.primary,
-                    onChanged: (value) {
-                      setState(() {
-                        _useMetricSystem = !value;
-                        if (!_useMetricSystem) {
-                          // Convert from lb to kg
-                          _weightKg = _weightKg / 2.20462;
-                        } else {
-                          // Convert from kg to lb
-                          _weightKg = _weightKg * 2.20462;
-                        }
-                      });
-                    },
-                  ),
-                  Text(
-                    'lb',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: !_useMetricSystem
-                          ? Theme.of(context).colorScheme.primary
-                          : customColors?.textSecondary,
-                      fontWeight:
-                          !_useMetricSystem ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ],
+              // Unit label - kg only
+              Text(
+                'kg',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -629,8 +609,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               Expanded(
                 child: _buildEnhancedSlider(
                   value: _weightKg,
-                  min: _useMetricSystem ? 40 : 88, // 40kg = ~88lb
-                  max: _useMetricSystem ? 150 : 330, // 150kg = ~330lb
+                  min: 40, // minimum weight in kg
+                  max: 150, // maximum weight in kg
                   divisions: 110,
                   onChanged: (value) {
                     setState(() {
@@ -642,9 +622,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               SizedBox(
                 width: 60,
                 child: Text(
-                  _useMetricSystem
-                      ? '${_weightKg.toStringAsFixed(1)} kg'
-                      : '${(_weightKg).round()} lb',
+                  '${_weightKg.toStringAsFixed(1)} kg',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: customColors?.textPrimary,
                         fontWeight: FontWeight.w500,
@@ -655,7 +633,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
           ),
           const SizedBox(height: 24),
 
-          // Height slider with unit toggle
+          // Height slider - metric only (cm)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -670,51 +648,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                   ),
                   const SizedBox(width: 8),
                   _buildTooltip(
-                    'Your height is used alongside weight to calculate your BMI and base metabolic rate'),
+                      'Your height is used alongside weight to calculate your BMI and base metabolic rate'),
                 ],
               ),
-              // Unit toggle for height
-              Row(
-                children: [
-                  Text(
-                    'cm',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: _useMetricSystem
-                          ? Theme.of(context).colorScheme.primary
-                          : customColors?.textSecondary,
-                      fontWeight:
-                          _useMetricSystem ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                  Switch.adaptive(
-                    value: !_useMetricSystem,
-                    activeColor: Theme.of(context).colorScheme.primary,
-                    onChanged: (value) {
-                      setState(() {
-                        _useMetricSystem = !value;
-                        if (!_useMetricSystem) {
-                          // Convert from in to cm
-                          _heightCm = _heightCm / 2.54;
-                        } else {
-                          // Convert from cm to in
-                          _heightCm = _heightCm * 2.54;
-                        }
-                      });
-                    },
-                  ),
-                  Text(
-                    'in',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: !_useMetricSystem
-                          ? Theme.of(context).colorScheme.primary
-                          : customColors?.textSecondary,
-                      fontWeight:
-                          !_useMetricSystem ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ],
+              // Unit label - cm only
+              Text(
+                'cm',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -724,8 +668,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               Expanded(
                 child: _buildEnhancedSlider(
                   value: _heightCm,
-                  min: _useMetricSystem ? 140 : 55, // 140cm = ~55in
-                  max: _useMetricSystem ? 220 : 87, // 220cm = ~87in
+                  min: 140, // minimum height in cm
+                  max: 220, // maximum height in cm
                   divisions: 80,
                   onChanged: (value) {
                     setState(() {
@@ -737,9 +681,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               SizedBox(
                 width: 60,
                 child: Text(
-                  _useMetricSystem
-                      ? '${_heightCm.round()} cm'
-                      : '${_heightCm.round()} in',
+                  '${_heightCm.round()} cm',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: customColors?.textPrimary,
                         fontWeight: FontWeight.w500,
@@ -762,7 +704,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               ),
               const SizedBox(width: 8),
               _buildTooltip(
-                'Your age affects your basal metabolic rate (BMR) calculation'),
+                  'Your age affects your basal metabolic rate (BMR) calculation'),
             ],
           ),
           const SizedBox(height: 8),
@@ -813,13 +755,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             trackHeight: 6,
             trackShape: const RoundedRectSliderTrackShape(),
             activeTrackColor: Theme.of(context).colorScheme.primary,
-            inactiveTrackColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            inactiveTrackColor:
+                Theme.of(context).colorScheme.primary.withOpacity(0.1),
             thumbShape: const RoundSliderThumbShape(
               enabledThumbRadius: 8,
               elevation: 4,
               pressedElevation: 8,
             ),
-            overlayColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+            overlayColor:
+                Theme.of(context).colorScheme.primary.withOpacity(0.2),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
             valueIndicatorShape: const PaddleSliderValueIndicatorShape(),
             valueIndicatorColor: Theme.of(context).colorScheme.primary,
@@ -837,14 +781,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             onChanged: onChanged,
           ),
         ),
-        
+
         // Optional markers for recommended ranges
         if (markers != null && markers.isNotEmpty)
           SizedBox(
             height: 16,
             child: Stack(
               children: markers.map((marker) {
-                double position = (((marker['value'] as double) - min) / (max - min));
+                double position =
+                    (((marker['value'] as double) - min) / (max - min));
                 return Positioned(
                   left: position * MediaQuery.of(context).size.width * 0.75,
                   child: Column(
@@ -852,13 +797,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                       Container(
                         width: 2,
                         height: 8,
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withOpacity(0.5),
                       ),
                       Text(
                         marker['label'] as String,
                         style: TextStyle(
                           fontSize: 10,
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.7),
                         ),
                       ),
                     ],
@@ -870,7 +821,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       ],
     );
   }
-  
+
   Widget _buildTooltip(String message) {
     return Tooltip(
       message: message,
@@ -1058,7 +1009,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               ),
               const SizedBox(width: 8),
               _buildTooltip(
-                'Higher protein intake supports muscle maintenance and growth'),
+                  'Higher protein intake supports muscle maintenance and growth'),
             ],
           ),
           const SizedBox(height: 8),
@@ -1114,7 +1065,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               ),
               const SizedBox(width: 8),
               _buildTooltip(
-                'Fat is essential for hormone production and vitamin absorption'),
+                  'Fat is essential for hormone production and vitamin absorption'),
             ],
           ),
           const SizedBox(height: 8),
@@ -1179,9 +1130,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: isSelected 
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
-                : Colors.black.withOpacity(0.05),
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                  : Colors.black.withOpacity(0.05),
               blurRadius: isSelected ? 8 : 3,
               offset: Offset(0, isSelected ? 3 : 1),
               spreadRadius: isSelected ? 1 : 0,
@@ -1229,7 +1180,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected 
+                  color: isSelected
                       ? Theme.of(context).colorScheme.primary
                       : customColors?.textPrimary ?? Colors.black,
                 ),
@@ -1262,9 +1213,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: isSelected 
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-                  : Colors.black.withOpacity(0.03),
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
+                    : Colors.black.withOpacity(0.03),
                 blurRadius: isSelected ? 6 : 3,
                 offset: Offset(0, isSelected ? 2 : 1),
               ),
@@ -1277,7 +1228,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             child: Row(
               children: [
                 AnimatedContainer(
@@ -1315,8 +1267,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                         duration: const Duration(milliseconds: 300),
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected 
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected
                               ? Theme.of(context).colorScheme.primary
                               : customColors?.textPrimary ?? Colors.black,
                         ),
@@ -1337,7 +1290,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -1375,9 +1331,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: isSelected 
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-                  : Colors.black.withOpacity(0.03),
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
+                    : Colors.black.withOpacity(0.03),
                 blurRadius: isSelected ? 8 : 3,
                 offset: Offset(0, isSelected ? 3 : 1),
                 spreadRadius: isSelected ? 1 : 0,
@@ -1389,7 +1345,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                   : Colors.transparent,
               width: 2,
             ),
-            gradient: isSelected 
+            gradient: isSelected
                 ? LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -1410,13 +1366,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                   height: 56,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                        ? Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withOpacity(0.15)
                         : Colors.grey.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.2),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -1446,8 +1408,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                         duration: const Duration(milliseconds: 300),
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected 
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected
                               ? Theme.of(context).colorScheme.primary
                               : customColors?.textPrimary ?? Colors.black,
                         ),
@@ -1471,7 +1434,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -1491,19 +1457,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
 
   Widget _buildSummaryPage() {
     final customColors = Theme.of(context).extension<CustomColors>();
-    
+
     String getActivityLevelText() {
-      if (_activityLevel == MacroCalculatorService.SEDENTARY) return 'Sedentary';
-      if (_activityLevel == MacroCalculatorService.LIGHTLY_ACTIVE) return 'Lightly Active';
-      if (_activityLevel == MacroCalculatorService.MODERATELY_ACTIVE) return 'Moderately Active';
-      if (_activityLevel == MacroCalculatorService.VERY_ACTIVE) return 'Very Active';
-      if (_activityLevel == MacroCalculatorService.EXTRA_ACTIVE) return 'Extra Active';
+      if (_activityLevel == MacroCalculatorService.SEDENTARY)
+        return 'Sedentary';
+      if (_activityLevel == MacroCalculatorService.LIGHTLY_ACTIVE)
+        return 'Lightly Active';
+      if (_activityLevel == MacroCalculatorService.MODERATELY_ACTIVE)
+        return 'Moderately Active';
+      if (_activityLevel == MacroCalculatorService.VERY_ACTIVE)
+        return 'Very Active';
+      if (_activityLevel == MacroCalculatorService.EXTRA_ACTIVE)
+        return 'Extra Active';
       return 'Unknown';
     }
-    
+
     String getGoalText() {
       if (_goal == MacroCalculatorService.GOAL_LOSE) return 'Lose Weight';
-      if (_goal == MacroCalculatorService.GOAL_MAINTAIN) return 'Maintain Weight';
+      if (_goal == MacroCalculatorService.GOAL_MAINTAIN)
+        return 'Maintain Weight';
       if (_goal == MacroCalculatorService.GOAL_GAIN) return 'Gain Weight';
       return 'Unknown';
     }
@@ -1528,7 +1500,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                 ),
           ),
           const SizedBox(height: 32),
-          
+
           // Personal Info Section
           _buildSummarySection(
             title: 'Personal Information',
@@ -1536,7 +1508,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             items: [
               {
                 'label': 'Gender',
-                'value': _gender == MacroCalculatorService.MALE ? 'Male' : 'Female',
+                'value':
+                    _gender == MacroCalculatorService.MALE ? 'Male' : 'Female',
                 'page': 1,
               },
               {
@@ -1546,23 +1519,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               },
               {
                 'label': 'Weight',
-                'value': _useMetricSystem
-                    ? '${_weightKg.toStringAsFixed(1)} kg'
-                    : '${(_weightKg).round()} lb',
+                'value': '${_weightKg.toStringAsFixed(1)} kg',
                 'page': 2,
               },
               {
                 'label': 'Height',
-                'value': _useMetricSystem
-                    ? '${_heightCm.round()} cm'
-                    : '${_heightCm.round()} in',
+                'value': '${_heightCm.round()} cm',
                 'page': 2,
               },
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Activity & Goals Section
           _buildSummarySection(
             title: 'Activity & Goals',
@@ -1580,15 +1549,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               },
               if (_goal != MacroCalculatorService.GOAL_MAINTAIN)
                 {
-                  'label': _goal == MacroCalculatorService.GOAL_LOSE ? 'Calorie Deficit' : 'Calorie Surplus',
+                  'label': _goal == MacroCalculatorService.GOAL_LOSE
+                      ? 'Calorie Deficit'
+                      : 'Calorie Surplus',
                   'value': '$_deficit calories per day',
                   'page': 4,
                 },
             ],
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Macro Settings Section
           _buildSummarySection(
             title: 'Macro Settings',
@@ -1596,7 +1567,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
             items: [
               {
                 'label': 'Protein Ratio',
-                'value': '${_proteinRatio.toStringAsFixed(1)} g per kg of bodyweight',
+                'value':
+                    '${_proteinRatio.toStringAsFixed(1)} g per kg of bodyweight',
                 'page': 5,
               },
               {
@@ -1615,14 +1587,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       ),
     );
   }
-  
+
   Widget _buildSummarySection({
     required String title,
     required IconData icon,
     required List<Map<String, dynamic>> items,
   }) {
     final customColors = Theme.of(context).extension<CustomColors>();
-    
+
     return Container(
       decoration: BoxDecoration(
         color: customColors?.cardBackground ?? Colors.white,
@@ -1647,7 +1619,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    color:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -1668,14 +1641,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
               ],
             ),
           ),
-          
+
           // Divider
           Divider(
             height: 1,
             thickness: 1,
             color: Colors.grey.withOpacity(0.1),
           ),
-          
+
           // List items
           ...items.map((item) => _buildSummaryItem(
                 label: item['label'],
@@ -1686,14 +1659,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
       ),
     );
   }
-  
+
   Widget _buildSummaryItem({
     required String label,
     required String value,
     required int page,
   }) {
     final customColors = Theme.of(context).extension<CustomColors>();
-    
+
     return InkWell(
       onTap: () => _goToPage(page),
       child: Padding(

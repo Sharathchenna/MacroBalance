@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/camera/camera.dart';
 
 class SearchHeader extends StatelessWidget {
   final TextEditingController controller;
@@ -15,6 +16,15 @@ class SearchHeader extends StatelessWidget {
     required this.onChanged,
     required this.onBack,
   }) : super(key: key);
+
+  void _navigateToCameraScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CameraScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,40 +72,77 @@ class SearchHeader extends StatelessWidget {
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              onSubmitted: onSearch,
-              textInputAction: TextInputAction.search,
-              style: AppTypography.body1.copyWith(
-                color: customColors.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Search foods, recipes, brands...',
-                hintStyle: AppTypography.body1.copyWith(
-                  color: customColors.textPrimary.withValues(alpha: .5),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    onSubmitted: onSearch,
+                    textInputAction: TextInputAction.search,
+                    style: AppTypography.body1.copyWith(
+                      color: customColors.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search foods, recipes, brands...',
+                      hintStyle: AppTypography.body1.copyWith(
+                        color: customColors.textPrimary.withOpacity(0.5),
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: customColors.textPrimary.withOpacity(0.7),
+                      ),
+                      suffixIcon: controller.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.close_rounded,
+                                color:
+                                    customColors.textPrimary.withOpacity(0.7),
+                              ),
+                              onPressed: () {
+                                controller.clear();
+                                onChanged('');
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
                 ),
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  color: customColors.textPrimary.withValues(alpha: .7),
-                ),
-                suffixIcon: controller.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: customColors.textPrimary
-                              .withValues(alpha: .7),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(16)),
+                    onTap: () => _navigateToCameraScreen(context),
+                    child: Container(
+                      height: 56,
+                      width: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            customColors.accentPrimary.withOpacity(0.05),
+                            customColors.accentPrimary.withOpacity(0.15)
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
                         ),
-                        onPressed: () {
-                          controller.clear();
-                          onChanged('');
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 16),
-              ),
+                        borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(16)),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.camera_alt_rounded,
+                          color: customColors.accentPrimary,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

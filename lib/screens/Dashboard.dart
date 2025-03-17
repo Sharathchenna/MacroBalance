@@ -270,27 +270,42 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          Expanded(
-            child: _buildNavigationButton(
-              icon: Icons.chevron_left,
-              onTap: () => _navigateDate(-1),
+    return GestureDetector(
+      // Add horizontal swipe gesture detection
+      onHorizontalDragEnd: (details) {
+        // Calculate swipe direction based on velocity
+        if (details.primaryVelocity! > 0) {
+          // Swipe right to left - go to previous day
+          HapticFeedback.lightImpact();
+          _navigateDate(-1);
+        } else if (details.primaryVelocity! < 0) {
+          // Swipe left to right - go to next day
+          HapticFeedback.lightImpact();
+          _navigateDate(1);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Expanded(
+              child: _buildNavigationButton(
+                icon: Icons.chevron_left,
+                onTap: () => _navigateDate(-1),
+              ),
             ),
-          ),
-          Expanded(
-            child: _buildDateButton(),
-          ),
-          Expanded(
-            child: _buildNavigationButton(
-              icon: Icons.chevron_right,
-              onTap: () => _navigateDate(1),
+            Expanded(
+              child: _buildDateButton(),
             ),
-          ),
-        ],
+            Expanded(
+              child: _buildNavigationButton(
+                icon: Icons.chevron_right,
+                onTap: () => _navigateDate(1),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -303,9 +318,13 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
       color:
           Theme.of(context).extension<CustomColors>()?.dateNavigatorBackground,
       shape: const CircleBorder(),
+      elevation: 0.6, // Add subtle elevation
       child: InkWell(
         customBorder: const CircleBorder(),
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
         child: Padding(
           padding: const EdgeInsets.all(7.0), // Reduced from 8
           child: Icon(
@@ -325,18 +344,18 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
       builder: (context, dateProvider, child) {
         return Center(
           child: InkWell(
-            borderRadius: BorderRadius.circular(18.0), // Slightly reduced
+            borderRadius: BorderRadius.circular(18.0),
             onTap: () {
-              dateProvider.setDate(DateTime.now());
+              _showCalendarPopup(context, dateProvider);
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14.0, vertical: 7.0), // Reduced
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14.0, vertical: 7.0),
               decoration: BoxDecoration(
                 color: Theme.of(context)
                     .extension<CustomColors>()
                     ?.dateNavigatorBackground,
-                borderRadius: BorderRadius.circular(18.0), // Slightly reduced
+                borderRadius: BorderRadius.circular(18.0),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -346,14 +365,14 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
                     color: Theme.of(context).brightness == Brightness.light
                         ? Colors.black
                         : Colors.white,
-                    size: 14, // Reduced from 16
+                    size: 14,
                   ),
-                  const SizedBox(width: 6.0), // Reduced from 8
+                  const SizedBox(width: 6.0),
                   Text(
                     _formatDate(dateProvider.selectedDate),
                     style: GoogleFonts.poppins(
-                      fontSize: 13, // Add specific size
-                      fontWeight: FontWeight.w500, // Make it medium weight
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                       color: Theme.of(context).brightness == Brightness.light
                           ? Colors.black
                           : Colors.white,
@@ -361,6 +380,62 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
                   ),
                 ],
               ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Add this method to show the calendar popup
+  void _showCalendarPopup(BuildContext context, DateProvider dateProvider) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.4,
+          padding: const EdgeInsets.only(top: 6.0),
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          color: Theme.of(context).brightness == Brightness.light
+              ? CupertinoColors.systemBackground.resolveFrom(context)
+              : CupertinoColors.darkBackgroundGray,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: Text('Cancel'),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    CupertinoButton(
+                      child: Text(
+                        'Done',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.date,
+                    initialDateTime: dateProvider.selectedDate,
+                    maximumDate: DateTime.now().add(const Duration(days: 365)),
+                    minimumDate:
+                        DateTime.now().subtract(const Duration(days: 365)),
+                    onDateTimeChanged: (DateTime newDate) {
+                      dateProvider.setDate(newDate);
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         );

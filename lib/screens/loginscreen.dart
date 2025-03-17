@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/signup.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'dart:io';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -390,32 +391,33 @@ class _LoginScreenState extends State<LoginScreen>
 
                   const SizedBox(height: 16),
 
-                  // Apple Sign In Button
-                  OutlinedButton.icon(
-                    onPressed: isLoading ? null : _signInWithApple,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: theme.primaryColor.withOpacity(0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  // Apple Sign In Button - only show on iOS
+                  if (Platform.isIOS) ...[
+                    OutlinedButton.icon(
+                      onPressed: isLoading ? null : _signInWithApple,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                            color: theme.primaryColor.withOpacity(0.3)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                    ),
-                    icon: Icon(
-                      Icons.apple,
-                      size: 22,
-                      color: theme.primaryColor,
-                    ),
-                    label: Text(
-                      'Continue with Apple',
-                      style: TextStyle(
+                      icon: Icon(
+                        Icons.apple,
+                        size: 22,
                         color: theme.primaryColor,
-                        fontWeight: FontWeight.w500,
+                      ),
+                      label: Text(
+                        'Continue with Apple',
+                        style: TextStyle(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
+                  ],
 
                   // Registration prompt
                   Row(

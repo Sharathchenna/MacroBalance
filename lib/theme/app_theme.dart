@@ -32,6 +32,7 @@ class AppTheme {
         macroCardBackground: Colors.white,
         textPrimary: Colors.black, // Changed from black87 to full black
         textSecondary: Color(0xFF666666),
+        accentPrimary: Color(0xFF4CAF50), // Added accent primary color
       )
     ],
     textTheme: TextTheme(
@@ -76,6 +77,7 @@ class AppTheme {
         macroCardBackground: Color(0xFF1E1E1E),
         textPrimary: Colors.white,
         textSecondary: Color(0xFFAAAAAA),
+        accentPrimary: Color(0xFF81C784), // Added accent primary color
       )
     ],
   );
@@ -90,6 +92,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
   final Color macroCardBackground;
   final Color textPrimary;
   final Color textSecondary;
+  final Color accentPrimary; // Added accentPrimary property
 
   const CustomColors({
     required this.cardBackground,
@@ -98,6 +101,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     required this.macroCardBackground,
     required this.textPrimary,
     required this.textSecondary,
+    required this.accentPrimary, // Added accentPrimary parameter
   });
 
   @override
@@ -108,6 +112,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     Color? macroCardBackground,
     Color? textPrimary,
     Color? textSecondary,
+    Color? accentPrimary, // Added accentPrimary parameter to copyWith
   }) {
     return CustomColors(
       cardBackground: cardBackground ?? this.cardBackground,
@@ -118,6 +123,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
       macroCardBackground: macroCardBackground ?? this.macroCardBackground,
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
+      accentPrimary: accentPrimary ?? this.accentPrimary, // Added accentPrimary
     );
   }
 
@@ -137,6 +143,8 @@ class CustomColors extends ThemeExtension<CustomColors> {
           Color.lerp(macroCardBackground, other.macroCardBackground, t)!,
       textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
+      accentPrimary: Color.lerp(
+          accentPrimary, other.accentPrimary, t)!, // Added accentPrimary lerp
     );
   }
 }
