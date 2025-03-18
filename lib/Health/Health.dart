@@ -271,4 +271,57 @@ class HealthService {
       return 0;
     }
   }
+
+  Future<int> getStepsForDate(DateTime date) async {
+    try {
+      // Set the time to start of day and end of day for the given date
+      final startTime = DateTime(date.year, date.month, date.day);
+      final endTime = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+      final steps = await health.getTotalStepsInInterval(startTime, endTime);
+      return steps ?? 0;
+    } catch (e) {
+      print('Error getting steps for date: $e');
+      return 0;
+    }
+  }
+
+  Future<double> getCaloriesForDate(DateTime date) async {
+    try {
+      // Set the time to start of day and end of day for the given date
+      final startTime = DateTime(date.year, date.month, date.day);
+      final endTime = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+      // Use getHealthDataFromTypes to get active energy burned data
+      List<HealthDataPoint> healthData = await health.getHealthDataFromTypes(
+          types: [
+            HealthDataType.ACTIVE_ENERGY_BURNED,
+            HealthDataType.BASAL_ENERGY_BURNED
+          ],
+          startTime: startTime,
+          endTime: endTime).catchError((error) {
+        print('Error fetching health data: $error');
+        return [];
+      });
+
+      double totalCalories = 0;
+      // Sum up all active energy burned values
+      for (HealthDataPoint point in healthData) {
+        if (point.type == HealthDataType.ACTIVE_ENERGY_BURNED) {
+          if (point.value is NumericHealthValue) {
+            totalCalories += (point.value as NumericHealthValue).numericValue;
+          } else if (point.value is double) {
+            totalCalories += point.value as double;
+          } else if (point.value is int) {
+            totalCalories += (point.value as int).toDouble();
+          }
+        }
+      }
+
+      return totalCalories;
+    } catch (e) {
+      print('Error getting calories for date: $e');
+      return 0.0;
+    }
+  }
 }
