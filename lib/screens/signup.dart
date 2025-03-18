@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/screens/forgot_password_screen.dart';
 import 'dart:io';
 
 class Signup extends StatefulWidget {
@@ -330,6 +331,35 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         });
                       },
                       prefixIcon: Icons.lock_outline,
+                    ),
+
+                    // Forgot Password link
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ForgotPasswordScreen(),
+                            ),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 12),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Forgot password?',
+                          style: TextStyle(
+                            color: theme.colorScheme.secondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 30),

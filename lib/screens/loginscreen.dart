@@ -10,6 +10,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:io';
 import 'package:macrotracker/services/auth_service.dart';
+import 'package:macrotracker/screens/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -293,12 +294,11 @@ class _LoginScreenState extends State<LoginScreen>
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: () {
-                          // TODO: Implement forgot password
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Forgot password functionality coming soon!'),
-                              behavior: SnackBarBehavior.floating,
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ForgotPasswordScreen(),
                             ),
                           );
                         },
@@ -477,6 +477,7 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+
   Widget _buildInputLabel(String label) {
     final customColors = Theme.of(context).extension<CustomColors>();
     return Padding(
@@ -491,6 +492,7 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,

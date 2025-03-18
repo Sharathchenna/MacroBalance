@@ -36,6 +36,20 @@ class AuthService {
     }
   }
 
+  Future<void> resetPassword(String email) async {
+    try {
+      await supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'io.supabase.macrotracker://reset-callback/',
+      );
+    } on AuthException catch (e) {
+      throw AuthException(e.message);
+    } catch (error) {
+      throw Exception(
+          'An unexpected error occurred during password reset: $error');
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await supabase.auth.signOut();
