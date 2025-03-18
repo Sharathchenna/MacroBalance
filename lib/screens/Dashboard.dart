@@ -34,119 +34,144 @@ class _DashboardState extends State<Dashboard> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Content
-            Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                DateNavigatorbar(),
-                CalorieTracker(),
-                Expanded(child: MealSection())
-              ],
+      extendBody: true,
+      body: Stack(
+        children: [
+          // Fixed DateNavigatorbar at the top
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              color:
+                  Theme.of(context).scaffoldBackgroundColor, // Match background
+              child: SafeArea(
+                bottom: false,
+                child: DateNavigatorbar(),
+              ),
             ),
-            // Updated Navigation Bar - frosted and translucent
-            Positioned(
-              bottom: screenHeight * 0.015,
-              left: screenWidth * 0.18,
-              right: screenWidth * 0.18,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14.0),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14.0),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                    child: Container(
-                      height: 45,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 4, horizontal: 2),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14.0),
+          ),
+
+          // Scrollable content positioned below the DateNavigatorbar
+          Positioned(
+            top: MediaQuery.of(context).padding.top +
+                56, // SafeArea + estimated DateNavigatorbar height
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  CalorieTracker(),
+                  MealSection(),
+                  // Add padding to ensure content isn't hidden behind the nav bar
+                  SizedBox(height: 80),
+                ],
+              ),
+            ),
+          ),
+
+          // Navigation bar fixed at bottom
+          Positioned(
+            bottom: screenHeight * 0.015,
+            left: screenWidth * 0.18,
+            right: screenWidth * 0.18,
+            child: Container(
+              // Your existing navigation bar code...
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14.0),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14.0),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                  child: Container(
+                    height: 45,
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14.0),
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.grey.shade50.withValues(
+                              alpha: 0.4) // Updated background color
+                          : Colors.black.withValues(alpha: 0.4),
+                      border: Border.all(
                         color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade50.withValues(
-                                alpha: 0.4) // Updated background color
-                            : Colors.black.withValues(alpha: 0.4),
-                        border: Border.all(
+                            ? Colors.grey.withValues(alpha: 0.2)
+                            : Colors.white.withValues(alpha: 0.1),
+                        width: 0.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
                           color:
                               Theme.of(context).brightness == Brightness.light
-                                  ? Colors.grey.withValues(alpha: 0.2)
-                                  : Colors.white.withValues(alpha: 0.1),
-                          width: 0.5,
+                                  ? Colors.black.withValues(alpha: 0.05)
+                                  : Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          spreadRadius: 0,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? Colors.black.withValues(alpha: 0.05)
-                                    : Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 10,
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildNavItemCompact(
-                              context: context,
-                              icon: CupertinoIcons.add,
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    builder: (context) => FoodSearchPage(),
-                                  ),
-                                );
-                              }),
-                          _buildNavItemCompact(
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildNavItemCompact(
                             context: context,
-                            icon: CupertinoIcons.camera,
+                            icon: CupertinoIcons.add,
                             onTap: () {
                               HapticFeedback.lightImpact();
                               Navigator.push(
                                 context,
                                 CupertinoPageRoute(
-                                    builder: (context) => CameraScreen()),
+                                  builder: (context) => FoodSearchPage(),
+                                ),
                               );
-                            },
-                          ),
-                          _buildNavItemCompact(
-                            context: context,
-                            icon: CupertinoIcons.graph_circle,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                    builder: (context) => GoalsScreen()),
-                              );
-                            },
-                          ),
-                          _buildNavItemCompact(
-                            context: context,
-                            icon: CupertinoIcons.person,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                    builder: (context) => AccountDashboard()),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                            }),
+                        _buildNavItemCompact(
+                          context: context,
+                          icon: CupertinoIcons.camera,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                  builder: (context) => CameraScreen()),
+                            );
+                          },
+                        ),
+                        _buildNavItemCompact(
+                          context: context,
+                          icon: CupertinoIcons.graph_circle,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                  builder: (context) => GoalsScreen()),
+                            );
+                          },
+                        ),
+                        _buildNavItemCompact(
+                          context: context,
+                          icon: CupertinoIcons.person,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                  builder: (context) => AccountDashboard()),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1121,18 +1146,16 @@ class _MealSectionState extends State<MealSection> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            _buildMealCard('Breakfast'),
-            _buildMealCard('Lunch'),
-            _buildMealCard('Snacks'),
-            _buildMealCard('Dinner'),
-            SizedBox(height: 100),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          _buildMealCard('Breakfast'),
+          _buildMealCard('Lunch'),
+          _buildMealCard('Snacks'),
+          _buildMealCard('Dinner'),
+          // Removed SizedBox here since we added it to the main column
+        ],
       ),
     );
   }
