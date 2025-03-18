@@ -8,6 +8,7 @@ import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/signup.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:io';
+import 'package:macrotracker/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _supabase = Supabase.instance.client;
+  final AuthService _authService = AuthService();
   bool isPasswordVisible = false;
   bool isLoading = false;
   late AnimationController _animationController;
@@ -65,28 +67,39 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      final response = await _supabase.auth.signInWithPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
+      await _authService.signIn(
+        _emailController.text,
+        _passwordController.text,
       );
-      if (response.user != null) {
+
+      if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AuthGate()),
           (route) => false,
         );
       }
-    } catch (error) {
+    } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${error.toString()}'),
+          content: Text('Error: ${e.message}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 

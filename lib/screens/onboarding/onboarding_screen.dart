@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
 import 'package:macrotracker/theme/app_theme.dart'; // Import theme
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -106,7 +109,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     }
   }
 
-  void _calculateAndShowResults() {
+  void _calculateAndShowResults() async {
     final calculatorService = MacroCalculatorService();
     final results = calculatorService.calculateAll(
       gender: _gender,
@@ -119,6 +122,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       proteinRatio: _proteinRatio,
       fatRatio: _fatRatio,
     );
+
+    // Save macro results
+    await saveMacroResults(results.toString());
 
     // Navigate to results screen with a transition
     Navigator.of(context).pushReplacement(
@@ -145,6 +151,94 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         transitionDuration: const Duration(milliseconds: 500),
       ),
     );
+  }
+
+  Future<void> saveMacroResults(String macroResults) async {
+    // Save locally
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('macro_results', macroResults);
+
+    // Save to Supabase if user is authenticated
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser != null) {
+      try {
+        // Ensure we're working with proper JSON - parse first
+        Map<String, dynamic> macroResultsJson;
+        try {
+          // If it's already a valid JSON string
+          macroResultsJson = json.decode(macroResults);
+        } catch (e) {
+          print('Error parsing macroResults: $e');
+          // If it fails, it might be a toString() representation of a Map
+          // Try to convert it to proper JSON format
+          String fixedJson = macroResults;
+
+          // Replace occurrences of "key:" with "\"key\":" (for string keys)
+          RegExp keyRegex = RegExp(r'([a-zA-Z_][a-zA-Z0-9_]*):');
+          fixedJson = fixedJson.replaceAllMapped(keyRegex, (match) {
+            return '"${match.group(1)}":';
+          });
+
+          try {
+            macroResultsJson = json.decode(fixedJson);
+          } catch (e) {
+            print('Could not fix JSON format: $e');
+            // Fallback to a simple representation
+            macroResultsJson = {
+              'calories': 0,
+              'protein': 0,
+              'carbs': 0,
+              'fat': 0,
+            };
+          }
+        }
+
+        // Save all user onboarding data in structured format
+        await Supabase.instance.client.from('user_macros').upsert({
+          'id': currentUser.id,
+          'email': currentUser.email ?? '',
+          'macro_results': macroResultsJson,
+          'calories_goal': macroResultsJson['calories'] ??
+              macroResultsJson['calorie_target'],
+          'protein_goal': macroResultsJson['protein'],
+          'carbs_goal': macroResultsJson['carbs'],
+          'fat_goal': macroResultsJson['fat'],
+          'gender': _gender,
+          'weight': _weightKg,
+          'height': _heightCm,
+          'age': _age,
+          'activity_level': _activityLevel,
+          'goal_type': _goal,
+          'deficit_surplus': _deficit,
+          'protein_ratio': _proteinRatio,
+          'fat_ratio': _fatRatio,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+
+        // Also save user preferences for future reference
+        await Supabase.instance.client.from('user_preferences').upsert({
+          'user_id': currentUser.id,
+          'measurement_system': 'metric', // Currently we only support metric
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+
+        // Also save these values to SharedPreferences for local access
+        prefs.setDouble(
+            'calories_goal',
+            macroResultsJson['calories'] ??
+                macroResultsJson['calorie_target'] ??
+                0.0);
+        prefs.setDouble('protein_goal', macroResultsJson['protein'] ?? 0.0);
+        prefs.setDouble('carbs_goal', macroResultsJson['carbs'] ?? 0.0);
+        prefs.setDouble('fat_goal', macroResultsJson['fat'] ?? 0.0);
+      } catch (e) {
+        print('Error saving macro results to Supabase: $e');
+        // Add better error handling
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save data: $e')),
+        );
+      }
+    }
   }
 
   @override
