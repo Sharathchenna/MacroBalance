@@ -49,7 +49,7 @@ struct MacroWidgetEntry: TimelineEntry {
 // Provider that delivers timeline entries
 struct Provider: TimelineProvider {
     // Use the correct app group identifier that matches the Flutter side
-    private let userDefaults = UserDefaults(suiteName: "group.com.sharathchenna88.nutrino")
+    private let userDefaults = UserDefaults(suiteName: "group.com.sharathchenna.shared")
     private let logger = Logger(subsystem: "com.sharathchenna88.nutrino", category: "Widget")
     
     func placeholder(in context: Context) -> MacroWidgetEntry {
@@ -320,6 +320,7 @@ struct MacroWidgetEntryView: View {
         .padding(.horizontal, 0)
         .padding(.vertical, 0)
         .widgetBackground(backgroundGradient)
+        .widgetURL(URL(string: "nutrino:///dashboard"))
     }
     
     // Modern gradient background
@@ -665,6 +666,7 @@ struct MacroWidgetEntryView: View {
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(colorScheme == .dark ? Color.gray.opacity(0.15) : Color.gray.opacity(0.08))
                                 )
+                                .widgetURL(URL(string: "nutrino:///dashboard"))
                             }
                         }
                     } else {
@@ -749,6 +751,7 @@ struct MacroCircleView: View {
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(color)
         }
+        .widgetURL(URL(string: "nutrino:///dashboard"))
     }
 }
 

@@ -6,6 +6,7 @@ import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/screens/GoalsPage.dart';
 import 'package:macrotracker/screens/dashboard.dart';
+import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
 import 'package:macrotracker/AI/gemini.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
@@ -20,9 +21,50 @@ import 'package:provider/provider.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
+import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:uni_links/uni_links.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Add route name constants at the top level
+class Routes {
+  static const String onboarding = '/onboarding';
+  static const String home = '/home';
+  static const String initial = '/';
+  static const String authGate = '/auth';
+  static const String dashboard = '/dashboard';
+  static const String goals = '/goals';
+  static const String search = '/search';
+  static const String account = '/account';
+}
+
+// Add route observer
+class MyRouteObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('Navigation: Pushed ${route.settings.name}');
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('Navigation: Popped ${route.settings.name}');
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    debugPrint(
+        'Navigation: Replaced ${oldRoute?.settings.name} with ${newRoute?.settings.name}');
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('Navigation: Removed ${route.settings.name}');
+  }
+}
+
+bool _initialUriHandled = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,16 +89,79 @@ void main() async {
 
   await Posthog().screen(screenName: "MainScreen");
 
+  // Initialize deep link handling
+  initDeepLinks();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => FoodEntryProvider()),
         ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => MealProvider()), // Move this here
       ],
-      child: MyApp(),
+      child: const MyApp(), // Add const
     ),
   );
+}
+
+// Add this function to handle deep links
+Future<void> initDeepLinks() async {
+  // Handle app opened from a link
+  try {
+    final initialUri = await getInitialUri();
+    if (initialUri != null) {
+      debugPrint('Initial URI: $initialUri');
+      _handleDeepLink(initialUri);
+    }
+    _initialUriHandled = true;
+  } on PlatformException catch (e) {
+    debugPrint('Failed to get initial URI: ${e.message}');
+  }
+
+  // Handle links when app is already running
+  uriLinkStream.listen((Uri? uri) {
+    if (!_initialUriHandled) return;
+    if (uri != null) {
+      debugPrint('URI link received: $uri');
+      _handleDeepLink(uri);
+    }
+  }, onError: (Object err) {
+    debugPrint('URI link error: $err');
+  });
+}
+
+// Function to handle the deep link
+void _handleDeepLink(Uri uri) {
+  // Extract the path from the URI
+  final path = uri.path;
+
+  debugPrint('Handling deep link path: $path');
+
+  // Navigate based on the path
+  if (path.isEmpty || path == '/') {
+    navigatorKey.currentState?.pushNamed(Routes.dashboard);
+    return;
+  }
+
+  // Check if the path exists in our routes
+  switch (path) {
+    case '/dashboard':
+      navigatorKey.currentState?.pushNamed(Routes.dashboard);
+      break;
+    case '/goals':
+      navigatorKey.currentState?.pushNamed(Routes.goals);
+      break;
+    case '/search':
+      navigatorKey.currentState?.pushNamed(Routes.search);
+      break;
+    case '/account':
+      navigatorKey.currentState?.pushNamed(Routes.account);
+      break;
+    default:
+      // If we don't recognize the path, go to dashboard
+      navigatorKey.currentState?.pushNamed(Routes.dashboard);
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -64,30 +169,41 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => MealProvider()),
-        ChangeNotifierProvider(create: (_) => FoodEntryProvider()),
-        ChangeNotifierProvider(create: (_) => DateProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-      ],
-      child: Consumer<ThemeProvider>(builder: (context, themeProvider, child) {
-        return MaterialApp(
-          navigatorKey: navigatorKey, // Add the navigator key
-          debugShowCheckedModeBanner: false,
-          title: 'MacroTracker',
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode:
-              themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          home: AuthGate(),
-          routes: {
-            '/onboarding': (context) => const OnboardingScreen(),
-            '/home': (context) =>
-                const Dashboard(), // Using Dashboard as home screen
-          },
-        );
-      }),
-    );
+    return Consumer<ThemeProvider>(builder: (context, themeProvider, child) {
+      return MaterialApp(
+        navigatorKey: navigatorKey,
+        debugShowCheckedModeBanner: false,
+        title: 'MacroTracker',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+        initialRoute: Routes.initial,
+        navigatorObservers: [MyRouteObserver()],
+        routes: {
+          Routes.initial: (context) => const AuthGate(),
+          Routes.onboarding: (context) => const OnboardingScreen(),
+          Routes.home: (context) => const Dashboard(),
+          Routes.dashboard: (context) => const Dashboard(),
+          Routes.goals: (context) => const GoalsScreen(),
+          Routes.search: (context) => const FoodSearchPage(),
+          Routes.account: (context) => const AccountDashboard(),
+        },
+        onGenerateRoute: (settings) {
+          // Handle any dynamic routes or routes with parameters here
+          debugPrint('Generating route for: ${settings.name}');
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const AuthGate(),
+          );
+        },
+        onUnknownRoute: (settings) {
+          debugPrint('Unknown route: ${settings.name}');
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const AuthGate(),
+          );
+        },
+      );
+    });
   }
 }

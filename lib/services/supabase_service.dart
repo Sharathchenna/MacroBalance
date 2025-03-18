@@ -10,6 +10,23 @@ class SupabaseService {
 
   final supabaseClient = Supabase.instance.client;
 
+  // Check if Supabase connection is working
+  Future<bool> checkConnection() async {
+    try {
+      print('Checking Supabase connection...');
+      final response = await supabaseClient
+          .from('health_check')
+          .select()
+          .limit(1)
+          .maybeSingle();
+      print('Supabase connection check response: $response');
+      return true;
+    } catch (e) {
+      print('Supabase connection check failed: $e');
+      return false;
+    }
+  }
+
   Future<void> fullSync(String userId) async {
     print('Starting full data sync with Supabase...');
     print('User ID: $userId');
