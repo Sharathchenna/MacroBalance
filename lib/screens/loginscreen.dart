@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/signup.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:io';
 import 'package:macrotracker/services/auth_service.dart';
 
@@ -208,260 +209,267 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 40),
-                  // App logo or icon could be added here
-                  Hero(
-                    tag: 'app_logo',
-                    child: Container(
-                      height: 80,
-                      width: 80,
-                      alignment: Alignment.center,
-                      child: Image.asset(
-                        'assets/splash_screen/Fitpro.png',
+    final customColors = Theme.of(context).extension<CustomColors>();
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping anywhere on the screen
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 40),
+                    // App logo or icon could be added here
+                    Hero(
+                      tag: 'app_logo',
+                      child: Container(
                         height: 80,
-                        fit: BoxFit.contain,
-                        errorBuilder: (ctx, obj, stack) => Icon(
-                          Icons.fitness_center,
-                          size: 60,
-                          color: theme.primaryColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  Text(
-                    'Welcome Back',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Login to continue tracking your fitness journey',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.primaryColor.withOpacity(0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Email Field
-                  _buildInputLabel('Email'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _emailController,
-                    hintText: 'Enter your email',
-                    keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.email_outlined,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Password Field
-                  _buildInputLabel('Password'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _passwordController,
-                    hintText: 'Enter your password',
-                    isPassword: true,
-                    prefixIcon: Icons.lock_outline,
-                  ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        // TODO: Implement forgot password
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'Forgot password functionality coming soon!'),
-                            behavior: SnackBarBehavior.floating,
+                        width: 80,
+                        alignment: Alignment.center,
+                        child: Image.asset(
+                          'assets/splash_screen/Fitpro.png',
+                          height: 80,
+                          fit: BoxFit.contain,
+                          errorBuilder: (ctx, obj, stack) => Icon(
+                            Icons.fitness_center,
+                            size: 60,
+                            color: theme.primaryColor,
                           ),
-                        );
-                      },
-                      style: TextButton.styleFrom(
-                        minimumSize: Size.zero,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 12),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Text(
-                        'Forgot password?',
-                        style: TextStyle(
-                          color: theme.colorScheme.secondary,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 30),
 
-                  const SizedBox(height: 30),
-
-                  // Login Button
-                  ElevatedButton(
-                    onPressed: isLoading ? null : _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primaryColor,
-                      foregroundColor: theme.colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    Text(
+                      'Welcome Back',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: customColors!.textPrimary,
                       ),
-                      elevation: 0,
                     ),
-                    child: isLoading
-                        ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                  theme.colorScheme.onPrimary),
-                            ),
-                          )
-                        : const Text(
-                            "Login",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Or divider
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Divider(
-                          color: theme.primaryColor.withOpacity(0.2),
-                          thickness: 1,
-                        ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Login to continue tracking your fitness journey',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: customColors!.textPrimary.withOpacity(0.7),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    const SizedBox(height: 40),
+
+                    // Email Field
+                    _buildInputLabel('Email'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _emailController,
+                      hintText: 'Enter your email',
+                      keyboardType: TextInputType.emailAddress,
+                      prefixIcon: Icons.email_outlined,
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Password Field
+                    _buildInputLabel('Password'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _passwordController,
+                      hintText: 'Enter your password',
+                      isPassword: true,
+                      prefixIcon: Icons.lock_outline,
+                    ),
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          // TODO: Implement forgot password
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Forgot password functionality coming soon!'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 12),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                         child: Text(
-                          'OR',
+                          'Forgot password?',
                           style: TextStyle(
-                            color: theme.primaryColor.withOpacity(0.6),
+                            color: theme.colorScheme.secondary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
-                      Expanded(
-                        child: Divider(
-                          color: theme.primaryColor.withOpacity(0.2),
-                          thickness: 1,
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    // Login Button
+                    ElevatedButton(
+                      onPressed: isLoading ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: customColors!.textPrimary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        elevation: 0,
                       ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Google Sign In Button
-                  OutlinedButton.icon(
-                    onPressed: isLoading ? null : _nativeGoogleSignIn,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: theme.primaryColor.withOpacity(0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      child: isLoading
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    theme.colorScheme.onPrimary),
+                              ),
+                            )
+                          : Text(
+                              "Login",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.onPrimary,
+                              ),
+                            ),
                     ),
-                    icon: SvgPicture.asset(
-                      "assets/icons/Google.svg",
-                      width: 20,
-                      height: 20,
-                    ),
-                    label: Text(
-                      'Continue with Google',
-                      style: TextStyle(
-                        color: theme.primaryColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
-                  // Apple Sign In Button - only show on iOS
-                  if (Platform.isIOS) ...[
+                    // Or divider
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: customColors.textPrimary.withOpacity(0.2),
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'OR',
+                            style: TextStyle(
+                              color: customColors.textPrimary.withOpacity(0.6),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: theme.primaryColor.withOpacity(0.2),
+                            thickness: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Google Sign In Button
                     OutlinedButton.icon(
-                      onPressed: isLoading ? null : _signInWithApple,
+                      onPressed: isLoading ? null : _nativeGoogleSignIn,
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
-                            color: theme.primaryColor.withOpacity(0.3)),
+                            color: customColors.textPrimary.withOpacity(0.3)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      icon: Icon(
-                        Icons.apple,
-                        size: 22,
-                        color: theme.primaryColor,
+                      icon: SvgPicture.asset(
+                        "assets/icons/Google.svg",
+                        width: 20,
+                        height: 20,
                       ),
                       label: Text(
-                        'Continue with Apple',
+                        'Continue with Google',
                         style: TextStyle(
-                          color: theme.primaryColor,
+                          color: customColors.textPrimary.withOpacity(0.8),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                  ],
 
-                  // Registration prompt
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Don\'t have an account? ',
-                        style: TextStyle(
-                          color: theme.primaryColor.withOpacity(0.7),
+                    const SizedBox(height: 16),
+
+                    // Apple Sign In Button - only show on iOS
+                    if (Platform.isIOS) ...[
+                      OutlinedButton.icon(
+                        onPressed: isLoading ? null : _signInWithApple,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                              color: customColors.textPrimary.withOpacity(0.3)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const Signup(),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Sign up',
+                        icon: Icon(
+                          Icons.apple,
+                          size: 22,
+                          color: theme.primaryColor,
+                        ),
+                        label: Text(
+                          'Continue with Apple',
                           style: TextStyle(
-                            color: theme.colorScheme.secondary,
-                            fontWeight: FontWeight.w600,
+                            color: customColors.textPrimary.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
+                      const SizedBox(height: 20),
                     ],
-                  ),
-                  const SizedBox(height: 40),
-                ],
+
+                    // Registration prompt
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Don\'t have an account? ',
+                          style: TextStyle(
+                            color: customColors.textPrimary.withOpacity(0.7),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => const Signup(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Sign up',
+                            style: TextStyle(
+                              color: theme.colorScheme.secondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ),
@@ -469,21 +477,20 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
   Widget _buildInputLabel(String label) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         label,
         style: TextStyle(
-          color: Theme.of(context).primaryColor,
+          color: customColors!.textPrimary,
           fontWeight: FontWeight.w600,
           fontSize: 14,
         ),
       ),
     );
   }
-
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
@@ -491,15 +498,16 @@ class _LoginScreenState extends State<LoginScreen>
     bool isPassword = false,
     TextInputType keyboardType = TextInputType.text,
   }) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     return TextFormField(
       controller: controller,
       obscureText: isPassword && !isPasswordVisible,
       keyboardType: keyboardType,
-      style: TextStyle(color: Theme.of(context).primaryColor),
+      style: TextStyle(color: customColors!.textPrimary),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: TextStyle(
-          color: Theme.of(context).primaryColor.withOpacity(0.5),
+          color: customColors.textPrimary.withOpacity(0.5),
           fontSize: 14,
         ),
         filled: true,
@@ -507,7 +515,7 @@ class _LoginScreenState extends State<LoginScreen>
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: Theme.of(context).primaryColor.withOpacity(0.5),
+                color: customColors.textPrimary.withOpacity(0.5),
               )
             : null,
         suffixIcon: isPassword

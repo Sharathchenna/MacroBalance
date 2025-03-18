@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:io';
 
 class Signup extends StatefulWidget {
@@ -216,266 +217,274 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final customColors = Theme.of(context).extension<CustomColors>();
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 40),
-                  Hero(
-                    tag: 'app_logo',
-                    child: Container(
-                      height: 80,
-                      width: 80,
-                      alignment: Alignment.center,
-                      child: Image.asset(
-                        'assets/splash_screen/Fitpro.png',
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping anywhere on the screen
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 40),
+                    Hero(
+                      tag: 'app_logo',
+                      child: Container(
                         height: 80,
-                        fit: BoxFit.contain,
-                        errorBuilder: (ctx, obj, stack) => Icon(
-                          Icons.fitness_center,
-                          size: 60,
-                          color: theme.primaryColor,
+                        width: 80,
+                        alignment: Alignment.center,
+                        child: Image.asset(
+                          'assets/splash_screen/Fitpro.png',
+                          height: 80,
+                          fit: BoxFit.contain,
+                          errorBuilder: (ctx, obj, stack) => Icon(
+                            Icons.fitness_center,
+                            size: 60,
+                            color: theme.primaryColor,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 30),
+                    const SizedBox(height: 30),
 
-                  Text(
-                    'Create Account',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Start your fitness journey today',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.primaryColor.withOpacity(0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Name field
-                  _buildInputLabel('Name'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _nameController,
-                    hintText: 'Enter your name',
-                    prefixIcon: Icons.person_outline,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Email field
-                  _buildInputLabel('Email'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _emailController,
-                    hintText: 'Enter your email',
-                    keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.email_outlined,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Password field
-                  _buildInputLabel('Password'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _passwordController,
-                    hintText: 'Create a password',
-                    isPassword: true,
-                    passwordVisibility: isPasswordVisible,
-                    onPasswordVisibilityChanged: (value) {
-                      setState(() {
-                        isPasswordVisible = value;
-                      });
-                    },
-                    prefixIcon: Icons.lock_outline,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Confirm Password field
-                  _buildInputLabel('Confirm Password'),
-                  const SizedBox(height: 8),
-                  _buildTextField(
-                    controller: _confirmPasswordController,
-                    hintText: 'Confirm your password',
-                    isPassword: true,
-                    passwordVisibility: isConfirmPasswordVisible,
-                    onPasswordVisibilityChanged: (value) {
-                      setState(() {
-                        isConfirmPasswordVisible = value;
-                      });
-                    },
-                    prefixIcon: Icons.lock_outline,
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // Sign Up Button
-                  ElevatedButton(
-                    onPressed: isLoading ? null : _signUp,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primaryColor,
-                      foregroundColor: theme.colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    Text(
+                      'Create Account',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: customColors!.textPrimary,
                       ),
-                      elevation: 0,
                     ),
-                    child: isLoading
-                        ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                theme.colorScheme.onPrimary,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Start your fitness journey today',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: customColors!.textPrimary.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+
+                    // Name field
+                    _buildInputLabel('Name'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _nameController,
+                      hintText: 'Enter your name',
+                      prefixIcon: Icons.person_outline,
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Email field
+                    _buildInputLabel('Email'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _emailController,
+                      hintText: 'Enter your email',
+                      keyboardType: TextInputType.emailAddress,
+                      prefixIcon: Icons.email_outlined,
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Password field
+                    _buildInputLabel('Password'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _passwordController,
+                      hintText: 'Create a password',
+                      isPassword: true,
+                      passwordVisibility: isPasswordVisible,
+                      onPasswordVisibilityChanged: (value) {
+                        setState(() {
+                          isPasswordVisible = value;
+                        });
+                      },
+                      prefixIcon: Icons.lock_outline,
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Confirm Password field
+                    _buildInputLabel('Confirm Password'),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      controller: _confirmPasswordController,
+                      hintText: 'Confirm your password',
+                      isPassword: true,
+                      passwordVisibility: isConfirmPasswordVisible,
+                      onPasswordVisibilityChanged: (value) {
+                        setState(() {
+                          isConfirmPasswordVisible = value;
+                        });
+                      },
+                      prefixIcon: Icons.lock_outline,
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    // Sign Up Button
+                    ElevatedButton(
+                      onPressed: isLoading ? null : _signUp,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: customColors!.textPrimary,
+                        foregroundColor: theme.colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: isLoading
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  theme.colorScheme.onPrimary,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              "Sign Up",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.onPrimary,
                               ),
                             ),
-                          )
-                        : const Text(
-                            "Sign Up",
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // OR divider
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: customColors.textPrimary.withOpacity(0.2),
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'OR',
                             style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              color: customColors.textPrimary.withOpacity(0.6),
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // OR divider
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Divider(
-                          color: theme.primaryColor.withOpacity(0.2),
-                          thickness: 1,
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'OR',
-                          style: TextStyle(
-                            color: theme.primaryColor.withOpacity(0.6),
-                            fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: Divider(
+                            color: customColors.textPrimary.withOpacity(0.2),
+                            thickness: 1,
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Divider(
-                          color: theme.primaryColor.withOpacity(0.2),
-                          thickness: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Google Sign In Button
-                  OutlinedButton.icon(
-                    onPressed: isLoading ? null : _nativeGoogleSignIn,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: theme.primaryColor.withOpacity(0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      ],
                     ),
-                    icon: SvgPicture.asset(
-                      "assets/icons/Google.svg",
-                      width: 20,
-                      height: 20,
-                    ),
-                    label: Text(
-                      'Continue with Google',
-                      style: TextStyle(
-                        color: theme.primaryColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
-                  // Apple Sign In Button - only show on iOS
-                  if (Platform.isIOS) ...[
+                    // Google Sign In Button
                     OutlinedButton.icon(
-                      onPressed: isLoading ? null : _signInWithApple,
+                      onPressed: isLoading ? null : _nativeGoogleSignIn,
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
-                            color: theme.primaryColor.withOpacity(0.3)),
+                            color: customColors.textPrimary.withOpacity(0.3)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      icon: Icon(
-                        Icons.apple,
-                        size: 22,
-                        color: theme.primaryColor,
+                      icon: SvgPicture.asset(
+                        "assets/icons/Google.svg",
+                        width: 20,
+                        height: 20,
                       ),
                       label: Text(
-                        'Continue with Apple',
+                        'Continue with Google',
                         style: TextStyle(
-                          color: theme.primaryColor,
+                          color: customColors.textPrimary.withOpacity(0.8),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                  ],
 
-                  // Login prompt
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Already have an account? ',
-                        style: TextStyle(
-                          color: theme.primaryColor.withOpacity(0.7),
+                    const SizedBox(height: 16),
+
+                    // Apple Sign In Button - only show on iOS
+                    if (Platform.isIOS) ...[
+                      OutlinedButton.icon(
+                        onPressed: isLoading ? null : _signInWithApple,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                              color: customColors.textPrimary.withOpacity(0.3)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const LoginScreen(),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Login',
+                        icon: Icon(
+                          Icons.apple,
+                          size: 22,
+                          color: customColors.textPrimary,
+                        ),
+                        label: Text(
+                          'Continue with Apple',
                           style: TextStyle(
-                            color: theme.colorScheme.secondary,
-                            fontWeight: FontWeight.w600,
+                            color: customColors.textPrimary.withOpacity(0.8),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
+                      const SizedBox(height: 20),
                     ],
-                  ),
-                  const SizedBox(height: 40),
-                ],
+
+                    // Login prompt
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Already have an account? ',
+                          style: TextStyle(
+                            color: customColors.textPrimary.withOpacity(0.7),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => const LoginScreen(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Login',
+                            style: TextStyle(
+                              color: theme.colorScheme.secondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
           ),
@@ -485,12 +494,13 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildInputLabel(String label) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         label,
         style: TextStyle(
-          color: Theme.of(context).primaryColor,
+          color: customColors!.textPrimary,
           fontWeight: FontWeight.w600,
           fontSize: 14,
         ),
@@ -507,15 +517,16 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     Function(bool)? onPasswordVisibilityChanged,
     TextInputType keyboardType = TextInputType.text,
   }) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     return TextFormField(
       controller: controller,
       obscureText: isPassword && !(passwordVisibility ?? false),
       keyboardType: keyboardType,
-      style: TextStyle(color: Theme.of(context).primaryColor),
+      style: TextStyle(color: customColors!.textPrimary),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: TextStyle(
-          color: Theme.of(context).primaryColor.withOpacity(0.5),
+          color: customColors.textPrimary.withOpacity(0.5),
           fontSize: 14,
         ),
         filled: true,
@@ -523,7 +534,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: Theme.of(context).primaryColor.withOpacity(0.5),
+                color: customColors.textPrimary.withOpacity(0.5),
               )
             : null,
         suffixIcon: isPassword
