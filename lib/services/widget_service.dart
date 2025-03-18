@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:macrotracker/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 
 // Constants for app group and widget kinds
-const String APP_GROUP = 'group.com.sharathchenna88.nutrino';
+const String APP_GROUP = 'group.com.sharathchenna.shared';
 const String MACRO_DATA_KEY = 'macro_data';
 const String DAILY_MEALS_KEY = 'daily_meals';
 
@@ -33,8 +34,16 @@ class WidgetService {
   static void _handleWidgetClick(Uri? uri) {
     if (uri != null) {
       debugPrint('Widget clicked with uri: $uri');
-      // You can add navigation logic based on widget tap
-      // For example, navigate to food details page if a food item was tapped
+
+      // Extract route from URI and navigate to it
+      final route = uri.path;
+      if (route.isNotEmpty) {
+        // Use navigatorKey to navigate from anywhere
+        navigatorKey.currentState?.pushNamed(route);
+      } else {
+        // Default route if path is empty
+        navigatorKey.currentState?.pushNamed(Routes.dashboard);
+      }
     }
   }
 

@@ -44,15 +44,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
-      value: (_currentPage + 1) / _totalPages,
     );
     _progressAnimation = Tween<double>(
-      begin: (_currentPage + 1) / _totalPages,
-      end: (_currentPage + 1) / _totalPages,
+      begin: 0,
+      end: 1 / _totalPages,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
+    _animationController.forward();
   }
 
   @override
@@ -62,54 +62,80 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     super.dispose();
   }
 
+  // Update the _nextPage() and _previousPage() methods
+
   void _nextPage() {
     if (_currentPage < _totalPages - 1) {
-      // Animate to next page
-      _animationController.animateTo(
-        (_currentPage + 2) / _totalPages,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+      setState(() {
+        _currentPage++;
+        _progressAnimation = Tween<double>(
+          begin: _currentPage / _totalPages,
+          end: (_currentPage + 1) / _totalPages,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeInOut,
+        ));
+      });
 
+      // Animate to next page
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
+
+      // Animate progress
+      _animationController.forward(from: 0);
     } else {
-      // Final page - calculate and navigate to results
+      // Final page - calculate and show results
       _calculateAndShowResults();
     }
   }
 
   void _previousPage() {
     if (_currentPage > 0) {
-      // Animate to previous page
-      _animationController.animateTo(
-        _currentPage / _totalPages,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+      setState(() {
+        _currentPage--;
+        _progressAnimation = Tween<double>(
+          begin: (_currentPage + 1) / _totalPages,
+          end: _currentPage / _totalPages,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeInOut,
+        ));
+      });
 
+      // Animate to previous page
       _pageController.previousPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
+
+      // Animate progress
+      _animationController.forward(from: 0);
     }
   }
 
   void _goToPage(int page) {
     if (page >= 0 && page < _totalPages) {
-      _animationController.animateTo(
-        (page + 1) / _totalPages,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+      setState(() {
+        _currentPage = page;
+        _progressAnimation = Tween<double>(
+          begin: _currentPage / _totalPages,
+          end: (_currentPage + 1) / _totalPages,
+        ).animate(CurvedAnimation(
+          parent: _animationController,
+          curve: Curves.easeInOut,
+        ));
+      });
 
       _pageController.animateToPage(
         page,
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
+
+      // Animate progress
+      _animationController.forward(from: 0);
     }
   }
 
@@ -127,8 +153,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       fatRatio: _fatRatio,
     );
 
-    // Save macro results
-    await saveMacroResults(results.toString());
+    // Save macro results - proper function call
+    await saveMacroResults(results);
 
     // Navigate to results screen with a transition
     Navigator.of(context).pushReplacement(
@@ -157,56 +183,26 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  Future<void> saveMacroResults(String macroResults) async {
+  Future<void> saveMacroResults(Map<String, dynamic> macroResults) async {
     // Save locally
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('macro_results', macroResults);
+    await prefs.setString('macro_results', json.encode(macroResults));
 
     // Save to Supabase if user is authenticated
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
       try {
-        // Ensure we're working with proper JSON - parse first
-        Map<String, dynamic> macroResultsJson;
-        try {
-          // If it's already a valid JSON string
-          macroResultsJson = json.decode(macroResults);
-        } catch (e) {
-          print('Error parsing macroResults: $e');
-          // If it fails, it might be a toString() representation of a Map
-          // Try to convert it to proper JSON format
-          String fixedJson = macroResults;
-
-          // Replace occurrences of "key:" with "\"key\":" (for string keys)
-          RegExp keyRegex = RegExp(r'([a-zA-Z_][a-zA-Z0-9_]*):');
-          fixedJson = fixedJson.replaceAllMapped(keyRegex, (match) {
-            return '"${match.group(1)}":';
-          });
-
-          try {
-            macroResultsJson = json.decode(fixedJson);
-          } catch (e) {
-            print('Could not fix JSON format: $e');
-            // Fallback to a simple representation
-            macroResultsJson = {
-              'calories': 0,
-              'protein': 0,
-              'carbs': 0,
-              'fat': 0,
-            };
-          }
-        }
-
-        // Save all user onboarding data in structured format
-        await Supabase.instance.client.from('user_macros').upsert({
+        // Ensure all numeric values are doubles for Supabase
+        final Map<String, dynamic> supabaseData = {
           'id': currentUser.id,
           'email': currentUser.email ?? '',
-          'macro_results': macroResultsJson,
-          'calories_goal': macroResultsJson['calories'] ??
-              macroResultsJson['calorie_target'],
-          'protein_goal': macroResultsJson['protein'],
-          'carbs_goal': macroResultsJson['carbs'],
-          'fat_goal': macroResultsJson['fat'],
+          'macro_results': macroResults,
+          'calories_goal':
+              (macroResults['calories'] ?? macroResults['calorie_target'])
+                  ?.toDouble(),
+          'protein_goal': macroResults['protein']?.toDouble(),
+          'carbs_goal': macroResults['carbs']?.toDouble(),
+          'fat_goal': macroResults['fat']?.toDouble(),
           'gender': _gender,
           'weight': _weightKg,
           'height': _heightCm,
@@ -217,7 +213,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'protein_ratio': _proteinRatio,
           'fat_ratio': _fatRatio,
           'updated_at': DateTime.now().toIso8601String(),
-        });
+        };
+
+        await Supabase.instance.client.from('user_macros').upsert(supabaseData);
 
         // Also save user preferences for future reference
         await Supabase.instance.client.from('user_preferences').upsert({
@@ -229,12 +227,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         // Also save these values to SharedPreferences for local access
         prefs.setDouble(
             'calories_goal',
-            macroResultsJson['calories'] ??
-                macroResultsJson['calorie_target'] ??
-                0.0);
-        prefs.setDouble('protein_goal', macroResultsJson['protein'] ?? 0.0);
-        prefs.setDouble('carbs_goal', macroResultsJson['carbs'] ?? 0.0);
-        prefs.setDouble('fat_goal', macroResultsJson['fat'] ?? 0.0);
+            (macroResults['calories'] ?? macroResults['calorie_target'] ?? 0)
+                .toDouble());
+        prefs.setDouble(
+            'protein_goal', (macroResults['protein'] ?? 0).toDouble());
+        prefs.setDouble('carbs_goal', (macroResults['carbs'] ?? 0).toDouble());
+        prefs.setDouble('fat_goal', (macroResults['fat'] ?? 0).toDouble());
       } catch (e) {
         print('Error saving macro results to Supabase: $e');
         // Add better error handling
