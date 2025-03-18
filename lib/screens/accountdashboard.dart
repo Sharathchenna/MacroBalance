@@ -162,8 +162,8 @@ class _AccountDashboardState extends State<AccountDashboard>
             children: [
               _buildProfileHeader(colorScheme, customColors),
               const SizedBox(height: 16),
-              _buildSectionTitle('Quick Actions', colorScheme),
-              _buildQuickActionsRow(colorScheme, customColors),
+              // _buildSectionTitle('Quick Actions', colorScheme),
+              // _buildQuickActionsRow(colorScheme, customColors),
               _buildSection(
                 title: 'Account',
                 icon: CupertinoIcons.person_fill,
@@ -219,16 +219,16 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  _buildSwitchTile(
-                    icon: CupertinoIcons.wand_stars,
-                    iconColor: Colors.purple,
-                    title: 'AI Meal Suggestions',
-                    subtitle: 'Get personalized recommendations',
-                    value: true,
-                    onChanged: (value) {/* Toggle AI suggestions */},
-                    colorScheme: colorScheme,
-                    customColors: customColors,
-                  ),
+                  // _buildSwitchTile(
+                  //   icon: CupertinoIcons.wand_stars,
+                  //   iconColor: Colors.purple,
+                  //   title: 'AI Meal Suggestions',
+                  //   subtitle: 'Get personalized recommendations',
+                  //   value: true,
+                  //   onChanged: (value) {/* Toggle AI suggestions */},
+                  //   colorScheme: colorScheme,
+                  //   customColors: customColors,
+                  // ),
                   _buildListTile(
                     icon: CupertinoIcons.arrow_up_arrow_down,
                     iconColor: Colors.orange,

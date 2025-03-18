@@ -447,29 +447,27 @@ class _CameraScreenState extends State<CameraScreen>
                         onPressed: () {
                           // Navigate to a separate full-screen route instead of showing a bottom sheet
                           Navigator.of(context).push(
-                            PageRouteBuilder(
-                              opaque: false, // Make the route transparent
-                              pageBuilder:
-                                  (context, animation, secondaryAnimation) {
+                            CupertinoPageRoute(
+                              builder: (context) {
                                 return BarcodeEntryScreen(
                                   onBarcodeEntered: (barcode) {
                                     _handleBarcodeResult(barcode);
                                   },
                                 );
                               },
-                              transitionsBuilder: (context, animation,
-                                  secondaryAnimation, child) {
-                                const begin = Offset(0.0, 1.0);
-                                const end = Offset.zero;
-                                const curve = Curves.easeInOut;
-                                var tween = Tween(begin: begin, end: end).chain(
-                                  CurveTween(curve: curve),
-                                );
-                                return SlideTransition(
-                                  position: animation.drive(tween),
-                                  child: child,
-                                );
-                              },
+                              // transitionsBuilder: (context, animation,
+                              //     secondaryAnimation, child) {
+                              //   const begin = Offset(0.0, 1.0);
+                              //   const end = Offset.zero;
+                              //   const curve = Curves.easeInOut;
+                              //   var tween = Tween(begin: begin, end: end).chain(
+                              //     CurveTween(curve: curve),
+                              //   );
+                              //   return SlideTransition(
+                              //     position: animation.drive(tween),
+                              //     child: child,
+                              //   );
+                              // },
                             ),
                           );
                         },

@@ -74,7 +74,7 @@ class _DashboardState extends State<Dashboard> {
 
           // Navigation bar fixed at bottom
           Positioned(
-            bottom: screenHeight * 0.015,
+            bottom: screenHeight * 0.04,
             left: screenWidth * 0.18,
             right: screenWidth * 0.18,
             child: Container(
