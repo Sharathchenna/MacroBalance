@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
 import 'package:macrotracker/theme/app_theme.dart'; // Import theme
+import 'package:numberpicker/numberpicker.dart'; // Add this import
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
@@ -33,6 +35,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   double _fatRatio = 0.25;
 
   // Removed unit system toggle - always using metric
+  bool _isMetricWeight = true;
+  bool _isMetricHeight = true;
 
   @override
   void initState() {
@@ -390,7 +394,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           .colorScheme
                           .primary
                           .withOpacity(0.3),
-                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: customColors!.textPrimary,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       surfaceTintColor: Colors.transparent,
                     ),
@@ -412,6 +416,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               ? Icons.check_circle_outline_rounded
                               : Icons.arrow_forward_rounded,
                           size: 16,
+                          color: Colors.black,
                         ),
                       ],
                     ),
@@ -427,7 +432,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   Widget _buildWelcomePage() {
     final customColors = Theme.of(context).extension<CustomColors>();
-
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -451,8 +456,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Theme.of(context).colorScheme.primary,
-                          Theme.of(context).colorScheme.secondary,
+                          Theme.of(context)
+                              .colorScheme
+                              .onPrimary
+                              .withOpacity(0.8),
+                          Theme.of(context)
+                              .colorScheme
+                              .onSecondary
+                              .withOpacity(0.8),
                         ],
                       ),
                       shape: BoxShape.circle,
@@ -460,7 +471,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         BoxShadow(
                           color: Theme.of(context)
                               .colorScheme
-                              .primary
+                              .onPrimary
                               .withOpacity(0.3),
                           blurRadius: 12,
                           spreadRadius: 2,
@@ -493,7 +504,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 child: Transform.translate(
                   offset: Offset(0, 20 * (1 - value)),
                   child: Text(
-                    'Welcome to Macro Tracker',
+                    'Welcome to MacroBalance 🥑',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: customColors?.textPrimary,
@@ -517,7 +528,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 child: Transform.translate(
                   offset: Offset(0, 20 * (1 - value)),
                   child: Text(
-                    'Let\'s personalize your experience by calculating your optimal macro nutrients.',
+                    'Let\'s personalize your experience by calculating your optimal macronutrients intake.',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: customColors?.textPrimary,
                           height: 1.5,
@@ -582,7 +593,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           child: Center(
             child: Icon(
               icon,
-              color: Theme.of(context).colorScheme.primary,
+              color: customColors!.textPrimary.withOpacity(0.8),
               size: 28,
             ),
           ),
@@ -654,7 +665,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget _buildBodyMeasurementsPage() {
     final customColors = Theme.of(context).extension<CustomColors>();
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,125 +679,281 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ),
           const SizedBox(height: 32),
 
-          // Weight slider - metric only (kg)
+          // Weight Picker
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(
-                    'Weight',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildTooltip(
-                      'Your current body weight is used to calculate your daily caloric needs'),
-                ],
-              ),
-              // Unit label - kg only
               Text(
-                'kg',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
+                'Weight',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: customColors?.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
+              const SizedBox(width: 8),
+              _buildTooltip(
+                  'Your current body weight is used to calculate your daily caloric needs'),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildEnhancedSlider(
-                  value: _weightKg,
-                  min: 40, // minimum weight in kg
-                  max: 150, // maximum weight in kg
-                  divisions: 110,
-                  onChanged: (value) {
-                    setState(() {
-                      _weightKg = double.parse(value.toStringAsFixed(1));
-                    });
-                  },
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: customColors?.cardBackground,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-              ),
-              SizedBox(
-                width: 60,
-                child: Text(
-                  '${_weightKg.toStringAsFixed(1)} kg',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: customColors?.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Unit selector
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildUnitSelector(
+                      isMetric: _isMetricWeight,
+                      metricUnit: 'kg',
+                      imperialUnit: 'lbs',
+                      onChanged: (isMetric) {
+                        HapticFeedback.heavyImpact();
+                        setState(() {
+                          _isMetricWeight = isMetric;
+                        });
+                      },
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Height slider - metric only (cm)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Height',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                const SizedBox(height: 16),
+                // Weight pickers
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_isMetricWeight) ...[
+                      // Metric (kg) pickers
+                      NumberPicker(
+                        value: _weightKg.floor(),
+                        minValue: 30,
+                        maxValue: 200,
+                        onChanged: (value) {
+                          setState(() {
+                            _weightKg = value + (_weightKg - _weightKg.floor());
+                          });
+                        },
+                        selectedTextStyle: TextStyle(
                           color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
                         ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildTooltip(
-                      'Your height is used alongside weight to calculate your BMI and base metabolic rate'),
-                ],
-              ),
-              // Unit label - cm only
-              Text(
-                'cm',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
+                        textStyle: TextStyle(
+                          color: customColors?.textSecondary,
+                          fontSize: 20,
+                        ),
+                      ),
+                      Text(
+                        '.',
+                        style: TextStyle(
+                          color: customColors?.textPrimary,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      NumberPicker(
+                        value: ((_weightKg - _weightKg.floor()) * 10).round(),
+                        minValue: 0,
+                        maxValue: 9,
+                        onChanged: (value) {
+                          setState(() {
+                            _weightKg = _weightKg.floor() + (value / 10);
+                          });
+                        },
+                        selectedTextStyle: TextStyle(
+                          color: customColors?.textPrimary,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textStyle: TextStyle(
+                          color: customColors?.textSecondary,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ] else ...[
+                      // Imperial (lbs) picker
+                      NumberPicker(
+                        value: (_weightKg * 2.20462).round(),
+                        minValue: 66, // 30kg in lbs
+                        maxValue: 441, // 200kg in lbs
+                        onChanged: (value) {
+                          setState(() {
+                            _weightKg = value / 2.20462;
+                          });
+                        },
+                        selectedTextStyle: TextStyle(
+                          color: customColors?.textPrimary,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textStyle: TextStyle(
+                          color: customColors?.textSecondary,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 32),
+
+          // Height Picker
           Row(
             children: [
-              Expanded(
-                child: _buildEnhancedSlider(
-                  value: _heightCm,
-                  min: 140, // minimum height in cm
-                  max: 220, // maximum height in cm
-                  divisions: 80,
-                  onChanged: (value) {
-                    setState(() {
-                      _heightCm = double.parse(value.toStringAsFixed(1));
-                    });
-                  },
-                ),
+              Text(
+                'Height',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: customColors?.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
-              SizedBox(
-                width: 60,
-                child: Text(
-                  '${_heightCm.round()} cm',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: customColors?.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-              ),
+              const SizedBox(width: 8),
+              _buildTooltip(
+                  'Your height is used to calculate your BMI and base metabolic rate'),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: customColors?.cardBackground,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Unit selector
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildUnitSelector(
+                      isMetric: _isMetricHeight,
+                      metricUnit: 'cm',
+                      imperialUnit: 'ft',
+                      onChanged: (isMetric) {
+                        HapticFeedback.heavyImpact();
+                        setState(() {
+                          _isMetricHeight = isMetric;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Height pickers
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_isMetricHeight) ...[
+                      // Metric (cm) picker
+                      NumberPicker(
+                        value: _heightCm.round(),
+                        minValue: 140,
+                        maxValue: 220,
+                        onChanged: (value) {
+                          setState(() {
+                            _heightCm = value.toDouble();
+                          });
+                        },
+                        selectedTextStyle: TextStyle(
+                          color: customColors?.textPrimary,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textStyle: TextStyle(
+                          color: customColors?.textSecondary,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ] else ...[
+                      // Imperial (ft & in) pickers
+                      NumberPicker(
+                        value: (_heightCm / 30.48).floor(),
+                        minValue: 3,
+                        maxValue: 7,
+                        onChanged: (feet) {
+                          final inches = (_heightCm - (feet * 30.48)) ~/ 2.54;
+                          setState(() {
+                            _heightCm = (feet * 30.48) + (inches * 2.54);
+                          });
+                        },
+                        selectedTextStyle: TextStyle(
+                          color: customColors?.textPrimary,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textStyle: TextStyle(
+                          color: customColors?.textSecondary,
+                          fontSize: 20,
+                        ),
+                      ),
+                      Text(
+                        'ft',
+                        style: TextStyle(
+                          color: customColors?.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      NumberPicker(
+                        value: ((_heightCm -
+                                    ((_heightCm / 30.48).floor() * 30.48)) /
+                                2.54)
+                            .round(),
+                        minValue: 0,
+                        maxValue: 11,
+                        onChanged: (inches) {
+                          final feet = (_heightCm / 30.48).floor();
+                          setState(() {
+                            _heightCm = (feet * 30.48) + (inches * 2.54);
+                          });
+                        },
+                        selectedTextStyle: TextStyle(
+                          color: customColors?.textPrimary,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textStyle: TextStyle(
+                          color: customColors?.textSecondary,
+                          fontSize: 20,
+                        ),
+                      ),
+                      Text(
+                        'in',
+                        style: TextStyle(
+                          color: customColors?.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
 
-          // Age slider
+          // Age Picker
           Row(
             children: [
               Text(
@@ -801,33 +968,49 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   'Your age affects your basal metabolic rate (BMR) calculation'),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildEnhancedSlider(
-                  value: _age.toDouble(),
-                  min: 18,
-                  max: 80,
-                  divisions: 62,
-                  onChanged: (value) {
-                    setState(() {
-                      _age = value.round();
-                    });
-                  },
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: customColors?.cardBackground,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-              ),
-              SizedBox(
-                width: 50,
-                child: Text(
-                  '$_age',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: customColors?.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                NumberPicker(
+                  value: _age,
+                  minValue: 18,
+                  maxValue: 80,
+                  onChanged: (value) => setState(() => _age = value),
+                  selectedTextStyle: TextStyle(
+                    color: customColors?.textPrimary,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textStyle: TextStyle(
+                    color: customColors?.textSecondary,
+                    fontSize: 20,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  'years',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1035,31 +1218,56 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     color: customColors?.textPrimary,
                   ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Slider(
-                    value: _deficit.toDouble(),
-                    min: 250,
-                    max: 750,
-                    divisions: 10,
-                    label: _deficit.toString(),
-                    onChanged: (value) {
-                      setState(() {
-                        _deficit = value.round();
-                      });
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: customColors?.cardBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      if (_deficit > 250) {
+                        setState(() => _deficit -= 50);
+                        HapticFeedback.lightImpact();
+                      }
                     },
+                    icon: Icon(
+                      Icons.remove_circle_outline,
+                      color: _deficit > 250
+                          ? customColors?.textPrimary
+                          : Colors.grey.withOpacity(0.3),
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: 60,
-                  child: Text('$_deficit cal',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: customColors?.textPrimary,
-                          )),
-                ),
-              ],
+                  Text(
+                    '$_deficit cal',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: customColors?.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      if (_deficit < 750) {
+                        setState(() => _deficit += 50);
+                        HapticFeedback.lightImpact();
+                      }
+                    },
+                    icon: Icon(
+                      Icons.add_circle_outline,
+                      color: _deficit < 750
+                          ? customColors?.textPrimary
+                          : Colors.grey.withOpacity(0.3),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -1107,32 +1315,94 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ],
           ),
           const SizedBox(height: 8),
-          Row(
+          Column(
             children: [
-              Expanded(
-                child: _buildEnhancedSlider(
-                  value: _proteinRatio,
-                  min: 1.2,
-                  max: 2.4,
-                  divisions: 12,
-                  onChanged: (value) {
-                    setState(() {
-                      _proteinRatio = double.parse(value.toStringAsFixed(1));
-                    });
-                  },
-                  markers: [
-                    {'value': 1.6, 'label': 'Min'},
-                    {'value': 2.2, 'label': 'Max'},
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: customColors?.cardBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.grey.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        if (_proteinRatio > 1.2) {
+                          setState(() => _proteinRatio = double.parse(
+                              (_proteinRatio - 0.1).toStringAsFixed(1)));
+                          HapticFeedback.lightImpact();
+                        }
+                      },
+                      icon: Icon(
+                        Icons.remove_circle_outline,
+                        color: _proteinRatio > 1.2
+                            ? customColors?.textPrimary
+                            : Colors.grey.withOpacity(0.3),
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        Text(
+                          '${_proteinRatio.toStringAsFixed(1)}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                color: customColors?.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        Text(
+                          'g per kg bodyweight',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: customColors?.textSecondary,
+                                  ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        if (_proteinRatio < 2.4) {
+                          setState(() => _proteinRatio = double.parse(
+                              (_proteinRatio + 0.1).toStringAsFixed(1)));
+                          HapticFeedback.lightImpact();
+                        }
+                      },
+                      icon: Icon(
+                        Icons.add_circle_outline,
+                        color: _proteinRatio < 2.4
+                            ? customColors?.textPrimary
+                            : Colors.grey.withOpacity(0.3),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              SizedBox(
-                width: 60,
-                child: Text('${_proteinRatio.toStringAsFixed(1)} g/kg',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        )),
+              Padding(
+                padding:
+                    const EdgeInsets.only(top: 8.0, left: 16.0, right: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Min: 1.2 g/kg',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: customColors?.textSecondary,
+                          ),
+                    ),
+                    Text(
+                      'Max: 2.4 g/kg',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: customColors?.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1163,34 +1433,68 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildEnhancedSlider(
-                  value: _fatRatio,
-                  min: 0.2,
-                  max: 0.4,
-                  divisions: 10,
-                  onChanged: (value) {
-                    setState(() {
-                      _fatRatio = double.parse(value.toStringAsFixed(2));
-                    });
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: customColors?.cardBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () {
+                    if (_fatRatio > 0.2) {
+                      setState(() => _fatRatio =
+                          double.parse((_fatRatio - 0.01).toStringAsFixed(2)));
+                      HapticFeedback.lightImpact();
+                    }
                   },
-                  markers: [
-                    {'value': 0.25, 'label': 'Min'},
-                    {'value': 0.35, 'label': 'Max'},
+                  icon: Icon(
+                    Icons.remove_circle_outline,
+                    color: _fatRatio > 0.2
+                        ? customColors?.textPrimary
+                        : Colors.grey.withOpacity(0.3),
+                  ),
+                ),
+                Column(
+                  children: [
+                    Text(
+                      '${(_fatRatio * 100).round()}%',
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: customColors?.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                    ),
+                    Text(
+                      'of total calories',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: customColors?.textSecondary,
+                          ),
+                    ),
                   ],
                 ),
-              ),
-              SizedBox(
-                width: 50,
-                child: Text('${(_fatRatio * 100).round()}%',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        )),
-              ),
-            ],
+                IconButton(
+                  onPressed: () {
+                    if (_fatRatio < 0.4) {
+                      setState(() => _fatRatio =
+                          double.parse((_fatRatio + 0.01).toStringAsFixed(2)));
+                      HapticFeedback.lightImpact();
+                    }
+                  },
+                  icon: Icon(
+                    Icons.add_circle_outline,
+                    color: _fatRatio < 0.4
+                        ? customColors?.textPrimary
+                        : Colors.grey.withOpacity(0.3),
+                  ),
+                ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 4.0, left: 16.0),
@@ -1225,7 +1529,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                  ? customColors!.textPrimary.withOpacity(0.2)
                   : Colors.black.withOpacity(0.05),
               blurRadius: isSelected ? 8 : 3,
               offset: Offset(0, isSelected ? 3 : 1),
@@ -1234,7 +1538,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ],
           border: Border.all(
             color: isSelected
-                ? Theme.of(context).colorScheme.primary
+                ? customColors!.textPrimary
                 : Colors.grey.withOpacity(0.2),
             width: isSelected ? 2 : 1,
           ),
@@ -1261,9 +1565,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     child: Icon(
                       icon,
                       size: 48,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.grey,
+                      color:
+                          isSelected ? customColors!.textPrimary : Colors.grey,
                     ),
                   ),
                 ),
@@ -1275,7 +1578,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   fontSize: 18,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected
-                      ? Theme.of(context).colorScheme.primary
+                      ? customColors!.textPrimary
                       : customColors?.textPrimary ?? Colors.black,
                 ),
                 child: Text(label),
@@ -1316,7 +1619,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ],
             border: Border.all(
               color: isSelected
-                  ? Theme.of(context).colorScheme.primary
+                  ? customColors!.textPrimary
                   : Colors.grey.withOpacity(0.1),
               width: isSelected ? 2 : 1,
             ),
@@ -1333,21 +1636,21 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isSelected
-                        ? Theme.of(context).colorScheme.primary
+                        ? customColors!.textPrimary
                         : Colors.transparent,
                     border: Border.all(
                       color: isSelected
-                          ? Theme.of(context).colorScheme.primary
+                          ? customColors!.textPrimary
                           : Colors.grey.withOpacity(0.5),
                       width: 2,
                     ),
                   ),
                   child: isSelected
-                      ? const Center(
+                      ? Center(
                           child: Icon(
                             Icons.check,
                             size: 16,
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onPrimary,
                           ),
                         )
                       : null,
@@ -1364,7 +1667,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           fontWeight:
                               isSelected ? FontWeight.bold : FontWeight.w500,
                           color: isSelected
-                              ? Theme.of(context).colorScheme.primary
+                              ? customColors!.textPrimary
                               : customColors?.textPrimary ?? Colors.black,
                         ),
                         child: Text(title),
@@ -1380,22 +1683,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     ],
                   ),
                 ),
-                if (isSelected)
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.check_circle,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -1416,7 +1703,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: GestureDetector(
-        onTap: () => setState(() => _goal = goal),
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          setState(() => _goal = goal);
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
@@ -1434,21 +1724,20 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
             ],
             border: Border.all(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
+              color:
+                  isSelected ? customColors!.textPrimary : Colors.transparent,
               width: 2,
             ),
-            gradient: isSelected
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      customColors?.cardBackground ?? Colors.white,
-                      Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                    ],
-                  )
-                : null,
+            //   gradient: isSelected
+            //       ? LinearGradient(
+            //           begin: Alignment.topLeft,
+            //           end: Alignment.bottomRight,
+            //           colors: [
+            //             customColors?.cardBackground ?? Colors.white,
+            //             Theme.of(context).colorScheme.primary.withOpacity(0.05),
+            //           ],
+            //         )
+            //       : null,
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -1466,18 +1755,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             .withOpacity(0.15)
                         : Colors.grey.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                                  .withOpacity(0.2),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
                   ),
                   child: Center(
                     child: AnimatedScale(
@@ -1487,7 +1764,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         icon,
                         size: 28,
                         color: isSelected
-                            ? Theme.of(context).colorScheme.primary
+                            ? customColors!.textPrimary
                             : Colors.grey,
                       ),
                     ),
@@ -1505,7 +1782,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           fontWeight:
                               isSelected ? FontWeight.bold : FontWeight.w500,
                           color: isSelected
-                              ? Theme.of(context).colorScheme.primary
+                              ? customColors!.textPrimary
                               : customColors?.textPrimary ?? Colors.black,
                         ),
                         child: Text(title),
@@ -1519,26 +1796,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ),
                       ),
                     ],
-                  ),
-                ),
-                AnimatedOpacity(
-                  opacity: isSelected ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 300),
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.check_circle,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
                   ),
                 ),
               ],
@@ -1797,6 +2054,65 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               color: Theme.of(context).colorScheme.primary,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnitSelector({
+    required bool isMetric,
+    required String metricUnit,
+    required String imperialUnit,
+    required ValueChanged<bool> onChanged,
+  }) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildUnitOption(
+            isSelected: isMetric,
+            label: metricUnit,
+            onTap: () => onChanged(true),
+          ),
+          _buildUnitOption(
+            isSelected: !isMetric,
+            label: imperialUnit,
+            onTap: () => onChanged(false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnitOption({
+    required bool isSelected,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? customColors!.textPrimary : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? Theme.of(context).colorScheme.onPrimary
+                : customColors?.textSecondary,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
