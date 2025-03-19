@@ -1861,11 +1861,12 @@ class MacroInfoBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>()!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5), // Light gray background
+        color: customColors.dateNavigatorBackground, // Light gray background
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1875,7 +1876,7 @@ class MacroInfoBox extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: customColors.cardBackground,
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
@@ -1899,16 +1900,16 @@ class MacroInfoBox extends StatelessWidget {
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
-                    color: Colors.black,
+                  style: TextStyle(
+                    color: customColors.textPrimary,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
                 ),
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Colors.black54,
+                  style: TextStyle(
+                    color: customColors.textSecondary,
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                   ),
