@@ -113,23 +113,22 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   double getConvertedQuantity() {
     double qty = double.tryParse(quantityController.text) ?? 100;
 
-    switch (selectedUnit) {
-      case "oz":
-        return qty * 28.35;
-      case "g":
-      default:
-        return qty;
+    // Convert to grams if needed
+    if (selectedUnit == "oz") {
+      return qty * 28.35; // Convert oz to g
     }
+    return qty; // Already in grams
   }
 
   String getNutrientValue(String nutrient) {
+    final convertedQty = getConvertedQuantity(); // This will always be in grams
+
     if (selectedServing != null) {
       double multiplier = selectedMultiplier;
 
       // If custom quantity entered, calculate actual multiplier
       if (selectedMultiplier == 0) {
-        double enteredQty = double.tryParse(quantityController.text) ?? 0;
-        multiplier = enteredQty / selectedServing!.metricAmount;
+        multiplier = convertedQty / selectedServing!.metricAmount;
       }
 
       double? value;
@@ -154,8 +153,6 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       if (value == null) return "0.0";
       return value.toStringAsFixed(1);
     } else {
-      final convertedQty = getConvertedQuantity();
-
       double? value;
       switch (nutrient.toLowerCase()) {
         case "calories":
@@ -200,15 +197,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 
   Map<String, String> getAdditionalNutrients() {
     Map<String, String> result = {};
+    final convertedQty =
+        getConvertedQuantity(); // This already accounts for unit conversion
 
     if (selectedServing != null) {
-      double multiplier = selectedMultiplier;
-
-      // If custom quantity entered, calculate actual multiplier
-      if (selectedMultiplier == 0) {
-        double enteredQty = double.tryParse(quantityController.text) ?? 0;
-        multiplier = enteredQty / selectedServing!.metricAmount;
-      }
+      // Calculate multiplier based on the converted quantity (always in grams)
+      double multiplier = convertedQty / selectedServing!.metricAmount;
 
       // Add main macros first
       result['Calories'] =
@@ -226,6 +220,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             key != 'Carbohydrate, by difference' &&
             key != 'Total lipid (fat)') {
           String unit = 'g';
+          // Keep your existing unit assignments
           if (key == 'Saturated fat' ||
               key == 'Polyunsaturated fat' ||
               key == 'Monounsaturated fat') {
@@ -246,9 +241,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
         }
       });
     } else {
-      final convertedQty = getConvertedQuantity();
-
-      // Add main macros first
+      // For foods without specific serving info
+      // Calculate based on per 100g values and the convertedQty
       result['Calories'] =
           '${(widget.food.calories * (convertedQty / 100)).toStringAsFixed(1)} kcal';
       result['Protein'] =
@@ -264,6 +258,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             key != 'Carbohydrate, by difference' &&
             key != 'Total lipid (fat)') {
           String unit = 'g';
+          // Keep your existing unit assignments
           if (key == 'Saturated fat' ||
               key == 'Polyunsaturated fat' ||
               key == 'Monounsaturated fat') {
@@ -360,7 +355,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     final convertedQty = getConvertedQuantity();
     final caloriesPer100 = widget.food.calories;
     final calculatedCalories = caloriesPer100 * (convertedQty / 100);
-    final additionalNutrients = getAdditionalNutrients();
+    var additionalNutrients = getAdditionalNutrients();
     final primaryColor = Theme.of(context).primaryColor;
 
     return GestureDetector(
@@ -454,7 +449,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        food.name,
+                                        "Food Nutrition",
                                         style: AppTypography.h1.copyWith(
                                           color: Theme.of(context)
                                               .extension<CustomColors>()!
@@ -501,8 +496,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                         children: [
                           Container(
                             margin: const EdgeInsets.only(bottom: 24),
-                            padding: const EdgeInsets.fromLTRB(
-                                16, 24, 16, 40), // Increased bottom padding
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               color: customColors.cardBackground,
                               borderRadius: BorderRadius.circular(24),
@@ -515,102 +509,166 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               ],
                             ),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                // Food title
+                                Text(
+                                  food.name,
+                                  style: AppTypography.h2.copyWith(
+                                    color: customColors.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 20),
+
+                                // Macro info grid (now in column)
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
-                                    Text(
-                                      calculatedCalories.toStringAsFixed(0),
-                                      style: AppTypography.h1.copyWith(
-                                        color: Theme.of(context)
-                                            .extension<CustomColors>()!
-                                            .textPrimary,
-                                        fontWeight: FontWeight.bold,
-                                        height: 0.9,
-                                        fontSize: 40, // Increased font size
-                                      ),
+                                    // First row: Calories and Protein
+                                    Row(
+                                      children: [
+                                        // Calories
+                                        Expanded(
+                                          child: MacroInfoBox(
+                                            icon: "🔥",
+                                            iconColor: Colors.black,
+                                            value: calculatedCalories
+                                                .toStringAsFixed(0),
+                                            label: "Calories",
+                                          ),
+                                        ),
+
+                                        const SizedBox(width: 12),
+
+                                        // Protein
+                                        Expanded(
+                                          child: MacroInfoBox(
+                                            icon: "🍗",
+                                            iconColor: Colors.black,
+                                            value: getNutrientValue("protein"),
+                                            label: "Protein (g)",
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Text(
-                                      " kcal",
-                                      style: AppTypography.h3.copyWith(
-                                        color: customColors.textSecondary,
-                                        fontWeight: FontWeight.w300,
-                                      ),
+
+                                    const SizedBox(height: 12),
+
+                                    // Second row: Carbs and Fat
+                                    Row(
+                                      children: [
+                                        // Carbs
+                                        Expanded(
+                                          child: MacroInfoBox(
+                                            icon: "🟫",
+                                            iconColor: Colors.black,
+                                            value: getNutrientValue(
+                                                "carbohydrate"),
+                                            label: "Carbs (g)",
+                                          ),
+                                        ),
+
+                                        const SizedBox(width: 12),
+
+                                        // Fat
+                                        Expanded(
+                                          child: MacroInfoBox(
+                                            icon: "🥑",
+                                            iconColor: Colors.black,
+                                            value: getNutrientValue("fat"),
+                                            label: "Fat (g)",
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 36), // Increased spacing
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 4),
-                                        child: SizedBox(
-                                          height:
-                                              140, // Increased height for larger rings
-                                          child: MacroProgressRing(
-                                            key: ValueKey(
-                                                'carbs-${quantityController.text}-$selectedUnit'),
-                                            label: 'Carbs',
-                                            value: getNutrientValue(
-                                                "carbohydrate"),
-                                            color: const Color(
-                                                0xFF4285F4), // Google blue
-                                            percentage:
-                                                macroPercentages["carbs"] ??
-                                                    0.33,
-                                            // Add larger font size for numbers
+                              ],
+                            ),
+                          ),
+
+                          // Add to Meal section (moved here)
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            margin: const EdgeInsets.only(bottom: 24),
+                            decoration: BoxDecoration(
+                              color: customColors.cardBackground,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Add to Meal",
+                                  style: AppTypography.h3.copyWith(
+                                    color: customColors.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  height: 60,
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: customColors.dateNavigatorBackground
+                                        .withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    children: mealOptions.map((meal) {
+                                      final isSelected = meal == selectedMeal;
+                                      final mealColor =
+                                          Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Color(0xFFFBBC05)
+                                                  .withValues(alpha: 0.8)
+                                              : customColors.textPrimary;
+
+                                      return Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            HapticFeedback.lightImpact();
+                                            setState(() => selectedMeal = meal);
+                                          },
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                                milliseconds: 200),
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? mealColor
+                                                  : Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                meal,
+                                                style: TextStyle(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : customColors
+                                                          .textSecondary,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 4),
-                                        child: SizedBox(
-                                          height:
-                                              140, // Increased height for larger rings
-                                          child: MacroProgressRing(
-                                            key: ValueKey(
-                                                'protein-${quantityController.text}-$selectedUnit}'),
-                                            label: 'Protein',
-                                            value: getNutrientValue("protein"),
-                                            color: const Color(
-                                                0xFFEA4335), // Google red
-                                            percentage: macroPercentages[
-                                                    "protein"] ??
-                                                0.33, // Add larger font size for numbers
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 4),
-                                        child: SizedBox(
-                                          height:
-                                              140, // Increased height for larger rings
-                                          child: MacroProgressRing(
-                                            key: ValueKey(
-                                                'fat-${quantityController.text}-$selectedUnit'),
-                                            label: 'Fat',
-                                            value: getNutrientValue("fat"),
-                                            color: const Color(
-                                                0xFFFBBC05), // Google yellow
-                                            percentage:
-                                                macroPercentages["fat"] ?? 0.34,
-                                            // Add larger font size for numbers
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                      );
+                                    }).toList(),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1057,15 +1115,13 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                   ))
                                               .toList(),
                                           onChanged: (val) {
-                                            if (val == selectedUnit)
-                                              return; // Skip if same unit
+                                            if (val == selectedUnit) return;
 
                                             double currentQty = double.tryParse(
                                                     quantityController.text) ??
                                                 0.0;
 
                                             setState(() {
-                                              // Convert between g and oz
                                               if (val == "oz" &&
                                                   selectedUnit == "g") {
                                                 // Convert g to oz (1 oz = 28.35g)
@@ -1079,12 +1135,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                     (currentQty * 28.35)
                                                         .toStringAsFixed(0);
                                               }
-                                              selectedUnit =
-                                                  val!; // Update UI with new values by triggering state refresh
-                                              selectedMultiplier =
-                                                  0; // Reset multiplier to update calculations
-                                              macroPercentages =
-                                                  getMacroPercentages();
+
+                                              selectedUnit = val!;
+                                              selectedMultiplier = 0;
+
+                                              // No need to manually update nutrients here as they'll be recalculated
+                                              // when getConvertedQuantity() is called
                                             });
                                           },
                                           decoration: InputDecoration(
@@ -1116,78 +1172,6 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                   ],
                                 ),
                                 const SizedBox(height: 20),
-
-                                // Meal selection
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "Add to Meal",
-                                      style: AppTypography.body2.copyWith(
-                                        color: customColors.textSecondary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Container(
-                                      height: 60,
-                                      padding: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        color: customColors
-                                            .dateNavigatorBackground
-                                            .withOpacity(0.6),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Row(
-                                        children: mealOptions.map((meal) {
-                                          final isSelected =
-                                              meal == selectedMeal;
-                                          final mealColor =
-                                              Theme.of(context).brightness ==
-                                                      Brightness.dark
-                                                  ? Color(0xFFFBBC05)
-                                                      .withValues(alpha: 0.8)
-                                                  : customColors.textPrimary;
-
-                                          return Expanded(
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                HapticFeedback.lightImpact();
-                                                setState(
-                                                    () => selectedMeal = meal);
-                                              },
-                                              child: AnimatedContainer(
-                                                duration: const Duration(
-                                                    milliseconds: 200),
-                                                decoration: BoxDecoration(
-                                                  color: isSelected
-                                                      ? mealColor
-                                                      : Colors.transparent,
-                                                  borderRadius:
-                                                      BorderRadius.circular(14),
-                                                ),
-                                                child: Center(
-                                                  child: Text(
-                                                    meal,
-                                                    style: TextStyle(
-                                                      color: isSelected
-                                                          ? Colors.white
-                                                          : customColors
-                                                              .textSecondary,
-                                                      fontWeight: isSelected
-                                                          ? FontWeight.bold
-                                                          : FontWeight.normal,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ],
                             ),
                           ),
@@ -1857,5 +1841,83 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       return '${description.substring(0, 15)}...';
     }
     return description;
+  }
+}
+
+// MacroInfoBox widget for displaying nutrition information
+class MacroInfoBox extends StatelessWidget {
+  final String icon;
+  final Color iconColor;
+  final String value;
+  final String label;
+
+  const MacroInfoBox({
+    Key? key,
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5), // Light gray background
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Text(
+              icon,
+              style: const TextStyle(
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
