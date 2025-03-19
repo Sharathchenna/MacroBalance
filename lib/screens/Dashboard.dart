@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
 import 'package:macrotracker/screens/GoalsPage.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
+import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -482,40 +483,14 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   double caloriesBurned = 0;
   bool _hasHealthPermissions = false;
 
-  // Nutrition goals loaded from SharedPreferences
-  int caloriesGoal = 2000;
-  int carbGoal = 75;
-  int fatGoal = 80;
-  int proteinGoal = 150;
+  // Remove the nutrition goals variables, as we'll get them directly from the provider
   int stepsGoal = 9000;
 
   @override
   void initState() {
     super.initState();
     _checkAndRequestPermissions();
-    _loadNutritionGoals();
-  }
-
-  Future<void> _loadNutritionGoals() async {
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? resultsString = prefs.getString('macro_results');
-      if (resultsString != null && resultsString.isNotEmpty) {
-        final Map<String, dynamic> results = jsonDecode(resultsString);
-        if (mounted) {
-          // Check if the widget is still mounted before calling setState
-          setState(() {
-            caloriesGoal = results['calorie_target'] ?? 2000;
-            proteinGoal = results['protein'] ?? 150;
-            carbGoal = results['carbs'] ?? 75;
-            fatGoal = results['fat'] ?? 80;
-            stepsGoal = results['recommended_steps'] ?? 9000;
-          });
-        }
-      }
-    } catch (e) {
-      print('Error loading nutrition goals: $e');
-    }
+    // Remove _loadNutritionGoals() call
   }
 
   Future<void> _checkAndRequestPermissions() async {
@@ -594,6 +569,12 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
         return Consumer2<FoodEntryProvider, DateProvider>(
           builder: (context, foodEntryProvider, dateProvider, child) {
+            // Get nutrition goals directly from the provider
+            final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
+            final proteinGoal = foodEntryProvider.proteinGoal.toInt();
+            final carbGoal = foodEntryProvider.carbsGoal.toInt();
+            final fatGoal = foodEntryProvider.fatGoal.toInt();
+
             // Calculate total macros from all food entries
             final entries = foodEntryProvider
                 .getAllEntriesForDate(dateProvider.selectedDate);
@@ -698,79 +679,91 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           // Calorie Circle
-                          Container(
-                            height: 130,
-                            width: 130,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.light
-                                  ? Colors.white
-                                  : Colors.grey.shade900.withValues(alpha: 0.3),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.light
-                                      ? Colors.grey.withValues(alpha: 0.1)
-                                      : Colors.black.withValues(alpha: 0.2),
-                                  blurRadius: 10,
-                                  spreadRadius: 1,
-                                  offset: const Offset(0, 3),
+                          GestureDetector(
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              Navigator.push(
+                                context,
+                                CupertinoPageRoute(
+                                  builder: (context) => EditGoalsScreen(),
                                 ),
-                              ],
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                // Progress circle
-                                SizedBox(
-                                  width: 110,
-                                  height: 110,
-                                  child: CircularProgressIndicator(
-                                    value: progress,
-                                    strokeWidth: 10,
-                                    strokeCap: StrokeCap
-                                        .round, // Added circular stroke cap
-                                    backgroundColor:
-                                        Theme.of(context).brightness ==
-                                                Brightness.light
-                                            ? Colors.grey.shade200
-                                            : Colors.grey.shade800,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      progress > 1.0
-                                          ? Colors.red
-                                          : const Color(0xFF34C85A),
+                              );
+                            },
+                            child: Container(
+                              height: 130,
+                              width: 130,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.white
+                                    : Colors.grey.shade900
+                                        .withValues(alpha: 0.3),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.light
+                                        ? Colors.grey.withValues(alpha: 0.1)
+                                        : Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 10,
+                                    spreadRadius: 1,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Progress circle
+                                  SizedBox(
+                                    width: 110,
+                                    height: 110,
+                                    child: CircularProgressIndicator(
+                                      value: progress,
+                                      strokeWidth: 10,
+                                      strokeCap: StrokeCap
+                                          .round, // Added circular stroke cap
+                                      backgroundColor:
+                                          Theme.of(context).brightness ==
+                                                  Brightness.light
+                                              ? Colors.grey.shade200
+                                              : Colors.grey.shade800,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        progress > 1.0
+                                            ? Colors.red
+                                            : const Color(0xFF34C85A),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                // Calorie text
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      caloriesRemaining.toString(),
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(context)
-                                            .extension<CustomColors>()
-                                            ?.textPrimary,
+                                  // Calorie text
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        caloriesRemaining.toString(),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context)
+                                              .extension<CustomColors>()
+                                              ?.textPrimary,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      'cal left',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: Theme.of(context).brightness ==
-                                                Brightness.light
-                                            ? Colors.grey.shade600
-                                            : Colors.grey.shade400,
+                                      Text(
+                                        'cal left',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: Theme.of(context).brightness ==
+                                                  Brightness.light
+                                              ? Colors.grey.shade600
+                                              : Colors.grey.shade400,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
 
@@ -1046,45 +1039,68 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
     width: 70,
     child: Column(
       children: [
-        Container(
-          height: 70,
-          width: 70,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Background circle
-              Container(
-                height: 64,
-                width: 64,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? Colors.grey.shade100
-                      : Colors.grey.shade800.withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
+        GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            // Navigate to different sections based on the macro type
+            if (label == 'Steps') {
+              Navigator.push(
+                context,
+                CupertinoPageRoute(
+                  builder: (context) => GoalsScreen(initialSection: 'steps'),
                 ),
-              ),
-              // Progress circle
-              SizedBox(
-                height: 64,
-                width: 64,
-                child: CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 6,
-                  strokeCap: StrokeCap.round, // Added circular stroke cap
-                  backgroundColor:
-                      Theme.of(context).brightness == Brightness.light
-                          ? color.withValues(alpha: 0.15)
-                          : color.withValues(alpha: 0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(color),
+              );
+            } else if (label == 'Carbs' ||
+                label == 'Protein' ||
+                label == 'Fat') {
+              Navigator.push(
+                context,
+                CupertinoPageRoute(
+                  builder: (context) => EditGoalsScreen(),
                 ),
-              ),
-              // Macro icon
-              Icon(
-                _getMacroIcon(label),
-                color: color,
-                size: 20,
-              ),
-            ],
+              );
+            }
+          },
+          child: Container(
+            height: 70,
+            width: 70,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Background circle
+                Container(
+                  height: 64,
+                  width: 64,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.grey.shade100
+                        : Colors.grey.shade800.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                // Progress circle
+                SizedBox(
+                  height: 64,
+                  width: 64,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 6,
+                    strokeCap: StrokeCap.round, // Added circular stroke cap
+                    backgroundColor:
+                        Theme.of(context).brightness == Brightness.light
+                            ? color.withValues(alpha: 0.15)
+                            : color.withValues(alpha: 0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  ),
+                ),
+                // Macro icon
+                Icon(
+                  _getMacroIcon(label),
+                  color: color,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
