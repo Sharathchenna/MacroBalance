@@ -113,23 +113,22 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   double getConvertedQuantity() {
     double qty = double.tryParse(quantityController.text) ?? 100;
 
-    switch (selectedUnit) {
-      case "oz":
-        return qty * 28.35;
-      case "g":
-      default:
-        return qty;
+    // Convert to grams if needed
+    if (selectedUnit == "oz") {
+      return qty * 28.35; // Convert oz to g
     }
+    return qty; // Already in grams
   }
 
   String getNutrientValue(String nutrient) {
+    final convertedQty = getConvertedQuantity(); // This will always be in grams
+
     if (selectedServing != null) {
       double multiplier = selectedMultiplier;
 
       // If custom quantity entered, calculate actual multiplier
       if (selectedMultiplier == 0) {
-        double enteredQty = double.tryParse(quantityController.text) ?? 0;
-        multiplier = enteredQty / selectedServing!.metricAmount;
+        multiplier = convertedQty / selectedServing!.metricAmount;
       }
 
       double? value;
@@ -154,8 +153,6 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       if (value == null) return "0.0";
       return value.toStringAsFixed(1);
     } else {
-      final convertedQty = getConvertedQuantity();
-
       double? value;
       switch (nutrient.toLowerCase()) {
         case "calories":
@@ -198,28 +195,24 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     };
   }
 
-  Map<String, String> getAdditionalNutrients(
-      {double conversionFactor = 1.0, bool isOzToG = false}) {
+  Map<String, String> getAdditionalNutrients() {
     Map<String, String> result = {};
+    final convertedQty =
+        getConvertedQuantity(); // This already accounts for unit conversion
 
     if (selectedServing != null) {
-      double multiplier = selectedMultiplier;
-
-      // If custom quantity entered, calculate actual multiplier
-      if (selectedMultiplier == 0) {
-        double enteredQty = double.tryParse(quantityController.text) ?? 0;
-        multiplier = enteredQty / selectedServing!.metricAmount;
-      }
+      // Calculate multiplier based on the converted quantity (always in grams)
+      double multiplier = convertedQty / selectedServing!.metricAmount;
 
       // Add main macros first
       result['Calories'] =
-          '${(selectedServing!.calories * multiplier * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)} kcal';
+          '${(selectedServing!.calories * multiplier).toStringAsFixed(1)} kcal';
       result['Protein'] =
-          '${((selectedServing!.nutrients['Protein'] ?? 0.0) * multiplier * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)}g';
+          '${((selectedServing!.nutrients['Protein'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
       result['Carbohydrates'] =
-          '${((selectedServing!.nutrients['Carbohydrate, by difference'] ?? 0.0) * multiplier * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)}g';
+          '${((selectedServing!.nutrients['Carbohydrate, by difference'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
       result['Fat'] =
-          '${((selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)}g';
+          '${((selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
 
       // Add all other available nutrients
       selectedServing!.nutrients.forEach((key, value) {
@@ -227,6 +220,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             key != 'Carbohydrate, by difference' &&
             key != 'Total lipid (fat)') {
           String unit = 'g';
+          // Keep your existing unit assignments
           if (key == 'Saturated fat' ||
               key == 'Polyunsaturated fat' ||
               key == 'Monounsaturated fat') {
@@ -243,22 +237,20 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             unit = 'mcg';
           }
 
-          result[key] =
-              '${(value * multiplier * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)}$unit';
+          result[key] = '${(value * multiplier).toStringAsFixed(1)}$unit';
         }
       });
     } else {
-      final convertedQty = getConvertedQuantity();
-
-      // Add main macros first
+      // For foods without specific serving info
+      // Calculate based on per 100g values and the convertedQty
       result['Calories'] =
-          '${(widget.food.calories * (convertedQty / 100) * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)} kcal';
+          '${(widget.food.calories * (convertedQty / 100)).toStringAsFixed(1)} kcal';
       result['Protein'] =
-          '${((widget.food.nutrients['Protein'] ?? 0.0) * (convertedQty / 100) * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)}g';
+          '${((widget.food.nutrients['Protein'] ?? 0.0) * (convertedQty / 100)).toStringAsFixed(1)}g';
       result['Carbohydrates'] =
-          '${((widget.food.nutrients['Carbohydrate, by difference'] ?? 0.0) * (convertedQty / 100) * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)}g';
+          '${((widget.food.nutrients['Carbohydrate, by difference'] ?? 0.0) * (convertedQty / 100)).toStringAsFixed(1)}g';
       result['Fat'] =
-          '${((widget.food.nutrients['Total lipid (fat)'] ?? 0.0) * (convertedQty / 100) * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)}g';
+          '${((widget.food.nutrients['Total lipid (fat)'] ?? 0.0) * (convertedQty / 100)).toStringAsFixed(1)}g';
 
       // Add all other available nutrients
       widget.food.nutrients.forEach((key, value) {
@@ -266,6 +258,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             key != 'Carbohydrate, by difference' &&
             key != 'Total lipid (fat)') {
           String unit = 'g';
+          // Keep your existing unit assignments
           if (key == 'Saturated fat' ||
               key == 'Polyunsaturated fat' ||
               key == 'Monounsaturated fat') {
@@ -284,7 +277,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
           }
 
           result[key] =
-              '${(value * (convertedQty / 100) * (isOzToG ? 1 / conversionFactor : conversionFactor)).toStringAsFixed(1)}$unit';
+              '${(value * (convertedQty / 100)).toStringAsFixed(1)}$unit';
         }
       });
     }
@@ -1127,39 +1120,27 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                             double currentQty = double.tryParse(
                                                     quantityController.text) ??
                                                 0.0;
-                                            double conversionFactor = 1.0;
-                                            bool isOzToG = false;
 
                                             setState(() {
                                               if (val == "oz" &&
                                                   selectedUnit == "g") {
                                                 // Convert g to oz (1 oz = 28.35g)
-                                                conversionFactor = 1 / 28.35;
                                                 quantityController.text =
-                                                    (currentQty *
-                                                            conversionFactor)
+                                                    (currentQty / 28.35)
                                                         .toStringAsFixed(1);
                                               } else if (val == "g" &&
                                                   selectedUnit == "oz") {
                                                 // Convert oz to g
-                                                isOzToG = true;
-                                                conversionFactor = 28.35;
                                                 quantityController.text =
-                                                    (currentQty *
-                                                            conversionFactor)
+                                                    (currentQty * 28.35)
                                                         .toStringAsFixed(0);
                                               }
 
-                                              // Update all nutrient values with the conversion factor
-                                              additionalNutrients =
-                                                  getAdditionalNutrients(
-                                                      conversionFactor:
-                                                          conversionFactor,
-                                                      isOzToG: isOzToG);
                                               selectedUnit = val!;
                                               selectedMultiplier = 0;
-                                              macroPercentages =
-                                                  getMacroPercentages();
+
+                                              // No need to manually update nutrients here as they'll be recalculated
+                                              // when getConvertedQuantity() is called
                                             });
                                           },
                                           decoration: InputDecoration(
