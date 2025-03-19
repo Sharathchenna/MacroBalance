@@ -1,56 +1,60 @@
-// ignore_for_file: avoid_print
-
+import 'dart:convert';
 import 'dart:io';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 Future<String> processImageWithGemini(String imagePath) async {
   try {
-    const apiKey =
-        'AIzaSyDe8qpEeJHOYJtJviyr4GVH2_ssCUy9gZc'; // Replace with your actual API key
-    final model = GenerativeModel(
-      model: 'gemini-2.0-flash',
-      apiKey: apiKey,
-    );
-    final prompt = '''
-        Analyze the following meal and provide its nutritional content. 
-        Break down the meal into different foods and do the nutrition analysis for each food.
-        give nutrition info for each food in the meal with different serving sizes. the serving sizes can be in grams, ounces, tablespoons, teaspoons, cups etc.
-        Return only the numerical values for calories, protein, carbohydrates, fat, and fiber.
-        Format the response in json exactly like this example, do not include any other information in the response, just the json object, not even the json title in the response.:
-        meal: [
-          {
-            food: "food name 1",
-            serving_size: ["serving size 1", "serving size 2", "serving size 3"],
-            calories: [calories for serving 1, calories for serving 2, calories for serving 3],
-            protein: [protein for serving 1, protein for serving 2, protein for serving 3],
-            carbohydrates: [carbohydrates for serving 1, carbohydrates for serving 2, carbohydrates for serving 3],
-            fat: [fat for serving 1, fat for serving 2, fat for serving 3],
-            fiber: [fiber for serving 1, fiber for serving 2, fiber for serving 3]
-          },
-          {
-            food: "food name 2",
-            serving_size: ["serving size 1", "serving size 2", "serving size 3"],
-            calories: [calories for serving 1, calories for serving 2, calories for serving 3],
-            protein: [protein for serving 1, protein for serving 2, protein for serving 3],
-            carbohydrates: [carbohydrates for serving 1, carbohydrates for serving 2, carbohydrates for serving 3],
-            fat: [fat for serving 1, fat for serving 2, fat for serving 3],
-            fiber: [fiber for serving 1, fiber for serving 2, fiber for serving 3]
-          },
-        ]
-        ''';
-    final imageBytes = await File(imagePath).readAsBytes();
+    // Replace with your Supabase project URL and function name
+    final supabaseUrl = 'https://mdivtblabmnftdqlgysv.supabase.co';
+    final functionName =
+        'process-withgemini'; // Change to your actual function name
 
-    final content = [
-      Content.multi([
-        TextPart(prompt),
-        DataPart('image/jpeg', imageBytes),
-      ]),
-    ];
+    // Prepare the image file
+    final imageFile = File(imagePath);
 
-    final response = await model.generateContent(content);
-    return response.text ?? 'No response from Gemini';
+    if (!await imageFile.exists()) {
+      return 'Error: Image file does not exist';
+    }
+
+    final bytes = await imageFile.readAsBytes();
+
+    // Determine content type based on file extension
+    String contentType = 'image/jpeg'; // Default
+    if (imagePath.toLowerCase().endsWith('.png')) {
+      contentType = 'image/png';
+    }
+
+    // Create a multipart request
+    final request = http.MultipartRequest(
+        'POST', Uri.parse('$supabaseUrl/functions/v1/$functionName'));
+
+    // Add the image as a file part
+    request.files.add(http.MultipartFile.fromBytes(
+      'image',
+      bytes,
+      filename: imagePath.split('/').last,
+      contentType: MediaType.parse(contentType),
+    ));
+
+    // Optional: Add authentication if your function requires it
+    final supabaseAuthToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU';
+    request.headers['Authorization'] = 'Bearer $supabaseAuthToken';
+
+    // Send the request
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    // Check if the request was successful
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final jsonResponse = jsonDecode(response.body);
+      return jsonResponse['result'] ?? 'No result in response';
+    } else {
+      throw Exception('Error: ${response.statusCode}, ${response.body}');
+    }
   } catch (e) {
-    print('Error processing image with Gemini: $e');
+    print('Error processing image with Supabase Edge Function: $e');
     return 'Error processing image: $e';
   }
 }
