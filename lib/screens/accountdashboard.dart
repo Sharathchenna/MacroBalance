@@ -39,9 +39,9 @@ class _AccountDashboardState extends State<AccountDashboard>
   };
   final Map<String, bool> _notificationSettings = {
     'mealReminders': true,
-    'hydrationTracking': true,
+    // 'hydrationTracking': true,
     'weeklyReports': true,
-    'achievementAlerts': true,
+    // 'achievementAlerts': true,
   };
 
   @override
@@ -155,8 +155,7 @@ class _AccountDashboardState extends State<AccountDashboard>
         final customColors = Theme.of(context).extension<CustomColors>();
 
         return Scaffold(
-          backgroundColor:
-              customColors?.cardBackground ?? colorScheme.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: _buildAppBar(colorScheme, isDarkMode),
           body: ListView(
             padding: EdgeInsets.zero,
@@ -173,7 +172,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                 children: [
                   _buildListTile(
                     icon: CupertinoIcons.profile_circled,
-                    iconColor: colorScheme.primary,
+                    iconColor: customColors!.accentPrimary,
                     title: 'Edit Profile',
                     subtitle: 'Update your personal information',
                     trailing: const Icon(Icons.chevron_right),
@@ -371,7 +370,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       title: Text(
         'Settings',
         style: GoogleFonts.poppins(
-          color: colorScheme.onBackground,
+          color: colorScheme.onSurface,
           fontWeight: FontWeight.w600,
           fontSize: 20,
         ),
@@ -382,110 +381,141 @@ class _AccountDashboardState extends State<AccountDashboard>
 
   Widget _buildProfileHeader(
       ColorScheme colorScheme, CustomColors? customColors) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            colorScheme.primary.withValues(alpha: 0.8),
-            colorScheme.primary.withValues(alpha: 0.6),
-          ],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: 36,
-                  backgroundColor:
-                      colorScheme.primaryContainer.withValues(alpha: 0.6),
-                  child: Text(
-                    userData['name'].toString().substring(0, 1).toUpperCase(),
-                    style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      userData['name'],
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(CupertinoIcons.mail,
-                            color: Colors.white.withValues(alpha: 0.9),
-                            size: 14),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            userData['email'],
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.white.withValues(alpha: 0.9),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: () async {
-                  HapticFeedback.lightImpact();
-                  final result = await Navigator.push<Map<String, dynamic>>(
-                    context,
-                    CupertinoPageRoute(
-                      builder: (context) =>
-                          EditProfileScreen(userData: userData),
-                    ),
-                  );
-                  if (result != null && mounted) {
-                    setState(() {
-                      userData = result;
-                    });
-                  }
-                },
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(CupertinoIcons.pencil,
-                      color: Colors.white, size: 18),
-                ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8), // Added padding here
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.secondary,
+              colorScheme.primary.withValues(alpha: 0.8),
+              colorScheme.secondary.withValues(alpha: 0.6),
             ],
           ),
-        ],
+          borderRadius: const BorderRadius.all(Radius.circular(40)),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white,
+                        Colors.white.withValues(alpha: 0.8),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 38,
+                    backgroundColor: colorScheme.primaryContainer,
+                    child: Text(
+                      userData['name'].toString().substring(0, 1).toUpperCase(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userData['name'],
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(CupertinoIcons.mail,
+                                color: Colors.white.withValues(alpha: 0.9),
+                                size: 14),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                userData['email'],
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    onPressed: () async {
+                      HapticFeedback.lightImpact();
+                      final result = await Navigator.push<Map<String, dynamic>>(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) =>
+                              EditProfileScreen(userData: userData),
+                        ),
+                      );
+                      if (result != null && mounted) {
+                        setState(() {
+                          userData = result;
+                        });
+                      }
+                    },
+                    icon: const Icon(CupertinoIcons.pencil,
+                        color: Colors.white, size: 20),
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -630,7 +660,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                   child: Icon(
                     icon,
                     size: 16,
-                    color: colorScheme.primary,
+                    color: customColors!.textPrimary,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -721,10 +751,10 @@ class _AccountDashboardState extends State<AccountDashboard>
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: SwitchListTile(
+      child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        secondary: Container(
+        leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: iconColor.withValues(alpha: 0.1),
@@ -746,10 +776,11 @@ class _AccountDashboardState extends State<AccountDashboard>
             color: colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
-        value: value,
-        activeColor: colorScheme.primary,
-        inactiveThumbColor: colorScheme.onSurface.withValues(alpha: 0.4),
-        onChanged: onChanged,
+        trailing: CupertinoSwitch(
+          value: value,
+          activeTrackColor: colorScheme.primary,
+          onChanged: onChanged,
+        ),
       ),
     );
   }
@@ -785,12 +816,12 @@ class _AccountDashboardState extends State<AccountDashboard>
     switch (key) {
       case 'mealReminders':
         return CupertinoIcons.clock_fill;
-      case 'hydrationTracking':
-        return CupertinoIcons.drop_fill;
+      // case 'hydrationTracking':
+      //   return CupertinoIcons.drop_fill;
       case 'weeklyReports':
         return CupertinoIcons.chart_bar_alt_fill;
-      case 'achievementAlerts':
-        return CupertinoIcons.star_fill;
+      // case 'achievementAlerts':
+      //   return CupertinoIcons.star_fill;
       default:
         return CupertinoIcons.bell_fill;
     }
@@ -800,12 +831,12 @@ class _AccountDashboardState extends State<AccountDashboard>
     switch (key) {
       case 'mealReminders':
         return Colors.orange;
-      case 'hydrationTracking':
-        return Colors.blue;
+      // case 'hydrationTracking':
+      //   return Colors.blue;
       case 'weeklyReports':
         return Colors.green;
-      case 'achievementAlerts':
-        return Colors.amber;
+      // case 'achievementAlerts':
+      //   return Colors.amber;
       default:
         return Colors.purple;
     }
@@ -815,12 +846,12 @@ class _AccountDashboardState extends State<AccountDashboard>
     switch (key) {
       case 'mealReminders':
         return 'Meal Reminders';
-      case 'hydrationTracking':
-        return 'Hydration Tracking';
+      // case 'hydrationTracking':
+      //   return 'Hydration Tracking';
       case 'weeklyReports':
         return 'Weekly Reports';
-      case 'achievementAlerts':
-        return 'Achievement Alerts';
+      // case 'achievementAlerts':
+      //   return 'Achievement Alerts';
       default:
         return key;
     }
