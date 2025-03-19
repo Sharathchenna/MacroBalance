@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/screens/GoalsPage.dart';
+import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
@@ -213,7 +214,9 @@ class _AccountDashboardState extends State<AccountDashboard>
                       HapticFeedback.lightImpact();
                       Navigator.push(
                         context,
-                        CupertinoPageRoute(builder: (context) => GoalsScreen()),
+                        CupertinoPageRoute(
+                            builder: (context) =>
+                                EditGoalsScreen()), // Changed from GoalsScreen to EditGoalsScreen
                       );
                     },
                     colorScheme: colorScheme,

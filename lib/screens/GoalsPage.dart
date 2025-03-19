@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -14,7 +15,9 @@ import 'dart:math' as math;
 import 'package:macrotracker/Health/Health.dart';
 
 class GoalsScreen extends StatefulWidget {
-  const GoalsScreen({super.key});
+  final String? initialSection;
+
+  const GoalsScreen({super.key, this.initialSection});
 
   @override
   State<GoalsScreen> createState() => _GoalsScreenState();
@@ -24,6 +27,9 @@ class _GoalsScreenState extends State<GoalsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   final ScrollController _scrollController = ScrollController();
+
+  // Add keys for each section we want to scroll to
+  final GlobalKey _stepsChartKey = GlobalKey();
 
   // Graph selection state
   String _selectedGraphType = 'Weight'; // Default to calories
@@ -80,6 +86,29 @@ class _GoalsScreenState extends State<GoalsScreen>
     _loadWeightData();
     _loadWeightUnit();
     _loadStepsData();
+
+    // Add post-frame callback to scroll to the requested section
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToInitialSection();
+    });
+  }
+
+  // Add method to scroll to section
+  void _scrollToInitialSection() {
+    if (widget.initialSection == 'steps' &&
+        _stepsChartKey.currentContext != null) {
+      // Get the position of the steps section
+      final RenderBox box =
+          _stepsChartKey.currentContext!.findRenderObject() as RenderBox;
+      final position = box.localToGlobal(Offset.zero);
+
+      // Scroll to that position with some padding
+      _scrollController.animateTo(
+        position.dy - 100, // Subtract header height and some padding
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _loadGoals() async {
@@ -241,6 +270,7 @@ class _GoalsScreenState extends State<GoalsScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? weightHistoryString = prefs.getString('weight_history');
+      final customColors = Theme.of(context).extension<CustomColors>();
 
       List<Map<String, dynamic>> weightHistory = [];
       if (weightHistoryString != null && weightHistoryString.isNotEmpty) {
@@ -328,6 +358,9 @@ class _GoalsScreenState extends State<GoalsScreen>
 
   // Date picker for weight logging
   Future<void> _selectDate(BuildContext context) async {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedWeightDate,
@@ -336,11 +369,19 @@ class _GoalsScreenState extends State<GoalsScreen>
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Theme.of(context).primaryColor,
-              onPrimary: Colors.white,
-              onSurface: Theme.of(context).textTheme.bodyLarge!.color!,
-            ),
+            colorScheme: isDarkMode
+                ? ColorScheme.dark(
+                    primary: Theme.of(context).primaryColor,
+                    onPrimary: Colors.white,
+                    onSurface: customColors!.textPrimary,
+                    surface: customColors.cardBackground,
+                  )
+                : ColorScheme.light(
+                    primary: Theme.of(context).primaryColor,
+                    onPrimary: Colors.white,
+                    onSurface: customColors!.textPrimary,
+                  ),
+            dialogBackgroundColor: customColors.cardBackground,
           ),
           child: child!,
         );
@@ -611,78 +652,73 @@ class _GoalsScreenState extends State<GoalsScreen>
                   slivers: [
                     _buildSliverAppBar(context),
 
-                    // Weekly progress chart
+                    // All progress charts in a column
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                        child: _buildWeeklyProgressChart(context),
-                      ),
-                    ),
+                        child: Column(
+                          children: [
+                            // Weight Chart Section
+                            _buildChartSection(
+                              context: context,
+                              title: 'Weight History',
+                              chartWidget: _buildWeightChart(context),
+                              additionalWidget:
+                                  _buildWeightLoggingSection(context),
+                              chartColor: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Color(0xFF64B5F6)
+                                  : Color(0xFF1976D2),
+                              chartIcon: Icons.monitor_weight,
+                            ),
 
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            return SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 0.2),
-                                end: Offset.zero,
-                              ).animate(CurvedAnimation(
-                                parent: _controller,
-                                curve: Interval(
-                                  index * 0.1,
-                                  1.0,
-                                  curve: Curves.easeOutQuart,
-                                ),
-                              )),
-                              child: FadeTransition(
-                                opacity: _controller,
-                                child: _buildGoalCard(getGoalData(index)),
-                              ),
-                            );
-                          },
-                          childCount: 5,
+                            const SizedBox(height: 24), // Gap between charts
+
+                            // Steps Chart Section
+                            _buildChartSection(
+                              context: context,
+                              title: 'Steps - Last 7 Days',
+                              chartWidget: _buildStepsChart(context),
+                              chartColor: Colors.green,
+                              chartIcon: Icons.directions_walk,
+                            ),
+
+                            const SizedBox(height: 24), // Gap between charts
+
+                            // Calories Chart Section
+                            _buildChartSection(
+                              context: context,
+                              title: 'Calories - Last 7 Days',
+                              chartWidget: _buildCaloriesChart(context),
+                              chartColor: Colors.red,
+                              chartIcon: Icons.local_fire_department,
+                            ),
+                          ],
                         ),
                       ),
                     ),
+
+                    // Empty space at bottom
                     const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
                   ],
                 ),
               ),
             ),
-            // floatingActionButton: FloatingActionButton(
-            //   onPressed: () {},
-            //   elevation: 2,
-            //   child: Container(
-            //     width: 60,
-            //     height: 60,
-            //     decoration: BoxDecoration(
-            //       shape: BoxShape.circle,
-            //       gradient: LinearGradient(
-            //         colors: [
-            //           Theme.of(context).primaryColor,
-            //           Theme.of(context).primaryColor.withOpacity(0.8),
-            //         ],
-            //       ),
-            //     ),
-            //     child: const Icon(Icons.add, size: 28),
-            //   ),
-            // ),
           ),
         );
       },
     );
   }
 
-  Widget _buildWeeklyProgressChart(BuildContext context) {
-    // Calculate height dynamically based on content
-    double chartHeight = _selectedGraphType == 'Weight'
-        ? math.max(550, weightData.length * 50.0) // Dynamic height with minimum
-        : 350;
-
+  Widget _buildChartSection({
+    required BuildContext context,
+    required String title,
+    required Widget chartWidget,
+    Widget? additionalWidget,
+    required Color chartColor,
+    required IconData chartIcon,
+  }) {
     return Container(
-      height: chartHeight,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
@@ -701,85 +737,35 @@ class _GoalsScreenState extends State<GoalsScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Progress Chart',
-                style: TextStyle(
-                  color: Theme.of(context).primaryColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              Icon(
+                chartIcon,
+                color: chartColor,
+                size: 18,
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _getChartSubtitle(),
-                  style: TextStyle(
-                    color: Theme.of(context).primaryColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: chartColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          Expanded(
+          Container(
+            height: 280, // Consistent height for all charts
             child: _isLoadingGraphData
                 ? Center(child: CircularProgressIndicator())
-                : _buildSelectedChart(context),
+                : chartWidget,
           ),
-          const SizedBox(height: 10),
-          // Toggle buttons for chart selection
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildChartToggleButton(context, 'Weight'),
-              const SizedBox(width: 8),
-              _buildChartToggleButton(context, 'Calories'),
-              const SizedBox(width: 8),
-              _buildChartToggleButton(context, 'Steps'),
-            ],
-          ),
-
-          // Weight logging section (only visible when weight tab is selected)
-          if (_selectedGraphType == 'Weight')
-            _buildWeightLoggingSection(context),
+          // Add additional widget if provided (like weight logging)
+          if (additionalWidget != null) additionalWidget,
         ],
       ),
     );
-  }
-
-  String _getChartSubtitle() {
-    switch (_selectedGraphType) {
-      case 'Calories':
-        return 'Last 7 Days';
-      case 'Steps':
-        return 'Last 7 Days';
-      case 'Weight':
-        return 'Weight History';
-      default:
-        return 'Last 7 Days';
-    }
-  }
-
-  Widget _buildSelectedChart(BuildContext context) {
-    switch (_selectedGraphType) {
-      case 'Calories':
-        return _buildCaloriesChart(context);
-      case 'Steps':
-        return _buildStepsChart(context);
-      case 'Weight':
-        return _buildWeightChart(context);
-      default:
-        return _buildCaloriesChart(context);
-    }
   }
 
   Widget _buildWeightLoggingSection(BuildContext context) {
@@ -830,7 +816,10 @@ class _GoalsScreenState extends State<GoalsScreen>
                     Icon(Icons.calendar_today, size: 14, color: weightColor),
                     const SizedBox(width: 4),
                     GestureDetector(
-                      onTap: () => _selectDate(context),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        _selectDate(context);
+                      },
                       child: Text(
                         DateFormat('MMM d, yyyy').format(_selectedWeightDate),
                         style: TextStyle(
@@ -1117,162 +1106,156 @@ class _GoalsScreenState extends State<GoalsScreen>
   }
 
   Widget _buildStepsChart(BuildContext context) {
-    // Find max steps for proper scaling
-    double maxSteps = stepsGoal * 1.2;
-
-    if (stepsBarData.isNotEmpty) {
-      final dataMax = stepsBarData.reduce((a, b) => a > b ? a : b);
-      maxSteps = math.max(maxSteps, dataMax * 1.1);
-      // Ensure we have some reasonable minimum scale
-      if (maxSteps < 1000) maxSteps = 1000;
-    }
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxSteps,
-        minY: 0,
-        barTouchData: BarTouchData(
-          enabled: true,
-          touchTooltipData: BarTouchTooltipData(
-            tooltipPadding: const EdgeInsets.all(8),
-            tooltipMargin: 8,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              return BarTooltipItem(
-                '${stepsBarData[groupIndex].toInt()} steps',
-                const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                if (value >= 0 && value < stepsDays.length) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      stepsDays[value.toInt()],
-                      style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[400]
-                            : Colors.grey[600],
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }
-                return const SizedBox();
-              },
-              reservedSize: 30,
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: maxSteps / 4,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toInt().toString(),
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.grey[400]
-                        : Colors.grey[600],
-                    fontSize: 10,
+    // Add key to this widget for scrolling
+    return Container(
+      key: _stepsChartKey,
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY: stepsGoal * 1.2,
+          minY: 0,
+          barTouchData: BarTouchData(
+            enabled: true,
+            touchTooltipData: BarTouchTooltipData(
+              tooltipPadding: const EdgeInsets.all(8),
+              tooltipMargin: 8,
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                return BarTooltipItem(
+                  '${stepsBarData[groupIndex].toInt()} steps',
+                  const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
                 );
               },
-              reservedSize: 40,
             ),
           ),
-        ),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxSteps / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.15),
-              strokeWidth: 1,
-            );
-          },
-        ),
-        barGroups: stepsBarData.asMap().entries.map((entry) {
-          final index = entry.key;
-          final value = entry.value;
+          titlesData: FlTitlesData(
+            show: true,
+            rightTitles: AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  if (value >= 0 && value < stepsDays.length) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        stepsDays[value.toInt()],
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey[400]
+                              : Colors.grey[600],
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox();
+                },
+                reservedSize: 30,
+              ),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: stepsGoal / 2,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    value.toInt().toString(),
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[400]
+                          : Colors.grey[600],
+                      fontSize: 10,
+                    ),
+                  );
+                },
+                reservedSize: 40,
+              ),
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: stepsGoal / 2,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.15),
+                strokeWidth: 1,
+              );
+            },
+          ),
+          barGroups: stepsBarData.asMap().entries.map((entry) {
+            final index = entry.key;
+            final value = entry.value;
 
-          // Calculate color based on reaching the goal
-          final percentOfGoal = value / stepsGoal;
-          Color barColor;
-          if (percentOfGoal >= 1) {
-            barColor = Colors.green;
-          } else if (percentOfGoal >= 0.7) {
-            barColor = Colors.amber;
-          } else if (percentOfGoal >= 0.4) {
-            barColor = Colors.orange;
-          } else {
-            barColor = Colors.redAccent;
-          }
+            // Calculate color based on reaching the goal
+            final percentOfGoal = value / stepsGoal;
+            Color barColor;
+            if (percentOfGoal >= 1) {
+              barColor = Colors.green;
+            } else if (percentOfGoal >= 0.7) {
+              barColor = Colors.amber;
+            } else if (percentOfGoal >= 0.4) {
+              barColor = Colors.orange;
+            } else {
+              barColor = Colors.redAccent;
+            }
 
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: value,
-                color: barColor,
-                width: 16,
-                borderRadius: BorderRadius.circular(4),
-                backDrawRodData: BackgroundBarChartRodData(
-                  show: true,
-                  toY: maxSteps,
-                  color: Colors.grey.withOpacity(0.1),
+            return BarChartGroupData(
+              x: index,
+              barRods: [
+                BarChartRodData(
+                  toY: value,
+                  color: barColor,
+                  width: 16,
+                  borderRadius: BorderRadius.circular(4),
+                  backDrawRodData: BackgroundBarChartRodData(
+                    show: true,
+                    toY: stepsGoal * 1.2,
+                    color: Colors.grey.withOpacity(0.1),
+                  ),
+                  gradient: LinearGradient(
+                    colors: [
+                      barColor,
+                      barColor.withOpacity(0.7),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
                 ),
-                gradient: LinearGradient(
-                  colors: [
-                    barColor,
-                    barColor.withOpacity(0.7),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+              ],
+            );
+          }).toList(),
+          extraLinesData: ExtraLinesData(
+            horizontalLines: [
+              HorizontalLine(
+                y: stepsGoal.toDouble(),
+                color: Colors.green.withOpacity(0.8),
+                strokeWidth: 2,
+                dashArray: [8, 4],
+                label: HorizontalLineLabel(
+                  show: true,
+                  alignment: Alignment.topRight,
+                  padding: const EdgeInsets.only(right: 8, bottom: 4),
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
+                  labelResolver: (line) => 'Goal: $stepsGoal',
                 ),
               ),
             ],
-          );
-        }).toList(),
-        extraLinesData: ExtraLinesData(
-          horizontalLines: [
-            HorizontalLine(
-              y: stepsGoal.toDouble(),
-              color: Colors.green.withOpacity(0.8),
-              strokeWidth: 2,
-              dashArray: [8, 4],
-              label: HorizontalLineLabel(
-                show: true,
-                alignment: Alignment.topRight,
-                padding: const EdgeInsets.only(right: 8, bottom: 4),
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                ),
-                labelResolver: (line) => 'Goal: $stepsGoal',
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1503,7 +1486,7 @@ class _GoalsScreenState extends State<GoalsScreen>
       flexibleSpace: FlexibleSpaceBar(
         titlePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         title: Text(
-          'My Goals',
+          'Progress',
           style: TextStyle(
             color: Theme.of(context).extension<CustomColors>()!.textPrimary,
             fontSize: 24,
@@ -1605,21 +1588,19 @@ class _GoalsScreenState extends State<GoalsScreen>
               );
             },
           ),
-          // _buildOptionTile(
-          //   context: context,
-          //   icon: Icons.settings,
-          //   title: 'Goal Settings',
-          //   onTap: () {
-          //     Navigator.pop(context);
-          //     // Alternatively, navigate to a dedicated settings page
-          //     _showEditDialog(
-          //       'Daily Calorie Goal',
-          //       calorieGoal,
-          //       'kcal',
-          //       (value) => setState(() => calorieGoal = value),
-          //     );
-          //   },
-          // ),
+          _buildOptionTile(
+            context: context,
+            icon: Icons.edit,
+            title: 'Edit Goals',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const EditGoalsScreen()),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1883,86 +1864,5 @@ class _GoalsScreenState extends State<GoalsScreen>
           'editable': false,
         };
     }
-  }
-
-  Widget _buildChartToggleButton(BuildContext context, String type) {
-    final isSelected = _selectedGraphType == type;
-
-    Color getButtonColor() {
-      switch (type) {
-        case 'Calories':
-          return Colors.red.shade400;
-        case 'Steps':
-          return Colors.green;
-        case 'Weight':
-          // Changed from purple to blue that adapts to theme
-          return Theme.of(context).brightness == Brightness.dark
-              ? Color(0xFF64B5F6) // Light blue for dark mode
-              : Color(0xFF1976D2); // Darker blue for light mode
-        default:
-          return Theme.of(context).primaryColor;
-      }
-    }
-
-    final buttonColor = getButtonColor();
-
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        setState(() {
-          _selectedGraphType = type;
-          // Reload data if needed - force reload for Steps to ensure data is fetched
-          if (type == 'Weight' && weightData.isEmpty) {
-            _loadWeightData();
-          } else if (type == 'Calories' && weeklyCaloriesData.isEmpty) {
-            _generateWeeklyData();
-          } else if (type == 'Steps') {
-            // Always reload steps data when switching to steps tab
-            _loadStepsData();
-          }
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? buttonColor : buttonColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: buttonColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Row(
-          children: [
-            if (isSelected)
-              Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Icon(
-                  type == 'Calories'
-                      ? Icons.local_fire_department
-                      : type == 'Steps'
-                          ? Icons.directions_walk
-                          : Icons.monitor_weight,
-                  color: Colors.white,
-                  size: 14,
-                ),
-              ),
-            Text(
-              type,
-              style: TextStyle(
-                color: isSelected ? Colors.white : buttonColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
