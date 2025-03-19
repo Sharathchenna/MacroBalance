@@ -475,7 +475,9 @@ class _CameraScreenState extends State<CameraScreen>
                       IconButton(
                         icon:
                             const Icon(Icons.info_outline, color: Colors.white),
-                        onPressed: () {},
+                        onPressed: () {
+                          _showInfoDialog(context);
+                        },
                       ),
                     ],
                   ),
@@ -664,26 +666,7 @@ class _CameraScreenState extends State<CameraScreen>
                         ),
                       ),
 
-                    // Flash indicator
-                    if (_flashOn)
-                      Positioned(
-                        top: 20,
-                        right: 20,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Icon(
-                            Icons.flash_on,
-                            color: Colors.amber,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-
-                    // Flash control button
+                    // Keep only the flash control button:
                     Positioned(
                       top: 20,
                       left: 20,
@@ -880,6 +863,137 @@ class _CameraScreenState extends State<CameraScreen>
       ),
     );
   }
+}
+
+void _showInfoDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title
+              const Text(
+                'Camera Features',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Barcode Mode
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.qr_code,
+                        color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Barcode Mode: Scan product barcodes to look up nutrition data',
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // AI Photo Mode
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.camera_alt,
+                        color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'AI Photo Mode: Take a photo of your food to identify items and get nutritional info',
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Tips section
+              const Text(
+                'Tips:',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildTipItem('Use the flash in low light conditions'),
+              _buildTipItem('Pinch to zoom for better focusing'),
+              _buildTipItem('For barcodes, ensure the code is clear in frame'),
+              _buildTipItem('For food photos, capture the entire plate'),
+
+              const SizedBox(height: 20),
+              // Close button
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white.withOpacity(0.1),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Widget _buildTipItem(String text) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('• ', style: TextStyle(color: Colors.white, fontSize: 14)),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(color: Colors.grey[300], fontSize: 14),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 // Create a beautiful, modern barcode entry screen
