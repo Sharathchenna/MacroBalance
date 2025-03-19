@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HealthIntegrationScreen extends StatefulWidget {
   const HealthIntegrationScreen({super.key});
@@ -19,7 +20,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
   final HealthService _healthService = HealthService();
   bool _isHealthConnected = false;
   bool _isLoading = true;
-  String _healthDataStatus = "Not connected";
+  String _healthDataStatus = "Checking connection...";
 
   // Health data
   int _steps = 0;
@@ -36,36 +37,26 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
   @override
   void initState() {
     super.initState();
-    _checkHealthConnection();
+    _loadConnectionStatus(); // Load from SharedPreferences
   }
 
-  Future<void> _checkHealthConnection() async {
+  Future<void> _loadConnectionStatus() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isLoading = true;
+      _isHealthConnected = prefs.getBool('healthConnected') ?? false;
+      _healthDataStatus = _isHealthConnected
+          ? "Connected to Health App"
+          : "Not connected to Health App";
     });
-
-    try {
-      final isConnected = await _healthService.isHealthDataAvailable();
-      setState(() {
-        _isHealthConnected = isConnected;
-        _healthDataStatus = isConnected
-            ? "Connected to Health App"
-            : "Not connected to Health App";
-      });
-
-      if (isConnected) {
-        await _fetchHealthData();
-      }
-    } catch (e) {
-      setState(() {
-        _healthDataStatus = "Error checking health connection";
-      });
-      _showErrorSnackbar("Failed to check health connection: $e");
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+    if (_isHealthConnected) {
+      _fetchHealthData();
     }
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _saveConnectionStatus(bool connected) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('healthConnected', connected);
   }
 
   Future<void> _connectHealthApp() async {
@@ -82,6 +73,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
             ? "Successfully connected to Health App"
             : "Permission denied for Health App";
       });
+      await _saveConnectionStatus(_isHealthConnected); // Save the status
 
       if (granted) {
         await _fetchHealthData();
