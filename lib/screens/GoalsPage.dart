@@ -737,21 +737,46 @@ class _GoalsScreenState extends State<GoalsScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                chartIcon,
-                color: chartColor,
-                size: 18,
+              Row(
+                children: [
+                  Icon(
+                    chartIcon,
+                    color: chartColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: chartColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  color: chartColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              // Only show the add button for weight history chart
+              if (title == 'Weight History')
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _showWeightLoggingBottomSheet(context);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: chartColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.add,
+                      color: chartColor,
+                      size: 18,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -761,10 +786,225 @@ class _GoalsScreenState extends State<GoalsScreen>
                 ? Center(child: CircularProgressIndicator())
                 : chartWidget,
           ),
-          // Add additional widget if provided (like weight logging)
-          if (additionalWidget != null) additionalWidget,
+          // Add additional widget if provided (but skip for weight since we moved it to modal)
+          if (additionalWidget != null && title != 'Weight History')
+            additionalWidget,
         ],
       ),
+    );
+  }
+
+  // Add a new method to show the bottom sheet for weight logging
+  void _showWeightLoggingBottomSheet(BuildContext context) {
+    // Get the color to match chart
+    final Color weightColor = Theme.of(context).brightness == Brightness.dark
+        ? Color(0xFF64B5F6) // Light blue for dark mode
+        : Color(0xFF1976D2); // Darker blue for light mode
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? Colors.grey[850]
+          : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 20,
+            left: 20,
+            right: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle bar at top
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Icon(
+                    Icons.monitor_weight_rounded,
+                    color: weightColor,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Log Weight',
+                    style: TextStyle(
+                      color: weightColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: weightColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today,
+                            size: 14, color: weightColor),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _selectDate(context);
+                          },
+                          child: Text(
+                            DateFormat('MMM d, yyyy')
+                                .format(_selectedWeightDate),
+                            style: TextStyle(
+                              color: weightColor,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      controller: _weightController,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Enter weight',
+                        hintStyle: TextStyle(fontSize: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              BorderSide(color: Colors.grey.withOpacity(0.3)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: weightColor, width: 2),
+                        ),
+                        filled: true,
+                        fillColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[800]
+                                : Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[800]
+                            : Colors.white,
+                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildUnitToggleButton('kg'),
+                          Container(
+                            height: 24,
+                            width: 1,
+                            color: Colors.grey.withOpacity(0.3),
+                          ),
+                          _buildUnitToggleButton('lbs'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isLoggingWeight
+                      ? null
+                      : () {
+                          HapticFeedback.selectionClick();
+                          FocusScope.of(context).unfocus();
+                          final weightText = _weightController.text.trim();
+                          if (weightText.isNotEmpty) {
+                            final weight = double.tryParse(weightText);
+                            if (weight != null && weight > 0) {
+                              Navigator.pop(
+                                  context); // Close the bottom sheet first
+                              _logWeight(weight);
+                            } else {
+                              _showErrorMessage('Please enter a valid weight');
+                            }
+                          } else {
+                            _showErrorMessage('Please enter your weight');
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: weightColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isLoggingWeight
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Save',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1108,9 +1348,8 @@ class _GoalsScreenState extends State<GoalsScreen>
   Widget _buildStepsChart(BuildContext context) {
     // Calculate the maximum value from the data or goal
     double maxValue = math.max(
-      stepsBarData.isEmpty ? 0 : stepsBarData.reduce(math.max),
-      stepsGoal.toDouble()
-    );
+        stepsBarData.isEmpty ? 0 : stepsBarData.reduce(math.max),
+        stepsGoal.toDouble());
     // Set upper bound to 20% above the larger value
     double upperBound = maxValue * 1.2;
 
