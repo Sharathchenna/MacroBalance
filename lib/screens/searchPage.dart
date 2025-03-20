@@ -216,17 +216,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: Container(
-            // decoration: BoxDecoration(
-            //   gradient: LinearGradient(
-            //     begin: Alignment.topCenter,
-            //     end: Alignment.bottomCenter,
-            //     colors: [
-            //       Theme.of(context).primaryColor.withValues(alpha: .05),
-            //       Theme.of(context).scaffoldBackgroundColor,
-            //     ],
-            //     stops: const [0.0, 0.3],
-            //   ),
-            // ),
             child: SafeArea(
               child: Column(
                 children: [
