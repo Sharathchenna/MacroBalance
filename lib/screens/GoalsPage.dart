@@ -196,22 +196,16 @@ class _GoalsScreenState extends State<GoalsScreen>
         for (int i = 0; i < historyToShow.length; i++) {
           final entry = historyToShow[i];
           double weight = double.parse(entry['weight'].toString());
-
-          // Convert to display unit if needed (data is stored in kg)
-          if (_weightUnit == 'lbs') {
-            weight = weight * 2.20462; // Convert kg to lbs for display
-          }
-
+          // Always display in kg in the graph
           weightData.add(FlSpot(i.toDouble(), weight));
 
           final date = DateTime.parse(entry['date']);
-          weightDates.add(
-              DateFormat('MMM d').format(date)); // More readable date format
+          weightDates.add(DateFormat('MMM d').format(date));
         }
       } else {
         // Add some sample data if no weight history exists
         final now = DateTime.now();
-        double defaultWeight = _weightUnit == 'kg' ? 70.0 : 154.0;
+        double defaultWeight = 70.0; // Always in kg
 
         for (int i = 6; i >= 0; i--) {
           final day = now.subtract(Duration(days: i));
@@ -242,22 +236,6 @@ class _GoalsScreenState extends State<GoalsScreen>
       }
     } catch (e) {
       debugPrint('Error loading weight unit: $e');
-    }
-  }
-
-  // Save preferred weight unit
-  Future<void> _saveWeightUnit(String unit) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('weight_unit', unit);
-      setState(() {
-        _weightUnit = unit;
-      });
-
-      // Reload weight data with new unit
-      _loadWeightData();
-    } catch (e) {
-      debugPrint('Error saving weight unit: $e');
     }
   }
 
@@ -796,7 +774,6 @@ class _GoalsScreenState extends State<GoalsScreen>
 
   // Add a new method to show the bottom sheet for weight logging
   void _showWeightLoggingBottomSheet(BuildContext context) {
-    // Get the color to match chart
     final Color weightColor = Theme.of(context).brightness == Brightness.dark
         ? Color(0xFF64B5F6) // Light blue for dark mode
         : Color(0xFF1976D2); // Darker blue for light mode
@@ -811,198 +788,217 @@ class _GoalsScreenState extends State<GoalsScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 20,
-            left: 20,
-            right: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handle bar at top
-              Center(
+        // Create a state variable to track the selected unit within this bottom sheet
+        String sheetWeightUnit = _weightUnit;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Widget buildLocalUnitToggle(String unit) {
+              final isSelected = sheetWeightUnit == unit;
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  if (!isSelected) {
+                    // Update the local sheet state
+                    setSheetState(() {
+                      sheetWeightUnit = unit;
+                    });
+                  }
+                },
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(2),
+                    color: isSelected ? weightColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    unit,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.grey[600],
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
                   ),
                 ),
+              );
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                top: 20,
+                left: 20,
+                right: 20,
               ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Icon(
-                    Icons.monitor_weight_rounded,
-                    color: weightColor,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Log Weight',
-                    style: TextStyle(
-                      color: weightColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: weightColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.calendar_today,
-                            size: 14, color: weightColor),
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            _selectDate(context);
-                          },
-                          child: Text(
-                            DateFormat('MMM d, yyyy')
-                                .format(_selectedWeightDate),
-                            style: TextStyle(
-                              color: weightColor,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextField(
-                      controller: _weightController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Enter weight',
-                        hintStyle: TextStyle(fontSize: 14),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              BorderSide(color: Colors.grey.withOpacity(0.3)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: weightColor, width: 2),
-                        ),
-                        filled: true,
-                        fillColor:
-                            Theme.of(context).brightness == Brightness.dark
-                                ? Colors.grey[800]
-                                : Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
+                  Center(
                     child: Container(
-                      height: 50,
+                      width: 40,
+                      height: 4,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[800]
-                            : Colors.white,
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildUnitToggleButton('kg'),
-                          Container(
-                            height: 24,
-                            width: 1,
-                            color: Colors.grey.withOpacity(0.3),
-                          ),
-                          _buildUnitToggleButton('lbs'),
-                        ],
+                        color: Colors.grey.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Icon(Icons.monitor_weight_rounded,
+                          color: weightColor, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Log Weight',
+                        style: TextStyle(
+                          color: weightColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: weightColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.calendar_today,
+                                size: 14, color: weightColor),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () => _selectDate(context),
+                              child: Text(
+                                DateFormat('MMM d, yyyy')
+                                    .format(_selectedWeightDate),
+                                style: TextStyle(
+                                  color: weightColor,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: _weightController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500),
+                          decoration: InputDecoration(
+                            hintText: 'Enter weight',
+                            hintStyle: TextStyle(fontSize: 14),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: Colors.grey.withOpacity(0.3)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: weightColor, width: 2),
+                            ),
+                            filled: true,
+                            fillColor:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.grey[800]
+                                    : Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.grey[800]
+                                    : Colors.white,
+                            border:
+                                Border.all(color: Colors.grey.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              buildLocalUnitToggle('kg'),
+                              Container(
+                                height: 24,
+                                width: 1,
+                                color: Colors.grey.withOpacity(0.3),
+                              ),
+                              buildLocalUnitToggle('lbs'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final weightText = _weightController.text.trim();
+                        if (weightText.isNotEmpty) {
+                          final weight = double.tryParse(weightText);
+                          if (weight != null && weight > 0) {
+                            setState(() => _weightUnit = sheetWeightUnit);
+                            Navigator.pop(context);
+                            _logWeight(weight);
+                          } else {
+                            _showErrorMessage('Please enter a valid weight');
+                          }
+                        } else {
+                          _showErrorMessage('Please enter your weight');
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: weightColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Save',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _isLoggingWeight
-                      ? null
-                      : () {
-                          HapticFeedback.selectionClick();
-                          FocusScope.of(context).unfocus();
-                          final weightText = _weightController.text.trim();
-                          if (weightText.isNotEmpty) {
-                            final weight = double.tryParse(weightText);
-                            if (weight != null && weight > 0) {
-                              Navigator.pop(
-                                  context); // Close the bottom sheet first
-                              _logWeight(weight);
-                            } else {
-                              _showErrorMessage('Please enter a valid weight');
-                            }
-                          } else {
-                            _showErrorMessage('Please enter your weight');
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: weightColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isLoggingWeight
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Save',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1204,7 +1200,9 @@ class _GoalsScreenState extends State<GoalsScreen>
       onTap: () {
         HapticFeedback.selectionClick();
         if (!isSelected) {
-          _saveWeightUnit(unit);
+          setState(() {
+            _weightUnit = unit;
+          });
         }
       },
       child: Container(
@@ -1510,8 +1508,8 @@ class _GoalsScreenState extends State<GoalsScreen>
 
   Widget _buildWeightChart(BuildContext context) {
     // Find min and max weight for proper scaling
-    double minWeight = _weightUnit == 'kg' ? 50.0 : 110.0; // Default min
-    double maxWeight = _weightUnit == 'kg' ? 100.0 : 220.0; // Default max
+    double minWeight = 50.0; // Default min in kg
+    double maxWeight = 100.0; // Default max in kg
 
     // Get chart color based on theme
     final Color chartColor = Theme.of(context).brightness == Brightness.dark
@@ -1521,10 +1519,10 @@ class _GoalsScreenState extends State<GoalsScreen>
     if (weightData.isNotEmpty) {
       minWeight =
           weightData.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) -
-              (_weightUnit == 'kg' ? 2.0 : 5.0);
+              2.0;
       maxWeight =
           weightData.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) +
-              (_weightUnit == 'kg' ? 2.0 : 5.0);
+              2.0;
     }
 
     return Column(
@@ -1615,9 +1613,7 @@ class _GoalsScreenState extends State<GoalsScreen>
                     interval: (maxWeight - minWeight) / 4,
                     getTitlesWidget: (value, meta) {
                       return Text(
-                        _weightUnit == 'kg'
-                            ? value.toStringAsFixed(1)
-                            : value.toInt().toString(),
+                        value.toStringAsFixed(1),
                         style: TextStyle(
                           color: Theme.of(context).brightness == Brightness.dark
                               ? Colors.grey[400]
@@ -1640,7 +1636,7 @@ class _GoalsScreenState extends State<GoalsScreen>
                       String date =
                           index < weightDates.length ? weightDates[index] : '';
                       return LineTooltipItem(
-                        '${spot.y.toStringAsFixed(_weightUnit == 'kg' ? 1 : 0)} $_weightUnit\n$date',
+                        '${spot.y.toStringAsFixed(1)} kg\n$date',
                         TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
