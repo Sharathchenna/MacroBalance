@@ -7,6 +7,7 @@ import 'package:numberpicker/numberpicker.dart'; // Add this import
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -188,6 +189,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('macro_results', json.encode(macroResults));
 
+    // Save the initial weight in kg (regardless of display unit)
+    final weightInKg = _weightKg;
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // Create initial weight history entry
+    final List<Map<String, dynamic>> weightHistory = [
+      {
+        'date': today,
+        'weight': weightInKg,
+      }
+    ];
+    await prefs.setString('weight_history', jsonEncode(weightHistory));
+
+    // Save weight unit preference locally only
+    await prefs.setString('weight_unit', _isMetricWeight ? 'kg' : 'lbs');
+
     // Save to Supabase if user is authenticated
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
@@ -217,14 +234,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
         await Supabase.instance.client.from('user_macros').upsert(supabaseData);
 
-        // Also save user preferences for future reference
+        // Save user preferences without the weight_unit column
         await Supabase.instance.client.from('user_preferences').upsert({
           'user_id': currentUser.id,
-          'measurement_system': 'metric', // Currently we only support metric
+          'measurement_system': _isMetricWeight ? 'metric' : 'imperial',
           'updated_at': DateTime.now().toIso8601String(),
         });
 
-        // Also save these values to SharedPreferences for local access
+        // Save these values to SharedPreferences for local access
         prefs.setDouble(
             'calories_goal',
             (macroResults['calories'] ?? macroResults['calorie_target'] ?? 0)
@@ -235,10 +252,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         prefs.setDouble('fat_goal', (macroResults['fat'] ?? 0).toDouble());
       } catch (e) {
         print('Error saving macro results to Supabase: $e');
-        // Add better error handling
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save data: $e')),
-        );
+        // Show error message to user
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving data: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
