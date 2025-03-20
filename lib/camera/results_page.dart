@@ -33,6 +33,23 @@ class ResultsPage extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              // Navigate to dashboard (replacing the entire stack)
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/dashboard', // Your dashboard route
+                (route) => false, // This will clear the entire navigation stack
+              );
+            },
+            icon:
+                Icon(Icons.dashboard_outlined, color: customColors.textPrimary),
+            label: Text(
+              'Dashboard',
+              style: TextStyle(color: customColors.textPrimary),
+            ),
+          ),
+        ],
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -323,7 +340,7 @@ class ResultsPage extends StatelessWidget {
     // So we need to adjust the values to be per 100g
     // Default quantity is 1.0 for quick add
     final double quantity = 1.0;
-    
+
     // Adjust nutrients to be per 100g instead of per serving
     final calories = food.calories[0] / quantity * 100;
     final protein = food.protein[0] / quantity * 100;
@@ -370,15 +387,15 @@ class ResultsPage extends StatelessWidget {
             ),
           ],
         ),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Color(0xFFFFC107).withValues(alpha: 0.8),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: EdgeInsets.all(8),
         duration: const Duration(seconds: 2),
       ),
     );
-    
+
     // Navigate directly to Dashboard instead of staying on results page
-    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+    // Navigator.pop(context); // Close results page
   }
 }

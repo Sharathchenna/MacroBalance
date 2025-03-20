@@ -1735,7 +1735,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
   void _showSuccessSnackbar(String meal) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Color(0xFFFFC107).withValues(alpha: 0.8),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Row(

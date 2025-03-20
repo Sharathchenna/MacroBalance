@@ -883,7 +883,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
             ),
           ],
         ),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Color(0xFFFFC107).withValues(alpha: 0.8),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: EdgeInsets.all(8),
@@ -891,7 +891,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
       ),
     );
 
-    // Navigate back to food detail screen
-    Navigator.pop(context);
+    // // Navigate back to food detail screen
+    // Navigator.pop(context);
   }
 }
