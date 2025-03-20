@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/camera/camera.dart';
+import 'package:macrotracker/screens/askAI.dart';
 
-class SearchHeader extends StatelessWidget {
+class SearchHeader extends StatefulWidget {
   final TextEditingController controller;
   final Function(String) onSearch;
   final Function(String) onChanged;
@@ -17,11 +18,57 @@ class SearchHeader extends StatelessWidget {
     required this.onBack,
   }) : super(key: key);
 
+  @override
+  State<SearchHeader> createState() => _SearchHeaderState();
+}
+
+class _SearchHeaderState extends State<SearchHeader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _buttonsAnimation;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _buttonsAnimation = Tween<double>(begin: 1, end: 0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   void _navigateToCameraScreen(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => const CameraScreen(),
+      ),
+    );
+  }
+
+  void _navigateToAskAI(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const Askai(),
       ),
     );
   }
@@ -41,7 +88,7 @@ class SearchHeader extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: onBack,
+                    onTap: widget.onBack,
                     borderRadius: BorderRadius.circular(40),
                     child: Container(
                       padding: const EdgeInsets.all(8),
@@ -71,14 +118,22 @@ class SearchHeader extends StatelessWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: controller,
-                    onChanged: onChanged,
-                    onSubmitted: onSearch,
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    onChanged: widget.onChanged,
+                    onSubmitted: widget.onSearch,
                     textInputAction: TextInputAction.search,
                     style: AppTypography.body1.copyWith(
                       color: customColors.textPrimary,
@@ -93,16 +148,14 @@ class SearchHeader extends StatelessWidget {
                         Icons.search_rounded,
                         color: customColors.textPrimary.withOpacity(0.7),
                       ),
-                      suffixIcon: controller.text.isNotEmpty
+                      suffixIcon: widget.controller.text.isNotEmpty
                           ? IconButton(
-                              icon: Icon(
-                                Icons.close_rounded,
-                                color:
-                                    customColors.textPrimary.withOpacity(0.7),
-                              ),
+                              icon: Icon(Icons.close_rounded,
+                                  color: customColors.textPrimary
+                                      .withOpacity(0.7)),
                               onPressed: () {
-                                controller.clear();
-                                onChanged('');
+                                widget.controller.clear();
+                                widget.onChanged('');
                               },
                             )
                           : null,
@@ -111,35 +164,66 @@ class SearchHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: const BorderRadius.horizontal(
-                        right: Radius.circular(16)),
-                    onTap: () => _navigateToCameraScreen(context),
-                    child: Container(
-                      height: 56,
-                      width: 48,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            customColors.accentPrimary.withOpacity(0.05),
-                            customColors.accentPrimary.withOpacity(0.15)
-                          ],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
+                SizeTransition(
+                  sizeFactor: _buttonsAnimation,
+                  axis: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(0),
+                          onTap: () => _navigateToCameraScreen(context),
+                          child: Container(
+                            height: 56,
+                            width: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.2),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.camera_alt_rounded,
+                                color: const Color(0xFFFFC107),
+                                size: 22,
+                              ),
+                            ),
+                          ),
                         ),
-                        borderRadius: const BorderRadius.horizontal(
-                            right: Radius.circular(16)),
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.camera_alt_rounded,
-                          color: customColors.accentPrimary,
-                          size: 22,
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: const BorderRadius.horizontal(
+                              right: Radius.circular(16)),
+                          onTap: () => _navigateToAskAI(context),
+                          child: Container(
+                            height: 56,
+                            width: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: const BorderRadius.horizontal(
+                                  right: Radius.circular(16)),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.2),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Image.asset(
+                                'assets/icons/AI Icon.png',
+                                width: 22,
+                                height: 22,
+                                color: const Color(0xFFFFC107),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],
