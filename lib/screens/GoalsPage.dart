@@ -57,6 +57,7 @@ class _GoalsScreenState extends State<GoalsScreen>
   final List<FlSpot> weightData = [];
   final List<String> weekDays = [];
   final List<String> weightDates = [];
+  Map<int, DateTime> weightDateMap = {}; // Add this to store actual dates for each data point
 
   // Weight logging
   final TextEditingController _weightController = TextEditingController();
@@ -71,6 +72,12 @@ class _GoalsScreenState extends State<GoalsScreen>
   final List<String> stepsDays = [];
   List<Map<String, dynamic>> weeklyStepsData = [];
   bool _isHealthConnected = false;
+
+  // Weight chart state variables
+  double _weightChartMinX = 0;
+  double _weightChartMaxX = 0;
+  double _weightChartScaleFactor = 1.0;
+  final double _weightChartDefaultSpan = 90; // 3 months in days
 
   @override
   void initState() {
@@ -180,6 +187,7 @@ class _GoalsScreenState extends State<GoalsScreen>
 
       weightData.clear();
       weightDates.clear();
+      weightDateMap.clear(); // Clear the date map
 
       if (weightHistoryString != null && weightHistoryString.isNotEmpty) {
         final List<dynamic> weightHistory = jsonDecode(weightHistoryString);
@@ -188,30 +196,40 @@ class _GoalsScreenState extends State<GoalsScreen>
         weightHistory.sort((a, b) =>
             DateTime.parse(a['date']).compareTo(DateTime.parse(b['date'])));
 
-        // Get the last 30 entries or all if less than 30
-        final historyToShow = weightHistory.length > 30
-            ? weightHistory.sublist(weightHistory.length - 30)
-            : weightHistory;
+        // Get all entries
+        final historyToShow = weightHistory;
 
         for (int i = 0; i < historyToShow.length; i++) {
           final entry = historyToShow[i];
           double weight = double.parse(entry['weight'].toString());
-          // Always display in kg in the graph
-          weightData.add(FlSpot(i.toDouble(), weight));
-
           final date = DateTime.parse(entry['date']);
-          weightDates.add(DateFormat('MMM d').format(date));
+          
+          // Store with index-based x value for consistency
+          weightData.add(FlSpot(i.toDouble(), weight));
+          weightDateMap[i] = date; // Store the actual date for each index
+          weightDates.add(DateFormat('MMM').format(date));
+        }
+
+        // Set the default view to show the last 3 months
+        if (weightData.isNotEmpty) {
+          _weightChartMaxX = weightData.last.x;
+          _weightChartMinX = math.max(0, _weightChartMaxX - _weightChartDefaultSpan);
         }
       } else {
         // Add some sample data if no weight history exists
         final now = DateTime.now();
         double defaultWeight = 70.0; // Always in kg
 
-        for (int i = 6; i >= 0; i--) {
+        for (int i = 90; i >= 0; i -= 30) { // Sample data for last 3 months
           final day = now.subtract(Duration(days: i));
-          weightData.add(FlSpot(6 - i.toDouble(), defaultWeight));
-          weightDates.add(DateFormat('MMM d').format(day));
+          int index = 90 - i;
+          weightData.add(FlSpot(index.toDouble(), defaultWeight));
+          weightDateMap[index] = day;
+          weightDates.add(DateFormat('MMM').format(day));
         }
+
+        _weightChartMaxX = 90;
+        _weightChartMinX = 0;
       }
     } catch (e) {
       debugPrint('Error loading weight data: $e');
@@ -759,7 +777,7 @@ class _GoalsScreenState extends State<GoalsScreen>
           ),
           const SizedBox(height: 20),
           Container(
-            height: 280, // Consistent height for all charts
+            height: 400, // Consistent height for all charts
             child: _isLoadingGraphData
                 ? Center(child: CircularProgressIndicator())
                 : chartWidget,
@@ -1351,6 +1369,11 @@ class _GoalsScreenState extends State<GoalsScreen>
     // Set upper bound to 20% above the larger value
     double upperBound = maxValue * 1.2;
 
+    // Get theme color for steps - using a blue-green shade like Apple Health
+    final Color stepsColor = Theme.of(context).brightness == Brightness.dark
+        ? Color(0xFF4CD964) // Apple Health-like green for dark mode
+        : Color(0xFF36C35D); // Apple Health-like green for light mode
+
     // Add key to this widget for scrolling
     return Container(
       key: _stepsChartKey,
@@ -1429,7 +1452,7 @@ class _GoalsScreenState extends State<GoalsScreen>
           borderData: FlBorderData(show: false),
           gridData: FlGridData(
             show: true,
-            drawVerticalLine: false,
+            drawVerticalLine: false, // Remove vertical lines completely
             horizontalInterval: upperBound / 4,
             getDrawingHorizontalLine: (value) {
               return FlLine(
@@ -1442,36 +1465,26 @@ class _GoalsScreenState extends State<GoalsScreen>
             final index = entry.key;
             final value = entry.value;
 
-            // Calculate color based on reaching the goal
-            final percentOfGoal = value / stepsGoal;
-            Color barColor;
-            if (percentOfGoal >= 1) {
-              barColor = Colors.green;
-            } else if (percentOfGoal >= 0.7) {
-              barColor = Colors.amber;
-            } else if (percentOfGoal >= 0.4) {
-              barColor = Colors.orange;
-            } else {
-              barColor = Colors.redAccent;
-            }
-
             return BarChartGroupData(
               x: index,
               barRods: [
                 BarChartRodData(
                   toY: math.min(value, upperBound),
-                  color: barColor,
-                  width: 16,
-                  borderRadius: BorderRadius.circular(4),
-                  backDrawRodData: BackgroundBarChartRodData(
-                    show: true,
-                    toY: upperBound,
-                    color: Colors.grey.withOpacity(0.1),
+                  color: stepsColor, // Single consistent color
+                  width: 25, // Increased from 12 to make bars thicker
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(2),  // Reduced from 4 for less rounding
+                    topRight: Radius.circular(2), // Reduced from 4 for less rounding
                   ),
+                  // backDrawRodData: BackgroundBarChartRodData(
+                  //   show: true,
+                  //   toY: upperBound,
+                  //   color: Colors.grey.withOpacity(0.1),
+                  // ),
                   gradient: LinearGradient(
                     colors: [
-                      barColor,
-                      barColor.withOpacity(0.7),
+                      stepsColor,
+                      stepsColor.withOpacity(0.7),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1484,15 +1497,15 @@ class _GoalsScreenState extends State<GoalsScreen>
             horizontalLines: [
               HorizontalLine(
                 y: stepsGoal.toDouble(),
-                color: Colors.green.withOpacity(0.8),
-                strokeWidth: 2,
+                color: Colors.red.withOpacity(0.8), // Make goal line red like Apple Health
+                strokeWidth: 1.5,
                 dashArray: [8, 4],
                 label: HorizontalLineLabel(
                   show: true,
                   alignment: Alignment.topRight,
                   padding: const EdgeInsets.only(right: 8, bottom: 4),
                   style: const TextStyle(
-                    color: Colors.green,
+                    color: Colors.red,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
@@ -1511,186 +1524,419 @@ class _GoalsScreenState extends State<GoalsScreen>
     double minWeight = 50.0; // Default min in kg
     double maxWeight = 100.0; // Default max in kg
 
-    // Get chart color based on theme
+    // Get vibrant color that works in both light and dark mode
     final Color chartColor = Theme.of(context).brightness == Brightness.dark
-        ? Color(0xFF64B5F6) // Light blue for dark mode
-        : Color(0xFF1976D2); // Darker blue for light mode
+        ? Color(0xFF4FC3F7) // Vibrant light blue for dark mode
+        : Color(0xFF0288D1); // Vibrant darker blue for light mode
 
     if (weightData.isNotEmpty) {
       minWeight =
-          weightData.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) -
-              2.0;
+          weightData.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) - 2.0;
       maxWeight =
-          weightData.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) +
-              2.0;
+          weightData.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) + 2.0;
     }
 
-    return Column(
-      children: [
-        // Container(
-        //   height: 16,
-        //   alignment: Alignment.centerRight,
-        //   child: Row(
-        //     mainAxisSize: MainAxisSize.min,
-        //     children: [
-        //       Icon(
-        //         Icons.info_outline,
-        //         size: 12,
-        //         color: Colors.grey[600],
-        //       ),
-        //       Text(
-        //         'Tap on data points for details',
-        //         style: TextStyle(
-        //           fontSize: 10,
-        //           color: Colors.grey[600],
-        //           fontStyle: FontStyle.italic,
-        //         ),
-        //       ),
-        //     ],
-        //   ),
-        // ),
-        const SizedBox(height: 4),
-        Expanded(
-          child: LineChart(
-            LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                horizontalInterval: (maxWeight - minWeight) / 5,
-                getDrawingHorizontalLine: (value) {
-                  return FlLine(
-                    color: Colors.grey.withOpacity(0.15),
-                    strokeWidth: 1,
-                  );
-                },
-              ),
-              titlesData: FlTitlesData(
-                show: true,
-                rightTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 0, // Increased to give more room for labels
-                    getTitlesWidget: (value, meta) {
-                      final index = value.toInt();
-                      if (index >= 0 && index < weightDates.length) {
-                        // Only show labels at fixed intervals or for first/last point
-                        bool showLabel = (weightDates.length <= 10) ||
-                            (index % math.max(1, (weightDates.length ~/ 5)) ==
-                                0) ||
-                            (index == 0) ||
-                            (index == weightDates.length - 1);
+    // If no data, return message instead of empty chart
+    if (weightData.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.scale, size: 48, color: Colors.grey[400]),
+            SizedBox(height: 16),
+            Text(
+              'No weight data available',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Tap + to log your weight',
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
 
-                        if (showLabel) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              weightDates[index],
-                              style: TextStyle(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
+    // Create month label widgets for the x-axis
+    Widget getBottomTitleWidgets(double value, TitleMeta meta) {
+      final index = value.toInt();
+      
+      // Show labels at 30-day intervals
+      if (index % 30 != 0 && index != weightData.length - 1) {
+        return SizedBox.shrink();
+      }
+      
+      String month = '';
+      if (weightDateMap.containsKey(index)) {
+        final date = weightDateMap[index];
+        if (date != null) {
+          month = DateFormat('MMM').format(date);
+        }
+      }
+      
+      return Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: Text(
+          month,
+          style: TextStyle(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey[400]
+                : Colors.grey[600],
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    // Helper function to get months at regular intervals
+    List<double> getMonthPositions() {
+      List<double> positions = [];
+      if (weightData.isEmpty) return positions;
+      
+      // Find the visible range
+      double startX = _weightChartMinX;
+      double endX = _weightChartMaxX;
+      
+      // Create a set to store the months we've already added labels for
+      Set<String> addedMonths = {};
+      
+      // Calculate how many months we can fit comfortably
+      double visibleSpan = endX - startX;
+      int maxMonthsToShow = math.max(3, (visibleSpan / 30).floor());
+      int monthInterval = (addedMonths.length / maxMonthsToShow).ceil();
+      monthInterval = math.max(1, monthInterval);
+      
+      int monthCounter = 0;
+      
+      // Go through all visible data points to find month boundaries
+      for (int i = 0; i < weightData.length; i++) {
+        final x = weightData[i].x;
+        if (x >= startX && x <= endX && weightDateMap.containsKey(i)) {
+          final date = weightDateMap[i]!;
+          String monthKey = DateFormat('yyyy-MM').format(date);
+          
+          // If this is a new month, add it based on interval
+          if (!addedMonths.contains(monthKey)) {
+            addedMonths.add(monthKey);
+            if (monthCounter % monthInterval == 0) {
+              positions.add(x);
+            }
+            monthCounter++;
+          }
+        }
+      }
+      
+      // If no points found or too few labels, use evenly spaced intervals
+      if (positions.length < 3) {
+        positions.clear();
+        double interval = visibleSpan / 4; // Show 5 labels total (including start and end)
+        for (double pos = startX; pos <= endX; pos += interval) {
+          positions.add(pos);
+        }
+      }
+      
+      return positions;
+    }
+
+    // Create the chart with natural scrolling functionality and button zoom
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Column(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                // Natural scrolling with adaptive sensitivity based on zoom level
+                if (weightData.isNotEmpty) {
+                  // Calculate current zoom level (lower span = higher zoom)
+                  final currentSpan = _weightChartMaxX - _weightChartMinX;
+                  final defaultSpan = _weightChartDefaultSpan;
+                  final zoomFactor = defaultSpan / currentSpan; // Higher when zoomed in
+                  
+                  // Reduce sensitivity as zoom increases
+                  final baseSensitivity = 0.2;
+                  final adjustedSensitivity = baseSensitivity / math.max(1.0, zoomFactor);
+                  
+                  final dataDelta = details.delta.dx * adjustedSensitivity;
+                  
+                  setState(() {
+                    // Ensure we don't scroll past data bounds
+                    _weightChartMinX = math.max(0, _weightChartMinX - dataDelta);
+                    _weightChartMaxX = math.min(weightData.last.x, _weightChartMinX + currentSpan);
+                    
+                    // If min changed but max hit boundary, adjust min to maintain the span
+                    if (_weightChartMaxX == weightData.last.x && dataDelta < 0) {
+                      _weightChartMinX = math.max(0, _weightChartMaxX - currentSpan);
+                    }
+                  });
+                }
+              },
+              child: LineChart(
+                LineChartData(
+                  lineTouchData: LineTouchData(
+                    enabled: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      tooltipRoundedRadius: 8,
+                      tooltipPadding: EdgeInsets.all(8),
+                      tooltipMargin: 8,
+                      getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                        return touchedBarSpots.map((barSpot) {
+                          final index = barSpot.x.toInt();
+                          final date = weightDateMap[index];
+                          String formattedDate = date != null 
+                              ? DateFormat('MMM d, yyyy').format(date)
+                              : '';
+                          
+                          return LineTooltipItem(
+                            '${barSpot.y.toStringAsFixed(1)} kg\n$formattedDate',
+                            TextStyle(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
                             ),
                           );
-                        }
-                      }
-                      return const SizedBox();
+                        }).toList();
+                      },
+                    ),
+                    touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                      // Handle touch events if needed
                     },
+                    handleBuiltInTouches: true,
                   ),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: (maxWeight - minWeight) / 4,
-                    getTitlesWidget: (value, meta) {
-                      return Text(
-                        value.toStringAsFixed(1),
-                        style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.grey[400]
-                              : Colors.grey[600],
-                          fontSize: 10,
-                        ),
-                      );
-                    },
-                    reservedSize: 30,
-                  ),
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  tooltipRoundedRadius: 8,
-                  getTooltipItems: (touchedSpots) {
-                    return touchedSpots.map((spot) {
-                      final index = spot.x.toInt();
-                      String date =
-                          index < weightDates.length ? weightDates[index] : '';
-                      return LineTooltipItem(
-                        '${spot.y.toStringAsFixed(1)} kg\n$date',
-                        TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      );
-                    }).toList();
-                  },
-                ),
-                handleBuiltInTouches: true,
-                touchSpotThreshold: 100,
-              ),
-              minX: 0,
-              maxX: weightData.isEmpty ? 6 : (weightData.length - 1).toDouble(),
-              minY: minWeight,
-              maxY: maxWeight,
-              clipData:
-                  FlClipData.all(), // Prevent drawing outside the chart area
-              lineBarsData: [
-                LineChartBarData(
-                  spots: weightData,
-                  isCurved: true,
-                  curveSmoothness: 0.35,
-                  color: chartColor,
-                  barWidth: 3,
-                  isStrokeCapRound: true,
-                  dotData: FlDotData(
+                  gridData: FlGridData(
                     show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      return FlDotCirclePainter(
-                        radius: 5,
-                        color: chartColor,
-                        strokeWidth: 2,
-                        strokeColor: Colors.white,
+                    drawHorizontalLine: true,
+                    drawVerticalLine: true,
+                    horizontalInterval: (maxWeight - minWeight) / 5,
+                    verticalInterval: 30, // Interval for vertical lines (roughly monthly)
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withOpacity(0.15),
+                        strokeWidth: 1,
+                      );
+                    },
+                    getDrawingVerticalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withOpacity(0.1), // Slightly more transparent than horizontal
+                        strokeWidth: 1,
+                        dashArray: [5, 5], // Dashed vertical lines
                       );
                     },
                   ),
-                  belowBarData: BarAreaData(
+                  titlesData: FlTitlesData(
                     show: true,
-                    gradient: LinearGradient(
-                      colors: [
-                        chartColor.withOpacity(0.3),
-                        chartColor.withOpacity(0.05),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+                    rightTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: false, // Hide default bottom titles
+                        reservedSize: 40, // Increased space for our custom labels
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: (maxWeight - minWeight) / 4,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toStringAsFixed(1),
+                            style: TextStyle(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
+                              fontSize: 10,
+                            ),
+                          );
+                        },
+                        reservedSize: 30,
+                      ),
                     ),
                   ),
+                  borderData: FlBorderData(show: false),
+                  minX: _weightChartMinX,
+                  maxX: _weightChartMaxX,
+                  minY: minWeight,
+                  maxY: maxWeight,
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: weightData,
+                      isCurved: true,
+                      curveSmoothness: 0.35, // More pronounced curve
+                      color: chartColor,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(
+                        show: false, // No dots as requested
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: LinearGradient(
+                          colors: [
+                            chartColor.withOpacity(0.4),
+                            chartColor.withOpacity(0.0),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ],
+                  rangeAnnotations: RangeAnnotations(
+                    horizontalRangeAnnotations: [
+                      HorizontalRangeAnnotation(
+                        y1: minWeight,
+                        y2: maxWeight,
+                        color: Colors.transparent,
+                      ),
+                    ],
+                  ),
+                  clipData: FlClipData.all(),
+                  extraLinesData: ExtraLinesData(
+                    verticalLines: getMonthPositions().map((position) {
+                      return VerticalLine(
+                        x: position,
+                        color: Colors.grey.withOpacity(0.2),
+                        strokeWidth: 1,
+                        dashArray: [5, 5],
+                        label: VerticalLineLabel(
+                          show: true,
+                          alignment: Alignment.bottomCenter,
+                          padding: EdgeInsets.only(bottom: 25), // Increased padding to push labels lower
+                          style: TextStyle(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[400]!
+                                : Colors.grey[600]!,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          labelResolver: (line) {
+                            int positionInt = position.toInt();
+                            if (weightDateMap.containsKey(positionInt)) {
+                              // Get the month name only to save space
+                              return DateFormat('MMM').format(weightDateMap[positionInt]!);
+                            }
+                            
+                            // Find the closest data point if exact match not found
+                            // ...existing code...
+                            int closestKey = weightDateMap.keys
+                                .where((k) => k >= 0) // Make sure key is valid
+                                .reduce((a, b) => (a - positionInt).abs() < (b - positionInt).abs() ? a : b);
+                            
+                            if (weightDateMap.containsKey(closestKey)) {
+                              DateTime base = weightDateMap[closestKey]!;
+                              // Estimate the date based on position difference
+                              DateTime estimated = base.add(Duration(days: (positionInt - closestKey)));
+                              return DateFormat('MMM yyyy').format(estimated);
+                            }
+                            return '';
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Add zoom controls
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildZoomButton(
+                  icon: Icons.zoom_in,
+                  onPressed: () {
+                    final currentSpan = _weightChartMaxX - _weightChartMinX;
+                    final newSpan = currentSpan * 0.7;
+                    final midPoint = (_weightChartMaxX + _weightChartMinX) / 2;
+                    
+                    setState(() {
+                      _weightChartMinX = math.max(0, midPoint - newSpan / 2);
+                      _weightChartMaxX = math.min(weightData.last.x, midPoint + newSpan / 2);
+                    });
+                  },
+                ),
+                SizedBox(width: 8),
+                _buildZoomButton(
+                  icon: Icons.zoom_out,
+                  onPressed: () {
+                    final currentSpan = _weightChartMaxX - _weightChartMinX;
+                    final newSpan = currentSpan * 1.5;
+                    final midPoint = (_weightChartMaxX + _weightChartMinX) / 2;
+                    
+                    setState(() {
+                      _weightChartMinX = math.max(0, midPoint - newSpan / 2);
+                      _weightChartMaxX = math.min(weightData.last.x, midPoint + newSpan / 2);
+                    });
+                  },
+                ),
+                SizedBox(width: 8),
+                _buildZoomButton(
+                  icon: Icons.replay,
+                  onPressed: () {
+                    setState(() {
+                      // Reset to default 3-month view
+                      _weightChartMaxX = weightData.last.x;
+                      _weightChartMinX = math.max(0, _weightChartMaxX - _weightChartDefaultSpan);
+                      _weightChartScaleFactor = 1.0;
+                    });
+                  },
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZoomButton({required IconData icon, required VoidCallback onPressed}) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final chartColor = isDarkMode
+        ? Color(0xFF4FC3F7) // Light blue for dark mode
+        : Color(0xFF0288D1); // Darker blue for light mode
+        
+    return Container(
+      width: 36, // Increased from default size
+      height: 36, // Increased from default size
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[800] : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: chartColor.withOpacity(0.3),
+          width: 1,
         ),
-      ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPressed,
+          child: Center(
+            child: Icon(
+              icon,
+              size: 20, // Increased from 16
+              color: chartColor,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
