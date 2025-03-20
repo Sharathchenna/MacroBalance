@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/screens/signup.dart';
 import 'package:flutter/services.dart';
+import 'dart:io' show Platform;
+import 'package:macrotracker/main.dart'; // Import to access the helper function
 
 class Welcomescreen extends StatefulWidget {
   const Welcomescreen({Key? key}) : super(key: key);
@@ -54,6 +56,12 @@ class _WelcomescreenState extends State<Welcomescreen>
     Future.delayed(const Duration(milliseconds: 200), () {
       _animationController.forward();
     });
+
+    // Update status bar for welcome screen (light mode)
+    if (Platform.isIOS) {
+      updateStatusBarForIOS(
+          false); // Always use light mode status bar (dark icons) on welcome screen
+    }
   }
 
   @override
@@ -64,13 +72,8 @@ class _WelcomescreenState extends State<Welcomescreen>
 
   @override
   Widget build(BuildContext context) {
-    // Set status bar to be transparent
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-      ),
-    );
+    // No need to set SystemChrome.setSystemUIOverlayStyle here anymore
+    // The helper function in main.dart handles it properly
 
     final ThemeData theme = Theme.of(context);
 

@@ -24,6 +24,7 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:uni_links/uni_links.dart';
+import 'dart:io' show Platform;
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -66,11 +67,30 @@ class MyRouteObserver extends NavigatorObserver {
 
 bool _initialUriHandled = false;
 
+// Helper function to set status bar style correctly for iOS
+void updateStatusBarForIOS(bool isDarkMode) {
+  if (Platform.isIOS) {
+    // The key for iOS is to set statusBarBrightness correctly
+    // Light brightness = dark content (black icons)
+    // Dark brightness = light content (white icons)
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+        // Make status bar transparent
+        statusBarColor: Colors.transparent,
+      ),
+    );
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set status bar icon color based on platform
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+  // Set initial status bar style for iOS
+  if (Platform.isIOS) {
+    // Start with light mode styling (dark icons) by default
+    updateStatusBarForIOS(false);
+  }
 
   // await CameraService().controller;
   await ApiService().getAccessToken();
@@ -174,10 +194,18 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(builder: (context, themeProvider, child) {
-      SystemChrome.setSystemUIOverlayStyle(themeProvider.isDarkMode
-              ? SystemUiOverlayStyle.light // Light icons for dark theme
-              : SystemUiOverlayStyle.dark // Dark icons for light theme
-          );
+      // Update iOS status bar style based on theme
+      if (Platform.isIOS) {
+        updateStatusBarForIOS(themeProvider.isDarkMode);
+      } else {
+        // For Android, the simpler approach works fine
+        SystemChrome.setSystemUIOverlayStyle(
+          themeProvider.isDarkMode
+              ? SystemUiOverlayStyle.light
+              : SystemUiOverlayStyle.dark,
+        );
+      }
+
       return MaterialApp(
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
