@@ -1106,13 +1106,21 @@ class _GoalsScreenState extends State<GoalsScreen>
   }
 
   Widget _buildStepsChart(BuildContext context) {
+    // Calculate the maximum value from the data or goal
+    double maxValue = math.max(
+      stepsBarData.isEmpty ? 0 : stepsBarData.reduce(math.max),
+      stepsGoal.toDouble()
+    );
+    // Set upper bound to 20% above the larger value
+    double upperBound = maxValue * 1.2;
+
     // Add key to this widget for scrolling
     return Container(
       key: _stepsChartKey,
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: stepsGoal * 1.2,
+          maxY: upperBound,
           minY: 0,
           barTouchData: BarTouchData(
             enabled: true,
@@ -1165,7 +1173,7 @@ class _GoalsScreenState extends State<GoalsScreen>
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: stepsGoal / 2,
+                interval: upperBound / 4,
                 getTitlesWidget: (value, meta) {
                   return Text(
                     value.toInt().toString(),
@@ -1185,7 +1193,7 @@ class _GoalsScreenState extends State<GoalsScreen>
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: stepsGoal / 2,
+            horizontalInterval: upperBound / 4,
             getDrawingHorizontalLine: (value) {
               return FlLine(
                 color: Colors.grey.withOpacity(0.15),
@@ -1214,13 +1222,13 @@ class _GoalsScreenState extends State<GoalsScreen>
               x: index,
               barRods: [
                 BarChartRodData(
-                  toY: value,
+                  toY: math.min(value, upperBound),
                   color: barColor,
                   width: 16,
                   borderRadius: BorderRadius.circular(4),
                   backDrawRodData: BackgroundBarChartRodData(
                     show: true,
-                    toY: stepsGoal * 1.2,
+                    toY: upperBound,
                     color: Colors.grey.withOpacity(0.1),
                   ),
                   gradient: LinearGradient(
