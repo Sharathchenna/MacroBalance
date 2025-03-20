@@ -30,7 +30,12 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
   int selectedServingIndex = 0;
   String selectedMeal = 'Breakfast';
   final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
-  final List<double> presetMultipliers = [0.5, 1.0, 1.5, 2.0,];
+  final List<double> presetMultipliers = [
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+  ];
   double selectedMultiplier = 1.0;
   late TextEditingController quantityController;
   late AnimationController _animationController;
@@ -825,12 +830,14 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
 
     // Get the selected quantity
     final double quantity = double.tryParse(quantityController.text) ?? 1.0;
-    
+
     // The nutrition values from AI are already for the serving size, but the app expects values per 100g
     // So we need to adjust the values to be per 100g
-    final calories = widget.food.calories[selectedServingIndex] / quantity * 100;
+    final calories =
+        widget.food.calories[selectedServingIndex] / quantity * 100;
     final protein = widget.food.protein[selectedServingIndex] / quantity * 100;
-    final carbs = widget.food.carbohydrates[selectedServingIndex] / quantity * 100;
+    final carbs =
+        widget.food.carbohydrates[selectedServingIndex] / quantity * 100;
     final fat = widget.food.fat[selectedServingIndex] / quantity * 100;
     final fiber = widget.food.fiber[selectedServingIndex] / quantity * 100;
 
@@ -883,8 +890,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
         duration: const Duration(seconds: 2),
       ),
     );
-    
-    // Navigate directly to Dashboard instead of just popping back to results
-    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+
+    // Navigate back to food detail screen
+    Navigator.pop(context);
   }
 }

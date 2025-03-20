@@ -33,6 +33,7 @@ class _CameraScreenState extends State<CameraScreen>
   bool _flashOn = false;
   bool _isBarcodeMode = true;
   bool _isDisposed = false;
+  bool _isDisposingCamera = false;
 
   // Add these new variables
   final bool _isAutoFocusEnabled = true;
@@ -201,94 +202,112 @@ class _CameraScreenState extends State<CameraScreen>
         return;
       }
 
-      // Only stop image stream if we're in barcode mode and streaming
-      if (_isBarcodeMode && _controller!.value.isStreamingImages) {
-        await _stopBarcodeScanning();
+      // Set disposing flag to prevent UI from using controller
+      setState(() {
+        _isDisposingCamera = true;
+      });
+
+      // Stop streaming if needed
+      if (_controller!.value.isStreamingImages) {
+        try {
+          await _stopBarcodeScanning();
+        } catch (e) {
+          print('Error stopping barcode scanning: $e');
+        }
       }
 
-      final image = await _controller?.takePicture();
+      // Take picture before disposing camera
+      final XFile? image = await _controller?.takePicture();
+      if (image == null || _isDisposed) return;
 
-      if (image != null && !_isDisposed) {
-        // Show loading indicator
-        if (!_isDisposed) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              );
-            },
-          );
+      // Now dispose camera completely
+      await _disposeCamera();
+      _cameraService.dispose();
+
+      // Show a single loading indicator with a named key
+      // if (!_isDisposed && mounted) {
+      //   showDialog(
+      //     context: context,
+      //     barrierDismissible: false,
+      //     // Add a key to identify this dialog
+      //     routeSettings: const RouteSettings(name: 'loading_dialog'),
+      //     builder: (BuildContext context) {
+      //       return const Center(
+      //         child: CircularProgressIndicator(color: Colors.white),
+      //       );
+      //     },
+      //   );
+      // }
+
+      try {
+        // Process image
+        String jsonResponse = await processImageWithGemini(image.path);
+        // Clean up JSON code blocks and other processing...
+        jsonResponse = jsonResponse.trim();
+        if (jsonResponse.startsWith('```json')) {
+          jsonResponse = jsonResponse.substring(7);
+        }
+        if (jsonResponse.endsWith('```')) {
+          jsonResponse = jsonResponse.substring(0, jsonResponse.length - 3);
+        }
+        // Important: Make sure we have exactly one loading dialog active
+        if (!_isDisposed && mounted) {
+          // Pop any existing loading dialogs
+          while (Navigator.of(context).canPop() &&
+              ModalRoute.of(context)?.settings.name == 'loading_dialog') {
+            Navigator.of(context).pop();
+          }
         }
 
+        dynamic decodedJson;
         try {
-          // Process image
-          String jsonResponse = await processImageWithGemini(image.path);
-          // Clean up JSON code blocks
-          jsonResponse = jsonResponse.trim();
-          if (jsonResponse.startsWith('```json')) {
-            jsonResponse = jsonResponse.substring(7);
-          }
-          if (jsonResponse.endsWith('```')) {
-            jsonResponse = jsonResponse.substring(0, jsonResponse.length - 3);
-          }
-
-          dynamic decodedJson;
-          try {
-            decodedJson = json.decode(jsonResponse);
-          } catch (e) {
-            throw Exception('Invalid JSON: $e\nJSON: $jsonResponse');
-          }
-
-          List<dynamic> mealData;
-          if (decodedJson is Map<String, dynamic>) {
-            // Handle case where response is wrapped in an object
-            if (decodedJson.containsKey('meal') &&
-                decodedJson['meal'] is List) {
-              mealData = decodedJson['meal'] as List;
-            } else {
-              mealData = [decodedJson];
-            }
-          } else if (decodedJson is List) {
-            mealData = decodedJson;
-          } else {
-            throw Exception('Unexpected JSON structure');
-          }
-
-          final List<AIFoodItem> foods = mealData
-              .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
-              .toList();
-
-          // Dismiss loading dialog before navigating
-          if (!_isDisposed && Navigator.canPop(context)) {
-            Navigator.pop(context);
-          }
-
-          if (foods.isNotEmpty) {
-            Navigator.push(
-              context,
-              CupertinoPageRoute(
-                builder: (context) => ResultsPage(foods: foods),
-              ),
-            );
-          } else {
-            throw Exception('No food items found');
-          }
+          decodedJson = json.decode(jsonResponse);
         } catch (e) {
-          // Make sure to dismiss loading dialog on error
-          if (!_isDisposed && Navigator.canPop(context)) {
-            Navigator.pop(context);
-          }
+          throw Exception('Invalid JSON: $e\nJSON: $jsonResponse');
+        }
 
-          if (!_isDisposed) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error processing image: ${e.toString()}'),
-                backgroundColor: Colors.red,
-              ),
-            );
+        List<dynamic> mealData;
+        if (decodedJson is Map<String, dynamic>) {
+          // Handle case where response is wrapped in an object
+          if (decodedJson.containsKey('meal') && decodedJson['meal'] is List) {
+            mealData = decodedJson['meal'] as List;
+          } else {
+            mealData = [decodedJson];
           }
+        } else if (decodedJson is List) {
+          mealData = decodedJson;
+        } else {
+          throw Exception('Unexpected JSON structure');
+        }
+
+        final List<AIFoodItem> foods = mealData
+            .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
+            .toList();
+
+        if (foods.isNotEmpty) {
+          Navigator.push(
+            context,
+            CupertinoPageRoute(
+              builder: (context) => ResultsPage(foods: foods),
+            ),
+          );
+        } else {
+          throw Exception('No food items found');
+        }
+      } catch (e) {
+        // Make sure to dismiss loading dialog on error
+        if (!_isDisposed && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+
+        // Show error message
+        if (!_isDisposed) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error processing image: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       }
     } catch (e) {
@@ -403,19 +422,38 @@ class _CameraScreenState extends State<CameraScreen>
     try {
       final CameraController? cameraController = _controller;
       if (cameraController != null && cameraController.value.isInitialized) {
-        await cameraController.stopImageStream();
+        // Only stop image stream if it's actually streaming
+        if (cameraController.value.isStreamingImages) {
+          try {
+            await cameraController.stopImageStream();
+          } catch (e) {
+            print('Error stopping image stream: $e');
+            // Continue with disposal even if stopping stream fails
+          }
+        }
+
+        // Turn off flash if it was on
+        if (_flashOn) {
+          try {
+            await cameraController.setFlashMode(FlashMode.off);
+          } catch (e) {
+            print('Error turning off flash: $e');
+            // Continue with disposal even if flash control fails
+          }
+        }
+
+        // Dispose the controller
         await cameraController.dispose();
+
+        // Set controller to null to prevent further access
+        if (!_isDisposed && mounted) {
+          setState(() {
+            _controller = null;
+          });
+        }
       }
     } catch (e) {
-      // Ignore PlatformException for stream deactivation
-      if (e is PlatformException && e.code == 'error') {
-        print('Ignoring expected platform exception during disposal');
-      } else {
-        print('Error disposing camera: $e');
-      }
-    }
-    if (!_isDisposed) {
-      _controller = null;
+      print('Error in camera disposal: $e');
     }
   }
 
@@ -614,7 +652,8 @@ class _CameraScreenState extends State<CameraScreen>
                           builder: (context, snapshot) {
                             if (snapshot.connectionState ==
                                     ConnectionState.done &&
-                                _controller != null) {
+                                _controller != null &&
+                                !_isDisposingCamera) {
                               return Transform.scale(
                                 scale: 1.3,
                                 alignment: Alignment.center,
@@ -721,18 +760,31 @@ class _CameraScreenState extends State<CameraScreen>
                         final XFile? pickedFile =
                             await picker.pickImage(source: ImageSource.gallery);
                         if (pickedFile != null) {
-                          // Show loading indicator
-                          if (!_isDisposed) {
+                          // Set disposing flag to prevent UI from using controller
+                          setState(() {
+                            _isDisposingCamera = true;
+                          });
+
+                          // Dispose camera properly
+                          await _disposeCamera();
+                          _cameraService.dispose();
+
+                          // Show loading indicator with name
+                          if (!_isDisposed && mounted) {
                             showDialog(
                               context: context,
                               barrierDismissible: false,
+                              routeSettings:
+                                  const RouteSettings(name: 'loading_dialog'),
                               builder: (BuildContext context) {
                                 return const Center(
-                                    child: CircularProgressIndicator(
-                                        color: Colors.white));
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white),
+                                );
                               },
                             );
                           }
+
                           try {
                             String jsonResponse =
                                 await processImageWithGemini(pickedFile.path);
