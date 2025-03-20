@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:macrotracker/main.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/screens/GoalsPage.dart';
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
@@ -16,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
+import 'dart:io' show Platform;
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -53,6 +55,26 @@ class _AccountDashboardState extends State<AccountDashboard>
     );
     _checkHealthConnection();
     _loadUserData(); // Add this line
+
+    // Force iOS status bar to use black icons (for light mode)
+    if (Platform.isIOS) {
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarBrightness:
+            Brightness.light, // Light background = dark content
+        statusBarIconBrightness: Brightness.dark, // Force dark icons
+        statusBarColor: Colors.transparent, // Transparent status bar
+      ));
+    }
+  }
+
+  // Make sure the status bar stays correct during hot reload and when returning to this screen
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    if (Platform.isIOS) {
+      updateStatusBarForIOS(isDarkMode);
+    }
   }
 
   Future<void> _checkHealthConnection() async {
@@ -154,16 +176,59 @@ class _AccountDashboardState extends State<AccountDashboard>
         final colorScheme = Theme.of(context).colorScheme;
         final customColors = Theme.of(context).extension<CustomColors>();
 
+        // Apply the appropriate status bar style based on the theme
+        if (Platform.isIOS) {
+          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+            statusBarBrightness:
+                isDarkMode ? Brightness.dark : Brightness.light,
+            statusBarIconBrightness:
+                isDarkMode ? Brightness.light : Brightness.dark,
+            statusBarColor: Colors.transparent,
+          ));
+        }
+
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: _buildAppBar(colorScheme, isDarkMode),
+          // Use a regular AppBar instead of extendBodyBehindAppBar to fix layout issues
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            systemOverlayStyle: isDarkMode
+                ? SystemUiOverlayStyle.light
+                : SystemUiOverlayStyle.dark,
+            leading: IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(CupertinoIcons.back,
+                    color: colorScheme.primary, size: 18),
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text(
+              'Settings',
+              style: GoogleFonts.poppins(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+                fontSize: 20,
+              ),
+            ),
+            centerTitle: false,
+          ),
+          // Use a regular ListView instead of a Stack to avoid layout issues
           body: ListView(
-            padding: EdgeInsets.zero,
+            padding:
+                const EdgeInsets.only(top: 8), // Add some padding at the top
             children: [
+              // Profile header
               _buildProfileHeader(colorScheme, customColors),
               const SizedBox(height: 16),
-              // _buildSectionTitle('Quick Actions', colorScheme),
-              // _buildQuickActionsRow(colorScheme, customColors),
+
+              // Account section
               _buildSection(
                 title: 'Account',
                 icon: CupertinoIcons.person_fill,
@@ -197,6 +262,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                   _buildHealthAppTile(colorScheme, customColors),
                 ],
               ),
+
+              // Nutrition & Goals section
               _buildSection(
                 title: 'Nutrition & Goals',
                 icon: CupertinoIcons.chart_pie_fill,
@@ -214,23 +281,12 @@ class _AccountDashboardState extends State<AccountDashboard>
                       Navigator.push(
                         context,
                         CupertinoPageRoute(
-                            builder: (context) =>
-                                EditGoalsScreen()), // Changed from GoalsScreen to EditGoalsScreen
+                            builder: (context) => EditGoalsScreen()),
                       );
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  // _buildSwitchTile(
-                  //   icon: CupertinoIcons.wand_stars,
-                  //   iconColor: Colors.purple,
-                  //   title: 'AI Meal Suggestions',
-                  //   subtitle: 'Get personalized recommendations',
-                  //   value: true,
-                  //   onChanged: (value) {/* Toggle AI suggestions */},
-                  //   colorScheme: colorScheme,
-                  //   customColors: customColors,
-                  // ),
                   _buildListTile(
                     icon: CupertinoIcons.arrow_up_arrow_down,
                     iconColor: Colors.orange,
@@ -246,6 +302,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                   ),
                 ],
               ),
+
+              // Appearance section
               _buildSection(
                 title: 'Appearance',
                 icon: CupertinoIcons.paintbrush_fill,
@@ -265,12 +323,29 @@ class _AccountDashboardState extends State<AccountDashboard>
                     onChanged: (value) {
                       themeProvider.toggleTheme();
                       HapticFeedback.lightImpact();
+
+                      // Update status bar when theme changes
+                      if (Platform.isIOS) {
+                        // Use a small delay to let theme change apply first
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          SystemChrome.setSystemUIOverlayStyle(
+                              SystemUiOverlayStyle(
+                            statusBarBrightness:
+                                value ? Brightness.dark : Brightness.light,
+                            statusBarIconBrightness:
+                                value ? Brightness.light : Brightness.dark,
+                            statusBarColor: Colors.transparent,
+                          ));
+                        });
+                      }
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
                 ],
               ),
+
+              // Notifications section
               _buildSection(
                 title: 'Notifications',
                 icon: CupertinoIcons.bell_fill,
@@ -294,6 +369,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                   );
                 }).toList(),
               ),
+
+              // Privacy & Security section
               _buildSection(
                 title: 'Privacy & Security',
                 icon: CupertinoIcons.lock_fill,
@@ -312,22 +389,14 @@ class _AccountDashboardState extends State<AccountDashboard>
                   ),
                 ],
               ),
+
+              // Support section
               _buildSection(
                 title: 'Support',
                 icon: CupertinoIcons.question_circle_fill,
                 colorScheme: colorScheme,
                 customColors: customColors,
                 children: [
-                  // _buildListTile(
-                  //   icon: CupertinoIcons.question_diamond_fill,
-                  //   iconColor: colorScheme.primary,
-                  //   title: 'Help Center',
-                  //   subtitle: 'Get answers to common questions',
-                  //   trailing: const Icon(Icons.chevron_right),
-                  //   onTap: () {/* Navigate to help center */},
-                  //   colorScheme: colorScheme,
-                  //   customColors: customColors,
-                  // ),
                   _buildListTile(
                     icon: CupertinoIcons.envelope_fill,
                     iconColor: Colors.teal,
@@ -340,6 +409,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                   ),
                 ],
               ),
+
+              // Logout button and spacing at the bottom
               const SizedBox(height: 24),
               _buildLogoutButton(colorScheme),
               const SizedBox(height: 32),
