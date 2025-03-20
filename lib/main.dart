@@ -68,6 +68,10 @@ bool _initialUriHandled = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Set status bar icon color based on platform
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
+
   // await CameraService().controller;
   await ApiService().getAccessToken();
   //supabase setup
@@ -170,6 +174,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(builder: (context, themeProvider, child) {
+      SystemChrome.setSystemUIOverlayStyle(themeProvider.isDarkMode
+              ? SystemUiOverlayStyle.light // Light icons for dark theme
+              : SystemUiOverlayStyle.dark // Dark icons for light theme
+          );
       return MaterialApp(
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
