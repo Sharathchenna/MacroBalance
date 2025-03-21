@@ -140,9 +140,10 @@ class HealthService {
         }
 
         result.add({
-          'date': startOfDay,
-          'day': DateFormat('E').format(startOfDay),
-          'steps': steps
+          'date': startOfDay.toIso8601String(), // Convert to ISO8601
+          'steps': steps,
+          'goal':
+              9000 // Using default goal, you might want to make this dynamic
         });
       }
       return result;

@@ -76,6 +76,7 @@ dependencies:
   purchases_flutter: ^8.6.1
   purchases_ui_flutter: ^8.6.1
   visibility_detector: ^0.4.0+2
+  rename_app: ^1.6.2
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 # The following section is specific to Flutter packages.

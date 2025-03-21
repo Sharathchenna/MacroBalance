@@ -1064,6 +1064,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.1"
+  rename_app:
+    dependency: "direct main"
+    description:
+      name: rename_app
+      sha256: "7cb304cea0b3cbcc332eab80b21df3c168f25ee47e59e22f88c52476e8ae3e97"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.2"
   retry:
     dependency: transitive
     description:
