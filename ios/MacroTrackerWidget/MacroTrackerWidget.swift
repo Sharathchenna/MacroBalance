@@ -62,8 +62,8 @@ struct MacroWidgetEntry: TimelineEntry {
 // MARK: - Provider
 
 struct Provider: TimelineProvider {
-    private let userDefaults = UserDefaults(suiteName: "group.com.sharathchenna.shared")
-    private let logger = Logger(subsystem: "com.sharathchenna88.nutrino", category: "Widget")
+    private let userDefaults = UserDefaults(suiteName: "group.app.macrobalance.shared")
+    private let logger = Logger(subsystem: "app.macrobalance.com", category: "Widget")
     
     func placeholder(in context: Context) -> MacroWidgetEntry {
         let previewMacro = MacroData(
@@ -83,7 +83,7 @@ struct Provider: TimelineProvider {
     }
     
     func getSnapshot(in context: Context, completion: @escaping (MacroWidgetEntry) -> Void) {
-        let entry = context.isPreview ? placeholder(in: context) : 
+        let entry = context.isPreview ? placeholder(in: context) :
             MacroWidgetEntry(date: Date(), macroData: loadMacroData(), recentMeals: loadRecentMeals(), isPreview: false)
         completion(entry)
     }
@@ -608,7 +608,7 @@ struct ModernLargeWidget: View {
         if variance < 0.05 {
             return ("Balanced", "Good macro ratio", "checkmark.circle", .green)
         } else if variance < 0.1 {
-            return ("Decent", "Adjust slightly", "arrow.triangle.2.circlepath", .blue) 
+            return ("Decent", "Adjust slightly", "arrow.triangle.2.circlepath", .blue)
         } else {
             if protein < carbs && protein < fat {
                 return ("Low Protein", "Increase protein", "dumbbell.fill", .orange)

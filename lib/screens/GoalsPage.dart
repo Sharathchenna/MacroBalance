@@ -6,17 +6,16 @@ import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
-import 'dart:math' as math;
 import 'package:macrotracker/Health/Health.dart';
+import 'dart:io' show Platform;
+import 'package:macrotracker/services/native_chart_service.dart';
 
 class GoalsScreen extends StatefulWidget {
   final String? initialSection;
-
   const GoalsScreen({super.key, this.initialSection});
 
   @override
@@ -27,12 +26,8 @@ class _GoalsScreenState extends State<GoalsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   final ScrollController _scrollController = ScrollController();
-
-  // Add keys for each section we want to scroll to
   final GlobalKey _stepsChartKey = GlobalKey();
 
-  // Graph selection state
-  String _selectedGraphType = 'Weight'; // Default to calories
   bool _isLoadingGraphData = false;
 
   // Goal values
@@ -44,40 +39,20 @@ class _GoalsScreenState extends State<GoalsScreen>
   int bmr = 1500;
   int tdee = 2000;
 
-  // Current values (for progress demonstration)
+  // Current values
   int caloriesConsumed = 0;
   int proteinConsumed = 0;
   int carbsConsumed = 0;
   int fatConsumed = 0;
   int stepsCompleted = 0;
 
-  // Weekly progress data (for the chart)
-  final List<FlSpot> weeklyCaloriesData = [];
-  final List<FlSpot> weeklyProteinData = [];
-  final List<FlSpot> weightData = [];
-  final List<String> weekDays = [];
-  final List<String> weightDates = [];
-  Map<int, DateTime> weightDateMap = {}; // Add this to store actual dates for each data point
-
   // Weight logging
   final TextEditingController _weightController = TextEditingController();
-  String _weightUnit = 'kg'; // Default unit
-  bool _isLoggingWeight = false;
-  DateTime _selectedWeightDate =
-      DateTime.now(); // Track selected date for weight logging
+  String _weightUnit = 'kg';
+  DateTime _selectedWeightDate = DateTime.now();
 
-  // Steps data for the chart
-  final List<FlSpot> stepsData = [];
-  final List<double> stepsBarData = [];
-  final List<String> stepsDays = [];
+  // Add this variable at class level
   List<Map<String, dynamic>> weeklyStepsData = [];
-  bool _isHealthConnected = false;
-
-  // Weight chart state variables
-  double _weightChartMinX = 0;
-  double _weightChartMaxX = 0;
-  double _weightChartScaleFactor = 1.0;
-  final double _weightChartDefaultSpan = 90; // 3 months in days
 
   @override
   void initState() {
@@ -89,29 +64,23 @@ class _GoalsScreenState extends State<GoalsScreen>
 
     _loadGoals();
     _loadCurrentValues();
-    _generateWeeklyData();
     _loadWeightData();
     _loadWeightUnit();
     _loadStepsData();
 
-    // Add post-frame callback to scroll to the requested section
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToInitialSection();
     });
   }
 
-  // Add method to scroll to section
   void _scrollToInitialSection() {
     if (widget.initialSection == 'steps' &&
         _stepsChartKey.currentContext != null) {
-      // Get the position of the steps section
       final RenderBox box =
           _stepsChartKey.currentContext!.findRenderObject() as RenderBox;
       final position = box.localToGlobal(Offset.zero);
-
-      // Scroll to that position with some padding
       _scrollController.animateTo(
-        position.dy - 100, // Subtract header height and some padding
+        position.dy - 100,
         duration: Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
@@ -142,7 +111,6 @@ class _GoalsScreenState extends State<GoalsScreen>
     }
   }
 
-  // Load current daily values (would normally come from food entry provider)
   Future<void> _loadCurrentValues() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -159,9 +127,7 @@ class _GoalsScreenState extends State<GoalsScreen>
             stepsCompleted = progress['steps'] ?? 0;
           });
         }
-      }
-      // Instead of generating dummy data, initialize with 0 if no progress exists
-      else {
+      } else {
         setState(() {
           caloriesConsumed = 0;
           proteinConsumed = 0;
@@ -175,7 +141,6 @@ class _GoalsScreenState extends State<GoalsScreen>
     }
   }
 
-  // Load weight data
   Future<void> _loadWeightData() async {
     setState(() {
       _isLoadingGraphData = true;
@@ -185,51 +150,17 @@ class _GoalsScreenState extends State<GoalsScreen>
       final prefs = await SharedPreferences.getInstance();
       final String? weightHistoryString = prefs.getString('weight_history');
 
-      weightData.clear();
-      weightDates.clear();
-      weightDateMap.clear(); // Clear the date map
-
       if (weightHistoryString != null && weightHistoryString.isNotEmpty) {
         final List<dynamic> weightHistory = jsonDecode(weightHistoryString);
 
-        // Sort by date
         weightHistory.sort((a, b) =>
             DateTime.parse(a['date']).compareTo(DateTime.parse(b['date'])));
 
-        // Get all entries
-        final historyToShow = weightHistory;
-
-        for (int i = 0; i < historyToShow.length; i++) {
-          final entry = historyToShow[i];
-          double weight = double.parse(entry['weight'].toString());
-          final date = DateTime.parse(entry['date']);
-          
-          // Store with index-based x value for consistency
-          weightData.add(FlSpot(i.toDouble(), weight));
-          weightDateMap[i] = date; // Store the actual date for each index
-          weightDates.add(DateFormat('MMM').format(date));
+        if (mounted) {
+          setState(() {
+            _isLoadingGraphData = false;
+          });
         }
-
-        // Set the default view to show the last 3 months
-        if (weightData.isNotEmpty) {
-          _weightChartMaxX = weightData.last.x;
-          _weightChartMinX = math.max(0, _weightChartMaxX - _weightChartDefaultSpan);
-        }
-      } else {
-        // Add some sample data if no weight history exists
-        final now = DateTime.now();
-        double defaultWeight = 70.0; // Always in kg
-
-        for (int i = 90; i >= 0; i -= 30) { // Sample data for last 3 months
-          final day = now.subtract(Duration(days: i));
-          int index = 90 - i;
-          weightData.add(FlSpot(index.toDouble(), defaultWeight));
-          weightDateMap[index] = day;
-          weightDates.add(DateFormat('MMM').format(day));
-        }
-
-        _weightChartMaxX = 90;
-        _weightChartMinX = 0;
       }
     } catch (e) {
       debugPrint('Error loading weight data: $e');
@@ -242,7 +173,6 @@ class _GoalsScreenState extends State<GoalsScreen>
     }
   }
 
-  // Load preferred weight unit
   Future<void> _loadWeightUnit() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -257,16 +187,10 @@ class _GoalsScreenState extends State<GoalsScreen>
     }
   }
 
-  // Log weight for selected date
   Future<void> _logWeight(double weight) async {
-    setState(() {
-      _isLoggingWeight = true;
-    });
-
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? weightHistoryString = prefs.getString('weight_history');
-      final customColors = Theme.of(context).extension<CustomColors>();
 
       List<Map<String, dynamic>> weightHistory = [];
       if (weightHistoryString != null && weightHistoryString.isNotEmpty) {
@@ -274,25 +198,20 @@ class _GoalsScreenState extends State<GoalsScreen>
         weightHistory = decoded.cast<Map<String, dynamic>>();
       }
 
-      // Convert weight to kg for storage if needed
       double weightInKg = weight;
       if (_weightUnit == 'lbs') {
-        weightInKg = weight / 2.20462; // Convert lbs to kg for storage
+        weightInKg = weight / 2.20462;
       }
 
-      // Format the selected date
       final formattedDate =
           DateFormat('yyyy-MM-dd').format(_selectedWeightDate);
 
-      // Check if there's already an entry for the selected date
       final existingIndex =
           weightHistory.indexWhere((entry) => entry['date'] == formattedDate);
 
       if (existingIndex >= 0) {
-        // Update existing entry
         weightHistory[existingIndex]['weight'] = weightInKg;
       } else {
-        // Add new entry
         weightHistory.add({
           'date': formattedDate,
           'weight': weightInKg,
@@ -301,7 +220,6 @@ class _GoalsScreenState extends State<GoalsScreen>
 
       await prefs.setString('weight_history', jsonEncode(weightHistory));
 
-      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -324,12 +242,10 @@ class _GoalsScreenState extends State<GoalsScreen>
         );
       }
 
-      // Reset date selection to today after successful logging
       setState(() {
         _selectedWeightDate = DateTime.now();
       });
 
-      // Reload weight data to update the chart
       _loadWeightData();
     } catch (e) {
       debugPrint('Error logging weight: $e');
@@ -345,14 +261,12 @@ class _GoalsScreenState extends State<GoalsScreen>
     } finally {
       if (mounted) {
         setState(() {
-          _isLoggingWeight = false;
-          _weightController.clear(); // Clear the input field
+          _weightController.clear();
         });
       }
     }
   }
 
-  // Date picker for weight logging
   Future<void> _selectDate(BuildContext context) async {
     final customColors = Theme.of(context).extension<CustomColors>();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -409,110 +323,7 @@ class _GoalsScreenState extends State<GoalsScreen>
     }
   }
 
-  void _showEditDialog(
-      String title, int currentValue, String unit, Function(int) onSave) {
-    final TextEditingController controller =
-        TextEditingController(text: currentValue.toString());
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit $title'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            suffixText: unit,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final newValue = int.tryParse(controller.text);
-              if (newValue != null && newValue > 0) {
-                onSave(newValue);
-                _saveGoals();
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Generate weekly data for the chart
-  void _generateWeeklyData() {
-    setState(() {
-      _isLoadingGraphData = true;
-    });
-
-    final now = DateTime.now();
-    weeklyCaloriesData.clear();
-    weeklyProteinData.clear();
-    weekDays.clear();
-
-    try {
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
-
-      for (int i = 6; i >= 0; i--) {
-        final day = now.subtract(Duration(days: i));
-        final entries = foodEntryProvider.getAllEntriesForDate(day);
-
-        double totalCalories = 0;
-        double totalProtein = 0;
-
-        for (var entry in entries) {
-          double quantityInGrams = entry.quantity;
-          switch (entry.unit) {
-            case "oz":
-              quantityInGrams *= 28.35;
-              break;
-            case "kg":
-              quantityInGrams *= 1000;
-              break;
-            case "lbs":
-              quantityInGrams *= 453.59;
-              break;
-          }
-
-          final multiplier = quantityInGrams / 100;
-          totalCalories += entry.food.calories * multiplier;
-          totalProtein += (entry.food.nutrients["Protein"] ?? 0) * multiplier;
-        }
-
-        weeklyCaloriesData.add(FlSpot(6 - i.toDouble(), totalCalories));
-        weeklyProteinData.add(FlSpot(6 - i.toDouble(), totalProtein));
-        weekDays.add(DateFormat('E').format(day));
-      }
-    } catch (e) {
-      debugPrint('Error generating weekly data: $e');
-      // Add some default data if there was an error
-      if (weeklyCaloriesData.isEmpty) {
-        for (int i = 6; i >= 0; i--) {
-          final day = now.subtract(Duration(days: i));
-          weeklyCaloriesData.add(FlSpot(6 - i.toDouble(), 0));
-          weeklyProteinData.add(FlSpot(6 - i.toDouble(), 0));
-          weekDays.add(DateFormat('E').format(day));
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingGraphData = false;
-        });
-      }
-    }
-  }
-
-  // Load steps data from Apple Health
+  // Update _loadStepsData to populate weeklyStepsData
   Future<void> _loadStepsData() async {
     setState(() {
       _isLoadingGraphData = true;
@@ -520,29 +331,13 @@ class _GoalsScreenState extends State<GoalsScreen>
 
     try {
       final healthService = HealthService();
-
-      // Directly load the steps data without checking connection first
       weeklyStepsData = await healthService.getStepsForLastWeek();
 
-      stepsData.clear();
-      stepsBarData.clear();
-      stepsDays.clear();
-
       if (weeklyStepsData.isNotEmpty) {
-        // Convert the data for the graph
-        for (int i = 0; i < weeklyStepsData.length; i++) {
-          final dayData = weeklyStepsData[i];
-          stepsData.add(FlSpot(i.toDouble(), dayData['steps'].toDouble()));
-          stepsBarData.add(dayData['steps'].toDouble());
-          stepsDays.add(dayData['day']);
-        }
-
-        // Update stepsCompleted with today's steps (last item in the list)
         setState(() {
           stepsCompleted = weeklyStepsData.last['steps'];
         });
       } else {
-        // If no data was returned, use zeros
         _addDefaultStepsData();
       }
     } catch (e) {
@@ -558,18 +353,15 @@ class _GoalsScreenState extends State<GoalsScreen>
   }
 
   void _addDefaultStepsData() {
-    stepsData.clear();
-    stepsBarData.clear();
-    stepsDays.clear();
-
     final now = DateTime.now();
-    for (int i = 6; i >= 0; i--) {
-      final day = now.subtract(Duration(days: i));
-      final dayName = DateFormat('E').format(day);
-      stepsData.add(FlSpot(6 - i.toDouble(), 0));
-      stepsBarData.add(0);
-      stepsDays.add(dayName);
-    }
+    weeklyStepsData = List.generate(7, (index) {
+      final day = now.subtract(Duration(days: 6 - index));
+      return {
+        'date': day.toIso8601String(),
+        'steps': 0,
+        'goal': stepsGoal,
+      };
+    });
   }
 
   @override
@@ -584,9 +376,9 @@ class _GoalsScreenState extends State<GoalsScreen>
   Widget build(BuildContext context) {
     return Consumer2<FoodEntryProvider, DateProvider>(
       builder: (context, foodEntryProvider, dateProvider, _) {
-        // Calculate total macros from all food entries
         final entries = foodEntryProvider.getAllEntriesForDate(DateTime.now());
 
+        // Calculate nutrition values without modifying state
         double totalCarbs = 0;
         double totalFat = 0;
         double totalProtein = 0;
@@ -598,7 +390,6 @@ class _GoalsScreenState extends State<GoalsScreen>
           final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
           final protein = entry.food.nutrients["Protein"] ?? 0;
 
-          // Convert quantity to grams
           double quantityInGrams = entry.quantity;
           switch (entry.unit) {
             case "oz":
@@ -612,7 +403,6 @@ class _GoalsScreenState extends State<GoalsScreen>
               break;
           }
 
-          // Since nutrients are per 100g, divide by 100 to get per gram
           final multiplier = quantityInGrams / 100;
           totalCarbs += carbs * multiplier;
           totalFat += fat * multiplier;
@@ -620,84 +410,78 @@ class _GoalsScreenState extends State<GoalsScreen>
           totalCalories += entry.food.calories * multiplier;
         }
 
-        // Update the state variables with actual values
-        caloriesConsumed = totalCalories.round();
-        carbsConsumed = totalCarbs.round();
-        fatConsumed = totalFat.round();
-        proteinConsumed = totalProtein.round();
+        // Use local variables instead of modifying state
+        final displayCalories = totalCalories.round();
+        final displayCarbs = totalCarbs.round();
+        final displayFat = totalFat.round();
+        final displayProtein = totalProtein.round();
 
-        return GestureDetector(
-          // Dismiss keyboard when tapping anywhere outside of text fields
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: Scaffold(
-            body: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Theme.of(context).scaffoldBackgroundColor,
-                    Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
-                  ],
-                ),
+        return Scaffold(
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Theme.of(context).scaffoldBackgroundColor,
+                  Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
+                ],
               ),
-              child: SafeArea(
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    _buildSliverAppBar(context),
-
-                    // All progress charts in a column
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                        child: Column(
-                          children: [
-                            // Weight Chart Section
+            ),
+            child: SafeArea(
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  _buildSliverAppBar(context),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                      child: Column(
+                        children: [
+                          if (Platform.isIOS) ...[
                             _buildChartSection(
                               context: context,
                               title: 'Weight History',
-                              chartWidget: _buildWeightChart(context),
-                              additionalWidget:
-                                  _buildWeightLoggingSection(context),
-                              chartColor: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Color(0xFF64B5F6)
-                                  : Color(0xFF1976D2),
+                              chartWidget: _buildWeightChartView(),
+                              chartColor: _getChartColor('weight'),
                               chartIcon: Icons.monitor_weight,
                             ),
-
-                            const SizedBox(height: 24), // Gap between charts
-
-                            // Steps Chart Section
+                            const SizedBox(height: 24),
                             _buildChartSection(
                               context: context,
-                              title: 'Steps - Last 7 Days',
-                              chartWidget: _buildStepsChart(context),
-                              chartColor: Colors.green,
+                              title: 'Steps',
+                              chartWidget: _buildStepsChartView(),
+                              chartColor: _getChartColor('steps'),
                               chartIcon: Icons.directions_walk,
                             ),
-
-                            const SizedBox(height: 24), // Gap between charts
-
-                            // Calories Chart Section
+                            const SizedBox(height: 24),
                             _buildChartSection(
                               context: context,
-                              title: 'Calories - Last 7 Days',
-                              chartWidget: _buildCaloriesChart(context),
-                              chartColor: Colors.red,
+                              title: 'Calories',
+                              // Pass the local calories value instead of using state
+                              chartWidget:
+                                  _buildCaloriesChartView(displayCalories),
+                              chartColor: _getChartColor('calories'),
                               chartIcon: Icons.local_fire_department,
                             ),
+                          ] else ...[
+                            Center(
+                              child: Text(
+                                'Native charts are only available on iOS devices',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
-
-                    // Empty space at bottom
-                    const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
-                  ],
-                ),
+                  ),
+                  const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
+                ],
               ),
             ),
           ),
@@ -710,7 +494,6 @@ class _GoalsScreenState extends State<GoalsScreen>
     required BuildContext context,
     required String title,
     required Widget chartWidget,
-    Widget? additionalWidget,
     required Color chartColor,
     required IconData chartIcon,
   }) {
@@ -725,6 +508,7 @@ class _GoalsScreenState extends State<GoalsScreen>
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
+            spreadRadius: 2,
             offset: const Offset(0, 4),
           ),
         ],
@@ -737,11 +521,7 @@ class _GoalsScreenState extends State<GoalsScreen>
             children: [
               Row(
                 children: [
-                  Icon(
-                    chartIcon,
-                    color: chartColor,
-                    size: 18,
-                  ),
+                  Icon(chartIcon, color: chartColor, size: 18),
                   const SizedBox(width: 8),
                   Text(
                     title,
@@ -753,7 +533,6 @@ class _GoalsScreenState extends State<GoalsScreen>
                   ),
                 ],
               ),
-              // Only show the add button for weight history chart
               if (title == 'Weight History')
                 GestureDetector(
                   onTap: () {
@@ -766,35 +545,246 @@ class _GoalsScreenState extends State<GoalsScreen>
                       color: chartColor.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.add,
-                      color: chartColor,
-                      size: 18,
-                    ),
+                    child: Icon(Icons.add, color: chartColor, size: 18),
                   ),
                 ),
             ],
           ),
           const SizedBox(height: 20),
           Container(
-            height: 400, // Consistent height for all charts
+            height: 300, // Fixed height for the chart
+            width: double.infinity,
             child: _isLoadingGraphData
-                ? Center(child: CircularProgressIndicator())
-                : chartWidget,
+                ? const Center(child: CircularProgressIndicator())
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: chartWidget,
+                  ),
           ),
-          // Add additional widget if provided (but skip for weight since we moved it to modal)
-          if (additionalWidget != null && title != 'Weight History')
-            additionalWidget,
         ],
       ),
     );
   }
 
-  // Add a new method to show the bottom sheet for weight logging
+  Widget _buildWeightChartView() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _getFormattedWeightData(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error loading weight data'));
+        }
+        if (snapshot.hasData) {
+          return FutureBuilder<Widget>(
+            future: NativeChartService.createWeightChart(snapshot.data!),
+            builder: (context, widgetSnapshot) {
+              if (widgetSnapshot.hasData) {
+                return widgetSnapshot.data!;
+              }
+              return Center(child: CircularProgressIndicator());
+            },
+          );
+        }
+        return Center(child: CircularProgressIndicator());
+      },
+    );
+  }
+
+  Widget _buildStepsChartView() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _getFormattedStepsData(),
+      builder: (context, stepsDataSnapshot) {
+        if (stepsDataSnapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        if (stepsDataSnapshot.hasError) {
+          return Center(child: Text('Error loading steps data'));
+        }
+
+        if (stepsDataSnapshot.hasData) {
+          return FutureBuilder<Widget>(
+            future:
+                NativeChartService.createStepsChart(stepsDataSnapshot.data!),
+            builder: (context, widgetSnapshot) {
+              if (widgetSnapshot.hasData) {
+                return widgetSnapshot.data!;
+              }
+              return Center(child: CircularProgressIndicator());
+            },
+          );
+        }
+
+        return Center(child: CircularProgressIndicator());
+      },
+    );
+  }
+
+  Widget _buildCaloriesChartView(int displayCalories) {
+    // Format calories data for the chart using the current displayCalories value
+    List<Map<String, dynamic>> formattedData =
+        _getFormattedCaloriesData(displayCalories);
+
+    return FutureBuilder<Widget>(
+      future: NativeChartService.createCaloriesChart(formattedData),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return snapshot.data!;
+        }
+        return Center(child: CircularProgressIndicator());
+      },
+    );
+  }
+
+  List<Map<String, dynamic>> _getFormattedCaloriesData(int displayCalories) {
+    final now = DateTime.now();
+    List<Map<String, dynamic>> formattedData = [];
+
+    // Add today's calories from the passed parameter
+    formattedData.add({
+      'calories': displayCalories.toDouble(),
+      'goal': calorieGoal.toDouble(),
+      'date': now.toIso8601String(),
+    });
+
+    // Add previous 6 days data
+    for (int i = 6; i >= 1; i--) {
+      final date = now.subtract(Duration(days: i));
+      final entries = Provider.of<FoodEntryProvider>(context, listen: false)
+          .getAllEntriesForDate(date);
+
+      double totalCalories = 0;
+      for (var entry in entries) {
+        double quantityInGrams = entry.quantity;
+        switch (entry.unit) {
+          case "oz":
+            quantityInGrams *= 28.35;
+            break;
+          case "kg":
+            quantityInGrams *= 1000;
+            break;
+          case "lbs":
+            quantityInGrams *= 453.59;
+            break;
+        }
+        final multiplier = quantityInGrams / 100;
+        totalCalories += entry.food.calories * multiplier;
+      }
+
+      formattedData.add({
+        'calories': totalCalories,
+        'goal': calorieGoal.toDouble(),
+        'date': date.toIso8601String(),
+      });
+    }
+
+    // Sort the data by date
+    formattedData.sort((a, b) =>
+        DateTime.parse(a['date']).compareTo(DateTime.parse(b['date'])));
+
+    debugPrint('[GoalsPage] Formatted calories data: $formattedData');
+    return formattedData;
+  }
+
+  Future<List<Map<String, dynamic>>> _getFormattedWeightData() async {
+    // Format weight data for native charts
+    final prefs = await SharedPreferences.getInstance();
+    final String? weightHistoryString = prefs.getString('weight_history');
+    List<Map<String, dynamic>> formattedData = [];
+
+    if (weightHistoryString != null && weightHistoryString.isNotEmpty) {
+      final List<dynamic> weightHistory = jsonDecode(weightHistoryString);
+      weightHistory.sort((a, b) =>
+          DateTime.parse(a['date']).compareTo(DateTime.parse(b['date'])));
+
+      // Ensure the data structure matches what iOS expects
+      formattedData = weightHistory.map((entry) {
+        // Make sure we have the expected fields
+        return {
+          'weight': entry['weight'] is int
+              ? entry['weight'].toDouble()
+              : entry['weight'],
+          'date': entry['date'],
+        };
+      }).toList();
+
+      debugPrint('[GoalsPage] Formatted weight data: $formattedData');
+    }
+
+    // Return empty list if no data
+    if (formattedData.isEmpty) {
+      final now = DateTime.now();
+      // Add some default data points for last 7 days
+      for (int i = 6; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        formattedData.add({
+          'weight': 0.0,
+          'date': DateFormat('yyyy-MM-dd').format(date),
+        });
+      }
+    }
+
+    return formattedData;
+  }
+
+  Future<List<Map<String, dynamic>>> _getFormattedStepsData() async {
+    // Don't call _loadStepsData during build - this was causing setState during build
+    // Instead, just use the existing data or provide empty data
+
+    // Format steps data for native charts with ISO8601 date strings
+    List<Map<String, dynamic>> formattedData = weeklyStepsData.map((data) {
+      // Ensure date is in the correct ISO8601 format
+      String dateStr = data['date'];
+      if (!dateStr.contains('T')) {
+        // Convert YYYY-MM-DD to ISO8601 format
+        dateStr = DateTime.parse(dateStr).toIso8601String();
+      }
+
+      return {
+        'steps': data['steps'] is int ? data['steps'] : 0,
+        'goal': stepsGoal, // Use current goal
+        'date': dateStr,
+      };
+    }).toList();
+
+    debugPrint('[GoalsPage] Formatted steps data: $formattedData');
+
+    // Ensure we have at least 7 data points if data is empty
+    if (formattedData.isEmpty) {
+      final now = DateTime.now();
+      for (int i = 6; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        formattedData.add({
+          'steps': 0,
+          'goal': stepsGoal,
+          'date': date.toIso8601String(),
+        });
+      }
+    }
+
+    return formattedData;
+  }
+
+  Color _getChartColor(String chartType) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    switch (chartType) {
+      case 'weight':
+        return isDark ? Color(0xFF4FC3F7) : Color(0xFF0288D1);
+      case 'steps':
+        return isDark ? Color(0xFF4CD964) : Color(0xFF36C35D);
+      case 'calories':
+        return isDark ? Colors.redAccent : Colors.red;
+      default:
+        return Colors.blue;
+    }
+  }
+
   void _showWeightLoggingBottomSheet(BuildContext context) {
     final Color weightColor = Theme.of(context).brightness == Brightness.dark
-        ? Color(0xFF64B5F6) // Light blue for dark mode
-        : Color(0xFF1976D2); // Darker blue for light mode
+        ? Color(0xFF64B5F6)
+        : Color(0xFF1976D2);
 
     showModalBottomSheet(
       context: context,
@@ -806,7 +796,6 @@ class _GoalsScreenState extends State<GoalsScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        // Create a state variable to track the selected unit within this bottom sheet
         String sheetWeightUnit = _weightUnit;
 
         return StatefulBuilder(
@@ -817,7 +806,6 @@ class _GoalsScreenState extends State<GoalsScreen>
                 onTap: () {
                   HapticFeedback.selectionClick();
                   if (!isSelected) {
-                    // Update the local sheet state
                     setSheetState(() {
                       sheetWeightUnit = unit;
                     });
@@ -1022,949 +1010,6 @@ class _GoalsScreenState extends State<GoalsScreen>
     );
   }
 
-  Widget _buildWeightLoggingSection(BuildContext context) {
-    // Get the color to match chart
-    final Color weightColor = Theme.of(context).brightness == Brightness.dark
-        ? Color(0xFF64B5F6) // Light blue for dark mode
-        : Color(0xFF1976D2); // Darker blue for light mode
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.grey[850]?.withOpacity(0.5)
-            : Colors.grey[100]?.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.monitor_weight_rounded,
-                color: weightColor,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Log Weight',
-                style: TextStyle(
-                  color: weightColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: weightColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.calendar_today, size: 14, color: weightColor),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        _selectDate(context);
-                      },
-                      child: Text(
-                        DateFormat('MMM d, yyyy').format(_selectedWeightDate),
-                        style: TextStyle(
-                          color: weightColor,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _weightController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Enter weight',
-                    hintStyle: TextStyle(fontSize: 14),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                          BorderSide(color: Colors.grey.withOpacity(0.3)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: weightColor, width: 2),
-                    ),
-                    filled: true,
-                    fillColor: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.grey[800]
-                        : Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.grey[800]
-                        : Colors.white,
-                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildUnitToggleButton('kg'),
-                      Container(
-                        height: 24,
-                        width: 1,
-                        color: Colors.grey.withOpacity(0.3),
-                      ),
-                      _buildUnitToggleButton('lbs'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isLoggingWeight
-                  ? null
-                  : () {
-                      HapticFeedback.selectionClick();
-                      FocusScope.of(context).unfocus();
-                      final weightText = _weightController.text.trim();
-                      if (weightText.isNotEmpty) {
-                        final weight = double.tryParse(weightText);
-                        if (weight != null && weight > 0) {
-                          _logWeight(weight);
-                        } else {
-                          _showErrorMessage('Please enter a valid weight');
-                        }
-                      } else {
-                        _showErrorMessage('Please enter your weight');
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: weightColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: _isLoggingWeight
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUnitToggleButton(String unit) {
-    final isSelected = _weightUnit == unit;
-
-    // Get the color to match chart
-    final Color weightColor = Theme.of(context).brightness == Brightness.dark
-        ? Color(0xFF64B5F6) // Light blue for dark mode
-        : Color(0xFF1976D2); // Darker blue for light mode
-
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        if (!isSelected) {
-          setState(() {
-            _weightUnit = unit;
-          });
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? weightColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          unit,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey[600],
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showErrorMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.white),
-            const SizedBox(width: 10),
-            Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
-          ],
-        ),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  Widget _buildCaloriesChart(BuildContext context) {
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: calorieGoal / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.15),
-              strokeWidth: 1,
-            );
-          },
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                if (value.toInt() >= 0 && value.toInt() < weekDays.length) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      weekDays[value.toInt()],
-                      style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[400]
-                            : Colors.grey[600],
-                        fontSize: 10,
-                      ),
-                    ),
-                  );
-                }
-                return const SizedBox();
-              },
-              reservedSize: 30,
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: calorieGoal / 2,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toInt().toString(),
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.grey[400]
-                        : Colors.grey[600],
-                    fontSize: 10,
-                  ),
-                );
-              },
-              reservedSize: 40,
-            ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: 6,
-        minY: 0,
-        maxY: calorieGoal.toDouble() * 1.2,
-        lineBarsData: [
-          LineChartBarData(
-            spots: weeklyCaloriesData,
-            isCurved: true,
-            color: Colors.red,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(
-                  radius: 4,
-                  color: Colors.red,
-                  strokeWidth: 2,
-                  strokeColor: Colors.white,
-                );
-              },
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                colors: [
-                  Colors.red.withOpacity(0.3),
-                  Colors.red.withOpacity(0.05),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepsChart(BuildContext context) {
-    // Calculate the maximum value from the data or goal
-    double maxValue = math.max(
-        stepsBarData.isEmpty ? 0 : stepsBarData.reduce(math.max),
-        stepsGoal.toDouble());
-    // Set upper bound to 20% above the larger value
-    double upperBound = maxValue * 1.2;
-
-    // Get theme color for steps - using a blue-green shade like Apple Health
-    final Color stepsColor = Theme.of(context).brightness == Brightness.dark
-        ? Color(0xFF4CD964) // Apple Health-like green for dark mode
-        : Color(0xFF36C35D); // Apple Health-like green for light mode
-
-    // Add key to this widget for scrolling
-    return Container(
-      key: _stepsChartKey,
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: upperBound,
-          minY: 0,
-          barTouchData: BarTouchData(
-            enabled: true,
-            touchTooltipData: BarTouchTooltipData(
-              tooltipPadding: const EdgeInsets.all(8),
-              tooltipMargin: 8,
-              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                return BarTooltipItem(
-                  '${stepsBarData[groupIndex].toInt()} steps',
-                  const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              },
-            ),
-          ),
-          titlesData: FlTitlesData(
-            show: true,
-            rightTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            topTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (value, meta) {
-                  if (value >= 0 && value < stepsDays.length) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        stepsDays[value.toInt()],
-                        style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.grey[400]
-                              : Colors.grey[600],
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox();
-                },
-                reservedSize: 30,
-              ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: upperBound / 4,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    value.toInt().toString(),
-                    style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[400]
-                          : Colors.grey[600],
-                      fontSize: 10,
-                    ),
-                  );
-                },
-                reservedSize: 40,
-              ),
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false, // Remove vertical lines completely
-            horizontalInterval: upperBound / 4,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.15),
-                strokeWidth: 1,
-              );
-            },
-          ),
-          barGroups: stepsBarData.asMap().entries.map((entry) {
-            final index = entry.key;
-            final value = entry.value;
-
-            return BarChartGroupData(
-              x: index,
-              barRods: [
-                BarChartRodData(
-                  toY: math.min(value, upperBound),
-                  color: stepsColor, // Single consistent color
-                  width: 25, // Increased from 12 to make bars thicker
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(2),  // Reduced from 4 for less rounding
-                    topRight: Radius.circular(2), // Reduced from 4 for less rounding
-                  ),
-                  // backDrawRodData: BackgroundBarChartRodData(
-                  //   show: true,
-                  //   toY: upperBound,
-                  //   color: Colors.grey.withOpacity(0.1),
-                  // ),
-                  gradient: LinearGradient(
-                    colors: [
-                      stepsColor,
-                      stepsColor.withOpacity(0.7),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-          extraLinesData: ExtraLinesData(
-            horizontalLines: [
-              HorizontalLine(
-                y: stepsGoal.toDouble(),
-                color: Colors.red.withOpacity(0.8), // Make goal line red like Apple Health
-                strokeWidth: 1.5,
-                dashArray: [8, 4],
-                label: HorizontalLineLabel(
-                  show: true,
-                  alignment: Alignment.topRight,
-                  padding: const EdgeInsets.only(right: 8, bottom: 4),
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
-                  labelResolver: (line) => 'Goal: $stepsGoal',
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWeightChart(BuildContext context) {
-    // Find min and max weight for proper scaling
-    double minWeight = 50.0; // Default min in kg
-    double maxWeight = 100.0; // Default max in kg
-
-    // Get vibrant color that works in both light and dark mode
-    final Color chartColor = Theme.of(context).brightness == Brightness.dark
-        ? Color(0xFF4FC3F7) // Vibrant light blue for dark mode
-        : Color(0xFF0288D1); // Vibrant darker blue for light mode
-
-    if (weightData.isNotEmpty) {
-      minWeight =
-          weightData.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) - 2.0;
-      maxWeight =
-          weightData.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) + 2.0;
-    }
-
-    // If no data, return message instead of empty chart
-    if (weightData.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.scale, size: 48, color: Colors.grey[400]),
-            SizedBox(height: 16),
-            Text(
-              'No weight data available',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Tap + to log your weight',
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Create month label widgets for the x-axis
-    Widget getBottomTitleWidgets(double value, TitleMeta meta) {
-      final index = value.toInt();
-      
-      // Show labels at 30-day intervals
-      if (index % 30 != 0 && index != weightData.length - 1) {
-        return SizedBox.shrink();
-      }
-      
-      String month = '';
-      if (weightDateMap.containsKey(index)) {
-        final date = weightDateMap[index];
-        if (date != null) {
-          month = DateFormat('MMM').format(date);
-        }
-      }
-      
-      return Padding(
-        padding: const EdgeInsets.only(top: 8.0),
-        child: Text(
-          month,
-          style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.grey[400]
-                : Colors.grey[600],
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }
-
-    // Helper function to get months at regular intervals
-    List<double> getMonthPositions() {
-      List<double> positions = [];
-      if (weightData.isEmpty) return positions;
-      
-      // Find the visible range
-      double startX = _weightChartMinX;
-      double endX = _weightChartMaxX;
-      
-      // Create a set to store the months we've already added labels for
-      Set<String> addedMonths = {};
-      
-      // Calculate how many months we can fit comfortably
-      double visibleSpan = endX - startX;
-      int maxMonthsToShow = math.max(3, (visibleSpan / 30).floor());
-      int monthInterval = (addedMonths.length / maxMonthsToShow).ceil();
-      monthInterval = math.max(1, monthInterval);
-      
-      int monthCounter = 0;
-      
-      // Go through all visible data points to find month boundaries
-      for (int i = 0; i < weightData.length; i++) {
-        final x = weightData[i].x;
-        if (x >= startX && x <= endX && weightDateMap.containsKey(i)) {
-          final date = weightDateMap[i]!;
-          String monthKey = DateFormat('yyyy-MM').format(date);
-          
-          // If this is a new month, add it based on interval
-          if (!addedMonths.contains(monthKey)) {
-            addedMonths.add(monthKey);
-            if (monthCounter % monthInterval == 0) {
-              positions.add(x);
-            }
-            monthCounter++;
-          }
-        }
-      }
-      
-      // If no points found or too few labels, use evenly spaced intervals
-      if (positions.length < 3) {
-        positions.clear();
-        double interval = visibleSpan / 4; // Show 5 labels total (including start and end)
-        for (double pos = startX; pos <= endX; pos += interval) {
-          positions.add(pos);
-        }
-      }
-      
-      return positions;
-    }
-
-    // Create the chart with natural scrolling functionality and button zoom
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Column(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onHorizontalDragUpdate: (details) {
-                // Natural scrolling with adaptive sensitivity based on zoom level
-                if (weightData.isNotEmpty) {
-                  // Calculate current zoom level (lower span = higher zoom)
-                  final currentSpan = _weightChartMaxX - _weightChartMinX;
-                  final defaultSpan = _weightChartDefaultSpan;
-                  final zoomFactor = defaultSpan / currentSpan; // Higher when zoomed in
-                  
-                  // Reduce sensitivity as zoom increases
-                  final baseSensitivity = 0.2;
-                  final adjustedSensitivity = baseSensitivity / math.max(1.0, zoomFactor);
-                  
-                  final dataDelta = details.delta.dx * adjustedSensitivity;
-                  
-                  setState(() {
-                    // Ensure we don't scroll past data bounds
-                    _weightChartMinX = math.max(0, _weightChartMinX - dataDelta);
-                    _weightChartMaxX = math.min(weightData.last.x, _weightChartMinX + currentSpan);
-                    
-                    // If min changed but max hit boundary, adjust min to maintain the span
-                    if (_weightChartMaxX == weightData.last.x && dataDelta < 0) {
-                      _weightChartMinX = math.max(0, _weightChartMaxX - currentSpan);
-                    }
-                  });
-                }
-              },
-              child: LineChart(
-                LineChartData(
-                  lineTouchData: LineTouchData(
-                    enabled: true,
-                    touchTooltipData: LineTouchTooltipData(
-                      tooltipRoundedRadius: 8,
-                      tooltipPadding: EdgeInsets.all(8),
-                      tooltipMargin: 8,
-                      getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-                        return touchedBarSpots.map((barSpot) {
-                          final index = barSpot.x.toInt();
-                          final date = weightDateMap[index];
-                          String formattedDate = date != null 
-                              ? DateFormat('MMM d, yyyy').format(date)
-                              : '';
-                          
-                          return LineTooltipItem(
-                            '${barSpot.y.toStringAsFixed(1)} kg\n$formattedDate',
-                            TextStyle(
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          );
-                        }).toList();
-                      },
-                    ),
-                    touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
-                      // Handle touch events if needed
-                    },
-                    handleBuiltInTouches: true,
-                  ),
-                  gridData: FlGridData(
-                    show: true,
-                    drawHorizontalLine: true,
-                    drawVerticalLine: true,
-                    horizontalInterval: (maxWeight - minWeight) / 5,
-                    verticalInterval: 30, // Interval for vertical lines (roughly monthly)
-                    getDrawingHorizontalLine: (value) {
-                      return FlLine(
-                        color: Colors.grey.withOpacity(0.15),
-                        strokeWidth: 1,
-                      );
-                    },
-                    getDrawingVerticalLine: (value) {
-                      return FlLine(
-                        color: Colors.grey.withOpacity(0.1), // Slightly more transparent than horizontal
-                        strokeWidth: 1,
-                        dashArray: [5, 5], // Dashed vertical lines
-                      );
-                    },
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    rightTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: false, // Hide default bottom titles
-                        reservedSize: 40, // Increased space for our custom labels
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: (maxWeight - minWeight) / 4,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            value.toStringAsFixed(1),
-                            style: TextStyle(
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                              fontSize: 10,
-                            ),
-                          );
-                        },
-                        reservedSize: 30,
-                      ),
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  minX: _weightChartMinX,
-                  maxX: _weightChartMaxX,
-                  minY: minWeight,
-                  maxY: maxWeight,
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: weightData,
-                      isCurved: true,
-                      curveSmoothness: 0.35, // More pronounced curve
-                      color: chartColor,
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: false, // No dots as requested
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        gradient: LinearGradient(
-                          colors: [
-                            chartColor.withOpacity(0.4),
-                            chartColor.withOpacity(0.0),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                      ),
-                    ),
-                  ],
-                  rangeAnnotations: RangeAnnotations(
-                    horizontalRangeAnnotations: [
-                      HorizontalRangeAnnotation(
-                        y1: minWeight,
-                        y2: maxWeight,
-                        color: Colors.transparent,
-                      ),
-                    ],
-                  ),
-                  clipData: FlClipData.all(),
-                  extraLinesData: ExtraLinesData(
-                    verticalLines: getMonthPositions().map((position) {
-                      return VerticalLine(
-                        x: position,
-                        color: Colors.grey.withOpacity(0.2),
-                        strokeWidth: 1,
-                        dashArray: [5, 5],
-                        label: VerticalLineLabel(
-                          show: true,
-                          alignment: Alignment.bottomCenter,
-                          padding: EdgeInsets.only(bottom: 25), // Increased padding to push labels lower
-                          style: TextStyle(
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.grey[400]!
-                                : Colors.grey[600]!,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          labelResolver: (line) {
-                            int positionInt = position.toInt();
-                            if (weightDateMap.containsKey(positionInt)) {
-                              // Get the month name only to save space
-                              return DateFormat('MMM').format(weightDateMap[positionInt]!);
-                            }
-                            
-                            // Find the closest data point if exact match not found
-                            // ...existing code...
-                            int closestKey = weightDateMap.keys
-                                .where((k) => k >= 0) // Make sure key is valid
-                                .reduce((a, b) => (a - positionInt).abs() < (b - positionInt).abs() ? a : b);
-                            
-                            if (weightDateMap.containsKey(closestKey)) {
-                              DateTime base = weightDateMap[closestKey]!;
-                              // Estimate the date based on position difference
-                              DateTime estimated = base.add(Duration(days: (positionInt - closestKey)));
-                              return DateFormat('MMM yyyy').format(estimated);
-                            }
-                            return '';
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Add zoom controls
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildZoomButton(
-                  icon: Icons.zoom_in,
-                  onPressed: () {
-                    final currentSpan = _weightChartMaxX - _weightChartMinX;
-                    final newSpan = currentSpan * 0.7;
-                    final midPoint = (_weightChartMaxX + _weightChartMinX) / 2;
-                    
-                    setState(() {
-                      _weightChartMinX = math.max(0, midPoint - newSpan / 2);
-                      _weightChartMaxX = math.min(weightData.last.x, midPoint + newSpan / 2);
-                    });
-                  },
-                ),
-                SizedBox(width: 8),
-                _buildZoomButton(
-                  icon: Icons.zoom_out,
-                  onPressed: () {
-                    final currentSpan = _weightChartMaxX - _weightChartMinX;
-                    final newSpan = currentSpan * 1.5;
-                    final midPoint = (_weightChartMaxX + _weightChartMinX) / 2;
-                    
-                    setState(() {
-                      _weightChartMinX = math.max(0, midPoint - newSpan / 2);
-                      _weightChartMaxX = math.min(weightData.last.x, midPoint + newSpan / 2);
-                    });
-                  },
-                ),
-                SizedBox(width: 8),
-                _buildZoomButton(
-                  icon: Icons.replay,
-                  onPressed: () {
-                    setState(() {
-                      // Reset to default 3-month view
-                      _weightChartMaxX = weightData.last.x;
-                      _weightChartMinX = math.max(0, _weightChartMaxX - _weightChartDefaultSpan);
-                      _weightChartScaleFactor = 1.0;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildZoomButton({required IconData icon, required VoidCallback onPressed}) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final chartColor = isDarkMode
-        ? Color(0xFF4FC3F7) // Light blue for dark mode
-        : Color(0xFF0288D1); // Darker blue for light mode
-        
-    return Container(
-      width: 36, // Increased from default size
-      height: 36, // Increased from default size
-      decoration: BoxDecoration(
-        color: isDarkMode ? Colors.grey[800] : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: chartColor.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onPressed,
-          child: Center(
-            child: Icon(
-              icon,
-              size: 20, // Increased from 16
-              color: chartColor,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLegendItem(String label, Color color) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.grey[300]
-                : Colors.grey[700],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildSliverAppBar(BuildContext context) {
     return SliverAppBar(
       expandedHeight: 100,
@@ -1985,13 +1030,11 @@ class _GoalsScreenState extends State<GoalsScreen>
         ),
       ),
       leading: Container(
-        // margin: const EdgeInsets.only(left: 16),
         child: Center(
           child: IconButton(
             icon: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                // color: Theme.of(context).primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -2019,7 +1062,6 @@ class _GoalsScreenState extends State<GoalsScreen>
               ),
             ),
             onPressed: () {
-              // Show options menu
               HapticFeedback.selectionClick();
               showModalBottomSheet(
                 context: context,
@@ -2067,7 +1109,6 @@ class _GoalsScreenState extends State<GoalsScreen>
               Navigator.pop(context);
               _loadStepsData();
               _loadWeightData();
-              _generateWeeklyData();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Data refreshed'),
@@ -2122,236 +1163,20 @@ class _GoalsScreenState extends State<GoalsScreen>
     );
   }
 
-  Widget _buildGoalCard(Map<String, dynamic> data) {
-    final progress = data['currentValue'] != null
-        ? data['currentValue'] / data['value']
-        : 0.0;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: data['editable'] == true ? data['onEdit'] : null,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  data['color'].withOpacity(0.15),
-                  data['color'].withOpacity(0.05),
-                ],
-              ),
-              border: Border.all(
-                color: data['color'].withOpacity(0.1),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: data['color'].withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            data['icon'],
-                            color: data['color'],
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          data['title'],
-                          style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (data['editable'] == true)
-                      Icon(
-                        Icons.edit,
-                        size: 20,
-                        color: data['color'],
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                data['currentValue'] != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${data['currentValue']} / ${data['value']} ${data['unit']}',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).primaryColor,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              Text(
-                                '${(progress * 100).toInt()}%',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: _getProgressColor(progress),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: LinearProgressIndicator(
-                              value: progress.clamp(0.0, 1.0),
-                              backgroundColor: Colors.grey.withOpacity(0.2),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                  _getProgressColor(progress)),
-                              minHeight: 8,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            data['secondaryValue'] != null
-                                ? '${data['value']} / ${data['secondaryValue']} ${data['unit']}'
-                                : '${data['value']} ${data['unit']}',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-              ],
-            ),
-          ),
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 10),
+            Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
+          ],
         ),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
-  }
-
-  Color _getProgressColor(double progress) {
-    if (progress >= 0.9) return Colors.green;
-    if (progress >= 0.7) return Colors.lime;
-    if (progress >= 0.5) return Colors.orange;
-    return Colors.red;
-  }
-
-  Map<String, dynamic> getGoalData(int index) {
-    switch (index) {
-      case 0:
-        return {
-          'title': 'Daily Calorie Goal',
-          'value': calorieGoal,
-          'currentValue': caloriesConsumed,
-          'unit': 'kcal',
-          'icon': Icons.local_fire_department,
-          'color': Colors.orange,
-          'editable': true,
-          'onEdit': () => _showEditDialog(
-                'Daily Calorie Goal',
-                calorieGoal,
-                'kcal',
-                (value) => setState(() => calorieGoal = value),
-              ),
-        };
-      case 1:
-        return {
-          'title': 'Protein Goal',
-          'value': proteinGoal,
-          'currentValue': proteinConsumed,
-          'unit': 'g',
-          'icon': Icons.fitness_center,
-          'color': Colors.red,
-          'editable': true,
-          'onEdit': () => _showEditDialog(
-                'Protein Goal',
-                proteinGoal,
-                'g',
-                (value) => setState(() => proteinGoal = value),
-              ),
-        };
-      case 2:
-        return {
-          'title': 'Carbohydrate Goal',
-          'value': carbGoal,
-          'currentValue': carbsConsumed,
-          'unit': 'g',
-          'icon': Icons.grain,
-          'color': Colors.blue,
-          'editable': true,
-          'onEdit': () => _showEditDialog(
-                'Carbohydrate Goal',
-                carbGoal,
-                'g',
-                (value) => setState(() => carbGoal = value),
-              ),
-        };
-      case 3:
-        return {
-          'title': 'Fat Goal',
-          'value': fatGoal,
-          'currentValue': fatConsumed,
-          'unit': 'g',
-          'icon': Icons.opacity,
-          'color': Colors.yellow,
-          'editable': true,
-          'onEdit': () => _showEditDialog(
-                'Fat Goal',
-                fatGoal,
-                'g',
-                (value) => setState(() => fatGoal = value),
-              ),
-        };
-      case 4:
-        return {
-          'title': 'Daily Steps Goal',
-          'value': stepsGoal,
-          'currentValue': stepsCompleted,
-          'unit': 'steps',
-          'icon': Icons.directions_walk,
-          'color': Colors.green,
-          'editable': true,
-          'onEdit': () => _showEditDialog(
-                'Daily Steps Goal',
-                stepsGoal,
-                'steps',
-                (value) => setState(() => stepsGoal = value),
-              ),
-        };
-      default:
-        return {
-          'title': '',
-          'value': 0,
-          'unit': '',
-          'icon': Icons.help,
-          'color': Colors.grey,
-          'editable': false,
-        };
-    }
   }
 }

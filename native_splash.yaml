@@ -4,7 +4,7 @@ flutter_native_splash:
   web: false
   
   color: "#FFFFFF"
-  image: assets/splash_screen/Fitpro.png
+  image: assets/splash_screen/MacroBalance.png
 
   android_12:
   # TODO: Add support for Android 12 splash screen
