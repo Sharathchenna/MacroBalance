@@ -596,6 +596,7 @@ Meal to analyze: ${_mealController.text}
         },
         child: Column(
           children: [
+            // Removed the Container with disclaimer text
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 25, 16, 16),
               child: Container(
@@ -715,6 +716,16 @@ Meal to analyze: ${_mealController.text}
                                     style: GoogleFonts.roboto(
                                       color: customColors?.textSecondary,
                                       fontSize: 14,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Please note: AI results are estimates and should be verified for accuracy.',
+                                    style: GoogleFonts.roboto(
+                                      color: customColors?.textSecondary,
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
