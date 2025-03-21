@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'dart:ui';
+import 'package:macrotracker/Health/Health.dart';
 
 class EditGoalsScreen extends StatefulWidget {
   const EditGoalsScreen({super.key});
@@ -72,6 +75,16 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   // Load current daily values from food entry provider or stored progress
   Future<void> _loadCurrentValues() async {
     try {
+      // Fetch steps data from HealthService
+      final healthService = HealthService();      
+      final int todaySteps = await healthService.getSteps();
+      
+      if (mounted) {
+        setState(() {
+          stepsCompleted = todaySteps;
+        });
+      }
+
       final prefs = await SharedPreferences.getInstance();
       final String? dailyProgress = prefs.getString('daily_progress');
 
@@ -83,7 +96,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
             proteinConsumed = progress['protein'] ?? 0;
             carbsConsumed = progress['carbs'] ?? 0;
             fatConsumed = progress['fat'] ?? 0;
-            stepsCompleted = progress['steps'] ?? 0;
+            // stepsCompleted = progress['steps'] ?? 0;
           });
         }
       } else {
@@ -92,7 +105,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           proteinConsumed = 0;
           carbsConsumed = 0;
           fatConsumed = 0;
-          stepsCompleted = 0;
+          // stepsCompleted = 0;
         });
       }
     } catch (e) {
@@ -202,156 +215,184 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       String title, int currentValue, String unit, Function(int) onSave) {
     final TextEditingController controller =
         TextEditingController(text: currentValue.toString());
+    final customColors = Theme.of(context).extension<CustomColors>();
+    // Find the color associated with this title
+    Color dialogColor = Colors.deepOrange; // Default color
+    for (var data in _getGoalsData()) {
+      if (data['title'].contains(title.split(' ')[0])) {
+        dialogColor = data['color'];
+        break;
+      }
+    }
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit $title'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            suffixText: unit,
-            border: const OutlineInputBorder(),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 15,
+                spreadRadius: 0,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final newValue = int.tryParse(controller.text);
-              if (newValue != null && newValue > 0) {
-                onSave(newValue);
-                _saveGoals();
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGoalCard(Map<String, dynamic> data) {
-    // Check if this is a progress card or simple goal card
-    final bool showProgress = data['currentValue'] != null;
-    final progress = showProgress ? data['currentValue'] / data['value'] : 0.0;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: data['onEdit'],
-          borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  data['color'].withOpacity(0.15),
-                  data['color'].withOpacity(0.05),
-                ],
-              ),
-              border: Border.all(
-                color: data['color'].withOpacity(0.1),
-                width: 1,
-              ),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Fix for overflow - Wrap with Flexible for title
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: data['color'].withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            data['icon'],
-                            color: data['color'],
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          data['title'],
-                          style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: dialogColor.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _getIconForTitle(title),
+                        color: dialogColor,
+                        size: 22,
+                      ),
                     ),
-                    Icon(
-                      Icons.edit,
-                      size: 20,
-                      color: data['color'],
+                    const SizedBox(width: 14),
+                    Flexible(
+                      child: Text(
+                        'Edit $title',
+                        style:  TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: customColors!.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                if (showProgress)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${data['currentValue']} / ${data['value']} ${data['unit']}',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          Text(
-                            '${(progress * 100).toInt()}%',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: _getProgressColor(progress),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: LinearProgressIndicator(
-                          value: progress.clamp(0.0, 1.0),
-                          backgroundColor: Colors.grey.withOpacity(0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              _getProgressColor(progress)),
-                          minHeight: 8,
-                        ),
+                
+                const SizedBox(height: 24),
+                
+                Container(
+                  decoration: BoxDecoration(
+                    color: customColors.cardBackground,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 2),
                       ),
                     ],
-                  )
-                else
-                  Text(
-                    '${data['value']} ${data['unit']}',
-                    style: TextStyle(
+                  ),
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                      suffixText: unit,
+                      suffixStyle: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: dialogColor,
+                      ),
+                      hintText: 'Enter value',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide(
+                          color: dialogColor.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                        borderSide: BorderSide(
+                          color: dialogColor,
+                          width: 2,
+                        ),
+                      ),
                     ),
                   ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Cancel button
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: customColors.textSecondary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Save button
+                    ElevatedButton(
+                      onPressed: () {
+                        final newValue = int.tryParse(controller.text);
+                        if (newValue != null && newValue > 0) {
+                          onSave(newValue);
+                          _saveGoals();
+                          Navigator.pop(context);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: dialogColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Save',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -359,12 +400,177 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       ),
     );
   }
+  
+  // Helper method to get appropriate icon for the dialog
+  IconData _getIconForTitle(String title) {
+    if (title.contains('Calorie')) return Icons.local_fire_department_rounded;
+    if (title.contains('Protein')) return Icons.fitness_center_rounded;
+    if (title.contains('Carbohydrate')) return Icons.grain_rounded;
+    if (title.contains('Fat')) return Icons.opacity_rounded;
+    if (title.contains('Steps')) return Icons.directions_walk_rounded;
+    return Icons.edit_rounded;
+  }
 
-  Color _getProgressColor(double progress) {
-    if (progress >= 0.9) return Colors.green;
-    if (progress >= 0.7) return Colors.lime;
-    if (progress >= 0.5) return Colors.orange;
-    return Colors.red;
+  Widget _buildGoalCard(Map<String, dynamic> data) {
+    final bool showProgress = data['currentValue'] != null;
+    final progress = showProgress ? data['currentValue'] / data['value'] : 0.0;
+    final customColors = Theme.of(context).extension<CustomColors>();
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      height: 160,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: data['onEdit'],
+            splashColor: data['color'].withOpacity(0.1),
+            highlightColor: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      // Colored icon in a circular container
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: data['color'].withOpacity(0.2),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: data['color'].withOpacity(0.1),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            )
+                          ],
+                        ),
+                        child: Icon(
+                          data['icon'],
+                          color: data['color'],
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Text(
+                        data['title'],
+                        style:  TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: customColors!.textPrimary
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: data['color'].withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.edit_rounded,
+                          size: 16,
+                          color: data['color'],
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const Spacer(),
+                  if (showProgress) 
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${data['currentValue']} / ${data['value']} ${data['unit']}',
+                              style:  TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color:  customColors.textPrimary,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: data['color'].withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${(progress * 100).toInt()}%',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: data['color'],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        // Enhanced progress bar with icon color
+                        Stack(
+                          children: [
+                            // Background
+                            Container(
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            // Foreground with icon color
+                            Container(
+                              height: 12,
+                              width: MediaQuery.of(context).size.width * 0.8 * progress.clamp(0.0, 1.0),
+                              decoration: BoxDecoration(
+                                color: data['color'],
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: data['color'].withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      '${data['value']} ${data['unit']}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   List<Map<String, dynamic>> _getGoalsData() {
@@ -374,8 +580,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'value': calorieGoal,
         'currentValue': caloriesConsumed,
         'unit': 'kcal',
-        'icon': Icons.local_fire_department,
-        'color': Colors.orange,
+        'icon': Icons.local_fire_department_rounded,
+        'color': Colors.deepOrange,
         'onEdit': () => _showEditDialog(
               'Daily Calorie Goal',
               calorieGoal,
@@ -388,8 +594,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'value': proteinGoal,
         'currentValue': proteinConsumed,
         'unit': 'g',
-        'icon': Icons.fitness_center,
-        'color': Colors.red,
+        'icon': Icons.fitness_center_rounded,
+        'color': Colors.purple,
         'onEdit': () => _showEditDialog(
               'Protein Goal',
               proteinGoal,
@@ -402,7 +608,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'value': carbGoal,
         'currentValue': carbsConsumed,
         'unit': 'g',
-        'icon': Icons.grain,
+        'icon': Icons.grain_rounded,
         'color': Colors.blue,
         'onEdit': () => _showEditDialog(
               'Carbohydrate Goal',
@@ -416,8 +622,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'value': fatGoal,
         'currentValue': fatConsumed,
         'unit': 'g',
-        'icon': Icons.opacity,
-        'color': Colors.yellow,
+        'icon': Icons.opacity_rounded,
+        'color': Colors.amber,
         'onEdit': () => _showEditDialog(
               'Fat Goal',
               fatGoal,
@@ -430,8 +636,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'value': stepsGoal,
         'currentValue': stepsCompleted,
         'unit': 'steps',
-        'icon': Icons.directions_walk,
-        'color': Colors.green,
+        'icon': Icons.directions_walk_rounded,
+        'color': Colors.teal,
         'onEdit': () => _showEditDialog(
               'Daily Steps Goal',
               stepsGoal,
@@ -447,16 +653,23 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Macro Goals'),
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: ListView.builder(
-        itemCount: _getGoalsData().length,
-        itemBuilder: (context, index) {
-          return _buildGoalCard(_getGoalsData()[index]);
-        },
+      body: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SafeArea(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            itemCount: _getGoalsData().length,
+            itemBuilder: (context, index) {
+              return _buildGoalCard(_getGoalsData()[index]);
+            },
+          ),
+        ),
       ),
     );
   }
