@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:macrotracker/screens/askAI.dart';
 import 'dart:convert';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
@@ -264,6 +265,9 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     if (_searchResults.isNotEmpty) {
       return _buildSearchResults();
     }
+    if (_searchResults.isEmpty && _searchController.text.isNotEmpty) {
+      return NoResultsFoundWidget();
+    }
     return _buildEmptyState();
   }
 
@@ -281,7 +285,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(context).primaryColor.withValues(alpha: .1),
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
                   blurRadius: 10,
                   spreadRadius: 2,
                 ),
@@ -300,7 +304,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           Text(
             'Finding delicious foods...',
             style: AppTypography.caption.copyWith(
-              color: customColors?.textPrimary,
+              color: customColors.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -310,31 +314,10 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildSearchResults() {
-    final customColors = Theme.of(context).extension<CustomColors>();
-
     return RefreshIndicator(
       onRefresh: () => _searchFood(_searchController.text),
       child: _searchResults.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.search_off_rounded,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No results found',
-                    style: TextStyle(
-                      color: customColors?.textPrimary,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            )
+          ? const NoResultsFoundWidget()
           : ListView.builder(
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
@@ -379,7 +362,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             offset: const Offset(0, 2),
             blurRadius: 8,
           ),
@@ -483,7 +466,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -514,7 +497,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: accentColor.withValues(alpha: .15),
+            color: accentColor.withOpacity(0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -568,8 +551,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   boxShadow: [
                     BoxShadow(
                       color: Theme.of(context).brightness == Brightness.light
-                          ? customColors.textPrimary.withValues(alpha: .05)
-                          : customColors.textPrimary.withValues(alpha: 0),
+                          ? customColors.textPrimary.withOpacity(0.05)
+                          : customColors.textPrimary.withOpacity(0),
                       blurRadius: 15,
                       spreadRadius: 5,
                     ),
@@ -601,7 +584,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               const SizedBox(height: 24),
               // Add a hint button
               Material(
-                color: Theme.of(context).primaryColor.withValues(alpha: .1),
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(18),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(18),
@@ -711,7 +694,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: accentColor.withValues(alpha: 0.15),
+                                color: accentColor.withOpacity(0.15),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -991,6 +974,70 @@ class Serving {
       metricUnit: json['metric_serving_unit'] ?? 'g',
       calories: double.tryParse(json['calories'] ?? '0') ?? 0.0,
       nutrients: nutrients,
+    );
+  }
+}
+
+class NoResultsFoundWidget extends StatelessWidget {
+  const NoResultsFoundWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No results found',
+            style: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              "Can't find your food in the database? Try asking AI",
+              style: TextStyle(
+                color: customColors?.textSecondary,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const Askai(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.smart_toy_rounded),
+            label: const Text('Ask AI'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
