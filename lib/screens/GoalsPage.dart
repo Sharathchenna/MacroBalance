@@ -59,6 +59,10 @@ class _GoalsScreenState extends State<GoalsScreen>
   int _selectedIndex = 0;
   PageController _pageController = PageController();
 
+  // Add this variable to store selected week dates for macros view
+  DateTime _macrosStartDate = DateTime.now().subtract(const Duration(days: 6));
+  DateTime _macrosEndDate = DateTime.now();
+
   @override
   void initState() {
     super.initState();
@@ -511,6 +515,24 @@ class _GoalsScreenState extends State<GoalsScreen>
                               );
                             },
                           ),
+                          AnimatedBuilder(
+                            animation: _pageController,
+                            builder: (context, child) {
+                              double value = 1.0;
+                              if (_pageController.position.haveDimensions) {
+                                value = (_pageController.page! - 3).abs();
+                                value = (1 - (value.clamp(0.0, 1.0)))
+                                    .clamp(0.7, 1.0);
+                              }
+                              return Transform.scale(
+                                scale: value,
+                                child: Opacity(
+                                  opacity: value,
+                                  child: _buildMacrosPage(context),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -526,11 +548,17 @@ class _GoalsScreenState extends State<GoalsScreen>
   }
 
   Widget _buildNavigationHeader(BuildContext context) {
-    final titles = ['Weight Tracking', 'Step Counter', 'Calorie Monitor'];
+    final titles = [
+      'Weight Tracking',
+      'Step Counter',
+      'Calorie Monitor',
+      'Macros Analysis'
+    ];
     final icons = [
       Icons.monitor_weight,
       Icons.directions_walk,
-      Icons.local_fire_department
+      Icons.local_fire_department,
+      Icons.pie_chart
     ];
 
     return Container(
@@ -1048,16 +1076,17 @@ class _GoalsScreenState extends State<GoalsScreen>
     final icons = [
       Icons.monitor_weight,
       Icons.directions_walk,
-      Icons.local_fire_department
+      Icons.local_fire_department,
+      Icons.pie_chart
     ];
-    final labels = ['Weight', 'Steps', 'Calories'];
+    final labels = ['Weight', 'Steps', 'Calories', 'Macros'];
 
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(3, (index) {
+        children: List.generate(4, (index) {
           final isSelected = _selectedIndex == index;
           return GestureDetector(
             onTap: () {
@@ -1133,6 +1162,10 @@ class _GoalsScreenState extends State<GoalsScreen>
         BottomNavigationBarItem(
           icon: Icon(Icons.local_fire_department),
           label: 'Calories',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.pie_chart),
+          label: 'Macros',
         ),
       ],
       selectedItemColor: Theme.of(context).primaryColor,
@@ -1475,98 +1508,6 @@ class _GoalsScreenState extends State<GoalsScreen>
     );
   }
 
-  Widget _buildChartLoadingState(String chartType) {
-    Color color = _getChartColor(chartType);
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 40,
-            height: 40,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading data...',
-            style: TextStyle(
-              color: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.color
-                  ?.withOpacity(0.7),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChartErrorState(String errorType) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: 40,
-              color: Colors.orange,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Error loading $errorType',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Pull down to refresh',
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.color
-                    ?.withOpacity(0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                setState(() {
-                  _isLoadingGraphData = true;
-                });
-                _loadWeightData();
-              },
-              icon: Icon(Icons.refresh, size: 18),
-              label: Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildStepsChartView() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _getFormattedStepsData(),
@@ -1742,6 +1683,98 @@ class _GoalsScreenState extends State<GoalsScreen>
     return formattedData;
   }
 
+  Widget _buildChartLoadingState(String chartType) {
+    Color color = _getChartColor(chartType);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading data...',
+            style: TextStyle(
+              color: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.color
+                  ?.withOpacity(0.7),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartErrorState(String errorType) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 40,
+              color: Colors.orange,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading $errorType',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Pull down to refresh',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.color
+                    ?.withOpacity(0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _isLoadingGraphData = true;
+                });
+                _loadWeightData();
+              },
+              icon: Icon(Icons.refresh, size: 18),
+              label: Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Color _getChartColor(String chartType) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     switch (chartType) {
@@ -1751,6 +1784,8 @@ class _GoalsScreenState extends State<GoalsScreen>
         return isDark ? Color(0xFF4CD964) : Color(0xFF36C35D);
       case 'calories':
         return isDark ? Colors.redAccent : Colors.red;
+      case 'macros':
+        return isDark ? Colors.purpleAccent : Colors.purple;
       default:
         return Colors.blue;
     }
@@ -2063,5 +2098,424 @@ class _GoalsScreenState extends State<GoalsScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+  }
+
+  Widget _buildMacrosPage(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMacrosSummaryCard(),
+          const SizedBox(height: 24),
+          Container(
+            height: 300,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: _buildMacrosChartView(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildMacrosWeekSelector(),
+          const SizedBox(height: 24),
+          _buildMacrosDetailCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMacrosSummaryCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Macro Nutrients',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Balance your diet for optimal nutrition',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).primaryColor.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+              CircleAvatar(
+                backgroundColor:
+                    Theme.of(context).primaryColor.withOpacity(0.2),
+                radius: 24,
+                child: Icon(
+                  Icons.pie_chart,
+                  color: Theme.of(context).primaryColor,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNutrientIndicator(
+                label: 'Protein',
+                value: proteinConsumed,
+                goal: proteinGoal,
+                color: Colors.amber,
+              ),
+              _buildNutrientIndicator(
+                label: 'Carbs',
+                value: carbsConsumed,
+                goal: carbGoal,
+                color: Colors.teal,
+              ),
+              _buildNutrientIndicator(
+                label: 'Fat',
+                value: fatConsumed,
+                goal: fatGoal,
+                color: Colors.purple,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNutrientIndicator({
+    required String label,
+    required int value,
+    required int goal,
+    required Color color,
+  }) {
+    final percentage = (value / goal).clamp(0.0, 1.0);
+    return Column(
+      children: [
+        SizedBox(
+          height: 64,
+          width: 64,
+          child: Stack(
+            children: [
+              Center(
+                child: CircularProgressIndicator(
+                  value: percentage,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                  backgroundColor: color.withOpacity(0.2),
+                  strokeWidth: 8,
+                ),
+              ),
+              Center(
+                child: Text(
+                  '${(percentage * 100).round()}%',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          '$value/${goal}g',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).textTheme.bodySmall?.color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMacrosWeekSelector() {
+    final startDay = DateFormat('MMM d').format(_macrosStartDate);
+    final endDay = DateFormat('MMM d').format(_macrosEndDate);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: Icon(Icons.chevron_left),
+            onPressed: () {
+              setState(() {
+                _macrosStartDate =
+                    _macrosStartDate.subtract(const Duration(days: 7));
+                _macrosEndDate =
+                    _macrosEndDate.subtract(const Duration(days: 7));
+              });
+            },
+          ),
+          Text(
+            '$startDay - $endDay',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.chevron_right),
+            onPressed: _macrosEndDate.isBefore(DateTime.now())
+                ? () {
+                    setState(() {
+                      _macrosStartDate =
+                          _macrosStartDate.add(const Duration(days: 7));
+                      _macrosEndDate =
+                          _macrosEndDate.add(const Duration(days: 7));
+                    });
+                  }
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMacrosDetailCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Macros Distribution',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recommended Balance',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildMacrosBar(
+                      carbPercent:
+                          carbGoal / (carbGoal + proteinGoal + fatGoal),
+                      proteinPercent:
+                          proteinGoal / (carbGoal + proteinGoal + fatGoal),
+                      fatPercent: fatGoal / (carbGoal + proteinGoal + fatGoal),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Current Balance',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildMacrosBar(
+                      carbPercent: carbsConsumed /
+                          (carbsConsumed + proteinConsumed + fatConsumed)
+                              .clamp(1, double.infinity),
+                      proteinPercent: proteinConsumed /
+                          (carbsConsumed + proteinConsumed + fatConsumed)
+                              .clamp(1, double.infinity),
+                      fatPercent: fatConsumed /
+                          (carbsConsumed + proteinConsumed + fatConsumed)
+                              .clamp(1, double.infinity),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMacrosBar({
+    required double carbPercent,
+    required double proteinPercent,
+    required double fatPercent,
+  }) {
+    return Container(
+      height: 24,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          Expanded(
+            flex: (carbPercent * 100).round(),
+            child: Container(color: Colors.teal),
+          ),
+          Expanded(
+            flex: (proteinPercent * 100).round(),
+            child: Container(color: Colors.amber),
+          ),
+          Expanded(
+            flex: (fatPercent * 100).round(),
+            child: Container(color: Colors.purple),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMacrosChartView() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _getFormattedMacrosData(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildChartLoadingState('macros');
+        }
+
+        if (snapshot.hasError) {
+          return _buildChartErrorState('macros data');
+        }
+
+        if (snapshot.hasData) {
+          return FutureBuilder<Widget>(
+            future: NativeChartService.createMacrosChart(snapshot.data!),
+            builder: (context, widgetSnapshot) {
+              if (widgetSnapshot.connectionState == ConnectionState.waiting) {
+                return _buildChartLoadingState('macros');
+              }
+
+              if (widgetSnapshot.hasError) {
+                return _buildChartErrorState('chart rendering');
+              }
+
+              if (widgetSnapshot.hasData) {
+                return AnimatedOpacity(
+                  opacity: 1.0,
+                  duration: const Duration(milliseconds: 500),
+                  child: widgetSnapshot.data!,
+                );
+              }
+
+              return _buildChartLoadingState('macros');
+            },
+          );
+        }
+
+        return _buildChartLoadingState('macros');
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _getFormattedMacrosData() async {
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+    List<Map<String, dynamic>> formattedData = [];
+
+    // Generate data for each day in the selected week
+    for (int i = 0; i <= 6; i++) {
+      final day = _macrosStartDate.add(Duration(days: i));
+      final entries = foodEntryProvider.getAllEntriesForDate(day);
+
+      double totalProteins = 0;
+      double totalCarbs = 0;
+      double totalFats = 0;
+
+      for (var entry in entries) {
+        double quantityInGrams = entry.quantity;
+        switch (entry.unit) {
+          case "oz":
+            quantityInGrams *= 28.35;
+            break;
+          case "kg":
+            quantityInGrams *= 1000;
+            break;
+          case "lbs":
+            quantityInGrams *= 453.59;
+            break;
+        }
+
+        final multiplier = quantityInGrams / 100;
+        // Access nutrients from the food's nutrients map using the correct keys
+        totalProteins += (entry.food.nutrients['Protein'] ?? 0.0) * multiplier;
+        totalCarbs +=
+            (entry.food.nutrients['Carbohydrate, by difference'] ?? 0.0) *
+                multiplier;
+        totalFats +=
+            (entry.food.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier;
+      }
+
+      formattedData.add({
+        'date': day.toIso8601String(),
+        'proteins': totalProteins,
+        'carbs': totalCarbs,
+        'fats': totalFats,
+        'proteinGoal': proteinGoal.toDouble(),
+        'carbGoal': carbGoal.toDouble(),
+        'fatGoal': fatGoal.toDouble(),
+      });
+    }
+
+    debugPrint('[GoalsPage] Formatted macros data: $formattedData');
+    return formattedData;
   }
 }

@@ -158,4 +158,66 @@ class NativeChartService {
       rethrow;
     }
   }
+
+  // Macros chart
+  static Future<Widget> createMacrosChart(
+      List<Map<String, dynamic>> data) async {
+    if (!Platform.isIOS) {
+      throw PlatformException(
+        code: 'UNAVAILABLE',
+        message: 'Native charts are only available on iOS',
+      );
+    }
+
+    try {
+      debugPrint('[NativeChartService] Creating macros chart with data: $data');
+
+      // Call method channel and expect "success" rather than data
+      final result =
+          await _channel.invokeMethod('createMacrosChart', {'data': data});
+      debugPrint(
+          '[NativeChartService] Macros chart method channel result: $result');
+
+      if (result != "success") {
+        debugPrint(
+            '[NativeChartService] Warning: Unexpected result from native side');
+      }
+
+      debugPrint('[NativeChartService] Creating UiKitView for macros chart');
+      return Container(
+        height: 300,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: UiKitView(
+            viewType: 'macrosChart',
+            creationParams: {
+              'chartType': 'macros',
+              'data': data,
+            },
+            creationParamsCodec: const StandardMessageCodec(),
+            layoutDirection: TextDirection.ltr,
+            onPlatformViewCreated: (int id) {
+              debugPrint(
+                  '[NativeChartService] Macros chart view created with id: $id');
+            },
+          ),
+        ),
+      );
+    } on PlatformException catch (e) {
+      debugPrint(
+          '[NativeChartService] Error creating macros chart: ${e.message}');
+      rethrow;
+    }
+  }
 }

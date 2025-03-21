@@ -172,6 +172,72 @@ class ChartFactory {
         return hostingController.view
     }
     
+    // Create macros chart
+    func createMacrosChart(data: [[String: Any]], parent: UIViewController?) -> UIView {
+        print("[ChartFactory] Creating macros chart with \(data.count) entries")
+        
+        // Convert data to strongly typed model
+        let macrosEntries = data.compactMap { entry -> MacrosEntry? in
+            guard let proteins = entry["proteins"] as? Double,
+                  let carbs = entry["carbs"] as? Double,
+                  let fats = entry["fats"] as? Double,
+                  let proteinGoal = entry["proteinGoal"] as? Double,
+                  let carbGoal = entry["carbGoal"] as? Double,
+                  let fatGoal = entry["fatGoal"] as? Double,
+                  let dateString = entry["date"] as? String else {
+                print("[ChartFactory] Failed to parse macros entry - missing fields: \(entry)")
+                return nil
+            }
+            
+            // Try different date formats for parsing the date
+            let date = parseDate(dateString)
+            guard let validDate = date else {
+                print("[ChartFactory] Failed to parse date for macros entry: \(dateString)")
+                return nil
+            }
+            
+            return MacrosEntry(
+                date: validDate,
+                proteins: proteins,
+                carbs: carbs,
+                fats: fats,
+                proteinGoal: proteinGoal,
+                carbGoal: carbGoal,
+                fatGoal: fatGoal
+            )
+        }
+        
+        print("[ChartFactory] Parsed \(macrosEntries.count) macros entries")
+        
+        // Sort entries by date
+        let sortedEntries = macrosEntries.sorted { $0.date < $1.date }
+        
+        // Create SwiftUI chart view
+        let chartView = MacrosChartView(entries: sortedEntries)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground))
+        
+        // Wrap with hosting controller
+        let hostingController = UIHostingController(rootView: AnyView(chartView))
+        
+        print("[ChartFactory] Created hosting controller for macros chart")
+        
+        // Configure the hosting controller view
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add as child view controller if parent is available
+        if let parent = parent {
+            print("[ChartFactory] Adding macros chart to parent view controller")
+            parent.addChild(hostingController)
+            hostingController.didMove(toParent: parent)
+        } else {
+            print("[ChartFactory] No parent view controller available for macros chart")
+        }
+        
+        return hostingController.view
+    }
+    
     // Helper method to parse dates in multiple formats
     private func parseDate(_ dateString: String) -> Date? {
         // Try ISO8601 with milliseconds

@@ -106,6 +106,9 @@ class FLNativeView: NSObject, FlutterPlatformView {
             case "calories":
                 chartView = chartFactory.createCaloriesChart(data: data, parent: parentViewController)
                 print("[FLNativeView] Created calories chart view")
+            case "macros":
+                chartView = chartFactory.createMacrosChart(data: data, parent: parentViewController)
+                print("[FLNativeView] Created macros chart view")
             default:
                 print("[FLNativeView] Unknown chart type: \(chartType)")
                 chartView = UIView()

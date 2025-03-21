@@ -21,7 +21,7 @@ import SwiftUI
         chartChannel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
             print("[AppDelegate] Received method call: \(call.method)")
             switch call.method {
-            case "createWeightChart", "createStepsChart", "createCaloriesChart":
+            case "createWeightChart", "createStepsChart", "createCaloriesChart", "createMacrosChart":
                 if let args = call.arguments as? [String: Any],
                    let data = args["data"] as? [[String: Any]] {
                     print("[AppDelegate] Processing chart data: \(data.count) entries")
@@ -62,5 +62,9 @@ import SwiftUI
         let caloriesChartFactory = FLNativeViewFactory(messenger: controller.binaryMessenger, parentViewController: controller)
         registrar(forPlugin: "caloriesChart")?.register(caloriesChartFactory, withId: "caloriesChart")
         print("[AppDelegate] Registered calories chart factory")
+        
+        let macrosChartFactory = FLNativeViewFactory(messenger: controller.binaryMessenger, parentViewController: controller)
+        registrar(forPlugin: "macrosChart")?.register(macrosChartFactory, withId: "macrosChart")
+        print("[AppDelegate] Registered macros chart factory")
     }
 }
