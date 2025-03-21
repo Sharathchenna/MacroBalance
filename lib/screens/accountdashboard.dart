@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
+import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
 
 class AccountDashboard extends StatefulWidget {
@@ -384,6 +385,17 @@ class _AccountDashboardState extends State<AccountDashboard>
                     subtitle: 'Read our privacy policy',
                     trailing: const Icon(Icons.open_in_new),
                     onTap: () {/* Open privacy policy */},
+                    colorScheme: colorScheme,
+                    customColors: customColors,
+                  ),
+                  // Add the reset onboarding button here
+                  _buildListTile(
+                    icon: CupertinoIcons.refresh,
+                    iconColor: Colors.purple,
+                    title: 'Reset Onboarding',
+                    subtitle: 'Recalculate your macros and goals',
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _confirmResetOnboarding,
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
@@ -1002,6 +1014,112 @@ class _AccountDashboardState extends State<AccountDashboard>
         colorScheme: colorScheme,
         customColors: customColors,
       );
+    }
+  }
+
+  void _confirmResetOnboarding() {
+    HapticFeedback.lightImpact();
+
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Reset Onboarding?',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            'This will reset all your macro calculations. You\'ll need to complete the onboarding process again. This action cannot be undone.',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetOnboarding();
+              },
+              child: Text(
+                'Reset',
+                style: GoogleFonts.poppins(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _resetOnboarding() async {
+    try {
+      // Clear macro data from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('macro_results');
+
+      // Reset any other onboarding-related data
+      // For example, you might want to reset weight history but keep the account
+      // If using Supabase, you can update the user's record to clear specific fields
+
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser != null) {
+        try {
+          // Reset macro values in the database but keep the user account
+          await _supabase.from('user_macros').update({
+            'calories_goal': null,
+            'protein_goal': null,
+            'carbs_goal': null,
+            'fat_goal': null,
+            'gender': null,
+            'weight': null,
+            'height': null,
+            'age': null,
+            'activity_level': null,
+            'goal_type': null,
+            'deficit_surplus': null,
+            'protein_ratio': null,
+            'fat_ratio': null,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', currentUser.id);
+        } catch (e) {
+          print('Error resetting Supabase data: $e');
+        }
+      }
+
+      // Clear local provider data
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
+      await foodEntryProvider.clearEntries();
+
+      // Navigate to onboarding screen with replacement
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+          (route) => false, // This removes all previous routes
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error resetting data: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
