@@ -227,7 +227,7 @@ class _AccountDashboardState extends State<AccountDashboard>
             children: [
               // Profile header
               _buildProfileHeader(colorScheme, customColors),
-              const SizedBox(height: 16),
+              // const SizedBox(height: 16),
 
               // Account section
               _buildSection(
@@ -465,9 +465,9 @@ class _AccountDashboardState extends State<AccountDashboard>
   Widget _buildProfileHeader(
       ColorScheme colorScheme, CustomColors? customColors) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8), // Added padding here
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -478,7 +478,7 @@ class _AccountDashboardState extends State<AccountDashboard>
               colorScheme.secondary.withValues(alpha: 0.6),
             ],
           ),
-          borderRadius: const BorderRadius.all(Radius.circular(40)),
+          borderRadius: const BorderRadius.all(Radius.circular(32)),
           boxShadow: [
             BoxShadow(
               color: colorScheme.primary.withValues(alpha: 0.2),
@@ -490,53 +490,98 @@ class _AccountDashboardState extends State<AccountDashboard>
         child: Column(
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white,
-                        Colors.white.withValues(alpha: 0.8),
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                Stack(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white,
+                            Colors.white.withValues(alpha: 0.8),
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: 38,
-                    backgroundColor: colorScheme.primaryContainer,
-                    child: Text(
-                      userData['name'].toString().substring(0, 1).toUpperCase(),
-                      style: GoogleFonts.poppins(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onPrimaryContainer,
+                      child: CircleAvatar(
+                        radius: 32,
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Text(
+                          userData['name'].toString().substring(0, 1).toUpperCase(),
+                          style: GoogleFonts.poppins(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 20),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        userData['name'],
-                        style: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              userData['name'],
+                              style: GoogleFonts.poppins(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              onPressed: () async {
+                                HapticFeedback.lightImpact();
+                                final result =
+                                    await Navigator.push<Map<String, dynamic>>(
+                                  context,
+                                  CupertinoPageRoute(
+                                    builder: (context) =>
+                                        EditProfileScreen(userData: userData),
+                                  ),
+                                );
+                                if (result != null && mounted) {
+                                  setState(() {
+                                    userData = result;
+                                  });
+                                }
+                              },
+                              icon: const Icon(CupertinoIcons.pencil,
+                                  color: Colors.white, size: 18),
+                              constraints: const BoxConstraints.tightFor(
+                                width: 30,
+                                height: 30,
+                              ),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
@@ -555,7 +600,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                               child: Text(
                                 userData['email'],
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   color: Colors.white.withValues(alpha: 0.9),
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -567,34 +612,6 @@ class _AccountDashboardState extends State<AccountDashboard>
                     ],
                   ),
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: () async {
-                      HapticFeedback.lightImpact();
-                      final result = await Navigator.push<Map<String, dynamic>>(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (context) =>
-                              EditProfileScreen(userData: userData),
-                        ),
-                      );
-                      if (result != null && mounted) {
-                        setState(() {
-                          userData = result;
-                        });
-                      }
-                    },
-                    icon: const Icon(CupertinoIcons.pencil,
-                        color: Colors.white, size: 20),
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(12),
-                    ),
-                  ),
-                ),
               ],
             ),
           ],
@@ -603,106 +620,6 @@ class _AccountDashboardState extends State<AccountDashboard>
     );
   }
 
-  Widget _buildQuickActionsRow(
-      ColorScheme colorScheme, CustomColors? customColors) {
-    final actions = [
-      {
-        'icon': CupertinoIcons.person_fill,
-        'color': Colors.blue,
-        'label': 'Profile',
-        'onTap': () {/* Navigate to profile */},
-      },
-      {
-        'icon': CupertinoIcons.chart_bar_alt_fill,
-        'color': Colors.orange,
-        'label': 'Goals',
-        'onTap': () {
-          Navigator.push(
-              context,
-              CupertinoPageRoute(
-                builder: (context) => GoalsScreen(),
-              ));
-        },
-      },
-      {
-        'icon': CupertinoIcons.bell_fill,
-        'color': Colors.red,
-        'label': 'Alerts',
-        'onTap': () {/* Show notifications */},
-      },
-      {
-        'icon': CupertinoIcons.heart_fill,
-        'color': Colors.pink,
-        'label': 'Health',
-        'onTap': () {
-          Navigator.push(
-              context,
-              CupertinoPageRoute(
-                builder: (context) => const HealthIntegrationScreen(),
-              ));
-        },
-      },
-      {
-        'icon': CupertinoIcons.star_fill,
-        'color': Colors.amber,
-        'label': 'Premium',
-        'onTap': () {/* Show premium options */},
-      },
-    ];
-
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: actions.length,
-        itemBuilder: (context, index) {
-          final action = actions[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InkWell(
-                  onTap: action['onTap'] as VoidCallback,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color:
-                          customColors?.cardBackground ?? colorScheme.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.onSurface.withValues(alpha: 0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      action['icon'] as IconData,
-                      color: action['color'] as Color,
-                      size: 24,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  action['label'] as String,
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildSectionTitle(String title, ColorScheme colorScheme) {
     return Padding(
