@@ -21,6 +21,8 @@ import 'package:provider/provider.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:uni_links/uni_links.dart';
@@ -115,6 +117,7 @@ void main() async {
 
   // Initialize deep link handling
   initDeepLinks();
+  await initPlatformState();
 
   runApp(
     MultiProvider(
@@ -153,6 +156,21 @@ Future<void> initDeepLinks() async {
   }, onError: (Object err) {
     debugPrint('URI link error: $err');
   });
+}
+
+Future<void> initPlatformState() async {
+  await Purchases.setLogLevel(LogLevel.debug);
+
+  PurchasesConfiguration? configuration;
+  if (Platform.isAndroid) {
+    // Android Implementation
+  } else if (Platform.isIOS) {
+    configuration = PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
+  }
+
+  if (configuration != null) {
+    await Purchases.configure(configuration);
+  }
 }
 
 // Function to handle the deep link

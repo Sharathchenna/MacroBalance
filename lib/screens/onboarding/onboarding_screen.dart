@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -153,6 +155,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       proteinRatio: _proteinRatio,
       fatRatio: _fatRatio,
     );
+
+    await RevenueCatUI.presentPaywallIfNeeded("pro");
 
     // Save macro results - proper function call
     await saveMacroResults(results);
