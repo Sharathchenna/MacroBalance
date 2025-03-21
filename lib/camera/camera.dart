@@ -639,10 +639,11 @@ class _CameraScreenState extends State<CameraScreen>
               Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: Text(
-                  'AI results may not always be accurate',
+                  'Note: AI results are estimates and should be verified for accuracy',
                   style: TextStyle(
                     color: Colors.grey[400],
-                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 12,
                   ),
                 ),
               ),
