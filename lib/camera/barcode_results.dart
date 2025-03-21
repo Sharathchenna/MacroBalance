@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import 'package:flutter/services.dart';
+import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:macrotracker/widgets/shimmer_loading.dart';
 import 'package:macrotracker/widgets/nutrient_row.dart';
 import 'package:macrotracker/widgets/macro_progress_ring.dart';
@@ -880,11 +881,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
               ),
             ),
 
-          // Add Macro Progress Rings after the image
+          // Main Nutrition Card with Macro Info
           Container(
             margin: const EdgeInsets.only(bottom: 24),
-            padding: const EdgeInsets.fromLTRB(
-                16, 24, 16, 40), // Increased bottom padding
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: customColors!.cardBackground,
               borderRadius: BorderRadius.circular(24),
@@ -897,86 +897,190 @@ class _BarcodeResultsState extends State<BarcodeResults>
               ],
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      calculatedCalories.toStringAsFixed(0),
-                      style: AppTypography.h1.copyWith(
-                        color: customColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                        height: 0.9,
-                        fontSize: 40, // Increased font size
-                      ),
+                // Product Name and Brand
+                if (_productData?['brands'] != null)
+                  Text(
+                    _productData!['brands'],
+                    style: AppTypography.body2.copyWith(
+                      color: customColors.textSecondary,
+                      fontWeight: FontWeight.w500,
                     ),
-                    Text(
-                      " kcal",
-                      style: AppTypography.h3.copyWith(
-                        color: customColors.textSecondary,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
-                  ],
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  _productData?['product_name'] ?? 'Unknown Product',
+                  style: AppTypography.h2.copyWith(
+                    color: customColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const SizedBox(height: 36), // Increased spacing
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+
+                const SizedBox(height: 20),
+
+                // Macro info grid
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: SizedBox(
-                          height: 140, // Increased height for larger rings
-                          child: MacroProgressRing(
-                            key: ValueKey(
-                                'carbs-${quantityController.text}-$selectedUnit'),
-                            label: 'Carbs',
-                            value: _getNutrientValue("carbohydrate"),
-                            color: const Color(0xFF4285F4), // Google blue
-                            percentage: macroPercentages["carbs"] ?? 0.33,
+                    // First row: Calories and Protein
+                    Row(
+                      children: [
+                        // Calories
+                        Expanded(
+                          child: MacroInfoBox(
+                            icon: "🔥",
+                            iconColor: Colors.black,
+                            value: _getNutrientValue("calories"),
+                            label: "Calories",
                           ),
                         ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: SizedBox(
-                          height: 140, // Increased height for larger rings
-                          child: MacroProgressRing(
-                            key: ValueKey(
-                                'protein-${quantityController.text}-$selectedUnit}'),
-                            label: 'Protein',
+
+                        const SizedBox(width: 12),
+
+                        // Protein
+                        Expanded(
+                          child: MacroInfoBox(
+                            icon: "🍗",
+                            iconColor: Colors.black,
                             value: _getNutrientValue("protein"),
-                            color: const Color(0xFFEA4335), // Google red
-                            percentage: macroPercentages["protein"] ?? 0.33,
+                            label: "Protein (g)",
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: SizedBox(
-                          height: 140, // Increased height for larger rings
-                          child: MacroProgressRing(
-                            key: ValueKey(
-                                'fat-${quantityController.text}-$selectedUnit'),
-                            label: 'Fat',
-                            value: _getNutrientValue("fat"),
-                            color: const Color(0xFFFBBC05), // Google yellow
-                            percentage: macroPercentages["fat"] ?? 0.34,
+
+                    const SizedBox(height: 12),
+
+                    // Second row: Carbs and Fat
+                    Row(
+                      children: [
+                        // Carbs
+                        Expanded(
+                          child: MacroInfoBox(
+                            icon: "🟫",
+                            iconColor: Colors.black,
+                            value: _getNutrientValue("carbohydrate"),
+                            label: "Carbs (g)",
                           ),
                         ),
-                      ),
+
+                        const SizedBox(width: 12),
+
+                        // Fat
+                        Expanded(
+                          child: MacroInfoBox(
+                            icon: "🥑",
+                            iconColor: Colors.black,
+                            value: _getNutrientValue("fat"),
+                            label: "Fat (g)",
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ],
             ),
           ),
+
+          // Add Macro Progress Rings after the image
+          // Container(
+          //   margin: const EdgeInsets.only(bottom: 24),
+          //   padding: const EdgeInsets.fromLTRB(
+          //       16, 24, 16, 40), // Increased bottom padding
+          //   decoration: BoxDecoration(
+          //     color: customColors.cardBackground,
+          //     borderRadius: BorderRadius.circular(24),
+          //     boxShadow: [
+          //       BoxShadow(
+          //         color: Colors.black.withOpacity(0.06),
+          //         blurRadius: 15,
+          //         offset: const Offset(0, 5),
+          //       ),
+          //     ],
+          //   ),
+          //   child: Column(
+          //     children: [
+          //       Row(
+          //         mainAxisAlignment: MainAxisAlignment.center,
+          //         crossAxisAlignment: CrossAxisAlignment.start,
+          //         children: [
+          //           Text(
+          //             calculatedCalories.toStringAsFixed(0),
+          //             style: AppTypography.h1.copyWith(
+          //               color: customColors.textPrimary,
+          //               fontWeight: FontWeight.bold,
+          //               height: 0.9,
+          //               fontSize: 40, // Increased font size
+          //             ),
+          //           ),
+          //           Text(
+          //             " kcal",
+          //             style: AppTypography.h3.copyWith(
+          //               color: customColors.textSecondary,
+          //               fontWeight: FontWeight.w300,
+          //             ),
+          //           ),
+          //         ],
+          //       ),
+          //       const SizedBox(height: 36), // Increased spacing
+          //       Row(
+          //         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          //         children: [
+          //           Expanded(
+          //             child: Padding(
+          //               padding: const EdgeInsets.symmetric(horizontal: 4),
+          //               child: SizedBox(
+          //                 height: 140, // Increased height for larger rings
+          //                 child: MacroProgressRing(
+          //                   key: ValueKey(
+          //                       'carbs-${quantityController.text}-$selectedUnit'),
+          //                   label: 'Carbs',
+          //                   value: _getNutrientValue("carbohydrate"),
+          //                   color: const Color(0xFF4285F4), // Google blue
+          //                   percentage: macroPercentages["carbs"] ?? 0.33,
+          //                 ),
+          //               ),
+          //             ),
+          //           ),
+          //           Expanded(
+          //             child: Padding(
+          //               padding: const EdgeInsets.symmetric(horizontal: 4),
+          //               child: SizedBox(
+          //                 height: 140, // Increased height for larger rings
+          //                 child: MacroProgressRing(
+          //                   key: ValueKey(
+          //                       'protein-${quantityController.text}-$selectedUnit}'),
+          //                   label: 'Protein',
+          //                   value: _getNutrientValue("protein"),
+          //                   color: const Color(0xFFEA4335), // Google red
+          //                   percentage: macroPercentages["protein"] ?? 0.33,
+          //                 ),
+          //               ),
+          //             ),
+          //           ),
+          //           Expanded(
+          //             child: Padding(
+          //               padding: const EdgeInsets.symmetric(horizontal: 4),
+          //               child: SizedBox(
+          //                 height: 140, // Increased height for larger rings
+          //                 child: MacroProgressRing(
+          //                   key: ValueKey(
+          //                       'fat-${quantityController.text}-$selectedUnit'),
+          //                   label: 'Fat',
+          //                   value: _getNutrientValue("fat"),
+          //                   color: const Color(0xFFFBBC05), // Google yellow
+          //                   percentage: macroPercentages["fat"] ?? 0.34,
+          //                 ),
+          //               ),
+          //             ),
+          //           ),
+          //         ],
+          //       ),
+          //     ],
+          //   ),
+          // ),
 
           // Add meal selector right after the image
           Container(
@@ -1085,51 +1189,51 @@ class _BarcodeResultsState extends State<BarcodeResults>
           ),
 
           // Product Name Card
-          Container(
-            margin: const EdgeInsets.only(bottom: 24),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: customColors.cardBackground,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_productData?['brands'] != null)
-                  Text(
-                    _productData!['brands'],
-                    style: AppTypography.body2.copyWith(
-                      color: customColors.textSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                SizedBox(height: 8),
-                Text(
-                  _productData?['product_name'] ?? 'Unknown Product',
-                  style: AppTypography.h2.copyWith(
-                    color: customColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_productData?['quantity'] != null) ...[
-                  SizedBox(height: 8),
-                  Text(
-                    _productData!['quantity'],
-                    style: AppTypography.body2.copyWith(
-                      color: customColors.textSecondary,
-                    ),
-                  ),
-                ]
-              ],
-            ),
-          ),
+          // Container(
+          //   margin: const EdgeInsets.only(bottom: 24),
+          //   padding: const EdgeInsets.all(24),
+          //   decoration: BoxDecoration(
+          //     color: customColors.cardBackground,
+          //     borderRadius: BorderRadius.circular(24),
+          //     boxShadow: [
+          //       BoxShadow(
+          //         color: Colors.black.withOpacity(0.06),
+          //         blurRadius: 15,
+          //         offset: const Offset(0, 5),
+          //       ),
+          //     ],
+          //   ),
+          //   child: Column(
+          //     crossAxisAlignment: CrossAxisAlignment.start,
+          //     children: [
+          //       if (_productData?['brands'] != null)
+          //         Text(
+          //           _productData!['brands'],
+          //           style: AppTypography.body2.copyWith(
+          //             color: customColors.textSecondary,
+          //             fontWeight: FontWeight.w500,
+          //           ),
+          //         ),
+          //       SizedBox(height: 8),
+          //       Text(
+          //         _productData?['product_name'] ?? 'Unknown Product',
+          //         style: AppTypography.h2.copyWith(
+          //           color: customColors.textPrimary,
+          //           fontWeight: FontWeight.bold,
+          //         ),
+          //       ),
+          //       if (_productData?['quantity'] != null) ...[
+          //         SizedBox(height: 8),
+          //         Text(
+          //           _productData!['quantity'],
+          //           style: AppTypography.body2.copyWith(
+          //             color: customColors.textSecondary,
+          //           ),
+          //         ),
+          //       ]
+          //     ],
+          //   ),
+          // ),
 
           // Serving Size Section (New)
           if (servings.isNotEmpty) ...[
