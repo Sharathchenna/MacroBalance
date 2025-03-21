@@ -1,0 +1,15 @@
+{
+  "version": "4",
+  "specifiers": {
+    "npm:@google/generative-ai@0.2.1": "0.2.1"
+  },
+  "npm": {
+    "@google/generative-ai@0.2.1": {
+      "integrity": "sha512-gNmMFadfwi7qf/6M9gImgyGJXY1jKQ/de8vGOqgJ0PPYgQ7WwzZDavbKrIuXS2zdqZZaYtxW3EFN6aG9x5wtFw=="
+    }
+  },
+  "remote": {
+    "https://deno.land/std@0.220.1/encoding/_util.ts": "beacef316c1255da9bc8e95afb1fa56ed69baef919c88dc06ae6cb7a6103d376",
+    "https://deno.land/std@0.220.1/encoding/base64.ts": "8ccae67a1227b875340a8582ff707f37b131df435b07080d3bb58e07f5f97807"
+  }
+}

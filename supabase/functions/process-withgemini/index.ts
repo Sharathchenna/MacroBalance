@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
 
     // Define nutrition analysis prompt - same as in the Dart implementation
     const prompt = `
-      Analyze the following meal and provide its nutritional content. if no food is found in the image, return saying no food found.
+      Analyze the following meal and provide its nutritional content.
       Break down the meal into different foods and do the nutrition analysis for each food.
       give nutrition info for each food in the meal with different serving sizes. the serving sizes can be in grams, ounces, tablespoons, teaspoons, cups etc.
       Return only the numerical values for calories, protein, carbohydrates, fat, and fiber.

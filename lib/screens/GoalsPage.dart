@@ -27,7 +27,6 @@ class _GoalsScreenState extends State<GoalsScreen>
   late AnimationController _controller;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _stepsChartKey = GlobalKey();
-
   bool _isLoadingGraphData = false;
 
   // Goal values
@@ -54,13 +53,21 @@ class _GoalsScreenState extends State<GoalsScreen>
   // Add this variable at class level
   List<Map<String, dynamic>> weeklyStepsData = [];
 
+  // At the top of the _GoalsScreenState class, add the hover state variable
+  String? _hoveredCard;
+
+  int _selectedIndex = 0;
+  PageController _pageController = PageController();
+
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
-    )..forward();
+    );
+
+    _controller.forward();
 
     _loadGoals();
     _loadCurrentValues();
@@ -71,6 +78,8 @@ class _GoalsScreenState extends State<GoalsScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToInitialSection();
     });
+
+    _pageController = PageController();
   }
 
   void _scrollToInitialSection() {
@@ -305,24 +314,6 @@ class _GoalsScreenState extends State<GoalsScreen>
     }
   }
 
-  Future<void> _saveGoals() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final Map<String, dynamic> results = {
-        'calorie_target': calorieGoal,
-        'protein': proteinGoal,
-        'carbs': carbGoal,
-        'fat': fatGoal,
-        'recommended_steps': stepsGoal,
-        'bmr': bmr,
-        'tdee': tdee,
-      };
-      await prefs.setString('macro_results', jsonEncode(results));
-    } catch (e) {
-      debugPrint('Error saving nutrition goals: $e');
-    }
-  }
-
   // Update _loadStepsData to populate weeklyStepsData
   Future<void> _loadStepsData() async {
     setState(() {
@@ -364,11 +355,47 @@ class _GoalsScreenState extends State<GoalsScreen>
     });
   }
 
+  Future<String> _getLatestWeight() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? weightHistoryString = prefs.getString('weight_history');
+
+      if (weightHistoryString != null && weightHistoryString.isNotEmpty) {
+        final List<dynamic> weightHistory = jsonDecode(weightHistoryString);
+        if (weightHistory.isNotEmpty) {
+          weightHistory.sort((a, b) =>
+              DateTime.parse(b['date']).compareTo(DateTime.parse(a['date'])));
+
+          double weight = weightHistory.first['weight'];
+          if (_weightUnit == 'lbs') {
+            weight *= 2.20462; // Convert kg to lbs
+          }
+          return weight.toStringAsFixed(1) + ' ' + _weightUnit;
+        }
+      }
+      return '-- ' + _weightUnit;
+    } catch (e) {
+      debugPrint('Error getting latest weight: $e');
+      return '-- ' + _weightUnit;
+    }
+  }
+
+  void _showOptionsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => _buildOptionsBottomSheet(context),
+    );
+  }
+
   @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
     _weightController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -377,19 +404,9 @@ class _GoalsScreenState extends State<GoalsScreen>
     return Consumer2<FoodEntryProvider, DateProvider>(
       builder: (context, foodEntryProvider, dateProvider, _) {
         final entries = foodEntryProvider.getAllEntriesForDate(DateTime.now());
-
-        // Calculate nutrition values without modifying state
-        double totalCarbs = 0;
-        double totalFat = 0;
-        double totalProtein = 0;
         double totalCalories = 0;
 
         for (var entry in entries) {
-          final carbs =
-              entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-          final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-          final protein = entry.food.nutrients["Protein"] ?? 0;
-
           double quantityInGrams = entry.quantity;
           switch (entry.unit) {
             case "oz":
@@ -404,83 +421,939 @@ class _GoalsScreenState extends State<GoalsScreen>
           }
 
           final multiplier = quantityInGrams / 100;
-          totalCarbs += carbs * multiplier;
-          totalFat += fat * multiplier;
-          totalProtein += protein * multiplier;
           totalCalories += entry.food.calories * multiplier;
         }
 
-        // Use local variables instead of modifying state
         final displayCalories = totalCalories.round();
-        final displayCarbs = totalCarbs.round();
-        final displayFat = totalFat.round();
-        final displayProtein = totalProtein.round();
 
-        return Scaffold(
-          body: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Theme.of(context).scaffoldBackgroundColor,
-                  Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
-                ],
+        return Theme(
+          data: Theme.of(context).copyWith(
+            shadowColor: Colors.transparent,
+          ),
+          child: Scaffold(
+            body: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Theme.of(context).scaffoldBackgroundColor,
+                    Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey[900]!.withOpacity(0.8)
+                        : Colors.grey[50]!.withOpacity(0.8),
+                  ],
+                ),
               ),
-            ),
-            child: SafeArea(
-              child: CustomScrollView(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  _buildSliverAppBar(context),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                      child: Column(
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    _buildNavigationHeader(context),
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          setState(() => _selectedIndex = index);
+                          HapticFeedback.selectionClick();
+                        },
                         children: [
-                          if (Platform.isIOS) ...[
-                            _buildChartSection(
-                              context: context,
-                              title: 'Weight History',
-                              chartWidget: _buildWeightChartView(),
-                              chartColor: _getChartColor('weight'),
-                              chartIcon: Icons.monitor_weight,
-                            ),
-                            const SizedBox(height: 24),
-                            _buildChartSection(
-                              context: context,
-                              title: 'Steps',
-                              chartWidget: _buildStepsChartView(),
-                              chartColor: _getChartColor('steps'),
-                              chartIcon: Icons.directions_walk,
-                            ),
-                            const SizedBox(height: 24),
-                            _buildChartSection(
-                              context: context,
-                              title: 'Calories',
-                              // Pass the local calories value instead of using state
-                              chartWidget:
-                                  _buildCaloriesChartView(displayCalories),
-                              chartColor: _getChartColor('calories'),
-                              chartIcon: Icons.local_fire_department,
-                            ),
-                          ] else ...[
-                            Center(
-                              child: Text(
-                                'Native charts are only available on iOS devices',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
+                          AnimatedBuilder(
+                            animation: _pageController,
+                            builder: (context, child) {
+                              double value = 1.0;
+                              if (_pageController.position.haveDimensions) {
+                                value = (_pageController.page! - 0).abs();
+                                value = (1 - (value.clamp(0.0, 1.0)))
+                                    .clamp(0.7, 1.0);
+                              }
+                              return Transform.scale(
+                                scale: value,
+                                child: Opacity(
+                                  opacity: value,
+                                  child: _buildWeightPage(context),
                                 ),
-                              ),
-                            ),
-                          ],
+                              );
+                            },
+                          ),
+                          AnimatedBuilder(
+                            animation: _pageController,
+                            builder: (context, child) {
+                              double value = 1.0;
+                              if (_pageController.position.haveDimensions) {
+                                value = (_pageController.page! - 1).abs();
+                                value = (1 - (value.clamp(0.0, 1.0)))
+                                    .clamp(0.7, 1.0);
+                              }
+                              return Transform.scale(
+                                scale: value,
+                                child: Opacity(
+                                  opacity: value,
+                                  child: _buildStepsPage(context),
+                                ),
+                              );
+                            },
+                          ),
+                          AnimatedBuilder(
+                            animation: _pageController,
+                            builder: (context, child) {
+                              double value = 1.0;
+                              if (_pageController.position.haveDimensions) {
+                                value = (_pageController.page! - 2).abs();
+                                value = (1 - (value.clamp(0.0, 1.0)))
+                                    .clamp(0.7, 1.0);
+                              }
+                              return Transform.scale(
+                                scale: value,
+                                child: Opacity(
+                                  opacity: value,
+                                  child: _buildCaloriesPage(
+                                      context, displayCalories),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+            bottomNavigationBar: _buildBottomNavigationBar(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNavigationHeader(BuildContext context) {
+    final titles = ['Weight Tracking', 'Step Counter', 'Calorie Monitor'];
+    final icons = [
+      Icons.monitor_weight,
+      Icons.directions_walk,
+      Icons.local_fire_department
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.1)
+                : Colors.black.withOpacity(0.05),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildBackButton(context),
+          const SizedBox(width: 16),
+          Expanded(
+            child: TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 300),
+              tween: Tween(begin: 0.0, end: 1.0),
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(20 * (1 - value), 0),
+                    child: Row(
+                      key: ValueKey(_selectedIndex),
+                      children: [
+                        Icon(
+                          icons[_selectedIndex],
+                          color: Theme.of(context).primaryColor,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          titles[_selectedIndex],
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            foreground: Paint()
+                              ..shader = LinearGradient(
+                                colors: [
+                                  Theme.of(context).primaryColor,
+                                  Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.7),
+                                ],
+                              ).createShader(
+                                  const Rect.fromLTWH(0, 0, 200, 70)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
+                );
+              },
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.more_vert,
+              color: Theme.of(context).primaryColor,
+            ),
+            onPressed: () => _showOptionsBottomSheet(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeightPage(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildWeightStats(context),
+          const SizedBox(height: 24),
+          Container(
+            height: 300,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: _buildWeightChartView(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => _showWeightLoggingBottomSheet(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              minimumSize: Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add, size: 20),
+                const SizedBox(width: 8),
+                Text('Log Weight'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepsPage(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStepsSummaryCard(),
+          const SizedBox(height: 24),
+          Container(
+            height: 300,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: _buildStepsChartView(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildStepsWeeklySummary(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepsSummaryCard() {
+    final progressPercent = (stepsCompleted / stepsGoal).clamp(0.0, 1.0);
+    final remainingSteps = stepsGoal - stepsCompleted;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$stepsCompleted',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  Text(
+                    'steps today',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).primaryColor.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${(progressPercent * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  Text(
+                    '$remainingSteps to go',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).primaryColor.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LinearProgressIndicator(
+            value: progressPercent,
+            backgroundColor: Colors.grey[300],
+            valueColor:
+                AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepsWeeklySummary() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Weekly Summary',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...weeklyStepsData.map((data) {
+            final date = DateTime.parse(data['date']);
+            final steps = data['steps'] as int;
+            final progress = (steps / stepsGoal).clamp(0.0, 1.0);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 100,
+                    child: Text(
+                      DateFormat('EEE, MMM d').format(date),
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.grey[300],
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).primaryColor,
+                          ),
+                          minHeight: 8,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$steps steps',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCaloriesPage(BuildContext context, int displayCalories) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildCaloriesSummaryCard(displayCalories),
+          const SizedBox(height: 24),
+          Container(
+            height: 300,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: _buildCaloriesChartView(displayCalories),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildCaloriesBreakdown(displayCalories),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCaloriesSummaryCard(int displayCalories) {
+    final progressPercent = (displayCalories / calorieGoal).clamp(0.0, 1.0);
+    final remainingCalories = calorieGoal - displayCalories;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$displayCalories',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  Text(
+                    'calories consumed',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).primaryColor.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${(progressPercent * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  Text(
+                    '$remainingCalories left',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).primaryColor.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LinearProgressIndicator(
+            value: progressPercent,
+            backgroundColor: Colors.grey[300],
+            valueColor:
+                AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCaloriesBreakdown(int displayCalories) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Calorie Breakdown',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildCalorieBreakdownItem(
+                label: 'BMR',
+                value: bmr,
+                color: Colors.blue,
+              ),
+              _buildCalorieBreakdownItem(
+                label: 'TDEE',
+                value: tdee,
+                color: Colors.green,
+              ),
+              _buildCalorieBreakdownItem(
+                label: 'Goal',
+                value: calorieGoal,
+                color: Theme.of(context).primaryColor,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalorieBreakdownItem({
+    required String label,
+    required int value,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.local_fire_department,
+            color: color,
+            size: 24,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Theme.of(context).textTheme.bodySmall?.color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    final isIOS = Platform.isIOS;
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: isIOS ? _buildIOSStyleNavBar() : _buildMaterialNavBar(),
+      ),
+    );
+  }
+
+  Widget _buildIOSStyleNavBar() {
+    final icons = [
+      Icons.monitor_weight,
+      Icons.directions_walk,
+      Icons.local_fire_department
+    ];
+    final labels = ['Weight', 'Steps', 'Calories'];
+
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: List.generate(3, (index) {
+          final isSelected = _selectedIndex == index;
+          return GestureDetector(
+            onTap: () {
+              setState(() => _selectedIndex = index);
+              _pageController.animateToPage(
+                index,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+              HapticFeedback.selectionClick();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Theme.of(context).primaryColor.withOpacity(0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icons[index],
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : Theme.of(context).primaryColor.withOpacity(0.5),
+                    size: 24,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    labels[index],
+                    style: TextStyle(
+                      color: isSelected
+                          ? Theme.of(context).primaryColor
+                          : Theme.of(context).primaryColor.withOpacity(0.5),
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildMaterialNavBar() {
+    return BottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: (index) {
+        setState(() => _selectedIndex = index);
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+        HapticFeedback.selectionClick();
+      },
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.monitor_weight),
+          label: 'Weight',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.directions_walk),
+          label: 'Steps',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.local_fire_department),
+          label: 'Calories',
+        ),
+      ],
+      selectedItemColor: Theme.of(context).primaryColor,
+      unselectedItemColor: Theme.of(context).primaryColor.withOpacity(0.5),
+      showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
+      selectedFontSize: 12,
+      unselectedFontSize: 12,
+      elevation: 0,
+    );
+  }
+
+  Widget _buildBackButton(BuildContext context) {
+    return Hero(
+      tag: 'back_button',
+      child: Material(
+        color: Colors.transparent,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios,
+              size: 20,
+              color: Theme.of(context).primaryColor,
+            ),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              Navigator.of(context).pop();
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeightStats(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _getWeightStats(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasData) {
+          final stats = snapshot.data!;
+          final weightChange = stats['change'] as double;
+          final percentChange = stats['percentChange'] as double;
+          final trend = stats['trend'] as String;
+          final startWeight = stats['startWeight'] as double;
+          final currentWeight = stats['currentWeight'] as double;
+
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).primaryColor.withOpacity(0.1),
+                  Theme.of(context).primaryColor.withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildWeightStatCard(
+                      context: context,
+                      label: 'Start',
+                      value: '${startWeight.toStringAsFixed(1)} $_weightUnit',
+                      icon: Icons.play_circle_outline,
+                      color: Colors.blue,
+                      isFirst: true,
+                    ),
+                    _buildWeightStatCard(
+                      context: context,
+                      label: 'Current',
+                      value: '${currentWeight.toStringAsFixed(1)} $_weightUnit',
+                      icon: Icons.radio_button_checked,
+                      color: Colors.green,
+                      isFirst: false,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildWeightStatCard(
+                      context: context,
+                      label: 'Change',
+                      value:
+                          '${weightChange >= 0 ? '+' : ''}${weightChange.toStringAsFixed(1)} $_weightUnit',
+                      icon: Icons.trending_up,
+                      color: weightChange >= 0 ? Colors.orange : Colors.blue,
+                      isFirst: true,
+                    ),
+                    _buildWeightStatCard(
+                      context: context,
+                      label: 'Progress',
+                      value:
+                          '${percentChange >= 0 ? '+' : ''}${percentChange.toStringAsFixed(1)}%',
+                      icon: Icons.percent,
+                      color: percentChange >= 0 ? Colors.orange : Colors.blue,
+                      isFirst: false,
+                    ),
+                  ],
+                ),
+                if (trend.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.insights,
+                          size: 16,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          trend,
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildWeightStatCard({
+    required BuildContext context,
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required bool isFirst,
+  }) {
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 800),
+      tween: Tween(begin: 0.0, end: 1.0),
+      builder: (context, animationValue, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - animationValue)),
+          child: Opacity(
+            opacity: animationValue,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 20, color: color),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.color
+                          ?.withOpacity(0.7),
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -490,80 +1363,80 @@ class _GoalsScreenState extends State<GoalsScreen>
     );
   }
 
-  Widget _buildChartSection({
-    required BuildContext context,
-    required String title,
-    required Widget chartWidget,
-    required Color chartColor,
-    required IconData chartIcon,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Colors.grey[850]
-            : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(chartIcon, color: chartColor, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: chartColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              if (title == 'Weight History')
-                GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    _showWeightLoggingBottomSheet(context);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: chartColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.add, color: chartColor, size: 18),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Container(
-            height: 300, // Fixed height for the chart
-            width: double.infinity,
-            child: _isLoadingGraphData
-                ? const Center(child: CircularProgressIndicator())
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: chartWidget,
-                  ),
-          ),
-        ],
-      ),
-    );
+  Future<Map<String, dynamic>> _getWeightStats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? weightHistoryString = prefs.getString('weight_history');
+
+      if (weightHistoryString != null && weightHistoryString.isNotEmpty) {
+        final List<dynamic> weightHistory = jsonDecode(weightHistoryString);
+        if (weightHistory.length >= 2) {
+          weightHistory.sort((a, b) =>
+              DateTime.parse(a['date']).compareTo(DateTime.parse(b['date'])));
+
+          double startWeight = weightHistory.first['weight'];
+          double currentWeight = weightHistory.last['weight'];
+
+          if (_weightUnit == 'lbs') {
+            startWeight *= 2.20462;
+            currentWeight *= 2.20462;
+          }
+
+          final change = currentWeight - startWeight;
+          final percentChange = (change / startWeight) * 100;
+
+          // Calculate trend
+          String trend = '';
+          if (weightHistory.length >= 7) {
+            final last7Weights = weightHistory
+                .skip(weightHistory.length - 7)
+                .map((e) => e['weight'] as double)
+                .toList();
+            bool isIncreasing = true;
+            bool isDecreasing = true;
+
+            for (int i = 1; i < last7Weights.length; i++) {
+              if (last7Weights[i] <= last7Weights[i - 1]) isIncreasing = false;
+              if (last7Weights[i] >= last7Weights[i - 1]) isDecreasing = false;
+            }
+
+            if (isIncreasing) {
+              trend = 'Trending upward over the last week';
+            } else if (isDecreasing) {
+              trend = 'Trending downward over the last week';
+            } else {
+              trend = 'Weight fluctuating over the last week';
+            }
+          }
+
+          return {
+            'startWeight': startWeight,
+            'currentWeight': currentWeight,
+            'change': change,
+            'percentChange': percentChange,
+            'trend': trend,
+          };
+        }
+      }
+
+      // Return default values if not enough data
+      return {
+        'startWeight': 0.0,
+        'currentWeight': 0.0,
+        'change': 0.0,
+        'percentChange': 0.0,
+        'trend': '',
+      };
+    } catch (e) {
+      debugPrint('Error calculating weight stats: $e');
+      return {
+        'startWeight': 0.0,
+        'currentWeight': 0.0,
+        'change': 0.0,
+        'percentChange': 0.0,
+        'trend': '',
+      };
+    }
   }
 
   Widget _buildWeightChartView() {
@@ -571,24 +1444,126 @@ class _GoalsScreenState extends State<GoalsScreen>
       future: _getFormattedWeightData(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
+          return _buildChartLoadingState('weight');
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error loading weight data'));
+          return _buildChartErrorState('weight data');
         }
         if (snapshot.hasData) {
           return FutureBuilder<Widget>(
             future: NativeChartService.createWeightChart(snapshot.data!),
             builder: (context, widgetSnapshot) {
-              if (widgetSnapshot.hasData) {
-                return widgetSnapshot.data!;
+              if (widgetSnapshot.connectionState == ConnectionState.waiting) {
+                return _buildChartLoadingState('weight');
               }
-              return Center(child: CircularProgressIndicator());
+              if (widgetSnapshot.hasError) {
+                return _buildChartErrorState('chart rendering');
+              }
+              if (widgetSnapshot.hasData) {
+                return AnimatedOpacity(
+                  opacity: 1.0,
+                  duration: const Duration(milliseconds: 500),
+                  child: widgetSnapshot.data!,
+                );
+              }
+              return _buildChartLoadingState('weight');
             },
           );
         }
-        return Center(child: CircularProgressIndicator());
+        return _buildChartLoadingState('weight');
       },
+    );
+  }
+
+  Widget _buildChartLoadingState(String chartType) {
+    Color color = _getChartColor(chartType);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading data...',
+            style: TextStyle(
+              color: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.color
+                  ?.withOpacity(0.7),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartErrorState(String errorType) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 40,
+              color: Colors.orange,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading $errorType',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Pull down to refresh',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.color
+                    ?.withOpacity(0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _isLoadingGraphData = true;
+                });
+                _loadWeightData();
+              },
+              icon: Icon(Icons.refresh, size: 18),
+              label: Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -912,24 +1887,22 @@ class _GoalsScreenState extends State<GoalsScreen>
                               fontSize: 16, fontWeight: FontWeight.w500),
                           decoration: InputDecoration(
                             hintText: 'Enter weight',
-                            hintStyle: TextStyle(fontSize: 14),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
+                            filled: true,
+                            fillColor: Theme.of(context).cardColor,
                             border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                  color: Colors.grey.withOpacity(0.3)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
                                   color: Colors.grey.withOpacity(0.3)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  BorderSide(color: weightColor, width: 2),
+                              borderSide: BorderSide(color: weightColor),
                             ),
-                            filled: true,
-                            fillColor:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey[800]
-                                    : Colors.white,
                           ),
                         ),
                       ),
@@ -937,25 +1910,17 @@ class _GoalsScreenState extends State<GoalsScreen>
                       Expanded(
                         flex: 2,
                         child: Container(
-                          height: 50,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey[800]
-                                    : Colors.white,
                             border:
                                 Border.all(color: Colors.grey.withOpacity(0.3)),
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               buildLocalUnitToggle('kg'),
-                              Container(
-                                height: 24,
-                                width: 1,
-                                color: Colors.grey.withOpacity(0.3),
-                              ),
                               buildLocalUnitToggle('lbs'),
                             ],
                           ),
@@ -971,118 +1936,38 @@ class _GoalsScreenState extends State<GoalsScreen>
                       onPressed: () {
                         final weightText = _weightController.text.trim();
                         if (weightText.isNotEmpty) {
-                          final weight = double.tryParse(weightText);
-                          if (weight != null && weight > 0) {
-                            setState(() => _weightUnit = sheetWeightUnit);
-                            Navigator.pop(context);
+                          try {
+                            final weight = double.parse(weightText);
                             _logWeight(weight);
-                          } else {
+                            Navigator.pop(context);
+                          } catch (e) {
                             _showErrorMessage('Please enter a valid weight');
                           }
-                        } else {
-                          _showErrorMessage('Please enter your weight');
                         }
                       },
                       style: ElevatedButton.styleFrom(
+                        elevation: 0,
                         backgroundColor: weightColor,
-                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        elevation: 0,
                       ),
                       child: const Text(
-                        'Save',
+                        'Save Weight',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
+                          color: Colors.white,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
                 ],
               ),
             );
           },
         );
       },
-    );
-  }
-
-  Widget _buildSliverAppBar(BuildContext context) {
-    return SliverAppBar(
-      expandedHeight: 100,
-      floating: true,
-      pinned: true,
-      elevation: 0,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        title: Text(
-          'Progress',
-          style: TextStyle(
-            color: Theme.of(context).extension<CustomColors>()!.textPrimary,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ),
-      leading: Container(
-        child: Center(
-          child: IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.arrow_back_ios,
-                size: 20,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-      ),
-      actions: [
-        Container(
-          child: IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.more_vert,
-                size: 20,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              showModalBottomSheet(
-                context: context,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                ),
-                builder: (context) => _buildOptionsBottomSheet(context),
-              );
-            },
-          ),
-        ),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(
-          color: Theme.of(context).dividerColor.withOpacity(0.08),
-          height: 1,
-        ),
-      ),
     );
   }
 
