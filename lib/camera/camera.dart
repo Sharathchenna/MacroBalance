@@ -634,6 +634,20 @@ class _CameraScreenState extends State<CameraScreen>
                 ),
               ),
 
+            // Disclaimer text for AI Photo mode
+            if (!_isBarcodeMode)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Text(
+                  'Note: AI results are estimates and should be verified for accuracy',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontStyle: FontStyle.italic,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+
             // Camera preview
             Expanded(
               child: Container(

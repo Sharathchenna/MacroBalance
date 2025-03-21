@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
+import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:macrotracker/widgets/macro_progress_ring.dart';
 import 'package:macrotracker/widgets/quantity_selector.dart';
 import 'package:macrotracker/widgets/food_detail_components.dart';
@@ -175,7 +176,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                     opacity: _showFloatingTitle ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 200),
                     child: Text(
-                      widget.food.name,
+                      "Food Nutrition",
                       style: TextStyle(
                         color: Theme.of(context)
                             .extension<CustomColors>()!
@@ -214,7 +215,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        widget.food.name,
+                                        "Food Nutrition",
                                         style: AppTypography.h1.copyWith(
                                           color: Theme.of(context)
                                               .extension<CustomColors>()!
@@ -250,13 +251,11 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Macro Card Section
                           Container(
                             margin: const EdgeInsets.only(bottom: 24),
-                            padding: const EdgeInsets.fromLTRB(
-                                16, 24, 16, 40), // Increased bottom padding
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: customColors?.cardBackground,
+                              color: customColors.cardBackground,
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
@@ -267,81 +266,77 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               ],
                             ),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Calories Text
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      nutrition.calories.toStringAsFixed(0),
-                                      style: AppTypography.h1.copyWith(
-                                        color: customColors?.textPrimary,
-                                        fontWeight: FontWeight.bold,
-                                        height: 0.9,
-                                        fontSize: 40, // Increased font size
-                                      ),
-                                    ),
-                                    Text(
-                                      " kcal",
-                                      style: AppTypography.h3.copyWith(
-                                        color: customColors?.textSecondary,
-                                        fontWeight: FontWeight.w300,
-                                      ),
-                                    ),
-                                  ],
+                                // Food title
+                                Text(
+                                  widget.food.name,
+                                  style: AppTypography.h2.copyWith(
+                                    color: customColors?.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                                const SizedBox(height: 36), // Increased spacing
-                                // Macro Rings
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
+
+                                const SizedBox(height: 20),
+
+                                // Macro info grid (now in column)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    Expanded(
-                                      child: SizedBox(
-                                        height:
-                                            140, // Increased height for larger rings
-                                        child: MacroProgressRing(
-                                          label: 'Carbs',
-                                          value: nutrition.carbohydrates
-                                              .toStringAsFixed(1),
-                                          color: const Color(0xFF4285F4),
-                                          percentage:
-                                              macroPercentages["carbs"] ?? 0.33,
-                                          // Add larger font size for numbers
+                                    // First row: Calories and Protein
+                                    Row(
+                                      children: [
+                                        // Calories
+                                        Expanded(
+                                          child: MacroInfoBox(
+                                            icon: "🔥",
+                                            iconColor: Colors.black,
+                                            value: nutrition.calories.toStringAsFixed(0),
+                                            label: "Calories",
+                                          ),
                                         ),
-                                      ),
+
+                                        const SizedBox(width: 12),
+
+                                        // Protein
+                                        Expanded(
+                                          child: MacroInfoBox(
+                                            icon: "🍗",
+                                            iconColor: Colors.black,
+                                            value: nutrition.protein.toStringAsFixed(1),
+                                            label: "Protein (g)",
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Expanded(
-                                      child: SizedBox(
-                                        height:
-                                            140, // Increased height for larger rings
-                                        child: MacroProgressRing(
-                                          label: 'Protein',
-                                          value: nutrition.protein
-                                              .toStringAsFixed(1),
-                                          color: const Color(0xFF34A853),
-                                          percentage:
-                                              macroPercentages["protein"] ??
-                                                  0.33,
-                                          // Add larger font size for numbers
+
+                                    const SizedBox(height: 12),
+
+                                    // Second row: Carbs and Fat
+                                    Row(
+                                      children: [
+                                        // Carbs
+                                        Expanded(
+                                          child: MacroInfoBox(
+                                            icon: "🟫",
+                                            iconColor: Colors.black,
+                                            value: nutrition.carbohydrates.toStringAsFixed(1),
+                                            label: "Carbs (g)",
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: SizedBox(
-                                        height:
-                                            140, // Increased height for larger rings
-                                        child: MacroProgressRing(
-                                          label: 'Fat',
-                                          value:
-                                              nutrition.fat.toStringAsFixed(1),
-                                          color: const Color(0xFFFBBC05),
-                                          percentage:
-                                              macroPercentages["fat"] ?? 0.34,
-                                          // Add larger font size for numbers
+
+                                        const SizedBox(width: 12),
+
+                                        // Fat
+                                        Expanded(
+                                          child: MacroInfoBox(
+                                            icon: "🥑",
+                                            iconColor: Colors.black,
+                                            value: nutrition.fat.toStringAsFixed(1),
+                                            label: "Fat (g)",
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ),
                                   ],
                                 ),
