@@ -1,4 +1,4 @@
-platform :ios, '15.5'
+platform :ios, '16.0'
 
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
@@ -31,24 +31,21 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  pod 'DGCharts'  # Add Charts library
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  
-  # Add DGCharts (formerly Charts) for native charts
-  pod 'DGCharts'
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     
+    # Enable minimum deployment target
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
-      
-      # Enable HealthKit capabilities
-      if target.name == 'Runner'
-        config.build_settings['OTHER_SWIFT_FLAGS'] ||= ['$(inherited)', '-D COCOAPODS']
-        config.build_settings['SWIFT_VERSION'] = '5.0'
-      end
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
     end
   end
 end

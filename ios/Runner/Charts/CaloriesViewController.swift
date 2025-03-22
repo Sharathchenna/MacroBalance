@@ -4,12 +4,14 @@ import DGCharts
 class CaloriesViewController: UIViewController {
     private let scrollView = UIScrollView()
     private let contentView = UIStackView()
+    private let chartView = LineChartView()
     private let dataManager = StatsDataManager.shared
-    private var calorieEntries: [CalorieEntryModel] = []
+    private var calorieEntries: [CaloriesEntry] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupChartView()
         loadCalorieData()
     }
     
@@ -17,17 +19,16 @@ class CaloriesViewController: UIViewController {
         title = "Calories"
         view.backgroundColor = .systemBackground
         
-        // Setup scroll view
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(scrollView)
+        contentView.translatesAutoresizingMaskIntoConstraints = false
         
-        // Setup content stack view
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        
         contentView.axis = .vertical
-        contentView.spacing = 20
+        contentView.spacing = 16
         contentView.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         contentView.isLayoutMarginsRelativeArrangement = true
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(contentView)
         
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -42,262 +43,205 @@ class CaloriesViewController: UIViewController {
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
         ])
         
-        // Add circular progress view
-        let progressView = createProgressView()
-        contentView.addArrangedSubview(progressView)
-        
-        // Add calorie breakdown
-        let breakdownView = createBreakdownView()
-        contentView.addArrangedSubview(breakdownView)
-        
-        // Add weekly chart
-        let chartView = createWeeklyChartView()
-        contentView.addArrangedSubview(chartView)
+        setupCaloriesSummary()
+        setupChartContainer()
+        setupBreakdown()
     }
     
-    private func createProgressView() -> UIView {
-        let container = UIView()
-        container.backgroundColor = .secondarySystemBackground
-        container.layer.cornerRadius = 16
-        
-        // Create circular progress view
-        let circleView = CircularProgressView(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
-        circleView.tag = 100
-        circleView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(circleView)
-        
-        // Add labels for remaining calories
-        let remainingLabel = UILabel()
-        remainingLabel.tag = 101
-        remainingLabel.font = .systemFont(ofSize: 32, weight: .bold)
-        remainingLabel.textAlignment = .center
-        remainingLabel.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(remainingLabel)
-        
-        let remainingTextLabel = UILabel()
-        remainingTextLabel.text = "calories remaining"
-        remainingTextLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        remainingTextLabel.textColor = .secondaryLabel
-        remainingTextLabel.textAlignment = .center
-        remainingTextLabel.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(remainingTextLabel)
-        
-        NSLayoutConstraint.activate([
-            container.heightAnchor.constraint(equalToConstant: 250),
-            
-            circleView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            circleView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            circleView.widthAnchor.constraint(equalToConstant: 200),
-            circleView.heightAnchor.constraint(equalToConstant: 200),
-            
-            remainingLabel.centerXAnchor.constraint(equalTo: circleView.centerXAnchor),
-            remainingLabel.centerYAnchor.constraint(equalTo: circleView.centerYAnchor, constant: -10),
-            
-            remainingTextLabel.centerXAnchor.constraint(equalTo: circleView.centerXAnchor),
-            remainingTextLabel.topAnchor.constraint(equalTo: remainingLabel.bottomAnchor, constant: 4)
-        ])
-        
-        return container
-    }
-    
-    private func createBreakdownView() -> UIView {
-        let container = UIView()
-        container.backgroundColor = .secondarySystemBackground
-        container.layer.cornerRadius = 16
-        
-        let stackView = UIStackView()
-        stackView.axis = .horizontal
-        stackView.distribution = .fillEqually
-        stackView.spacing = 16
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stackView)
-        
-        // Add goal, consumed, and burned sections
-        let goalSection = createInfoSection(title: "Goal", tag: 101, color: .systemGreen)
-        let consumedSection = createInfoSection(title: "Consumed", tag: 102, color: .systemOrange)
-        let burnedSection = createInfoSection(title: "Burned", tag: 103, color: .systemBlue)
-        
-        stackView.addArrangedSubview(goalSection)
-        stackView.addArrangedSubview(consumedSection)
-        stackView.addArrangedSubview(burnedSection)
-        
-        NSLayoutConstraint.activate([
-            container.heightAnchor.constraint(equalToConstant: 100),
-            stackView.topAnchor.constraint(equalTo: container.topAnchor, constant: 16),
-            stackView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
-            stackView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
-            stackView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -16)
-        ])
-        
-        return container
-    }
-    
-    private func createInfoSection(title: String, tag: Int, color: UIColor) -> UIView {
-        let container = UIView()
+    private func setupCaloriesSummary() {
+        let card = UIView()
+        card.backgroundColor = .secondarySystemBackground
+        card.layer.cornerRadius = 16
         
         let stackView = UIStackView()
         stackView.axis = .vertical
-        stackView.spacing = 4
+        stackView.spacing = 16
         stackView.alignment = .center
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stackView)
         
-        let valueLabel = UILabel()
-        valueLabel.tag = tag
-        valueLabel.font = .systemFont(ofSize: 20, weight: .semibold)
-        valueLabel.textColor = color
+        let caloriesLabel = UILabel()
+        caloriesLabel.text = "1,850"
+        caloriesLabel.font = .systemFont(ofSize: 36, weight: .bold)
         
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        titleLabel.textColor = .secondaryLabel
+        let subtitleLabel = UILabel()
+        subtitleLabel.text = "calories consumed"
+        subtitleLabel.font = .systemFont(ofSize: 16)
+        subtitleLabel.textColor = .secondaryLabel
         
-        stackView.addArrangedSubview(valueLabel)
-        stackView.addArrangedSubview(titleLabel)
+        let progressStack = UIStackView()
+        progressStack.axis = .horizontal
+        progressStack.spacing = 8
+        progressStack.alignment = .center
+        
+        let progressView = UIProgressView(progressViewStyle: .default)
+        progressView.progress = 0.75
+        progressView.progressTintColor = .systemGreen
+        progressView.translatesAutoresizingMaskIntoConstraints = false
+        
+        let percentageLabel = UILabel()
+        percentageLabel.text = "75%"
+        percentageLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        percentageLabel.textColor = .systemGreen
+        
+        progressStack.addArrangedSubview(progressView)
+        progressStack.addArrangedSubview(percentageLabel)
+        
+        let goalLabel = UILabel()
+        goalLabel.text = "Daily Goal: 2,500 calories"
+        goalLabel.font = .systemFont(ofSize: 14)
+        goalLabel.textColor = .secondaryLabel
+        
+        [caloriesLabel, subtitleLabel, progressStack, goalLabel].forEach {
+            stackView.addArrangedSubview($0)
+        }
+        
+        card.addSubview(stackView)
+        contentView.addArrangedSubview(card)
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: container.topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stackView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            card.heightAnchor.constraint(equalToConstant: 160),
+            progressView.widthAnchor.constraint(equalToConstant: 200),
+            progressView.heightAnchor.constraint(equalToConstant: 8),
+            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16)
         ])
-        
-        return container
     }
     
-    private func createWeeklyChartView() -> UIView {
-        let container = UIView()
-        container.backgroundColor = .secondarySystemBackground
-        container.layer.cornerRadius = 16
+    private func setupChartContainer() {
+        let chartContainer = UIView()
+        chartContainer.backgroundColor = .secondarySystemBackground
+        chartContainer.layer.cornerRadius = 16
         
-        let titleLabel = UILabel()
-        titleLabel.text = "This Week"
-        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(titleLabel)
-        
-        let chartView = BarChartView()
-        chartView.tag = 104
         chartView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(chartView)
+        chartContainer.addSubview(chartView)
         
-        // Configure chart
-        setupWeeklyChart(chartView)
+        contentView.addArrangedSubview(chartContainer)
         
         NSLayoutConstraint.activate([
-            container.heightAnchor.constraint(equalToConstant: 300),
+            chartContainer.heightAnchor.constraint(equalToConstant: 300),
+            chartView.topAnchor.constraint(equalTo: chartContainer.topAnchor, constant: 16),
+            chartView.leadingAnchor.constraint(equalTo: chartContainer.leadingAnchor, constant: 16),
+            chartView.trailingAnchor.constraint(equalTo: chartContainer.trailingAnchor, constant: -16),
+            chartView.bottomAnchor.constraint(equalTo: chartContainer.bottomAnchor, constant: -16)
+        ])
+    }
+    
+    private func setupBreakdown() {
+        let breakdownCard = UIView()
+        breakdownCard.backgroundColor = .secondarySystemBackground
+        breakdownCard.layer.cornerRadius = 16
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "Meal Breakdown"
+        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        breakdownCard.addSubview(titleLabel)
+        breakdownCard.addSubview(stackView)
+        
+        contentView.addArrangedSubview(breakdownCard)
+        
+        // Add meal rows
+        let meals = [
+            ("Breakfast", 450),
+            ("Lunch", 650),
+            ("Dinner", 550),
+            ("Snacks", 200)
+        ]
+        
+        meals.forEach { meal, calories in
+            stackView.addArrangedSubview(createMealRow(name: meal, calories: calories))
+        }
+        
+        NSLayoutConstraint.activate([
+            breakdownCard.heightAnchor.constraint(equalToConstant: 250),
+            titleLabel.topAnchor.constraint(equalTo: breakdownCard.topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: breakdownCard.leadingAnchor, constant: 16),
             
-            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            stackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
+            stackView.leadingAnchor.constraint(equalTo: breakdownCard.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: breakdownCard.trailingAnchor, constant: -16)
+        ])
+    }
+    
+    private func createMealRow(name: String, calories: Int) -> UIView {
+        let container = UIView()
+        
+        let nameLabel = UILabel()
+        nameLabel.text = name
+        nameLabel.font = .systemFont(ofSize: 16)
+        
+        let caloriesLabel = UILabel()
+        caloriesLabel.text = "\(calories) cal"
+        caloriesLabel.font = .systemFont(ofSize: 16)
+        caloriesLabel.textColor = .secondaryLabel
+        
+        [nameLabel, caloriesLabel].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview($0)
+        }
+        
+        NSLayoutConstraint.activate([
+            container.heightAnchor.constraint(equalToConstant: 44),
             
-            chartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
-            chartView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
-            chartView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
-            chartView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -16)
+            nameLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            nameLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            
+            caloriesLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            caloriesLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor)
         ])
         
         return container
     }
     
-    private func setupWeeklyChart(_ chartView: BarChartView) {
-        // Configure chart appearance and data
+    private func setupChartView() {
         chartView.rightAxis.enabled = false
-        chartView.leftAxis.labelTextColor = .label
-        chartView.xAxis.labelTextColor = .label
         chartView.legend.enabled = false
+        
+        let xAxis = chartView.xAxis
+        xAxis.labelPosition = .bottom
+        xAxis.drawGridLinesEnabled = false
+        
+        let leftAxis = chartView.leftAxis
+        leftAxis.axisMinimum = 0
+        leftAxis.drawGridLinesEnabled = true
+        leftAxis.gridLineDashLengths = [4, 4]
+        
+        loadCalorieData()
     }
     
     private func loadCalorieData() {
         dataManager.fetchCalorieData { [weak self] entries in
             self?.calorieEntries = entries
-            
             DispatchQueue.main.async {
-                self?.updateUI()
+                self?.updateChartData()
             }
         }
     }
     
-    private func updateUI() {
-        guard let latestEntry = calorieEntries.first else { return }
-        
-        // Update circular progress
-        if let progressView = view.viewWithTag(100) as? CircularProgressView {
-            let progress = Float(latestEntry.consumed / latestEntry.goal)
-            progressView.setProgress(progress, animated: true)
+    private func updateChartData() {
+        let entries = calorieEntries.enumerated().map { index, entry in
+            ChartDataEntry(x: Double(index), y: entry.calories)
         }
         
-        // Update stats labels
-        if let goalLabel = view.viewWithTag(101) as? UILabel {
-            goalLabel.text = "\(Int(latestEntry.goal))"
-        }
-        if let consumedLabel = view.viewWithTag(102) as? UILabel {
-            consumedLabel.text = "\(Int(latestEntry.consumed))"
-        }
-        if let burnedLabel = view.viewWithTag(103) as? UILabel {
-            burnedLabel.text = "\(Int(latestEntry.burned))"
-        }
+        let dataSet = LineChartDataSet(entries: entries, label: "Calories")
+        dataSet.mode = .cubicBezier
+        dataSet.drawCirclesEnabled = true
+        dataSet.circleRadius = 4
+        dataSet.circleColors = [.systemGreen]
+        dataSet.colors = [.systemGreen]
+        dataSet.drawFilledEnabled = true
+        dataSet.fillColor = .systemGreen
+        dataSet.fillAlpha = 0.1
         
-        // Update chart
-        if let chartView = view.viewWithTag(104) as? BarChartView {
-            let entries = calorieEntries.enumerated().map { index, entry -> BarChartDataEntry in
-                return BarChartDataEntry(x: Double(index), y: entry.consumed)
-            }
-            
-            let dataSet = BarChartDataSet(entries: entries, label: "Calories")
-            dataSet.colors = [.systemBlue]
-            dataSet.valueTextColor = .label
-            
-            chartView.data = BarChartData(dataSet: dataSet)
-            chartView.notifyDataSetChanged()
-        }
-    }
-}
-
-// Custom circular progress view
-class CircularProgressView: UIView {
-    private var progressLayer = CAShapeLayer()
-    private var trackLayer = CAShapeLayer()
-    
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        createCircularPath()
-    }
-    
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        createCircularPath()
-    }
-    
-    private func createCircularPath() {
-        let circularPath = UIBezierPath(arcCenter: CGPoint(x: frame.size.width/2, y: frame.size.height/2),
-                                      radius: frame.size.width/2 - 15,
-                                      startAngle: -(.pi/2),
-                                      endAngle: .pi * 3/2,
-                                      clockwise: true)
-        
-        trackLayer.path = circularPath.cgPath
-        trackLayer.fillColor = UIColor.clear.cgColor
-        trackLayer.strokeColor = UIColor.systemGray5.cgColor
-        trackLayer.lineWidth = 15
-        trackLayer.lineCap = .round
-        layer.addSublayer(trackLayer)
-        
-        progressLayer.path = circularPath.cgPath
-        progressLayer.fillColor = UIColor.clear.cgColor
-        progressLayer.strokeColor = UIColor.systemBlue.cgColor
-        progressLayer.lineWidth = 15
-        progressLayer.lineCap = .round
-        progressLayer.strokeEnd = 0
-        layer.addSublayer(progressLayer)
-    }
-    
-    func setProgress(_ value: Float, animated: Bool = true) {
-        let animation = CABasicAnimation(keyPath: "strokeEnd")
-        animation.duration = animated ? 1 : 0
-        animation.fromValue = progressLayer.strokeEnd
-        animation.toValue = CGFloat(value)
-        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        progressLayer.strokeEnd = CGFloat(value)
-        progressLayer.add(animation, forKey: "animateProgress")
+        chartView.data = LineChartData(dataSet: dataSet)
+        chartView.animate(xAxisDuration: 0.5)
     }
 }

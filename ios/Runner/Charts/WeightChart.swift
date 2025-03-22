@@ -8,18 +8,12 @@
 import SwiftUI
 import Charts
 
-struct WeightEntry: Identifiable {
-    let id = UUID()
-    let date: Date
-    let weight: Double
-}
-
 struct WeightChartView: View {
     let entries: [WeightEntry]
     @Environment(\.colorScheme) var colorScheme
     
     var chartColor: Color {
-        colorScheme == .dark ? Color(red: 0.25, green: 0.76, blue: 0.97) : Color(red: 0.01, green: 0.53, blue: 0.82)
+        colorScheme == .dark ? Color.blue : Color.blue.opacity(0.8)
     }
     
     var body: some View {

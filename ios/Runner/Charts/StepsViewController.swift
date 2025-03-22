@@ -1,34 +1,37 @@
 import UIKit
 import DGCharts
 import HealthKit
+import Charts
 
 class StepsViewController: UIViewController {
     private let scrollView = UIScrollView()
     private let contentView = UIStackView()
     private let dataManager = StatsDataManager.shared
-    private var stepEntries: [StepEntryModel] = []
+    private var stepEntries: [StepsEntry] = []
     private let healthStore = HKHealthStore()
+    private let chartView = BarChartView()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        requestHealthKitPermission()
+        setupChartView()
+        requestHealthKitAuthorization()
     }
     
     private func setupUI() {
         title = "Steps"
         view.backgroundColor = .systemBackground
         
-        // Setup scroll view and content stack
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        
         view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
         
         contentView.axis = .vertical
-        contentView.spacing = 20
+        contentView.spacing = 16
         contentView.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         contentView.isLayoutMarginsRelativeArrangement = true
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(contentView)
         
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -43,284 +46,210 @@ class StepsViewController: UIViewController {
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
         ])
         
-        // Add main progress ring
-        let progressView = createProgressRing()
-        contentView.addArrangedSubview(progressView)
-        
-        // Add step stats
-        let statsView = createStatsView()
-        contentView.addArrangedSubview(statsView)
-        
-        // Add activity chart
-        let activityChart = createActivityChart()
-        contentView.addArrangedSubview(activityChart)
+        setupProgressCard()
+        setupChartContainer()
+        setupWeeklyProgress()
     }
     
-    private func createProgressRing() -> UIView {
-        let container = UIView()
-        container.backgroundColor = .secondarySystemBackground
-        container.layer.cornerRadius = 16
+    private func setupProgressCard() {
+        let cardView = UIView()
+        cardView.backgroundColor = .secondarySystemBackground
+        cardView.layer.cornerRadius = 16
         
-        let ringView = CircularProgressView(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
-        ringView.tag = 100
-        ringView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(ringView)
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 8
+        stackView.alignment = .center
+        stackView.translatesAutoresizingMaskIntoConstraints = false
         
         let stepsLabel = UILabel()
-        stepsLabel.tag = 101
-        stepsLabel.text = "0"
-        stepsLabel.font = .monospacedDigitSystemFont(ofSize: 32, weight: .bold)
-        stepsLabel.textAlignment = .center
-        stepsLabel.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stepsLabel)
+        stepsLabel.text = "8,234"
+        stepsLabel.font = .systemFont(ofSize: 32, weight: .bold)
+        stepsLabel.textColor = .systemBlue
         
         let subtitleLabel = UILabel()
         subtitleLabel.text = "steps today"
-        subtitleLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        subtitleLabel.font = .systemFont(ofSize: 16)
         subtitleLabel.textColor = .secondaryLabel
-        subtitleLabel.textAlignment = .center
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(subtitleLabel)
+        
+        let progressView = UIProgressView(progressViewStyle: .default)
+        progressView.progress = 0.7
+        progressView.progressTintColor = .systemBlue
+        progressView.translatesAutoresizingMaskIntoConstraints = false
+        
+        let goalLabel = UILabel()
+        goalLabel.text = "Goal: 10,000 steps"
+        goalLabel.font = .systemFont(ofSize: 14)
+        goalLabel.textColor = .secondaryLabel
+        
+        stackView.addArrangedSubview(stepsLabel)
+        stackView.addArrangedSubview(subtitleLabel)
+        stackView.addArrangedSubview(progressView)
+        stackView.addArrangedSubview(goalLabel)
+        
+        cardView.addSubview(stackView)
+        
+        contentView.addArrangedSubview(cardView)
         
         NSLayoutConstraint.activate([
-            container.heightAnchor.constraint(equalToConstant: 250),
-            
-            ringView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            ringView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            ringView.widthAnchor.constraint(equalToConstant: 200),
-            ringView.heightAnchor.constraint(equalToConstant: 200),
-            
-            stepsLabel.centerXAnchor.constraint(equalTo: ringView.centerXAnchor),
-            stepsLabel.centerYAnchor.constraint(equalTo: ringView.centerYAnchor, constant: -10),
-            
-            subtitleLabel.centerXAnchor.constraint(equalTo: ringView.centerXAnchor),
-            subtitleLabel.topAnchor.constraint(equalTo: stepsLabel.bottomAnchor, constant: 4)
+            cardView.heightAnchor.constraint(equalToConstant: 150),
+            progressView.widthAnchor.constraint(equalTo: stackView.widthAnchor, multiplier: 0.8),
+            stackView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 16),
+            stackView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
+            stackView.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -16)
         ])
-        
-        return container
     }
     
-    private func createStatsView() -> UIView {
-        let container = UIView()
-        container.backgroundColor = .secondarySystemBackground
-        container.layer.cornerRadius = 16
+    private func setupChartContainer() {
+        let chartContainer = UIView()
+        chartContainer.backgroundColor = .secondarySystemBackground
+        chartContainer.layer.cornerRadius = 16
+        chartContainer.translatesAutoresizingMaskIntoConstraints = false
         
-        let stackView = UIStackView()
-        stackView.axis = .horizontal
-        stackView.distribution = .fillEqually
-        stackView.spacing = 16
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stackView)
+        chartView.translatesAutoresizingMaskIntoConstraints = false
+        chartContainer.addSubview(chartView)
         
-        // Create stat sections
-        let distanceSection = createStatSection(title: "Distance", value: "0.0", unit: "km", tag: 102)
-        let caloriesSection = createStatSection(title: "Calories", value: "0", unit: "kcal", tag: 103)
-        let timeSection = createStatSection(title: "Active Time", value: "0", unit: "min", tag: 104)
-        
-        stackView.addArrangedSubview(distanceSection)
-        stackView.addArrangedSubview(caloriesSection)
-        stackView.addArrangedSubview(timeSection)
+        contentView.addArrangedSubview(chartContainer)
         
         NSLayoutConstraint.activate([
-            container.heightAnchor.constraint(equalToConstant: 100),
-            stackView.topAnchor.constraint(equalTo: container.topAnchor, constant: 16),
+            chartContainer.heightAnchor.constraint(equalToConstant: 300),
+            chartView.topAnchor.constraint(equalTo: chartContainer.topAnchor, constant: 16),
+            chartView.leadingAnchor.constraint(equalTo: chartContainer.leadingAnchor, constant: 16),
+            chartView.trailingAnchor.constraint(equalTo: chartContainer.trailingAnchor, constant: -16),
+            chartView.bottomAnchor.constraint(equalTo: chartContainer.bottomAnchor, constant: -16)
+        ])
+    }
+    
+    private func setupWeeklyProgress() {
+        let weeklyContainer = UIView()
+        weeklyContainer.backgroundColor = .secondarySystemBackground
+        weeklyContainer.layer.cornerRadius = 16
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "Weekly Progress"
+        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        weeklyContainer.addSubview(titleLabel)
+        contentView.addArrangedSubview(weeklyContainer)
+        
+        NSLayoutConstraint.activate([
+            weeklyContainer.heightAnchor.constraint(equalToConstant: 200),
+            titleLabel.topAnchor.constraint(equalTo: weeklyContainer.topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: weeklyContainer.leadingAnchor, constant: 16)
+        ])
+        
+        // Add daily progress bars here
+        setupDailyProgressBars(in: weeklyContainer)
+    }
+    
+    private func setupDailyProgressBars(in container: UIView) {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 12
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        container.addSubview(stackView)
+        
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: container.topAnchor, constant: 50),
             stackView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
             stackView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
             stackView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -16)
         ])
         
-        return container
+        // Add progress bars for each day
+        let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        days.forEach { day in
+            let progress = Float.random(in: 0...1)
+            stackView.addArrangedSubview(createDailyProgressBar(day: day, progress: progress))
+        }
     }
     
-    private func createStatSection(title: String, value: String, unit: String, tag: Int) -> UIView {
+    private func createDailyProgressBar(day: String, progress: Float) -> UIView {
         let container = UIView()
         
-        let stackView = UIStackView()
-        stackView.axis = .vertical
-        stackView.spacing = 4
-        stackView.alignment = .center
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stackView)
+        let dayLabel = UILabel()
+        dayLabel.text = day
+        dayLabel.font = .systemFont(ofSize: 14)
+        dayLabel.textColor = .secondaryLabel
         
-        let valueStack = UIStackView()
-        valueStack.axis = .horizontal
-        valueStack.spacing = 2
-        valueStack.alignment = .firstBaseline
+        let progressView = UIProgressView(progressViewStyle: .default)
+        progressView.progress = progress
+        progressView.progressTintColor = .systemBlue
         
-        let valueLabel = UILabel()
-        valueLabel.tag = tag
-        valueLabel.text = value
-        valueLabel.font = .monospacedDigitSystemFont(ofSize: 20, weight: .semibold)
-        valueLabel.textColor = .label
+        let stepsLabel = UILabel()
+        stepsLabel.text = "\(Int(progress * 10000))"
+        stepsLabel.font = .systemFont(ofSize: 14)
+        stepsLabel.textColor = .secondaryLabel
         
-        let unitLabel = UILabel()
-        unitLabel.text = unit
-        unitLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        unitLabel.textColor = .secondaryLabel
-        
-        valueStack.addArrangedSubview(valueLabel)
-        valueStack.addArrangedSubview(unitLabel)
-        
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 12, weight: .regular)
-        titleLabel.textColor = .secondaryLabel
-        titleLabel.textAlignment = .center
-        
-        stackView.addArrangedSubview(valueStack)
-        stackView.addArrangedSubview(titleLabel)
+        [dayLabel, progressView, stepsLabel].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview($0)
+        }
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: container.topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stackView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            dayLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            dayLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            dayLabel.widthAnchor.constraint(equalToConstant: 40),
+            
+            progressView.leadingAnchor.constraint(equalTo: dayLabel.trailingAnchor, constant: 8),
+            progressView.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            progressView.heightAnchor.constraint(equalToConstant: 6),
+            
+            stepsLabel.leadingAnchor.constraint(equalTo: progressView.trailingAnchor, constant: 8),
+            stepsLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stepsLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            
+            container.heightAnchor.constraint(equalToConstant: 20)
         ])
         
         return container
     }
     
-    private func createActivityChart() -> UIView {
-        let container = UIView()
-        container.backgroundColor = .secondarySystemBackground
-        container.layer.cornerRadius = 16
-        
-        let titleLabel = UILabel()
-        titleLabel.text = "Today's Activity"
-        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(titleLabel)
-        
-        let chartView = BarChartView()
-        chartView.tag = 105
-        chartView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(chartView)
-        
-        setupHourlyChart(chartView)
-        
-        NSLayoutConstraint.activate([
-            container.heightAnchor.constraint(equalToConstant: 300),
-            
-            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
-            
-            chartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
-            chartView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
-            chartView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
-            chartView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -16)
-        ])
-        
-        return container
-    }
-    
-    private func setupHourlyChart(_ chartView: BarChartView) {
+    private func setupChartView() {
         chartView.rightAxis.enabled = false
-        chartView.leftAxis.labelTextColor = .label
-        chartView.xAxis.labelTextColor = .label
         chartView.legend.enabled = false
         
-        // Sample hourly data
-        let entries = (0..<24).map { hour -> BarChartDataEntry in
-            return BarChartDataEntry(x: Double(hour), y: Double.random(in: 100...1000))
+        let xAxis = chartView.xAxis
+        xAxis.labelPosition = .bottom
+        xAxis.drawGridLinesEnabled = false
+        
+        let leftAxis = chartView.leftAxis
+        leftAxis.axisMinimum = 0
+        leftAxis.drawGridLinesEnabled = true
+        leftAxis.gridLineDashLengths = [4, 4]
+        
+        loadChartData()
+    }
+    
+    private func loadChartData() {
+        // Mock data - Replace with HealthKit data
+        let entries = (0..<7).map { i -> BarChartDataEntry in
+            return BarChartDataEntry(x: Double(i), y: Double.random(in: 5000...15000))
         }
         
-        let dataSet = BarChartDataSet(entries: entries)
+        let dataSet = BarChartDataSet(entries: entries, label: "Steps")
         dataSet.colors = [.systemBlue]
-        dataSet.valueTextColor = .clear // Hide values for cleaner look
+        dataSet.drawValuesEnabled = false
         
         chartView.data = BarChartData(dataSet: dataSet)
-        
-        // Configure axis
-        chartView.xAxis.valueFormatter = HourAxisValueFormatter()
-        chartView.xAxis.labelPosition = .bottom
-        chartView.xAxis.setLabelCount(6, force: true)
     }
     
-    private func requestHealthKitPermission() {
-        guard HKHealthStore.isHealthDataAvailable() else {
-            showHealthKitError()
-            return
-        }
+    private func requestHealthKitAuthorization() {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
         
-        let stepType = HKObjectType.quantityType(forIdentifier: .stepCount)!
-        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
-        let activeEnergyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+        let stepsType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
         
-        healthStore.requestAuthorization(toShare: [], read: [stepType, distanceType, activeEnergyType]) { [weak self] success, error in
+        healthStore.requestAuthorization(toShare: [], read: [stepsType]) { success, error in
             if success {
-                self?.loadHealthData()
-            } else {
-                DispatchQueue.main.async {
-                    self?.showHealthKitError()
-                }
+                self.loadHealthKitData()
             }
         }
     }
     
-    private func loadHealthData() {
-        dataManager.fetchStepData { [weak self] entries in
-            self?.stepEntries = entries
-            DispatchQueue.main.async {
-                self?.updateUI()
-            }
-        }
-    }
-    
-    private func showHealthKitError() {
-        let alert = UIAlertController(
-            title: "Health Data Access Required",
-            message: "This app needs access to your health data to track steps and activity.",
-            preferredStyle: .alert
-        )
-        
-        alert.addAction(UIAlertAction(title: "Open Settings", style: .default) { _ in
-            if let url = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(url)
-            }
-        })
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        present(alert, animated: true)
-    }
-    
-    private func updateUI() {
-        guard let latestEntry = stepEntries.first else { return }
-        
-        // Update progress ring
-        if let ringView = view.viewWithTag(100) as? CircularProgressView {
-            let progress = Float(latestEntry.steps) / Float(latestEntry.goal)
-            ringView.setProgress(progress, animated: true)
-        }
-        
-        // Update step count label
-        if let stepsLabel = view.viewWithTag(101) as? UILabel {
-            stepsLabel.text = "\(latestEntry.steps)"
-        }
-        
-        // Update stats
-        if let distanceLabel = view.viewWithTag(102) as? UILabel {
-            distanceLabel.text = String(format: "%.1f", latestEntry.distance)
-        }
-        
-        if let caloriesLabel = view.viewWithTag(103) as? UILabel {
-            caloriesLabel.text = "\(Int(latestEntry.calories))"
-        }
-        
-        if let timeLabel = view.viewWithTag(104) as? UILabel {
-            timeLabel.text = "\(latestEntry.activeMinutes)"
-        }
-        
-        // Update activity chart
-        if let chartView = view.viewWithTag(105) as? BarChartView {
-            setupHourlyChart(chartView)
-        }
-    }
-}
-
-class HourAxisValueFormatter: AxisValueFormatter {
-    func stringForValue(_ value: Double, axis: AxisBase?) -> String {
-        let hour = Int(value) % 24
-        return "\(hour):00"
+    private func loadHealthKitData() {
+        // Implement HealthKit data loading
     }
 }

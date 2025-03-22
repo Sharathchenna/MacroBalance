@@ -1,10 +1,11 @@
 import UIKit
 
 class StatsTabBarController: UITabBarController {
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         setupViewControllers()
-        setupTabBarAppearance()
+        setupAppearance()
         
         // Add close button
         navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -52,29 +53,24 @@ class StatsTabBarController: UITabBarController {
         ]
     }
     
-    private func setupTabBarAppearance() {
-        // Modern tab bar appearance
-        let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        
-        // Customize colors
-        appearance.backgroundColor = .systemBackground
-        
-        // Selected item appearance
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor.systemBlue
-        ]
-        appearance.stackedLayoutAppearance.selected.iconColor = .systemBlue
-        
-        // Normal item appearance
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
-            .foregroundColor: UIColor.gray
-        ]
-        appearance.stackedLayoutAppearance.normal.iconColor = .gray
-        
-        tabBar.standardAppearance = appearance
-        if #available(iOS 15.0, *) {
-            tabBar.scrollEdgeAppearance = appearance
+    private func setupAppearance() {
+        tabBar.tintColor = .systemBlue
+        tabBar.backgroundColor = .systemBackground
+        tabBar.isTranslucent = true
+    }
+    
+    func navigateToSection(_ section: String) {
+        switch section {
+        case "weight":
+            selectedIndex = 0
+        case "steps":
+            selectedIndex = 1
+        case "calories":
+            selectedIndex = 2
+        case "macros":
+            selectedIndex = 3
+        default:
+            selectedIndex = 0
         }
     }
     

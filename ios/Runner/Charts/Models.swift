@@ -1,45 +1,89 @@
 import Foundation
 
 // MARK: - Data Models
-struct WeightEntryModel {
+struct WeightEntry: Identifiable {
+    let id = UUID()
     let date: Date
     let weight: Double
+    let unit: String
+    
+    init(date: Date, weight: Double, unit: String = "kg") {
+        self.date = date
+        self.weight = weight
+        self.unit = unit
+    }
 }
 
-struct CalorieEntryModel {
-    let date: Date
-    let consumed: Double
-    let burned: Double
-    let goal: Double
-}
-
-struct MacroEntryModel {
-    let date: Date
-    let protein: Double
-    let carbs: Double
-    let fat: Double
-    let proteinGoal: Double
-    let carbsGoal: Double
-    let fatGoal: Double
-}
-
-struct StepEntryModel {
+struct StepsEntry: Identifiable {
+    let id = UUID()
     let date: Date
     let steps: Int
     let goal: Int
-    let distance: Double
+    
+    init(date: Date, steps: Int, goal: Int = 10000) {
+        self.date = date
+        self.steps = steps
+        self.goal = goal
+    }
+}
+
+struct CaloriesEntry: Identifiable {
+    let id = UUID()
+    let date: Date
     let calories: Double
-    let activeMinutes: Int
+    let goal: Double
+    let consumed: Double
+    let burned: Double
+    
+    init(date: Date, calories: Double, goal: Double = 2500, consumed: Double? = nil, burned: Double = 0) {
+        self.date = date
+        self.calories = calories
+        self.goal = goal
+        self.consumed = consumed ?? calories
+        self.burned = burned
+    }
+}
+
+struct MacrosEntry: Identifiable {
+    let id = UUID()
+    let date: Date
+    let proteins: Double
+    let carbs: Double
+    let fats: Double
+    let proteinGoal: Double
+    let carbGoal: Double
+    let fatGoal: Double
+    
+    var protein: Double { proteins }
+    var fat: Double { fats }
+    
+    init(
+        date: Date,
+        proteins: Double,
+        carbs: Double,
+        fats: Double,
+        proteinGoal: Double = 150,
+        carbGoal: Double = 250,
+        fatGoal: Double = 65
+    ) {
+        self.date = date
+        self.proteins = proteins
+        self.carbs = carbs
+        self.fats = fats
+        self.proteinGoal = proteinGoal
+        self.carbGoal = carbGoal
+        self.fatGoal = fatGoal
+    }
 }
 
 // MARK: - Data Provider Protocol
 protocol StatsDataProvider {
-    func fetchWeightData(completion: @escaping ([WeightEntryModel]) -> Void)
-    func fetchCalorieData(completion: @escaping ([CalorieEntryModel]) -> Void)
-    func fetchMacroData(completion: @escaping ([MacroEntryModel]) -> Void)
-    func fetchStepData(completion: @escaping ([StepEntryModel]) -> Void)
+    func fetchWeightData(completion: @escaping ([WeightEntry]) -> Void)
+    func fetchCalorieData(completion: @escaping ([CaloriesEntry]) -> Void)
+    func fetchMacroData(completion: @escaping ([MacrosEntry]) -> Void)
+    func fetchStepData(completion: @escaping ([StepsEntry]) -> Void)
     
-    func saveWeightEntry(_ entry: WeightEntryModel, completion: @escaping (Bool) -> Void)
-    func saveCalorieEntry(_ entry: CalorieEntryModel, completion: @escaping (Bool) -> Void)
-    func saveMacroEntry(_ entry: MacroEntryModel, completion: @escaping (Bool) -> Void)
+    func saveWeightEntry(_ entry: WeightEntry, completion: @escaping (Bool) -> Void)
+    func saveCalorieEntry(_ entry: CaloriesEntry, completion: @escaping (Bool) -> Void)
+    func saveMacroEntry(_ entry: MacrosEntry, completion: @escaping (Bool) -> Void)
 }

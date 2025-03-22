@@ -11,9 +11,9 @@ import SwiftUI
 
 class FLNativeViewFactory: NSObject, FlutterPlatformViewFactory {
     private var messenger: FlutterBinaryMessenger
-    private weak var parentViewController: UIViewController?
+    private weak var parentViewController: FlutterViewController?
     
-    init(messenger: FlutterBinaryMessenger, parentViewController: UIViewController?) {
+    init(messenger: FlutterBinaryMessenger, parentViewController: FlutterViewController) {
         print("[FLNativeViewFactory] Initializing factory")
         self.messenger = messenger
         self.parentViewController = parentViewController
@@ -32,7 +32,7 @@ class FLNativeViewFactory: NSObject, FlutterPlatformViewFactory {
             frame: frame,
             viewIdentifier: viewId,
             arguments: args,
-            messenger: messenger,
+            binaryMessenger: messenger,
             parentViewController: parentViewController
         )
     }
@@ -43,48 +43,43 @@ class FLNativeViewFactory: NSObject, FlutterPlatformViewFactory {
 }
 
 class FLNativeView: NSObject, FlutterPlatformView {
-    private let frame: CGRect
-    private let viewId: Int64
-    private var goalsViewController: GoalsViewController?
-    private weak var parentViewController: UIViewController?
     private var containerView: UIView
-
-    init(frame: CGRect, viewIdentifier viewId: Int64, arguments args: Any?, messenger: FlutterBinaryMessenger, parentViewController: UIViewController?) {
-        self.frame = frame
-        self.viewId = viewId
-        self.parentViewController = parentViewController
+    private weak var parentViewController: FlutterViewController?
+    private var statsTabBarController: StatsTabBarController?
+    
+    init(
+        frame: CGRect,
+        viewIdentifier viewId: Int64,
+        arguments args: Any?,
+        binaryMessenger messenger: FlutterBinaryMessenger?,
+        parentViewController: FlutterViewController?
+    ) {
         self.containerView = UIView(frame: frame)
-        
+        self.parentViewController = parentViewController
         super.init()
-        
         createNativeView(arguments: args)
     }
-
+    
     func view() -> UIView {
         return containerView
     }
-
+    
     private func createNativeView(arguments args: Any?) {
-        // Set up container view
-        containerView.backgroundColor = .clear
+        let statsVC = StatsTabBarController()
+        self.statsTabBarController = statsVC
         
-        // Create GoalsViewController
-        let goalsVC = GoalsViewController()
-        self.goalsViewController = goalsVC
-        
-        // Set initial section if provided in arguments
         if let args = args as? [String: Any],
            let initialSection = args["initialSection"] as? String {
-            goalsVC.initialSection = initialSection
+            statsVC.navigateToSection(initialSection)
         }
-
-        // Add GoalsViewController as child of parent
-        if let parentVC = parentViewController {
-            parentVC.addChild(goalsVC)
-            containerView.addSubview(goalsVC.view)
-            goalsVC.view.frame = containerView.bounds
-            goalsVC.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            goalsVC.didMove(toParent: parentVC)
+        
+        guard let parentVC = parentViewController else { return }
+        
+        let navController = UINavigationController(rootViewController: statsVC)
+        navController.modalPresentationStyle = .fullScreen
+        
+        DispatchQueue.main.async {
+            parentVC.present(navController, animated: true)
         }
     }
 }

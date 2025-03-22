@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
-import 'package:macrotracker/screens/GoalsPage.dart';
+import 'package:macrotracker/screens/NativeStatsScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/screens/searchPage.dart';
@@ -149,7 +149,7 @@ class _DashboardState extends State<Dashboard> {
                             Navigator.push(
                               context,
                               CupertinoPageRoute(
-                                  builder: (context) => GoalsScreen()),
+                                  builder: (context) => NativeStatsScreen()),
                             );
                           },
                         ),
@@ -1047,7 +1047,8 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
               Navigator.push(
                 context,
                 CupertinoPageRoute(
-                  builder: (context) => GoalsScreen(initialSection: 'steps'),
+                  builder: (context) =>
+                      NativeStatsScreen(initialSection: 'steps'),
                 ),
               );
             } else if (label == 'Carbs' ||
@@ -1056,7 +1057,8 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
               Navigator.push(
                 context,
                 CupertinoPageRoute(
-                  builder: (context) => EditGoalsScreen(),
+                  builder: (context) =>
+                      NativeStatsScreen(initialSection: 'macros'),
                 ),
               );
             }

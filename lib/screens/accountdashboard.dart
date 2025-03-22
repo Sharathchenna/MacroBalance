@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/main.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
-import 'package:macrotracker/screens/GoalsPage.dart';
+import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Add this import
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
 import 'package:provider/provider.dart';
@@ -282,7 +282,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                       Navigator.push(
                         context,
                         CupertinoPageRoute(
-                            builder: (context) => EditGoalsScreen()),
+                            builder: (context) =>
+                                NativeStatsScreen(initialSection: 'macros')),
                       );
                     },
                     colorScheme: colorScheme,
@@ -516,7 +517,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                         radius: 32,
                         backgroundColor: colorScheme.primaryContainer,
                         child: Text(
-                          userData['name'].toString().substring(0, 1).toUpperCase(),
+                          userData['name']
+                              .toString()
+                              .substring(0, 1)
+                              .toUpperCase(),
                           style: GoogleFonts.poppins(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -619,7 +623,6 @@ class _AccountDashboardState extends State<AccountDashboard>
       ),
     );
   }
-
 
   Widget _buildSectionTitle(String title, ColorScheme colorScheme) {
     return Padding(

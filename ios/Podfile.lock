@@ -16,6 +16,9 @@ PODS:
     - JPSVolumeButtonHandler
   - device_info_plus (0.0.1):
     - Flutter
+  - DGCharts (5.1.0):
+    - DGCharts/Core (= 5.1.0)
+  - DGCharts/Core (5.1.0)
   - Flutter (1.0.0)
   - flutter_native_splash (2.4.3):
     - Flutter
@@ -144,6 +147,7 @@ DEPENDENCIES:
   - camera_avfoundation (from `.symlinks/plugins/camera_avfoundation/ios`)
   - camerawesome (from `.symlinks/plugins/camerawesome/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
+  - DGCharts
   - Flutter (from `Flutter`)
   - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
   - google_mlkit_barcode_scanning (from `.symlinks/plugins/google_mlkit_barcode_scanning/ios`)
@@ -168,6 +172,7 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - AppAuth
+    - DGCharts
     - GoogleDataTransport
     - GoogleMLKit
     - GoogleSignIn
@@ -247,6 +252,7 @@ SPEC CHECKSUMS:
   camera_avfoundation: 04b44aeb14070126c6529e5ab82cc7c9fca107cf
   camerawesome: ae69de297ab1a69a0bcaeef8797d3045ed57172f
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
+  DGCharts: 1c6daf585b6cfc78807af44ea690d357c410627f
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_native_splash: 6cad9122ea0fad137d23137dd14b937f3e90b145
   google_mlkit_barcode_scanning: c0a50c1042484a6ca506967dfa91fa7d7e74f280
@@ -287,6 +293,6 @@ SPEC CHECKSUMS:
   uni_links: ed8c961e47ed9ce42b6d91e1de8049e38a4b3152
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 
-PODFILE CHECKSUM: f0912782f9d06170b90143bb9386ede2fc0870b7
+PODFILE CHECKSUM: f2cbff3750475788f4bb6103599a1013a2759503
 
 COCOAPODS: 1.16.2

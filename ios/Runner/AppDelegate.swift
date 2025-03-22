@@ -2,6 +2,14 @@ import UIKit
 import Flutter
 import SwiftUI
 import HealthKit
+import shared_preferences_foundation
+import health
+import app_links
+import path_provider_foundation
+import url_launcher_ios
+import app_settings
+import flutter_native_splash
+import device_info_plus
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -12,149 +20,99 @@ import HealthKit
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         print("[AppDelegate] Application launching")
-        let controller = window?.rootViewController as? FlutterViewController
+        guard let controller = window?.rootViewController as? FlutterViewController else {
+            return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+        }
+        
         methodHandler = FlutterMethodHandler(window: window, viewController: controller)
         
-        // Set up method channel for native chart data
-        if let controller = controller {
-            let chartChannel = FlutterMethodChannel(
-                name: "app.macrobalance.com/nativecharts",
-                binaryMessenger: controller.binaryMessenger
-            )
-            
-            print("[AppDelegate] Setting up method channel")
-            chartChannel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
-                print("[AppDelegate] Received method call: \(call.method)")
-                switch call.method {
-                case "createWeightChart", "createStepsChart", "createCaloriesChart", "createMacrosChart":
-                    if let args = call.arguments as? [String: Any],
-                       let data = args["data"] as? [[String: Any]] {
-                        print("[AppDelegate] Processing chart data: \(data.count) entries")
-                        // Return success instead of just echoing the data
-                        result("success")
-                    } else {
-                        print("[AppDelegate] Invalid arguments for method: \(call.method)")
-                        result(FlutterError(code: "INVALID_ARGUMENTS", 
-                                        message: "Invalid arguments for chart", 
-                                        details: nil))
-                    }
-                    
-                default:
-                    print("[AppDelegate] Method not implemented: \(call.method)")
-                    result(FlutterMethodNotImplemented)
-                }
-            }
-            
-            print("[AppDelegate] Registering platform view factories")
-            registerPlatformViewFactories(controller: controller)
-        }
-        
-        // Register method handler for goals
-        let goalsChannel = FlutterMethodChannel(
-            name: "app.macrobalance.com/goals",
-            binaryMessenger: controller!.binaryMessenger)
-        
-        goalsChannel.setMethodCallHandler { [weak self] call, result in
-            guard let strongSelf = self else { return }
-            
-            switch call.method {
-            case "showGoalsView":
-                let goalsVC = GoalsViewController()
-                if let args = call.arguments as? [String: Any],
-                   let initialSection = args["initialSection"] as? String {
-                    goalsVC.initialSection = initialSection
-                }
-                
-                controller?.present(UINavigationController(rootViewController: goalsVC),
-                                 animated: true) {
-                    result(nil)
-                }
-                
-            default:
-                result(FlutterMethodNotImplemented)
-            }
-        }
-        
-        // Register goals view factory
-        let goalsFactory = FLNativeViewFactory(
-            messenger: controller!.binaryMessenger,
+        // Register native view factory for stats
+        let nativeViewFactory = FLNativeViewFactory(
+            messenger: controller.binaryMessenger,
             parentViewController: controller
         )
-        registrar(forPlugin: "goals_view")?.register(
-            goalsFactory,
-            withId: "goals_view"
+        registrar(forPlugin: "stats_view")?.register(
+            nativeViewFactory,
+            withId: "stats_view"
         )
-
-        // Setup method channel for stats tab view
+        
+        // Stats method channel
         let statsChannel = FlutterMethodChannel(
-            name: "app.macrobalance.com.stats/tabview",
-            binaryMessenger: controller!.binaryMessenger
+            name: "app.macrobalance.com/stats",
+            binaryMessenger: controller.binaryMessenger
         )
         
         statsChannel.setMethodCallHandler { [weak self] call, result in
-            guard let strongSelf = self else { return }
+            guard let self = self else {
+                result(FlutterError(code: "UNAVAILABLE",
+                                  message: "Failed to handle method call",
+                                  details: "AppDelegate was deallocated"))
+                return
+            }
             
             switch call.method {
-            case "showStatsTabView":
-                let tabController = StatsTabBarController()
-                controller?.present(
-                    UINavigationController(rootViewController: tabController),
-                    animated: true
-                ) {
+            case "initialize":
+                // Initialize any required services
+                self.initializeStatsServices { success in
+                    if success {
+                        result(nil)
+                    } else {
+                        result(FlutterError(code: "INIT_FAILED",
+                                          message: "Failed to initialize stats services",
+                                          details: nil))
+                    }
+                }
+            case "showStats":
+                do {
+                    try self.showStatsViewController(controller)
                     result(nil)
+                } catch {
+                    result(FlutterError(code: "SHOW_STATS_FAILED",
+                                      message: "Failed to show stats view",
+                                      details: error.localizedDescription))
                 }
             default:
                 result(FlutterMethodNotImplemented)
             }
         }
-
-        // Stats method channel
-        let statsChannelNew = FlutterMethodChannel(
-            name: "com.macrobalance.app.stats",
-            binaryMessenger: controller!.binaryMessenger
-        )
         
-        statsChannelNew.setMethodCallHandler { [weak self] call, result in
-            switch call.method {
-            case "showStats":
-                self?.showStatsViewController(controller)
-                result(nil)
-            default:
-                result(FlutterMethodNotImplemented)
-            }
+        if #available(iOS 10.0, *) {
+            UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
         }
 
         GeneratedPluginRegistrant.register(with: self)
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
     
-    private func registerPlatformViewFactories(controller: FlutterViewController) {
-        // Register view factories for each chart type
-        print("[AppDelegate] Creating and registering chart factories")
+    private func initializeStatsServices(completion: @escaping (Bool) -> Void) {
+        // Check if HealthKit is available
+        guard HKHealthStore.isHealthDataAvailable() else {
+            completion(true) // Return true even if HealthKit isn't available
+            return
+        }
         
-        let weightChartFactory = FLNativeViewFactory(messenger: controller.binaryMessenger, parentViewController: controller)
-        registrar(forPlugin: "weightChart")?.register(weightChartFactory, withId: "weightChart")
-        print("[AppDelegate] Registered weight chart factory")
+        // Request HealthKit authorization
+        let healthStore = HKHealthStore()
+        let typesToRead: Set<HKObjectType> = [
+            HKObjectType.quantityType(forIdentifier: .stepCount)!,
+            HKObjectType.quantityType(forIdentifier: .bodyMass)!,
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!
+        ]
         
-        let stepsChartFactory = FLNativeViewFactory(messenger: controller.binaryMessenger, parentViewController: controller)
-        registrar(forPlugin: "stepsChart")?.register(stepsChartFactory, withId: "stepsChart")
-        print("[AppDelegate] Registered steps chart factory")
-        
-        let caloriesChartFactory = FLNativeViewFactory(messenger: controller.binaryMessenger, parentViewController: controller)
-        registrar(forPlugin: "caloriesChart")?.register(caloriesChartFactory, withId: "caloriesChart")
-        print("[AppDelegate] Registered calories chart factory")
-        
-        let macrosChartFactory = FLNativeViewFactory(messenger: controller.binaryMessenger, parentViewController: controller)
-        registrar(forPlugin: "macrosChart")?.register(macrosChartFactory, withId: "macrosChart")
-        print("[AppDelegate] Registered macros chart factory")
+        healthStore.requestAuthorization(toShare: nil, read: typesToRead) { success, error in
+            DispatchQueue.main.async {
+                completion(success)
+            }
+        }
     }
 
-    private func showStatsViewController(_ flutterViewController: FlutterViewController?) {
-        guard let flutterViewController = flutterViewController else { return }
-        
+    private func showStatsViewController(_ flutterViewController: FlutterViewController) throws {
         let statsVC = StatsTabBarController()
         let navController = UINavigationController(rootViewController: statsVC)
         navController.modalPresentationStyle = .fullScreen
-        flutterViewController.present(navController, animated: true)
+        flutterViewController.present(navController, animated: true) { [weak self] in
+            // Handle completion if needed
+        }
     }
 }

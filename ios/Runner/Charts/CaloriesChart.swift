@@ -8,13 +8,6 @@
 import SwiftUI
 import Charts
 
-struct CaloriesEntry: Identifiable {
-    let id = UUID()
-    let date: Date
-    let calories: Double
-    let goal: Double
-}
-
 struct CaloriesChartView: View {
     let entries: [CaloriesEntry]
     @Environment(\.colorScheme) var colorScheme

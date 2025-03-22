@@ -8,13 +8,6 @@
 import SwiftUI
 import Charts
 
-struct StepsEntry: Identifiable {
-    let id = UUID()
-    let date: Date
-    let steps: Int
-    let goal: Int
-}
-
 struct StepsChartView: View {
     let entries: [StepsEntry]
     @Environment(\.colorScheme) var colorScheme

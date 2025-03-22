@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
-import 'package:macrotracker/screens/GoalsPage.dart';
+import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
 import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
 import 'package:macrotracker/AI/gemini.dart';
@@ -238,7 +238,8 @@ class MyApp extends StatelessWidget {
           Routes.onboarding: (context) => const OnboardingScreen(),
           Routes.home: (context) => const Dashboard(),
           Routes.dashboard: (context) => const Dashboard(),
-          Routes.goals: (context) => const GoalsScreen(),
+          Routes.goals: (context) =>
+              const NativeStatsScreen(), // Update route mapping
           Routes.search: (context) => const FoodSearchPage(),
           Routes.account: (context) => const AccountDashboard(),
         },
