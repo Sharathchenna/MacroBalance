@@ -43,9 +43,8 @@ class FLNativeViewFactory: NSObject, FlutterPlatformViewFactory {
 }
 
 class FLNativeView: NSObject, FlutterPlatformView {
-    private var containerView: UIView
+    private var _view: UIView
     private weak var parentViewController: FlutterViewController?
-    private var statsTabBarController: StatsTabBarController?
     
     init(
         frame: CGRect,
@@ -54,33 +53,42 @@ class FLNativeView: NSObject, FlutterPlatformView {
         binaryMessenger messenger: FlutterBinaryMessenger?,
         parentViewController: FlutterViewController?
     ) {
-        self.containerView = UIView(frame: frame)
+        _view = UIView(frame: frame)
         self.parentViewController = parentViewController
         super.init()
         createNativeView(arguments: args)
     }
     
     func view() -> UIView {
-        return containerView
+        return _view
     }
     
     private func createNativeView(arguments args: Any?) {
         let statsVC = StatsTabBarController()
-        self.statsTabBarController = statsVC
         
         if let args = args as? [String: Any],
            let initialSection = args["initialSection"] as? String {
             statsVC.navigateToSection(initialSection)
         }
         
-        guard let parentVC = parentViewController else { return }
+        // Add close button to statsVC
+        statsVC.navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Close",
+            style: .plain,
+            target: self,
+            action: #selector(dismissController)
+        )
         
         let navController = UINavigationController(rootViewController: statsVC)
         navController.modalPresentationStyle = .fullScreen
         
-        DispatchQueue.main.async {
-            parentVC.present(navController, animated: true)
+        DispatchQueue.main.async { [weak self] in
+            self?.parentViewController?.present(navController, animated: true)
         }
+    }
+    
+    @objc private func dismissController() {
+        parentViewController?.dismiss(animated: true)
     }
 }
 

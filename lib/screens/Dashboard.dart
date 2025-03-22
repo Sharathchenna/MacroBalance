@@ -16,8 +16,6 @@ import 'package:macrotracker/providers/foodEntryProvider.dart';
 import '../providers/dateProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:ui';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -146,11 +144,7 @@ class _DashboardState extends State<Dashboard> {
                           icon: CupertinoIcons.graph_circle,
                           onTap: () {
                             HapticFeedback.lightImpact();
-                            Navigator.push(
-                              context,
-                              CupertinoPageRoute(
-                                  builder: (context) => NativeStatsScreen()),
-                            );
+                            NativeStatsScreen.show(context);
                           },
                         ),
                         _buildNavItemCompact(
@@ -202,51 +196,6 @@ Widget _buildNavItemCompact({
           color: const Color(0xFFFFC107),
           size: 24,
         ),
-      ),
-    ),
-  );
-}
-
-// Keep original _buildNavItem for reference, but we're not using it anymore
-// Helper method to build navigation items
-Widget _buildNavItem({
-  required BuildContext context,
-  required IconData icon,
-  required String label,
-  required VoidCallback onTap,
-  bool isActive = false,
-}) {
-  return Expanded(
-    child: InkWell(
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? const Color(0xFFFFC107).withValues(alpha: 0.15)
-                  : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFFFFC107),
-              size: 24,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-            ),
-          ),
-        ],
       ),
     ),
   );
@@ -891,269 +840,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 }
 
-Widget _buildCalorieInfo(
-    BuildContext context, String label, int value, Color color) {
-  return Row(
-    children: [
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-        ),
-      ),
-      const SizedBox(width: 8),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          Text(
-            '$value',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
-Widget _buildMacroProgress(
-    BuildContext context, String label, int value, int goal, Color color) {
-  double progress = (value / goal).clamp(0.0, 1.0);
-
-  return Column(
-    children: [
-      Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey.shade600,
-        ),
-      ),
-      const SizedBox(height: 8),
-      SizedBox(
-        height: 40,
-        width: 6,
-        child: Stack(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: FractionallySizedBox(
-                heightFactor: progress,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        '$value',
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _buildCalorieInfoEnhanced(
-    BuildContext context, String label, int value, Color color) {
-  return Row(
-    children: [
-      Container(
-        width: 8, // Reduced size
-        height: 8, // Reduced size
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.2), // More subtle shadow
-              spreadRadius: 1,
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(width: 10),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 12, // Reduced from 14
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.grey.shade600
-                  : Colors.grey.shade400,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '$value',
-            style: GoogleFonts.poppins(
-              fontSize: 16, // Reduced from 18
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
-Widget _buildMacroProgressEnhanced(BuildContext context, String label,
-    int value, int goal, Color color, String unit) {
-  double progress = (value / goal).clamp(0.0, 1.0);
-  double percentage = (progress * 100).roundToDouble();
-
-  return Container(
-    width: 70,
-    child: Column(
-      children: [
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            // Navigate to different sections based on the macro type
-            if (label == 'Steps') {
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                  builder: (context) =>
-                      NativeStatsScreen(initialSection: 'steps'),
-                ),
-              );
-            } else if (label == 'Carbs' ||
-                label == 'Protein' ||
-                label == 'Fat') {
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                  builder: (context) =>
-                      NativeStatsScreen(initialSection: 'macros'),
-                ),
-              );
-            }
-          },
-          child: Container(
-            height: 70,
-            width: 70,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Background circle
-                Container(
-                  height: 64,
-                  width: 64,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade100
-                        : Colors.grey.shade800.withValues(alpha: 0.3),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                // Progress circle
-                SizedBox(
-                  height: 64,
-                  width: 64,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 6,
-                    strokeCap: StrokeCap.round, // Added circular stroke cap
-                    backgroundColor:
-                        Theme.of(context).brightness == Brightness.light
-                            ? color.withValues(alpha: 0.15)
-                            : color.withValues(alpha: 0.1),
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                  ),
-                ),
-                // Macro icon
-                Icon(
-                  _getMacroIcon(label),
-                  color: color,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 2),
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: '$value',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color:
-                      Theme.of(context).extension<CustomColors>()?.textPrimary,
-                ),
-              ),
-              if (unit.isNotEmpty)
-                TextSpan(
-                  text: unit,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade600
-                        : Colors.grey.shade400,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Text(
-          '${percentage.toInt()}%',
-          style: GoogleFonts.poppins(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: color,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 // Add this helper method to get appropriate icons for macros
 IconData _getMacroIcon(String label) {
   switch (label) {
@@ -1168,6 +854,53 @@ IconData _getMacroIcon(String label) {
     default:
       return Icons.circle;
   }
+}
+
+// Add this method to the _CalorieTrackerState class
+Widget _buildMacroProgressEnhanced(BuildContext context, String label,
+    int value, int goal, Color color, String unit) {
+  final progress = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
+
+  return GestureDetector(
+    onTap: () {
+      HapticFeedback.selectionClick();
+      // Navigate to different sections based on the macro type
+      if (label == 'Steps') {
+        NativeStatsScreen.show(context, initialSection: 'steps');
+      } else if (label == 'Carbs' || label == 'Protein' || label == 'Fat') {
+        NativeStatsScreen.show(context, initialSection: 'macros');
+      }
+    },
+    child: Container(
+      height: 70,
+      width: 70,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Progress circle
+          SizedBox(
+            height: 64,
+            width: 64,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 6,
+              strokeCap: StrokeCap.round,
+              backgroundColor: Theme.of(context).brightness == Brightness.light
+                  ? color.withValues(alpha: 0.15)
+                  : color.withValues(alpha: 0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          // Macro icon
+          Icon(
+            _getMacroIcon(label),
+            color: color,
+            size: 20,
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 // Add this class after your existing code

@@ -17,15 +17,20 @@ class StatsViewWrapper: NSObject, FlutterPlatformView {
 
 class StatsViewFactory: NSObject, FlutterPlatformViewFactory {
     private let messenger: FlutterBinaryMessenger
+    private weak var flutterViewController: FlutterViewController?
     
-    init(messenger: FlutterBinaryMessenger) {
+    init(messenger: FlutterBinaryMessenger, flutterViewController: FlutterViewController) {
         self.messenger = messenger
+        self.flutterViewController = flutterViewController
         super.init()
     }
     
     func create(withFrame frame: CGRect, viewIdentifier viewId: Int64, arguments args: Any?) -> FlutterPlatformView {
         let initialSection = (args as? [String: Any])?["initialSection"] as? String ?? "weight"
-        let statsViewController = StatsViewController(messenger: messenger)
+        guard let parentVC = flutterViewController else {
+            fatalError("FlutterViewController is required for StatsViewController")
+        }
+        let statsViewController = StatsViewController(messenger: messenger, parentViewController: parentVC)
         statsViewController.navigateToSection(initialSection)
         return StatsViewWrapper(statsViewController: statsViewController)
     }

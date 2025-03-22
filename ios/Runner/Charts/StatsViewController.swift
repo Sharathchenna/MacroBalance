@@ -3,8 +3,8 @@ import UIKit
 class StatsViewController: UITabBarController {
     private let methodHandler: StatsMethodHandler
     
-    init(messenger: FlutterBinaryMessenger) {
-        self.methodHandler = StatsMethodHandler(messenger: messenger)
+    init(messenger: FlutterBinaryMessenger, parentViewController: FlutterViewController) {
+        self.methodHandler = StatsMethodHandler(messenger: messenger, parentViewController: parentViewController)
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -16,6 +16,7 @@ class StatsViewController: UITabBarController {
         super.viewDidLoad()
         setupTabs()
         setupAppearance()
+        setupNavigationBar()
     }
     
     private func setupTabs() {
@@ -99,6 +100,20 @@ class StatsViewController: UITabBarController {
         UINavigationBar.appearance().standardAppearance = navBarAppearance
         UINavigationBar.appearance().compactAppearance = navBarAppearance
         UINavigationBar.appearance().scrollEdgeAppearance = navBarAppearance
+    }
+    
+    private func setupNavigationBar() {
+        // Add close button to navigation bar
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Close",
+            style: .plain,
+            target: self,
+            action: #selector(dismissSelf)
+        )
+    }
+    
+    @objc private func dismissSelf() {
+        dismiss(animated: true)
     }
     
     func navigateToSection(_ section: String) {

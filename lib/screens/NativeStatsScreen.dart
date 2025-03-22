@@ -1,121 +1,127 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io' show Platform;
+import 'package:flutter/cupertino.dart';
 
-class NativeStatsScreen extends StatefulWidget {
-  final String? initialSection;
+/// A utility class for displaying native iOS statistics screens
+/// This is not a widget but a utility class with static methods
+class NativeStatsScreen {
+  // Method channel for communicating with native code
+  static const MethodChannel _platform =
+      MethodChannel('app.macrobalance.com/stats');
 
-  const NativeStatsScreen({Key? key, this.initialSection}) : super(key: key);
+  // Static state management
+  static bool _isScreenVisible = false;
+  static Timer? _presentationDebounceTimer;
+  static Timer? _lockTimer;
+  static Completer<void>? _pendingOperation;
 
-  @override
-  State<NativeStatsScreen> createState() => _NativeStatsScreenState();
-}
-
-class _NativeStatsScreenState extends State<NativeStatsScreen> {
-  static const platform = MethodChannel('app.macrobalance.com/stats');
-  bool _isLoading = true;
-  String? _error;
-  bool _hasShownStats = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeStats();
-  }
-
-  Future<void> _initializeStats() async {
-    if (!mounted) return;
-
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      // Initialize stats services first
-      await platform.invokeMethod('initialize');
-
-      if (!mounted) return;
-
-      // After successful initialization, show the stats screen
-      await platform.invokeMethod(
-          'showStats', {'initialSection': widget.initialSection ?? 'weight'});
-
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-        _hasShownStats = true;
-      });
-    } on PlatformException catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _error = e.message ?? 'Failed to initialize stats';
-        _isLoading = false;
-      });
-      debugPrint('Stats screen error: ${e.message}');
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _error = 'Unexpected error occurred';
-        _isLoading = false;
-      });
-      debugPrint('Stats screen unexpected error: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+  /// Shows the native stats screen with specified section
+  ///
+  /// [context] - The BuildContext for showing error dialogs
+  /// [initialSection] - Optional section to show initially ('weight', 'steps', 'calories', 'macros')
+  /// Returns a Future that completes when the presentation is finished
+  static Future<void> show(BuildContext context,
+      {String? initialSection}) async {
+    // If a presentation is already in progress, don't allow another
+    if (_pendingOperation != null &&
+        !(_pendingOperation?.isCompleted ?? true)) {
+      debugPrint('Stats screen presentation already in progress');
+      return _pendingOperation?.future ?? Future.value();
     }
 
-    if (_error != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Statistics'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: Colors.red,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _initializeStats,
-                  child: const Text('Retry'),
+    // If the screen is visible or we're in the lockout period, ignore
+    if (_isScreenVisible || _lockTimer?.isActive == true) {
+      debugPrint('Stats screen is already visible or in cooldown period');
+      return Future.value();
+    }
+
+    // Cancel any existing timer to prevent race conditions
+    _presentationDebounceTimer?.cancel();
+
+    // Create new completer for this operation
+    _pendingOperation = Completer<void>();
+
+    // Mark the screen as visible immediately to prevent double-taps
+    _isScreenVisible = true;
+
+    // Add a small debounce to ensure any previous dismissals have completed
+    _presentationDebounceTimer =
+        Timer(const Duration(milliseconds: 300), () async {
+      try {
+        // Invoke the native method
+        await _platform.invokeMethod('showStats', {
+          'initialSection': initialSection ?? 'weight',
+        });
+
+        // Set a timer to automatically reset the state after 1 second
+        // This handles cases where the native code might not call back
+        Timer(const Duration(seconds: 1), () {
+          // When the timer completes, add a 500ms lockout period
+          _lockTimer = Timer(const Duration(milliseconds: 500), () {
+            _lockTimer = null;
+          });
+
+          _isScreenVisible = false;
+          if (_pendingOperation != null &&
+              !(_pendingOperation?.isCompleted ?? true)) {
+            _pendingOperation?.complete();
+          }
+        });
+      } on PlatformException catch (e) {
+        // Reset state on error
+        _isScreenVisible = false;
+
+        if (_pendingOperation != null &&
+            !(_pendingOperation?.isCompleted ?? true)) {
+          _pendingOperation?.completeError(e);
+        }
+
+        debugPrint('Error showing native stats: ${e.message}');
+
+        // Only show dialog if context is still mounted
+        if (context.mounted) {
+          showCupertinoDialog(
+            context: context,
+            builder: (context) => CupertinoAlertDialog(
+              title: const Text('Error'),
+              content: Text('Could not show stats: ${e.message}'),
+              actions: [
+                CupertinoDialogAction(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
-          ),
-        ),
-      );
-    }
+          );
+        }
+      } catch (e) {
+        // Handle any other errors
+        _isScreenVisible = false;
 
-    // If we've successfully shown the stats screen, return an empty container
-    // since the native view will be displayed on top
-    return _hasShownStats ? Container() : const SizedBox.shrink();
+        if (_pendingOperation != null &&
+            !(_pendingOperation?.isCompleted ?? true)) {
+          _pendingOperation?.completeError(e);
+        }
+
+        debugPrint('Unexpected error showing stats screen: $e');
+      }
+    });
+
+    return _pendingOperation?.future ?? Future.value();
+  }
+
+  /// Resets the presentation state - can be called when app resumes
+  /// to ensure the state is fresh
+  static void resetState() {
+    _presentationDebounceTimer?.cancel();
+    _lockTimer?.cancel();
+    _isScreenVisible = false;
+    _lockTimer = null;
+    if (_pendingOperation != null &&
+        !(_pendingOperation?.isCompleted ?? true)) {
+      _pendingOperation?.complete();
+    }
+    _pendingOperation = null;
   }
 }

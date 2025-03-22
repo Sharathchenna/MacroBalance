@@ -206,8 +206,33 @@ void _handleDeepLink(Uri uri) {
   }
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // When app resumes, reset any stale presentation state
+      NativeStatsScreen.resetState();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,8 +263,13 @@ class MyApp extends StatelessWidget {
           Routes.onboarding: (context) => const OnboardingScreen(),
           Routes.home: (context) => const Dashboard(),
           Routes.dashboard: (context) => const Dashboard(),
-          Routes.goals: (context) =>
-              const NativeStatsScreen(), // Update route mapping
+          Routes.goals: (context) => Builder(builder: (context) {
+                // Use a Builder to get a context and then call the static method
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  NativeStatsScreen.show(context);
+                });
+                return const Dashboard(); // Return to Dashboard as a fallback
+              }),
           Routes.search: (context) => const FoodSearchPage(),
           Routes.account: (context) => const AccountDashboard(),
         },

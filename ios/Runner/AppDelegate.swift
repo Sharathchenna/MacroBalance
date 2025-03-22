@@ -10,10 +10,12 @@ import url_launcher_ios
 import app_settings
 import flutter_native_splash
 import device_info_plus
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
     private var methodHandler: FlutterMethodHandler?
+    private var statsMethodHandler: StatsMethodHandler?
     
     override func application(
         _ application: UIApplication,
@@ -26,60 +28,25 @@ import device_info_plus
         
         methodHandler = FlutterMethodHandler(window: window, viewController: controller)
         
-        // Register native view factory for stats
-        let nativeViewFactory = FLNativeViewFactory(
+        // Initialize the stats method handler - this handles all stats-related calls
+        statsMethodHandler = StatsMethodHandler(
             messenger: controller.binaryMessenger,
             parentViewController: controller
         )
-        registrar(forPlugin: "stats_view")?.register(
-            nativeViewFactory,
+        
+        // Register native view factory for stats
+        let statsFactory = StatsViewFactory(
+            messenger: controller.binaryMessenger,
+            flutterViewController: controller
+        )
+        registrar(forPlugin: "StatsView")?.register(
+            statsFactory,
             withId: "stats_view"
         )
-        
-        // Stats method channel
-        let statsChannel = FlutterMethodChannel(
-            name: "app.macrobalance.com/stats",
-            binaryMessenger: controller.binaryMessenger
-        )
-        
-        statsChannel.setMethodCallHandler { [weak self] call, result in
-            guard let self = self else {
-                result(FlutterError(code: "UNAVAILABLE",
-                                  message: "Failed to handle method call",
-                                  details: "AppDelegate was deallocated"))
-                return
-            }
-            
-            switch call.method {
-            case "initialize":
-                // Initialize any required services
-                self.initializeStatsServices { success in
-                    if success {
-                        result(nil)
-                    } else {
-                        result(FlutterError(code: "INIT_FAILED",
-                                          message: "Failed to initialize stats services",
-                                          details: nil))
-                    }
-                }
-            case "showStats":
-                do {
-                    try self.showStatsViewController(controller)
-                    result(nil)
-                } catch {
-                    result(FlutterError(code: "SHOW_STATS_FAILED",
-                                      message: "Failed to show stats view",
-                                      details: error.localizedDescription))
-                }
-            default:
-                result(FlutterMethodNotImplemented)
-            }
-        }
         
         if #available(iOS 10.0, *) {
             UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
         }
-
         GeneratedPluginRegistrant.register(with: self)
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
@@ -107,12 +74,14 @@ import device_info_plus
         }
     }
 
-    private func showStatsViewController(_ flutterViewController: FlutterViewController) throws {
-        let statsVC = StatsTabBarController()
+    private func showStatsViewController(_ flutterViewController: FlutterViewController, initialSection: String) throws {
+        let statsVC = StatsViewController(
+            messenger: flutterViewController.binaryMessenger,
+            parentViewController: flutterViewController
+        )
+        statsVC.navigateToSection(initialSection)
         let navController = UINavigationController(rootViewController: statsVC)
         navController.modalPresentationStyle = .fullScreen
-        flutterViewController.present(navController, animated: true) { [weak self] in
-            // Handle completion if needed
-        }
+        flutterViewController.present(navController, animated: true)
     }
 }

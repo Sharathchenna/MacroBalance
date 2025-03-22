@@ -279,12 +279,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                            builder: (context) =>
-                                NativeStatsScreen(initialSection: 'macros')),
-                      );
+                      // Use the static show method instead of trying to navigate to it as a widget
+                      NativeStatsScreen.show(context, initialSection: 'macros');
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
