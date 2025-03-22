@@ -11,6 +11,23 @@ import UIKit
 import Charts
 
 class ChartFactory {
+    func createChart(type: String, data: [[String: Any]], parent: UIViewController?) -> UIView {
+        switch type {
+            case "weight":
+                return createWeightChart(data: data, parent: parent)
+            case "steps":
+                return createStepsChart(data: data, parent: parent)
+            case "calories":
+                return createCaloriesChart(data: data, parent: parent)
+            case "macros":
+                return createMacrosChart(data: data, parent: parent)
+            default:
+                let errorView = UIView()
+                errorView.backgroundColor = .systemRed
+                return errorView
+        }
+    }
+
     // Create weight chart
     func createWeightChart(data: [[String: Any]], parent: UIViewController?) -> UIView {
         print("[ChartFactory] Creating weight chart with \(data.count) entries")
