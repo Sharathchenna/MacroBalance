@@ -27,7 +27,21 @@ class ChartFactory {
                 else { return nil }
                 return WeightEntry(date: date, weight: weightValue)
             }
-            let chartView = WeightChartView(entries: weightData)
+            
+            // Get goal weight from UserDefaults or calculate a default goal
+            let goalWeight = UserDefaults.standard.double(forKey: "goal_weight")
+            let effectiveGoal: Double
+            if (goalWeight > 0) {
+                effectiveGoal = goalWeight
+            } else if let lastWeight = weightData.last?.weight {
+                // Default goal is 10% less than current weight
+                effectiveGoal = lastWeight * 0.9
+                UserDefaults.standard.set(effectiveGoal, forKey: "goal_weight")
+            } else {
+                effectiveGoal = 0 // No goal if no weight data available
+            }
+            
+            let chartView = WeightChartView(entries: weightData, goalWeight: effectiveGoal)
                 .environment(\.colorScheme, parent.traitCollection.userInterfaceStyle == .dark ? .dark : .light)
                 .frame(height: 300)
             hostingController = UIHostingController(rootView: AnyView(chartView))

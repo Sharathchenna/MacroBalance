@@ -1,7 +1,6 @@
 import UIKit
 import DGCharts
 import HealthKit
-import Charts
 
 class StepsViewController: UIViewController {
     private let scrollView = UIScrollView()
@@ -209,6 +208,10 @@ class StepsViewController: UIViewController {
     }
     
     private func setupChartView() {
+        chartView.noDataText = "Loading..."
+        chartView.drawGridBackgroundEnabled = false
+        chartView.chartDescription.enabled = false
+        chartView.maxVisibleCount = 7  // Limit to a week of data
         chartView.rightAxis.enabled = false
         chartView.legend.enabled = false
         
@@ -221,35 +224,53 @@ class StepsViewController: UIViewController {
         leftAxis.drawGridLinesEnabled = true
         leftAxis.gridLineDashLengths = [4, 4]
         
+        // Optimize rendering
+        chartView.dragEnabled = false  // Not needed for weekly view
+        chartView.scaleXEnabled = false
+        chartView.scaleYEnabled = false
+        chartView.pinchZoomEnabled = false
+        
         loadChartData()
     }
     
     private func loadChartData() {
-        // Mock data - Replace with HealthKit data
-        let entries = (0..<7).map { i -> BarChartDataEntry in
-            return BarChartDataEntry(x: Double(i), y: Double.random(in: 5000...15000))
+        // Move data loading to background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            // Mock data - Replace with HealthKit data
+            let entries = (0..<7).map { i -> BarChartDataEntry in
+                return BarChartDataEntry(x: Double(i), y: Double.random(in: 5000...15000))
+            }
+            
+            let dataSet = BarChartDataSet(entries: entries, label: "Steps")
+            dataSet.colors = [.systemBlue]
+            dataSet.drawValuesEnabled = false
+            
+            // Update UI on main thread
+            DispatchQueue.main.async {
+                self.chartView.data = BarChartData(dataSet: dataSet)
+                self.chartView.animate(xAxisDuration: 0.3)
+            }
         }
-        
-        let dataSet = BarChartDataSet(entries: entries, label: "Steps")
-        dataSet.colors = [.systemBlue]
-        dataSet.drawValuesEnabled = false
-        
-        chartView.data = BarChartData(dataSet: dataSet)
     }
     
     private func requestHealthKitAuthorization() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         
-        let stepsType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
-        
-        healthStore.requestAuthorization(toShare: [], read: [stepsType]) { success, error in
-            if success {
-                self.loadHealthKitData()
+        // Move to background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let typesToRead: Set<HKObjectType> = [
+                HKObjectType.quantityType(forIdentifier: .stepCount)!
+            ]
+            
+            self?.healthStore.requestAuthorization(toShare: nil, read: typesToRead) { success, error in
+                if success {
+                    DispatchQueue.main.async {
+                        self?.loadChartData()
+                    }
+                }
             }
         }
-    }
-    
-    private func loadHealthKitData() {
-        // Implement HealthKit data loading
     }
 }
