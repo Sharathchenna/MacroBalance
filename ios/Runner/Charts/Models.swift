@@ -51,11 +51,25 @@ struct MacrosEntry: Identifiable {
     let carbs: Double
     let fats: Double
     let proteinGoal: Double
-    let carbGoal: Double
+    let carbGoal: Double // This was missing the property named carbGoal
     let fatGoal: Double
     
+    // Additional nutritional data
+    var calories: Double { (proteins * 4) + (carbs * 4) + (fats * 9) }
+    var calorieGoal: Double { (proteinGoal * 4) + (carbGoal * 4) + (fatGoal * 9) }
+    var micronutrients: [String: Double]?
+    var vitamins: [String: Double]?
+    var minerals: [String: Double]?
+    
+    // Computed properties for backward compatibility
     var protein: Double { proteins }
     var fat: Double { fats }
+    var carbsGoal: Double { carbGoal } // Add this for backward compatibility
+    
+    // Percentage calculations
+    var proteinPercentage: Double { proteins > 0 ? (proteins * 4) / max(1, calories) * 100 : 0 }
+    var carbsPercentage: Double { carbs > 0 ? (carbs * 4) / max(1, calories) * 100 : 0 }
+    var fatsPercentage: Double { fats > 0 ? (fats * 9) / max(1, calories) * 100 : 0 }
     
     init(
         date: Date,
@@ -64,7 +78,10 @@ struct MacrosEntry: Identifiable {
         fats: Double,
         proteinGoal: Double = 150,
         carbGoal: Double = 250,
-        fatGoal: Double = 65
+        fatGoal: Double = 65,
+        micronutrients: [String: Double]? = nil,
+        vitamins: [String: Double]? = nil,
+        minerals: [String: Double]? = nil
     ) {
         self.date = date
         self.proteins = proteins
@@ -73,6 +90,9 @@ struct MacrosEntry: Identifiable {
         self.proteinGoal = proteinGoal
         self.carbGoal = carbGoal
         self.fatGoal = fatGoal
+        self.micronutrients = micronutrients
+        self.vitamins = vitamins
+        self.minerals = minerals
     }
 }
 

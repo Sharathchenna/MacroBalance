@@ -76,9 +76,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   Future<void> _loadCurrentValues() async {
     try {
       // Fetch steps data from HealthService
-      final healthService = HealthService();      
+      final healthService = HealthService();
       final int todaySteps = await healthService.getSteps();
-      
+
       if (mounted) {
         setState(() {
           stepsCompleted = todaySteps;
@@ -273,7 +273,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     Flexible(
                       child: Text(
                         'Edit $title',
-                        style:  TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: customColors!.textPrimary,
@@ -283,9 +283,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 Container(
                   decoration: BoxDecoration(
                     color: customColors.cardBackground,
@@ -339,9 +339,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -400,7 +400,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       ),
     );
   }
-  
+
   // Helper method to get appropriate icon for the dialog
   IconData _getIconForTitle(String title) {
     if (title.contains('Calorie')) return Icons.local_fire_department_rounded;
@@ -468,11 +468,10 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                       const SizedBox(width: 14),
                       Text(
                         data['title'],
-                        style:  TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: customColors!.textPrimary
-                        ),
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: customColors!.textPrimary),
                       ),
                       const Spacer(),
                       Container(
@@ -489,9 +488,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                       ),
                     ],
                   ),
-                  
                   const Spacer(),
-                  if (showProgress) 
+                  if (showProgress)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -500,14 +498,15 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                           children: [
                             Text(
                               '${data['currentValue']} / ${data['value']} ${data['unit']}',
-                              style:  TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color:  customColors.textPrimary,
+                                color: customColors.textPrimary,
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: data['color'].withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(12),
@@ -538,7 +537,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                             // Foreground with icon color
                             Container(
                               height: 12,
-                              width: MediaQuery.of(context).size.width * 0.8 * progress.clamp(0.0, 1.0),
+                              width: MediaQuery.of(context).size.width *
+                                  0.8 *
+                                  progress.clamp(0.0, 1.0),
                               decoration: BoxDecoration(
                                 color: data['color'],
                                 borderRadius: BorderRadius.circular(8),
