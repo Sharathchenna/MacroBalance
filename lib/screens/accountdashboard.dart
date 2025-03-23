@@ -381,7 +381,9 @@ class _AccountDashboardState extends State<AccountDashboard>
                     title: 'Privacy Policy',
                     subtitle: 'Read our privacy policy',
                     trailing: const Icon(Icons.open_in_new),
-                    onTap: () {/* Open privacy policy */},
+                    onTap: () {
+                      HapticFeedback.lightImpact(); /* Open privacy policy */
+                    },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
@@ -412,7 +414,24 @@ class _AccountDashboardState extends State<AccountDashboard>
                     title: 'Contact Support',
                     subtitle: 'Reach out to our team',
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {/* Show contact options */},
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      /* Show contact options */
+                    },
+                    colorScheme: colorScheme,
+                    customColors: customColors,
+                  ),
+                  _buildListTile(
+                    icon: CupertinoIcons.star_fill,
+                    iconColor: Colors.amber,
+                    title: 'Give Feedback',
+                    subtitle: 'Help us improve the app',
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      // Open feedback dialog
+                      // _showFeedbackDialog(context);
+                    },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
