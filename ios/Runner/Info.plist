@@ -40,9 +40,9 @@
 		<key>NSCameraUsageDescription</key>
 		<string>Camera access is required for barcode scanning and food image capture</string>
 		<key>NSHealthShareUsageDescription</key>
-		<string>We need access to your health data to track steps, distance walked, and calories burned.</string>
+		<string>We need access to your step count data to track your daily activity and help you reach your fitness goals.</string>
 		<key>NSHealthUpdateUsageDescription</key>
-		<string>We need permission to save your workout and activity data.</string>
+		<string>We need access to update your health data to keep your activity tracking accurate and up to date.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Location access may be used to enhance food tracking and nutritional recommendations based on your location</string>
 		<key>NSMicrophoneUsageDescription</key>

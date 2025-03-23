@@ -8,7 +8,7 @@
 import SwiftUI
 import Charts
 
-/// A SwiftUI view for displaying step data in a chart format
+/// Modern and visually appealing chart view for daily step data
 struct StepsChartView: View {
     // MARK: - Properties
     
@@ -21,14 +21,51 @@ struct StepsChartView: View {
     /// Currently selected entry for detailed view
     @State private var selectedEntry: StepsEntry?
     
-    /// Currently highlighted date in the chart
-    @State private var highlightedDate: Date?
+    /// Animation states
+    @State private var animateChart: Bool
+    @State private var showDetails = false
+    
+    /// Performance optimization for large datasets
+    private let maxDisplayedPoints = 60 // Maximum number of points to display at once
+    
+    // Initialize with animation control
+    init(entries: [StepsEntry], animateChart: Bool = true) {
+        self.entries = entries
+        self._animateChart = State(initialValue: animateChart)
+    }
     
     // MARK: - Computed Properties
     
-    /// Chart's main color based on color scheme
-    private var chartColor: Color {
-        colorScheme == .dark ? .blue : .blue.opacity(0.8)
+    /// Optimized entries for display
+    private var displayEntries: [StepsEntry] {
+        guard entries.count > maxDisplayedPoints else { return entries }
+        
+        let strideSize = max(1, entries.count / maxDisplayedPoints)
+        return Array(stride(from: 0, to: entries.count, by: strideSize)).map { entries[$0] }
+    }
+    
+    /// Primary gradient for the chart bars
+    private var primaryGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(hex: "3A86FF").opacity(0.8),
+                Color(hex: "3A86FF")
+            ],
+            startPoint: .bottom,
+            endPoint: .top
+        )
+    }
+    
+    /// Success gradient for the chart bars when goal is met
+    private var successGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(hex: "38B000").opacity(0.7),
+                Color(hex: "38B000")
+            ],
+            startPoint: .bottom,
+            endPoint: .top
+        )
     }
     
     /// Average steps per day
@@ -82,157 +119,78 @@ struct StepsChartView: View {
         return ((lastSteps - firstSteps) / firstSteps) * 100
     }
     
-    // MARK: - Body
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Stats Summary Cards
-            statsCardsSection
-            
-            // Main Chart
-            chartSection
-            
-            // Today's Status
-            todayStatusSection
-        }
-        .padding(16)
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
-    }
-    
-    // MARK: - View Components
-    
-    /// Stats cards showing summary metrics
-    private var statsCardsSection: some View {
-        HStack(spacing: 12) {
-            StatCard(
-                title: "Daily Average",
-                value: "\(averageSteps.formattedWithCommas)",
-                subtitle: "steps",
-                color: .blue,
-                trend: calculateTrend()
-            )
-            
-            StatCard(
-                title: "Goal Rate",
-                value: "\(Int(goalCompletionRate))%",
-                subtitle: "completion",
-                color: goalCompletionRate >= 80 ? .green : .orange
-            )
-            
-            StatCard(
-                title: "Total Steps",
-                value: "\(totalSteps.formattedWithCommas)",
-                subtitle: "this week",
-                color: .purple
-            )
-        }
-        .frame(height: 90)
-    }
-    
-    /// Main chart showing daily steps
-    private var chartSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Weekly Progress")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            stepsChart
-            
-            // Selection details card
-            if let selected = selectedEntry {
-                selectionDetailsCard(for: selected)
-            }
+    /// Selects an entry for detailed view
+    private func selectEntry(_ entry: StepsEntry) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            selectedEntry = entry
+            showDetails = true
         }
     }
     
-    /// The steps bar chart with goal lines
-    private var stepsChart: some View {
-        // Break the complex chart into smaller components
-        createStepsBarChart()
-    }
-    
-    // Break down the complex chart into smaller components
+    /// Creates an optimized bar chart for the current dataset
     private func createStepsBarChart() -> some View {
         Chart {
-            // Step bars section
-            ForEach(entries) { entry in
+            // Step bars - use displayEntries for optimization
+            ForEach(displayEntries) { entry in
                 BarMark(
                     x: .value("Day", entry.date, unit: .day),
-                    y: .value("Steps", entry.steps)
+                    y: .value("Steps", animateChart ? entry.steps : 0)
                 )
                 .foregroundStyle(
-                    LinearGradient(
-                        colors: entry.steps >= entry.goal ?
-                            [Color.green.opacity(0.6), Color.green] :
-                            [chartColor.opacity(0.6), chartColor],
-                        startPoint: .bottom,
-                        endPoint: .top
-                    )
+                    entry.steps >= entry.goal ? successGradient : primaryGradient
                 )
                 .cornerRadius(8)
-                .annotation(position: .top) {
-                    if entry.steps >= entry.goal {
-                        Image(systemName: "star.fill")
-                            .foregroundColor(.yellow)
-                            .font(.caption2)
-                    }
-                }
+                .width(25) // Make bars wider
                 
-                // Goal marker
-                RuleMark(
-                    y: .value("Goal", entry.goal)
-                )
-                .lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 4]))
-                .foregroundStyle(Color.red.opacity(0.4))
-                .annotation(position: .trailing, alignment: .leading) {
-                    if entry.id == entries.last?.id {
-                        Text("Goal: \(entry.goal.formattedWithCommas)")
-                            .font(.caption2)
-                            .foregroundColor(.red)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(4)
+                // Goal marker - only show for first and last points
+                if entry.id == displayEntries.first?.id || entry.id == displayEntries.last?.id {
+                    RuleMark(
+                        y: .value("Goal", entry.goal)
+                    )
+                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 4]))
+                    .foregroundStyle(Color(hex: "FF006E").opacity(0.5))
+                    .annotation(position: .trailing, alignment: .leading) {
+                        if entry.id == displayEntries.last?.id {
+                            Text("Goal: \(entry.goal.formattedWithCommas)")
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundColor(Color(hex: "FF006E"))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color(hex: "FF006E").opacity(0.1))
+                                .cornerRadius(4)
+                        }
                     }
                 }
             }
             
             // Trend line if there are multiple entries
-            if entries.count > 1 {
+            if displayEntries.count > 1 && animateChart {
                 LineMark(
-                    x: .value("Day", entries.first!.date, unit: .day),
-                    y: .value("Trend", Double(entries.first!.steps))
+                    x: .value("Day", displayEntries[0].date, unit: .day),
+                    y: .value("Trend", Double(displayEntries[0].steps))
                 )
                 
                 // Add remaining points to the line
-                ForEach(entries.dropFirst()) { entry in
+                ForEach(displayEntries.dropFirst()) { entry in
                     LineMark(
                         x: .value("Day", entry.date, unit: .day),
                         y: .value("Trend", Double(entry.steps))
                     )
                 }
                 .lineStyle(StrokeStyle(lineWidth: 2))
-                .foregroundStyle(Color.blue.opacity(0.3))
+                .foregroundStyle(Color(hex: "3A86FF").opacity(0.3))
                 .interpolationMethod(.catmullRom)
             }
         }
-        .chartForegroundStyleScale([
-            "Steps": chartColor,
-            "Goal": Color.red.opacity(0.6)
-        ])
         .chartYScale(domain: yAxisDomain)
         .chartXAxis {
             AxisMarks(values: .stride(by: .day)) { value in
-                if let date = value.as(Date.self) {
+                if let date = value.as(Date.self),
+                   displayEntries.contains(where: { Calendar.current.isDate($0.date, equalTo: date, toGranularity: .day) }) {
                     AxisValueLabel {
-                        VStack(spacing: 2) {
-                            Text(date, format: .dateTime.weekday(.abbreviated))
-                                .font(.caption2)
-                            Text(dateFormatter.string(from: date))
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
+                        Text(date, format: .dateTime.weekday(.abbreviated))
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
                     }
                     AxisGridLine()
                     AxisTick()
@@ -240,77 +198,142 @@ struct StepsChartView: View {
             }
         }
         .chartYAxis {
-            AxisMarks(position: .leading) { value in
+            AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) { value in
                 AxisGridLine()
                 AxisValueLabel {
                     if let steps = value.as(Int.self) {
                         Text(steps.formattedWithCommas)
-                            .font(.caption2)
+                            .font(.system(size: 12, weight: .regular, design: .rounded))
                             .foregroundColor(.secondary)
                     }
                 }
             }
         }
-        .frame(height: 220)
-        .chartOverlay { proxy in
-            GeometryReader { geometry in
-                Rectangle()
-                    .fill(.clear)
-                    .contentShape(Rectangle())
-                    .gesture(createChartGesture(proxy: proxy, geometry: geometry))
+        .frame(height: 300) // Increased chart height
+    }
+    
+    // MARK: - Body
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // Header
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your Steps")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                    
+                    Text("Last 7 days")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                
+                // Stats Cards
+                statsCardsSection
+                    .padding(.horizontal)
+                
+                // Main Chart
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Weekly Progress")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal)
+                    
+                    createStepsBarChart()
+                        .padding(.horizontal, 8)
+                }
+                .frame(height: 350) // Fixed height for chart section
+                
+                // Selection Details
+                if let selected = selectedEntry, showDetails {
+                    selectionDetailsCard(for: selected)
+                        .padding(.horizontal)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                
+                // Today's Status
+                todayStatusSection
+                    .padding(.horizontal)
+                    .frame(minHeight: 150) // Increased minimum height
+            }
+            .padding(.vertical, 24)
+        }
+        .background(Color(.systemBackground))
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).delay(0.2)) {
+                animateChart = true
             }
         }
     }
     
-    // Creates a drag gesture for chart interaction
-    private func createChartGesture(proxy: ChartProxy, geometry: GeometryProxy) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                let x = value.location.x - geometry.size.width/2
-                guard let date = proxy.value(atX: x) as Date? else { return }
-                highlightedDate = date
-                if let entry = entries.first(where: {
-                    Calendar.current.isDate($0.date, equalTo: date, toGranularity: .day)
-                }) {
-                    selectedEntry = entry
-                }
-            }
-            .onEnded { _ in
-                highlightedDate = nil
-                selectedEntry = nil
-            }
+    // MARK: - View Components
+    
+    /// Stats cards showing summary metrics
+    private var statsCardsSection: some View {
+        HStack(spacing: 16) {
+            StatCard(
+                title: "Daily Avg",
+                value: "\(averageSteps.formattedWithCommas)",
+                subtitle: "steps",
+                icon: "figure.walk",
+                color: Color(hex: "3A86FF"),
+                trend: calculateTrend()
+            )
+            
+            StatCard(
+                title: "Goal Rate",
+                value: "\(Int(goalCompletionRate))%",
+                subtitle: "completion",
+                icon: "checkmark.circle",
+                color: goalCompletionRate >= 80 ? Color(hex: "38B000") : Color(hex: "FB8500")
+            )
+            
+            StatCard(
+                title: "Total",
+                value: "\(totalSteps.formattedWithCommas)",
+                subtitle: "steps",
+                icon: "sum",
+                color: Color(hex: "8338EC")
+            )
+        }
+        .frame(height: 100)
     }
     
     /// Card showing details for selected day
     private func selectionDetailsCard(for entry: StepsEntry) -> some View {
         HStack(spacing: 16) {
-            VStack(alignment: .leading) {
-                Text(dateFormatter.string(from: entry.date))
-                    .font(.subheadline)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.date, format: .dateTime.weekday(.wide).month().day())
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
                     .foregroundColor(.secondary)
+                
                 Text("\(entry.steps.formattedWithCommas) steps")
-                    .font(.headline)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.primary)
             }
             
             Spacer()
             
-            VStack(alignment: .trailing) {
+            VStack(alignment: .trailing, spacing: 4) {
                 Text("Goal Progress")
-                    .font(.subheadline)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(.secondary)
                 
                 let percentage = Int((Double(entry.steps) / Double(entry.goal)) * 100)
-                Text("\(percentage)%")
-                    .font(.headline)
-                    .foregroundColor(entry.steps >= entry.goal ? .green : .primary)
+                HStack(spacing: 4) {
+                    Text("\(percentage)%")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                    
+                    Image(systemName: entry.steps >= entry.goal ? "checkmark.circle.fill" : "arrow.up.circle.fill")
+                        .font(.system(size: 16))
+                }
+                .foregroundColor(entry.steps >= entry.goal ? Color(hex: "38B000") : Color(hex: "3A86FF"))
             }
         }
-        .padding(12)
-        .background(Color(.systemBackground))
-        .cornerRadius(10)
-        .shadow(radius: 2)
-        .transition(.opacity)
-        .animation(.easeInOut(duration: 0.2), value: selectedEntry)
+        .padding(16)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
     }
     
     /// Section showing today's status
@@ -319,6 +342,7 @@ struct StepsChartView: View {
             if let todayEntry = entries.last, 
                Calendar.current.isDateInToday(todayEntry.date) {
                 ActivityStatusView(entry: todayEntry)
+                    .frame(minHeight: 150) // Increased minimum height
             }
         }
     }
@@ -332,6 +356,9 @@ struct ActivityStatusView: View {
     
     /// The step entry to display
     let entry: StepsEntry
+    
+    /// Animation state
+    @State private var animateProgress = false
     
     // MARK: - Computed Properties
     
@@ -347,19 +374,16 @@ struct ActivityStatusView: View {
     
     /// Status text for current pace
     private var paceStatus: String {
-        // If goal is already met, show completed status
         if progress >= 1 {
             return "Completed"
         }
         
-        // Calculate steps needed per hour to reach goal
         let currentHour = Calendar.current.component(.hour, from: Date())
         let hoursLeft = 24 - currentHour
         guard hoursLeft > 0 else { return "Day Complete" }
         
         let stepsPerHour = remaining / max(1, hoursLeft)
         
-        // Determine pace status based on steps per hour needed
         if stepsPerHour > 2000 {
             return "Behind Pace"
         } else if stepsPerHour > 1000 {
@@ -373,48 +397,65 @@ struct ActivityStatusView: View {
     private var paceColor: Color {
         switch paceStatus {
         case "Completed":
-            return .green
+            return Color(hex: "38B000")
         case "Behind Pace":
-            return .red
+            return Color(hex: "FF006E")
         case "On Track":
-            return .orange
+            return Color(hex: "FB8500")
         default:
-            return .green
+            return Color(hex: "38B000")
         }
     }
     
     // MARK: - Body
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             // Progress header
             HStack {
                 Text("Today's Progress")
-                    .font(.headline)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
                 Spacer()
-                Text("\(Int(progress * 100))%")
-                    .font(.headline)
-                    .foregroundColor(progress >= 1 ? .green : .primary)
+                Text("\(Int(animateProgress ? progress * 100 : 0))%")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(progress >= 1 ? Color(hex: "38B000") : Color(hex: "3A86FF"))
+                    .animation(.easeInOut(duration: 1.5), value: animateProgress)
             }
             
             // Progress bar
-            ProgressView(value: min(progress, 1.0))
-                .tint(progress >= 1 ? .green : .blue)
-                .background(Color.gray.opacity(0.2))
-                .scaleEffect(x: 1, y: 2, anchor: .center)
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 12)
+                
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(
+                        LinearGradient(
+                            colors: progress >= 1 ? 
+                                [Color(hex: "38B000").opacity(0.7), Color(hex: "38B000")] : 
+                                [Color(hex: "3A86FF").opacity(0.7), Color(hex: "3A86FF")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: animateProgress ? min(progress, 1.0) * UIScreen.main.bounds.width * 0.85 : 0, height: 12)
+                    .animation(.easeInOut(duration: 1.2), value: animateProgress)
+            }
             
             // Status footer
             HStack(alignment: .top) {
                 // Left side - completion status
                 if progress >= 1 {
                     Label("Goal Achieved! 🎉", systemImage: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(Color(hex: "38B000"))
                 } else {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(remaining.formattedWithCommas) steps to goal")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
                             .foregroundColor(.secondary)
                         Text("Keep moving! You're doing great!")
-                            .font(.caption)
+                            .font(.system(size: 14, weight: .regular, design: .rounded))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -424,20 +465,24 @@ struct ActivityStatusView: View {
                 // Right side - pace indicator
                 if !Calendar.current.isDate(entry.date, equalTo: Date(), toGranularity: .day) {
                     Text("Day Complete")
-                        .font(.caption)
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundColor(.secondary)
                 } else {
                     Text(paceStatus)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
                         .background(paceColor.opacity(0.1))
                         .foregroundColor(paceColor)
-                        .cornerRadius(4)
+                        .cornerRadius(8)
                 }
             }
         }
-        .padding(.top, 8)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).delay(0.3)) {
+                animateProgress = true
+            }
+        }
     }
 }
 
@@ -450,22 +495,35 @@ struct StatCard: View {
     let title: String
     let value: String
     let subtitle: String
+    let icon: String
     let color: Color
     var trend: Double? = nil
+    
+    @State private var appear = false
     
     // MARK: - Body
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            // Icon
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 28, height: 28)
+                    .background(color)
+                    .cornerRadius(8)
+                
+                Text(title)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(.secondary)
+            }
             
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            // Value with trend
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(value)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(color)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.primary)
                 
                 // Optional trend indicator
                 if let trend = trend {
@@ -473,19 +531,26 @@ struct StatCard: View {
                         Image(systemName: trend >= 0 ? "arrow.up.right" : "arrow.down.right")
                         Text("\(abs(Int(trend)))%")
                     }
-                    .font(.caption2)
-                    .foregroundColor(trend >= 0 ? .green : .red)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(trend >= 0 ? Color(hex: "38B000") : Color(hex: "FF006E"))
                 }
             }
             
             Text(subtitle)
-                .font(.caption2)
+                .font(.system(size: 12, weight: .regular, design: .rounded))
                 .foregroundColor(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(color.opacity(0.1))
-        .cornerRadius(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+        .opacity(appear ? 1 : 0)
+        .offset(y: appear ? 0 : 20)
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                appear = true
+            }
+        }
     }
 }
 
@@ -500,4 +565,33 @@ extension Int {
         return formatter.string(from: NSNumber(value: self)) ?? String(self)
     }
 }
+
+extension Color {
+    /// Initialize a Color from a hex string
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 

@@ -160,18 +160,24 @@ class StatsDataManager: StatsDataProvider {
     }
     
     func fetchStepData(completion: @escaping ([StepsEntry]) -> Void) {
-        guard HKHealthStore.isHealthDataAvailable() else {
-            completion(generateMockStepData())
+        let endDate = Date()
+        let startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate)!
+        fetchStepData(from: startDate, to: endDate, completion: completion)
+    }
+    
+    func fetchStepData(from startDate: Date, to endDate: Date, completion: @escaping ([StepsEntry]) -> Void) {
+        // Check if HealthKit is available and we have permission
+        guard HKHealthStore.isHealthDataAvailable(),
+              UserDefaults.standard.bool(forKey: "healthkit_connected") else {
+            completion(generateMockStepData(from: startDate, to: endDate))
             return
         }
         
         let stepsType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
-        let now = Date()
-        let startDate = Calendar.current.date(byAdding: .day, value: -7, to: now)!
         
         let predicate = HKQuery.predicateForSamples(
             withStart: startDate,
-            end: now,
+            end: endDate,
             options: .strictStartDate
         )
         
@@ -183,44 +189,59 @@ class StatsDataManager: StatsDataProvider {
             intervalComponents: DateComponents(day: 1)
         )
         
-        query.initialResultsHandler = { query, results, error in
-            guard let results = results else {
-                completion(self.generateMockStepData())
+        query.initialResultsHandler = { [weak self] query, results, error in
+            guard let self = self,
+                  let results = results else {
+                DispatchQueue.main.async {
+                    completion(self?.generateMockStepData(from: startDate, to: endDate) ?? [])
+                }
                 return
             }
             
             var entries: [StepsEntry] = []
-            results.enumerateStatistics(from: startDate, to: now) { statistics, stop in
-                let count = statistics.sumQuantity()?.doubleValue(for: .count()) ?? 0
-                entries.append(StepsEntry(
+            let goal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? 
+                      UserDefaults.standard.integer(forKey: "steps_goal") : 10000
+            
+            results.enumerateStatistics(from: startDate, to: endDate) { statistics, stop in
+                let steps = statistics.sumQuantity()?.doubleValue(for: .count()) ?? 0
+                let entry = StepsEntry(
                     date: statistics.startDate,
-                    steps: Int(count),
-                    goal: self.defaults.integer(forKey: "steps_goal") > 0 ? self.defaults.integer(forKey: "steps_goal") : 10000
-                ))
+                    steps: Int(steps),
+                    goal: goal
+                )
+                entries.append(entry)
             }
             
-            completion(entries)
+            DispatchQueue.main.async {
+                completion(entries)
+            }
         }
         
         healthStore.execute(query)
     }
     
-    private func generateMockStepData() -> [StepsEntry] {
+    private func generateMockStepData(from startDate: Date, to endDate: Date) -> [StepsEntry] {
         let calendar = Calendar.current
-        let today = Date()
-        let stepsGoal = defaults.integer(forKey: "steps_goal") > 0 ? defaults.integer(forKey: "steps_goal") : 10000
+        let goal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? 
+                  UserDefaults.standard.integer(forKey: "steps_goal") : 10000
         
-        return (0..<7).map { days -> StepsEntry in
-            let date = calendar.date(byAdding: .day, value: -days, to: today)!
+        let days = calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 0
+        
+        return (0...days).map { day in
+            let date = calendar.date(byAdding: .day, value: day, to: startDate)!
             let isWeekend = calendar.isDateInWeekend(date)
             
-            // Weekend has fewer steps on average
-            let steps = isWeekend ? 
-                Int.random(in: 6000...9000) : 
-                Int.random(in: 7500...12000)
-                
-            return StepsEntry(date: date, steps: steps, goal: stepsGoal)
-        }.reversed()
+            // Generate realistic step counts
+            let baseSteps = isWeekend ? 8000 : 10000
+            let variation = Int.random(in: -2000...2000)
+            let steps = max(0, baseSteps + variation)
+            
+            return StepsEntry(
+                date: date,
+                steps: steps,
+                goal: goal
+            )
+        }
     }
     
     func fetchCalorieData(from startDate: Date, to endDate: Date, completion: @escaping ([CaloriesEntry]) -> Void) {
@@ -412,6 +433,41 @@ class StatsDataManager: StatsDataProvider {
     func saveMacroEntry(_ entry: MacrosEntry, completion: @escaping (Bool) -> Void) {
         // TODO: Implement persistence
         completion(true)
+    }
+    
+    func requestHealthKitPermissions(completion: @escaping (Bool) -> Void) {
+        // Check if HealthKit is available
+        guard HKHealthStore.isHealthDataAvailable() else {
+            DispatchQueue.main.async {
+                completion(false)
+            }
+            return
+        }
+        
+        // Define the types we want to read
+        let typesToRead: Set<HKObjectType> = [
+            HKObjectType.quantityType(forIdentifier: .stepCount)!,
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKObjectType.quantityType(forIdentifier: .basalEnergyBurned)!
+        ]
+        
+        // Request authorization
+        healthStore.requestAuthorization(toShare: nil, read: typesToRead) { success, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("HealthKit authorization error: \(error.localizedDescription)")
+                    completion(false)
+                    return
+                }
+                
+                if success {
+                    // Save that we've successfully connected to HealthKit
+                    UserDefaults.standard.set(true, forKey: "healthkit_connected")
+                }
+                
+                completion(success)
+            }
+        }
     }
 }
 
