@@ -285,19 +285,19 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  _buildListTile(
-                    icon: CupertinoIcons.arrow_up_arrow_down,
-                    iconColor: Colors.orange,
-                    title: 'Unit System',
-                    subtitle: 'Current: $_selectedUnit',
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      _showUnitPicker();
-                    },
-                    colorScheme: colorScheme,
-                    customColors: customColors,
-                  ),
+                  // _buildListTile(
+                  //   icon: CupertinoIcons.arrow_up_arrow_down,
+                  //   iconColor: Colors.orange,
+                  //   title: 'Unit System',
+                  //   subtitle: 'Current: $_selectedUnit',
+                  //   trailing: const Icon(Icons.chevron_right),
+                  //   onTap: () {
+                  //     HapticFeedback.lightImpact();
+                  //     _showUnitPicker();
+                  //   },
+                  //   colorScheme: colorScheme,
+                  //   customColors: customColors,
+                  // ),
                 ],
               ),
 
