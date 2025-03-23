@@ -1,14 +1,22 @@
 import Foundation
 import HealthKit
 import UIKit
+import Flutter
 
 class StatsDataManager: StatsDataProvider {
     static let shared = StatsDataManager()
     private let healthStore = HKHealthStore()
     private let defaults = UserDefaults.standard
     private let weightEntriesKey = "weightEntries"
+    private var messenger: FlutterBinaryMessenger?
     
-    private init() {}
+    private init() {
+        // Initialize without messenger
+    }
+    
+    func configure(with messenger: FlutterBinaryMessenger) {
+        self.messenger = messenger
+    }
     
     func setup(completion: @escaping (Bool) -> Void) {
         // Check if HealthKit is available on this device
@@ -215,26 +223,78 @@ class StatsDataManager: StatsDataProvider {
         }.reversed()
     }
     
-    func fetchCalorieData(completion: @escaping ([CaloriesEntry]) -> Void) {
-        // For now using mock data, can be enhanced to use real data from food tracking
-        let calendar = Calendar.current
-        let today = Date()
-        
-        let caloriesGoal = defaults.double(forKey: "calories_goal") > 0 ? 
-            defaults.double(forKey: "calories_goal") : 2500
-        
-        let entries = (0..<7).map { days -> CaloriesEntry in
-            let date = calendar.date(byAdding: .day, value: -days, to: today)!
-            let calories = Double.random(in: 1800...2200)
-            return CaloriesEntry(
-                date: date,
-                calories: calories,
-                goal: caloriesGoal,
-                consumed: calories,
-                burned: Double.random(in: 200...500)
-            )
+    func fetchCalorieData(from startDate: Date, to endDate: Date, completion: @escaping ([CaloriesEntry]) -> Void) {
+        guard let messenger = self.messenger else {
+            // Provide mock data if messenger is not available
+            let calendar = Calendar.current
+            let caloriesGoal = defaults.double(forKey: "calories_goal") > 0 ? 
+                defaults.double(forKey: "calories_goal") : 2500
+            
+            let entries = calendar.datesBetween(startDate, and: endDate).map { date -> CaloriesEntry in
+                let calories = Double.random(in: 1800...2200)
+                return CaloriesEntry(
+                    date: date,
+                    calories: calories,
+                    goal: caloriesGoal,
+                    consumed: calories,
+                    burned: Double.random(in: 200...500)
+                )
+            }
+            
+            completion(entries)
+            return
         }
-        completion(entries.reversed())
+        
+        // Create the method channel
+        let channel = FlutterMethodChannel(
+            name: "com.example.macrotracker/stats",
+            binaryMessenger: messenger
+        )
+        
+        // Format dates for the channel
+        let dateFormatter = ISO8601DateFormatter()
+        let startDateString = dateFormatter.string(from: startDate)
+        let endDateString = dateFormatter.string(from: endDate)
+        
+        // Prepare arguments
+        let arguments: [String: Any] = [
+            "startDate": startDateString,
+            "endDate": endDateString
+        ]
+        
+        // Invoke method
+        channel.invokeMethod("getCalorieData", arguments: arguments) { result in
+            guard let data = result as? [[String: Any]] else {
+                completion([])
+                return
+            }
+            
+            let entries = data.compactMap { dict -> CaloriesEntry? in
+                guard let dateString = dict["date"] as? String,
+                      let date = dateFormatter.date(from: dateString),
+                      let calories = dict["calories"] as? Double,
+                      let goal = dict["goal"] as? Double,
+                      let burned = dict["burned"] as? Double else {
+                    return nil
+                }
+                
+                return CaloriesEntry(
+                    date: date,
+                    calories: calories,
+                    goal: goal,
+                    burned: burned
+                )
+            }
+            
+            completion(entries.sorted { $0.date < $1.date })
+        }
+    }
+    
+    // Keep the old method for backward compatibility
+    func fetchCalorieData(completion: @escaping ([CaloriesEntry]) -> Void) {
+        let endDate = Date()
+        let startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate)!
+        fetchCalorieData(from: startDate, to: endDate, completion: completion)
     }
     
     func fetchMacroData(completion: @escaping ([MacrosEntry]) -> Void) {
@@ -360,4 +420,20 @@ struct WeightEntryData: Codable {
     let timestamp: TimeInterval
     let weight: Double
     let unit: String
+}
+
+// Add Calendar extension for date range
+extension Calendar {
+    func datesBetween(_ from: Date, and to: Date) -> [Date] {
+        var dates: [Date] = []
+        var date = from
+        
+        while date <= to {
+            dates.append(date)
+            guard let newDate = self.date(byAdding: .day, value: 1, to: date) else { break }
+            date = newDate
+        }
+        
+        return dates
+    }
 }

@@ -18,6 +18,9 @@ class FLNativeViewFactory: NSObject, FlutterPlatformViewFactory {
         self.messenger = messenger
         self.parentViewController = parentViewController
         super.init()
+        
+        // Configure StatsDataManager with messenger
+        StatsDataManager.shared.configure(with: messenger)
     }
     
     func create(
