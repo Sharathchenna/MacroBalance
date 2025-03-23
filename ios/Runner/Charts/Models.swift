@@ -14,7 +14,7 @@ struct WeightEntry: Identifiable {
     }
 }
 
-struct StepsEntry: Identifiable {
+struct StepsEntry: Identifiable, Equatable {
     let id = UUID()
     let date: Date
     let steps: Int
@@ -24,6 +24,10 @@ struct StepsEntry: Identifiable {
         self.date = date
         self.steps = steps
         self.goal = goal
+    }
+    
+    static func == (lhs: StepsEntry, rhs: StepsEntry) -> Bool {
+        lhs.id == rhs.id
     }
 }
 

@@ -50,7 +50,7 @@ class StepsViewController: UIViewController {
             action: #selector(showGoalSettings)
         )
         
-        // Setup scroll view
+        // Setup scroll view and content view
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
         
@@ -58,8 +58,8 @@ class StepsViewController: UIViewController {
         scrollView.addSubview(contentView)
         
         contentView.axis = .vertical
-        contentView.spacing = 16
-        contentView.layoutMargins = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        contentView.spacing = 24 // Increased spacing between cards
+        contentView.layoutMargins = UIEdgeInsets(top: 24, left: 0, bottom: 24, right: 0) // Increased vertical margins
         contentView.isLayoutMarginsRelativeArrangement = true
         
         NSLayoutConstraint.activate([
@@ -69,12 +69,13 @@ class StepsViewController: UIViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 20), // Increased horizontal padding
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -20),
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -40)
         ])
         
+        // Add sections with proper spacing
         setupTodaySteps()
         setupStepsChart()
         setupWeeklyStats()
@@ -88,7 +89,7 @@ class StepsViewController: UIViewController {
         
         let containerStack = UIStackView()
         containerStack.axis = .horizontal
-        containerStack.spacing = 16
+        containerStack.spacing = 24 // Increased spacing
         containerStack.alignment = .center
         containerStack.distribution = .fillEqually
         containerStack.translatesAutoresizingMaskIntoConstraints = false
@@ -146,11 +147,11 @@ class StepsViewController: UIViewController {
         contentView.addArrangedSubview(card)
         
         NSLayoutConstraint.activate([
-            card.heightAnchor.constraint(equalToConstant: 160),
-            containerStack.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
-            containerStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
-            containerStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-            containerStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -20)
+            card.heightAnchor.constraint(equalToConstant: 180), // Increased height
+            containerStack.topAnchor.constraint(equalTo: card.topAnchor, constant: 24), // Increased padding
+            containerStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 24),
+            containerStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -24),
+            containerStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24)
         ])
     }
     
@@ -175,14 +176,14 @@ class StepsViewController: UIViewController {
         contentView.addArrangedSubview(chartCard)
         
         NSLayoutConstraint.activate([
-            chartCard.heightAnchor.constraint(equalToConstant: 300),
-            titleLabel.topAnchor.constraint(equalTo: chartCard.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: chartCard.leadingAnchor, constant: 16),
+            chartCard.heightAnchor.constraint(equalToConstant: 340), // Increased height
+            titleLabel.topAnchor.constraint(equalTo: chartCard.topAnchor, constant: 24),
+            titleLabel.leadingAnchor.constraint(equalTo: chartCard.leadingAnchor, constant: 24),
             
-            chartPlaceholder.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
-            chartPlaceholder.leadingAnchor.constraint(equalTo: chartCard.leadingAnchor, constant: 16),
-            chartPlaceholder.trailingAnchor.constraint(equalTo: chartCard.trailingAnchor, constant: -16),
-            chartPlaceholder.bottomAnchor.constraint(equalTo: chartCard.bottomAnchor, constant: -16)
+            chartPlaceholder.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
+            chartPlaceholder.leadingAnchor.constraint(equalTo: chartCard.leadingAnchor, constant: 24),
+            chartPlaceholder.trailingAnchor.constraint(equalTo: chartCard.trailingAnchor, constant: -24),
+            chartPlaceholder.bottomAnchor.constraint(equalTo: chartCard.bottomAnchor, constant: -24)
         ])
     }
     
@@ -218,14 +219,14 @@ class StepsViewController: UIViewController {
         contentView.addArrangedSubview(card)
         
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            card.heightAnchor.constraint(equalToConstant: 180), // Increased height
+            titleLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 24),
+            titleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 24),
             
-            statsStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
-            statsStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
-            statsStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
-            statsStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
-            card.heightAnchor.constraint(equalToConstant: 150)
+            statsStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
+            statsStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 24),
+            statsStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -24),
+            statsStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24)
         ])
     }
     
@@ -256,7 +257,7 @@ class StepsViewController: UIViewController {
         let achievementsStack = UIStackView()
         achievementsStack.axis = .horizontal
         achievementsStack.distribution = .fillEqually
-        achievementsStack.spacing = 12
+        achievementsStack.spacing = 16 // Increased spacing between achievement badges
         
         // Add achievement badges
         let achievements = [
@@ -276,11 +277,11 @@ class StepsViewController: UIViewController {
         contentView.addArrangedSubview(card)
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
-            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
-            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
-            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
-            card.heightAnchor.constraint(equalToConstant: 160)
+            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 24),
+            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 24),
+            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -24),
+            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24),
+            card.heightAnchor.constraint(equalToConstant: 200) // Increased height
         ])
     }
     
@@ -310,11 +311,11 @@ class StepsViewController: UIViewController {
         contentView.addArrangedSubview(card)
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
-            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
-            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
-            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
-            card.heightAnchor.constraint(equalToConstant: 120)
+            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 24),
+            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 24),
+            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -24),
+            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24),
+            card.heightAnchor.constraint(equalToConstant: 160) // Increased height
         ])
     }
     
@@ -324,8 +325,8 @@ class StepsViewController: UIViewController {
         card.backgroundColor = .secondarySystemBackground
         card.layer.cornerRadius = 16
         card.layer.shadowColor = UIColor.black.cgColor
-        card.layer.shadowOffset = CGSize(width: 0, height: 2)
-        card.layer.shadowRadius = 6
+        card.layer.shadowOffset = CGSize(width: 0, height: 4) // Increased shadow offset
+        card.layer.shadowRadius = 8 // Increased shadow radius
         card.layer.shadowOpacity = 0.1
         card.translatesAutoresizingMaskIntoConstraints = false
         return card
