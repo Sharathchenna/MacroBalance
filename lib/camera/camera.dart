@@ -437,9 +437,9 @@ class _CameraScreenState extends State<CameraScreen>
   Future<void> _disposeCamera() async {
     if (_isDisposingCamera) return; // Prevent multiple disposal attempts
 
-    setState(() {
-      _isDisposingCamera = true;
-    });
+    // setState(() {
+    //   _isDisposingCamera = true;
+    // });
 
     try {
       final CameraController? cameraController = _controller;
@@ -658,7 +658,7 @@ class _CameraScreenState extends State<CameraScreen>
                   'Note: AI results are estimates and should be verified for accuracy',
                   style: TextStyle(
                     color: Colors.grey[400],
-                    fontStyle: FontStyle.italic,
+                    // fontStyle: FontStyle.italic,
                     fontSize: 12,
                   ),
                 ),
@@ -832,7 +832,7 @@ class _CameraScreenState extends State<CameraScreen>
                             // Clean up JSON code blocks
                             jsonResponse = jsonResponse.trim();
                             if (jsonResponse.startsWith('```json')) {
-                              jsonResponse = jsonResponse.substring(7);      
+                              jsonResponse = jsonResponse.substring(7);
                             }
                             if (jsonResponse.endsWith('```')) {
                               jsonResponse = jsonResponse.substring(
