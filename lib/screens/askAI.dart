@@ -56,7 +56,7 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
       const apiKey = 'AIzaSyDe8qpEeJHOYJtJviyr4GVH2_ssCUy9gZc';
 
       final model = GenerativeModel(
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
         apiKey: apiKey,
       );
 

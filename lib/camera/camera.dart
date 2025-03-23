@@ -177,13 +177,24 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _handleBarcodeResult(String barcode) async {
-    if (mounted) {
+    if (!mounted) return;
+
+    setState(() {
+      _isContinuousScanning = false;
+    });
+
+    if (_barcodeFound) {
+      // Set disposing flag before any async operations
       setState(() {
-        _isContinuousScanning = false;
+        _isDisposingCamera = true;
       });
 
-      // Navigate only if we haven't already
-      if (_barcodeFound) {
+      await _stopBarcodeScanning();
+      await _disposeCamera();
+      _cameraService.dispose();
+
+      if (!_isDisposed && mounted) {
+        Navigator.pop(context); // Close barcode entry screen
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -285,6 +296,10 @@ class _CameraScreenState extends State<CameraScreen>
             .toList();
 
         if (foods.isNotEmpty) {
+          // Add camera disposal before navigation
+          await _disposeCamera();
+          _cameraService.dispose();
+          Navigator.pop(context); // Close camera screen
           Navigator.push(
             context,
             CupertinoPageRoute(
@@ -418,34 +433,35 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  // Update _disposeCamera method
   Future<void> _disposeCamera() async {
+    if (_isDisposingCamera) return; // Prevent multiple disposal attempts
+
+    // setState(() {
+    //   _isDisposingCamera = true;
+    // });
+
     try {
       final CameraController? cameraController = _controller;
       if (cameraController != null && cameraController.value.isInitialized) {
-        // Only stop image stream if it's actually streaming
         if (cameraController.value.isStreamingImages) {
           try {
             await cameraController.stopImageStream();
           } catch (e) {
             print('Error stopping image stream: $e');
-            // Continue with disposal even if stopping stream fails
           }
         }
 
-        // Turn off flash if it was on
         if (_flashOn) {
           try {
             await cameraController.setFlashMode(FlashMode.off);
           } catch (e) {
             print('Error turning off flash: $e');
-            // Continue with disposal even if flash control fails
           }
         }
 
-        // Dispose the controller
         await cameraController.dispose();
 
-        // Set controller to null to prevent further access
         if (!_isDisposed && mounted) {
           setState(() {
             _controller = null;
@@ -642,7 +658,7 @@ class _CameraScreenState extends State<CameraScreen>
                   'Note: AI results are estimates and should be verified for accuracy',
                   style: TextStyle(
                     color: Colors.grey[400],
-                    fontStyle: FontStyle.italic,
+                    // fontStyle: FontStyle.italic,
                     fontSize: 12,
                   ),
                 ),
@@ -664,6 +680,17 @@ class _CameraScreenState extends State<CameraScreen>
                         child: FutureBuilder<void>(
                           future: _initializeControllerFuture,
                           builder: (context, snapshot) {
+                            if (_isDisposingCamera || _isDisposed) {
+                              return Container(
+                                color: Colors.black,
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              );
+                            }
+
                             if (snapshot.connectionState ==
                                     ConnectionState.done &&
                                 _controller != null &&
@@ -846,6 +873,10 @@ class _CameraScreenState extends State<CameraScreen>
                             }
 
                             if (foods.isNotEmpty) {
+                              // Add camera disposal before navigation
+                              await _disposeCamera();
+                              _cameraService.dispose();
+
                               Navigator.push(
                                 context,
                                 CupertinoPageRoute(
