@@ -8,15 +8,19 @@ class MacrosViewController: UIViewController {
     private let contentView = UIView()
     
     // Main stats views
+    private let headerView = UIView()
     private let macrosSummaryView = MacrosSummaryView()
-    private let macrosDistributionChart = MacrosDistributionChartView()
+    private let dateFilterControl = DateFilterControl()
+    private let macrosChartContainer = UIView()
     private let macrosTrendChart = MacrosTrendChartView()
     private let mealBreakdownView = MealBreakdownView()
     private let goalProgressView = GoalProgressView()
+    private let refreshControl = UIRefreshControl()
     
     // Data
     private var macrosEntries: [Models.MacrosEntry] = []
     private var currentGoalType: GoalType = .maintenance
+    private var selectedDateRange: DateRange = .today
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -24,6 +28,13 @@ class MacrosViewController: UIViewController {
         setupUI()
         setupConstraints()
         setupNavigationBar()
+        setupRefreshControl()
+        loadData()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // Refresh data when view appears
         loadData()
     }
     
@@ -37,139 +48,291 @@ class MacrosViewController: UIViewController {
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         
+        // Header section
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        headerView.backgroundColor = .clear
+        
+        // Date filter control
+        dateFilterControl.translatesAutoresizingMaskIntoConstraints = false
+        dateFilterControl.delegate = self
+        
+        // Configure the chart container
+        macrosChartContainer.translatesAutoresizingMaskIntoConstraints = false
+        macrosChartContainer.backgroundColor = .clear
+        macrosChartContainer.layer.cornerRadius = 16
+        
         // Add subviews to content view
-        [macrosSummaryView, macrosDistributionChart, macrosTrendChart, 
-         mealBreakdownView, goalProgressView].forEach { subview in
+        [headerView, macrosSummaryView, dateFilterControl, macrosChartContainer, 
+         macrosTrendChart, mealBreakdownView, goalProgressView].forEach { subview in
             subview.translatesAutoresizingMaskIntoConstraints = false
             contentView.addSubview(subview)
+        }
+        
+        // Apply card style to main views
+        [macrosSummaryView, macrosTrendChart, mealBreakdownView, goalProgressView].forEach { view in
+            view.layer.cornerRadius = 16
+            view.backgroundColor = .secondarySystemBackground
         }
     }
     
     private func setupConstraints() {
+        let spacing: CGFloat = 16
+        
         NSLayoutConstraint.activate([
-            // Scroll view constraints
+            // ScrollView constraints
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // Content view constraints
+            // ContentView constraints - make it the same width as scroll view
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             
-            // Subview constraints
-            macrosSummaryView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            macrosSummaryView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            macrosSummaryView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            macrosSummaryView.heightAnchor.constraint(equalToConstant: 120),
+            // Header constraints
+            headerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: spacing),
+            headerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
+            headerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            headerView.heightAnchor.constraint(equalToConstant: 50),
             
-            macrosDistributionChart.topAnchor.constraint(equalTo: macrosSummaryView.bottomAnchor, constant: 16),
-            macrosDistributionChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            macrosDistributionChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            macrosDistributionChart.heightAnchor.constraint(equalToConstant: 200),
+            // Date filter control
+            dateFilterControl.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 8),
+            dateFilterControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
+            dateFilterControl.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            dateFilterControl.heightAnchor.constraint(equalToConstant: 44),
             
-            macrosTrendChart.topAnchor.constraint(equalTo: macrosDistributionChart.bottomAnchor, constant: 16),
-            macrosTrendChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            macrosTrendChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            macrosTrendChart.heightAnchor.constraint(equalToConstant: 200),
+            // Macros summary view
+            macrosSummaryView.topAnchor.constraint(equalTo: dateFilterControl.bottomAnchor, constant: spacing),
+            macrosSummaryView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
+            macrosSummaryView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            macrosSummaryView.heightAnchor.constraint(equalToConstant: 140),
             
-            mealBreakdownView.topAnchor.constraint(equalTo: macrosTrendChart.bottomAnchor, constant: 16),
-            mealBreakdownView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            mealBreakdownView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            mealBreakdownView.heightAnchor.constraint(equalToConstant: 250),
+            // Macros chart container - our beautiful new chart
+            macrosChartContainer.topAnchor.constraint(equalTo: macrosSummaryView.bottomAnchor, constant: spacing),
+            macrosChartContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
+            macrosChartContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            macrosChartContainer.heightAnchor.constraint(equalToConstant: 420),
             
-            goalProgressView.topAnchor.constraint(equalTo: mealBreakdownView.bottomAnchor, constant: 16),
-            goalProgressView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            goalProgressView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            goalProgressView.heightAnchor.constraint(equalToConstant: 150),
-            goalProgressView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+            // Macros trend chart
+            macrosTrendChart.topAnchor.constraint(equalTo: macrosChartContainer.bottomAnchor, constant: spacing),
+            macrosTrendChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
+            macrosTrendChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            macrosTrendChart.heightAnchor.constraint(equalToConstant: 280),
+            
+            // Meal breakdown view
+            mealBreakdownView.topAnchor.constraint(equalTo: macrosTrendChart.bottomAnchor, constant: spacing),
+            mealBreakdownView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
+            mealBreakdownView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            mealBreakdownView.heightAnchor.constraint(equalToConstant: 240),
+            
+            // Goal progress view
+            goalProgressView.topAnchor.constraint(equalTo: mealBreakdownView.bottomAnchor, constant: spacing),
+            goalProgressView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
+            goalProgressView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            goalProgressView.heightAnchor.constraint(equalToConstant: 180),
+            goalProgressView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -spacing)
         ])
     }
     
     private func setupNavigationBar() {
-        navigationItem.title = "Macros"
+        title = "Nutrition"
         
-        let goalButton = UIBarButtonItem(image: UIImage(systemName: "target"), 
-                                       style: .plain, 
-                                       target: self, 
-                                       action: #selector(showGoalSelector))
-        let settingsButton = UIBarButtonItem(image: UIImage(systemName: "gear"), 
-                                           style: .plain, 
-                                           target: self, 
-                                           action: #selector(showSettings))
-        navigationItem.rightBarButtonItems = [settingsButton, goalButton]
+        let settingsButton = UIBarButtonItem(
+            image: UIImage(systemName: "gearshape"),
+            style: .plain,
+            target: self,
+            action: #selector(showSettings)
+        )
+        navigationItem.rightBarButtonItem = settingsButton
+    }
+    
+    private func setupRefreshControl() {
+        refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
+        scrollView.refreshControl = refreshControl
     }
     
     // MARK: - Data Loading
     private func loadData() {
-        StatsDataManager.shared.fetchMacrosData { [weak self] entries in
-            self?.macrosEntries = entries
-            self?.updateUI()
+        // Start loading animation
+        refreshControl.beginRefreshing()
+        
+        // Get date range based on selection
+        let endDate = Date()
+        let startDate: Date
+        
+        switch selectedDateRange {
+        case .today:
+            startDate = Calendar.current.startOfDay(for: endDate)
+        case .week:
+            startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate) ?? endDate
+        case .month:
+            startDate = Calendar.current.date(byAdding: .month, value: -1, to: endDate) ?? endDate
+        }
+        
+        // Here you would fetch data from your data manager
+        // For this example, we'll use sample data
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+            
+            // Sample data - Replace with actual data fetching
+            self.macrosEntries = self.createSampleData(from: startDate, to: endDate)
+            
+            // Update UI components
+            self.updateUI()
+            
+            // End refreshing
+            self.refreshControl.endRefreshing()
         }
     }
     
     private func updateUI() {
-        let todayEntry = macrosEntries.last
-        macrosSummaryView.configure(with: todayEntry)
-        macrosDistributionChart.configure(with: todayEntry)
+        guard let latestEntry = macrosEntries.last else { return }
+        
+        // Update macros summary view
+        macrosSummaryView.configure(with: latestEntry)
+        
+        // Update macros chart view with our beautiful new implementation
+        updateMacrosChart(with: macrosEntries)
+        
+        // Update trend chart
         macrosTrendChart.configure(with: macrosEntries)
-        mealBreakdownView.configure(with: todayEntry?.meals ?? [])
-        goalProgressView.configure(with: todayEntry, goalType: currentGoalType)
+        
+        // Update meal breakdown
+        if let meals = latestEntry.meals, !meals.isEmpty {
+            mealBreakdownView.configure(with: meals)
+        } else {
+            mealBreakdownView.showEmptyState()
+        }
+        
+        // Update goal progress
+        goalProgressView.configure(with: latestEntry, goalType: currentGoalType)
+    }
+    
+    private func updateMacrosChart(with entries: [Models.MacrosEntry]) {
+        // Clear existing content
+        for subview in macrosChartContainer.subviews {
+            subview.removeFromSuperview()
+        }
+        
+        // Create our new beautiful chart using SwiftUI
+        let chartView = MacrosChartView(entries: entries)
+            .environment(\.colorScheme, self.traitCollection.userInterfaceStyle == .dark ? .dark : .light)
+        
+        let hostingController = UIHostingController(rootView: chartView)
+        hostingController.view.backgroundColor = .clear
+        
+        addChild(hostingController)
+        macrosChartContainer.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+        
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            hostingController.view.topAnchor.constraint(equalTo: macrosChartContainer.topAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: macrosChartContainer.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: macrosChartContainer.trailingAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: macrosChartContainer.bottomAnchor)
+        ])
     }
     
     // MARK: - Actions
-    @objc private func showGoalSelector() {
-        let alert = UIAlertController(title: "Select Goal", 
-                                    message: "Choose your nutrition goal", 
-                                    preferredStyle: .actionSheet)
-        
-        GoalType.allCases.forEach { goalType in
-            alert.addAction(UIAlertAction(title: goalType.displayName, 
-                                        style: .default) { [weak self] _ in
-                self?.updateGoalType(goalType)
-            })
-        }
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
-    }
-    
-    private func updateGoalType(_ goalType: GoalType) {
-        currentGoalType = goalType
-        // Update macro recommendations based on goal
-        let recommendations = MacroRecommendationService.getRecommendations(for: goalType)
-        goalProgressView.updateRecommendations(recommendations)
+    @objc private func refreshData() {
+        loadData()
     }
     
     @objc private func showSettings() {
         let settingsVC = MacrosSettingsViewController()
-        settingsVC.delegate = self
-        let nav = UINavigationController(rootViewController: settingsVC)
-        present(nav, animated: true)
+        let navController = UINavigationController(rootViewController: settingsVC)
+        present(navController, animated: true)
+    }
+    
+    // MARK: - Sample Data
+    private func createSampleData(from startDate: Date, to endDate: Date) -> [Models.MacrosEntry] {
+        let calendar = Calendar.current
+        let numberOfDays = calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 0
+        
+        var entries: [Models.MacrosEntry] = []
+        
+        for day in 0...numberOfDays {
+            let date = calendar.date(byAdding: .day, value: day, to: startDate) ?? Date()
+            
+            // Simulate some variance in data
+            let proteins = Double.random(in: 100...150)
+            let carbs = Double.random(in: 180...250)
+            let fats = Double.random(in: 50...80)
+            
+            // Create some sample meals
+            var meals: [Models.Meal] = []
+            if calendar.isDateInToday(date) {
+                meals = [
+                    Models.Meal(
+                        id: UUID(),
+                        name: "Breakfast",
+                        time: calendar.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date,
+                        proteins: 30,
+                        carbs: 40,
+                        fats: 15
+                    ),
+                    Models.Meal(
+                        id: UUID(),
+                        name: "Lunch",
+                        time: calendar.date(bySettingHour: 13, minute: 0, second: 0, of: date) ?? date,
+                        proteins: 45,
+                        carbs: 60,
+                        fats: 20
+                    ),
+                    Models.Meal(
+                        id: UUID(),
+                        name: "Dinner",
+                        time: calendar.date(bySettingHour: 19, minute: 0, second: 0, of: date) ?? date,
+                        proteins: 40,
+                        carbs: 50,
+                        fats: 25
+                    )
+                ]
+            }
+            
+            let entry = Models.MacrosEntry(
+                id: UUID(),
+                date: date,
+                proteins: proteins,
+                carbs: carbs,
+                fats: fats,
+                proteinGoal: 150,
+                carbGoal: 250,
+                fatGoal: 65,
+                micronutrients: [],
+                water: Double.random(in: 1500...2500),
+                waterGoal: 2500,
+                meals: meals
+            )
+            
+            entries.append(entry)
+        }
+        
+        return entries.sorted { $0.date < $1.date }
     }
 }
 
-// MARK: - MacrosSettingsDelegate
-extension MacrosViewController: MacrosSettingsDelegate {
-    func settingsDidUpdate() {
+// MARK: - DateFilterControlDelegate
+extension MacrosViewController: DateFilterControlDelegate {
+    func dateRangeChanged(to range: DateRange) {
+        selectedDateRange = range
         loadData()
     }
 }
 
-// MARK: - Supporting Types
-enum GoalType: CaseIterable {
-    case cutting
+// MARK: - Enums
+enum GoalType {
+    case deficit
     case maintenance
-    case bulking
-    
-    var displayName: String {
-        switch self {
-        case .cutting: return "Weight Loss"
-        case .maintenance: return "Maintenance"
-        case .bulking: return "Muscle Gain"
-        }
-    }
+    case surplus
+}
+
+enum DateRange {
+    case today
+    case week
+    case month
 }

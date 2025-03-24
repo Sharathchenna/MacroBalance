@@ -103,15 +103,12 @@ class ChartFactory {
                     meals: []
                 )
             }
-            // Use first macro entry if available
-            if let macroEntry = macrosData.first {
-                let chartView = MacrosChartView(entries: [macroEntry])
-                    .environment(\.colorScheme, parent.traitCollection.userInterfaceStyle == .dark ? .dark : .light)
-                    .frame(height: 300)
-                hostingController = UIHostingController(rootView: AnyView(chartView))
-            } else {
-                hostingController = UIHostingController(rootView: AnyView(EmptyView()))
-            }
+            
+            // Use our redesigned modern chart implementation
+            let chartView = MacrosChartView(entries: macrosData)
+                .environment(\.colorScheme, parent.traitCollection.userInterfaceStyle == .dark ? .dark : .light)
+                .frame(height: 380) // Increased height for better visualization
+            hostingController = UIHostingController(rootView: AnyView(chartView))
             
         default:
             hostingController = UIHostingController(rootView: AnyView(EmptyView()))

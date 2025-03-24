@@ -2,19 +2,27 @@ import UIKit
 
 class MacrosSummaryView: UIView {
     // MARK: - UI Components
+    private let titleLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Daily Overview"
+        label.font = .systemFont(ofSize: 20, weight: .bold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
     private let stackView: UIStackView = {
         let stack = UIStackView()
         stack.axis = .horizontal
         stack.distribution = .fillEqually
-        stack.spacing = 16
+        stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
     }()
     
-    private let calorieView = MacroItemView(title: "Calories", color: .systemBlue)
-    private let proteinView = MacroItemView(title: "Protein", color: .proteinColor)
-    private let carbsView = MacroItemView(title: "Carbs", color: .carbColor)
-    private let fatView = MacroItemView(title: "Fat", color: .fatColor)
+    private let calorieView = MacroItemView(title: "Calories", color: .systemIndigo, icon: "flame.fill")
+    private let proteinView = MacroItemView(title: "Protein", color: .proteinColor, icon: "p.circle.fill")
+    private let carbsView = MacroItemView(title: "Carbs", color: .carbColor, icon: "c.circle.fill")
+    private let fatView = MacroItemView(title: "Fat", color: .fatColor, icon: "f.circle.fill")
     
     // MARK: - Initialization
     override init(frame: CGRect) {
@@ -31,11 +39,8 @@ class MacrosSummaryView: UIView {
     private func setupUI() {
         backgroundColor = .secondarySystemBackground
         layer.cornerRadius = 16
-        layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOffset = CGSize(width: 0, height: 2)
-        layer.shadowRadius = 6
-        layer.shadowOpacity = 0.1
         
+        addSubview(titleLabel)
         addSubview(stackView)
         
         [calorieView, proteinView, carbsView, fatView].forEach {
@@ -43,7 +48,11 @@ class MacrosSummaryView: UIView {
         }
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            
+            stackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
@@ -62,7 +71,8 @@ class MacrosSummaryView: UIView {
         calorieView.configure(
             value: Int(entry.calories),
             goal: Int(entry.calorieGoal),
-            progress: CGFloat(calorieProgress)
+            progress: CGFloat(calorieProgress),
+            unit: "kcal"
         )
         
         // Configure protein view
@@ -70,7 +80,8 @@ class MacrosSummaryView: UIView {
         proteinView.configure(
             value: Int(entry.proteins),
             goal: Int(entry.proteinGoal),
-            progress: CGFloat(proteinProgress)
+            progress: CGFloat(proteinProgress),
+            unit: "g"
         )
         
         // Configure carbs view
@@ -78,7 +89,8 @@ class MacrosSummaryView: UIView {
         carbsView.configure(
             value: Int(entry.carbs),
             goal: Int(entry.carbGoal),
-            progress: CGFloat(carbsProgress)
+            progress: CGFloat(carbsProgress),
+            unit: "g"
         )
         
         // Configure fat view
@@ -86,30 +98,32 @@ class MacrosSummaryView: UIView {
         fatView.configure(
             value: Int(entry.fats),
             goal: Int(entry.fatGoal),
-            progress: CGFloat(fatProgress)
+            progress: CGFloat(fatProgress),
+            unit: "g"
         )
     }
     
     private func resetValues() {
         [calorieView, proteinView, carbsView, fatView].forEach {
-            $0.configure(value: 0, goal: 0, progress: 0)
+            $0.configure(value: 0, goal: 0, progress: 0, unit: "g")
         }
     }
 }
 
 // MARK: - MacroItemView
 private class MacroItemView: UIView {
+    private let iconView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFit
+        imageView.tintColor = .tertiaryLabel
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        return imageView
+    }()
+    
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 14, weight: .medium)
         label.textColor = .secondaryLabel
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
-    private let valueLabel: UILabel = {
-        let label = UILabel()
-        label.font = .systemFont(ofSize: 18, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -120,9 +134,45 @@ private class MacroItemView: UIView {
         return view
     }()
     
-    init(title: String, color: UIColor) {
+    private let valueStack: UIStackView = {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 0
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }()
+    
+    private let valueLabel: UILabel = {
+        let label = UILabel()
+        label.font = .monospacedDigitSystemFont(ofSize: 18, weight: .bold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let goalLabel: UILabel = {
+        let label = UILabel()
+        label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        label.textColor = .tertiaryLabel
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    private let cardView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemBackground
+        view.layer.cornerRadius = 12
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    private var color: UIColor
+    
+    init(title: String, color: UIColor, icon: String) {
+        self.color = color
         super.init(frame: .zero)
         titleLabel.text = title
+        iconView.image = UIImage(systemName: icon)
         progressRing.progressColor = color
         setupUI()
     }
@@ -132,31 +182,67 @@ private class MacroItemView: UIView {
     }
     
     private func setupUI() {
-        let stackView = UIStackView()
-        stackView.axis = .vertical
-        stackView.alignment = .center
-        stackView.spacing = 8
-        stackView.translatesAutoresizingMaskIntoConstraints = false
+        // Add card view first
+        addSubview(cardView)
         
-        addSubview(stackView)
+        // Add elements to card
+        cardView.addSubview(titleLabel)
+        cardView.addSubview(iconView)
+        cardView.addSubview(progressRing)
+        cardView.addSubview(valueStack)
         
-        [titleLabel, progressRing, valueLabel].forEach {
-            stackView.addArrangedSubview($0)
-        }
+        // Add labels to value stack
+        valueStack.addArrangedSubview(valueLabel)
+        valueStack.addArrangedSubview(goalLabel)
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // Card constraints
+            cardView.topAnchor.constraint(equalTo: topAnchor),
+            cardView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            cardView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            cardView.bottomAnchor.constraint(equalTo: bottomAnchor),
             
-            progressRing.widthAnchor.constraint(equalToConstant: 44),
-            progressRing.heightAnchor.constraint(equalToConstant: 44)
+            // Title constraints
+            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 10),
+            titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 10),
+            
+            // Icon constraints
+            iconView.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            iconView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -10),
+            iconView.widthAnchor.constraint(equalToConstant: 20),
+            iconView.heightAnchor.constraint(equalToConstant: 20),
+            
+            // Progress ring constraints
+            progressRing.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            progressRing.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
+            progressRing.widthAnchor.constraint(equalToConstant: 60),
+            progressRing.heightAnchor.constraint(equalToConstant: 60),
+            
+            // Value stack constraints
+            valueStack.centerXAnchor.constraint(equalTo: progressRing.centerXAnchor),
+            valueStack.centerYAnchor.constraint(equalTo: progressRing.centerYAnchor),
+            valueStack.leadingAnchor.constraint(greaterThanOrEqualTo: cardView.leadingAnchor, constant: 4),
+            valueStack.trailingAnchor.constraint(lessThanOrEqualTo: cardView.trailingAnchor, constant: -4),
+            valueStack.bottomAnchor.constraint(lessThanOrEqualTo: cardView.bottomAnchor, constant: -8)
         ])
     }
     
-    func configure(value: Int, goal: Int, progress: CGFloat) {
-        valueLabel.text = "\(value)/\(goal)"
-        progressRing.progress = min(progress, 1.0)
+    func configure(value: Int, goal: Int, progress: CGFloat, unit: String) {
+        valueLabel.text = "\(value)"
+        goalLabel.text = "/ \(goal) \(unit)"
+        
+        // Update progress color based on progress
+        if progress > 1.0 {
+            progressRing.progressColor = .systemRed
+        } else if progress >= 0.9 {
+            progressRing.progressColor = .systemGreen
+        } else {
+            progressRing.progressColor = color
+        }
+        
+        // Animate progress
+        UIView.animate(withDuration: 0.8, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, options: .curveEaseInOut) {
+            self.progressRing.progress = min(progress, 1.2) // Cap at 120% for visual feedback
+        }
     }
 } 

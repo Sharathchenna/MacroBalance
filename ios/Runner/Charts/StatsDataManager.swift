@@ -2,6 +2,7 @@ import Foundation
 import HealthKit
 import UIKit
 import Flutter
+import SwiftUI
 
 // MARK: - StatsDataManager
 class StatsDataManager: StatsDataProvider {

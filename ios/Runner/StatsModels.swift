@@ -1,5 +1,13 @@
 import Foundation
 
+// Shared models for stats
+enum StatsDateRange {
+    case today
+    case week
+    case month
+    case custom(Date, Date)
+}
+
 struct StatsData {
     struct Weight {
         let date: Date

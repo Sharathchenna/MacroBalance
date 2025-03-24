@@ -113,7 +113,7 @@ enum Models {
         var micronutrients: [Micronutrient]
         var water: Double // Water intake in ml
         var waterGoal: Double // Water goal in ml
-        var meals: [Meal]
+        var meals: [Meal]?
         
         // Computed properties
         var calories: Double { 
@@ -202,11 +202,62 @@ enum Models {
     }
 }
 
-// MARK: - Color Extensions
-extension Color {
-    static let proteinColor = Color(red: 0.98, green: 0.76, blue: 0.34) // Golden yellow
-    static let carbColor = Color(red: 0.35, green: 0.78, blue: 0.71) // Teal green
-    static let fatColor = Color(red: 0.56, green: 0.27, blue: 0.68) // Purple
+// MARK: - Extensions
+extension Models.MacrosEntry {
+    static var sampleData: [Models.MacrosEntry] {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        let micronutrients = [
+            Models.Micronutrient(name: "Vitamin C", amount: 65, goal: 90, unit: "mg", category: .vitamins),
+            Models.Micronutrient(name: "Vitamin D", amount: 10, goal: 15, unit: "μg", category: .vitamins),
+            Models.Micronutrient(name: "Calcium", amount: 850, goal: 1000, unit: "mg", category: .minerals),
+            Models.Micronutrient(name: "Iron", amount: 12, goal: 18, unit: "mg", category: .minerals),
+            Models.Micronutrient(name: "Fiber", amount: 22, goal: 30, unit: "g", category: .other)
+        ]
+        
+        let meals = [
+            Models.Meal(
+                name: "Breakfast",
+                time: Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: Date())!,
+                proteins: 25,
+                carbs: 45,
+                fats: 15
+            ),
+            Models.Meal(
+                name: "Lunch",
+                time: Calendar.current.date(bySettingHour: 13, minute: 15, second: 0, of: Date())!,
+                proteins: 40,
+                carbs: 65,
+                fats: 20
+            ),
+            Models.Meal(
+                name: "Dinner",
+                time: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date())!,
+                proteins: 45,
+                carbs: 70,
+                fats: 25
+            )
+        ]
+        
+        return (0..<7).map { dayOffset in
+            let date = calendar.date(byAdding: .day, value: -dayOffset, to: today)!
+            return Models.MacrosEntry(
+                id: UUID(),
+                date: date,
+                proteins: Double.random(in: 100...150),
+                carbs: Double.random(in: 200...300),
+                fats: Double.random(in: 50...80),
+                proteinGoal: 140,
+                carbGoal: 250,
+                fatGoal: 65,
+                micronutrients: micronutrients,
+                water: Double.random(in: 1500...2500),
+                waterGoal: 2500,
+                meals: meals
+            )
+        }
+    }
 }
 
 // Define NutrientType for consistent usage across charts
@@ -235,9 +286,9 @@ enum NutrientType: String, CaseIterable, Identifiable {
     
     var defaultColor: Color {
         switch self {
-        case .protein: return .proteinColor
-        case .carbs: return .carbColor
-        case .fat: return .fatColor
+        case .protein: return Color.proteinColor
+        case .carbs: return Color.carbColor
+        case .fat: return Color.fatColor
         }
     }
 }
@@ -251,87 +302,6 @@ enum MicronutrientCategory: String, CaseIterable, Identifiable {
     var id: String { self.rawValue }
     
     var displayName: String { self.rawValue }
-}
-
-// Convenience extension for generating sample data for previews
-extension Models.MacrosEntry {
-    static func sampleData() -> Models.MacrosEntry {
-        let meals = [
-            Models.Meal(
-                name: "Breakfast",
-                time: Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: Date())!,
-                proteins: 25,
-                carbs: 45,
-                fats: 15
-            ),
-            Models.Meal(
-                name: "Lunch",
-                time: Calendar.current.date(bySettingHour: 13, minute: 15, second: 0, of: Date())!,
-                proteins: 40,
-                carbs: 65,
-                fats: 20
-            ),
-            Models.Meal(
-                name: "Dinner",
-                time: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date())!,
-                proteins: 45,
-                carbs: 70,
-                fats: 25
-            )
-        ]
-        
-        let micronutrients = [
-            Models.Micronutrient(name: "Vitamin C", amount: 65, goal: 90, unit: "mg", category: .vitamins),
-            Models.Micronutrient(name: "Vitamin D", amount: 10, goal: 15, unit: "μg", category: .vitamins),
-            Models.Micronutrient(name: "Calcium", amount: 850, goal: 1000, unit: "mg", category: .minerals),
-            Models.Micronutrient(name: "Iron", amount: 12, goal: 18, unit: "mg", category: .minerals),
-            Models.Micronutrient(name: "Fiber", amount: 22, goal: 30, unit: "g", category: .other)
-        ]
-        
-        return Models.MacrosEntry(
-            id: UUID(),
-            date: Date(),
-            proteins: 110,
-            carbs: 180,
-            fats: 60,
-            proteinGoal: 150,
-            carbGoal: 250,
-            fatGoal: 65,
-            micronutrients: micronutrients,
-            water: 1850,
-            waterGoal: 2500,
-            meals: meals
-        )
-    }
-    
-    // Example implementation for nutrient detail view
-    func micronutrientsForDetailView(in category: MicronutrientCategory) -> [Models.Micronutrient] {
-        switch category {
-        case .vitamins:
-            return [
-                Models.Micronutrient(name: "Vitamin A", amount: 750, goal: 900, unit: "μg", category: .vitamins),
-                Models.Micronutrient(name: "Vitamin C", amount: 65, goal: 90, unit: "mg", category: .vitamins),
-                Models.Micronutrient(name: "Vitamin D", amount: 10, goal: 15, unit: "μg", category: .vitamins),
-                Models.Micronutrient(name: "Vitamin E", amount: 8, goal: 15, unit: "mg", category: .vitamins),
-                Models.Micronutrient(name: "Vitamin K", amount: 85, goal: 120, unit: "μg", category: .vitamins)
-            ]
-        case .minerals:
-            return [
-                Models.Micronutrient(name: "Calcium", amount: 850, goal: 1000, unit: "mg", category: .minerals),
-                Models.Micronutrient(name: "Iron", amount: 12, goal: 18, unit: "mg", category: .minerals),
-                Models.Micronutrient(name: "Magnesium", amount: 320, goal: 400, unit: "mg", category: .minerals),
-                Models.Micronutrient(name: "Zinc", amount: 8, goal: 11, unit: "mg", category: .minerals),
-                Models.Micronutrient(name: "Potassium", amount: 2800, goal: 3500, unit: "mg", category: .minerals)
-            ]
-        case .other:
-            return [
-                Models.Micronutrient(name: "Fiber", amount: 22, goal: 30, unit: "g", category: .other),
-                Models.Micronutrient(name: "Omega-3", amount: 1.2, goal: 1.6, unit: "g", category: .other),
-                Models.Micronutrient(name: "Sodium", amount: 1800, goal: 2300, unit: "mg", category: .other),
-                Models.Micronutrient(name: "Cholesterol", amount: 220, goal: 300, unit: "mg", category: .other)
-            ]
-        }
-    }
 }
 
 // MARK: - Data Provider Protocol
@@ -356,8 +326,4 @@ enum ViewPeriod: String, CaseIterable, Identifiable {
     var id: String { self.rawValue }
 }
 
-extension UIColor {
-    static let proteinColor = UIColor.systemBlue
-    static let carbColor = UIColor.systemGreen
-    static let fatColor = UIColor.systemOrange
-}
+// Removing duplicate color definitions as they are now in ChartUtilities.swift
