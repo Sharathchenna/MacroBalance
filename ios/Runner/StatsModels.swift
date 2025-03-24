@@ -120,4 +120,4 @@ struct StatsData {
                          fatGoal: fatGoal)
         }
     }
-}
+} 

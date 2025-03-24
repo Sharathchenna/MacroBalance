@@ -186,9 +186,9 @@ class StatsMethodHandler: NSObject {
         dataManager.fetchMacroData { entries in
             stats["macros"] = entries.map { [
                 "date": ISO8601DateFormatter().string(from: $0.date),
-                "protein": $0.protein,
+                "protein": $0.proteins,
                 "carbs": $0.carbs,
-                "fat": $0.fat,
+                "fat": $0.fats,
                 "proteinGoal": $0.proteinGoal,
                 "carbGoal": $0.carbGoal,
                 "fatGoal": $0.fatGoal

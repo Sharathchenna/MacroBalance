@@ -13,31 +13,53 @@ struct StepsChartView: View {
     // MARK: - Properties
     
     /// Collection of step entries to display
-    let entries: [StepsEntry]
+    let entries: [Models.StepsEntry]
     
     /// Current color scheme (light/dark mode)
     @Environment(\.colorScheme) var colorScheme
     
     /// Currently selected entry for detailed view
-    @State private var selectedEntry: StepsEntry?
+    @State private var selectedEntry: Models.StepsEntry?
     
     /// Animation states
     @State private var animateChart: Bool
     @State private var showDetails = false
     
+    /// Show trendline in chart
+    private let showTrendline = false
+    
     /// Performance optimization for large datasets
     private let maxDisplayedPoints = 60 // Maximum number of points to display at once
     
     // Initialize with animation control
-    init(entries: [StepsEntry], animateChart: Bool = true) {
+    init(entries: [Models.StepsEntry], animateChart: Bool = true) {
         self.entries = entries
         self._animateChart = State(initialValue: animateChart)
     }
     
     // MARK: - Computed Properties
     
+    /// Moving average of steps for trendline
+    private var movingAverages: [Double] {
+        guard entries.count >= 7 else { return [] }
+        
+        let windowSize = 7
+        var result: [Double] = []
+        
+        for i in 0..<entries.count {
+            let startIndex = max(0, i - windowSize + 1)
+            let endIndex = i
+            let window = entries[startIndex...endIndex]
+            let sum = window.reduce(0) { $0 + $1.steps }
+            let average = Double(sum) / Double(window.count)
+            result.append(average)
+        }
+        
+        return result
+    }
+    
     /// Optimized entries for display
-    private var displayEntries: [StepsEntry] {
+    private var displayEntries: [Models.StepsEntry] {
         guard entries.count > maxDisplayedPoints else { return entries }
         
         let strideSize = max(1, entries.count / maxDisplayedPoints)
@@ -120,7 +142,7 @@ struct StepsChartView: View {
     }
     
     /// Selects an entry for detailed view
-    private func selectEntry(_ entry: StepsEntry) {
+    private func selectEntry(_ entry: Models.StepsEntry) {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             selectedEntry = entry
             showDetails = true
@@ -134,13 +156,13 @@ struct StepsChartView: View {
             ForEach(displayEntries) { entry in
                 BarMark(
                     x: .value("Day", entry.date, unit: .day),
-                    y: .value("Steps", animateChart ? entry.steps : 0)
+                    y: .value("Steps", animateChart ? entry.steps : 0),
+                    width: .fixed(25) // Fixed bar width
                 )
                 .foregroundStyle(
                     entry.steps >= entry.goal ? successGradient : primaryGradient
                 )
                 .cornerRadius(8)
-                .width(25) // Make bars wider
                 
                 // Goal marker - only show for first and last points
                 if entry.id == displayEntries.first?.id || entry.id == displayEntries.last?.id {
@@ -163,23 +185,16 @@ struct StepsChartView: View {
                 }
             }
             
-            // Trend line if there are multiple entries
-            if displayEntries.count > 1 && animateChart {
-                LineMark(
-                    x: .value("Day", displayEntries[0].date, unit: .day),
-                    y: .value("Trend", Double(displayEntries[0].steps))
-                )
-                
-                // Add remaining points to the line
-                ForEach(displayEntries.dropFirst()) { entry in
+            // Add 7-day moving average line if enough data
+            if showTrendline && entries.count >= 7 {
+                ForEach(movingAverages.indices.dropFirst().dropLast(), id: \.self) { index in
                     LineMark(
-                        x: .value("Day", entry.date, unit: .day),
-                        y: .value("Trend", Double(entry.steps))
+                        x: .value("Day", entries[index].date, unit: .day),
+                        y: .value("Average", movingAverages[index])
                     )
+                    .foregroundStyle(Color(hex: "3A86FF").opacity(0.3))
+                    .interpolationMethod(.catmullRom)
                 }
-                .lineStyle(StrokeStyle(lineWidth: 2))
-                .foregroundStyle(Color(hex: "3A86FF").opacity(0.3))
-                .interpolationMethod(.catmullRom)
             }
         }
         .chartYScale(domain: yAxisDomain)
@@ -209,7 +224,7 @@ struct StepsChartView: View {
                 }
             }
         }
-        .frame(height: 300) // Increased chart height
+        .frame(height: 300)
     }
     
     // MARK: - Body
@@ -301,7 +316,7 @@ struct StepsChartView: View {
     }
     
     /// Card showing details for selected day
-    private func selectionDetailsCard(for entry: StepsEntry) -> some View {
+    private func selectionDetailsCard(for entry: Models.StepsEntry) -> some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.date, format: .dateTime.weekday(.wide).month().day())
@@ -355,7 +370,7 @@ struct ActivityStatusView: View {
     // MARK: - Properties
     
     /// The step entry to display
-    let entry: StepsEntry
+    let entry: Models.StepsEntry
     
     /// Animation state
     @State private var animateProgress = false

@@ -1,29 +1,105 @@
 import SwiftUI
 import UIKit
+import DGCharts
 
-// Color extension to match the image style
-extension Color {
-    static let proteinColor = Color(red: 0.98, green: 0.76, blue: 0.34) // Golden yellow
-    static let carbColor = Color(red: 0.35, green: 0.78, blue: 0.71) // Teal green
-    static let fatColor = Color(red: 0.56, green: 0.27, blue: 0.68) // Purple
+// MARK: - Chart Configuration
+struct MacrosChartConfig {
+    let showLegend: Bool
+    let showValues: Bool
+    let showAxisLabels: Bool
+    let showGridLines: Bool
+    let animate: Bool
+    
+    static let `default` = MacrosChartConfig(
+        showLegend: true,
+        showValues: true,
+        showAxisLabels: true,
+        showGridLines: true,
+        animate: true
+    )
 }
 
-struct MacrosChartView: UIViewRepresentable {
-    let entries: [MacrosEntry]
-    
-    func makeUIView(context: Context) -> PieChartView {
-        return PieChartView()
+// MARK: - Chart Factory
+class MacrosChartFactory {
+    static func createLineChart(config: MacrosChartConfig = .default) -> LineChartView {
+        let chart = LineChartView()
+        configureBaseChart(chart, config: config)
+        return chart
     }
     
-    func updateUIView(_ uiView: PieChartView, context: Context) {
+    static func createPieChart(config: MacrosChartConfig = .default) -> DGCharts.PieChartView {
+        let chart = DGCharts.PieChartView()
+        configureBaseChart(chart, config: config)
+        configurePieChart(chart)
+        return chart
+    }
+    
+    static func createBarChart(config: MacrosChartConfig = .default) -> HorizontalBarChartView {
+        let chart = HorizontalBarChartView()
+        configureBaseChart(chart, config: config)
+        return chart
+    }
+    
+    private static func configureBaseChart(_ chart: ChartViewBase, config: MacrosChartConfig) {
+        // Configure legend
+        chart.legend.enabled = config.showLegend
+        chart.legend.horizontalAlignment = .center
+        chart.legend.verticalAlignment = .bottom
+        chart.legend.orientation = .horizontal
+        chart.legend.drawInside = false
+        chart.legend.font = .systemFont(ofSize: 12)
+        
+        // Description configuration
+        chart.chartDescription.enabled = false
+    }
+    
+    private static func configurePieChart(_ chart: DGCharts.PieChartView) {
+        chart.drawHoleEnabled = true
+        chart.holeRadiusPercent = 0.5
+        chart.transparentCircleRadiusPercent = 0.6
+        chart.drawEntryLabelsEnabled = false
+        chart.rotationEnabled = true
+        chart.highlightPerTapEnabled = true
+    }
+}
+
+// MARK: - SwiftUI Chart View
+struct MacrosChartView: UIViewRepresentable {
+    let entries: [Models.MacrosEntry]
+    
+    func makeUIView(context: Context) -> DGCharts.PieChartView {
+        let chart = MacrosChartFactory.createPieChart()
+        return chart
+    }
+    
+    func updateUIView(_ uiView: DGCharts.PieChartView, context: Context) {
         guard let entry = entries.last else { return }
-        let total = entry.proteins + entry.carbs + entry.fats
-        let data = [
-            (value: entry.proteins, color: UIColor(red: 0.98, green: 0.76, blue: 0.34, alpha: 1)),
-            (value: entry.carbs, color: UIColor(red: 0.35, green: 0.78, blue: 0.71, alpha: 1)),
-            (value: entry.fats, color: UIColor(red: 0.56, green: 0.27, blue: 0.68, alpha: 1))
+        
+        let dataEntries = [
+            PieChartDataEntry(value: Double(entry.proteins), label: "Protein"),
+            PieChartDataEntry(value: Double(entry.carbs), label: "Carbs"),
+            PieChartDataEntry(value: Double(entry.fats), label: "Fat")
         ]
-        uiView.updateChart(with: data, total: total)
+        
+        let dataSet = PieChartDataSet(entries: dataEntries)
+        dataSet.colors = [.proteinColor, .carbColor, .fatColor]
+        dataSet.valueFont = .systemFont(ofSize: 14, weight: .medium)
+        dataSet.valueTextColor = .label
+        
+        uiView.data = PieChartData(dataSet: dataSet)
+        
+        if context.coordinator.shouldAnimate {
+            uiView.animate(xAxisDuration: 1.0, yAxisDuration: 1.0)
+            context.coordinator.shouldAnimate = false
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+    
+    class Coordinator {
+        var shouldAnimate = true
     }
 }
 

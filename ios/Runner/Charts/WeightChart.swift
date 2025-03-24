@@ -9,9 +9,9 @@ import SwiftUI
 import Charts
 
 struct WeightChartView: View {
-    let entries: [WeightEntry]
+    let entries: [Models.WeightEntry]
     let goalWeight: Double
-    @State private var selectedEntry: WeightEntry?
+    @State private var selectedEntry: Models.WeightEntry?
     @State private var chartHeight: CGFloat = 300
     @State private var showPrediction: Bool = true
     
@@ -527,13 +527,13 @@ struct WeightChartView_Previews: PreviewProvider {
     static var previews: some View {
         WeightChartView(
             entries: [
-                WeightEntry(date: Date().addingTimeInterval(-6 * 86400), weight: 70.5),
-                WeightEntry(date: Date().addingTimeInterval(-5 * 86400), weight: 70.3),
-                WeightEntry(date: Date().addingTimeInterval(-4 * 86400), weight: 70.0),
-                WeightEntry(date: Date().addingTimeInterval(-3 * 86400), weight: 70.2),
-                WeightEntry(date: Date().addingTimeInterval(-2 * 86400), weight: 69.8),
-                WeightEntry(date: Date().addingTimeInterval(-1 * 86400), weight: 69.7),
-                WeightEntry(date: Date(), weight: 69.5)
+                Models.WeightEntry(date: Date().addingTimeInterval(-6 * 86400), weight: 70.5),
+                Models.WeightEntry(date: Date().addingTimeInterval(-5 * 86400), weight: 70.3),
+                Models.WeightEntry(date: Date().addingTimeInterval(-4 * 86400), weight: 70.0),
+                Models.WeightEntry(date: Date().addingTimeInterval(-3 * 86400), weight: 70.2),
+                Models.WeightEntry(date: Date().addingTimeInterval(-2 * 86400), weight: 69.8),
+                Models.WeightEntry(date: Date().addingTimeInterval(-1 * 86400), weight: 69.7),
+                Models.WeightEntry(date: Date(), weight: 69.5)
             ],
             goalWeight: 68.0
         )

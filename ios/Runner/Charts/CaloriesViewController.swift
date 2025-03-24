@@ -7,7 +7,7 @@ class CaloriesViewController: UIViewController {
     private let contentView = UIStackView()
     private let chartView = LineChartView()
     private let dataManager = StatsDataManager.shared
-    private var calorieEntries: [CaloriesEntry] = []
+    private var calorieEntries: [Models.CaloriesEntry] = []
     
     // Time range selection
     private let timeRangeSegmentedControl: UISegmentedControl = {
@@ -19,7 +19,12 @@ class CaloriesViewController: UIViewController {
     }()
     
     // Progress Ring
-    private let progressRing = MacroCircularProgressView(progress: 0.75, color: .systemGreen)
+    private let progressRing: CircularProgressView = {
+        let view = CircularProgressView()
+        view.progressColor = .systemGreen
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
     
     // Trend Analysis Card
     private let trendCard = UIView()
@@ -31,6 +36,14 @@ class CaloriesViewController: UIViewController {
     private let averageCard = UIView()
     private let deficitCard = UIView()
     private let streakCard = UIView()
+    
+    // Progress View
+    private let progressView: CircularProgressView = {
+        let view = CircularProgressView()
+        view.progressColor = .systemGreen
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -52,6 +65,8 @@ class CaloriesViewController: UIViewController {
         setupTrendAnalysis()
         setupStatsCards()
         setupChartContainer()
+        setupBreakdown()
+        setupComparisonSection()
         
         // Add subtle animations
         animateContentIn()
@@ -253,7 +268,7 @@ class CaloriesViewController: UIViewController {
         
         contentView.addArrangedSubview(breakdownCard)
         
-        // Add meal rows
+        // Add meal rows with interactive elements
         let meals = [
             ("Breakfast", 450),
             ("Lunch", 650),
@@ -262,7 +277,12 @@ class CaloriesViewController: UIViewController {
         ]
         
         meals.forEach { meal, calories in
-            stackView.addArrangedSubview(createMealRow(name: meal, calories: calories))
+            let mealRow = createMealRow(name: meal, calories: calories)
+            stackView.addArrangedSubview(mealRow)
+            
+            let tapGesture = UITapGestureRecognizer(target: self, action: #selector(mealRowTapped(_:)))
+            mealRow.isUserInteractionEnabled = true
+            mealRow.addGestureRecognizer(tapGesture)
         }
         
         NSLayoutConstraint.activate([
@@ -276,34 +296,179 @@ class CaloriesViewController: UIViewController {
         ])
     }
     
-    private func createMealRow(name: String, calories: Int) -> UIView {
-        let container = UIView()
+    @objc private func mealRowTapped(_ sender: UITapGestureRecognizer) {
+        guard let mealRow = sender.view else { return }
         
-        let nameLabel = UILabel()
-        nameLabel.text = name
-        nameLabel.font = .systemFont(ofSize: 16)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        animateCardTap(mealRow)
         
-        let caloriesLabel = UILabel()
-        caloriesLabel.text = "\(calories) cal"
-        caloriesLabel.font = .systemFont(ofSize: 16)
-        caloriesLabel.textColor = .secondaryLabel
-        
-        [nameLabel, caloriesLabel].forEach {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview($0)
+        // Get meal name from the first label in the view
+        if let nameLabel = mealRow.subviews.first(where: { $0 is UILabel }) as? UILabel,
+           let mealName = nameLabel.text {
+            showMealDetails(for: mealName)
         }
+    }
+    
+    private func showMealDetails(for mealName: String) {
+        // This would show detailed breakdown of the meal
+        let alertController = UIAlertController(
+            title: "\(mealName) Details",
+            message: "Would you like to see nutritional breakdown or edit this meal?",
+            preferredStyle: .actionSheet
+        )
         
+        alertController.addAction(UIAlertAction(title: "View Nutrition", style: .default) { _ in
+            // Here you would navigate to a detailed nutrition view
+            print("Show nutrition for \(mealName)")
+        })
+        
+        alertController.addAction(UIAlertAction(title: "Edit Meal", style: .default) { _ in
+            // Here you would open a meal editor
+            print("Edit \(mealName)")
+        })
+        
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        present(alertController, animated: true)
+    }
+    
+    private func setupComparisonSection() {
+        let comparisonCard = createCard()
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "Calorie Comparison"
+        titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        let comparisonView = UIView()
+        comparisonView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Previous day comparison
+        let previousDayStack = UIStackView()
+        previousDayStack.axis = .vertical
+        previousDayStack.spacing = 8
+        previousDayStack.alignment = .center
+        previousDayStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let yesterdayLabel = UILabel()
+        yesterdayLabel.text = "Yesterday"
+        yesterdayLabel.font = .systemFont(ofSize: 14)
+        yesterdayLabel.textColor = .secondaryLabel
+        
+        let yesterdayValue = UILabel()
+        yesterdayValue.text = "1,950"
+        yesterdayValue.font = .systemFont(ofSize: 20, weight: .bold)
+        
+        [yesterdayLabel, yesterdayValue].forEach { previousDayStack.addArrangedSubview($0) }
+        
+        // VS label
+        let vsLabel = UILabel()
+        vsLabel.text = "vs"
+        vsLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        vsLabel.textColor = .secondaryLabel
+        vsLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Current day
+        let currentDayStack = UIStackView()
+        currentDayStack.axis = .vertical
+        currentDayStack.spacing = 8
+        currentDayStack.alignment = .center
+        currentDayStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let todayLabel = UILabel()
+        todayLabel.text = "Today"
+        todayLabel.font = .systemFont(ofSize: 14)
+        todayLabel.textColor = .secondaryLabel
+        
+        let todayValue = UILabel()
+        todayValue.text = "1,850"
+        todayValue.font = .systemFont(ofSize: 20, weight: .bold)
+        
+        [todayLabel, todayValue].forEach { currentDayStack.addArrangedSubview($0) }
+        
+        // Difference indicator
+        let differenceStack = UIStackView()
+        differenceStack.axis = .horizontal
+        differenceStack.spacing = 4
+        differenceStack.alignment = .center
+        differenceStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let arrowIcon = UIImageView(image: UIImage(systemName: "arrow.down"))
+        arrowIcon.tintColor = .systemGreen
+        arrowIcon.contentMode = .scaleAspectFit
+        arrowIcon.translatesAutoresizingMaskIntoConstraints = false
+        
+        let differenceLabel = UILabel()
+        differenceLabel.text = "100 calories (5.1%)"
+        differenceLabel.font = .systemFont(ofSize: 14)
+        differenceLabel.textColor = .systemGreen
+        
+        [arrowIcon, differenceLabel].forEach { differenceStack.addArrangedSubview($0) }
+        
+        // Add to comparison view
+        [previousDayStack, vsLabel, currentDayStack].forEach { comparisonView.addSubview($0) }
+        comparisonView.addSubview(differenceStack)
+        
+        comparisonCard.addSubview(titleLabel)
+        comparisonCard.addSubview(comparisonView)
+        
+        contentView.addArrangedSubview(comparisonCard)
+        
+        // Setup constraints
         NSLayoutConstraint.activate([
-            container.heightAnchor.constraint(equalToConstant: 44),
+            comparisonCard.heightAnchor.constraint(equalToConstant: 150),
             
-            nameLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            nameLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            titleLabel.topAnchor.constraint(equalTo: comparisonCard.topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: comparisonCard.leadingAnchor, constant: 16),
             
-            caloriesLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            caloriesLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+            comparisonView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
+            comparisonView.leadingAnchor.constraint(equalTo: comparisonCard.leadingAnchor, constant: 16),
+            comparisonView.trailingAnchor.constraint(equalTo: comparisonCard.trailingAnchor, constant: -16),
+            comparisonView.bottomAnchor.constraint(equalTo: comparisonCard.bottomAnchor, constant: -16),
+            
+            previousDayStack.leadingAnchor.constraint(equalTo: comparisonView.leadingAnchor, constant: 24),
+            previousDayStack.centerYAnchor.constraint(equalTo: comparisonView.centerYAnchor),
+            
+            vsLabel.centerXAnchor.constraint(equalTo: comparisonView.centerXAnchor),
+            vsLabel.centerYAnchor.constraint(equalTo: comparisonView.centerYAnchor),
+            
+            currentDayStack.trailingAnchor.constraint(equalTo: comparisonView.trailingAnchor, constant: -24),
+            currentDayStack.centerYAnchor.constraint(equalTo: comparisonView.centerYAnchor),
+            
+            differenceStack.centerXAnchor.constraint(equalTo: comparisonView.centerXAnchor),
+            differenceStack.bottomAnchor.constraint(equalTo: comparisonView.bottomAnchor),
+            
+            arrowIcon.widthAnchor.constraint(equalToConstant: 14),
+            arrowIcon.heightAnchor.constraint(equalToConstant: 14)
         ])
         
-        return container
+        // Add tap gesture to comparison card
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(comparisonCardTapped))
+        comparisonCard.addGestureRecognizer(tapGesture)
+        comparisonCard.isUserInteractionEnabled = true
+    }
+    
+    @objc private func comparisonCardTapped() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        
+        let alertController = UIAlertController(
+            title: "Choose Comparison",
+            message: "Select time period to compare with current day",
+            preferredStyle: .actionSheet
+        )
+        
+        let options = ["Yesterday", "Last Week (Average)", "Last Month (Average)", "Same Day Last Week"]
+        
+        options.forEach { option in
+            alertController.addAction(UIAlertAction(title: option, style: .default) { _ in
+                print("Compare with \(option)")
+                // Here you would update the comparison view with the selected option
+            })
+        }
+        
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        present(alertController, animated: true)
     }
     
     private func setupChartView() {
@@ -365,6 +530,7 @@ class CaloriesViewController: UIViewController {
             DispatchQueue.main.async {
                 self?.updateChartData()
                 self?.updateStats()
+                self?.updateWeeklyProgress()
             }
         }
     }
@@ -440,6 +606,29 @@ class CaloriesViewController: UIViewController {
         }, completion: nil)
     }
 
+    private func updateWeeklyProgress() {
+        // Calculate total calories for the week
+        let calendar = Calendar.current
+        let today = Date()
+        let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today))!
+        
+        let weeklyEntries = calorieEntries.filter { entry in
+            // Check if date is in the current week
+            let entryWeek = calendar.component(.weekOfYear, from: entry.date)
+            let entryYear = calendar.component(.yearForWeekOfYear, from: entry.date)
+            let currentWeek = calendar.component(.weekOfYear, from: today)
+            let currentYear = calendar.component(.yearForWeekOfYear, from: today)
+            
+            return entryWeek == currentWeek && entryYear == currentYear
+        }
+        
+        let totalWeeklyCalories = weeklyEntries.reduce(0) { $0 + $1.calories }
+        let weeklyProgress = totalWeeklyCalories / weeklyCalorieGoal
+        
+        // Update UI with the weekly progress
+        // This would be shown in a dedicated weekly progress section
+    }
+
     // MARK: - Helper Functions
     private func createCard() -> UIView {
         let card = UIView()
@@ -488,6 +677,36 @@ class CaloriesViewController: UIViewController {
         return card
     }
 
+    private func createMealRow(name: String, calories: Int) -> UIView {
+        let container = UIView()
+        
+        let nameLabel = UILabel()
+        nameLabel.text = name
+        nameLabel.font = .systemFont(ofSize: 16)
+        
+        let caloriesLabel = UILabel()
+        caloriesLabel.text = "\(calories) cal"
+        caloriesLabel.font = .systemFont(ofSize: 16)
+        caloriesLabel.textColor = .secondaryLabel
+        
+        [nameLabel, caloriesLabel].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview($0)
+        }
+        
+        NSLayoutConstraint.activate([
+            container.heightAnchor.constraint(equalToConstant: 44),
+            
+            nameLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            nameLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            
+            caloriesLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            caloriesLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+        ])
+        
+        return container
+    }
+
     // MARK: - Animations
     private func animateContentIn() {
         contentView.alpha = 0
@@ -525,5 +744,10 @@ class CaloriesViewController: UIViewController {
                 card.transform = .identity
             }, completion: nil)
         }
+    }
+
+    // Add the property to store calorie goals
+    private var weeklyCalorieGoal: Double {
+        return dataManager.getUserCalorieGoal() * 7
     }
 }

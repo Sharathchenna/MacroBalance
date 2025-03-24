@@ -1,1 +1,0 @@
-// This file can be removed as the implementation has been consolidated into StatsDataManager.swift

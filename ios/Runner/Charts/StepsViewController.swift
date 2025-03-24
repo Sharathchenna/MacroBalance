@@ -1,12 +1,13 @@
 import UIKit
 import SwiftUI
 import HealthKit
+import Charts
 
 class StepsViewController: UIViewController {
     // MARK: - Properties
     
     private let dataManager = StatsDataManager.shared
-    private var stepsEntries: [StepsEntry] = []
+    private var entries: [Models.StepsEntry] = []
     private let refreshControl = UIRefreshControl()
     private var hostingController: UIHostingController<AnyView>?
     private var isLoadingData = false
@@ -189,13 +190,13 @@ class StepsViewController: UIViewController {
     private func updateAppearance() {
         // Update UI elements based on current trait collection (light/dark mode)
         if let mainChartView = view.viewWithTag(200) {
-            updateChartView(with: stepsEntries)
+            updateChartView(with: entries)
         }
     }
     
     // MARK: - SwiftUI Chart Integration
     
-    private func updateChartView(with entries: [StepsEntry], animated: Bool = true) {
+    private func updateChartView(with entries: [Models.StepsEntry], animated: Bool = true) {
         // Remove existing views
         if let existingHostingController = hostingController {
             existingHostingController.willMove(toParent: nil)
@@ -361,7 +362,7 @@ class StepsViewController: UIViewController {
                     self.hideLoadingIndicator()
                     
                     // Update data
-                    self.stepsEntries = entries
+                    self.entries = entries
                     
                     if entries.isEmpty {
                         // Show empty state if no data
@@ -449,7 +450,7 @@ class StepsViewController: UIViewController {
         alert.addTextField { textField in
             textField.keyboardType = .numberPad
             textField.placeholder = "Daily step goal"
-            if let currentGoal = self.stepsEntries.last?.goal {
+            if let currentGoal = self.entries.last?.goal {
                 textField.text = "\(currentGoal)"
             }
         }
@@ -554,6 +555,11 @@ class StepsViewController: UIViewController {
                 toastView.removeFromSuperview()
             })
         })
+    }
+    
+    func updateData(_ entries: [Models.StepsEntry]) {
+        self.entries = entries
+        // ... existing code ...
     }
 }
 

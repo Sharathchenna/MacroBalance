@@ -1,113 +1,363 @@
 import Foundation
+import SwiftUI
 
-// MARK: - Data Models
-struct WeightEntry: Identifiable {
-    let id = UUID()
-    let date: Date
-    let weight: Double
-    let unit: String
+// Create Models namespace as an enum
+enum Models {
+    // MARK: - Data Models
+    struct WeightEntry: Identifiable {
+        let id = UUID()
+        let date: Date
+        let weight: Double
+        let unit: String
+        
+        init(date: Date, weight: Double, unit: String = "kg") {
+            self.date = date
+            self.weight = weight
+            self.unit = unit
+        }
+    }
+
+    struct StepsEntry: Identifiable, Equatable {
+        let id = UUID()
+        let date: Date
+        let steps: Int
+        let goal: Int
+        
+        init(date: Date, steps: Int, goal: Int = 10000) {
+            self.date = date
+            self.steps = steps
+            self.goal = goal
+        }
+        
+        static func == (lhs: StepsEntry, rhs: StepsEntry) -> Bool {
+            lhs.id == rhs.id
+        }
+    }
+
+    struct CaloriesEntry: Identifiable {
+        let id = UUID()
+        let date: Date
+        let calories: Double
+        let goal: Double
+        let consumed: Double
+        let burned: Double
+        
+        init(date: Date, calories: Double, goal: Double = 2500, consumed: Double? = nil, burned: Double = 0) {
+            self.date = date
+            self.calories = calories
+            self.goal = goal
+            self.consumed = consumed ?? calories
+            self.burned = burned
+        }
+    }
+
+    // Food item
+    struct FoodItem: Identifiable, Codable {
+        var id: UUID
+        var name: String
+        var proteins: Double
+        var carbs: Double
+        var fats: Double
+        var servingSize: Double
+        var servingUnit: String
+        
+        var calories: Double {
+            return (proteins * 4) + (carbs * 4) + (fats * 9)
+        }
+        
+        init(id: UUID = UUID(), name: String, servingSize: Double, servingUnit: String, proteins: Double, carbs: Double, fats: Double) {
+            self.id = id
+            self.name = name
+            self.servingSize = servingSize
+            self.servingUnit = servingUnit
+            self.proteins = proteins
+            self.carbs = carbs
+            self.fats = fats
+        }
+    }
+
+    // Meal tracking
+    struct Meal: Identifiable, Codable {
+        var id: UUID
+        var name: String
+        var time: Date
+        var proteins: Double
+        var carbs: Double
+        var fats: Double
+        var foods: [FoodItem]
+        
+        var calories: Double {
+            return (proteins * 4) + (carbs * 4) + (fats * 9)
+        }
+        
+        init(id: UUID = UUID(), name: String, time: Date, proteins: Double, carbs: Double, fats: Double, foods: [FoodItem] = []) {
+            self.id = id
+            self.name = name
+            self.time = time
+            self.proteins = proteins
+            self.carbs = carbs
+            self.fats = fats
+            self.foods = foods
+        }
+    }
+
+    struct MacrosEntry: Identifiable, Codable {
+        var id: UUID
+        var date: Date
+        var proteins: Double
+        var carbs: Double
+        var fats: Double
+        var proteinGoal: Double
+        var carbGoal: Double
+        var fatGoal: Double
+        var micronutrients: [Micronutrient]
+        var water: Double // Water intake in ml
+        var waterGoal: Double // Water goal in ml
+        var meals: [Meal]
+        
+        // Computed properties
+        var calories: Double { 
+            (proteins * 4) + (carbs * 4) + (fats * 9) 
+        }
+        
+        var calorieGoal: Double { 
+            (proteinGoal * 4) + (carbGoal * 4) + (fatGoal * 9) 
+        }
+        
+        // Percentage calculations
+        var proteinPercentage: Double { 
+            calories > 0 ? (proteins * 4) / calories * 100 : 0 
+        }
+        
+        var carbsPercentage: Double { 
+            calories > 0 ? (carbs * 4) / calories * 100 : 0 
+        }
+        
+        var fatsPercentage: Double { 
+            calories > 0 ? (fats * 9) / calories * 100 : 0 
+        }
+        
+        // Goal achievement percentages
+        var proteinGoalPercentage: Double {
+            proteinGoal > 0 ? proteins / proteinGoal * 100 : 0
+        }
+        
+        var carbGoalPercentage: Double {
+            carbGoal > 0 ? carbs / carbGoal * 100 : 0
+        }
+        
+        var fatGoalPercentage: Double {
+            fatGoal > 0 ? fats / fatGoal * 100 : 0
+        }
+        
+        var calorieGoalPercentage: Double {
+            calorieGoal > 0 ? calories / calorieGoal * 100 : 0
+        }
+        
+        var waterPercentage: Double {
+            waterGoal > 0 ? water / waterGoal * 100 : 0
+        }
+        
+        // Helper methods
+        func getPercentage(for nutrientType: NutrientType) -> Double {
+            switch nutrientType {
+            case .protein: return proteinPercentage
+            case .carbs: return carbsPercentage
+            case .fat: return fatsPercentage
+            }
+        }
+    }
     
-    init(date: Date, weight: Double, unit: String = "kg") {
-        self.date = date
-        self.weight = weight
-        self.unit = unit
+    // Micronutrient model
+    struct Micronutrient: Identifiable, Codable {
+        var id: String
+        var name: String
+        var amount: Double
+        var goal: Double
+        var unit: String
+        var category: String
+        
+        var percentOfGoal: Double {
+            guard goal > 0 else { return 0 }
+            return min((amount / goal) * 100, 200) // Cap at 200%
+        }
+        
+        init(id: String? = nil, name: String, amount: Double, goal: Double, unit: String, category: String) {
+            self.id = id ?? UUID().uuidString
+            self.name = name
+            self.amount = amount
+            self.goal = goal
+            self.unit = unit
+            self.category = category
+        }
+        
+        init(name: String, amount: Double, goal: Double, unit: String, category: MicronutrientCategory) {
+            self.id = UUID().uuidString
+            self.name = name
+            self.amount = amount
+            self.goal = goal
+            self.unit = unit
+            self.category = category.rawValue
+        }
     }
 }
 
-struct StepsEntry: Identifiable, Equatable {
-    let id = UUID()
-    let date: Date
-    let steps: Int
-    let goal: Int
+// MARK: - Color Extensions
+extension Color {
+    static let proteinColor = Color(red: 0.98, green: 0.76, blue: 0.34) // Golden yellow
+    static let carbColor = Color(red: 0.35, green: 0.78, blue: 0.71) // Teal green
+    static let fatColor = Color(red: 0.56, green: 0.27, blue: 0.68) // Purple
+}
+
+// Define NutrientType for consistent usage across charts
+enum NutrientType: String, CaseIterable, Identifiable {
+    case protein
+    case carbs
+    case fat
     
-    init(date: Date, steps: Int, goal: Int = 10000) {
-        self.date = date
-        self.steps = steps
-        self.goal = goal
+    var id: String { self.rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .protein: return "Protein"
+        case .carbs: return "Carbohydrates"
+        case .fat: return "Fat"
+        }
     }
     
-    static func == (lhs: StepsEntry, rhs: StepsEntry) -> Bool {
-        lhs.id == rhs.id
+    var energyPerGram: Double {
+        switch self {
+        case .protein: return 4
+        case .carbs: return 4
+        case .fat: return 9
+        }
+    }
+    
+    var defaultColor: Color {
+        switch self {
+        case .protein: return .proteinColor
+        case .carbs: return .carbColor
+        case .fat: return .fatColor
+        }
     }
 }
 
-struct CaloriesEntry: Identifiable {
-    let id = UUID()
-    let date: Date
-    let calories: Double
-    let goal: Double
-    let consumed: Double
-    let burned: Double
+// Micronutrient categories
+enum MicronutrientCategory: String, CaseIterable, Identifiable {
+    case vitamins = "Vitamins"
+    case minerals = "Minerals"
+    case other = "Other Nutrients"
     
-    init(date: Date, calories: Double, goal: Double = 2500, consumed: Double? = nil, burned: Double = 0) {
-        self.date = date
-        self.calories = calories
-        self.goal = goal
-        self.consumed = consumed ?? calories
-        self.burned = burned
-    }
+    var id: String { self.rawValue }
+    
+    var displayName: String { self.rawValue }
 }
 
-struct MacrosEntry: Identifiable {
-    let id = UUID()
-    let date: Date
-    let proteins: Double
-    let carbs: Double
-    let fats: Double
-    let proteinGoal: Double
-    let carbGoal: Double // This was missing the property named carbGoal
-    let fatGoal: Double
+// Convenience extension for generating sample data for previews
+extension Models.MacrosEntry {
+    static func sampleData() -> Models.MacrosEntry {
+        let meals = [
+            Models.Meal(
+                name: "Breakfast",
+                time: Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: Date())!,
+                proteins: 25,
+                carbs: 45,
+                fats: 15
+            ),
+            Models.Meal(
+                name: "Lunch",
+                time: Calendar.current.date(bySettingHour: 13, minute: 15, second: 0, of: Date())!,
+                proteins: 40,
+                carbs: 65,
+                fats: 20
+            ),
+            Models.Meal(
+                name: "Dinner",
+                time: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date())!,
+                proteins: 45,
+                carbs: 70,
+                fats: 25
+            )
+        ]
+        
+        let micronutrients = [
+            Models.Micronutrient(name: "Vitamin C", amount: 65, goal: 90, unit: "mg", category: .vitamins),
+            Models.Micronutrient(name: "Vitamin D", amount: 10, goal: 15, unit: "μg", category: .vitamins),
+            Models.Micronutrient(name: "Calcium", amount: 850, goal: 1000, unit: "mg", category: .minerals),
+            Models.Micronutrient(name: "Iron", amount: 12, goal: 18, unit: "mg", category: .minerals),
+            Models.Micronutrient(name: "Fiber", amount: 22, goal: 30, unit: "g", category: .other)
+        ]
+        
+        return Models.MacrosEntry(
+            id: UUID(),
+            date: Date(),
+            proteins: 110,
+            carbs: 180,
+            fats: 60,
+            proteinGoal: 150,
+            carbGoal: 250,
+            fatGoal: 65,
+            micronutrients: micronutrients,
+            water: 1850,
+            waterGoal: 2500,
+            meals: meals
+        )
+    }
     
-    // Additional nutritional data
-    var calories: Double { (proteins * 4) + (carbs * 4) + (fats * 9) }
-    var calorieGoal: Double { (proteinGoal * 4) + (carbGoal * 4) + (fatGoal * 9) }
-    var micronutrients: [String: Double]?
-    var vitamins: [String: Double]?
-    var minerals: [String: Double]?
-    
-    // Computed properties for backward compatibility
-    var protein: Double { proteins }
-    var fat: Double { fats }
-    var carbsGoal: Double { carbGoal } // Add this for backward compatibility
-    
-    // Percentage calculations
-    var proteinPercentage: Double { proteins > 0 ? (proteins * 4) / max(1, calories) * 100 : 0 }
-    var carbsPercentage: Double { carbs > 0 ? (carbs * 4) / max(1, calories) * 100 : 0 }
-    var fatsPercentage: Double { fats > 0 ? (fats * 9) / max(1, calories) * 100 : 0 }
-    
-    init(
-        date: Date,
-        proteins: Double,
-        carbs: Double,
-        fats: Double,
-        proteinGoal: Double = 150,
-        carbGoal: Double = 250,
-        fatGoal: Double = 65,
-        micronutrients: [String: Double]? = nil,
-        vitamins: [String: Double]? = nil,
-        minerals: [String: Double]? = nil
-    ) {
-        self.date = date
-        self.proteins = proteins
-        self.carbs = carbs
-        self.fats = fats
-        self.proteinGoal = proteinGoal
-        self.carbGoal = carbGoal
-        self.fatGoal = fatGoal
-        self.micronutrients = micronutrients
-        self.vitamins = vitamins
-        self.minerals = minerals
+    // Example implementation for nutrient detail view
+    func micronutrientsForDetailView(in category: MicronutrientCategory) -> [Models.Micronutrient] {
+        switch category {
+        case .vitamins:
+            return [
+                Models.Micronutrient(name: "Vitamin A", amount: 750, goal: 900, unit: "μg", category: .vitamins),
+                Models.Micronutrient(name: "Vitamin C", amount: 65, goal: 90, unit: "mg", category: .vitamins),
+                Models.Micronutrient(name: "Vitamin D", amount: 10, goal: 15, unit: "μg", category: .vitamins),
+                Models.Micronutrient(name: "Vitamin E", amount: 8, goal: 15, unit: "mg", category: .vitamins),
+                Models.Micronutrient(name: "Vitamin K", amount: 85, goal: 120, unit: "μg", category: .vitamins)
+            ]
+        case .minerals:
+            return [
+                Models.Micronutrient(name: "Calcium", amount: 850, goal: 1000, unit: "mg", category: .minerals),
+                Models.Micronutrient(name: "Iron", amount: 12, goal: 18, unit: "mg", category: .minerals),
+                Models.Micronutrient(name: "Magnesium", amount: 320, goal: 400, unit: "mg", category: .minerals),
+                Models.Micronutrient(name: "Zinc", amount: 8, goal: 11, unit: "mg", category: .minerals),
+                Models.Micronutrient(name: "Potassium", amount: 2800, goal: 3500, unit: "mg", category: .minerals)
+            ]
+        case .other:
+            return [
+                Models.Micronutrient(name: "Fiber", amount: 22, goal: 30, unit: "g", category: .other),
+                Models.Micronutrient(name: "Omega-3", amount: 1.2, goal: 1.6, unit: "g", category: .other),
+                Models.Micronutrient(name: "Sodium", amount: 1800, goal: 2300, unit: "mg", category: .other),
+                Models.Micronutrient(name: "Cholesterol", amount: 220, goal: 300, unit: "mg", category: .other)
+            ]
+        }
     }
 }
 
 // MARK: - Data Provider Protocol
 protocol StatsDataProvider {
-    func fetchWeightData(completion: @escaping ([WeightEntry]) -> Void)
-    func fetchCalorieData(completion: @escaping ([CaloriesEntry]) -> Void)
-    func fetchMacroData(completion: @escaping ([MacrosEntry]) -> Void)
-    func fetchStepData(completion: @escaping ([StepsEntry]) -> Void)
+    func fetchWeightData(completion: @escaping ([Models.WeightEntry]) -> Void)
+    func fetchCalorieData(completion: @escaping ([Models.CaloriesEntry]) -> Void)
+    func fetchMacroData(completion: @escaping ([Models.MacrosEntry]) -> Void)
+    func fetchStepData(completion: @escaping ([Models.StepsEntry]) -> Void)
     
-    func saveWeightEntry(_ entry: WeightEntry, completion: @escaping (Bool) -> Void)
-    func saveCalorieEntry(_ entry: CaloriesEntry, completion: @escaping (Bool) -> Void)
-    func saveMacroEntry(_ entry: MacrosEntry, completion: @escaping (Bool) -> Void)
+    func saveWeightEntry(_ entry: Models.WeightEntry, completion: @escaping (Bool) -> Void)
+    func saveCalorieEntry(_ entry: Models.CaloriesEntry, completion: @escaping (Bool) -> Void)
+    func saveMacroEntry(_ entry: Models.MacrosEntry, completion: @escaping (Bool) -> Void)
+}
+
+// Period for viewing stats
+enum ViewPeriod: String, CaseIterable, Identifiable {
+    case day = "Day"
+    case week = "Week"
+    case month = "Month"
+    case year = "Year"
+    
+    var id: String { self.rawValue }
+}
+
+extension UIColor {
+    static let proteinColor = UIColor.systemBlue
+    static let carbColor = UIColor.systemGreen
+    static let fatColor = UIColor.systemOrange
 }

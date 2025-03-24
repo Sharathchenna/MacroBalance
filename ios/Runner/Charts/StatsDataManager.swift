@@ -3,12 +3,21 @@ import HealthKit
 import UIKit
 import Flutter
 
+// MARK: - StatsDataManager
 class StatsDataManager: StatsDataProvider {
     static let shared = StatsDataManager()
     private let healthStore = HKHealthStore()
     private let defaults = UserDefaults.standard
     private let weightEntriesKey = "weightEntries"
     private var messenger: FlutterBinaryMessenger?
+    
+    // Add required data properties
+    private var weightData: [StatsData.Weight] = []
+    private var stepsData: [StatsData.Steps] = []
+    private var macrosData: [StatsData.Macros] = []
+    
+    // Cache for user settings
+    private var userCalorieGoal: Double?
     
     private init() {
         // Initialize without messenger
@@ -41,10 +50,13 @@ class StatsDataManager: StatsDataProvider {
         }
     }
     
-    func fetchWeightData(completion: @escaping ([WeightEntry]) -> Void) {
+    func fetchWeightData(completion: @escaping ([Models.WeightEntry]) -> Void) {
         // First try to get saved weight entries
         if let savedEntries = loadSavedWeightEntries() {
-            // Filter to entries from last few weeks based on current period
+            let statsDataEntries = savedEntries.map { entry in
+                StatsData.Weight(date: entry.date, weight: entry.weight, unit: entry.unit)
+            }
+            self.weightData = statsDataEntries
             completion(savedEntries)
             return
         }
@@ -53,21 +65,35 @@ class StatsDataManager: StatsDataProvider {
         if HKHealthStore.isHealthDataAvailable() {
             fetchWeightFromHealthKit { healthKitEntries in
                 if !healthKitEntries.isEmpty {
+                    let statsDataEntries = healthKitEntries.map { entry in
+                        StatsData.Weight(date: entry.date, weight: entry.weight, unit: entry.unit)
+                    }
+                    self.weightData = statsDataEntries
                     completion(healthKitEntries)
                     return
                 }
                 
                 // Fall back to mock data if nothing else is available
-                completion(self.generateMockWeightData())
+                let mockData = self.generateMockWeightData()
+                let statsDataEntries = mockData.map { entry in
+                    StatsData.Weight(date: entry.date, weight: entry.weight, unit: entry.unit)
+                }
+                self.weightData = statsDataEntries
+                completion(mockData)
             }
             return
         }
         
         // If HealthKit is not available, use mock data
-        completion(generateMockWeightData())
+        let mockData = generateMockWeightData()
+        let statsDataEntries = mockData.map { entry in
+            StatsData.Weight(date: entry.date, weight: entry.weight, unit: entry.unit)
+        }
+        self.weightData = statsDataEntries
+        completion(mockData)
     }
     
-    private func fetchWeightFromHealthKit(completion: @escaping ([WeightEntry]) -> Void) {
+    private func fetchWeightFromHealthKit(completion: @escaping ([Models.WeightEntry]) -> Void) {
         guard let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass) else {
             completion([])
             return
@@ -102,7 +128,7 @@ class StatsDataManager: StatsDataProvider {
             // Convert to WeightEntry objects
             let entries = samples.map { sample in
                 let weight = sample.quantity.doubleValue(for: unit)
-                return WeightEntry(
+                return Models.WeightEntry(
                     date: sample.endDate,
                     weight: weight,
                     unit: weightUnit
@@ -115,13 +141,13 @@ class StatsDataManager: StatsDataProvider {
         healthStore.execute(query)
     }
     
-    private func loadSavedWeightEntries() -> [WeightEntry]? {
+    private func loadSavedWeightEntries() -> [Models.WeightEntry]? {
         guard let data = defaults.data(forKey: weightEntriesKey) else { return nil }
         
         do {
             let entriesData = try JSONDecoder().decode([WeightEntryData].self, from: data)
             return entriesData.map { entryData in
-                WeightEntry(
+                Models.WeightEntry(
                     date: Date(timeIntervalSince1970: entryData.timestamp),
                     weight: entryData.weight,
                     unit: entryData.unit
@@ -133,7 +159,7 @@ class StatsDataManager: StatsDataProvider {
         }
     }
     
-    private func generateMockWeightData() -> [WeightEntry] {
+    private func generateMockWeightData() -> [Models.WeightEntry] {
         let calendar = Calendar.current
         let today = Date()
         let weightUnit = defaults.string(forKey: "weight_unit") ?? "kg"
@@ -144,7 +170,7 @@ class StatsDataManager: StatsDataProvider {
         let trend = -0.2 // slight downward trend
         
         // Create 30 days of weight entries with a realistic pattern
-        return (0..<30).map { days -> WeightEntry in
+        return (0..<30).map { days -> Models.WeightEntry in
             let date = calendar.date(byAdding: .day, value: -days, to: today)!
             
             // Apply trend and add some random variation
@@ -155,17 +181,17 @@ class StatsDataManager: StatsDataProvider {
                 currentWeight += trend + dailyVariation + weekendEffect
             }
             
-            return WeightEntry(date: date, weight: currentWeight, unit: weightUnit)
+            return Models.WeightEntry(date: date, weight: currentWeight, unit: weightUnit)
         }.reversed() // Return in chronological order
     }
     
-    func fetchStepData(completion: @escaping ([StepsEntry]) -> Void) {
+    func fetchStepData(completion: @escaping ([Models.StepsEntry]) -> Void) {
         let endDate = Date()
         let startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate)!
         fetchStepData(from: startDate, to: endDate, completion: completion)
     }
     
-    func fetchStepData(from startDate: Date, to endDate: Date, completion: @escaping ([StepsEntry]) -> Void) {
+    func fetchStepData(from startDate: Date, to endDate: Date, completion: @escaping ([Models.StepsEntry]) -> Void) {
         // Check if HealthKit is available and we have permission
         guard HKHealthStore.isHealthDataAvailable(),
               UserDefaults.standard.bool(forKey: "healthkit_connected") else {
@@ -198,13 +224,19 @@ class StatsDataManager: StatsDataProvider {
                 return
             }
             
-            var entries: [StepsEntry] = []
+            var entries: [Models.StepsEntry] = []
             let goal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? 
                       UserDefaults.standard.integer(forKey: "steps_goal") : 10000
             
             results.enumerateStatistics(from: startDate, to: endDate) { statistics, stop in
                 let steps = statistics.sumQuantity()?.doubleValue(for: .count()) ?? 0
-                let entry = StepsEntry(
+                let statsDataEntry = StatsData.Steps(
+                    date: statistics.startDate,
+                    count: Int(steps),
+                    goal: goal
+                )
+                self.stepsData.append(statsDataEntry)
+                let entry = Models.StepsEntry(
                     date: statistics.startDate,
                     steps: Int(steps),
                     goal: goal
@@ -220,7 +252,7 @@ class StatsDataManager: StatsDataProvider {
         healthStore.execute(query)
     }
     
-    private func generateMockStepData(from startDate: Date, to endDate: Date) -> [StepsEntry] {
+    private func generateMockStepData(from startDate: Date, to endDate: Date) -> [Models.StepsEntry] {
         let calendar = Calendar.current
         let goal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? 
                   UserDefaults.standard.integer(forKey: "steps_goal") : 10000
@@ -236,7 +268,7 @@ class StatsDataManager: StatsDataProvider {
             let variation = Int.random(in: -2000...2000)
             let steps = max(0, baseSteps + variation)
             
-            return StepsEntry(
+            return Models.StepsEntry(
                 date: date,
                 steps: steps,
                 goal: goal
@@ -244,16 +276,16 @@ class StatsDataManager: StatsDataProvider {
         }
     }
     
-    func fetchCalorieData(from startDate: Date, to endDate: Date, completion: @escaping ([CaloriesEntry]) -> Void) {
+    func fetchCalorieData(from startDate: Date, to endDate: Date, completion: @escaping ([Models.CaloriesEntry]) -> Void) {
         guard let messenger = self.messenger else {
             // Provide mock data if messenger is not available
             let calendar = Calendar.current
             let caloriesGoal = defaults.double(forKey: "calories_goal") > 0 ? 
                 defaults.double(forKey: "calories_goal") : 2500
             
-            let entries = calendar.datesBetween(startDate, and: endDate).map { date -> CaloriesEntry in
+            let entries = calendar.datesBetween(startDate, and: endDate).map { date -> Models.CaloriesEntry in
                 let calories = Double.random(in: 1800...2200)
-                return CaloriesEntry(
+                return Models.CaloriesEntry(
                     date: date,
                     calories: calories,
                     goal: caloriesGoal,
@@ -290,7 +322,7 @@ class StatsDataManager: StatsDataProvider {
                 return
             }
             
-            let entries = data.compactMap { dict -> CaloriesEntry? in
+            let entries = data.compactMap { dict -> Models.CaloriesEntry? in
                 guard let dateString = dict["date"] as? String,
                       let date = dateFormatter.date(from: dateString),
                       let calories = dict["calories"] as? Double,
@@ -299,7 +331,7 @@ class StatsDataManager: StatsDataProvider {
                     return nil
                 }
                 
-                return CaloriesEntry(
+                return Models.CaloriesEntry(
                     date: date,
                     calories: calories,
                     goal: goal,
@@ -312,13 +344,13 @@ class StatsDataManager: StatsDataProvider {
     }
     
     // Keep the old method for backward compatibility
-    func fetchCalorieData(completion: @escaping ([CaloriesEntry]) -> Void) {
+    func fetchCalorieData(completion: @escaping ([Models.CaloriesEntry]) -> Void) {
         let endDate = Date()
         let startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate)!
         fetchCalorieData(from: startDate, to: endDate, completion: completion)
     }
     
-    func fetchMacroData(completion: @escaping ([MacrosEntry]) -> Void) {
+    func fetchMacroData(completion: @escaping ([Models.MacrosEntry]) -> Void) {
         let calendar = Calendar.current
         let today = Date()
         
@@ -330,23 +362,57 @@ class StatsDataManager: StatsDataProvider {
         let fatGoal = defaults.double(forKey: "fat_goal") > 0 ? 
             defaults.double(forKey: "fat_goal") : 65
         
-        let entries = (0..<7).map { days -> MacrosEntry in
-            let date = calendar.date(byAdding: .day, value: -days, to: today)!
-            return MacrosEntry(
+        // Generate entries for last 30 days with realistic patterns
+        var entries: [Models.MacrosEntry] = []
+        
+        for day in 0..<30 {
+            let date = calendar.date(byAdding: .day, value: -day, to: today)!
+            let isWeekend = calendar.isDateInWeekend(date)
+            
+            // Create variation based on weekday/weekend
+            let proteinMultiplier = isWeekend ? Double.random(in: 0.8...1.0) : Double.random(in: 0.9...1.05)
+            let carbMultiplier = isWeekend ? Double.random(in: 0.85...1.2) : Double.random(in: 0.9...1.1)
+            let fatMultiplier = isWeekend ? Double.random(in: 0.9...1.3) : Double.random(in: 0.85...1.1)
+            
+            // Calculate day's macros
+            let proteins = proteinGoal * proteinMultiplier
+            let carbs = carbGoal * carbMultiplier
+            let fats = fatGoal * fatMultiplier
+            
+            // Create the entry
+            let entry = Models.MacrosEntry(
+                id: UUID(),
                 date: date,
-                proteins: Double.random(in: 120...150),
-                carbs: Double.random(in: 200...250),
-                fats: Double.random(in: 50...65),
+                proteins: proteins,
+                carbs: carbs,
+                fats: fats,
                 proteinGoal: proteinGoal,
                 carbGoal: carbGoal,
-                fatGoal: fatGoal
+                fatGoal: fatGoal,
+                micronutrients: [],
+                water: Double.random(in: 1800...2500),
+                waterGoal: 2500,
+                meals: []
             )
+            
+            entries.append(entry)
+            
+            // Store in internal data
+            self.macrosData.append(StatsData.Macros(
+                date: date,
+                protein: proteins,
+                carbs: carbs,
+                fat: fats,
+                proteinGoal: proteinGoal,
+                carbsGoal: carbGoal,
+                fatGoal: fatGoal
+            ))
         }
         
-        completion(entries.reversed())
+        completion(entries.sorted(by: { $0.date < $1.date }))
     }
     
-    func saveWeightEntry(_ entry: WeightEntry, completion: @escaping (Bool) -> Void) {
+    func saveWeightEntry(_ entry: Models.WeightEntry, completion: @escaping (Bool) -> Void) {
         // Load existing entries
         var entries = loadSavedWeightEntries() ?? []
         
@@ -384,7 +450,7 @@ class StatsDataManager: StatsDataProvider {
         }
     }
     
-    private func saveWeightToHealthKit(_ entry: WeightEntry, completion: @escaping (Bool) -> Void) {
+    private func saveWeightToHealthKit(_ entry: Models.WeightEntry, completion: @escaping (Bool) -> Void) {
         guard HKHealthStore.isHealthDataAvailable(),
               let weightType = HKQuantityType.quantityType(forIdentifier: .bodyMass) else {
             completion(false)
@@ -425,12 +491,23 @@ class StatsDataManager: StatsDataProvider {
         }
     }
     
-    func saveCalorieEntry(_ entry: CaloriesEntry, completion: @escaping (Bool) -> Void) {
+    func saveCalorieEntry(_ entry: Models.CaloriesEntry, completion: @escaping (Bool) -> Void) {
         // TODO: Implement persistence
         completion(true)
     }
     
-    func saveMacroEntry(_ entry: MacrosEntry, completion: @escaping (Bool) -> Void) {
+    func saveMacroEntry(_ entry: Models.MacrosEntry, completion: @escaping (Bool) -> Void) {
+        // Store in internal data
+        self.macrosData.append(StatsData.Macros(
+            date: entry.date,
+            protein: entry.proteins,
+            carbs: entry.carbs,
+            fat: entry.fats,
+            proteinGoal: entry.proteinGoal,
+            carbsGoal: entry.carbGoal,
+            fatGoal: entry.fatGoal
+        ))
+        
         // TODO: Implement persistence
         completion(true)
     }
@@ -469,6 +546,274 @@ class StatsDataManager: StatsDataProvider {
             }
         }
     }
+    
+    // Get user's daily calorie goal
+    func getUserCalorieGoal() -> Double {
+        // Return cached value if available
+        if let cachedGoal = userCalorieGoal {
+            return cachedGoal
+        }
+        
+        // In a real app, this would fetch from user preferences or settings
+        // For now, return a default value of 2500 calories
+        let defaultGoal: Double = 2500
+        
+        // Cache the value
+        userCalorieGoal = defaultGoal
+        
+        return defaultGoal
+    }
+    
+    // Set user's daily calorie goal
+    func setUserCalorieGoal(_ goal: Double, completion: @escaping (Bool) -> Void) {
+        // In a real app, this would update user preferences or settings
+        userCalorieGoal = goal
+        
+        // Simulate API success
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            completion(true)
+        }
+    }
+    
+    func getTodaysMacros() -> MacrosDataEntry? {
+        // In a real app, this would fetch from a database or API
+        // For now, return sample data
+        return MacrosDataEntry.sampleData()
+    }
+    
+    func getWeeklyMacros() -> [MacrosDataEntry] {
+        // Generate mock data for the past week
+        var entries: [MacrosDataEntry] = []
+        let calendar = Calendar.current
+        
+        for i in 0..<7 {
+            guard let date = calendar.date(byAdding: .day, value: -i, to: Date()) else { continue }
+            
+            let entry = MacrosDataEntry(
+                date: date,
+                proteins: Double.random(in: 120...160),
+                carbs: Double.random(in: 200...280),
+                fats: Double.random(in: 50...80),
+                water: Double.random(in: 1800...2500),
+                meals: generateRandomMeals(forDate: date)
+            )
+            entries.append(entry)
+        }
+        
+        return entries
+    }
+    
+    private func generateRandomMeals(forDate date: Date) -> [Models.Meal] {
+        let calendar = Calendar.current
+        var meals: [Models.Meal] = []
+        
+        // Breakfast
+        if Bool.random() {
+            var breakfastComponents = DateComponents()
+            breakfastComponents.year = calendar.component(.year, from: date)
+            breakfastComponents.month = calendar.component(.month, from: date)
+            breakfastComponents.day = calendar.component(.day, from: date)
+            breakfastComponents.hour = 8
+            breakfastComponents.minute = Int.random(in: 0...30)
+            
+            if let breakfastTime = calendar.date(from: breakfastComponents) {
+                meals.append(
+                    Models.Meal(
+                        name: "Breakfast",
+                        time: breakfastTime,
+                        proteins: Double.random(in: 20...35),
+                        carbs: Double.random(in: 40...60),
+                        fats: Double.random(in: 10...20),
+                        foods: []
+                    )
+                )
+            }
+        }
+        
+        // Lunch
+        if Bool.random(probability: 0.9) {
+            var lunchComponents = DateComponents()
+            lunchComponents.year = calendar.component(.year, from: date)
+            lunchComponents.month = calendar.component(.month, from: date)
+            lunchComponents.day = calendar.component(.day, from: date)
+            lunchComponents.hour = 13
+            lunchComponents.minute = Int.random(in: 0...59)
+            
+            if let lunchTime = calendar.date(from: lunchComponents) {
+                meals.append(
+                    Models.Meal(
+                        name: "Lunch",
+                        time: lunchTime,
+                        proteins: Double.random(in: 30...50),
+                        carbs: Double.random(in: 60...80),
+                        fats: Double.random(in: 15...25),
+                        foods: []
+                    )
+                )
+            }
+        }
+        
+        // Snack
+        if Bool.random(probability: 0.6) {
+            var snackComponents = DateComponents()
+            snackComponents.year = calendar.component(.year, from: date)
+            snackComponents.month = calendar.component(.month, from: date)
+            snackComponents.day = calendar.component(.day, from: date)
+            snackComponents.hour = 16
+            snackComponents.minute = Int.random(in: 0...59)
+            
+            if let snackTime = calendar.date(from: snackComponents) {
+                meals.append(
+                    Models.Meal(
+                        name: "Snack",
+                        time: snackTime,
+                        proteins: Double.random(in: 10...20),
+                        carbs: Double.random(in: 20...35),
+                        fats: Double.random(in: 5...15),
+                        foods: []
+                    )
+                )
+            }
+        }
+        
+        // Dinner
+        if Bool.random(probability: 0.85) || meals.isEmpty {
+            var dinnerComponents = DateComponents()
+            dinnerComponents.year = calendar.component(.year, from: date)
+            dinnerComponents.month = calendar.component(.month, from: date)
+            dinnerComponents.day = calendar.component(.day, from: date)
+            dinnerComponents.hour = 19
+            dinnerComponents.minute = Int.random(in: 0...59)
+            
+            if let dinnerTime = calendar.date(from: dinnerComponents) {
+                meals.append(
+                    Models.Meal(
+                        name: "Dinner",
+                        time: dinnerTime,
+                        proteins: Double.random(in: 30...60),
+                        carbs: Double.random(in: 50...90),
+                        fats: Double.random(in: 15...30),
+                        foods: []
+                    )
+                )
+            }
+        }
+        
+        return meals
+    }
+    
+    // Convert StatsData.Weight to Models.WeightEntry
+    private func convertToWeightEntry(_ weight: StatsData.Weight) -> Models.WeightEntry {
+        return Models.WeightEntry(date: weight.date, weight: weight.weight, unit: weight.unit)
+    }
+    
+    // Convert StatsData.Steps to Models.StepsEntry
+    private func convertToStepsEntry(_ steps: StatsData.Steps) -> Models.StepsEntry {
+        return Models.StepsEntry(date: steps.date, steps: steps.count, goal: steps.goal)
+    }
+    
+    // Convert StatsData.Macros to Models.MacrosEntry
+    private func convertToMacrosEntry(_ macros: StatsData.Macros) -> Models.MacrosEntry {
+        return Models.MacrosEntry(
+            id: UUID(),
+            date: macros.date,
+            proteins: macros.protein,
+            carbs: macros.carbs,
+            fats: macros.fat,
+            proteinGoal: macros.proteinGoal,
+            carbGoal: macros.carbsGoal,
+            fatGoal: macros.fatGoal,
+            micronutrients: [],
+            water: 0,
+            waterGoal: 2000,
+            meals: []
+        )
+    }
+    
+    // StatsDataProvider protocol conformance
+    func getWeightData() -> [Models.WeightEntry] {
+        return weightData.map(convertToWeightEntry)
+    }
+    
+    func getStepsData() -> [Models.StepsEntry] {
+        return stepsData.map(convertToStepsEntry)
+    }
+    
+    func getMacrosData() -> [Models.MacrosEntry] {
+        return macrosData.map(convertToMacrosEntry)
+    }
+    
+    func fetchMacrosData(completion: @escaping ([Models.MacrosEntry]) -> Void) {
+        // For now, return mock data
+        let calendar = Calendar.current
+        let today = Date()
+        
+        var entries: [Models.MacrosEntry] = []
+        
+        // Generate last 7 days of data
+        for i in 0..<7 {
+            guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { continue }
+            
+            let entry = Models.MacrosEntry(
+                id: UUID(),
+                date: date,
+                proteins: Double.random(in: 120...180),
+                carbs: Double.random(in: 180...250),
+                fats: Double.random(in: 50...80),
+                proteinGoal: 150,
+                carbGoal: 200,
+                fatGoal: 65,
+                micronutrients: [],
+                water: Double.random(in: 1500...2500),
+                waterGoal: 2500,
+                meals: generateMockMeals(for: date)
+            )
+            
+            entries.append(entry)
+        }
+        
+        completion(entries.reversed())
+    }
+    
+    private func generateMockMeals(for date: Date) -> [Models.Meal] {
+        let calendar = Calendar.current
+        var meals: [Models.Meal] = []
+        
+        // Breakfast (8 AM)
+        if let breakfastTime = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: date) {
+            meals.append(Models.Meal(
+                name: "Breakfast",
+                time: breakfastTime,
+                proteins: Double.random(in: 20...30),
+                carbs: Double.random(in: 40...60),
+                fats: Double.random(in: 10...20)
+            ))
+        }
+        
+        // Lunch (1 PM)
+        if let lunchTime = calendar.date(bySettingHour: 13, minute: 0, second: 0, of: date) {
+            meals.append(Models.Meal(
+                name: "Lunch",
+                time: lunchTime,
+                proteins: Double.random(in: 40...50),
+                carbs: Double.random(in: 60...80),
+                fats: Double.random(in: 15...25)
+            ))
+        }
+        
+        // Dinner (7 PM)
+        if let dinnerTime = calendar.date(bySettingHour: 19, minute: 0, second: 0, of: date) {
+            meals.append(Models.Meal(
+                name: "Dinner",
+                time: dinnerTime,
+                proteins: Double.random(in: 35...45),
+                carbs: Double.random(in: 50...70),
+                fats: Double.random(in: 15...25)
+            ))
+        }
+        
+        return meals
+    }
 }
 
 // Data structure for persisting weight entries
@@ -493,3 +838,90 @@ extension Calendar {
         return dates
     }
 }
+
+// Helper extension for random boolean with probability
+extension Bool {
+    static func random(probability: Double = 0.5) -> Bool {
+        return Double.random(in: 0...1) < probability
+    }
+}
+
+// MARK: - Custom Models for StatsDataManager
+struct MacrosDataEntry: Identifiable {
+    let id = UUID()
+    var date: Date
+    var proteins: Double
+    var carbs: Double
+    var fats: Double
+    var water: Double
+    var meals: [Models.Meal]
+    
+    // Goals
+    var proteinGoal: Double = 150
+    var carbGoal: Double = 250
+    var fatGoal: Double = 65
+    var waterGoal: Double = 2500
+    var calorieGoal: Double = 2200
+    
+    // Calculated properties
+    var calories: Double {
+        (proteins * 4) + (carbs * 4) + (fats * 9)
+    }
+    
+    var waterPercentage: Double {
+        (water / waterGoal) * 100
+    }
+    
+    func getGoalPercentage(for nutrient: NutrientType) -> Double {
+        switch nutrient {
+        case .protein:
+            return (proteins / proteinGoal) * 100
+        case .carbs:
+            return (carbs / carbGoal) * 100
+        case .fat:
+            return (fats / fatGoal) * 100
+        }
+    }
+    
+    // Mock data
+    static func sampleData() -> MacrosDataEntry {
+        let meals = [
+            Models.Meal(
+                name: "Breakfast",
+                time: Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: Date())!,
+                proteins: 25,
+                carbs: 45,
+                fats: 15,
+                foods: []
+            ),
+            Models.Meal(
+                name: "Lunch",
+                time: Calendar.current.date(bySettingHour: 13, minute: 15, second: 0, of: Date())!,
+                proteins: 40,
+                carbs: 65,
+                fats: 20,
+                foods: []
+            ),
+            Models.Meal(
+                name: "Dinner",
+                time: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date())!,
+                proteins: 45,
+                carbs: 70,
+                fats: 25,
+                foods: []
+            )
+        ]
+        
+        return MacrosDataEntry(
+            date: Date(),
+            proteins: 110,
+            carbs: 180,
+            fats: 60,
+            water: 1850,
+            meals: meals
+        )
+    }
+}
+
+// MARK: - StatsData Models
+// Removed duplicate StatsData enum declaration as it's already defined in StatsModels.swift

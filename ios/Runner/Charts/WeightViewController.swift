@@ -1,11 +1,12 @@
 import UIKit
 import SwiftUI
 import DGCharts
+import Charts
 
 class WeightViewController: UIViewController {
     private let scrollView = UIScrollView()
     private let contentView = UIStackView()
-    private var weightEntries: [WeightEntry] = []
+    private var entries: [Models.WeightEntry] = []
     private let dataManager = StatsDataManager.shared
     private var weightUnit: String = "kg"
     private let chartView = LineChartView()
@@ -369,7 +370,7 @@ class WeightViewController: UIViewController {
                 
                 // Update UI on main thread
                 DispatchQueue.main.async {
-                    self?.weightEntries = sortedEntries
+                    self?.entries = sortedEntries
                     self?.updateUI()
                     self?.updateInsights()
                 }
@@ -390,7 +391,7 @@ class WeightViewController: UIViewController {
         goalWeight = UserDefaults.standard.double(forKey: "goal_weight")
         if goalWeight == 0 {
             // Set a default goal based on current weight if available
-            if let lastWeight = weightEntries.last?.weight {
+            if let lastWeight = entries.last?.weight {
                 // Default goal is 10% less than current weight
                 goalWeight = lastWeight * 0.9
                 UserDefaults.standard.set(goalWeight, forKey: "goal_weight")
@@ -414,7 +415,7 @@ class WeightViewController: UIViewController {
             guard let weightText = alert.textFields?.first?.text,
                   let weight = Double(weightText) else { return }
             
-            let entry = WeightEntry(date: Date(), weight: weight, unit: self?.weightUnit ?? "kg")
+            let entry = Models.WeightEntry(date: Date(), weight: weight, unit: self?.weightUnit ?? "kg")
             self?.dataManager.saveWeightEntry(entry) { success in
                 if success {
                     self?.loadWeightData()
@@ -429,21 +430,21 @@ class WeightViewController: UIViewController {
     }
     
     private func updateUI() {
-        guard !weightEntries.isEmpty else { return }
+        guard !entries.isEmpty else { return }
         
         // Batch all UI updates together
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         
         updateStats()
-        updateChart(with: weightEntries)
+        updateChart(with: entries)
         
         CATransaction.commit()
     }
     
     private func updateStats() {
         // Sort entries by date
-        let sortedEntries = weightEntries.sorted { $0.date < $1.date }
+        let sortedEntries = entries.sorted { $0.date < $1.date }
         
         // Update stats
         let firstWeight = sortedEntries.first?.weight ?? 0
@@ -467,7 +468,7 @@ class WeightViewController: UIViewController {
         }
     }
     
-    private func updateChart(with entries: [WeightEntry]) {
+    private func updateChart(with entries: [Models.WeightEntry]) {
         // Process chart data in background
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
@@ -550,7 +551,7 @@ class WeightViewController: UIViewController {
         dataSet.highlightEnabled = false
     }
     
-    private func calculateTrendLine(for entries: [WeightEntry]) -> [ChartDataEntry] {
+    private func calculateTrendLine(for entries: [Models.WeightEntry]) -> [ChartDataEntry] {
         // Simple linear regression calculation
         let count = Double(entries.count)
         
@@ -584,7 +585,7 @@ class WeightViewController: UIViewController {
     }
     
     private func updateInsights() {
-        guard weightEntries.count >= 2 else {
+        guard entries.count >= 2 else {
             updateInsightLabels(trend: "Not enough data", 
                               weeklyChange: "Need more entries", 
                               projection: "Add more data")
@@ -592,7 +593,7 @@ class WeightViewController: UIViewController {
         }
         
         // Sort entries by date
-        let sortedEntries = weightEntries.sorted { $0.date < $1.date }
+        let sortedEntries = entries.sorted { $0.date < $1.date }
         
         // Calculate trend direction
         let firstWeight = sortedEntries.first!.weight
@@ -675,7 +676,7 @@ class WeightViewController: UIViewController {
     
     private func handleWeightEntry(_ weight: Double) {
         // Create a new weight entry and save it
-        let entry = WeightEntry(date: Date(), weight: weight, unit: weightUnit)
+        let entry = Models.WeightEntry(date: Date(), weight: weight, unit: weightUnit)
         dataManager.saveWeightEntry(entry) { [weak self] success in
             if success {
                 self?.loadWeightData()

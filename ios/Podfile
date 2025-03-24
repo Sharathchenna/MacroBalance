@@ -31,9 +31,11 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
-  pod 'DGCharts'  # Add Charts library
-
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # Add DGCharts pod
+  pod 'DGCharts'
+
   target 'RunnerTests' do
     inherit! :search_paths
   end

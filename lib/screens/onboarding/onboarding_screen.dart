@@ -144,57 +144,73 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _calculateAndShowResults() async {
-    final calculatorService = MacroCalculatorService();
-    final results = calculatorService.calculateAll(
-      gender: _gender,
-      weightKg: _weightKg,
-      heightCm: _heightCm,
-      age: _age,
-      activityLevel: _activityLevel,
-      goal: _goal,
-      deficit: _deficit,
-      proteinRatio: _proteinRatio,
-      fatRatio: _fatRatio,
-    );
-
-    // Show the PaywallView before navigating to results
+    // Show the PaywallView first, before calculating anything
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (context) => PaywallScreen(
           onDismiss: () async {
-            // Pop the paywall screen
-            Navigator.of(context).pop();
+            // Check if user has active subscription
+            CustomerInfo customerInfo = await Purchases.getCustomerInfo();
+            if (customerInfo.entitlements.active.containsKey("pro")) {
+              // Only calculate results if user has pro entitlement
+              final calculatorService = MacroCalculatorService();
+              final results = calculatorService.calculateAll(
+                gender: _gender,
+                weightKg: _weightKg,
+                heightCm: _heightCm,
+                age: _age,
+                activityLevel: _activityLevel,
+                goal: _goal,
+                deficit: _deficit,
+                proteinRatio: _proteinRatio,
+                fatRatio: _fatRatio,
+              );
 
-            // Save macro results
-            await saveMacroResults(results);
+              // Pop the paywall screen
+              Navigator.of(context).pop();
 
-            // Navigate to results screen with a transition
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    ResultsScreen(results: results),
-                transitionsBuilder:
-                    (context, animation, secondaryAnimation, child) {
-                  const begin = Offset(1.0, 0.0);
-                  const end = Offset.zero;
-                  const curve = Curves.easeInOutCubic;
+              // Save macro results
+              await saveMacroResults(results);
 
-                  var tween = Tween(begin: begin, end: end)
-                      .chain(CurveTween(curve: curve));
-                  var offsetAnimation = animation.drive(tween);
+              // Navigate to results screen with a transition
+              Navigator.of(context).pushReplacement(
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      ResultsScreen(results: results),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(1.0, 0.0);
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOutCubic;
 
-                  return SlideTransition(
-                    position: offsetAnimation,
-                    child: FadeTransition(
-                      opacity: animation,
-                      child: child,
-                    ),
-                  );
-                },
-                transitionDuration: const Duration(milliseconds: 500),
-              ),
-            );
+                    var tween = Tween(begin: begin, end: end)
+                        .chain(CurveTween(curve: curve));
+                    var offsetAnimation = animation.drive(tween);
+
+                    return SlideTransition(
+                      position: offsetAnimation,
+                      child: FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      ),
+                    );
+                  },
+                  transitionDuration: const Duration(milliseconds: 500),
+                ),
+              );
+            } else {
+              // If user doesn't have pro entitlement, just pop the paywall
+              Navigator.of(context).pop();
+              // Show message that pro subscription is required
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Pro subscription required to view results'),
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           },
         ),
       ),

@@ -1,69 +1,48 @@
 import UIKit
 
-// Renamed to avoid redeclaration conflict
-class MacroCircularProgressView: UIView {
-    private let progressLayer = CAShapeLayer()
-    private let backgroundLayer = CAShapeLayer()
-    
-    var progress: Float = 0 {
+class CircularProgressView: UIView {
+    // MARK: - Properties
+    var progress: CGFloat = 0 {
         didSet {
-            updateProgress()
+            setNeedsDisplay()
         }
     }
     
-    init(progress: Float, color: UIColor) {
-        self.progress = progress
-        super.init(frame: .zero)
-        setup(color: color)
+    var progressColor: UIColor = .systemBlue {
+        didSet {
+            setNeedsDisplay()
+        }
     }
     
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setup(color: .systemGreen)
-    }
+    private let progressWidth: CGFloat = 4
     
-    private func setup(color: UIColor) {
-        backgroundLayer.fillColor = nil
-        backgroundLayer.strokeColor = UIColor.systemGray5.cgColor
-        backgroundLayer.lineWidth = 12
-        layer.addSublayer(backgroundLayer)
-        
-        progressLayer.fillColor = nil
-        progressLayer.strokeColor = color.cgColor
-        progressLayer.lineWidth = 12
-        progressLayer.lineCap = .round
-        layer.addSublayer(progressLayer)
-    }
-    
-    override func layoutSubviews() {
-        super.layoutSubviews()
+    // MARK: - Drawing
+    override func draw(_ rect: CGRect) {
+        guard let context = UIGraphicsGetCurrentContext() else { return }
         
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
-        let radius = min(bounds.width, bounds.height) / 2 - progressLayer.lineWidth / 2
-        let startAngle = -CGFloat.pi / 2
-        let endAngle = startAngle + 2 * CGFloat.pi
+        let radius = min(bounds.width, bounds.height) / 2 - progressWidth
         
-        let path = UIBezierPath(arcCenter: center,
-                               radius: radius,
-                               startAngle: startAngle,
-                               endAngle: endAngle,
-                               clockwise: true)
+        // Draw background circle
+        context.setLineWidth(progressWidth)
+        context.setStrokeColor(progressColor.withAlphaComponent(0.2).cgColor)
         
-        backgroundLayer.path = path.cgPath
-        progressLayer.path = path.cgPath
+        context.addArc(center: center,
+                      radius: radius,
+                      startAngle: 0,
+                      endAngle: 2 * .pi,
+                      clockwise: false)
+        context.strokePath()
         
-        updateProgress()
-    }
-    
-    private func updateProgress() {
-        progressLayer.strokeEnd = CGFloat(progress)
+        // Draw progress arc
+        context.setLineWidth(progressWidth)
+        context.setStrokeColor(progressColor.cgColor)
         
-        // Add animation
-        let animation = CABasicAnimation(keyPath: "strokeEnd")
-        animation.fromValue = 0
-        animation.toValue = progress
-        animation.duration = 1
-        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        progressLayer.add(animation, forKey: "progressAnimation")
+        context.addArc(center: center,
+                      radius: radius,
+                      startAngle: -.pi / 2,
+                      endAngle: 2 * .pi * progress - .pi / 2,
+                      clockwise: false)
+        context.strokePath()
     }
 } 

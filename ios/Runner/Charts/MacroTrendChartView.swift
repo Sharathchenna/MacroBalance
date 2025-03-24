@@ -1,8 +1,11 @@
 import SwiftUI
 import Charts
+import UIKit
+import DGCharts
 
+// MARK: - SwiftUI Chart View
 struct MacroTrendChartView: View {
-    let entries: [MacrosEntry]
+    let entries: [Models.MacrosEntry]
     @State private var selectedMetric = 0
     
     // Animation state
@@ -176,7 +179,7 @@ struct MacroTrendChartView: View {
     }
     
     @ViewBuilder
-    private func drawLine(entries: [MacrosEntry], nutrient: NutrientType, stepX: CGFloat, height: CGFloat, color: Color) -> some View {
+    private func drawLine(entries: [Models.MacrosEntry], nutrient: NutrientType, stepX: CGFloat, height: CGFloat, color: Color) -> some View {
         let maxValue = getMaxValue(for: nutrient)
         
         Path { path in
@@ -222,7 +225,7 @@ struct MacroTrendChartView: View {
         return formatter.string(from: date)
     }
     
-    private func yValue(for entry: MacrosEntry, nutrient: NutrientType) -> Double {
+    private func yValue(for entry: Models.MacrosEntry, nutrient: NutrientType) -> Double {
         switch selectedMetric {
         case 0: // Percentage
             switch nutrient {
@@ -280,16 +283,213 @@ struct MacroTrendChartView: View {
 struct MacroTrendChartView_Previews: PreviewProvider {
     static var previews: some View {
         MacroTrendChartView(entries: [
-            MacrosEntry(date: Date().addingTimeInterval(-6 * 86400), proteins: 120, carbs: 230, fats: 60),
-            MacrosEntry(date: Date().addingTimeInterval(-5 * 86400), proteins: 130, carbs: 210, fats: 65),
-            MacrosEntry(date: Date().addingTimeInterval(-4 * 86400), proteins: 140, carbs: 240, fats: 55),
-            MacrosEntry(date: Date().addingTimeInterval(-3 * 86400), proteins: 135, carbs: 225, fats: 60),
-            MacrosEntry(date: Date().addingTimeInterval(-2 * 86400), proteins: 145, carbs: 215, fats: 70),
-            MacrosEntry(date: Date().addingTimeInterval(-1 * 86400), proteins: 150, carbs: 200, fats: 65),
-            MacrosEntry(date: Date(), proteins: 140, carbs: 220, fats: 60)
+            Models.MacrosEntry(
+                id: UUID(),
+                date: Date().addingTimeInterval(-6 * 86400),
+                proteins: 120,
+                carbs: 230,
+                fats: 60,
+                proteinGoal: 150,
+                carbGoal: 250,
+                fatGoal: 70,
+                micronutrients: [],
+                water: 0,
+                waterGoal: 2000,
+                meals: []
+            ),
+            Models.MacrosEntry(
+                id: UUID(),
+                date: Date().addingTimeInterval(-5 * 86400),
+                proteins: 130,
+                carbs: 210,
+                fats: 65,
+                proteinGoal: 150,
+                carbGoal: 250,
+                fatGoal: 70,
+                micronutrients: [],
+                water: 0,
+                waterGoal: 2000,
+                meals: []
+            ),
+            Models.MacrosEntry(
+                id: UUID(),
+                date: Date().addingTimeInterval(-4 * 86400),
+                proteins: 140,
+                carbs: 240,
+                fats: 55,
+                proteinGoal: 150,
+                carbGoal: 250,
+                fatGoal: 70,
+                micronutrients: [],
+                water: 0,
+                waterGoal: 2000,
+                meals: []
+            ),
+            Models.MacrosEntry(
+                id: UUID(),
+                date: Date().addingTimeInterval(-3 * 86400),
+                proteins: 135,
+                carbs: 225,
+                fats: 60,
+                proteinGoal: 150,
+                carbGoal: 250,
+                fatGoal: 70,
+                micronutrients: [],
+                water: 0,
+                waterGoal: 2000,
+                meals: []
+            ),
+            Models.MacrosEntry(
+                id: UUID(),
+                date: Date().addingTimeInterval(-2 * 86400),
+                proteins: 145,
+                carbs: 215,
+                fats: 70,
+                proteinGoal: 150,
+                carbGoal: 250,
+                fatGoal: 70,
+                micronutrients: [],
+                water: 0,
+                waterGoal: 2000,
+                meals: []
+            ),
+            Models.MacrosEntry(
+                id: UUID(),
+                date: Date().addingTimeInterval(-1 * 86400),
+                proteins: 150,
+                carbs: 200,
+                fats: 65,
+                proteinGoal: 150,
+                carbGoal: 250,
+                fatGoal: 70,
+                micronutrients: [],
+                water: 0,
+                waterGoal: 2000,
+                meals: []
+            ),
+            Models.MacrosEntry(
+                id: UUID(),
+                date: Date(),
+                proteins: 140,
+                carbs: 220,
+                fats: 60,
+                proteinGoal: 150,
+                carbGoal: 250,
+                fatGoal: 70,
+                micronutrients: [],
+                water: 0,
+                waterGoal: 2000,
+                meals: []
+            )
         ])
         .previewLayout(.fixed(width: 375, height: 300))
         .padding()
         .background(Color(.secondarySystemBackground))
+    }
+}
+
+// MARK: - UIKit Chart View
+class MacroTrendUIView: UIView {
+    private let lineChartView: LineChartView = {
+        let chart = LineChartView()
+        chart.translatesAutoresizingMaskIntoConstraints = false
+        return chart
+    }()
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupUI()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupUI()
+    }
+    
+    private func setupUI() {
+        addSubview(lineChartView)
+        
+        NSLayoutConstraint.activate([
+            lineChartView.topAnchor.constraint(equalTo: topAnchor),
+            lineChartView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            lineChartView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            lineChartView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+        
+        configureChart()
+    }
+    
+    private func configureChart() {
+        lineChartView.rightAxis.enabled = false
+        lineChartView.legend.form = .circle
+        lineChartView.legend.horizontalAlignment = .center
+        lineChartView.legend.verticalAlignment = .bottom
+        lineChartView.legend.orientation = .horizontal
+        lineChartView.legend.drawInside = false
+        lineChartView.legend.font = .systemFont(ofSize: 12)
+        
+        lineChartView.xAxis.labelPosition = .bottom
+        lineChartView.xAxis.labelFont = .systemFont(ofSize: 10)
+        lineChartView.xAxis.granularity = 1
+        
+        lineChartView.leftAxis.labelFont = .systemFont(ofSize: 10)
+        lineChartView.leftAxis.axisMinimum = 0
+        lineChartView.leftAxis.drawGridLinesEnabled = true
+        lineChartView.leftAxis.drawZeroLineEnabled = true
+        
+        lineChartView.scaleYEnabled = false
+        lineChartView.doubleTapToZoomEnabled = false
+        
+        lineChartView.chartDescription.enabled = false
+    }
+    
+    func configure(with entries: [Models.MacrosEntry]) {
+        var proteinEntries: [ChartDataEntry] = []
+        var carbEntries: [ChartDataEntry] = []
+        var fatEntries: [ChartDataEntry] = []
+        
+        for (index, entry) in entries.enumerated() {
+            let xValue = Double(index)
+            proteinEntries.append(ChartDataEntry(x: xValue, y: entry.proteins))
+            carbEntries.append(ChartDataEntry(x: xValue, y: entry.carbs))
+            fatEntries.append(ChartDataEntry(x: xValue, y: entry.fats))
+        }
+        
+        let proteinDataSet = createDataSet(entries: proteinEntries, label: "Protein", color: .proteinColor)
+        let carbDataSet = createDataSet(entries: carbEntries, label: "Carbs", color: .carbColor)
+        let fatDataSet = createDataSet(entries: fatEntries, label: "Fat", color: .fatColor)
+        
+        let data = LineChartData(dataSets: [proteinDataSet, carbDataSet, fatDataSet])
+        lineChartView.data = data
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MM/dd"
+        let dates = entries.map { dateFormatter.string(from: $0.date) }
+        lineChartView.xAxis.valueFormatter = IndexAxisValueFormatter(values: dates)
+        
+        lineChartView.animate(xAxisDuration: 1.0, yAxisDuration: 1.0)
+    }
+    
+    private func createDataSet(entries: [ChartDataEntry], label: String, color: UIColor) -> LineChartDataSet {
+        let dataSet = LineChartDataSet(entries: entries, label: label)
+        dataSet.colors = [color]
+        dataSet.lineWidth = 2
+        dataSet.drawCirclesEnabled = true
+        dataSet.circleColors = [color]
+        dataSet.circleRadius = 4
+        dataSet.drawCircleHoleEnabled = false
+        dataSet.mode = .cubicBezier
+        dataSet.drawValuesEnabled = true
+        dataSet.valueFont = .systemFont(ofSize: 10)
+        dataSet.valueFormatter = DefaultValueFormatter(decimals: 0)
+        
+        let gradientColors = [color.cgColor, color.withAlphaComponent(0.1).cgColor]
+        let gradient = CGGradient(colorsSpace: nil,
+                                colors: gradientColors as CFArray,
+                                locations: [1.0, 0.0])!
+        dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
+        dataSet.drawFilledEnabled = true
+        
+        return dataSet
     }
 }

@@ -1,0 +1,2834 @@
+import UIKit
+import SwiftUI
+import ObjectiveC
+import Charts // Make sure to import Charts for advanced visualizations
+
+class MacrosViewController: UIViewController {
+    // MARK: - Properties
+    private let scrollView = UIScrollView()
+    private let contentView = UIStackView()
+    private let dataManager = StatsDataManager.shared
+    private var macroEntries: [MacrosEntry] = []
+    private let refreshControl = UIRefreshControl()
+    
+    // Chart views
+    private var trendChartContainer: UIView?
+    private var waterIntakeContainer: UIView?
+    private var weeklyAverageContainer: UIView?
+    
+    // Macro goals
+    private var proteinGoal: Double = 150
+    private var carbsGoal: Double = 250
+    private var fatGoal: Double = 65
+    
+    // Current macros
+    private var currentProtein: Double = 0
+    private var currentCarbs: Double = 0
+    private var currentFat: Double = 0
+    
+    // Insights
+    private var insightsData: [NutritionInsight] = []
+    
+    // UI Components
+    private var headerView: UIView?
+    private var macroRingCard: UIView?
+    private var macroBreakdownCard: UIView?
+    private var macroHistoryCard: UIView?
+    private var nutrientInsightsCard: UIView?
+    private var mealNutritionCard: UIView?
+    private var waterIntakeCard: UIView?
+    
+    // Animation properties
+    private var hasShownOnboarding = false
+    private var cardAnimationTimer: Timer?
+    private var animationIndex = 0
+    
+    // Design Constants
+    private struct Constants {
+        static let cardCornerRadius: CGFloat = 20
+        static let cardPadding: CGFloat = 16
+        static let cardSpacing: CGFloat = 16
+        static let defaultAnimationDuration: TimeInterval = 0.5
+        
+        // Modern Color Palette
+        static let backgroundColor = UIColor.systemBackground
+        static let secondaryBackgroundColor = UIColor.secondarySystemBackground
+        static let cardBackgroundColor = UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark ? 
+                UIColor(red: 0.17, green: 0.17, blue: 0.18, alpha: 1.0) : 
+                UIColor.white
+        }
+        
+        // Macro Colors
+        static let proteinColor = UIColor(red: 0.98, green: 0.76, blue: 0.34, alpha: 1) // Golden Yellow
+        static let carbsColor = UIColor(red: 0.35, green: 0.78, blue: 0.71, alpha: 1) // Teal
+        static let fatColor = UIColor(red: 0.56, green: 0.27, blue: 0.68, alpha: 1) // Purple
+        static let calorieColor = UIColor(red: 0.0, green: 0.6, blue: 1.0, alpha: 1) // Bright Blue
+        static let waterColor = UIColor(red: 0.0, green: 0.48, blue: 0.8, alpha: 1) // Blue
+        
+        // Shadows
+        static let shadowColor = UIColor.black.withAlphaComponent(0.12).cgColor
+        static let shadowOffset = CGSize(width: 0, height: 4)
+        static let shadowRadius: CGFloat = 12
+        static let shadowOpacity: Float = 0.2
+        
+        // Typography
+        static let titleFont = UIFont.systemFont(ofSize: 22, weight: .bold)
+        static let subtitleFont = UIFont.systemFont(ofSize: 18, weight: .semibold)
+        static let bodyFont = UIFont.systemFont(ofSize: 16, weight: .regular)
+        static let captionFont = UIFont.systemFont(ofSize: 14, weight: .regular)
+        static let valueLargeFont = UIFont.systemFont(ofSize: 36, weight: .bold)
+        static let valueFont = UIFont.systemFont(ofSize: 20, weight: .bold)
+    }
+    
+    // Data structure for nutrition insights
+    struct NutritionInsight: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+        let icon: String
+        let color: UIColor
+        let type: InsightType
+        
+        enum InsightType {
+            case positive
+            case negative
+            case neutral
+            case tip
+        }
+    }
+    
+    // MARK: - Lifecycle Methods
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupUI()
+        setupRefreshControl()
+        loadMacroData()
+        generateInsights()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        animateContent()
+        
+        // Only show onboarding once
+        if !hasShownOnboarding {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.showFeatureHighlights()
+            }
+            hasShownOnboarding = true
+        }
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateCardStyling()
+    }
+    
+    // MARK: - UI Setup
+    private func setupUI() {
+        title = "Nutrition"
+        view.backgroundColor = Constants.backgroundColor
+        
+        // Set up large navigation bar with modern styling
+        navigationItem.largeTitleDisplayMode = .always
+        navigationController?.navigationBar.prefersLargeTitles = true
+        
+        // Add blur effect to navigation bar for a modern look
+        if let navigationBar = navigationController?.navigationBar {
+            navigationBar.standardAppearance.configureWithTransparentBackground()
+            navigationBar.compactAppearance?.configureWithTransparentBackground()
+            navigationBar.scrollEdgeAppearance?.configureWithTransparentBackground()
+            
+            // Custom title appearance
+            let titleAttribute = [NSAttributedString.Key.foregroundColor: UIColor.label]
+            navigationBar.standardAppearance.titleTextAttributes = titleAttribute
+            navigationBar.compactAppearance?.titleTextAttributes = titleAttribute
+            navigationBar.scrollEdgeAppearance?.titleTextAttributes = titleAttribute
+            
+            // Custom large title appearance
+            let largeTitleAttribute = [NSAttributedString.Key.foregroundColor: UIColor.label]
+            navigationBar.standardAppearance.largeTitleTextAttributes = largeTitleAttribute
+            navigationBar.scrollEdgeAppearance?.largeTitleTextAttributes = largeTitleAttribute
+        }
+        
+        setupNavigationBar()
+        setupScrollView()
+        setupContentCards()
+    }
+    
+    private func setupNavigationBar() {
+        // Create add macro button
+        let addButton = UIBarButtonItem(
+            image: UIImage(systemName: "plus.circle.fill"),
+            style: .plain,
+            target: self,
+            action: #selector(addMacroEntry)
+        )
+        addButton.tintColor = Constants.calorieColor
+        
+        // Create date filter button
+        let dateFilterButton = UIBarButtonItem(
+            image: UIImage(systemName: "calendar"),
+            style: .plain,
+            target: self,
+            action: #selector(showDateFilter)
+        )
+        
+        // Create history button
+        let historyButton = UIBarButtonItem(
+            image: UIImage(systemName: "clock.arrow.circlepath"),
+            style: .plain,
+            target: self,
+            action: #selector(showMacroHistory)
+        )
+        
+        // Create settings button
+        let settingsButton = UIBarButtonItem(
+            image: UIImage(systemName: "gearshape"),
+            style: .plain,
+            target: self,
+            action: #selector(showGoalSettings)
+        )
+        
+        navigationItem.rightBarButtonItems = [addButton, settingsButton]
+        navigationItem.leftBarButtonItems = [dateFilterButton, historyButton]
+    }
+    
+    private func setupScrollView() {
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        
+        contentView.axis = .vertical
+        contentView.spacing = Constants.cardSpacing
+        contentView.layoutMargins = UIEdgeInsets(top: Constants.cardPadding, 
+                                                left: Constants.cardPadding, 
+                                                bottom: Constants.cardPadding * 2, 
+                                                right: Constants.cardPadding)
+        contentView.isLayoutMarginsRelativeArrangement = true
+        
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
+        ])
+    }
+    
+    private func setupRefreshControl() {
+        refreshControl.tintColor = Constants.calorieColor
+        refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
+        scrollView.refreshControl = refreshControl
+    }
+    
+    @objc private func refreshData() {
+        // Add haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        loadMacroData()
+    }
+    
+    // MARK: - Content Cards Setup
+    private func setupContentCards() {
+        setupHeaderView()
+        setupMacroRingCard()
+        setupMacroBreakdownCard()
+        setupMacroHistoryCard()
+        setupMealNutritionCard()
+        setupWaterIntakeCard()
+        setupNutrientInsightsCard()
+    }
+    
+    // Create a modern card view with proper styling
+    private func createCardView() -> UIView {
+        let cardView = UIView()
+        cardView.translatesAutoresizingMaskIntoConstraints = false
+        cardView.backgroundColor = Constants.cardBackgroundColor
+        cardView.layer.cornerRadius = Constants.cardCornerRadius
+        
+        // Add subtle shadow
+        cardView.layer.shadowColor = Constants.shadowColor
+        cardView.layer.shadowOffset = Constants.shadowOffset
+        cardView.layer.shadowRadius = Constants.shadowRadius
+        cardView.layer.shadowOpacity = Constants.shadowOpacity
+        
+        // Optimize shadow rendering
+        cardView.layer.shouldRasterize = true
+        cardView.layer.rasterizationScale = UIScreen.main.scale
+        
+        return cardView
+    }
+    
+    // Add a modern gradient header view
+    private func setupHeaderView() {
+        let headerView = UIView()
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        self.headerView = headerView
+        
+        // Create gradient layer
+        let gradientLayer = CAGradientLayer()
+        gradientLayer.colors = [
+            Constants.calorieColor.withAlphaComponent(0.8).cgColor,
+            Constants.calorieColor.withAlphaComponent(0.6).cgColor
+        ]
+        gradientLayer.startPoint = CGPoint(x: 0, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 1, y: 1)
+        gradientLayer.cornerRadius = Constants.cardCornerRadius
+        headerView.layer.insertSublayer(gradientLayer, at: 0)
+        
+        // Layout update handler
+        headerView.layoutIfNeeded()
+        headerView.layer.addSublayer(gradientLayer)
+        headerView.layer.cornerRadius = Constants.cardCornerRadius
+        headerView.clipsToBounds = true
+        
+        // Header content
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 12
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Date display
+        let dateLabel = UILabel()
+        dateLabel.text = formatDate(Date())
+        dateLabel.font = Constants.captionFont
+        dateLabel.textColor = .white
+        
+        // Today's Calories label
+        let calorieTitle = UILabel()
+        calorieTitle.text = "Today's Calories"
+        calorieTitle.font = Constants.subtitleFont
+        calorieTitle.textColor = .white
+        
+        // Calorie counter with large font
+        let calorieLabel = UILabel()
+        calorieLabel.text = "0"
+        calorieLabel.font = Constants.valueLargeFont
+        calorieLabel.textColor = .white
+        calorieLabel.accessibilityIdentifier = "calorieValueLabel"
+        
+        // Goal label below
+        let goalLabel = UILabel()
+        goalLabel.text = "of 0 calories"
+        goalLabel.font = Constants.bodyFont
+        goalLabel.textColor = .white.withAlphaComponent(0.8)
+        
+        // Create modern progress bar
+        let progressContainer = UIView()
+        progressContainer.translatesAutoresizingMaskIntoConstraints = false
+        
+        let backgroundBar = UIView()
+        backgroundBar.translatesAutoresizingMaskIntoConstraints = false
+        backgroundBar.backgroundColor = UIColor.white.withAlphaComponent(0.3)
+        backgroundBar.layer.cornerRadius = 6
+        
+        let progressBar = UIView()
+        progressBar.translatesAutoresizingMaskIntoConstraints = false
+        progressBar.backgroundColor = .white
+        progressBar.layer.cornerRadius = 6
+        progressBar.accessibilityIdentifier = "calorieProgressView"
+        
+        // Add views to container
+        progressContainer.addSubview(backgroundBar)
+        progressContainer.addSubview(progressBar)
+        
+        // Add progress constraint that we'll animate later
+        let progressWidthConstraint = progressBar.widthAnchor.constraint(equalTo: backgroundBar.widthAnchor, multiplier: 0)
+        progressWidthConstraint.isActive = true
+        
+        // Progress bar layout
+        NSLayoutConstraint.activate([
+            backgroundBar.topAnchor.constraint(equalTo: progressContainer.topAnchor),
+            backgroundBar.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+            backgroundBar.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+            backgroundBar.bottomAnchor.constraint(equalTo: progressContainer.bottomAnchor),
+            backgroundBar.heightAnchor.constraint(equalToConstant: 12),
+            
+            progressBar.topAnchor.constraint(equalTo: backgroundBar.topAnchor),
+            progressBar.leadingAnchor.constraint(equalTo: backgroundBar.leadingAnchor),
+            progressBar.bottomAnchor.constraint(equalTo: backgroundBar.bottomAnchor)
+        ])
+        
+        // Add all elements to stack
+        stackView.addArrangedSubview(dateLabel)
+        stackView.addArrangedSubview(calorieTitle)
+        stackView.addArrangedSubview(calorieLabel)
+        stackView.addArrangedSubview(goalLabel)
+        stackView.addArrangedSubview(progressContainer)
+        
+        headerView.addSubview(stackView)
+        
+        // Layout constraints
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 20),
+            stackView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -20),
+            stackView.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -20),
+            
+            headerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 180)
+        ])
+        
+        // Store the constraint for later animation
+        objc_setAssociatedObject(progressBar, "progressConstraint", progressWidthConstraint, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        
+        // Add to content view
+        contentView.addArrangedSubview(headerView)
+        
+        // Update gradient frame when layout changes
+        headerView.layoutIfNeeded()
+        gradientLayer.frame = headerView.bounds
+    }
+    
+    private func setupMacroRingCard() {
+        let card = createCardView()
+        macroRingCard = card
+        
+        // Add title and interaction hint
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Header with title and legend
+        let headerStack = UIStackView()
+        headerStack.axis = .horizontal
+        headerStack.distribution = .equalSpacing
+        headerStack.alignment = .center
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "Macro Distribution"
+        titleLabel.font = Constants.subtitleFont
+        
+        // Add tap hint
+        let hintLabel = UILabel()
+        hintLabel.text = "Tap for details"
+        hintLabel.font = Constants.captionFont
+        hintLabel.textColor = .secondaryLabel
+        
+        headerStack.addArrangedSubview(titleLabel)
+        headerStack.addArrangedSubview(hintLabel)
+        
+        // Create container for the ring view
+        let ringContainer = UIView()
+        ringContainer.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create the MacroRingView
+        let ringView = MacroRingView(frame: .zero)
+        ringView.translatesAutoresizingMaskIntoConstraints = false
+        ringView.isUserInteractionEnabled = true
+        
+        // Add tap gesture to show detailed breakdown
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(showMacroBreakdownDetail))
+        ringView.addGestureRecognizer(tapGesture)
+        
+        ringContainer.addSubview(ringView)
+        
+        // Create macro legend
+        let legendStack = UIStackView()
+        legendStack.axis = .horizontal
+        legendStack.distribution = .fillEqually
+        legendStack.spacing = 12
+        legendStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add each macro with color indicator
+        legendStack.addArrangedSubview(createMacroLegendItem(name: "Protein", color: Constants.proteinColor))
+        legendStack.addArrangedSubview(createMacroLegendItem(name: "Carbs", color: Constants.carbsColor))
+        legendStack.addArrangedSubview(createMacroLegendItem(name: "Fat", color: Constants.fatColor))
+        
+        // Add elements to main stack
+        stackView.addArrangedSubview(headerStack)
+        stackView.addArrangedSubview(ringContainer)
+        stackView.addArrangedSubview(legendStack)
+        
+        // Add to card and content view
+        card.addSubview(stackView)
+        contentView.addArrangedSubview(card)
+        
+        // Create constraints
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+            
+            ringContainer.heightAnchor.constraint(equalToConstant: 220),
+            
+            ringView.centerXAnchor.constraint(equalTo: ringContainer.centerXAnchor),
+            ringView.centerYAnchor.constraint(equalTo: ringContainer.centerYAnchor),
+            ringView.widthAnchor.constraint(equalToConstant: 220),
+            ringView.heightAnchor.constraint(equalToConstant: 220)
+        ])
+    }
+    
+    private func createMacroLegendItem(name: String, color: UIColor) -> UIView {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.alignment = .center
+        stackView.spacing = 6
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Colored indicator
+        let colorIndicator = UIView()
+        colorIndicator.translatesAutoresizingMaskIntoConstraints = false
+        colorIndicator.backgroundColor = color
+        colorIndicator.layer.cornerRadius = 6
+        
+        // Name label
+        let nameLabel = UILabel()
+        nameLabel.text = name
+        nameLabel.font = Constants.captionFont
+        nameLabel.textAlignment = .center
+        
+        // Value label (to be updated later)
+        let valueLabel = UILabel()
+        valueLabel.text = "0g"
+        valueLabel.font = Constants.bodyFont.withSize(14)
+        valueLabel.textColor = color
+        valueLabel.textAlignment = .center
+        
+        // Add accessibility identifier for testing
+        valueLabel.accessibilityIdentifier = "\(name.lowercased())ValueLabel"
+        
+        // Add to stack
+        stackView.addArrangedSubview(colorIndicator)
+        stackView.addArrangedSubview(nameLabel)
+        stackView.addArrangedSubview(valueLabel)
+        
+        container.addSubview(stackView)
+        
+        // Create constraints
+        NSLayoutConstraint.activate([
+            colorIndicator.widthAnchor.constraint(equalToConstant: 12),
+            colorIndicator.heightAnchor.constraint(equalToConstant: 12),
+            
+            stackView.topAnchor.constraint(equalTo: container.topAnchor),
+            stackView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stackView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        
+        return container
+    }
+    
+    private func setupMacroBreakdownCard() {
+        let card = createCardView()
+        macroBreakdownCard = card
+        
+        // Add title and macro breakdown
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Title
+        let titleLabel = UILabel()
+        titleLabel.text = "Macro Tracking"
+        titleLabel.font = Constants.subtitleFont
+        
+        stackView.addArrangedSubview(titleLabel)
+        
+        // Add tracking rows for each macro
+        let proteinRow = createMacroTrackingRow(
+            name: "Protein",
+            icon: "dumbbell.fill",
+            color: Constants.proteinColor,
+            description: "4 calories/gram"
+        )
+        
+        let carbsRow = createMacroTrackingRow(
+            name: "Carbs",
+            icon: "leaf.fill", 
+            color: Constants.carbsColor,
+            description: "4 calories/gram"
+        )
+        
+        let fatRow = createMacroTrackingRow(
+            name: "Fat",
+            icon: "drop.fill",
+            color: Constants.fatColor,
+            description: "9 calories/gram"
+        )
+        
+        // Add to stack
+        stackView.addArrangedSubview(proteinRow)
+        stackView.addArrangedSubview(carbsRow)
+        stackView.addArrangedSubview(fatRow)
+        
+        // Add button to adjust goals
+        let adjustButton = createTextButton(title: "Adjust Macro Goals", icon: "slider.horizontal.3")
+        adjustButton.addTarget(self, action: #selector(showGoalSettings), for: .touchUpInside)
+        
+        stackView.addArrangedSubview(adjustButton)
+        
+        // Add to card and content view
+        card.addSubview(stackView)
+        contentView.addArrangedSubview(card)
+        
+        // Create constraints
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16)
+        ])
+    }
+    
+    private func createMacroTrackingRow(name: String, icon: String, color: UIColor, description: String) -> UIView {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create info row
+        let infoStack = UIStackView()
+        infoStack.axis = .horizontal
+        infoStack.alignment = .center
+        infoStack.spacing = 12
+        infoStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Icon
+        let iconView = UIImageView(image: UIImage(systemName: icon))
+        iconView.tintColor = color
+        iconView.contentMode = .scaleAspectFit
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Text stack
+        let textStack = UIStackView()
+        textStack.axis = .vertical
+        textStack.spacing = 2
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Title
+        let nameLabel = UILabel()
+        nameLabel.text = name
+        nameLabel.font = Constants.bodyFont
+        
+        // Description
+        let descriptionLabel = UILabel()
+        descriptionLabel.text = description
+        descriptionLabel.font = Constants.captionFont
+        descriptionLabel.textColor = .secondaryLabel
+        
+        textStack.addArrangedSubview(nameLabel)
+        textStack.addArrangedSubview(descriptionLabel)
+        
+        // Value labels
+        let valueStack = UIStackView()
+        valueStack.axis = .horizontal
+        valueStack.spacing = 4
+        valueStack.alignment = .center
+        valueStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Current value
+        let valueLabel = UILabel()
+        valueLabel.text = "0g"
+        valueLabel.font = Constants.bodyFont.withSize(16)
+        valueLabel.textAlignment = .right
+        valueLabel.accessibilityIdentifier = "\(name.lowercased())TrackingValue"
+        
+        // Goal value
+        let goalLabel = UILabel()
+        goalLabel.text = "/ 0g"
+        goalLabel.font = Constants.captionFont
+        goalLabel.textColor = .secondaryLabel
+        goalLabel.textAlignment = .left
+        
+        valueStack.addArrangedSubview(valueLabel)
+        valueStack.addArrangedSubview(goalLabel)
+        
+        // Add elements to info stack
+        infoStack.addArrangedSubview(iconView)
+        infoStack.addArrangedSubview(textStack)
+        infoStack.addArrangedSubview(UIView()) // Spacer
+        infoStack.addArrangedSubview(valueStack)
+        
+        // Create progress bar
+        let progressContainer = UIView()
+        progressContainer.translatesAutoresizingMaskIntoConstraints = false
+        
+        let backgroundBar = UIView()
+        backgroundBar.translatesAutoresizingMaskIntoConstraints = false
+        backgroundBar.backgroundColor = color.withAlphaComponent(0.2)
+        backgroundBar.layer.cornerRadius = 4
+        
+        let progressBar = UIView()
+        progressBar.translatesAutoresizingMaskIntoConstraints = false
+        progressBar.backgroundColor = color
+        progressBar.layer.cornerRadius = 4
+        progressBar.accessibilityIdentifier = "\(name.lowercased())ProgressView"
+        
+        // Add progress constraint that we'll animate later
+        let progressWidthConstraint = progressBar.widthAnchor.constraint(equalTo: backgroundBar.widthAnchor, multiplier: 0)
+        progressWidthConstraint.isActive = true
+        
+        // Store constraint for later animation
+        objc_setAssociatedObject(progressBar, "progressConstraint", progressWidthConstraint, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        
+        // Add progress bar to container
+        progressContainer.addSubview(backgroundBar)
+        progressContainer.addSubview(progressBar)
+        
+        // Add both stacks to container
+        container.addSubview(infoStack)
+        container.addSubview(progressContainer)
+        
+        // Create constraints
+        NSLayoutConstraint.activate([
+            iconView.widthAnchor.constraint(equalToConstant: 24),
+            iconView.heightAnchor.constraint(equalToConstant: 24),
+            
+            infoStack.topAnchor.constraint(equalTo: container.topAnchor),
+            infoStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            infoStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            
+            progressContainer.topAnchor.constraint(equalTo: infoStack.bottomAnchor, constant: 8),
+            progressContainer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            progressContainer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            progressContainer.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            
+            backgroundBar.topAnchor.constraint(equalTo: progressContainer.topAnchor),
+            backgroundBar.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+            backgroundBar.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+            backgroundBar.bottomAnchor.constraint(equalTo: progressContainer.bottomAnchor),
+            backgroundBar.heightAnchor.constraint(equalToConstant: 8),
+            
+            progressBar.topAnchor.constraint(equalTo: backgroundBar.topAnchor),
+            progressBar.leadingAnchor.constraint(equalTo: backgroundBar.leadingAnchor),
+            progressBar.bottomAnchor.constraint(equalTo: backgroundBar.bottomAnchor)
+        ])
+        
+        return container
+    }
+    
+    private func setupMacroHistoryCard() {
+        let card = createCardView()
+        macroHistoryCard = card
+        
+        // Add title and chart
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Header with title and time range controls
+        let headerStack = UIStackView()
+        headerStack.axis = .horizontal
+        headerStack.distribution = .equalSpacing
+        headerStack.alignment = .center
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "Macro History"
+        titleLabel.font = Constants.subtitleFont
+        
+        // Add time range control
+        let timeRangeControl = UISegmentedControl(items: ["Week", "Month", "3M"])
+        timeRangeControl.selectedSegmentIndex = 0
+        timeRangeControl.addTarget(self, action: #selector(historyTimeRangeChanged(_:)), for: .valueChanged)
+        
+        headerStack.addArrangedSubview(titleLabel)
+        headerStack.addArrangedSubview(timeRangeControl)
+        
+        // Create chart container
+        let chartContainer = UIView()
+        chartContainer.translatesAutoresizingMaskIntoConstraints = false
+        chartContainer.tag = 200 // Tag for finding later
+        
+        // Add SwiftUI chart using UIHostingController
+        if !macroEntries.isEmpty {
+            let trendChartView = MacroTrendChartView(entries: macroEntries)
+            let hostingController = UIHostingController(rootView: trendChartView)
+            hostingController.view.backgroundColor = .clear
+            
+            addChild(hostingController)
+            chartContainer.addSubview(hostingController.view)
+            hostingController.didMove(toParent: self)
+            
+            hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                hostingController.view.topAnchor.constraint(equalTo: chartContainer.topAnchor),
+                hostingController.view.leadingAnchor.constraint(equalTo: chartContainer.leadingAnchor),
+                hostingController.view.trailingAnchor.constraint(equalTo: chartContainer.trailingAnchor),
+                hostingController.view.bottomAnchor.constraint(equalTo: chartContainer.bottomAnchor)
+            ])
+        } else {
+            // Show placeholder if no data
+            let placeholderLabel = UILabel()
+            placeholderLabel.text = "No data available yet"
+            placeholderLabel.textAlignment = .center
+            placeholderLabel.textColor = .secondaryLabel
+            placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
+            
+            chartContainer.addSubview(placeholderLabel)
+            NSLayoutConstraint.activate([
+                placeholderLabel.centerXAnchor.constraint(equalTo: chartContainer.centerXAnchor),
+                placeholderLabel.centerYAnchor.constraint(equalTo: chartContainer.centerYAnchor)
+            ])
+        }
+        
+        // Add button to view detailed history
+        let historyButton = createTextButton(title: "View Detailed History", icon: "chart.xyaxis.line")
+        historyButton.addTarget(self, action: #selector(showMacroHistory), for: .touchUpInside)
+        
+        // Add to stack
+        stackView.addArrangedSubview(headerStack)
+        stackView.addArrangedSubview(chartContainer)
+        stackView.addArrangedSubview(historyButton)
+        
+        // Add to card and content view
+        card.addSubview(stackView)
+        contentView.addArrangedSubview(card)
+        
+        // Create constraints
+        NSLayoutConstraint.activate([
+            timeRangeControl.widthAnchor.constraint(equalToConstant: 150),
+            
+            chartContainer.heightAnchor.constraint(equalToConstant: 250),
+            
+            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16)
+        ])
+        
+        // Store reference for later updates
+        trendChartContainer = chartContainer
+    }
+    
+    private func setupMealNutritionCard() {
+        let card = createCardView()
+        mealNutritionCard = card
+        
+        // Add title row
+        let titleStack = UIStackView()
+        titleStack.axis = .horizontal
+        titleStack.alignment = .center
+        titleStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "Meal Nutrition"
+        titleLabel.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
+        
+        let spacer = UIView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        
+        // Add time range control
+        let timeRangeControl = UISegmentedControl(items: ["Day", "Week", "Month"])
+        timeRangeControl.selectedSegmentIndex = 1 // Week is selected by default
+        timeRangeControl.addTarget(self, action: #selector(timeRangeChanged(_:)), for: .valueChanged)
+        
+        [titleLabel, spacer, timeRangeControl].forEach { titleStack.addArrangedSubview($0) }
+        
+        // Create chart container
+        let chartContainer = UIView()
+        chartContainer.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add components to card
+        let mainStack = UIStackView()
+        mainStack.axis = .vertical
+        mainStack.spacing = 16
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        [titleStack, chartContainer].forEach { mainStack.addArrangedSubview($0) }
+        card.addSubview(mainStack)
+        
+        NSLayoutConstraint.activate([
+            card.heightAnchor.constraint(equalToConstant: 480), // Fixed height for the card
+            
+            mainStack.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            mainStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            mainStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            mainStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+            
+            chartContainer.heightAnchor.constraint(equalToConstant: 400) // Fixed height for chart container
+        ])
+        
+        // Create the chart view using the new MacrosChartViewUIKit
+        // We do this after setting up constraints to ensure proper layout
+        let chartView = MacrosChartViewUIKit(entries: macroEntries)
+        let hostingController = UIHostingController(rootView: chartView)
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add the host view to our container
+        addChild(hostingController)
+        chartContainer.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+        
+        NSLayoutConstraint.activate([
+            hostingController.view.topAnchor.constraint(equalTo: chartContainer.topAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: chartContainer.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: chartContainer.trailingAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: chartContainer.bottomAnchor)
+        ])
+        
+        // Tag the container for easy identification during updates
+        chartContainer.tag = 101
+    }
+    
+    private func setupWaterIntakeCard() {
+        let card = createCardView()
+        waterIntakeCard = card
+        
+        // Add water tracking interface
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Header with title and water amount
+        let headerStack = UIStackView()
+        headerStack.axis = .horizontal
+        headerStack.distribution = .equalSpacing
+        headerStack.alignment = .center
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "Water Intake"
+        titleLabel.font = Constants.subtitleFont
+        
+        let waterAmountLabel = UILabel()
+        waterAmountLabel.text = "0 of 2500 ml"
+        waterAmountLabel.font = Constants.bodyFont
+        waterAmountLabel.textColor = Constants.waterColor
+        waterAmountLabel.accessibilityIdentifier = "waterAmountLabel"
+        
+        headerStack.addArrangedSubview(titleLabel)
+        headerStack.addArrangedSubview(waterAmountLabel)
+        
+        // Water visualization row
+        let waterVisualContainer = UIView()
+        waterVisualContainer.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create water wave visualization
+        let waterContainer = UIView()
+        waterContainer.translatesAutoresizingMaskIntoConstraints = false
+        waterContainer.backgroundColor = Constants.waterColor.withAlphaComponent(0.1)
+        waterContainer.layer.cornerRadius = 12
+        
+        let waterWaveView = UIView()
+        waterWaveView.translatesAutoresizingMaskIntoConstraints = false
+        waterWaveView.backgroundColor = Constants.waterColor.withAlphaComponent(0.3)
+        waterWaveView.layer.cornerRadius = 12
+        
+        let waterPercentLabel = UILabel()
+        waterPercentLabel.text = "0%"
+        waterPercentLabel.font = Constants.valueFont
+        waterPercentLabel.textColor = Constants.waterColor
+        waterPercentLabel.textAlignment = .center
+        waterPercentLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Height constraint for water level (will be animated)
+        let waterHeightConstraint = waterWaveView.heightAnchor.constraint(equalTo: waterContainer.heightAnchor, multiplier: 0)
+        waterHeightConstraint.isActive = true
+        
+        // Store for animation
+        objc_setAssociatedObject(waterWaveView, "waterHeightConstraint", waterHeightConstraint, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        
+        waterContainer.addSubview(waterWaveView)
+        waterContainer.addSubview(waterPercentLabel)
+        waterVisualContainer.addSubview(waterContainer)
+        
+        // Quick add buttons row
+        let quickAddStack = UIStackView()
+        quickAddStack.axis = .horizontal
+        quickAddStack.distribution = .fillEqually
+        quickAddStack.spacing = 10
+        quickAddStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add quick add buttons
+        let addSmallButton = createWaterButton(amount: 250, unit: "ml")
+        let addMediumButton = createWaterButton(amount: 500, unit: "ml")
+        let addLargeButton = createWaterButton(amount: 1000, unit: "ml")
+        
+        quickAddStack.addArrangedSubview(addSmallButton)
+        quickAddStack.addArrangedSubview(addMediumButton)
+        quickAddStack.addArrangedSubview(addLargeButton)
+        
+        // Add custom amount button
+        let customButton = createTextButton(title: "Custom Amount", icon: "plus.circle")
+        customButton.addTarget(self, action: #selector(addCustomWaterAmount), for: .touchUpInside)
+        
+        // Add all components to main stack
+        stackView.addArrangedSubview(headerStack)
+        stackView.addArrangedSubview(waterVisualContainer)
+        stackView.addArrangedSubview(quickAddStack)
+        stackView.addArrangedSubview(customButton)
+        
+        // Add to card and content view
+        card.addSubview(stackView)
+        contentView.addArrangedSubview(card)
+        
+        // Create constraints
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
+            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            stackView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16),
+            
+            waterContainer.topAnchor.constraint(equalTo: waterVisualContainer.topAnchor),
+            waterContainer.leadingAnchor.constraint(equalTo: waterVisualContainer.leadingAnchor),
+            waterContainer.trailingAnchor.constraint(equalTo: waterVisualContainer.trailingAnchor),
+            waterContainer.bottomAnchor.constraint(equalTo: waterVisualContainer.bottomAnchor),
+            waterContainer.heightAnchor.constraint(equalToConstant: 100),
+            
+            waterWaveView.leadingAnchor.constraint(equalTo: waterContainer.leadingAnchor),
+            waterWaveView.trailingAnchor.constraint(equalTo: waterContainer.trailingAnchor),
+            waterWaveView.bottomAnchor.constraint(equalTo: waterContainer.bottomAnchor),
+            
+            waterPercentLabel.centerXAnchor.constraint(equalTo: waterContainer.centerXAnchor),
+            waterPercentLabel.centerYAnchor.constraint(equalTo: waterContainer.centerYAnchor)
+        ])
+        
+        // Save reference
+        waterIntakeContainer = waterVisualContainer
+    }
+    
+    private func createWaterButton(amount: Int, unit: String) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle("\(amount) \(unit)", for: .normal)
+        button.titleLabel?.font = Constants.bodyFont
+        button.backgroundColor = Constants.waterColor.withAlphaComponent(0.1)
+        button.setTitleColor(Constants.waterColor, for: .normal)
+        button.layer.cornerRadius = 10
+        button.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Set accessibility identifier
+        button.accessibilityIdentifier = "water\(amount)Button"
+        
+        // Set tag with amount value for handler
+        button.tag = amount
+        
+        // Add action
+        button.addTarget(self, action: #selector(quickAddWater(_:)), for: .touchUpInside)
+        
+        // Fixed height
+        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        
+        return button
+    }
+    
+    private func setupNutrientInsightsCard() {
+        // Implementation for nutrient insights card
+        let card = createCardView()
+        nutrientInsightsCard = card
+        
+        // Add to content view with proper implementation
+        contentView.addArrangedSubview(card)
+    }
+    
+    // MARK: - Helper Methods
+    private func createCardView() -> UIView {
+        let card = UIView()
+        card.backgroundColor = .secondarySystemBackground
+        card.layer.cornerRadius = Constants.cardCornerRadius
+        updateCardShadow(card)
+        card.translatesAutoresizingMaskIntoConstraints = false
+        return card
+    }
+    
+    private func updateCardStyling() {
+        [summaryCard, macroBalanceCard, macroTrackingCard, trendCard, nutrientInsightsCard].forEach { card in
+            guard let card = card else { return }
+            updateCardShadow(card)
+        }
+    }
+    
+    private func updateCardShadow(_ card: UIView) {
+        // Adjust shadow based on light/dark mode
+        let isDarkMode = traitCollection.userInterfaceStyle == .dark
+        
+        card.layer.shadowColor = Constants.shadowColor
+        card.layer.shadowOffset = Constants.shadowOffset
+        card.layer.shadowRadius = Constants.shadowRadius
+        card.layer.shadowOpacity = isDarkMode ? Constants.shadowOpacity * 0.5 : Constants.shadowOpacity
+    }
+    
+    private func createInfoBox(title: String, value: String, color: UIColor) -> UIView {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = color.withAlphaComponent(0.1)
+        container.layer.cornerRadius = 12
+        
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 4
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let valueLabel = UILabel()
+        valueLabel.text = value
+        valueLabel.font = UIFont.systemFont(ofSize: 20, weight: .bold)
+        valueLabel.textColor = color
+        
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = UIFont.systemFont(ofSize: 14)
+        titleLabel.textColor = .secondaryLabel
+        titleLabel.textAlignment = .center
+        
+        stack.addArrangedSubview(valueLabel)
+        stack.addArrangedSubview(titleLabel)
+        
+        container.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            container.heightAnchor.constraint(equalToConstant: 70),
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12)
+        ])
+        
+        return container
+    }
+    
+    private func createLegendItem(name: String, color: UIColor) -> UIView {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 8
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let colorIndicator = UIView()
+        colorIndicator.backgroundColor = color
+        colorIndicator.layer.cornerRadius = 4
+        colorIndicator.translatesAutoresizingMaskIntoConstraints = false
+        
+        let labelStack = UIStackView()
+        labelStack.axis = .vertical
+        labelStack.spacing = 2
+        
+        let nameLabel = UILabel()
+        nameLabel.text = name
+        nameLabel.font = UIFont.systemFont(ofSize: 14)
+        
+        let percentLabel = UILabel()
+        percentLabel.text = "0%"
+        percentLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        percentLabel.accessibilityIdentifier = "percent\(name)"
+        
+        labelStack.addArrangedSubview(nameLabel)
+        labelStack.addArrangedSubview(percentLabel)
+        
+        stack.addArrangedSubview(colorIndicator)
+        stack.addArrangedSubview(labelStack)
+        
+        container.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            colorIndicator.widthAnchor.constraint(equalToConstant: 16),
+            colorIndicator.heightAnchor.constraint(equalToConstant: 16),
+            
+            stack.topAnchor.constraint(equalTo: container.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        
+        return container
+    }
+    
+    private func addTrackingRow(to stackView: UIStackView, name: String, icon: String, color: UIColor) {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        
+        let rowStack = UIStackView()
+        rowStack.axis = .vertical
+        rowStack.spacing = 8
+        rowStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Header with icon, name and value
+        let headerStack = UIStackView()
+        headerStack.axis = .horizontal
+        headerStack.spacing = 12
+        headerStack.alignment = .center
+        
+        let iconContainer = UIView()
+        iconContainer.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.backgroundColor = color.withAlphaComponent(0.1)
+        iconContainer.layer.cornerRadius = 12
+        
+        let iconImage = UIImageView(image: UIImage(systemName: icon))
+        iconImage.tintColor = color
+        iconImage.translatesAutoresizingMaskIntoConstraints = false
+        iconImage.contentMode = .scaleAspectFit
+        
+        iconContainer.addSubview(iconImage)
+        NSLayoutConstraint.activate([
+            iconContainer.widthAnchor.constraint(equalToConstant: 36),
+            iconContainer.heightAnchor.constraint(equalToConstant: 36),
+            iconImage.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
+            iconImage.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
+            iconImage.widthAnchor.constraint(equalToConstant: 18),
+            iconImage.heightAnchor.constraint(equalToConstant: 18)
+        ])
+        
+        let nameLabel = UILabel()
+        nameLabel.text = name
+        nameLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        
+        // Spacer to push value to the right
+        let spacer = UIView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        
+        let valueLabel = UILabel()
+        valueLabel.text = "0g"
+        valueLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        valueLabel.textColor = color
+        valueLabel.accessibilityIdentifier = "value\(name)"
+        
+        headerStack.addArrangedSubview(iconContainer)
+        headerStack.addArrangedSubview(nameLabel)
+        headerStack.addArrangedSubview(spacer)
+        headerStack.addArrangedSubview(valueLabel)
+        
+        // Progress bar
+        let progressStack = UIStackView()
+        progressStack.axis = .vertical
+        progressStack.spacing = 4
+        
+        let progressBar = UIProgressView(progressViewStyle: .bar)
+        progressBar.translatesAutoresizingMaskIntoConstraints = false
+        progressBar.progressTintColor = color
+        progressBar.trackTintColor = color.withAlphaComponent(0.1)
+        progressBar.progress = 0.0
+        progressBar.layer.cornerRadius = 3
+        progressBar.clipsToBounds = true
+        progressBar.heightAnchor.constraint(equalToConstant: 6).isActive = true
+        progressBar.accessibilityIdentifier = "progress\(name)"
+        
+        let goalLabel = UILabel()
+        goalLabel.text = "Goal: 0g"
+        goalLabel.font = UIFont.systemFont(ofSize: 14)
+        goalLabel.textColor = .secondaryLabel
+        goalLabel.textAlignment = .right
+        goalLabel.accessibilityIdentifier = "goal\(name)"
+        
+        progressStack.addArrangedSubview(progressBar)
+        progressStack.addArrangedSubview(goalLabel)
+        
+        rowStack.addArrangedSubview(headerStack)
+        rowStack.addArrangedSubview(progressStack)
+        
+        container.addSubview(rowStack)
+        NSLayoutConstraint.activate([
+            rowStack.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+            rowStack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            rowStack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            rowStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6)
+        ])
+        
+        stackView.addArrangedSubview(container)
+    }
+    
+    private func createNutrientItem(name: String, value: String, color: UIColor) -> UIView {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = .tertiarySystemBackground
+        container.layer.cornerRadius = 12
+        
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 12
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let circleProgress = CircularProgressView(frame: .zero)
+        circleProgress.translatesAutoresizingMaskIntoConstraints = false
+        circleProgress.progressColor = color
+        circleProgress.trackColor = color.withAlphaComponent(0.1)
+        circleProgress.lineWidth = 4
+        
+        // Extract percentage value
+        if let percentString = value.components(separatedBy: "%").first,
+           let percent = Double(percentString) {
+            circleProgress.progress = CGFloat(percent / 100.0)
+        }
+        
+        let labelStack = UIStackView()
+        labelStack.axis = .vertical
+        labelStack.spacing = 2
+        
+        let nameLabel = UILabel()
+        nameLabel.text = name
+        nameLabel.font = UIFont.systemFont(ofSize: 14)
+        
+        let valueLabel = UILabel()
+        valueLabel.text = value
+        valueLabel.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        valueLabel.textColor = color
+        
+        labelStack.addArrangedSubview(nameLabel)
+        labelStack.addArrangedSubview(valueLabel)
+        
+        stack.addArrangedSubview(circleProgress)
+        stack.addArrangedSubview(labelStack)
+        
+        container.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            circleProgress.widthAnchor.constraint(equalToConstant: 32),
+            circleProgress.heightAnchor.constraint(equalToConstant: 32),
+            
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12)
+        ])
+        
+        return container
+    }
+    
+    private func createInsightRow(icon: String, title: String, message: String, color: UIColor) -> UIView {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = color.withAlphaComponent(0.1)
+        container.layer.cornerRadius = 12
+        
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 12
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let iconContainer = UIView()
+        iconContainer.translatesAutoresizingMaskIntoConstraints = false
+        iconContainer.backgroundColor = color.withAlphaComponent(0.2)
+        iconContainer.layer.cornerRadius = 16
+        
+        let iconImage = UIImageView(image: UIImage(systemName: icon))
+        iconImage.tintColor = color
+        iconImage.translatesAutoresizingMaskIntoConstraints = false
+        iconImage.contentMode = .scaleAspectFit
+        
+        iconContainer.addSubview(iconImage)
+        NSLayoutConstraint.activate([
+            iconContainer.widthAnchor.constraint(equalToConstant: 32),
+            iconContainer.heightAnchor.constraint(equalToConstant: 32),
+            iconImage.centerXAnchor.constraint(equalTo: iconContainer.centerXAnchor),
+            iconImage.centerYAnchor.constraint(equalTo: iconContainer.centerYAnchor),
+            iconImage.widthAnchor.constraint(equalToConstant: 16),
+            iconImage.heightAnchor.constraint(equalToConstant: 16)
+        ])
+        
+        let labelStack = UIStackView()
+        labelStack.axis = .vertical
+        labelStack.spacing = 2
+        
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = UIFont.systemFont(ofSize: 15, weight: .medium)
+        
+        let messageLabel = UILabel()
+        messageLabel.text = message
+        messageLabel.font = UIFont.systemFont(ofSize: 14)
+        messageLabel.textColor = .secondaryLabel
+        messageLabel.numberOfLines = 2
+        
+        labelStack.addArrangedSubview(titleLabel)
+        labelStack.addArrangedSubview(messageLabel)
+        
+        stack.addArrangedSubview(iconContainer)
+        stack.addArrangedSubview(labelStack)
+        
+        container.addSubview(stack)
+        
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12)
+        ])
+        
+        return container
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+    
+    private func setupChartView() {
+        loadMacroData()
+    }
+    
+    private func loadMacroData() {
+        // Default to last 7 days
+        let calendar = Calendar.current
+        let endDate = Date()
+        if let startDate = calendar.date(byAdding: .day, value: -7, to: endDate) {
+            filterMacroData(from: startDate, to: endDate)
+        } else {
+            // Fallback if date calculation fails
+            dataManager.fetchMacroData { [weak self] entries in
+                guard let self = self else { return }
+                
+                DispatchQueue.main.async {
+                    self.macroEntries = entries
+                    self.updateCards()
+                    self.refreshControl.endRefreshing()
+                }
+            }
+        }
+    }
+    
+    private func updateUI(with entries: [MacrosEntry]) {
+        guard let entry = entries.last else { return }
+        
+        // Update member variables
+        currentProtein = entry.proteins
+        currentCarbs = entry.carbs
+        currentFat = entry.fats
+        proteinGoal = entry.proteinGoal
+        carbsGoal = entry.carbGoal
+        fatGoal = entry.fatGoal
+        
+        // Update summary card
+        updateSummaryCard(with: entry)
+        
+        // Update macro tracking
+        updateMacroTracking(with: entry)
+        
+        // Update macro balance with all entries
+        updateMacroBalance(with: entries)
+        
+        // Update trend chart if we have multiple entries
+        if entries.count > 1, let trendContainer = trendCard {
+            updateTrendChart(with: entries, in: trendContainer)
+        }
+        
+        // Update nutrient insights (in a real app, this would use real data)
+        updateNutrientInsights(with: entry)
+    }
+    
+    private func updateSummaryCard(with entry: MacrosEntry) {
+        guard let summaryCard = summaryCard else { return }
+        
+        // Calculate calorie values
+        let calorieTotal = entry.calories
+        let calorieGoal = entry.calorieGoal
+        let calorieRemaining = max(0, calorieGoal - calorieTotal)
+        
+        // Find UI elements
+        for subview in summaryCard.subviews {
+            if let stackView = subview as? UIStackView {
+                // Find calorie container (2nd item)
+                if stackView.arrangedSubviews.count > 1 {
+                    let calorieContainer = stackView.arrangedSubviews[1]
+                    
+                    for calorieSubview in calorieContainer.subviews {
+                        if let calorieStack = calorieSubview as? UIStackView,
+                           calorieStack.arrangedSubviews.count >= 3 {
+                            
+                            // Update calorie labels
+                            if let calorieLabel = calorieStack.arrangedSubviews[0] as? UILabel {
+                                calorieLabel.text = String(format: "%.0f", calorieTotal)
+                            }
+                            
+                            if let goalLabel = calorieStack.arrangedSubviews[1] as? UILabel {
+                                goalLabel.text = String(format: "of %.0f calories", calorieGoal)
+                            }
+                            
+                            // Update progress bar
+                            if let progressBar = calorieStack.arrangedSubviews[2] as? UIProgressView {
+                                let progress = calorieGoal > 0 ? Float(min(calorieTotal / calorieGoal, 1.0)) : 0
+                                UIView.animate(withDuration: 0.5) {
+                                    progressBar.setProgress(progress, animated: true)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Find info container (3rd item)
+                if stackView.arrangedSubviews.count > 2 {
+                    let infoContainer = stackView.arrangedSubviews[2]
+                    
+                    for infoSubview in infoContainer.subviews {
+                        if let infoStack = infoSubview as? UIStackView,
+                           infoStack.arrangedSubviews.count >= 3 {
+                            
+                            // Update remaining calories
+                            if let remainingBox = infoStack.arrangedSubviews[0].subviews.first as? UIStackView,
+                               let remainingLabel = remainingBox.arrangedSubviews.first as? UILabel {
+                                remainingLabel.text = String(format: "%.0f", calorieRemaining)
+                            }
+                            
+                            // Update consumed calories
+                            if let consumedBox = infoStack.arrangedSubviews[1].subviews.first as? UIStackView,
+                               let consumedLabel = consumedBox.arrangedSubviews.first as? UILabel {
+                                consumedLabel.text = String(format: "%.0f", calorieTotal)
+                            }
+                            
+                            // Update burned calories (this would be from another data source)
+                            if let burnedBox = infoStack.arrangedSubviews[2].subviews.first as? UIStackView,
+                               let burnedLabel = burnedBox.arrangedSubviews.first as? UILabel {
+                                // In a real app, this would come from activity data
+                                burnedLabel.text = "350"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updateMacroTracking(with entry: MacrosEntry) {
+        guard let macroTrackingCard = macroTrackingCard else { return }
+        
+        // Search for the macro tracking rows
+        for subview in macroTrackingCard.subviews {
+            if let stackView = subview as? UIStackView,
+               stackView.arrangedSubviews.count >= 4 {
+                
+                // Protein row (index 1)
+                if stackView.arrangedSubviews.count > 1 {
+                    let proteinContainer = stackView.arrangedSubviews[1]
+                    if let proteinRow = proteinContainer.subviews.first as? UIStackView {
+                        updateMacroRow(row: proteinRow, value: entry.proteins, goal: entry.proteinGoal, name: "Protein")
+                    }
+                }
+                
+                // Carbs row (index 2)
+                if stackView.arrangedSubviews.count > 2 {
+                    let carbsContainer = stackView.arrangedSubviews[2]
+                    if let carbsRow = carbsContainer.subviews.first as? UIStackView {
+                        updateMacroRow(row: carbsRow, value: entry.carbs, goal: entry.carbsGoal, name: "Carbs")
+                    }
+                }
+                
+                // Fat row (index 3)
+                if stackView.arrangedSubviews.count > 3 {
+                    let fatContainer = stackView.arrangedSubviews[3]
+                    if let fatRow = fatContainer.subviews.first as? UIStackView {
+                        updateMacroRow(row: fatRow, value: entry.fats, goal: entry.fatGoal, name: "Fat")
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updateMacroRow(row: UIStackView, value: Double, goal: Double, name: String) {
+        guard row.arrangedSubviews.count >= 2 else { return }
+        
+        // Update value in header
+        if let headerStack = row.arrangedSubviews[0] as? UIStackView,
+           headerStack.arrangedSubviews.count >= 4,
+           let valueLabel = headerStack.arrangedSubviews[3] as? UILabel {
+            valueLabel.text = String(format: "%.0fg", value)
+        }
+        
+        // Update progress bar and goal
+        if let progressStack = row.arrangedSubviews[1] as? UIStackView,
+           progressStack.arrangedSubviews.count >= 2 {
+            
+            if let progressBar = progressStack.arrangedSubviews[0] as? UIProgressView {
+                let progress = goal > 0 ? Float(min(value / goal, 1.0)) : 0
+                progressBar.progress = progress // No animation to avoid blocking
+            }
+            
+            if let goalLabel = progressStack.arrangedSubviews[1] as? UILabel {
+                goalLabel.text = String(format: "Goal: %.0fg", goal)
+            }
+        }
+    }
+    
+    private func updateTrendChart(with entries: [MacrosEntry], in container: UIView) {
+        // Remove placeholder if it exists
+        if let placeholder = container.viewWithTag(100) {
+            placeholder.removeFromSuperview()
+        }
+        
+        // Remove any existing chart (using a unique tag)
+        if let existingHostingView = container.viewWithTag(101) {
+            existingHostingView.removeFromSuperview()
+        }
+        
+        // Create trend chart in SwiftUI
+        let trendChart = MacroTrendChartView(entries: entries)
+            .environment(\.colorScheme, traitCollection.userInterfaceStyle == .dark ? .dark : .light)
+        
+        let hostingController = UIHostingController(rootView: trendChart)
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.tag = 101  // Add unique tag for later identification
+        
+        // Find the main stack view
+        var stackView: UIStackView?
+        for subview in container.subviews {
+            if let stack = subview as? UIStackView {
+                stackView = stack
+                break
+            }
+        }
+        
+        guard let stackView = stackView else { return }
+        
+        addChild(hostingController)
+        
+        // If there are at least 2 arranged subviews (header and placeholder)
+        if stackView.arrangedSubviews.count >= 2 {
+            // Remove the placeholder
+            stackView.removeArrangedSubview(stackView.arrangedSubviews[1])
+            // Add the chart
+            stackView.insertArrangedSubview(hostingController.view, at: 1)
+        }
+        
+        hostingController.didMove(toParent: self)
+        
+        NSLayoutConstraint.activate([
+            hostingController.view.heightAnchor.constraint(equalToConstant: 220)
+        ])
+    }
+    
+    private func updateNutrientInsights(with entry: MacrosEntry) {
+        // In a real app, this would use real micronutrient data from the entry
+        // This is just a placeholder implementation
+    }
+    
+    private func updateMacroBalance(with entries: [MacrosEntry]) {
+        guard let macroBalanceCard = macroBalanceCard else { return }
+        
+        // Get current values for protein, carbs, and fat
+        let proteinValue = currentProtein
+        let carbsValue = currentCarbs
+        let fatValue = currentFat
+        
+        // Calculate total calories and percentages
+        let totalMacros = proteinValue + carbsValue + fatValue
+        
+        let proteinPercent = totalMacros > 0 ? (proteinValue / totalMacros) * 100 : 0
+        let carbsPercent = totalMacros > 0 ? (carbsValue / totalMacros) * 100 : 0
+        let fatPercent = totalMacros > 0 ? (fatValue / totalMacros) * 100 : 0
+        
+        // Find the main stack view
+        for subview in macroBalanceCard.subviews {
+            if let mainStack = subview as? UIStackView {
+                // Look for the title row and chart container
+                if mainStack.arrangedSubviews.count >= 2 {
+                    // Handle chart view (second arranged subview)
+                    if let chartContainer = mainStack.arrangedSubviews[1] as? UIView {
+                        updateChartView(in: chartContainer)
+                    }
+                }
+                break
+            }
+        }
+    }
+    
+    private func updateChartView(in container: UIView) {
+        // Remove any existing views
+        for subview in container.subviews {
+            subview.removeFromSuperview()
+        }
+        
+        // Create new chart with current data
+        let chartView = MacrosChartViewUIKit(entries: macroEntries)
+        let hostingController = UIHostingController(rootView: chartView)
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add the host view to our container
+        addChild(hostingController)
+        container.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+        
+        NSLayoutConstraint.activate([
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+    }
+    
+    // MARK: - Animations
+    private func animateContent() {
+        // Animate cards appearing one by one
+        let cards = [summaryCard, macroBalanceCard, macroTrackingCard, trendCard, nutrientInsightsCard]
+        
+        for (index, card) in cards.enumerated() {
+            guard let card = card else { continue }
+            
+            // Set initial state
+            card.alpha = 0
+            card.transform = CGAffineTransform(translationX: 0, y: 20)
+            
+            // Animate with delay based on position
+            UIView.animate(
+                withDuration: Constants.defaultAnimationDuration,
+                delay: TimeInterval(index) * 0.1,
+                usingSpringWithDamping: 0.8,
+                initialSpringVelocity: 0.5,
+                options: [],
+                animations: {
+                    card.alpha = 1
+                    card.transform = .identity
+                }
+            )
+        }
+    }
+    
+    // MARK: - Action Methods
+    @objc private func showGoalSettings() {
+        let goalsVC = GoalsViewController()
+        goalsVC.delegate = self
+        goalsVC.macroGoals = (proteinGoal: proteinGoal, carbsGoal: carbsGoal, fatGoal: fatGoal)
+        
+        let navController = UINavigationController(rootViewController: goalsVC)
+        present(navController, animated: true)
+    }
+    
+    @objc private func showMacroHistory() {
+        // In a real app, this would show a history or log view
+        let alertController = UIAlertController(
+            title: "Coming Soon",
+            message: "The detailed macro history view is under development.",
+            preferredStyle: .alert
+        )
+        
+        alertController.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alertController, animated: true)
+    }
+    
+    @objc private func showNutrientDetail() {
+        // Present the nutrient detail view controller
+        let nutrientVC = NutrientDetailViewController()
+        if let entry = macroEntries.last {
+            nutrientVC.macroEntry = entry
+        }
+        navigationController?.pushViewController(nutrientVC, animated: true)
+    }
+    
+    @objc private func timeRangeChanged(_ sender: UISegmentedControl) {
+        // In a real app, this would update the data range shown
+        // For this example, just show a message
+        let timeRanges = ["Day", "Week", "Month"]
+        if sender.selectedSegmentIndex < timeRanges.count {
+            print("Selected time range: \(timeRanges[sender.selectedSegmentIndex])")
+            
+            // Get current date
+            let now = Date()
+            let calendar = Calendar.current
+            var startDate: Date?
+            
+            // Determine date range based on selection
+            switch sender.selectedSegmentIndex {
+            case 0: // Day
+                startDate = calendar.startOfDay(for: now)
+            case 1: // Week
+                startDate = calendar.date(byAdding: .day, value: -7, to: now)
+            case 2: // Month
+                startDate = calendar.date(byAdding: .day, value: -30, to: now)
+            default:
+                startDate = calendar.date(byAdding: .day, value: -7, to: now)
+            }
+            
+            // Update data for the selected range
+            if let startDate = startDate {
+                DispatchQueue.main.async { [weak self] in
+                    self?.filterMacroData(from: startDate, to: now)
+                }
+            }
+        }
+    }
+    
+    @objc private func trendTimeRangeChanged(_ sender: UISegmentedControl) {
+        // In a real app, this would update the trend data range
+        let timeRanges = ["7 days", "30 days", "90 days"]
+        if sender.selectedSegmentIndex < timeRanges.count {
+            print("Selected trend time range: \(timeRanges[sender.selectedSegmentIndex])")
+            // Here you would load trend data for the selected period
+        }
+    }
+    
+    @objc private func showDateFilter() {
+        // Create date filter action sheet
+        let alertController = UIAlertController(title: "Select Date Range", message: nil, preferredStyle: .actionSheet)
+        
+        // Add date range options
+        let today = UIAlertAction(title: "Today", style: .default) { [weak self] _ in
+            self?.filterMacroData(range: .today)
+        }
+        
+        let week = UIAlertAction(title: "Last 7 Days", style: .default) { [weak self] _ in
+            self?.filterMacroData(range: .week)
+        }
+        
+        let month = UIAlertAction(title: "Last 30 Days", style: .default) { [weak self] _ in
+            self?.filterMacroData(range: .month)
+        }
+        
+        let custom = UIAlertAction(title: "Custom Range...", style: .default) { [weak self] _ in
+            self?.showCustomDatePicker()
+        }
+        
+        let cancel = UIAlertAction(title: "Cancel", style: .cancel)
+        
+        alertController.addAction(today)
+        alertController.addAction(week)
+        alertController.addAction(month)
+        alertController.addAction(custom)
+        alertController.addAction(cancel)
+        
+        // Set iPad presentation
+        if let popoverController = alertController.popoverPresentationController {
+            popoverController.barButtonItem = navigationItem.rightBarButtonItems?.last
+        }
+        
+        present(alertController, animated: true)
+    }
+    
+    private func showCustomDatePicker() {
+        // Create custom date picker dialog
+        let datePickerController = UIAlertController(title: "Custom Date Range", message: nil, preferredStyle: .alert)
+        
+        // Add date pickers to the controller
+        datePickerController.addTextField { textField in
+            // Create a custom view with date picker
+            let datePicker = UIDatePicker()
+            datePicker.datePickerMode = .date
+            datePicker.preferredDatePickerStyle = .wheels
+            datePicker.maximumDate = Date()
+            
+            // Set default start date to 7 days ago
+            let calendar = Calendar.current
+            let startDate = calendar.date(byAdding: .day, value: -7, to: Date())
+            datePicker.date = startDate ?? Date()
+            
+            textField.inputView = datePicker
+            textField.placeholder = "Start Date"
+            textField.text = self.formatDateForDisplay(datePicker.date)
+            
+            // Update text when date changes
+            datePicker.addTarget(self, action: #selector(self.startDateChanged(_:)), for: .valueChanged)
+            
+            // Store date picker as associated object
+            objc_setAssociatedObject(textField, UnsafeRawPointer(bitPattern: 1)!, datePicker, .OBJC_ASSOCIATION_RETAIN)
+        }
+        
+        datePickerController.addTextField { textField in
+            // Create a custom view with date picker
+            let datePicker = UIDatePicker()
+            datePicker.datePickerMode = .date
+            datePicker.preferredDatePickerStyle = .wheels
+            datePicker.maximumDate = Date()
+            datePicker.date = Date()
+            
+            textField.inputView = datePicker
+            textField.placeholder = "End Date"
+            textField.text = self.formatDateForDisplay(datePicker.date)
+            
+            // Update text when date changes
+            datePicker.addTarget(self, action: #selector(self.endDateChanged(_:)), for: .valueChanged)
+            
+            // Store date picker as associated object
+            objc_setAssociatedObject(textField, UnsafeRawPointer(bitPattern: 1)!, datePicker, .OBJC_ASSOCIATION_RETAIN)
+        }
+        
+        // Add actions
+        let applyAction = UIAlertAction(title: "Apply", style: .default) { [weak self] _ in
+            guard let self = self,
+                  let startField = datePickerController.textFields?[0],
+                  let endField = datePickerController.textFields?[1],
+                  let startPicker = objc_getAssociatedObject(startField, UnsafeRawPointer(bitPattern: 1)!) as? UIDatePicker,
+                  let endPicker = objc_getAssociatedObject(endField, UnsafeRawPointer(bitPattern: 1)!) as? UIDatePicker else {
+                return
+            }
+            
+            self.filterMacroData(from: startPicker.date, to: endPicker.date)
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        
+        datePickerController.addAction(applyAction)
+        datePickerController.addAction(cancelAction)
+        
+        present(datePickerController, animated: true)
+    }
+    
+    @objc private func startDateChanged(_ sender: UIDatePicker) {
+        if let alertController = presentedViewController as? UIAlertController,
+           let textField = alertController.textFields?[0] {
+            textField.text = formatDateForDisplay(sender.date)
+        }
+    }
+    
+    @objc private func endDateChanged(_ sender: UIDatePicker) {
+        if let alertController = presentedViewController as? UIAlertController,
+           let textField = alertController.textFields?[1] {
+            textField.text = formatDateForDisplay(sender.date)
+        }
+    }
+    
+    private func formatDateForDisplay(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+    
+    enum DateFilterRange {
+        case today
+        case week
+        case month
+        case custom(from: Date, to: Date)
+    }
+    
+    private func filterMacroData(range: DateFilterRange) {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        switch range {
+        case .today:
+            let startOfDay = calendar.startOfDay(for: now)
+            filterMacroData(from: startOfDay, to: now)
+            
+        case .week:
+            guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: now) else { return }
+            filterMacroData(from: weekAgo, to: now)
+            
+        case .month:
+            guard let monthAgo = calendar.date(byAdding: .day, value: -30, to: now) else { return }
+            filterMacroData(from: monthAgo, to: now)
+            
+        case .custom(let from, let to):
+            filterMacroData(from: from, to: to)
+        }
+    }
+    
+    private func filterMacroData(from startDate: Date, to endDate: Date) {
+        // Show loading state
+        refreshControl.beginRefreshing()
+        
+        // Update navigation title with date range
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        let rangeText = "\(formatter.string(from: startDate)) - \(formatter.string(from: endDate))"
+        navigationItem.title = "Nutrition: \(rangeText)"
+        
+        // Filter macro entries
+        dataManager.fetchMacroData { [weak self] entries in
+            guard let self = self else { return }
+            
+            let filteredEntries = entries.filter { entry in
+                return entry.date >= startDate && entry.date <= endDate
+            }
+            
+            DispatchQueue.main.async {
+                self.macroEntries = filteredEntries
+                self.updateCards()
+                self.refreshControl.endRefreshing()
+                
+                // Add data freshness indicator if needed
+                self.showDataFreshnessIndicator(for: filteredEntries)
+            }
+        }
+    }
+    
+    private func showDataFreshnessIndicator(for entries: [MacrosEntry]) {
+        // Remove existing indicator if present
+        for subview in view.subviews {
+            if subview.tag == 999 {
+                subview.removeFromSuperview()
+            }
+        }
+        
+        // Check if data is stale (no entries for current day)
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let hasCurrentDayData = entries.contains { entry in
+            return calendar.isDate(entry.date, inSameDayAs: today)
+        }
+        
+        if !hasCurrentDayData && !entries.isEmpty {
+            // Create freshness indicator
+            let indicator = UIButton()
+            indicator.tag = 999
+            indicator.setTitle("Data may be outdated. Tap to refresh", for: .normal)
+            indicator.setTitleColor(.white, for: .normal)
+            indicator.titleLabel?.font = UIFont.systemFont(ofSize: 13)
+            indicator.backgroundColor = UIColor.systemOrange
+            indicator.layer.cornerRadius = 16
+            indicator.translatesAutoresizingMaskIntoConstraints = false
+            indicator.addTarget(self, action: #selector(refreshData), for: .touchUpInside)
+            
+            // Add shadow
+            indicator.layer.shadowColor = UIColor.black.cgColor
+            indicator.layer.shadowOffset = CGSize(width: 0, height: 2)
+            indicator.layer.shadowRadius = 4
+            indicator.layer.shadowOpacity = 0.2
+            
+            view.addSubview(indicator)
+            
+            NSLayoutConstraint.activate([
+                indicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                indicator.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+                indicator.heightAnchor.constraint(equalToConstant: 32),
+                indicator.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, constant: -32),
+                indicator.widthAnchor.constraint(greaterThanOrEqualToConstant: 220)
+            ])
+            
+            // Animate in
+            indicator.alpha = 0
+            UIView.animate(withDuration: 0.5) {
+                indicator.alpha = 1
+            }
+            
+            // Schedule auto-dismiss
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                UIView.animate(withDuration: 0.5) {
+                    indicator.alpha = 0
+                } completion: { _ in
+                    indicator.removeFromSuperview()
+                }
+            }
+        }
+    }
+    
+    private func updateCards() {
+        // Check if we have entries to display
+        guard !macroEntries.isEmpty else {
+            // Show empty state
+            setupEmptyState()
+            return
+        }
+        
+        // Remove empty state if it exists
+        removeEmptyState()
+        
+        // Get latest entry for current values
+        if let latestEntry = macroEntries.sorted(by: { $0.date > $1.date }).first {
+            // Update current values
+            currentProtein = latestEntry.proteins
+            currentCarbs = latestEntry.carbs
+            currentFat = latestEntry.fats
+            
+            // Update goals from the latest entry
+            proteinGoal = latestEntry.proteinGoal
+            carbsGoal = latestEntry.carbGoal
+            fatGoal = latestEntry.fatGoal
+        }
+        
+        // Update all content cards safely on the main thread
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Update each card separately to isolate any issues
+            do {
+                self.updateMacroSummaryCard()
+            } catch {
+                print("Error updating macro summary card: \(error)")
+            }
+            
+            do {
+                self.updateMacroBalanceCard()
+            } catch {
+                print("Error updating macro balance card: \(error)")
+            }
+            
+            do {
+                self.updateMacroTrackingCard()
+            } catch {
+                print("Error updating macro tracking card: \(error)")
+            }
+            
+            do {
+                self.updateTrendAnalysisCard()
+            } catch {
+                print("Error updating trend analysis card: \(error)")
+            }
+            
+            do {
+                self.updateNutrientInsightsCard()
+            } catch {
+                print("Error updating nutrient insights card: \(error)")
+            }
+        }
+    }
+    
+    private func removeEmptyState() {
+        for subview in contentView.arrangedSubviews {
+            if subview.tag == 777 { // Empty state tag
+                UIView.animate(withDuration: 0.3, animations: {
+                    subview.alpha = 0
+                }) { _ in
+                    subview.removeFromSuperview()
+                }
+                break
+            }
+        }
+    }
+    
+    private func setupEmptyState() {
+        // First remove all content cards
+        for subview in contentView.arrangedSubviews {
+            subview.removeFromSuperview()
+        }
+        
+        // Create empty state card
+        let emptyCard = createCardView()
+        emptyCard.tag = 777
+        
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 16
+        stackView.alignment = .center
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add illustration image
+        let imageView = UIImageView(image: UIImage(systemName: "fork.knife.circle"))
+        imageView.tintColor = .systemGray3
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add text
+        let titleLabel = UILabel()
+        titleLabel.text = "No Nutrition Data"
+        titleLabel.font = UIFont.systemFont(ofSize: 20, weight: .bold)
+        titleLabel.textAlignment = .center
+        
+        let subtitleLabel = UILabel()
+        subtitleLabel.text = "Add your meals to see your macro tracking data here."
+        subtitleLabel.font = UIFont.systemFont(ofSize: 16)
+        subtitleLabel.textColor = .secondaryLabel
+        subtitleLabel.textAlignment = .center
+        subtitleLabel.numberOfLines = 0
+        
+        // Create button
+        let addButton = UIButton(type: .system)
+        addButton.setTitle("Log Meal", for: .normal)
+        addButton.setTitleColor(.white, for: .normal)
+        addButton.backgroundColor = .systemBlue
+        addButton.layer.cornerRadius = 8
+        addButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        addButton.addTarget(self, action: #selector(logMealTapped), for: .touchUpInside)
+        
+        // Add components to stack
+        stackView.addArrangedSubview(imageView)
+        stackView.addArrangedSubview(titleLabel)
+        stackView.addArrangedSubview(subtitleLabel)
+        stackView.addArrangedSubview(addButton)
+        
+        emptyCard.addSubview(stackView)
+        
+        NSLayoutConstraint.activate([
+            imageView.widthAnchor.constraint(equalToConstant: 80),
+            imageView.heightAnchor.constraint(equalToConstant: 80),
+            
+            stackView.topAnchor.constraint(equalTo: emptyCard.topAnchor, constant: 32),
+            stackView.leadingAnchor.constraint(equalTo: emptyCard.leadingAnchor, constant: 16),
+            stackView.trailingAnchor.constraint(equalTo: emptyCard.trailingAnchor, constant: -16),
+            stackView.bottomAnchor.constraint(equalTo: emptyCard.bottomAnchor, constant: -32),
+        ])
+        
+        contentView.addArrangedSubview(emptyCard)
+        
+        // Set height constraint for the card
+        emptyCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
+    }
+    
+    @objc private func logMealTapped() {
+        // Notify Flutter to open the meal logging screen
+        NotificationCenter.default.post(name: Notification.Name("OpenMealLoggingScreen"), object: nil)
+    }
+    
+    // Update each individual card with current data
+    
+    private func updateMacroSummaryCard() {
+        guard let summaryCard = summaryCard else { return }
+        
+        // Calculate calorie information
+        let caloriesConsumed = (currentProtein * 4) + (currentCarbs * 4) + (currentFat * 9)
+        let calorieGoal = (proteinGoal * 4) + (carbsGoal * 4) + (fatGoal * 9)
+        let calorieProgress = min(caloriesConsumed / max(1, calorieGoal), 1.0)
+        
+        // Find views by identifier
+        if let calorieLabel = summaryCard.viewWithTag(101) as? UILabel {
+            calorieLabel.text = "\(Int(caloriesConsumed))"
+        }
+        
+        if let calorieGoalLabel = summaryCard.viewWithTag(102) as? UILabel {
+            calorieGoalLabel.text = "of \(Int(calorieGoal)) calories"
+        }
+        
+        if let progressBar = summaryCard.viewWithTag(103) as? UIProgressView {
+            UIView.animate(withDuration: 0.5) {
+                progressBar.setProgress(Float(calorieProgress), animated: true)
+            }
+        }
+        
+        // Update remaining, consumed and burned calories
+        if let remainingLabel = summaryCard.viewWithTag(104) as? UILabel {
+            let remaining = max(0, calorieGoal - caloriesConsumed)
+            remainingLabel.text = "\(Int(remaining))"
+        }
+        
+        if let consumedLabel = summaryCard.viewWithTag(105) as? UILabel {
+            consumedLabel.text = "\(Int(caloriesConsumed))"
+        }
+        
+        // Get burned calories from HealthKit or data source
+        let burnedCalories = getBurnedCaloriesForToday()
+        if let burnedLabel = summaryCard.viewWithTag(106) as? UILabel {
+            burnedLabel.text = "\(Int(burnedCalories))"
+        }
+    }
+    
+    private func getBurnedCaloriesForToday() -> Double {
+        // In a real implementation, this would fetch from HealthKit or your data source
+        // For now, use a placeholder value
+        return 350
+    }
+    
+    private func updateMacroBalanceCard() {
+        guard let macroBalanceCard = macroBalanceCard else { return }
+        
+        // Get current values for protein, carbs, and fat
+        let proteinValue = currentProtein
+        let carbsValue = currentCarbs
+        let fatValue = currentFat
+        
+        // Calculate total calories and percentages
+        let totalMacros = proteinValue + carbsValue + fatValue
+        
+        let proteinPercent = totalMacros > 0 ? (proteinValue / totalMacros) * 100 : 0
+        let carbsPercent = totalMacros > 0 ? (carbsValue / totalMacros) * 100 : 0
+        let fatPercent = totalMacros > 0 ? (fatValue / totalMacros) * 100 : 0
+        
+        // Find the main stack view
+        for subview in macroBalanceCard.subviews {
+            if let mainStack = subview as? UIStackView {
+                // Look for the title row and chart container
+                if mainStack.arrangedSubviews.count >= 2 {
+                    // Handle chart view (second arranged subview)
+                    if let chartContainer = mainStack.arrangedSubviews[1] as? UIView {
+                        updateChartView(in: chartContainer)
+                    }
+                }
+                break
+            }
+        }
+    }
+    
+    private func updateMacroTrackingCard() {
+        guard let macroTrackingCard = macroTrackingCard else { return }
+        
+        // Search for the macro tracking rows
+        for subview in macroTrackingCard.subviews {
+            if let stackView = subview as? UIStackView,
+               stackView.arrangedSubviews.count >= 4 {
+                
+                // Protein row (index 1)
+                if stackView.arrangedSubviews.count > 1 {
+                    let proteinContainer = stackView.arrangedSubviews[1]
+                    if let proteinRow = proteinContainer.subviews.first as? UIStackView {
+                        updateMacroRow(row: proteinRow, value: currentProtein, goal: proteinGoal, name: "Protein")
+                    }
+                }
+                
+                // Carbs row (index 2)
+                if stackView.arrangedSubviews.count > 2 {
+                    let carbsContainer = stackView.arrangedSubviews[2]
+                    if let carbsRow = carbsContainer.subviews.first as? UIStackView {
+                        updateMacroRow(row: carbsRow, value: currentCarbs, goal: carbsGoal, name: "Carbs")
+                    }
+                }
+                
+                // Fat row (index 3)
+                if stackView.arrangedSubviews.count > 3 {
+                    let fatContainer = stackView.arrangedSubviews[3]
+                    if let fatRow = fatContainer.subviews.first as? UIStackView {
+                        updateMacroRow(row: fatRow, value: currentFat, goal: fatGoal, name: "Fat")
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updateTrendAnalysisCard() {
+        guard let trendCard = trendCard, !macroEntries.isEmpty else { return }
+        
+        // Find the main stack view that contains chart container
+        for subview in trendCard.subviews {
+            if let mainStack = subview as? UIStackView,
+               mainStack.arrangedSubviews.count >= 2 {
+                
+                // Remove existing chart view
+                if mainStack.arrangedSubviews.count > 1 {
+                    let placeholderOrChartView = mainStack.arrangedSubviews[1]
+                    placeholderOrChartView.removeFromSuperview()
+                }
+                
+                // Create a new chart view container
+                let chartContainer = UIView()
+                chartContainer.translatesAutoresizingMaskIntoConstraints = false
+                mainStack.insertArrangedSubview(chartContainer, at: 1)
+                
+                // Set height constraint
+                chartContainer.heightAnchor.constraint(equalToConstant: 220).isActive = true
+                
+                // Add trend chart
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    self.addMacroTrendChart(to: chartContainer)
+                }
+                
+                break
+            }
+        }
+    }
+    
+    private func addMacroTrendChart(to container: UIView) {
+        guard !macroEntries.isEmpty else { return }
+        
+        // Create hosting controller with SwiftUI chart
+        let hostingController = UIHostingController(
+            rootView: MacroTrendChartView(entries: macroEntries)
+        )
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add as child view controller
+        addChild(hostingController)
+        container.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+        
+        // Set up constraints
+        NSLayoutConstraint.activate([
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+    }
+    
+    private func updateNutrientInsightsCard() {
+        guard let nutrientInsightsCard = nutrientInsightsCard, !macroEntries.isEmpty else { return }
+        
+        // Find subviews and update them using a safer approach
+        var stackView: UIStackView?
+        for subview in nutrientInsightsCard.subviews {
+            if let stack = subview as? UIStackView {
+                stackView = stack
+                break
+            }
+        }
+        
+        guard let stackView = stackView,
+              stackView.arrangedSubviews.count >= 3,
+              let insightsStack = stackView.arrangedSubviews[1] as? UIStackView else {
+            return
+        }
+        
+        // Get the latest entry to show insights
+        guard let latestEntry = macroEntries.sorted(by: { $0.date > $1.date }).first else { return }
+        
+        // Calculate how well the user is meeting their goals
+        let proteinRatio = latestEntry.proteins / max(1, latestEntry.proteinGoal)
+        let carbsRatio = latestEntry.carbs / max(1, latestEntry.carbGoal)
+        let fatRatio = latestEntry.fats / max(1, latestEntry.fatGoal)
+        
+        // Create insight labels directly
+        insightsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        
+        var insights = [String]()
+        
+        // Add protein insight
+        if proteinRatio < 0.7 {
+            insights.append("Consider increasing your protein intake")
+        } else if proteinRatio > 1.3 {
+            insights.append("Your protein intake is above your goal")
+        } else {
+            insights.append("Your protein intake is on track")
+        }
+        
+        // Add carbs insight
+        if carbsRatio < 0.7 {
+            insights.append("Your carbohydrate intake is below your goal")
+        } else if carbsRatio > 1.3 {
+            insights.append("Consider reducing your carbohydrate intake")
+        } else {
+            insights.append("Your carbohydrate intake is well balanced")
+        }
+        
+        // Add fat insight
+        if fatRatio < 0.7 {
+            insights.append("Your fat intake is below your goal")
+        } else if fatRatio > 1.3 {
+            insights.append("Your fat intake is above your goal")
+        } else {
+            insights.append("Your fat intake is well balanced")
+        }
+        
+        // Add insights to stack
+        for (index, insight) in insights.prefix(3).enumerated() {
+            let color: UIColor = index == 0 ? Constants.proteinColor : 
+                                (index == 1 ? Constants.carbsColor : Constants.fatColor)
+            
+            let insightView = createInsightRow(
+                icon: "info.circle",
+                title: insight,
+                message: "",
+                color: color
+            )
+            insightsStack.addArrangedSubview(insightView)
+        }
+    }
+    
+    // MARK: - UI Updates
+    private func updateUI() {
+        updateHeaderView()
+        updateMacroRingView()
+        updateMacroTrackingView()
+        updateMacroHistoryView()
+        updateWaterIntakeView()
+        updateMealNutritionView()
+        updateNutrientInsightsView()
+    }
+    
+    private func updateHeaderView() {
+        guard let headerView = headerView else { return }
+        
+        // Find calorie label
+        if let calorieLabel = headerView.viewWithAccessibilityIdentifier("calorieValueLabel") as? UILabel {
+            // Calculate calories from macros
+            let calories = (currentProtein * 4) + (currentCarbs * 4) + (currentFat * 9)
+            let calorieGoal = (proteinGoal * 4) + (carbsGoal * 4) + (fatGoal * 9)
+            
+            calorieLabel.text = String(format: "%.0f", calories)
+            
+            // Find goal label (immediately after calorie label)
+            if let goalLabel = calorieLabel.superview?.subviews[calorieLabel.superview!.subviews.firstIndex(of: calorieLabel)! + 1] as? UILabel {
+                goalLabel.text = String(format: "of %.0f calories", calorieGoal)
+            }
+            
+            // Find progress bar
+            if let progressView = headerView.viewWithAccessibilityIdentifier("calorieProgressView") {
+                if let constraint = objc_getAssociatedObject(progressView, "progressConstraint") as? NSLayoutConstraint {
+                    // Calculate progress
+                    let progress = min(1.0, max(0, calories / max(1, calorieGoal)))
+                    
+                    // Update constraint with animation
+                    UIView.animate(withDuration: Constants.defaultAnimationDuration) {
+                        constraint.constant = 0
+                        constraint.isActive = false
+                        constraint.constant = 0
+                        
+                        let newConstraint = progressView.widthAnchor.constraint(
+                            equalTo: progressView.superview!.widthAnchor,
+                            multiplier: CGFloat(progress)
+                        )
+                        newConstraint.isActive = true
+                        
+                        // Store new constraint
+                        objc_setAssociatedObject(progressView, "progressConstraint", newConstraint, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                        
+                        headerView.layoutIfNeeded()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updateMacroRingView() {
+        guard let card = macroRingCard else { return }
+        
+        // Find the MacroRingView
+        if let ringView = card.subviews.compactMap({ $0.subviews }).joined().first(where: { $0 is MacroRingView }) as? MacroRingView {
+            // Update the ring with current macro data
+            let data: [(value: Double, color: UIColor)] = [
+                (value: currentProtein, color: Constants.proteinColor),
+                (value: currentCarbs, color: Constants.carbsColor),
+                (value: currentFat, color: Constants.fatColor)
+            ]
+            
+            // Total value is the sum of all macros
+            let total = data.reduce(0) { $0 + $1.value }
+            
+            // Update ring
+            ringView.updateChart(with: data, total: total)
+            
+            // Update legend labels
+            updateMacroLegendLabels(in: card)
+        }
+    }
+    
+    private func updateMacroLegendLabels(in card: UIView) {
+        // Update protein label
+        if let proteinLabel = card.viewWithAccessibilityIdentifier("proteinValueLabel") as? UILabel {
+            proteinLabel.text = String(format: "%.0fg", currentProtein)
+        }
+        
+        // Update carbs label
+        if let carbsLabel = card.viewWithAccessibilityIdentifier("carbsValueLabel") as? UILabel {
+            carbsLabel.text = String(format: "%.0fg", currentCarbs)
+        }
+        
+        // Update fat label
+        if let fatLabel = card.viewWithAccessibilityIdentifier("fatValueLabel") as? UILabel {
+            fatLabel.text = String(format: "%.0fg", currentFat)
+        }
+    }
+    
+    private func updateMacroTrackingView() {
+        guard let card = macroBreakdownCard else { return }
+        
+        // Update protein tracking
+        updateMacroTrackingRow(in: card, 
+                              identifier: "proteinTrackingValue", 
+                              progressIdentifier: "proteinProgressView",
+                              value: currentProtein, 
+                              goal: proteinGoal)
+        
+        // Update carbs tracking
+        updateMacroTrackingRow(in: card, 
+                              identifier: "carbsTrackingValue", 
+                              progressIdentifier: "carbsProgressView",
+                              value: currentCarbs, 
+                              goal: carbsGoal)
+        
+        // Update fat tracking
+        updateMacroTrackingRow(in: card, 
+                              identifier: "fatTrackingValue", 
+                              progressIdentifier: "fatProgressView",
+                              value: currentFat, 
+                              goal: fatGoal)
+    }
+    
+    private func updateMacroTrackingRow(in card: UIView, identifier: String, progressIdentifier: String, value: Double, goal: Double) {
+        // Update value label
+        if let valueLabel = card.viewWithAccessibilityIdentifier(identifier) as? UILabel {
+            valueLabel.text = String(format: "%.0fg", value)
+            
+            // Find the goal label (immediately after value label)
+            if let goalLabel = valueLabel.superview?.subviews.last as? UILabel {
+                goalLabel.text = String(format: "/ %.0fg", goal)
+            }
+        }
+        
+        // Update progress bar
+        if let progressView = card.viewWithAccessibilityIdentifier(progressIdentifier) {
+            if let constraint = objc_getAssociatedObject(progressView, "progressConstraint") as? NSLayoutConstraint {
+                // Calculate progress capped at 100%
+                let progress = min(1.0, max(0, value / max(1, goal)))
+                
+                // Update constraint with animation
+                UIView.animate(withDuration: Constants.defaultAnimationDuration) {
+                    constraint.constant = 0
+                    constraint.isActive = false
+                    constraint.constant = 0
+                    
+                    let newConstraint = progressView.widthAnchor.constraint(
+                        equalTo: progressView.superview!.widthAnchor,
+                        multiplier: CGFloat(progress)
+                    )
+                    newConstraint.isActive = true
+                    
+                    // Store new constraint
+                    objc_setAssociatedObject(progressView, "progressConstraint", newConstraint, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                    
+                    card.layoutIfNeeded()
+                }
+            }
+        }
+    }
+    
+    private func updateMacroHistoryView() {
+        guard let container = trendChartContainer, !macroEntries.isEmpty else { return }
+        
+        // Clear existing content
+        container.subviews.forEach { $0.removeFromSuperview() }
+        
+        // Create new trend chart with the updated data
+        let trendChartView = MacroTrendChartView(entries: macroEntries)
+        let hostingController = UIHostingController(rootView: trendChartView)
+        hostingController.view.backgroundColor = .clear
+        
+        addChild(hostingController)
+        container.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+        
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+    }
+    
+    private func updateWaterIntakeView() {
+        guard let container = waterIntakeContainer else { return }
+        
+        // In a real app, you'd get this from the data model
+        let waterIntake = 1250.0 // Sample value in ml
+        let waterGoal = 2500.0 // Sample goal in ml
+        
+        // Calculate percentage
+        let waterPercent = min(1.0, max(0, waterIntake / waterGoal))
+        
+        // Find water amount label
+        if let superview = container.superview?.superview {
+            if let amountLabel = superview.viewWithAccessibilityIdentifier("waterAmountLabel") as? UILabel {
+                amountLabel.text = String(format: "%.0f of %.0f ml", waterIntake, waterGoal)
+            }
+        }
+        
+        // Find water wave view
+        if let waterContainer = container.subviews.first {
+            if let waterWaveView = waterContainer.subviews.first {
+                if let constraint = objc_getAssociatedObject(waterWaveView, "waterHeightConstraint") as? NSLayoutConstraint {
+                    // Update water level with animation
+                    UIView.animate(withDuration: Constants.defaultAnimationDuration) {
+                        constraint.constant = 0
+                        constraint.isActive = false
+                        constraint.constant = 0
+                        
+                        let newConstraint = waterWaveView.heightAnchor.constraint(
+                            equalTo: waterContainer.heightAnchor,
+                            multiplier: CGFloat(waterPercent)
+                        )
+                        newConstraint.isActive = true
+                        
+                        // Store new constraint
+                        objc_setAssociatedObject(waterWaveView, "waterHeightConstraint", newConstraint, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                        
+                        container.layoutIfNeeded()
+                    }
+                }
+                
+                // Update percentage label
+                if let percentLabel = waterContainer.subviews.last as? UILabel {
+                    percentLabel.text = String(format: "%.0f%%", waterPercent * 100)
+                }
+            }
+        }
+    }
+    
+    private func updateMealNutritionView() {
+        // In a real app, you'd update this from the data model
+        // This is just a placeholder for the redesign
+    }
+    
+    private func updateNutrientInsightsView() {
+        // In a real app, you'd update this from real insights
+        // This is just a placeholder for the redesign
+    }
+    
+    // MARK: - Animations
+    private func animateContent() {
+        // Reset all views to initial state
+        contentView.subviews.forEach { $0.alpha = 0 }
+        
+        // Start sequential animation of cards
+        startCardAnimations()
+    }
+    
+    private func startCardAnimations() {
+        // Reset animation state
+        animationIndex = 0
+        
+        // Stop any existing timer
+        cardAnimationTimer?.invalidate()
+        
+        // Create new timer for sequential animations
+        cardAnimationTimer = Timer.scheduledTimer(timeInterval: 0.1, target: self, selector: #selector(animateNextCard), userInfo: nil, repeats: true)
+    }
+    
+    @objc private func animateNextCard() {
+        guard animationIndex < contentView.subviews.count else {
+            // All cards animated, stop timer
+            cardAnimationTimer?.invalidate()
+            cardAnimationTimer = nil
+            return
+        }
+        
+        let card = contentView.subviews[animationIndex]
+        
+        // Animate card appearance
+        UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [], animations: {
+            card.alpha = 1
+            card.transform = .identity
+        })
+        
+        // Move to next card
+        animationIndex += 1
+    }
+    
+    private func showFeatureHighlights() {
+        // Show new features tutorial
+        let alertController = UIAlertController(
+            title: "New Features!",
+            message: "We've completely redesigned the Macros page with better visualization, water tracking, and meal nutrition breakdown. Explore all the new features!",
+            preferredStyle: .alert
+        )
+        
+        alertController.addAction(UIAlertAction(title: "Let's Go!", style: .default))
+        present(alertController, animated: true)
+    }
+    
+    // MARK: - Action Handlers
+    @objc private func addMacroEntry() {
+        // Implement add macro entry functionality
+        print("Add macro entry tapped")
+    }
+    
+    @objc private func showDateFilter() {
+        // Implement date filter functionality
+        print("Show date filter tapped")
+    }
+    
+    @objc private func showGoalSettings() {
+        // Implement goal settings functionality
+        print("Show goal settings tapped")
+    }
+    
+    @objc private func showMacroHistory() {
+        // Implement macro history functionality
+        print("Show macro history tapped")
+    }
+    
+    @objc private func showMacroBreakdownDetail() {
+        // Implement macro breakdown detail functionality
+        print("Show macro breakdown detail tapped")
+        
+        // Add haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+    }
+    
+    @objc private func historyTimeRangeChanged(_ sender: UISegmentedControl) {
+        // Implement time range change functionality
+        print("History time range changed to: \(sender.selectedSegmentIndex)")
+        
+        // Add haptic feedback
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+    }
+    
+    @objc private func trendTimeRangeChanged(_ sender: UISegmentedControl) {
+        // Implement trend time range change functionality
+        print("Trend time range changed to: \(sender.selectedSegmentIndex)")
+        
+        // Add haptic feedback
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+    }
+    
+    @objc private func timeRangeChanged(_ sender: UISegmentedControl) {
+        // Implement time range change functionality
+        print("Time range changed to: \(sender.selectedSegmentIndex)")
+        
+        // Add haptic feedback
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+    }
+    
+    @objc private func showNutrientDetail() {
+        // Implement nutrient detail functionality
+        print("Show nutrient detail tapped")
+    }
+    
+    @objc private func showWeeklySummary() {
+        // Implement weekly summary functionality
+        print("Show weekly summary tapped")
+    }
+    
+    @objc private func quickAddWater(_ sender: UIButton) {
+        // Get amount from button tag
+        let amount = sender.tag
+        
+        // In a real app, you'd add this to the water intake
+        print("Add \(amount)ml of water")
+        
+        // Add haptic feedback
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+        
+        // Update UI
+        updateWaterIntakeView()
+    }
+    
+    @objc private func addCustomWaterAmount() {
+        // Show alert for custom amount
+        let alertController = UIAlertController(
+            title: "Add Water",
+            message: "Enter amount in milliliters (ml)",
+            preferredStyle: .alert
+        )
+        
+        alertController.addTextField { textField in
+            textField.keyboardType = .numberPad
+            textField.placeholder = "Amount (ml)"
+        }
+        
+        let addAction = UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+            guard let self = self,
+                  let textField = alertController.textFields?.first,
+                  let amountText = textField.text,
+                  let amount = Int(amountText) else { return }
+            
+            // In a real app, you'd add this to the water intake
+            print("Add \(amount)ml of water")
+            
+            // Update UI
+            self.updateWaterIntakeView()
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        
+        alertController.addAction(addAction)
+        alertController.addAction(cancelAction)
+        
+        present(alertController, animated: true)
+    }
+    
+    @objc private func logNewFood() {
+        // Implement log food functionality
+        print("Log new food tapped")
+    }
+    
+    // MARK: - Card Styling
+    private func updateCardStyling() {
+        // Update all cards for light/dark mode changes
+        contentView.subviews.forEach { card in
+            if card.layer.cornerRadius > 0 {
+                card.backgroundColor = Constants.cardBackgroundColor
+                
+                // Update shadow for light/dark mode
+                card.layer.shadowColor = Constants.shadowColor
+            }
+        }
+    }
+} // End of MacrosViewController class
+
+// MARK: - Extensions
+extension UIView {
+    func viewWithAccessibilityIdentifier(_ identifier: String) -> UIView? {
+        if self.accessibilityIdentifier == identifier {
+            return self
+        }
+        
+        for subview in subviews {
+            if let view = subview.viewWithAccessibilityIdentifier(identifier) {
+                return view
+            }
+        }
+        
+        return nil
+    }
+}
