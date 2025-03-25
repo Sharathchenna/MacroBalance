@@ -10,6 +10,15 @@ class MacrosSummaryView: UIView {
         return label
     }()
     
+    private let remainingLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.textColor = .secondaryLabel
+        label.text = "Remaining: --"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
     private let stackView: UIStackView = {
         let stack = UIStackView()
         stack.axis = .horizontal
@@ -23,6 +32,9 @@ class MacrosSummaryView: UIView {
     private let proteinView = MacroItemView(title: "Protein", color: .proteinColor, icon: "p.circle.fill")
     private let carbsView = MacroItemView(title: "Carbs", color: .carbColor, icon: "c.circle.fill")
     private let fatView = MacroItemView(title: "Fat", color: .fatColor, icon: "f.circle.fill")
+    
+    // MARK: - Properties
+    private var currentEntry: Models.MacrosEntry?
     
     // MARK: - Initialization
     override init(frame: CGRect) {
@@ -38,9 +50,10 @@ class MacrosSummaryView: UIView {
     // MARK: - UI Setup
     private func setupUI() {
         backgroundColor = .secondarySystemBackground
-        layer.cornerRadius = 16
+        layer.cornerRadius = 20
         
         addSubview(titleLabel)
+        addSubview(remainingLabel)
         addSubview(stackView)
         
         [calorieView, proteinView, carbsView, fatView].forEach {
@@ -50,13 +63,19 @@ class MacrosSummaryView: UIView {
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             
-            stackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
+            remainingLabel.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            remainingLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            
+            stackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
         ])
+        
+        // Add tap gesture for interactivity
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        addGestureRecognizer(tapGesture)
     }
     
     // MARK: - Configuration
@@ -65,6 +84,9 @@ class MacrosSummaryView: UIView {
             resetValues()
             return
         }
+        
+        // Store current entry
+        self.currentEntry = entry
         
         // Configure calorie view
         let calorieProgress = entry.calorieGoal > 0 ? entry.calories / entry.calorieGoal : 0
@@ -101,17 +123,84 @@ class MacrosSummaryView: UIView {
             progress: CGFloat(fatProgress),
             unit: "g"
         )
+        
+        // Update remaining calories
+        updateRemainingLabel(entry: entry)
     }
     
     private func resetValues() {
         [calorieView, proteinView, carbsView, fatView].forEach {
             $0.configure(value: 0, goal: 0, progress: 0, unit: "g")
         }
+        remainingLabel.text = "Remaining: --"
+    }
+    
+    private func updateRemainingLabel(entry: Models.MacrosEntry) {
+        let remaining = max(0, entry.calorieGoal - entry.calories)
+        
+        // Create attributed string with colored remaining value
+        let attributedText = NSMutableAttributedString(string: "Remaining: ")
+        
+        let remainingString = "\(Int(remaining)) kcal"
+        let coloredPart = NSAttributedString(
+            string: remainingString,
+            attributes: [
+                .foregroundColor: remaining > 0 ? UIColor.systemGreen : UIColor.systemRed,
+                .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
+            ]
+        )
+        
+        attributedText.append(coloredPart)
+        remainingLabel.attributedText = attributedText
+        
+        // Add animation when remaining changes
+        animateRemainingLabel()
+    }
+    
+    private func animateRemainingLabel() {
+        // Scale animation
+        UIView.animate(withDuration: 0.2, animations: {
+            self.remainingLabel.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.2) {
+                self.remainingLabel.transform = .identity
+            }
+        })
+    }
+    
+    @objc private func handleTap() {
+        // Animate each macro item view in sequence
+        animateItemsSequentially()
+        
+        // Provide haptic feedback
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+    
+    private func animateItemsSequentially() {
+        let views = [calorieView, proteinView, carbsView, fatView]
+        
+        for (index, view) in views.enumerated() {
+            // Stagger animations slightly
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.05) {
+                self.animateItemView(view)
+            }
+        }
+    }
+    
+    private func animateItemView(_ view: MacroItemView) {
+        UIView.animate(withDuration: 0.2, animations: {
+            view.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [], animations: {
+                view.transform = .identity
+            })
+        })
     }
 }
 
 // MARK: - MacroItemView
-private class MacroItemView: UIView {
+class MacroItemView: UIView {
+    // UI Components
     private let iconView: UIImageView = {
         let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFit
@@ -131,16 +220,8 @@ private class MacroItemView: UIView {
     private let progressRing: CircularProgressView = {
         let view = CircularProgressView(frame: .zero)
         view.translatesAutoresizingMaskIntoConstraints = false
+        view.showValueIndicator = true
         return view
-    }()
-    
-    private let valueStack: UIStackView = {
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.alignment = .center
-        stack.spacing = 0
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        return stack
     }()
     
     private let valueLabel: UILabel = {
@@ -161,19 +242,33 @@ private class MacroItemView: UIView {
     private let cardView: UIView = {
         let view = UIView()
         view.backgroundColor = .systemBackground
-        view.layer.cornerRadius = 12
+        view.layer.cornerRadius = 16
         view.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add shadow
+        view.layer.shadowColor = UIColor.black.withAlphaComponent(0.1).cgColor
+        view.layer.shadowOffset = CGSize(width: 0, height: 4)
+        view.layer.shadowRadius = 8
+        view.layer.shadowOpacity = 1
+        view.layer.masksToBounds = false
+        
         return view
     }()
     
+    // Properties
     private var color: UIColor
+    private var currentValue: Int = 0
+    private var goalValue: Int = 0
+    private var unitText: String = ""
     
+    // MARK: - Initialization
     init(title: String, color: UIColor, icon: String) {
         self.color = color
         super.init(frame: .zero)
         titleLabel.text = title
         iconView.image = UIImage(systemName: icon)
         progressRing.progressColor = color
+        progressRing.progressWidth = 6
         setupUI()
     }
     
@@ -181,6 +276,7 @@ private class MacroItemView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
     
+    // MARK: - UI Setup
     private func setupUI() {
         // Add card view first
         addSubview(cardView)
@@ -189,47 +285,43 @@ private class MacroItemView: UIView {
         cardView.addSubview(titleLabel)
         cardView.addSubview(iconView)
         cardView.addSubview(progressRing)
-        cardView.addSubview(valueStack)
         
-        // Add labels to value stack
-        valueStack.addArrangedSubview(valueLabel)
-        valueStack.addArrangedSubview(goalLabel)
-        
+        // Constraints
         NSLayoutConstraint.activate([
             // Card constraints
-            cardView.topAnchor.constraint(equalTo: topAnchor),
-            cardView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            cardView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            cardView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            cardView.topAnchor.constraint(equalTo: topAnchor, constant: 0),
+            cardView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
+            cardView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
+            cardView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
             
             // Title constraints
-            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 10),
-            titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 10),
+            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 12),
+            titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
             
             // Icon constraints
             iconView.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            iconView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -10),
+            iconView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
             iconView.widthAnchor.constraint(equalToConstant: 20),
             iconView.heightAnchor.constraint(equalToConstant: 20),
             
             // Progress ring constraints
-            progressRing.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            progressRing.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
             progressRing.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
-            progressRing.widthAnchor.constraint(equalToConstant: 60),
-            progressRing.heightAnchor.constraint(equalToConstant: 60),
-            
-            // Value stack constraints
-            valueStack.centerXAnchor.constraint(equalTo: progressRing.centerXAnchor),
-            valueStack.centerYAnchor.constraint(equalTo: progressRing.centerYAnchor),
-            valueStack.leadingAnchor.constraint(greaterThanOrEqualTo: cardView.leadingAnchor, constant: 4),
-            valueStack.trailingAnchor.constraint(lessThanOrEqualTo: cardView.trailingAnchor, constant: -4),
-            valueStack.bottomAnchor.constraint(lessThanOrEqualTo: cardView.bottomAnchor, constant: -8)
+            progressRing.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12),
+            progressRing.widthAnchor.constraint(equalToConstant: 70),
+            progressRing.heightAnchor.constraint(equalToConstant: 70)
         ])
+        
+        // Add tap gesture for interaction
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        cardView.addGestureRecognizer(tapGesture)
     }
     
-    func configure(value: Int, goal: Int, progress: CGFloat, unit: String) {
-        valueLabel.text = "\(value)"
-        goalLabel.text = "/ \(goal) \(unit)"
+    // MARK: - Configuration
+    func configure(value: Int, goal: Int, progress: CGFloat, unit: String = "g") {
+        self.currentValue = value
+        self.goalValue = goal
+        self.unitText = unit
         
         // Update progress color based on progress
         if progress > 1.0 {
@@ -240,9 +332,82 @@ private class MacroItemView: UIView {
             progressRing.progressColor = color
         }
         
-        // Animate progress
-        UIView.animate(withDuration: 0.8, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, options: .curveEaseInOut) {
-            self.progressRing.progress = min(progress, 1.2) // Cap at 120% for visual feedback
+        // Configure progress ring
+        progressRing.configure(
+            value: value,
+            goal: goal,
+            progress: min(progress, 1.2), // Cap at 120% for visual feedback
+            unit: unit
+        )
+    }
+    
+    // MARK: - Interaction
+    @objc private func handleTap() {
+        // Animate progress ring
+        UIView.animate(withDuration: 0.2, animations: {
+            self.progressRing.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.2) {
+                self.progressRing.transform = .identity
+            }
+        })
+        
+        // Format strings for alert
+        let title = titleLabel.text ?? "Macro"
+        let value = "\(currentValue) \(unitText)"
+        let goal = "\(goalValue) \(unitText)"
+        let percentage = Int(min((Double(currentValue) / max(1, Double(goalValue))) * 100, 100))
+        
+        // Show mini toast with value/goal
+        showToast(message: "\(title): \(value)/\(goal) (\(percentage)%)")
+        
+        // Provide haptic feedback
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+    
+    // MARK: - Toast
+    private func showToast(message: String) {
+        // Create toast label
+        let toastLabel = UILabel()
+        toastLabel.backgroundColor = UIColor.label.withAlphaComponent(0.8)
+        toastLabel.textColor = .systemBackground
+        toastLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        toastLabel.textAlignment = .center
+        toastLabel.text = message
+        toastLabel.alpha = 0
+        toastLabel.layer.cornerRadius = 10
+        toastLabel.clipsToBounds = true
+        toastLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add to window for proper display
+        if let window = UIApplication.shared.windows.first {
+            window.addSubview(toastLabel)
+            
+            // Position the toast at the bottom of the window
+            NSLayoutConstraint.activate([
+                toastLabel.centerXAnchor.constraint(equalTo: window.centerXAnchor),
+                toastLabel.bottomAnchor.constraint(equalTo: window.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+                toastLabel.widthAnchor.constraint(lessThanOrEqualTo: window.widthAnchor, constant: -40),
+                toastLabel.heightAnchor.constraint(equalToConstant: 36)
+            ])
+            
+            // Add padding
+            toastLabel.layoutIfNeeded()
+            toastLabel.frame = toastLabel.frame.insetBy(dx: -20, dy: 0)
+            
+            // Animate in
+            UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseOut, animations: {
+                toastLabel.alpha = 1
+            }, completion: { _ in
+                // Animate out after delay
+                UIView.animate(withDuration: 0.3, delay: 1.5, options: .curveEaseIn, animations: {
+                    toastLabel.alpha = 0
+                }, completion: { _ in
+                    toastLabel.removeFromSuperview()
+                })
+            })
         }
     }
-} 
+}
+
+// The UIColor extensions are removed since they're defined in ChartUtilities.swift 

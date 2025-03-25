@@ -114,6 +114,7 @@ enum Models {
         var water: Double // Water intake in ml
         var waterGoal: Double // Water goal in ml
         var meals: [Meal]?
+        var fiber: Double = 0 // Added fiber property
         
         // Computed properties
         var calories: Double { 
@@ -254,7 +255,67 @@ extension Models.MacrosEntry {
                 micronutrients: micronutrients,
                 water: Double.random(in: 1500...2500),
                 waterGoal: 2500,
-                meals: meals
+                meals: meals,
+                fiber: Double.random(in: 15...35) // Adding fiber data
+            )
+        }
+    }
+    
+    // Add the missing generateSampleData method
+    static func generateSampleData(from startDate: Date, to endDate: Date) -> [Models.MacrosEntry] {
+        let calendar = Calendar.current
+        let days = calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 1
+        
+        let micronutrients = [
+            Models.Micronutrient(name: "Vitamin C", amount: 65, goal: 90, unit: "mg", category: .vitamins),
+            Models.Micronutrient(name: "Vitamin D", amount: 10, goal: 15, unit: "μg", category: .vitamins),
+            Models.Micronutrient(name: "Calcium", amount: 850, goal: 1000, unit: "mg", category: .minerals),
+            Models.Micronutrient(name: "Iron", amount: 12, goal: 18, unit: "mg", category: .minerals),
+            Models.Micronutrient(name: "Fiber", amount: 22, goal: 30, unit: "g", category: .other)
+        ]
+        
+        return (0..<max(1, days)).map { dayOffset in
+            let date = calendar.date(byAdding: .day, value: -dayOffset, to: endDate)!
+            
+            // Generate random meal data
+            let meals = [
+                Models.Meal(
+                    name: "Breakfast",
+                    time: calendar.date(bySettingHour: 8, minute: 30, second: 0, of: date)!,
+                    proteins: Double.random(in: 20...30),
+                    carbs: Double.random(in: 40...50),
+                    fats: Double.random(in: 10...20)
+                ),
+                Models.Meal(
+                    name: "Lunch",
+                    time: calendar.date(bySettingHour: 13, minute: 0, second: 0, of: date)!,
+                    proteins: Double.random(in: 35...45),
+                    carbs: Double.random(in: 60...70),
+                    fats: Double.random(in: 15...25)
+                ),
+                Models.Meal(
+                    name: "Dinner",
+                    time: calendar.date(bySettingHour: 19, minute: 0, second: 0, of: date)!,
+                    proteins: Double.random(in: 40...50),
+                    carbs: Double.random(in: 65...75),
+                    fats: Double.random(in: 20...30)
+                )
+            ]
+            
+            return Models.MacrosEntry(
+                id: UUID(),
+                date: date,
+                proteins: Double.random(in: 100...150),
+                carbs: Double.random(in: 200...300),
+                fats: Double.random(in: 50...80),
+                proteinGoal: 140,
+                carbGoal: 250,
+                fatGoal: 65,
+                micronutrients: micronutrients,
+                water: Double.random(in: 1500...2500),
+                waterGoal: 2500,
+                meals: meals,
+                fiber: Double.random(in: 15...35)
             )
         }
     }
