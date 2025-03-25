@@ -115,14 +115,14 @@ class MealBreakdownView: UIView {
             containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
             
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 20),
+            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
+            titleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20),
             
-            barChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
-            barChartView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
-            barChartView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
-            barChartView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16),
+            barChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
+            barChartView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            barChartView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            barChartView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -20),
             
             emptyStateLabel.centerXAnchor.constraint(equalTo: barChartView.centerXAnchor),
             emptyStateLabel.centerYAnchor.constraint(equalTo: barChartView.centerYAnchor)

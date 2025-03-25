@@ -91,16 +91,16 @@ class MacroBalanceView: UIView {
         addSubview(balanceScoreView)
         
         NSLayoutConstraint.activate([
-            // Title constraints
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            // Title constraints - increase top margin
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 24),
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             
             // Subtitle constraints
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
             subtitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             
-            // Radar chart constraints
-            radarChartView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 8),
+            // Radar chart constraints - increase top margin
+            radarChartView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
             radarChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             radarChartView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
             radarChartView.widthAnchor.constraint(equalTo: heightAnchor, multiplier: 0.8),

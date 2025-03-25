@@ -109,7 +109,9 @@ class MacrosViewController: UIViewController {
     }
     
     private func setupConstraints() {
-        let spacing: CGFloat = 20
+        // Increase spacing between components
+        let spacing: CGFloat = 24
+        let sideMargin: CGFloat = 20
         
         NSLayoutConstraint.activate([
             // ScrollView constraints
@@ -127,64 +129,64 @@ class MacrosViewController: UIViewController {
             
             // Header constraints
             headerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: spacing),
-            headerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            headerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            headerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            headerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
             headerView.heightAnchor.constraint(equalToConstant: 50),
             
-            // Date filter control
-            dateFilterControl.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 8),
-            dateFilterControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            dateFilterControl.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            // Date filter control - increased margin
+            dateFilterControl.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 16),
+            dateFilterControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            dateFilterControl.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
             dateFilterControl.heightAnchor.constraint(equalToConstant: 44),
             
-            // Macros summary view
+            // Macros summary view - increased margin
             macrosSummaryView.topAnchor.constraint(equalTo: dateFilterControl.bottomAnchor, constant: spacing),
-            macrosSummaryView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            macrosSummaryView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
-            macrosSummaryView.heightAnchor.constraint(equalToConstant: 150),
+            macrosSummaryView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            macrosSummaryView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
+            macrosSummaryView.heightAnchor.constraint(equalToConstant: 160),
             
-            // Macros chart container
-            macrosChartContainer.topAnchor.constraint(equalTo: macrosSummaryView.bottomAnchor, constant: spacing),
-            macrosChartContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            macrosChartContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
+            // Macros chart container - increased margin
+            macrosChartContainer.topAnchor.constraint(equalTo: macrosSummaryView.bottomAnchor, constant: spacing + 8),
+            macrosChartContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            macrosChartContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
             macrosChartContainer.heightAnchor.constraint(equalToConstant: 380),
             
-            // Weekly overview chart
-            weeklyOverviewChart.topAnchor.constraint(equalTo: macrosChartContainer.bottomAnchor, constant: spacing),
-            weeklyOverviewChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            weeklyOverviewChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
-            weeklyOverviewChart.heightAnchor.constraint(equalToConstant: 260),
+            // Weekly overview chart - increased margin
+            weeklyOverviewChart.topAnchor.constraint(equalTo: macrosChartContainer.bottomAnchor, constant: spacing + 8),
+            weeklyOverviewChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            weeklyOverviewChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
+            weeklyOverviewChart.heightAnchor.constraint(equalToConstant: 280),
             
-            // Macros trend chart
-            macrosTrendChart.topAnchor.constraint(equalTo: weeklyOverviewChart.bottomAnchor, constant: spacing),
-            macrosTrendChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            macrosTrendChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
-            macrosTrendChart.heightAnchor.constraint(equalToConstant: 280),
+            // Macros trend chart - increased margin
+            macrosTrendChart.topAnchor.constraint(equalTo: weeklyOverviewChart.bottomAnchor, constant: spacing + 8),
+            macrosTrendChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            macrosTrendChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
+            macrosTrendChart.heightAnchor.constraint(equalToConstant: 320),
             
-            // Macro balance view
-            macroBalanceView.topAnchor.constraint(equalTo: macrosTrendChart.bottomAnchor, constant: spacing),
-            macroBalanceView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            macroBalanceView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
-            macroBalanceView.heightAnchor.constraint(equalToConstant: 200),
+            // Macro balance view - increased margin with additional spacing to prevent overlap
+            macroBalanceView.topAnchor.constraint(equalTo: macrosTrendChart.bottomAnchor, constant: spacing + 32),
+            macroBalanceView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            macroBalanceView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
+            macroBalanceView.heightAnchor.constraint(equalToConstant: 260),
             
-            // Meal breakdown view
-            mealBreakdownView.topAnchor.constraint(equalTo: macroBalanceView.bottomAnchor, constant: spacing),
-            mealBreakdownView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            mealBreakdownView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
-            mealBreakdownView.heightAnchor.constraint(equalToConstant: 260),
+            // Meal breakdown view - increased margin
+            mealBreakdownView.topAnchor.constraint(equalTo: macroBalanceView.bottomAnchor, constant: spacing + 8),
+            mealBreakdownView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            mealBreakdownView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
+            mealBreakdownView.heightAnchor.constraint(equalToConstant: 320),
             
-            // Nutrition insights view
-            nutritionInsightsView.topAnchor.constraint(equalTo: mealBreakdownView.bottomAnchor, constant: spacing),
-            nutritionInsightsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            nutritionInsightsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
-            nutritionInsightsView.heightAnchor.constraint(equalToConstant: 220),
+            // Nutrition insights view - increased margin
+            nutritionInsightsView.topAnchor.constraint(equalTo: mealBreakdownView.bottomAnchor, constant: spacing + 8),
+            nutritionInsightsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            nutritionInsightsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
+            nutritionInsightsView.heightAnchor.constraint(equalToConstant: 240),
             
-            // Goal progress view
-            goalProgressView.topAnchor.constraint(equalTo: nutritionInsightsView.bottomAnchor, constant: spacing),
-            goalProgressView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: spacing),
-            goalProgressView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -spacing),
-            goalProgressView.heightAnchor.constraint(equalToConstant: 200),
-            goalProgressView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -spacing)
+            // Goal progress view - increased margin
+            goalProgressView.topAnchor.constraint(equalTo: nutritionInsightsView.bottomAnchor, constant: spacing + 8),
+            goalProgressView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
+            goalProgressView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
+            goalProgressView.heightAnchor.constraint(equalToConstant: 240),
+            goalProgressView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -32)
         ])
     }
     

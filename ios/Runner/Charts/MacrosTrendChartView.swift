@@ -125,21 +125,21 @@ class MacrosTrendChartView: UIView {
             containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
             
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 20),
+            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
             
             periodToggle.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            periodToggle.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            periodToggle.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20),
             periodToggle.widthAnchor.constraint(equalToConstant: 200),
             
-            lineChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
-            lineChartView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
-            lineChartView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
+            lineChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
+            lineChartView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 12),
+            lineChartView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -12),
+            lineChartView.bottomAnchor.constraint(equalTo: infoLabel.topAnchor, constant: -12),
             
-            infoLabel.topAnchor.constraint(equalTo: lineChartView.bottomAnchor, constant: 4),
-            infoLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            infoLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            infoLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -8)
+            infoLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
+            infoLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20),
+            infoLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16)
         ])
         
         // Set chart marker
