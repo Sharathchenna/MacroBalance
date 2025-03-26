@@ -916,6 +916,13 @@ IconData _getMacroIcon(String label) {
 Widget _buildMacroProgressEnhanced(BuildContext context, String label,
     int value, int goal, Color color, String unit) {
   final progress = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
+  final percentage = (progress * 100).toInt();
+  final textColor = Theme.of(context).brightness == Brightness.light
+      ? Colors.grey.shade700 // Adjusted for better contrast in light mode
+      : Colors.grey.shade300; // Adjusted for better contrast in dark mode
+
+  // Use the original color for the percentage text in both themes for vibrancy
+  final percentageColor = color;
 
   return GestureDetector(
     onTap: () {
@@ -928,30 +935,76 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
       }
     },
     child: Container(
-      height: 70,
-      width: 70,
-      child: Stack(
-        alignment: Alignment.center,
+      // Adjusted height to accommodate text below
+      height: 125, // Slightly increased height for better spacing
+      width: 75,   // Slightly increased width for better spacing
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start, // Align to start for better layout
         children: [
-          // Progress circle
-          SizedBox(
-            height: 64,
-            width: 64,
-            child: CircularProgressIndicator(
-              value: progress,
-              strokeWidth: 6,
-              strokeCap: StrokeCap.round,
-              backgroundColor: Theme.of(context).brightness == Brightness.light
-                  ? color.withValues(alpha: 0.15)
-                  : color.withValues(alpha: 0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
+          // Original Stack with Progress Circle and Icon
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Progress circle
+              SizedBox(
+                height: 60, // Slightly smaller circle
+                width: 60,
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 7, // Slightly thicker stroke
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: Theme.of(context).brightness == Brightness.light
+                      ? color.withOpacity(0.15) // Use withOpacity
+                      : color.withOpacity(0.2), // Use withOpacity
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              ),
+              // Macro icon
+              Icon(
+                _getMacroIcon(label),
+                color: color,
+                size: 22, // Slightly larger icon
+              ),
+            ],
           ),
-          // Macro icon
-          Icon(
-            _getMacroIcon(label),
-            color: color,
-            size: 20,
+          const SizedBox(height: 8), // Increased space
+          // Label Text (e.g., Carbs)
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12, // Kept size
+              fontWeight: FontWeight.w500,
+              color: textColor,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2), // Space between label and value
+          // Value + Unit Text (e.g., 88g)
+          Text(
+            '$value${unit}',
+            style: GoogleFonts.poppins(
+              fontSize: 12, // Increased size slightly
+              fontWeight: FontWeight.w600, // Bolder weight
+              color: textColor,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2), // Space between value and percentage
+          // Percentage Text (e.g., 30%)
+          Text(
+            '$percentage%',
+            style: GoogleFonts.poppins(
+              fontSize: 11, // Slightly larger size
+              fontWeight: FontWeight.w600, // Keep bold
+              color: percentageColor, // Use the vibrant color
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
