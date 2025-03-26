@@ -631,16 +631,16 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               decoration: BoxDecoration(
                 color:
                     Theme.of(context).extension<CustomColors>()?.cardBackground,
-                borderRadius: BorderRadius.circular(20.0), // Slightly reduced
+                borderRadius: BorderRadius.circular(20.0),
                 boxShadow: [
                   BoxShadow(
+                    // Softer shadow, more spread out
                     color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey
-                            .withValues(alpha: 0.08) // More subtle shadow
-                        : Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 16,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 4),
+                        ? Colors.grey.shade300.withOpacity(0.5) // Lighter shadow for light mode
+                        : Colors.black.withOpacity(0.2), // Slightly darker shadow for dark mode
+                    blurRadius: 20, // Increased blur
+                    spreadRadius: 0, // No spread, just blur
+                    offset: const Offset(0, 5), // Slightly increased offset
                   ),
                 ],
               ),
@@ -810,7 +810,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                         ],
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 30), // Increased space before macro rings
 
                       // Macro section header
                       // Padding(
@@ -1092,11 +1092,13 @@ class _MealSectionState extends State<MealSection> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
+                // Apply similar softer shadow as CalorieTracker card
                 color: Theme.of(context).brightness == Brightness.light
-                    ? Colors.grey.withValues(alpha: 0.1)
-                    : Colors.black12,
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+                    ? Colors.grey.shade300.withOpacity(0.4) // Lighter shadow for light mode
+                    : Colors.black.withOpacity(0.15), // Slightly darker shadow for dark mode
+                blurRadius: 15, // Adjusted blur
+                spreadRadius: 0,
+                offset: const Offset(0, 4), // Adjusted offset
               ),
             ],
           ),
@@ -1199,65 +1201,51 @@ class _MealSectionState extends State<MealSection> {
                   secondChild: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Divider(height: 1, thickness: 1),
-                      ...entries.map((entry) =>
-                          _buildFoodItem(context, entry, foodEntryProvider)),
+                      // Add dividers between items
+                      for (int i = 0; i < entries.length; i++) ...[
+                        if (i == 0) const Divider(height: 1, thickness: 0.5), // Divider before the first item
+                        _buildFoodItem(context, entries[i], foodEntryProvider),
+                        if (i < entries.length - 1) // Divider between items
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0), // Indent divider
+                            child: Divider(height: 1, thickness: 0.5),
+                          ),
+                      ],
+                      // Refined "Add Food" Button
                       Padding(
-                        padding: const EdgeInsets.all(14.0),
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              CupertinoPageRoute(
-                                builder: (context) =>
-                                    FoodSearchPage(selectedMeal: mealType),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 10, horizontal: 14),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.light
-                                  ? Colors.grey.shade100
-                                  : Colors.grey.shade800,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.light
-                                    ? Colors.grey.shade300
-                                    : Colors.grey.shade700,
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.add_circle_outline,
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.light
-                                      ? Colors.blue.shade700
-                                      : Colors.blue.shade300,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Add Food to $mealType',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: Theme.of(context).brightness ==
-                                            Brightness.light
-                                        ? Colors.blue.shade700
-                                        : Colors.blue.shade300,
-                                  ),
-                                ),
-                              ],
+                        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0), // Adjusted padding
+                        child: TextButton.icon(
+                          icon: Icon(
+                            Icons.add_circle_outline,
+                            size: 18, // Slightly larger icon
+                            color: Theme.of(context).colorScheme.primary, // Use theme color
+                          ),
+                          label: Text(
+                            'Add Food to $mealType',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13, // Slightly larger text
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.primary, // Use theme color
                             ),
                           ),
+                          style: TextButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1), // Subtle background
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12), // More rounded
+                            ),
+                            minimumSize: Size(double.infinity, 40), // Make button wider
+                          ),
+                          onPressed: () {
+                             HapticFeedback.lightImpact();
+                             Navigator.push(
+                               context,
+                               CupertinoPageRoute(
+                                 builder: (context) =>
+                                     FoodSearchPage(selectedMeal: mealType),
+                               ),
+                             );
+                          },
                         ),
                       ),
                     ],
@@ -1405,16 +1393,17 @@ Widget _buildFoodItem(
 Widget _buildCalorieInfoCard(
     BuildContext context, String label, int value, Color color, IconData icon) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Slightly increased padding
     decoration: BoxDecoration(
       color: Theme.of(context).brightness == Brightness.light
-          ? color.withValues(alpha: 0.08)
-          : color.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(
-        color: color.withValues(alpha: 0.3),
-        width: 1,
-      ),
+          ? color.withOpacity(0.1) // Slightly more opacity
+          : color.withOpacity(0.2), // Slightly more opacity
+      borderRadius: BorderRadius.circular(12), // More rounded corners
+      // Removed border for a cleaner look, relying on background color
+      // border: Border.all(
+      //   color: color.withOpacity(0.3),
+      //   width: 1,
+      // ),
     ),
     child: Row(
       children: [

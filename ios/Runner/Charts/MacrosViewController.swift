@@ -159,8 +159,8 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
             // Ensure these views have proper internal constraints or intrinsicContentSize.
             // macrosSummaryView.heightAnchor.constraint(equalToConstant: 160),
             // macrosChartContainer.heightAnchor.constraint(equalToConstant: 380), // Remove height constraint for SwiftUI container too.
-            // weeklyOverviewChart.heightAnchor.constraint(equalToConstant: 280),
-            // macrosTrendChart.heightAnchor.constraint(equalToConstant: 320),
+            weeklyOverviewChart.heightAnchor.constraint(equalToConstant: 280), // Added height constraint back
+            macrosTrendChart.heightAnchor.constraint(equalToConstant: 320), // Added height constraint back
             // macroBalanceView.heightAnchor.constraint(equalToConstant: 260),
             // mealBreakdownView.heightAnchor.constraint(equalToConstant: 320),
             // nutritionInsightsView.heightAnchor.constraint(equalToConstant: 240),

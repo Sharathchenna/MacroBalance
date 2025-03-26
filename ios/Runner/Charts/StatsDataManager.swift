@@ -463,9 +463,9 @@ class StatsDataManager: StatsDataProvider {
                 // --- End Logging ---
                 guard let dateString = dict["date"] as? String,
                       let date = dateFormatter.date(from: dateString),
-                      let proteins = dict["protein"] as? Double,
+                      let proteins = dict["proteins"] as? Double, // Corrected key
                       let carbs = dict["carbs"] as? Double,
-                      let fats = dict["fat"] as? Double,
+                      let fats = dict["fats"] as? Double,       // Corrected key
                       let proteinGoal = dict["proteinGoal"] as? Double,
                       let carbGoal = dict["carbGoal"] as? Double,
                       let fatGoal = dict["fatGoal"] as? Double else {

@@ -233,9 +233,9 @@ void _setupStatsChannelHandler() {
 
             results.add({
               'date': dateFormatter.format(currentDate.toUtc()), // Use UTC ISO format
-              'protein': totalProtein,
+              'proteins': totalProtein, // Corrected key
               'carbs': totalCarbs,
-              'fat': totalFat,
+              'fats': totalFat,         // Corrected key
               'proteinGoal': proteinGoal,
               'carbGoal': carbGoal,
               'fatGoal': fatGoal,
