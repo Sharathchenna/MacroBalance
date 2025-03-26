@@ -2,11 +2,11 @@ flutter_native_splash:
   ios: true
   android: true
   web: false
-  
+
   color: "#FFFFFF"
-  image: assets/splash_screen/MacroBalancePng.png
+  image: assets/splash_screen/SplashScreen2.png
 
   android_12:
-  # TODO: Add support for Android 12 splash screen
+    # TODO: Add support for Android 12 splash screen
     color: "#FFFFFF"
     image: assets/splash_screen/Fitpro.png

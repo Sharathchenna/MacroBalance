@@ -299,12 +299,12 @@ class StatsDataManager: StatsDataProvider {
             return
         }
         
-        // Create the method channel
+        // Create the method channel (using the same one as presentation)
         let channel = FlutterMethodChannel(
-            name: "com.example.macrotracker/stats",
+            name: "app.macrobalance.com/stats",
             binaryMessenger: messenger
         )
-        
+
         // Format dates for the channel
         let dateFormatter = ISO8601DateFormatter()
         let startDateString = dateFormatter.string(from: startDate)
@@ -421,9 +421,9 @@ class StatsDataManager: StatsDataProvider {
             return
         }
 
-        // Create the method channel
+        // Create the method channel (using the same one as presentation)
         let channel = FlutterMethodChannel(
-            name: "com.example.macrotracker/stats",
+            name: "app.macrobalance.com/stats",
             binaryMessenger: messenger
         )
 
@@ -440,13 +440,27 @@ class StatsDataManager: StatsDataProvider {
 
         // Invoke method
         channel.invokeMethod("getMacroData", arguments: arguments) { result in
+            // --- Enhanced Logging ---
+            print("[StatsDataManager] Received result from Flutter for getMacroData: \(result ?? "nil")")
+            // --- End Logging ---
+
             guard let data = result as? [[String: Any]] else {
-                // Fallback to mock data on error or empty result
+                // --- Enhanced Logging ---
+                print("[StatsDataManager] Failed to cast Flutter result to [[String: Any]]. Falling back to mock data.")
+                // --- End Logging ---
                 completion(Models.MacrosEntry.generateSampleData(from: startDate, to: endDate))
                 return
             }
 
+            // --- Enhanced Logging ---
+            print("[StatsDataManager] Successfully cast Flutter result. Data count: \(data.count)")
+            // --- End Logging ---
+
+
             let entries = data.compactMap { dict -> Models.MacrosEntry? in
+                // --- Enhanced Logging ---
+                // print("[StatsDataManager] Attempting to parse dict: \(dict)") // Uncomment if needed, can be verbose
+                // --- End Logging ---
                 guard let dateString = dict["date"] as? String,
                       let date = dateFormatter.date(from: dateString),
                       let proteins = dict["protein"] as? Double,
@@ -455,11 +469,12 @@ class StatsDataManager: StatsDataProvider {
                       let proteinGoal = dict["proteinGoal"] as? Double,
                       let carbGoal = dict["carbGoal"] as? Double,
                       let fatGoal = dict["fatGoal"] as? Double else {
-                    // Print parsing error for debugging
-                    print("Error parsing macro data dict: \(dict)")
+                    // --- Enhanced Logging ---
+                    print("[StatsDataManager] Error parsing macro data dict: \(dict)")
+                    // --- End Logging ---
                     return nil
                 }
-                
+
                 // Handle optional fields like water, fiber, meals if they come from Flutter
                 let water = dict["water"] as? Double ?? 0
                 let waterGoal = dict["waterGoal"] as? Double ?? 2500
@@ -482,15 +497,25 @@ class StatsDataManager: StatsDataProvider {
                     fiber: fiber
                 )
             }
-            
+            // --- Enhanced Logging ---
+            print("[StatsDataManager] Parsed entries count: \(entries.count)")
+            // --- End Logging ---
+
             // If parsing resulted in empty array, still fallback to mock data
             if entries.isEmpty && !data.isEmpty {
-                 print("Macro data received but failed to parse all entries. Falling back to mock data.")
+                 // --- Enhanced Logging ---
+                 print("[StatsDataManager] Macro data received but failed to parse all entries. Falling back to mock data.")
+                 // --- End Logging ---
                  completion(Models.MacrosEntry.generateSampleData(from: startDate, to: endDate))
             } else if entries.isEmpty && data.isEmpty {
-                 print("No macro data received from Flutter. Falling back to mock data.")
+                 // --- Enhanced Logging ---
+                 print("[StatsDataManager] No macro data received from Flutter. Falling back to mock data.")
+                 // --- End Logging ---
                  completion(Models.MacrosEntry.generateSampleData(from: startDate, to: endDate))
             } else {
+                 // --- Enhanced Logging ---
+                 print("[StatsDataManager] Successfully parsed \(entries.count) entries. Returning real data.")
+                 // --- End Logging ---
                  completion(entries.sorted { $0.date < $1.date })
             }
         }

@@ -16,25 +16,27 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
 
     // Main stats views
     private let headerView = UIView() // Keep as UIView for now, maybe replace later
-    private let macrosSummaryView = MacrosSummaryView()
+    // Removed macrosSummaryView
     private let dateFilterControl = DateFilterControl() // Keep as separate view
     private let macrosChartContainer = UIView() // Keep container for SwiftUI chart
     private let macrosTrendChart = MacrosTrendChartView() // Keep custom view
-    private let mealBreakdownView = MealBreakdownView() // Keep custom view
-    private let goalProgressView = GoalProgressView() // Keep custom view
+    // Removed mealBreakdownView
+    // Removed goalProgressView
     private let refreshControl = UIRefreshControl()
 
     // New components
     private let nutritionInsightsView = NutritionInsightsView() // Keep custom view
     private let weeklyOverviewChart = WeeklyOverviewChartView() // Keep custom view
-    private let macroBalanceView = MacroBalanceView() // Keep custom view
+    // Removed macroBalanceView
     
     // Animation properties
     private var cardViews: [UIView] = []
     private var isFirstLoad = true
     
     // Data
-    private var macrosEntries: [Models.MacrosEntry] = []
+    private var macrosEntries: [Models.MacrosEntry] = [] // For the main selected range/latest entry
+    private var weeklyMacrosEntries: [Models.MacrosEntry] = [] // For WeeklyOverviewChart
+    private var monthlyMacrosEntries: [Models.MacrosEntry] = [] // For MacrosTrendChart (up to 30 days)
     private var currentGoalType: GoalType = .maintenance
     private var selectedDateRange: DateRange = .today
     
@@ -45,11 +47,21 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
         setupConstraints()
         setupNavigationBar()
         setupRefreshControl()
+        setupNotificationObserver() // Add observer setup
         loadData()
+    }
+
+    deinit {
+        // Remove observer when the view controller is deallocated
+        NotificationCenter.default.removeObserver(self, name: .macrosDataDidChange, object: nil)
+        print("[MacrosViewController] Notification observer removed.")
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        // --- Logging ---
+        print("[MacrosViewController] viewWillAppear called. Triggering loadData().")
+        // --- End Logging ---
         // Refresh data when view appears
         loadData()
     }
@@ -95,9 +107,9 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
         macrosChartContainer.layer.cornerRadius = 20
         
         // Setup shadow for card views
-        [macrosSummaryView, macrosChartContainer, macrosTrendChart,
-         mealBreakdownView, goalProgressView, nutritionInsightsView,
-         weeklyOverviewChart, macroBalanceView].forEach { view in
+        // Removed macrosSummaryView, mealBreakdownView, goalProgressView, macroBalanceView from this list
+        [macrosChartContainer, macrosTrendChart,
+         nutritionInsightsView, weeklyOverviewChart].forEach { view in
             view.translatesAutoresizingMaskIntoConstraints = false
             view.layer.cornerRadius = 20
             view.backgroundColor = .secondarySystemBackground
@@ -108,10 +120,12 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
             cardViews.append(view)
         }
 
-        // Add subviews to the UIStackView (contentView)
-        [headerView, dateFilterControl, macrosSummaryView, macrosChartContainer,
-         macrosTrendChart, weeklyOverviewChart, mealBreakdownView,
-         macroBalanceView, nutritionInsightsView, goalProgressView].forEach { subview in
+        // Add subviews to the UIStackView (contentView) in the desired order
+        // Moved dateFilterControl above weeklyOverviewChart
+        // Removed macrosSummaryView, mealBreakdownView, goalProgressView, macroBalanceView
+        [headerView, macrosChartContainer, macrosTrendChart,
+         dateFilterControl, weeklyOverviewChart,
+         nutritionInsightsView].forEach { subview in
             // Add horizontal padding if needed, or handle it in constraints
             contentView.addArrangedSubview(subview)
         }
@@ -178,8 +192,16 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
             target: self,
             action: #selector(shareMacroSummary)
         )
+
+        // Create refresh button
+        let refreshButton = UIBarButtonItem(
+            image: UIImage(systemName: "arrow.clockwise"),
+            style: .plain,
+            target: self,
+            action: #selector(refreshData) // Use existing refreshData action
+        )
         
-        navigationItem.rightBarButtonItems = [settingsButton, shareButton]
+        navigationItem.rightBarButtonItems = [settingsButton, shareButton, refreshButton] // Add refresh button
         
         // Apply large title
         navigationController?.navigationBar.prefersLargeTitles = true
@@ -190,6 +212,25 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
         refreshControl.tintColor = .systemIndigo
         scrollView.refreshControl = refreshControl
+    }
+
+    // MARK: - Notification Handling
+    private func setupNotificationObserver() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleMacrosDataChanged),
+            name: .macrosDataDidChange,
+            object: nil
+        )
+        print("[MacrosViewController] Notification observer added.")
+    }
+
+    @objc private func handleMacrosDataChanged() {
+        print("[MacrosViewController] Received macrosDataDidChange notification. Reloading data.")
+        // Ensure data loading happens on the main thread if called from a background notification
+        DispatchQueue.main.async {
+            self.loadData()
+        }
     }
     
     // MARK: - Animations
@@ -228,25 +269,76 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
     
     // MARK: - Data Loading
     private func loadData() {
-        // Start loading animation
-        refreshControl.beginRefreshing()
-        
-        // Get date range based on selection
-        let endDate = Date()
-        let startDate: Date
-        
+        // Use a DispatchGroup to coordinate multiple async fetches
+        let group = DispatchGroup()
+
+        // Start loading animation only if not already refreshing
+        // This prevents starting multiple refreshes if called rapidly (e.g., viewWillAppear + manual refresh)
+        if !refreshControl.isRefreshing {
+             print("[MacrosViewController] Starting refresh control animation.")
+             refreshControl.beginRefreshing()
+        } else {
+             print("[MacrosViewController] Refresh already in progress, skipping beginRefreshing.")
+        }
+
+        let calendar = Calendar.current
+        let today = Date()
+
+        // --- Fetch 1: Data for the selected date range (for main chart/latest entry) ---
+        group.enter()
+        let selectedEndDate = today
+        let selectedStartDate: Date
         switch selectedDateRange {
         case .today:
-            startDate = Calendar.current.startOfDay(for: endDate)
+            selectedStartDate = calendar.startOfDay(for: selectedEndDate)
         case .week:
-            startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate) ?? endDate
+            selectedStartDate = calendar.date(byAdding: .day, value: -7, to: selectedEndDate) ?? selectedEndDate
         case .month:
-            startDate = Calendar.current.date(byAdding: .month, value: -1, to: endDate) ?? endDate
+            selectedStartDate = calendar.date(byAdding: .month, value: -1, to: selectedEndDate) ?? selectedEndDate
         }
-        
-        // Here you would fetch data from your data manager
-        // For this example, we'll use sample data
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        print("[MacrosViewController] Fetching main data from \(selectedStartDate) to \(selectedEndDate)")
+        StatsDataManager.shared.fetchMacroData(from: selectedStartDate, to: selectedEndDate) { [weak self] fetchedEntries in
+            self?.macrosEntries = fetchedEntries
+            print("[MacrosViewController] Fetched main data: \(fetchedEntries.count) entries")
+            group.leave()
+        }
+
+        // --- Fetch 2: Data for the last 7 days (for Weekly Overview) ---
+        group.enter()
+        let weeklyStartDate = calendar.date(byAdding: .day, value: -7, to: today) ?? today
+        print("[MacrosViewController] Fetching weekly data from \(weeklyStartDate) to \(today)")
+        StatsDataManager.shared.fetchMacroData(from: weeklyStartDate, to: today) { [weak self] fetchedEntries in
+            self?.weeklyMacrosEntries = fetchedEntries
+            print("[MacrosViewController] Fetched weekly data: \(fetchedEntries.count) entries")
+            group.leave()
+        }
+
+        // --- Fetch 3: Data for the last 30 days (for Trend Chart) ---
+        group.enter()
+        let monthlyStartDate = calendar.date(byAdding: .day, value: -30, to: today) ?? today
+        print("[MacrosViewController] Fetching monthly data from \(monthlyStartDate) to \(today)")
+        StatsDataManager.shared.fetchMacroData(from: monthlyStartDate, to: today) { [weak self] fetchedEntries in
+            self?.monthlyMacrosEntries = fetchedEntries
+            print("[MacrosViewController] Fetched monthly data: \(fetchedEntries.count) entries")
+            group.leave()
+        }
+
+        // --- Update UI after all fetches complete ---
+        group.notify(queue: .main) { [weak self] in
+            guard let self = self else { return }
+
+            // Ensure refresh control stops *after* all data is fetched and UI is updated
+            defer {
+                print("[MacrosViewController] Ending refresh control animation after all fetches.")
+                self.refreshControl.endRefreshing()
+            }
+
+            print("[MacrosViewController] All data fetches complete. Updating UI.")
+            self.updateUI()
+        }
+
+        // Removed the old single fetch and DispatchQueue.main.asyncAfter block
+        /* DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self else { return }
             
             // Sample data - Replace with actual data fetching
@@ -254,49 +346,95 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
             
             // Update UI components
             self.updateUI()
-            
-            // End refreshing
-            self.refreshControl.endRefreshing()
-        }
+        } */
     }
-    
+
     private func updateUI() {
-        guard let latestEntry = macrosEntries.last else { return }
-        
-        // Update macros summary view with haptic feedback
+        // --- Logging ---
+        print("[MacrosViewController] updateUI called. Entries count: \(macrosEntries.count)")
+        if let latest = macrosEntries.last {
+            print("[MacrosViewController] Latest entry date: \(latest.date), P: \(latest.proteins), C: \(latest.carbs), F: \(latest.fats), PG: \(latest.proteinGoal), CG: \(latest.carbGoal), FG: \(latest.fatGoal)")
+        } else {
+            print("[MacrosViewController] updateUI called but macrosEntries is empty.")
+            // Consider showing an empty state for all components if needed
+        }
+        // --- End Logging ---
+
+        // Use the main macrosEntries for the latest entry data if needed,
+        // but use the specific weekly/monthly data for the charts.
+        guard let latestEntry = macrosEntries.last else {
+             // If no entries for the selected range, still try to configure charts with their data
+             print("[MacrosViewController] No latest entry found for selected range. Configuring charts with fetched weekly/monthly data.")
+             updateMacrosChart(with: macrosEntries) // Main chart uses selected range data
+             weeklyOverviewChart.configure(with: weeklyMacrosEntries) // Use weekly data
+             macrosTrendChart.configure(with: monthlyMacrosEntries) // Use monthly data
+             // and skip configuration for views requiring a single latest entry.
+             print("[MacrosViewController] No latest entry found. Configuring with empty data where possible.")
+             // Skip: macrosSummaryView.configure requires a non-nil entry
+             updateMacrosChart(with: [])
+             weeklyOverviewChart.configure(with: [])
+             macrosTrendChart.configure(with: [])
+             // Skip: macroBalanceView.configure - View Removed
+             // mealBreakdownView.configure - View Removed
+             nutritionInsightsView.configure(with: macrosEntries) // Configure insights with selected range data
+             // Skip: goalProgressView.configure - View Removed
+             // Skip: macrosSummaryView.configure - View Removed
+            // updateMacrosChart(with: []) // Already called above
+            // weeklyOverviewChart.configure(with: []) // Already called above
+            // macrosTrendChart.configure(with: []) // Already called above
+            // Skip: macroBalanceView.configure - View Removed
+            // mealBreakdownView.configure - View Removed
+            // nutritionInsightsView.configure(with: []) // Already called above
+            // Skip: goalProgressView.configure likely requires a non-nil entry
+            return
+        }
+
+        // Update macros summary view with haptic feedback - Removed macrosSummaryView update
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        macrosSummaryView.configure(with: latestEntry)
+        // macrosSummaryView.configure(with: latestEntry) // Removed
         
-        // Update macros chart view
+        // Update macros chart view (main chart uses selected range data)
         updateMacrosChart(with: macrosEntries)
         
-        // Update weekly overview
-        weeklyOverviewChart.configure(with: Array(macrosEntries.suffix(7)))
+        // Update weekly overview (use dedicated weekly data)
+        weeklyOverviewChart.configure(with: weeklyMacrosEntries)
         
-        // Update trend chart
-        macrosTrendChart.configure(with: macrosEntries)
+        // Update trend chart (use dedicated monthly data)
+        macrosTrendChart.configure(with: monthlyMacrosEntries)
         
-        // Update macro balance
-        macroBalanceView.configure(with: latestEntry)
+        // Update macro balance - View Removed
+        // macroBalanceView.configure(with: latestEntry)
         
-        // Update meal breakdown
-        if let meals = latestEntry.meals, !meals.isEmpty {
-            mealBreakdownView.configure(with: meals)
-        } else {
-            mealBreakdownView.showEmptyState()
-        }
+        // Update meal breakdown - Removed mealBreakdownView update
+        // if let meals = latestEntry.meals, !meals.isEmpty {
+        //     mealBreakdownView.configure(with: meals)
+        // } else {
+        //     mealBreakdownView.showEmptyState()
+        // }
         
         // Update nutrition insights
         nutritionInsightsView.configure(with: macrosEntries)
         
-        // Update goal progress
-        goalProgressView.configure(with: latestEntry, goalType: currentGoalType)
+        // Update goal progress - Removed goalProgressView update
+        // goalProgressView.configure(with: latestEntry, goalType: currentGoalType)
     }
-    
+
     private func updateMacrosChart(with entries: [Models.MacrosEntry]) {
+        // --- Logging ---
+        print("[MacrosViewController] updateMacrosChart called with \(entries.count) entries.")
+        // --- End Logging ---
+
         // Clear existing content
         for subview in macrosChartContainer.subviews {
-            subview.removeFromSuperview()
+             // If the subview belongs to a UIHostingController that is a child of this VC, remove the child VC first
+             if let hostingController = children.first(where: { $0.view == subview }) as? UIHostingController<MacrosChartView> {
+                 hostingController.willMove(toParent: nil)
+                 hostingController.view.removeFromSuperview()
+                 hostingController.removeFromParent()
+             } else {
+                 // Otherwise, just remove the subview
+                 subview.removeFromSuperview()
+             }
         }
         
         // Create our new beautiful chart using SwiftUI
@@ -334,11 +472,12 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
     @objc private func shareMacroSummary() {
         guard let latestEntry = macrosEntries.last else { return }
         
-        // Create a snapshot of the macros summary view
-        let renderer = UIGraphicsImageRenderer(bounds: macrosSummaryView.bounds)
-        let image = renderer.image { ctx in
-            macrosSummaryView.drawHierarchy(in: macrosSummaryView.bounds, afterScreenUpdates: true)
-        }
+        // Create a snapshot of the macros summary view - TODO: Update this if summary snapshot is needed
+        // let renderer = UIGraphicsImageRenderer(bounds: macrosSummaryView.bounds) // Removed reference
+        // let image = renderer.image { ctx in
+        //     macrosSummaryView.drawHierarchy(in: macrosSummaryView.bounds, afterScreenUpdates: true) // Removed reference
+        // }
+        let image = UIImage() // Placeholder image
         
         // Create share text
         let shareText = """

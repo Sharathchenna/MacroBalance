@@ -20,13 +20,7 @@ class WeeklyOverviewChartView: UIView {
         return label
     }()
     
-    private let toggleControl: UISegmentedControl = {
-        let items = ["Calories", "Macros"]
-        let control = UISegmentedControl(items: items)
-        control.selectedSegmentIndex = 0
-        control.translatesAutoresizingMaskIntoConstraints = false
-        return control
-    }()
+    // Removed toggleControl
     
     private let barChartView: BarChartView = {
         let chart = BarChartView()
@@ -75,44 +69,25 @@ class WeeklyOverviewChartView: UIView {
         return chart
     }()
     
-    private let calorieAverageView: AverageSummaryView = {
-        let view = AverageSummaryView(title: "Avg. Calories", color: .systemIndigo)
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
-    private let calorieStreakView: AverageSummaryView = {
-        let view = AverageSummaryView(title: "Streak", color: .systemOrange)
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
-    private let summaryStack: UIStackView = {
-        let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.distribution = .fillEqually
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        return stack
-    }()
-    
+    // Removed calorieAverageView, calorieStreakView, and summaryStack
+
     // MARK: - Properties
     private var entries: [Models.MacrosEntry] = []
-    private var showingCalories = true
-    
+    // Removed showingCalories property
+
     // MARK: - Initialization
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
-        setupActions()
+        // Removed setupActions() call
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupUI()
-        setupActions()
+        // Removed setupActions() call
     }
-    
+
     // MARK: - UI Setup
     private func setupUI() {
         backgroundColor = .secondarySystemBackground
@@ -121,12 +96,9 @@ class WeeklyOverviewChartView: UIView {
         
         addSubview(titleLabel)
         addSubview(subtitleLabel)
-        addSubview(toggleControl)
+        // Removed toggleControl
         addSubview(barChartView)
-        addSubview(summaryStack)
-        
-        summaryStack.addArrangedSubview(calorieAverageView)
-        summaryStack.addArrangedSubview(calorieStreakView)
+        // Removed summaryStack
         
         NSLayoutConstraint.activate([
             // Title constraints
@@ -137,116 +109,46 @@ class WeeklyOverviewChartView: UIView {
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
             subtitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             
-            // Toggle control constraints
-            toggleControl.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            toggleControl.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            toggleControl.widthAnchor.constraint(equalToConstant: 140),
+            // Removed Toggle control constraints
             
-            // Bar chart constraints
+            // Bar chart constraints - Adjust top anchor if needed, though subtitleLabel should suffice
             barChartView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
             barChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             barChartView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            barChartView.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.5),
+            // Adjusted barChartView bottom constraint
+            barChartView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
             
-            // Summary stack constraints
-            summaryStack.topAnchor.constraint(equalTo: barChartView.bottomAnchor, constant: 8),
-            summaryStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            summaryStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            summaryStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
+            // Removed summaryStack constraints
         ])
     }
     
-    private func setupActions() {
-        toggleControl.addTarget(self, action: #selector(toggleChanged), for: .valueChanged)
-    }
-    
-    @objc private func toggleChanged() {
-        showingCalories = toggleControl.selectedSegmentIndex == 0
-        updateChart()
-        
-        // Provide haptic feedback on toggle
-        UISelectionFeedbackGenerator().selectionChanged()
-    }
+    // Removed setupActions() and toggleChanged() methods
     
     // MARK: - Configuration
     func configure(with entries: [Models.MacrosEntry]) {
+        print("[WeeklyOverviewChartView] configure called with \(entries.count) entries.") // Log entry count
         self.entries = entries
         updateChart()
-        updateSummaryViews()
+        // Removed call to updateSummaryViews()
     }
     
     private func updateChart() {
+        print("[WeeklyOverviewChartView] updateChart called.") // Log which chart type (Removed showingCalories)
         guard !entries.isEmpty else {
+            print("[WeeklyOverviewChartView] No entries, setting chart data to nil.") // Log empty case
             barChartView.data = nil
+            barChartView.notifyDataSetChanged() // Ensure chart redraws empty state
             return
         }
         
-        if showingCalories {
-            updateCaloriesChart()
-        } else {
-            updateMacrosChart()
-        }
+        // Always update the macros chart now
+        updateMacrosChart()
     }
     
-    private func updateCaloriesChart() {
-        // Create entries for calories and goal
-        var caloriesEntries: [BarChartDataEntry] = []
-        var goalEntries: [BarChartDataEntry] = []
-        
-        // Format date for labels
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "EEE"
-        var days: [String] = []
-        
-        // Create data for each day
-        for (i, entry) in entries.enumerated() {
-            let xValue = Double(i)
-            
-            // Calories entry for actual intake
-            caloriesEntries.append(BarChartDataEntry(x: xValue, y: Double(entry.calories)))
-            
-            // Goal entry for the target
-            goalEntries.append(BarChartDataEntry(x: xValue, y: Double(entry.calorieGoal)))
-            
-            // Add date label
-            days.append(dateFormatter.string(from: entry.date))
-        }
-        
-        // Create dataset for calories
-        let caloriesDataSet = BarChartDataSet(entries: caloriesEntries, label: "Intake")
-        caloriesDataSet.colors = [UIColor.systemIndigo]
-        caloriesDataSet.valueFont = .systemFont(ofSize: 10)
-        caloriesDataSet.valueFormatter = IntegerValueFormatter()
-        
-        // Create dataset for goals
-        let goalDataSet = BarChartDataSet(entries: goalEntries, label: "Goal")
-        goalDataSet.colors = [UIColor.systemGray.withAlphaComponent(0.5)]
-        goalDataSet.valueFont = .systemFont(ofSize: 10)
-        goalDataSet.valueFormatter = IntegerValueFormatter()
-        
-        // Group and set data
-        let groupSpace = 0.3
-        let barSpace = 0.05
-        let barWidth = 0.3
-        
-        let data = BarChartData(dataSets: [caloriesDataSet, goalDataSet])
-        data.barWidth = barWidth
-        
-        // Set x position of grouped bars
-        data.groupBars(fromX: 0, groupSpace: groupSpace, barSpace: barSpace)
-        
-        // Update x-axis range and labels
-        barChartView.xAxis.axisMinimum = 0
-        barChartView.xAxis.axisMaximum = 0 + data.groupWidth(groupSpace: groupSpace, barSpace: barSpace) * Double(caloriesEntries.count)
-        barChartView.xAxis.valueFormatter = IndexAxisValueFormatter(values: days)
-        barChartView.xAxis.labelCount = days.count
-        
-        // Set data and animate
-        barChartView.data = data
-        barChartView.animate(yAxisDuration: 1.0)
-    }
+    // Removed updateCaloriesChart() method
     
     private func updateMacrosChart() {
+        print("[WeeklyOverviewChartView] updateMacrosChart executing.") // Log method execution
         // Create entries for stacked bar chart
         var chartEntries: [BarChartDataEntry] = []
         
@@ -258,12 +160,12 @@ class WeeklyOverviewChartView: UIView {
         // Create data for each day
         for (i, macroEntry) in self.entries.enumerated() {
             let xValue = Double(i)
-            
-            // Create stacked values array [proteins, carbs, fats]
-            let yValues = [Double(macroEntry.proteins * 4), // 4 calories per gram of protein
-                           Double(macroEntry.carbs * 4),    // 4 calories per gram of carb
-                           Double(macroEntry.fats * 9)]     // 9 calories per gram of fat
-            
+
+            // Create stacked values array [proteins, carbs, fats] in GRAMS
+            let yValues = [Double(macroEntry.proteins),
+                           Double(macroEntry.carbs),
+                           Double(macroEntry.fats)]
+
             // Stacked bar entry
             chartEntries.append(BarChartDataEntry(x: xValue, yValues: yValues))
             
@@ -296,30 +198,8 @@ class WeeklyOverviewChartView: UIView {
         barChartView.animate(yAxisDuration: 1.0)
     }
     
-    private func updateSummaryViews() {
-        guard !entries.isEmpty else {
-            calorieAverageView.configure(value: 0, caption: "No data")
-            calorieStreakView.configure(value: 0, caption: "No streak")
-            return
-        }
-        
-        // Calculate average calories
-        let totalCalories = entries.reduce(0) { $0 + $1.calories }
-        let averageCalories = Int(totalCalories / Double(entries.count))
-        calorieAverageView.configure(value: averageCalories, caption: "kcal daily")
-        
-        // Calculate streak days (consecutive days where calories > 0)
-        var streak = 0
-        for entry in entries.reversed() {
-            if entry.calories > 0 {
-                streak += 1
-            } else {
-                break
-            }
-        }
-        calorieStreakView.configure(value: streak, caption: "\(streak == 1 ? "day" : "days")")
-    }
-}
+    // Removed updateSummaryViews() method
+} // <-- Added missing closing brace for WeeklyOverviewChartView class
 
 // MARK: - Average Summary View
 fileprivate class AverageSummaryView: UIView {
@@ -451,4 +331,4 @@ fileprivate class IntegerValueFormatter: ValueFormatter {
     func stringForValue(_ value: Double, entry: ChartDataEntry, dataSetIndex: Int, viewPortHandler: ViewPortHandler?) -> String {
         return "\(Int(value))"
     }
-} 
+}

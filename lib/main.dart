@@ -30,9 +30,18 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:uni_links/uni_links.dart';
 import 'dart:io' show Platform;
+import 'package:intl/intl.dart'; // Needed for date formatting
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Define the channel for stats communication (presentation AND data)
+const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
+
+// Global instance of FoodEntryProvider (consider a better DI approach later)
+// This is needed because the method handler is outside the widget tree.
+// Ensure it's initialized after Supabase and before runApp.
+late FoodEntryProvider _foodEntryProviderInstance;
 
 // Add route name constants at the top level
 class Routes {
@@ -135,17 +144,123 @@ void main() async {
   initDeepLinks();
   await initPlatformState();
 
+  // Initialize FoodEntryProvider instance
+  _foodEntryProviderInstance = FoodEntryProvider();
+  // Ensure it loads initial data if necessary (might need async init)
+  // await _foodEntryProviderInstance.loadInitialData(); // Example if needed
+
+  // Setup the method call handler for stats AFTER initializing the provider
+  _setupStatsChannelHandler();
+
+
   runApp(
     MultiProvider(
+      // Use the globally created instance here
       providers: [
-        ChangeNotifierProvider(create: (_) => FoodEntryProvider()),
+        ChangeNotifierProvider.value(value: _foodEntryProviderInstance),
         ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => MealProvider()), // Move this here
+        ChangeNotifierProvider(create: (_) => MealProvider()),
       ],
-      child: const MyApp(), // Add const
+      child: const MyApp(),
     ),
   );
+}
+
+// Function to setup the method channel handler
+void _setupStatsChannelHandler() {
+  _statsChannel.setMethodCallHandler((MethodCall call) async {
+    switch (call.method) {
+      case 'getMacroData':
+        try {
+          final args = call.arguments as Map<dynamic, dynamic>?;
+          final startDateString = args?['startDate'] as String?;
+          final endDateString = args?['endDate'] as String?;
+
+          if (startDateString == null || endDateString == null) {
+            throw PlatformException(code: 'INVALID_ARGS', message: 'Missing date arguments');
+          }
+
+          final startDate = DateTime.parse(startDateString).toLocal(); // Convert to local time
+          final endDate = DateTime.parse(endDateString).toLocal(); // Convert to local time
+          final dateFormatter = DateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); // ISO 8601 format
+
+          // --- Logging ---
+          debugPrint('[Flutter Stats Handler] Received request for dates: $startDateString to $endDateString');
+          debugPrint('[Flutter Stats Handler] Parsed local dates: $startDate to $endDate');
+          // --- End Logging ---
+
+
+          List<Map<String, dynamic>> results = [];
+          DateTime currentDate = startDate;
+
+          while (currentDate.isBefore(endDate) || currentDate.isAtSameMomentAs(endDate)) {
+             // --- Logging ---
+             debugPrint('[Flutter Stats Handler] Processing date: $currentDate');
+             // --- End Logging ---
+
+            // Calculate consumed macros for the current date
+            final entries = _foodEntryProviderInstance.getAllEntriesForDate(currentDate);
+             // --- Logging ---
+             debugPrint('[Flutter Stats Handler] Found ${entries.length} entries for $currentDate');
+             // --- End Logging ---
+
+            double totalCarbs = 0;
+            double totalFat = 0;
+            double totalProtein = 0;
+
+            for (var entry in entries) {
+              final carbs = entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
+              final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
+              final protein = entry.food.nutrients["Protein"] ?? 0;
+
+              double quantityInGrams = entry.quantity;
+              switch (entry.unit) {
+                case "oz": quantityInGrams *= 28.35; break;
+                case "kg": quantityInGrams *= 1000; break;
+                case "lbs": quantityInGrams *= 453.59; break;
+              }
+              final multiplier = quantityInGrams / 100;
+              totalCarbs += carbs * multiplier;
+              totalFat += fat * multiplier;
+              totalProtein += protein * multiplier;
+            }
+
+            // Get goals from the provider
+            final proteinGoal = _foodEntryProviderInstance.proteinGoal;
+            final carbGoal = _foodEntryProviderInstance.carbsGoal;
+            final fatGoal = _foodEntryProviderInstance.fatGoal;
+
+            results.add({
+              'date': dateFormatter.format(currentDate.toUtc()), // Use UTC ISO format
+              'protein': totalProtein,
+              'carbs': totalCarbs,
+              'fat': totalFat,
+              'proteinGoal': proteinGoal,
+              'carbGoal': carbGoal,
+              'fatGoal': fatGoal,
+            });
+
+            // Move to the next day
+            currentDate = currentDate.add(const Duration(days: 1));
+          }
+          debugPrint('[Flutter Stats Handler] Sending ${results.length} macro entries to native.');
+          return results; // Return the list of maps
+        } catch (e) {
+           debugPrint('[Flutter Stats Handler] Error handling getMacroData: $e');
+           // Return an empty list or throw an error that native side can interpret
+           return []; // Or throw PlatformException(...)
+        }
+
+      // Add other cases for 'getCalorieData' if needed
+      // case 'getCalorieData':
+      //   // ... implementation ...
+      //   return calorieResults;
+
+      default:
+        throw MissingPluginException('Not implemented: ${call.method}');
+    }
+  });
 }
 
 // Add this function to handle deep links

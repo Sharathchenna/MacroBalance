@@ -2,6 +2,11 @@ import Flutter
 import Foundation
 import UIKit
 
+// Add a Notification Name constant
+extension Notification.Name {
+    static let macrosDataDidChange = Notification.Name("macrosDataDidChangeNotification")
+}
+
 class StatsMethodHandler: NSObject {
     // Channel for communication with Flutter
     private let channel: FlutterMethodChannel
@@ -49,7 +54,17 @@ class StatsMethodHandler: NSObject {
                 
             case "fetchStats":
                 self.fetchStats(result: result)
-                
+
+            case "macrosDataChanged":
+                // Received notification from Flutter that data changed
+                print("[StatsMethodHandler] Received macrosDataChanged notification from Flutter.")
+                // Ensure posting happens on the main thread for UI observers
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .macrosDataDidChange, object: nil)
+                    print("[StatsMethodHandler] Posted .macrosDataDidChange notification on main thread.") // Add log
+                }
+                result(nil) // Acknowledge the call
+
             default:
                 result(FlutterMethodNotImplemented)
             }

@@ -7,6 +7,12 @@ import 'dart:convert';
 import 'dart:math'; // Added for min function
 import '../services/widget_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/services.dart'; // Import for MethodChannel
+
+// Define the channel name consistently
+const String _statsChannelName = 'app.macrobalance.com/stats';
+const MethodChannel _statsChannel = MethodChannel(_statsChannelName);
+
 
 class FoodEntryProvider with ChangeNotifier {
   List<FoodEntry> _entries = [];
@@ -363,12 +369,14 @@ class FoodEntryProvider with ChangeNotifier {
     _entries.add(entry);
     notifyListeners();
     await _saveEntries();
+    _notifyNativeStatsChanged(); // Notify native side
   }
 
   Future<void> removeEntry(String id) async {
     _entries.removeWhere((entry) => entry.id == id);
     notifyListeners();
     await _saveEntries();
+    _notifyNativeStatsChanged(); // Notify native side
   }
 
   Future<void> clearEntries() async {
@@ -405,12 +413,28 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   List<FoodEntry> getAllEntriesForDate(DateTime date) {
-    return _entries
-        .where((entry) =>
-            entry.date.year == date.year &&
-            entry.date.month == date.month &&
-            entry.date.day == date.day)
-        .toList();
+    // Ensure the comparison happens based on the local timezone's day boundaries
+    final startOfDay = DateTime(date.year, date.month, date.day); // Local start of day
+    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59, 999); // Local end of day
+
+    debugPrint('[FoodEntryProvider] getAllEntriesForDate: Target date: $date (Local)');
+    debugPrint('[FoodEntryProvider] getAllEntriesForDate: Checking between $startOfDay and $endOfDay (Local)');
+
+    final filteredEntries = _entries.where((entry) {
+      // Convert entry date to local time for comparison if it's not already
+      final entryDateLocal = entry.date.toLocal();
+      final bool isInRange = !entryDateLocal.isBefore(startOfDay) && entryDateLocal.isBefore(endOfDay.add(const Duration(milliseconds: 1))); // Inclusive end
+
+      // --- Logging ---
+      // Uncomment for detailed debugging if needed
+      // debugPrint('[FoodEntryProvider] Comparing entry date: ${entry.date} (Stored) / ${entryDateLocal} (Local) -> In Range: $isInRange');
+      // --- End Logging ---
+
+      return isInRange;
+    }).toList();
+
+    debugPrint('[FoodEntryProvider] getAllEntriesForDate: Found ${filteredEntries.length} entries for $date');
+    return filteredEntries;
   }
 
   /// Update iOS homescreen widgets with latest data
@@ -617,6 +641,18 @@ class FoodEntryProvider with ChangeNotifier {
       };
     }
   }
+
+  // Method to notify native side about data changes
+  Future<void> _notifyNativeStatsChanged() async {
+    try {
+      // We don't need to send data, just notify that it changed
+      await _statsChannel.invokeMethod('macrosDataChanged');
+      debugPrint('[FoodEntryProvider] Notified native side: macrosDataChanged');
+    } on PlatformException catch (e) {
+      debugPrint('[FoodEntryProvider] Failed to notify native side: ${e.message}');
+    }
+  }
+
 
   /// Public method to force sync and return diagnostic information
   Future<Map<String, dynamic>> forceSyncAndDiagnose() async {

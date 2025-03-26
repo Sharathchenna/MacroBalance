@@ -530,8 +530,9 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     final dateProvider = Provider.of<DateProvider>(context, listen: false);
     final selectedDate = dateProvider.selectedDate;
 
-    // Avoid fetching if data for this date is already loaded
-    if (_lastFetchedDate != null && _isSameDay(_lastFetchedDate!, selectedDate)) {
+    // Avoid fetching if data for this date is already loaded, UNLESS it's today
+    final bool isToday = _isSameDay(selectedDate, DateTime.now());
+    if (!isToday && _lastFetchedDate != null && _isSameDay(_lastFetchedDate!, selectedDate)) {
        if (mounted) {
          setState(() { _isLoadingHealthData = false; });
        }

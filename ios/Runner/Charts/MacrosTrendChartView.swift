@@ -190,12 +190,15 @@ class MacrosTrendChartView: UIView {
     
     // MARK: - Configuration
     func configure(with entries: [Models.MacrosEntry]) {
+        print("[MacrosTrendChartView] configure called with \(entries.count) entries.") // Log entry count
         self.allEntries = entries
         updateChartWithPeriod()
     }
     
     private func updateChartWithPeriod() {
+        print("[MacrosTrendChartView] updateChartWithPeriod called. Period: \(periodDays) days.") // Log period
         guard !allEntries.isEmpty else {
+            print("[MacrosTrendChartView] No entries, resetting chart.") // Log empty case
             resetChart()
             return
         }
@@ -307,6 +310,7 @@ class MacrosTrendChartView: UIView {
     }
     
     private func resetChart() {
+        print("[MacrosTrendChartView] resetChart called.") // Log reset
         lineChartView.data = nil
         lineChartView.notifyDataSetChanged()
     }

@@ -55,6 +55,10 @@ import FirebaseMessaging
         // Note: FirebaseApp.configure() is now handled in Flutter code (comment remains, but we added configure above)
         // Just set up the messaging delegate
         Messaging.messaging().delegate = self
+
+        // Configure the StatsDataManager with the binary messenger
+        // This allows the native side to call back into Flutter for data
+        StatsDataManager.shared.configure(with: controller.binaryMessenger)
         
         if #available(iOS 10.0, *) {
             UNUserNotificationCenter.current().delegate = self
