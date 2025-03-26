@@ -160,8 +160,8 @@ class NotificationService {
           'device_name': Platform.isIOS ? 'iOS Device' : 'Android Device',
           'updated_at': DateTime.now().toIso8601String(),
         },
-        // Ensure upsert happens based on user_id and device_name/token if needed
-        // onConflict: 'user_id, device_name', // Example, adjust based on your table constraints
+        // Ensure upsert happens based on user_id and fcm_token
+        onConflict: 'user_id, fcm_token', // Specify the conflict columns
       );
 
       debugPrint('FCM token saved/updated in Supabase: $token');
@@ -267,7 +267,10 @@ class NotificationService {
 
       await Supabase.instance.client
           .from('user_notification_preferences')
-          .upsert(preferences);
+          .upsert(
+            preferences,
+            onConflict: 'user_id', // Specify the conflict column
+          );
 
       debugPrint('Notification preferences updated');
     } catch (e) {
