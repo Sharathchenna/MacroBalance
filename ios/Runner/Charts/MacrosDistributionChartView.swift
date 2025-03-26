@@ -4,15 +4,8 @@ import UIKit
 #endif
 import DGCharts
 
-class MacrosDistributionChartView: UIView {
+class MacrosDistributionChartView: UIView, ChartViewDelegate { // Add ChartViewDelegate
     // MARK: - UI Components
-    private let containerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .clear
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.text = "Macronutrient Distribution"
@@ -33,6 +26,7 @@ class MacrosDistributionChartView: UIView {
     private let pieChartView: DGCharts.PieChartView = {
         let chart = MacrosChartFactory.createPieChart()
         chart.translatesAutoresizingMaskIntoConstraints = false
+        // chart.delegate = self // Delegate will be set in setupUI
         return chart
     }()
     
@@ -66,60 +60,71 @@ class MacrosDistributionChartView: UIView {
     
     // MARK: - UI Setup
     private func setupUI() {
-        backgroundColor = .secondarySystemBackground
-        layer.cornerRadius = 16
+        backgroundColor = .secondarySystemGroupedBackground // Apply card background
+        layer.cornerRadius = 18 // Consistent corner radius
         
-        addSubview(containerView)
-        containerView.addSubview(titleLabel)
-        containerView.addSubview(subtitleLabel)
-        containerView.addSubview(pieChartView)
+        // Add shadow
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOffset = CGSize(width: 0, height: 3)
+        layer.shadowRadius = 6
+        layer.shadowOpacity = 0.08
+        layer.masksToBounds = false
+        
+        // Add subviews directly
+        addSubview(titleLabel)
+        addSubview(subtitleLabel)
+        addSubview(pieChartView)
+        
+        pieChartView.delegate = self // Set delegate
         
         // Create center text label
         centerTextLabel = UILabel()
         centerTextLabel?.textAlignment = .center
         centerTextLabel?.numberOfLines = 0
+        centerTextLabel?.font = .systemFont(ofSize: 14, weight: .regular) // Default font
+        centerTextLabel?.textColor = .secondaryLabel
         centerTextLabel?.text = "No Data"
         centerTextLabel?.translatesAutoresizingMaskIntoConstraints = false
         
         if let centerTextLabel = centerTextLabel {
-            pieChartView.addSubview(centerTextLabel)
+            // Add to the main view, not the chart, to avoid clipping issues
+            addSubview(centerTextLabel)
             
             NSLayoutConstraint.activate([
-                centerTextLabel.centerXAnchor.constraint(equalTo: pieChartView.centerXAnchor),
+                centerTextLabel.centerXAnchor.constraint(equalTo: pieChartView.centerXAnchor), // Center within chart bounds
                 centerTextLabel.centerYAnchor.constraint(equalTo: pieChartView.centerYAnchor),
-                centerTextLabel.widthAnchor.constraint(lessThanOrEqualTo: pieChartView.widthAnchor, multiplier: 0.6),
-                centerTextLabel.heightAnchor.constraint(lessThanOrEqualTo: pieChartView.heightAnchor, multiplier: 0.6)
+                centerTextLabel.widthAnchor.constraint(lessThanOrEqualTo: pieChartView.widthAnchor, multiplier: 0.55), // Slightly smaller max width
+                centerTextLabel.heightAnchor.constraint(lessThanOrEqualTo: pieChartView.heightAnchor, multiplier: 0.55)
             ])
         }
         
         // Add value labels stack view
-        containerView.addSubview(valueLabelsStackView)
+        addSubview(valueLabelsStackView)
         [proteinLabel, carbsLabel, fatsLabel].forEach {
             valueLabelsStackView.addArrangedSubview($0)
         }
         
         NSLayoutConstraint.activate([
-            containerView.topAnchor.constraint(equalTo: topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // Title constraints
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            
+            // Subtitle constraints
             subtitleLabel.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
-            subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: containerView.trailingAnchor, constant: -16),
+            subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
             
-            pieChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
-            pieChartView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
-            pieChartView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
-            pieChartView.heightAnchor.constraint(equalTo: pieChartView.widthAnchor, multiplier: 0.7),
+            // Pie Chart constraints
+            pieChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12), // More space
+            pieChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            pieChartView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            pieChartView.heightAnchor.constraint(equalTo: pieChartView.widthAnchor, multiplier: 0.75), // Adjust ratio slightly
             
-            valueLabelsStackView.topAnchor.constraint(equalTo: pieChartView.bottomAnchor, constant: 4),
-            valueLabelsStackView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            valueLabelsStackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            valueLabelsStackView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16)
+            // Value Labels Stack constraints
+            valueLabelsStackView.topAnchor.constraint(equalTo: pieChartView.bottomAnchor, constant: 12), // More space
+            valueLabelsStackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            valueLabelsStackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            valueLabelsStackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
         ])
     }
     
@@ -161,14 +166,15 @@ class MacrosDistributionChartView: UIView {
         // Configure dataset appearance
         let colors: [UIColor] = [.proteinColor, .carbColor, .fatColor]
         dataSet.colors = colors
-        dataSet.sliceSpace = 2
-        dataSet.selectionShift = 8
-        dataSet.valueFont = .systemFont(ofSize: 14, weight: .bold)
-        dataSet.valueTextColor = .label
-        dataSet.valueFormatter = MacroPercentValueFormatter()
-        dataSet.valueLineWidth = 1.5
-        dataSet.valueLinePart1Length = 0.5
-        dataSet.valueLinePart2Length = 0.4
+        dataSet.sliceSpace = 3 // Slightly more space
+        dataSet.selectionShift = 6 // Slightly less shift
+        dataSet.valueFont = .systemFont(ofSize: 13, weight: .semibold) // Adjust font
+        dataSet.valueTextColor = .secondaryLabel // Less prominent color
+        dataSet.valueFormatter = MacroPercentValueFormatter() // Assuming this exists and works
+        dataSet.valueLineWidth = 1.0 // Thinner line
+        dataSet.valueLinePart1Length = 0.4 // Adjust line lengths
+        dataSet.valueLinePart2Length = 0.3
+        dataSet.valueLineColor = .tertiaryLabel // Match axis colors
         dataSet.xValuePosition = .outsideSlice
         dataSet.yValuePosition = .outsideSlice
         
@@ -180,52 +186,65 @@ class MacrosDistributionChartView: UIView {
         updateCenterText(for: nil)
     }
     
-    private func updateCenterText(for index: Int?) {
-        guard let entry = currentEntry else { return }
+    private func updateCenterText(for index: Int?, animated: Bool = true) { // Add animated flag
+        guard let entry = currentEntry, let centerLabel = centerTextLabel else { return }
+        
+        let newText: NSAttributedString
         
         if let index = index {
             // Show specific macro details when segment is selected
             let macroName = ["Protein", "Carbs", "Fat"][index]
             let macroValue = [entry.proteins, entry.carbs, entry.fats][index]
-            let macroGoal = [entry.proteinGoal, entry.carbGoal, entry.fatGoal][index]
+            // let macroGoal = [entry.proteinGoal, entry.carbGoal, entry.fatGoal][index] // Goal not used here currently
             
-            let percentText = macroGoal > 0 ? " (\(Int((macroValue / macroGoal) * 100))%)" : ""
-            centerTextLabel?.attributedText = createAttributedString(
+            // let percentText = macroGoal > 0 ? " (\(Int((macroValue / macroGoal) * 100))%)" : "" // Goal % not shown on tap
+            newText = createAttributedString(
                 mainText: "\(Int(macroValue))g",
-                secondaryText: "\(macroName)\(percentText)"
+                secondaryText: macroName // Just show name on tap
             )
         } else {
-            // Show overall macro ratio
+            // Show overall macro ratio P/C/F
             let total = entry.proteins + entry.carbs + entry.fats
             
             let proteinPercent = total > 0 ? Int((entry.proteins / total) * 100) : 0
             let carbsPercent = total > 0 ? Int((entry.carbs / total) * 100) : 0
             let fatsPercent = total > 0 ? Int((entry.fats / total) * 100) : 0
             
-            centerTextLabel?.attributedText = createAttributedString(
+            newText = createAttributedString(
                 mainText: "\(proteinPercent)/\(carbsPercent)/\(fatsPercent)",
-                secondaryText: "P/C/F"
+                secondaryText: "P / C / F" // Add spacing
             )
+        }
+        
+        // Animate the text change
+        if animated {
+            UIView.transition(with: centerLabel, duration: 0.25, options: .transitionCrossDissolve, animations: {
+                centerLabel.attributedText = newText
+            }, completion: nil)
+        } else {
+            centerLabel.attributedText = newText
         }
     }
     
     private func createAttributedString(mainText: String, secondaryText: String) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
+        // Secondary text (e.g., "P/C/F" or "Protein")
         if !secondaryText.isEmpty {
             result.append(NSAttributedString(
                 string: "\(secondaryText)\n",
                 attributes: [
-                    .font: UIFont.systemFont(ofSize: 16, weight: .bold),
+                    .font: UIFont.systemFont(ofSize: 15, weight: .semibold), // Adjusted size/weight
                     .foregroundColor: UIColor.secondaryLabel
                 ]
             ))
         }
         
+        // Main text (e.g., "40/40/20" or "120g")
         result.append(NSAttributedString(
             string: mainText,
             attributes: [
-                .font: UIFont.systemFont(ofSize: 18, weight: .black),
+                .font: UIFont.systemFont(ofSize: 20, weight: .bold), // Adjusted size/weight
                 .foregroundColor: UIColor.label
             ]
         ))
@@ -242,6 +261,16 @@ class MacrosDistributionChartView: UIView {
         fatsLabel.updateValue(0, percent: 0)
     }
     
+    // MARK: - ChartViewDelegate
+    func chartValueSelected(_ chartView: ChartViewBase, entry: ChartDataEntry, highlight: Highlight) {
+        updateCenterText(for: Int(highlight.x), animated: true)
+    }
+    
+    func chartValueNothingSelected(_ chartView: ChartViewBase) {
+        updateCenterText(for: nil, animated: true)
+    }
+    
+    // MARK: - System Overrides
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         

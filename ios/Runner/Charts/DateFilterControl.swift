@@ -12,29 +12,22 @@ class DateFilterControl: UIView {
     private var selectedRange: DateRange = .today
     
     // MARK: - UI Components
-    private let containerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .tertiarySystemBackground
-        view.layer.cornerRadius = 8
-        view.clipsToBounds = true
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
     private let segmentedControl: UISegmentedControl = {
-        let items = ["Today", "Week", "Month"]
+        let items = ["Today", "7D", "30D"] // Shorter labels
         let control = UISegmentedControl(items: items)
         control.selectedSegmentIndex = 0
+        // control.backgroundColor = .systemGray5 // Subtle background
         control.translatesAutoresizingMaskIntoConstraints = false
         return control
     }()
     
     private let dateRangeLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.font = .systemFont(ofSize: 13, weight: .regular) // Adjust font
         label.textColor = .secondaryLabel
         label.textAlignment = .right
         label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.required, for: .horizontal) // Prevent label from being compressed
         return label
     }()
     
@@ -55,23 +48,22 @@ class DateFilterControl: UIView {
     
     // MARK: - UI Setup
     private func setupUI() {
-        addSubview(containerView)
-        containerView.addSubview(segmentedControl)
-        containerView.addSubview(dateRangeLabel)
+        backgroundColor = .clear // Make background clear
+        
+        addSubview(segmentedControl)
+        addSubview(dateRangeLabel)
         
         NSLayoutConstraint.activate([
-            containerView.topAnchor.constraint(equalTo: topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // Segmented Control constraints
+            segmentedControl.topAnchor.constraint(equalTo: topAnchor, constant: 4), // Add padding
+            segmentedControl.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            segmentedControl.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+            // Removed fixed width multiplier
             
-            segmentedControl.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            segmentedControl.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
-            segmentedControl.widthAnchor.constraint(equalTo: containerView.widthAnchor, multiplier: 0.6),
-            
-            dateRangeLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            dateRangeLabel.leadingAnchor.constraint(equalTo: segmentedControl.trailingAnchor, constant: 8),
-            dateRangeLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -12)
+            // Date Range Label constraints
+            dateRangeLabel.centerYAnchor.constraint(equalTo: segmentedControl.centerYAnchor),
+            dateRangeLabel.leadingAnchor.constraint(equalTo: segmentedControl.trailingAnchor, constant: 12), // More spacing
+            dateRangeLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8)
         ])
     }
     

@@ -63,6 +63,7 @@ class MacroBalanceView: UIView {
         return chart
     }()
     
+    // Instantiate BalanceScoreView here
     private let balanceScoreView = BalanceScoreView()
     
     // MARK: - Properties
@@ -81,35 +82,46 @@ class MacroBalanceView: UIView {
     
     // MARK: - UI Setup
     private func setupUI() {
-        backgroundColor = .secondarySystemBackground
-        layer.cornerRadius = 20
-        layer.masksToBounds = true
+        backgroundColor = .secondarySystemGroupedBackground // Card background
+        layer.cornerRadius = 18 // Consistent radius
+        
+        // Add shadow
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOffset = CGSize(width: 0, height: 3)
+        layer.shadowRadius = 6
+        layer.shadowOpacity = 0.08
+        layer.masksToBounds = false
         
         addSubview(titleLabel)
         addSubview(subtitleLabel)
         addSubview(radarChartView)
-        addSubview(balanceScoreView)
+        addSubview(balanceScoreView) // Add the instance to the view hierarchy
+        
+        // Ensure translatesAutoresizingMaskIntoConstraints is set *before* activating constraints
+        balanceScoreView.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            // Title constraints - increase top margin
+            // Title constraints
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 24),
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             
             // Subtitle constraints
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
             subtitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            
-            // Radar chart constraints - increase top margin
-            radarChartView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
-            radarChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            radarChartView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
-            radarChartView.widthAnchor.constraint(equalTo: heightAnchor, multiplier: 0.8),
+            subtitleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             
             // Balance score view constraints
-            balanceScoreView.centerYAnchor.constraint(equalTo: radarChartView.centerYAnchor),
-            balanceScoreView.leadingAnchor.constraint(equalTo: radarChartView.trailingAnchor, constant: 8),
+            // balanceScoreView.translatesAutoresizingMaskIntoConstraints = false, // Moved outside activate block
+            balanceScoreView.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 16),
+            balanceScoreView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             balanceScoreView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            balanceScoreView.heightAnchor.constraint(equalToConstant: 100)
+            
+            // Radar chart constraints
+            radarChartView.topAnchor.constraint(equalTo: balanceScoreView.bottomAnchor, constant: 12),
+            radarChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            radarChartView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            radarChartView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16),
+            radarChartView.heightAnchor.constraint(equalTo: radarChartView.widthAnchor, multiplier: 0.8)
         ])
     }
     
@@ -122,16 +134,14 @@ class MacroBalanceView: UIView {
     
     private func updateRadarChart(with entry: Models.MacrosEntry) {
         // Calculate percentages of goal for each macro
-        let proteinPercentage = min(entry.proteins / entry.proteinGoal, 1.2) * 100
-        let carbsPercentage = min(entry.carbs / entry.carbGoal, 1.2) * 100
-        let fatsPercentage = min(entry.fats / entry.fatGoal, 1.2) * 100
-        let caloriesPercentage = min(entry.calories / entry.calorieGoal, 1.2) * 100
+        let proteinPercentage = entry.proteinGoal > 0 ? min(entry.proteins / entry.proteinGoal, 1.2) * 100 : 0
+        let carbsPercentage = entry.carbGoal > 0 ? min(entry.carbs / entry.carbGoal, 1.2) * 100 : 0
+        let fatsPercentage = entry.fatGoal > 0 ? min(entry.fats / entry.fatGoal, 1.2) * 100 : 0
+        let caloriesPercentage = entry.calorieGoal > 0 ? min(entry.calories / entry.calorieGoal, 1.2) * 100 : 0
         
         // Calculate additional nutrition metrics
-        // Default to 50% if fiber is 0
-        let fiberPercentage = entry.fiber > 0 ? min(entry.fiber / 25, 1.2) * 100 : 50 
-        // Default to 60% if water is 0
-        let waterPercentage = entry.water > 0 ? min(entry.water / 2500, 1.2) * 100 : 60 
+        let fiberPercentage = entry.fiber > 0 ? min(entry.fiber / 25, 1.2) * 100 : 50 // Default to 50% if fiber is 0
+        let waterPercentage = entry.water > 0 ? min(entry.water / 2500, 1.2) * 100 : 60 // Default to 60% if water is 0
         
         // Create radar data entries
         let radarEntries = [
@@ -145,13 +155,13 @@ class MacroBalanceView: UIView {
         
         // Create dataset
         let set = RadarChartDataSet(entries: radarEntries, label: "Macro Balance")
-        set.colors = [UIColor.systemIndigo]
-        set.fillColor = UIColor.systemIndigo.withAlphaComponent(0.5)
+        set.colors = [UIColor.systemIndigo.withAlphaComponent(0.9)]
+        set.fillColor = UIColor.systemIndigo.withAlphaComponent(0.4)
         set.drawFilledEnabled = true
-        set.fillAlpha = 0.7
-        set.lineWidth = 2
+        set.fillAlpha = 0.6
+        set.lineWidth = 2.5
         set.drawHighlightCircleEnabled = true
-        set.highlightCircleFillColor = .systemIndigo
+        set.highlightCircleFillColor = .systemIndigo.withAlphaComponent(0.8)
         set.highlightCircleStrokeColor = .white
         set.highlightCircleStrokeWidth = 2
         set.drawValuesEnabled = false
@@ -166,27 +176,24 @@ class MacroBalanceView: UIView {
         // Set visible range
         radarChartView.yAxis.axisMaximum = 120 // Max 120% to show overages
         
-        // Animate chart with spring effect
+        // Animate chart
         radarChartView.animate(xAxisDuration: 1.5, yAxisDuration: 1.5, easingOption: .easeOutBack)
     }
     
     private func updateBalanceScore(with entry: Models.MacrosEntry) {
-        // Calculate balance score based on how close macros are to ideal proportions
-        let proteinRatio = entry.proteins / entry.proteinGoal
-        let carbsRatio = entry.carbs / entry.carbGoal
-        let fatsRatio = entry.fats / entry.fatGoal
+        // Calculate balance score
+        let proteinRatio = entry.proteinGoal > 0 ? entry.proteins / entry.proteinGoal : 0
+        let carbsRatio = entry.carbGoal > 0 ? entry.carbs / entry.carbGoal : 0
+        let fatsRatio = entry.fatGoal > 0 ? entry.fats / entry.fatGoal : 0
         
-        // Give better scores for values close to 1.0 (100% of goal)
-        // Penalize values that are either too low or too high
         let proteinScore = 100 - min(abs(proteinRatio - 1.0) * 100, 100)
         let carbsScore = 100 - min(abs(carbsRatio - 1.0) * 100, 100)
         let fatsScore = 100 - min(abs(fatsRatio - 1.0) * 100, 100)
         
-        // Calculate overall score (weighted average)
         let overallScore = (proteinScore * 0.4 + carbsScore * 0.3 + fatsScore * 0.3)
         
         // Update the balance score view
-        balanceScoreView.setScore(Int(overallScore), withAnimation: true)
+        balanceScoreView.setScore(Int(overallScore), withAnimation: true) // Keep animation call, but logic inside setScore is simplified
     }
 }
 
@@ -220,6 +227,7 @@ class BalanceScoreView: UIView {
         return label
     }()
     
+    // MARK: - Initialization
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
@@ -231,8 +239,7 @@ class BalanceScoreView: UIView {
     }
     
     private func setupUI() {
-        backgroundColor = .tertiarySystemBackground
-        layer.cornerRadius = 16
+        backgroundColor = .clear
         
         addSubview(scoreLabel)
         addSubview(captionLabel)
@@ -242,30 +249,36 @@ class BalanceScoreView: UIView {
             scoreLabel.topAnchor.constraint(equalTo: topAnchor, constant: 12),
             scoreLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             
-            captionLabel.topAnchor.constraint(equalTo: scoreLabel.bottomAnchor, constant: 4),
+            captionLabel.topAnchor.constraint(equalTo: scoreLabel.bottomAnchor, constant: 8), // Increased spacing
             captionLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            captionLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            captionLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             
-            feedbackLabel.topAnchor.constraint(equalTo: captionLabel.bottomAnchor, constant: 8),
-            feedbackLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            feedbackLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            feedbackLabel.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -12)
+            feedbackLabel.topAnchor.constraint(equalTo: captionLabel.bottomAnchor, constant: 6),
+            feedbackLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            feedbackLabel.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 8),
+            feedbackLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+            feedbackLabel.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
         
-        // Default score
         setScore(0, withAnimation: false)
     }
     
     func setScore(_ score: Int, withAnimation animate: Bool) {
-        // Update score label with counting animation if requested
-        if animate {
-            countAnimation(from: Int(scoreLabel.text ?? "0") ?? 0, to: score)
-        } else {
-            scoreLabel.text = "\(score)"
-        }
+        // Simplified version without CADisplayLink animation for now
+        scoreLabel.text = "\(score)"
         
-        // Update color based on score
+        // Still apply pop animation if requested
+        if animate {
+             scoreLabel.transform = .identity // Reset transform before animating
+             UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseOut, animations: {
+                 self.scoreLabel.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+             }, completion: { _ in
+                 UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseIn, animations: {
+                     self.scoreLabel.transform = .identity
+                 })
+             })
+        }
+
+        // Update color and feedback text
         if score >= 85 {
             scoreLabel.textColor = .systemGreen
             feedbackLabel.text = "Excellent macro balance!"
@@ -277,43 +290,24 @@ class BalanceScoreView: UIView {
             feedbackLabel.text = "Improve your macro ratios for better results"
         }
     }
-    
+
+    // Keep animation functions commented out
+    /*
     private func countAnimation(from: Int, to: Int) {
-        // Reset any existing animation
-        layer.removeAllAnimations()
-        
-        // Perform counting animation
-        let steps = 20
-        let duration = 1.0
-        let stepDuration = duration / Double(steps)
-        
-        var currentStep = 0
-        let stepValue = (to - from) / steps
-        
-        Timer.scheduledTimer(withTimeInterval: stepDuration, repeats: true) { [weak self] timer in
-            guard let self = self else {
-                timer.invalidate()
-                return
-            }
-            
-            currentStep += 1
-            let currentValue = from + (stepValue * currentStep)
-            
-            self.scoreLabel.text = "\(min(currentValue, to))"
-            
-            if currentStep >= steps {
-                self.scoreLabel.text = "\(to)"
-                timer.invalidate()
-                
-                // Add a subtle "pop" animation at the end
-                UIView.animate(withDuration: 0.2, animations: {
-                    self.scoreLabel.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
-                }, completion: { _ in
-                    UIView.animate(withDuration: 0.1) {
-                        self.scoreLabel.transform = .identity
-                    }
-                })
-            }
-        }
+        // ... Full CADisplayLink logic ...
     }
-} 
+    
+    @objc private func updateCountAnimation(_ displayLink: CADisplayLink) {
+        // ... Full CADisplayLink logic ...
+    }
+    */
+} // End of BalanceScoreView class
+
+// Keep associated object keys commented out
+/*
+private var displayLinkKey: UInt8 = 0
+private var startTimeKey: UInt8 = 1
+private var fromValueKey: UInt8 = 2
+private var toValueKey: UInt8 = 3
+private var durationKey: UInt8 = 4
+*/

@@ -86,8 +86,15 @@ class NutritionInsightsView: UIView {
     
     // MARK: - UI Setup
     private func setupUI() {
-        backgroundColor = .secondarySystemBackground
-        layer.cornerRadius = 20
+        backgroundColor = .secondarySystemGroupedBackground // Card background
+        layer.cornerRadius = 18 // Consistent radius
+        
+        // Add shadow
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOffset = CGSize(width: 0, height: 3)
+        layer.shadowRadius = 6
+        layer.shadowOpacity = 0.08
+        layer.masksToBounds = false
         
         // Add subviews
         addSubview(titleLabel)
@@ -108,36 +115,37 @@ class NutritionInsightsView: UIView {
             // AI icon constraints
             aiIconView.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             aiIconView.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
-            aiIconView.widthAnchor.constraint(equalToConstant: 20),
-            aiIconView.heightAnchor.constraint(equalToConstant: 20),
+            aiIconView.widthAnchor.constraint(equalToConstant: 22), // Slightly larger
+            aiIconView.heightAnchor.constraint(equalToConstant: 22),
             
             // Refresh button constraints
             refreshButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             refreshButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            refreshButton.widthAnchor.constraint(equalToConstant: 30),
-            refreshButton.heightAnchor.constraint(equalToConstant: 30),
+            // Let intrinsic size determine width/height if possible, or use slightly larger fixed size
             
             // Table view constraints
-            insightsTableView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
-            insightsTableView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            insightsTableView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            insightsTableView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            insightsTableView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12), // More space
+            insightsTableView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0), // Edge to edge within card
+            insightsTableView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
+            insightsTableView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8), // Padding at bottom
             
-            // Empty state view constraints
-            emptyStateView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            emptyStateView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            emptyStateView.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.8),
+            // Empty state view constraints (Center within the table view area)
+            emptyStateView.leadingAnchor.constraint(equalTo: insightsTableView.leadingAnchor, constant: 16),
+            emptyStateView.trailingAnchor.constraint(equalTo: insightsTableView.trailingAnchor, constant: -16),
+            emptyStateView.centerXAnchor.constraint(equalTo: insightsTableView.centerXAnchor),
+            emptyStateView.centerYAnchor.constraint(equalTo: insightsTableView.centerYAnchor, constant: -20), // Adjust vertical offset
             
             // Empty state image constraints
             emptyStateImageView.centerXAnchor.constraint(equalTo: emptyStateView.centerXAnchor),
             emptyStateImageView.topAnchor.constraint(equalTo: emptyStateView.topAnchor),
-            emptyStateImageView.widthAnchor.constraint(equalToConstant: 40),
-            emptyStateImageView.heightAnchor.constraint(equalToConstant: 40),
+            emptyStateImageView.widthAnchor.constraint(equalToConstant: 44), // Larger icon
+            emptyStateImageView.heightAnchor.constraint(equalToConstant: 44),
             
             // Empty state label constraints
-            emptyStateLabel.topAnchor.constraint(equalTo: emptyStateImageView.bottomAnchor, constant: 8),
+            emptyStateLabel.topAnchor.constraint(equalTo: emptyStateImageView.bottomAnchor, constant: 12), // More space
             emptyStateLabel.centerXAnchor.constraint(equalTo: emptyStateView.centerXAnchor),
-            emptyStateLabel.leadingAnchor.constraint(equalTo: emptyStateView.leadingAnchor),
+            emptyStateLabel.leadingAnchor.constraint(greaterThanOrEqualTo: emptyStateView.leadingAnchor), // Allow shrinking
+            emptyStateLabel.trailingAnchor.constraint(lessThanOrEqualTo: emptyStateView.trailingAnchor),
             emptyStateLabel.trailingAnchor.constraint(equalTo: emptyStateView.trailingAnchor),
             emptyStateLabel.bottomAnchor.constraint(equalTo: emptyStateView.bottomAnchor)
         ])
@@ -212,12 +220,15 @@ class NutritionInsightsView: UIView {
         let rotation = CABasicAnimation(keyPath: "transform.rotation")
         rotation.fromValue = 0
         rotation.toValue = 2 * Double.pi
-        rotation.duration = 1.0
+        rotation.duration = 0.8 // Faster rotation
         rotation.repeatCount = .infinity
         refreshButton.layer.add(rotation, forKey: "rotationAnimation")
         
-        // Disable button during loading
+        // Disable button and fade slightly
         refreshButton.isEnabled = false
+        UIView.animate(withDuration: 0.2) {
+            self.refreshButton.alpha = 0.5
+        }
     }
     
     private func stopLoadingAnimation() {
@@ -226,8 +237,11 @@ class NutritionInsightsView: UIView {
         // Stop rotation animation
         refreshButton.layer.removeAnimation(forKey: "rotationAnimation")
         
-        // Enable button after loading
+        // Enable button and restore alpha
         refreshButton.isEnabled = true
+        UIView.animate(withDuration: 0.2) {
+            self.refreshButton.alpha = 1.0
+        }
     }
     
     private func generateInsights(from entries: [Models.MacrosEntry]) {
@@ -277,7 +291,7 @@ extension NutritionInsightsView: UITableViewDelegate {
         insight.isExpanded.toggle()
         
         // Update cell with animation
-        tableView.reloadRows(at: [indexPath], with: .automatic)
+        tableView.reloadRows(at: [indexPath], with: .fade) // Use fade animation
         
         // Haptic feedback
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -313,9 +327,10 @@ class InsightCell: UITableViewCell {
     
     private let cardView: UIView = {
         let view = UIView()
-        view.backgroundColor = .tertiarySystemBackground
-        view.layer.cornerRadius = 12
+        view.backgroundColor = .systemBackground // Use primary background for cell cards
+        view.layer.cornerRadius = 14 // Slightly larger radius
         view.translatesAutoresizingMaskIntoConstraints = false
+        // Shadow will be applied in configure
         return view
     }()
     
@@ -340,23 +355,24 @@ class InsightCell: UITableViewCell {
         
         NSLayoutConstraint.activate([
             cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
-            cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
-            cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
-            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
+            cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4), // Less vertical space between cells
+            cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12), // More horizontal padding for main view
+            cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
             
-            iconImageView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 12),
-            iconImageView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
-            iconImageView.widthAnchor.constraint(equalToConstant: 24),
-            iconImageView.heightAnchor.constraint(equalToConstant: 24),
+            iconImageView.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 14), // More padding
+            iconImageView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 14),
+            iconImageView.widthAnchor.constraint(equalToConstant: 26), // Slightly larger icon
+            iconImageView.heightAnchor.constraint(equalToConstant: 26),
             
-            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 12),
-            titleLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
+            titleLabel.topAnchor.constraint(equalTo: iconImageView.topAnchor), // Align title with icon top
+            titleLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 10), // Adjust spacing
+            titleLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -14),
             
-            detailLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            detailLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6), // Adjust spacing
             detailLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            detailLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
-            detailLabel.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12)
+            detailLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -14),
+            detailLabel.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -14) // More padding
         ])
     }
     
@@ -380,10 +396,11 @@ class InsightCell: UITableViewCell {
     }
     
     private func applyShadow() {
-        cardView.layer.shadowColor = UIColor.black.withAlphaComponent(0.1).cgColor
+        // Refined shadow for cell cards
+        cardView.layer.shadowColor = UIColor.black.cgColor
         cardView.layer.shadowOffset = CGSize(width: 0, height: 2)
-        cardView.layer.shadowRadius = 6
-        cardView.layer.shadowOpacity = 1
+        cardView.layer.shadowRadius = 4
+        cardView.layer.shadowOpacity = 0.06 // Subtle shadow
         cardView.layer.masksToBounds = false
     }
 }
@@ -480,4 +497,4 @@ class NutritionInsight {
         
         return randomInsights.randomElement()!
     }
-} 
+}

@@ -49,8 +49,8 @@ class MacrosSummaryView: UIView {
     
     // MARK: - UI Setup
     private func setupUI() {
-        backgroundColor = .secondarySystemBackground
-        layer.cornerRadius = 20
+        backgroundColor = .systemBackground // Use primary background
+        // Remove corner radius from the main view if items are card-based
         
         addSubview(titleLabel)
         addSubview(remainingLabel)
@@ -71,8 +71,10 @@ class MacrosSummaryView: UIView {
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
+            // Remove fixed height constraint to allow dynamic sizing based on MacroItemView content
+            // stackView.heightAnchor.constraint(equalToConstant: 120)
         ])
-        
+
         // Add tap gesture for interactivity
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         addGestureRecognizer(tapGesture)
@@ -188,10 +190,11 @@ class MacrosSummaryView: UIView {
     }
     
     private func animateItemView(_ view: MacroItemView) {
-        UIView.animate(withDuration: 0.2, animations: {
-            view.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+        // Refined bounce animation
+        UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseOut], animations: {
+            view.transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
         }, completion: { _ in
-            UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [], animations: {
+            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0.6, options: [.curveEaseInOut], animations: {
                 view.transform = .identity
             })
         })
@@ -204,7 +207,7 @@ class MacroItemView: UIView {
     private let iconView: UIImageView = {
         let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFit
-        imageView.tintColor = .tertiaryLabel
+        // Tint color will be set dynamically
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
@@ -241,15 +244,15 @@ class MacroItemView: UIView {
     
     private let cardView: UIView = {
         let view = UIView()
-        view.backgroundColor = .systemBackground
-        view.layer.cornerRadius = 16
+        view.backgroundColor = .secondarySystemGroupedBackground // Use grouped background for card
+        view.layer.cornerRadius = 18 // Slightly larger radius
         view.translatesAutoresizingMaskIntoConstraints = false
         
-        // Add shadow
-        view.layer.shadowColor = UIColor.black.withAlphaComponent(0.1).cgColor
-        view.layer.shadowOffset = CGSize(width: 0, height: 4)
-        view.layer.shadowRadius = 8
-        view.layer.shadowOpacity = 1
+        // Refined shadow
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOffset = CGSize(width: 0, height: 3)
+        view.layer.shadowRadius = 6
+        view.layer.shadowOpacity = 0.08 // More subtle shadow
         view.layer.masksToBounds = false
         
         return view
@@ -266,9 +269,10 @@ class MacroItemView: UIView {
         self.color = color
         super.init(frame: .zero)
         titleLabel.text = title
-        iconView.image = UIImage(systemName: icon)
+        iconView.image = UIImage(systemName: icon)?.withRenderingMode(.alwaysTemplate) // Ensure template mode
+        iconView.tintColor = color // Use macro color for icon
         progressRing.progressColor = color
-        progressRing.progressWidth = 6
+        progressRing.progressWidth = 7 // Slightly thicker ring
         setupUI()
     }
     
@@ -292,24 +296,24 @@ class MacroItemView: UIView {
             cardView.topAnchor.constraint(equalTo: topAnchor, constant: 0),
             cardView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
             cardView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
-            cardView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
+            cardView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0), // Pin card to edges
             
             // Title constraints
-            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 12),
-            titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
+            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 14), // More padding
+            titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 14),
             
             // Icon constraints
             iconView.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            iconView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
-            iconView.widthAnchor.constraint(equalToConstant: 20),
-            iconView.heightAnchor.constraint(equalToConstant: 20),
+            iconView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -14),
+            iconView.widthAnchor.constraint(equalToConstant: 22), // Slightly larger icon
+            iconView.heightAnchor.constraint(equalToConstant: 22),
             
             // Progress ring constraints
-            progressRing.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 10),
+            progressRing.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12), // More space
             progressRing.centerXAnchor.constraint(equalTo: cardView.centerXAnchor),
-            progressRing.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -12),
-            progressRing.widthAnchor.constraint(equalToConstant: 70),
-            progressRing.heightAnchor.constraint(equalToConstant: 70)
+            progressRing.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -14), // More padding
+            progressRing.widthAnchor.constraint(equalToConstant: 75), // Larger ring
+            progressRing.heightAnchor.constraint(equalToConstant: 75)
         ])
         
         // Add tap gesture for interaction
@@ -343,16 +347,16 @@ class MacroItemView: UIView {
     
     // MARK: - Interaction
     @objc private func handleTap() {
-        // Animate progress ring
-        UIView.animate(withDuration: 0.2, animations: {
-            self.progressRing.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+        // Animate card instead of just the ring
+        UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseOut], animations: {
+            self.cardView.transform = CGAffineTransform(scaleX: 0.97, y: 0.97)
         }, completion: { _ in
-            UIView.animate(withDuration: 0.2) {
-                self.progressRing.transform = .identity
-            }
+             UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+                 self.cardView.transform = .identity
+             })
         })
         
-        // Format strings for alert
+        // Format strings for toast
         let title = titleLabel.text ?? "Macro"
         let value = "\(currentValue) \(unitText)"
         let goal = "\(goalValue) \(unitText)"
@@ -410,4 +414,4 @@ class MacroItemView: UIView {
     }
 }
 
-// The UIColor extensions are removed since they're defined in ChartUtilities.swift 
+// The UIColor extensions are removed since they're defined in ChartUtilities.swift

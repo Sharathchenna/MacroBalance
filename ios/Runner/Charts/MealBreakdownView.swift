@@ -3,13 +3,6 @@ import DGCharts
 
 class MealBreakdownView: UIView {
     // MARK: - UI Components
-    private let containerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .clear
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.text = "Meal Breakdown"
@@ -37,28 +30,32 @@ class MealBreakdownView: UIView {
         chart.rightAxis.enabled = false
         chart.legend.form = .circle
         chart.legend.horizontalAlignment = .center
-        chart.legend.verticalAlignment = .top
+        chart.legend.verticalAlignment = .bottom // Move legend to bottom
         chart.legend.orientation = .horizontal
-        chart.legend.drawInside = true
-        chart.legend.font = .systemFont(ofSize: 12)
-        chart.legend.formSize = 10
+        chart.legend.drawInside = false // Draw outside chart area
+        chart.legend.font = .systemFont(ofSize: 11) // Slightly smaller font
+        chart.legend.formSize = 8 // Smaller form size
         chart.legend.xEntrySpace = 10
         chart.legend.textColor = .label
         
         // Configure x-axis (values)
         chart.xAxis.labelPosition = .bottom
         chart.xAxis.labelFont = .systemFont(ofSize: 10)
-        chart.xAxis.drawGridLinesEnabled = false
+        chart.xAxis.drawGridLinesEnabled = true // Enable subtle grid lines
+        chart.xAxis.gridColor = .tertiaryLabel.withAlphaComponent(0.5)
+        chart.xAxis.gridLineDashLengths = [2, 2]
         chart.xAxis.granularity = 1
         chart.xAxis.axisLineColor = .tertiaryLabel
+        chart.xAxis.labelTextColor = .secondaryLabel // Dimmer axis labels
         
         // Configure left axis (meal names)
-        chart.leftAxis.labelFont = .systemFont(ofSize: 12)
+        chart.leftAxis.labelFont = .systemFont(ofSize: 11, weight: .medium) // Adjust font
         chart.leftAxis.labelTextColor = .label
         chart.leftAxis.drawGridLinesEnabled = false
         chart.leftAxis.drawAxisLineEnabled = false
         chart.leftAxis.drawLabelsEnabled = true
-        chart.leftAxis.labelAlignment = .left
+        chart.leftAxis.labelAlignment = .right // Align labels to the right, closer to bars
+        chart.leftAxis.xOffset = -8 // Adjust offset
         chart.leftAxis.spaceTop = 0.15
         chart.leftAxis.spaceBottom = 0.15
         chart.leftAxis.axisMinimum = -0.5
@@ -101,31 +98,36 @@ class MealBreakdownView: UIView {
     
     // MARK: - UI Setup
     private func setupUI() {
-        backgroundColor = .secondarySystemBackground
-        layer.cornerRadius = 16
+        backgroundColor = .secondarySystemGroupedBackground // Card background
+        layer.cornerRadius = 18 // Consistent radius
         
-        addSubview(containerView)
-        containerView.addSubview(titleLabel)
-        containerView.addSubview(barChartView)
-        containerView.addSubview(emptyStateLabel)
+        // Add shadow
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOffset = CGSize(width: 0, height: 3)
+        layer.shadowRadius = 6
+        layer.shadowOpacity = 0.08
+        layer.masksToBounds = false
+        
+        // Add subviews directly
+        addSubview(titleLabel)
+        addSubview(barChartView)
+        addSubview(emptyStateLabel)
         
         NSLayoutConstraint.activate([
-            containerView.topAnchor.constraint(equalTo: topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // Title constraints
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 20),
-            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
-            titleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20),
+            // Bar Chart constraints
+            barChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12), // Less space
+            barChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8), // Less padding
+            barChartView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            barChartView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12), // Less padding
             
-            barChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
-            barChartView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-            barChartView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            barChartView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -20),
-            
+            // Empty State constraints (Center within chart area)
             emptyStateLabel.centerXAnchor.constraint(equalTo: barChartView.centerXAnchor),
-            emptyStateLabel.centerYAnchor.constraint(equalTo: barChartView.centerYAnchor)
+            emptyStateLabel.centerYAnchor.constraint(equalTo: barChartView.centerYAnchor, constant: -20) // Adjust offset
         ])
         
         // Set marker for chart
@@ -184,9 +186,9 @@ class MealBreakdownView: UIView {
             
             let dataSet = BarChartDataSet(entries: entries, label: label)
             dataSet.colors = [color]
-            dataSet.valueFont = .systemFont(ofSize: 11, weight: .medium)
+            dataSet.valueFont = .systemFont(ofSize: 10, weight: .medium) // Smaller font for values
             dataSet.valueFormatter = MacroValueFormatter()
-            dataSet.valueTextColor = .label
+            dataSet.valueTextColor = .secondaryLabel // Dimmer value text
             dataSet.drawValuesEnabled = true
             
             // Configure highlight
@@ -198,8 +200,8 @@ class MealBreakdownView: UIView {
         
         // Create and set chart data
         let data = BarChartData(dataSets: dataSets)
-        data.barWidth = 0.8
-        data.setValueFont(.systemFont(ofSize: 11, weight: .medium))
+        data.barWidth = 0.7 // Slightly narrower bars
+        data.setValueFont(.systemFont(ofSize: 10, weight: .medium)) // Consistent value font
         
         // Configure the x-axis
         barChartView.xAxis.axisMinimum = 0
@@ -230,6 +232,10 @@ class MealBreakdownView: UIView {
         barChartView.data = nil
         barChartView.isHidden = true
         emptyStateLabel.isHidden = false
+        emptyStateLabel.alpha = 0 // Start hidden for animation
+        UIView.animate(withDuration: 0.3) {
+            self.emptyStateLabel.alpha = 1.0 // Fade in empty state
+        }
     }
     
     // Add a method to explicitly show the empty state
@@ -275,20 +281,20 @@ private class MealDetailMarker: MarkerView {
     
     private func setupUI() {
         // Configure the content view
-        contentView.backgroundColor = UIColor.systemGray4.withAlphaComponent(0.9)
-        contentView.layer.cornerRadius = 8
+        contentView.backgroundColor = UIColor.systemGray2.withAlphaComponent(0.85) // Darker background
+        contentView.layer.cornerRadius = 6 // Smaller radius
         contentView.clipsToBounds = true
         
         // Configure title label
         titleLabel.textColor = .label
-        titleLabel.font = .systemFont(ofSize: 13, weight: .bold)
+        titleLabel.font = .systemFont(ofSize: 12, weight: .semibold) // Adjust font
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 2
         
         // Configure macro stack
         macroStackView.axis = .vertical
-        macroStackView.spacing = 3
-        macroStackView.distribution = .fillEqually
+        macroStackView.spacing = 2 // Tighter spacing
+        macroStackView.distribution = .fillProportionally // Allow different heights if needed
         
         // Add subviews
         contentView.addSubview(titleLabel)
@@ -308,12 +314,12 @@ private class MealDetailMarker: MarkerView {
             
             titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
             titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 6),
-            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -6),
+            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8), // More padding
             
-            macroStackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
-            macroStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 10),
-            macroStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
-            macroStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6)
+            macroStackView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4), // Less space
+            macroStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8), // More padding
+            macroStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
+            macroStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6) // Less bottom padding
         ])
     }
     
@@ -344,8 +350,8 @@ private class MealDetailMarker: MarkerView {
                 
                 let macroLabel = UILabel()
                 macroLabel.text = "\(macros[i]): \(Int(macroValue))g"
-                macroLabel.font = .systemFont(ofSize: 12, weight: .medium)
-                macroLabel.textColor = colors[i]
+                macroLabel.font = .systemFont(ofSize: 11, weight: .medium) // Smaller font
+                macroLabel.textColor = colors[i].adjustBrightness(by: -0.1) // Slightly darker color
                 
                 macroStackView.addArrangedSubview(macroLabel)
             }
@@ -360,9 +366,14 @@ private class MealDetailMarker: MarkerView {
             let calories = (proteinValue * 4) + (carbsValue * 4) + (fatValue * 9)
             
             let calorieLabel = UILabel()
-            calorieLabel.text = "Calories: \(Int(calories)) kcal"
-            calorieLabel.font = .systemFont(ofSize: 12, weight: .bold)
+            calorieLabel.text = "Total: \(Int(calories)) kcal" // Add "Total"
+            calorieLabel.font = .systemFont(ofSize: 11, weight: .semibold) // Adjust font
             calorieLabel.textColor = .label
+            
+            // Add a small spacer before the total
+            let spacer = UIView()
+            spacer.heightAnchor.constraint(equalToConstant: 2).isActive = true
+            macroStackView.addArrangedSubview(spacer)
             
             macroStackView.addArrangedSubview(calorieLabel)
         }
@@ -392,4 +403,4 @@ private extension Array {
     func getOrNil(index: Int) -> Element? {
         return indices.contains(index) ? self[index] : nil
     }
-} 
+}

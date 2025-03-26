@@ -412,6 +412,89 @@ class StatsDataManager: StatsDataProvider {
         
         completion(entries.sorted(by: { $0.date < $1.date }))
     }
+
+    // Fetch Macro data from Flutter
+    func fetchMacroData(from startDate: Date, to endDate: Date, completion: @escaping ([Models.MacrosEntry]) -> Void) {
+        guard let messenger = self.messenger else {
+            // Provide mock data if messenger is not available
+            completion(Models.MacrosEntry.generateSampleData(from: startDate, to: endDate))
+            return
+        }
+
+        // Create the method channel
+        let channel = FlutterMethodChannel(
+            name: "com.example.macrotracker/stats",
+            binaryMessenger: messenger
+        )
+
+        // Format dates for the channel
+        let dateFormatter = ISO8601DateFormatter()
+        let startDateString = dateFormatter.string(from: startDate)
+        let endDateString = dateFormatter.string(from: endDate)
+
+        // Prepare arguments
+        let arguments: [String: Any] = [
+            "startDate": startDateString,
+            "endDate": endDateString
+        ]
+
+        // Invoke method
+        channel.invokeMethod("getMacroData", arguments: arguments) { result in
+            guard let data = result as? [[String: Any]] else {
+                // Fallback to mock data on error or empty result
+                completion(Models.MacrosEntry.generateSampleData(from: startDate, to: endDate))
+                return
+            }
+
+            let entries = data.compactMap { dict -> Models.MacrosEntry? in
+                guard let dateString = dict["date"] as? String,
+                      let date = dateFormatter.date(from: dateString),
+                      let proteins = dict["protein"] as? Double,
+                      let carbs = dict["carbs"] as? Double,
+                      let fats = dict["fat"] as? Double,
+                      let proteinGoal = dict["proteinGoal"] as? Double,
+                      let carbGoal = dict["carbGoal"] as? Double,
+                      let fatGoal = dict["fatGoal"] as? Double else {
+                    // Print parsing error for debugging
+                    print("Error parsing macro data dict: \(dict)")
+                    return nil
+                }
+                
+                // Handle optional fields like water, fiber, meals if they come from Flutter
+                let water = dict["water"] as? Double ?? 0
+                let waterGoal = dict["waterGoal"] as? Double ?? 2500
+                let fiber = dict["fiber"] as? Double ?? 0
+                // Assuming meals are not passed via this channel for simplicity, add if needed
+
+                return Models.MacrosEntry(
+                    id: UUID(), // Generate new ID or get from dict if available
+                    date: date,
+                    proteins: proteins,
+                    carbs: carbs,
+                    fats: fats,
+                    proteinGoal: proteinGoal,
+                    carbGoal: carbGoal,
+                    fatGoal: fatGoal,
+                    micronutrients: [], // Populate if data is available
+                    water: water,
+                    waterGoal: waterGoal,
+                    meals: nil, // Populate if data is available
+                    fiber: fiber
+                )
+            }
+            
+            // If parsing resulted in empty array, still fallback to mock data
+            if entries.isEmpty && !data.isEmpty {
+                 print("Macro data received but failed to parse all entries. Falling back to mock data.")
+                 completion(Models.MacrosEntry.generateSampleData(from: startDate, to: endDate))
+            } else if entries.isEmpty && data.isEmpty {
+                 print("No macro data received from Flutter. Falling back to mock data.")
+                 completion(Models.MacrosEntry.generateSampleData(from: startDate, to: endDate))
+            } else {
+                 completion(entries.sorted { $0.date < $1.date })
+            }
+        }
+    }
     
     func saveWeightEntry(_ entry: Models.WeightEntry, completion: @escaping (Bool) -> Void) {
         // Load existing entries

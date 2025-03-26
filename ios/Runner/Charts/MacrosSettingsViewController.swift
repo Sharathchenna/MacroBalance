@@ -4,10 +4,11 @@ protocol MacrosSettingsDelegate: AnyObject {
     func settingsDidUpdate()
 }
 
-class MacrosSettingsViewController: UIViewController {
+class MacrosSettingsViewController: UIViewController, UITextFieldDelegate { // Add UITextFieldDelegate conformance
     // MARK: - Properties
     weak var delegate: MacrosSettingsDelegate?
-    
+    private var activeTextField: UITextField?
+
     // MARK: - UI Components
     private let scrollView: UIScrollView = {
         let scroll = UIScrollView()
@@ -75,7 +76,7 @@ class MacrosSettingsViewController: UIViewController {
         view.backgroundColor = .systemBackground
         title = "Settings"
         
-        // Navigation bar setup
+        // Navigation bar setup with consistent spacing
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: "Save",
             style: .done,
@@ -90,12 +91,20 @@ class MacrosSettingsViewController: UIViewController {
             action: #selector(dismissSettings)
         )
         
-        // Add scroll view
+        // Configure scroll view
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.alwaysBounceVertical = true
+        
+        // Configure content view and stack
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         contentView.addSubview(stackView)
         
-        // Add sections to stack view
+        // Add sections to stack view with consistent spacing
         [goalSettingsView, macroGoalsView, mealSettingsView, notificationSettingsView].forEach {
             stackView.addArrangedSubview($0)
         }
@@ -106,28 +115,53 @@ class MacrosSettingsViewController: UIViewController {
         mealSettingsView.addFields([mealCountSegment, mealTimingSwitch])
         notificationSettingsView.addFields([dailyReminderSwitch, weeklyReportSwitch])
         
-        setupConstraints()
-        setupTextFieldDelegates()
-    }
-    
-    private func setupConstraints() {
         NSLayoutConstraint.activate([
+            // ScrollView constraints
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
+            // ContentView constraints - pin to scroll view edges
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             
-            stackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            stackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+            // StackView constraints with proper margins
+            stackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 24),
+            stackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            stackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -24)
         ])
+        
+        // Setup keyboard handling
+        setupKeyboardHandling()
+    }
+    
+    private func setupKeyboardHandling() {
+        // Register for keyboard notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillShow),
+            name: UIResponder.keyboardWillShowNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillHide),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
+        
+        // Add tap gesture to dismiss keyboard
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
+        
+        // Setup text field delegates
+        setupTextFieldDelegates()
     }
     
     private func setupTextFieldDelegates() {
@@ -245,15 +279,45 @@ class MacrosSettingsViewController: UIViewController {
             center.add(request)
         }
     }
-}
-
-// MARK: - UITextFieldDelegate
-extension MacrosSettingsViewController: UITextFieldDelegate {
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        // Only allow numbers and decimal point
-        let allowedCharacters = CharacterSet.decimalDigits.union(CharacterSet(charactersIn: "."))
-        let characterSet = CharacterSet(charactersIn: string)
-        return allowedCharacters.isSuperset(of: characterSet)
+    
+    @objc private func keyboardWillShow(_ notification: Notification) {
+        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue else { return }
+        let keyboardHeight = keyboardFrame.cgRectValue.height
+        
+        // Adjust scroll view content inset
+        scrollView.contentInset.bottom = keyboardHeight
+        scrollView.scrollIndicatorInsets.bottom = keyboardHeight
+        
+        // If a text field is being edited, scroll to make it visible
+        if let activeField = activeTextField {
+            let frame = activeField.convert(activeField.bounds, to: scrollView)
+            let adjustedFrame = frame.insetBy(dx: 0, dy: -20) // Add some padding
+            scrollView.scrollRectToVisible(adjustedFrame, animated: true)
+        }
+    }
+    
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        // Reset scroll view content inset
+        scrollView.contentInset.bottom = 0
+        scrollView.scrollIndicatorInsets.bottom = 0
+    }
+    
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
+    }
+    
+    deinit {
+        // Remove keyboard observers
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    // MARK: - UITextFieldDelegate
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        activeTextField = textField // Track the active text field
+    }
+    
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        activeTextField = nil // Clear active text field when editing ends
     }
 }
 
@@ -424,4 +488,4 @@ private class SettingsSwitch: UIView {
             heightAnchor.constraint(equalToConstant: 44)
         ])
     }
-} 
+}

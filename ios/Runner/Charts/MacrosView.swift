@@ -1,4 +1,34 @@
 import SwiftUI
+import UIKit // Import UIKit for UIViewRepresentable
+
+// MARK: - UIViewRepresentable Wrappers
+
+struct MacrosSummaryViewRepresentable: UIViewRepresentable {
+    var entry: Models.MacrosEntry?
+
+    func makeUIView(context: Context) -> MacrosSummaryView {
+        return MacrosSummaryView()
+    }
+
+    func updateUIView(_ uiView: MacrosSummaryView, context: Context) {
+        uiView.configure(with: entry)
+    }
+}
+
+struct MacrosDistributionChartViewRepresentable: UIViewRepresentable {
+    var entry: Models.MacrosEntry?
+
+    func makeUIView(context: Context) -> MacrosDistributionChartView {
+        return MacrosDistributionChartView()
+    }
+
+    func updateUIView(_ uiView: MacrosDistributionChartView, context: Context) {
+        uiView.configure(with: entry)
+    }
+}
+
+
+// MARK: - Main Macros View
 
 struct MacrosView: View {
     @State private var entries: [Models.MacrosEntry] = []
@@ -10,21 +40,34 @@ struct MacrosView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                
+                    .padding([.horizontal, .bottom]) // Add bottom padding to title
+
                 if let latestEntry = entries.last {
-                    MacrosChartView(entries: [latestEntry])
-                        .frame(height: 320)
-                        .padding(.horizontal)
+                    // Use a Group to potentially add more views related to the latest entry
+                    Group {
+                        MacrosSummaryViewRepresentable(entry: latestEntry) // Use Representable
+                            // Padding applied to the Group below
+
+                        MacrosDistributionChartViewRepresentable(entry: latestEntry) // Use Representable
+                            .frame(height: 250) // Frame can be applied to Representable
+                            // Padding applied to the Group below
+                        
+                        // Consider removing fixed height or making it more dynamic if needed
+                        // MacrosChartView(entries: [latestEntry]) // Assuming this is also UIKit? Needs representable if so.
+                        //     .padding(.horizontal) 
+                    }
+                    .padding(.horizontal) // Apply horizontal padding to the Group containing the representables
                 } else {
-                    Text("No macro data available")
+                    Text("No macro data available for the selected period.") // More informative text
                         .foregroundColor(.secondary)
-                        .frame(height: 300)
+                        .padding()
+                        .frame(maxWidth: .infinity, minHeight: 200) // Adjust frame
                 }
                 
-                // You can add more SwiftUI components here
+                // Add a spacer to push content up if scroll view is not full
+                Spacer() 
             }
-            .padding(.vertical)
+            .padding(.vertical) // Keep vertical padding for the VStack
         }
         .onAppear {
             // You would load your data here

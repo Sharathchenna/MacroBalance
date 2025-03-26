@@ -1,5 +1,3 @@
-// ignore_for_file: file_names, avoid_print
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,13 +7,13 @@ import 'package:macrotracker/screens/NativeStatsScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/screens/searchPage.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart'; // Import needed for openAppSettings
 import 'package:provider/provider.dart';
 import '../Health/Health.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import '../providers/dateProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'dart:ui';
+import 'dart:ui'; // Used for ImageFilter
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -28,145 +26,136 @@ class _DashboardState extends State<Dashboard> {
   @override
   Widget build(BuildContext context) {
     // Calculate dynamic sizes based on screen dimensions.
-    final screenWidth = MediaQuery.of(context).size.width;
+    // final screenWidth = MediaQuery.of(context).size.width; // Removed duplicate
     final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      extendBody: true,
+      extendBody: true, // Allows body to go behind bottom nav bar if transparent
       body: Stack(
         children: [
-          // Fixed DateNavigatorbar at the top
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color:
-                  Theme.of(context).scaffoldBackgroundColor, // Match background
-              child: SafeArea(
-                bottom: false,
-                child: DateNavigatorbar(),
-              ),
-            ),
-          ),
-
-          // Scrollable content positioned below the DateNavigatorbar
-          Positioned(
-            top: MediaQuery.of(context).padding.top +
-                56, // SafeArea + estimated DateNavigatorbar height
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  CalorieTracker(),
-                  MealSection(),
-                  // Add padding to ensure content isn't hidden behind the nav bar
-                  SizedBox(height: 80),
-                ],
-              ),
-            ),
-          ),
-
-          // Navigation bar fixed at bottom
-          Positioned(
-            bottom: screenHeight * 0.04,
-            left: screenWidth * 0.18,
-            right: screenWidth * 0.18,
-            child: Container(
-              // Your existing navigation bar code...
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14.0),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14.0),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                  child: Container(
-                    height: 45,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14.0),
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.grey.shade50.withValues(
-                              alpha: 0.4) // Updated background color
-                          : Colors.black.withValues(alpha: 0.4),
-                      border: Border.all(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.withValues(alpha: 0.2)
-                            : Colors.white.withValues(alpha: 0.1),
-                        width: 0.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? Colors.black.withValues(alpha: 0.05)
-                                  : Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 10,
-                          spreadRadius: 0,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildNavItemCompact(
-                            context: context,
-                            icon: CupertinoIcons.add,
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                  builder: (context) => FoodSearchPage(),
-                                ),
-                              );
-                            }),
-                        _buildNavItemCompact(
-                          context: context,
-                          icon: CupertinoIcons.camera,
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            Navigator.push(
-                              context,
-                              CupertinoPageRoute(
-                                  builder: (context) => CameraScreen()),
-                            );
-                          },
-                        ),
-                        _buildNavItemCompact(
-                          context: context,
-                          icon: CupertinoIcons.graph_circle,
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            NativeStatsScreen.show(context);
-                          },
-                        ),
-                        _buildNavItemCompact(
-                          context: context,
-                          icon: CupertinoIcons.person,
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            Navigator.push(
-                              context,
-                              CupertinoPageRoute(
-                                  builder: (context) => AccountDashboard()),
-                            );
-                          },
-                        ),
+          // Main Content Area
+          Positioned.fill(
+            child: Column(
+              children: [
+                // Date Navigator Bar (respecting safe area)
+                Container(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  padding: EdgeInsets.only(top: topPadding),
+                  child: const DateNavigatorbar(),
+                ),
+                // Scrollable Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: const [
+                        SizedBox(height: 8), // Add some space after date bar
+                        CalorieTracker(),
+                        MealSection(),
+                        // Add padding at the bottom to ensure content isn't hidden
+                        // behind the floating navigation bar. Adjust height as needed.
+                        SizedBox(height: 100),
                       ],
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
+
+          // Floating Navigation Bar
+          Positioned(
+            bottom: screenHeight * 0.04, // Adjust as needed
+            left: screenWidth * 0.18,   // Adjust as needed
+            right: screenWidth * 0.18,  // Adjust as needed
+            child: _buildFloatingNavBar(context),
+          ),
         ],
+      ),
+    );
+  }
+
+  // Extracted Floating Navigation Bar build method
+  Widget _buildFloatingNavBar(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+        child: Container(
+          height: 45,
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14.0),
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.grey.shade50.withOpacity(0.4) // Use withOpacity
+                : Colors.black.withOpacity(0.4),      // Use withOpacity
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.grey.withOpacity(0.2)
+                  : Colors.white.withOpacity(0.1),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.black.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavItemCompact(
+                  context: context,
+                  icon: CupertinoIcons.add,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        builder: (context) => const FoodSearchPage(),
+                      ),
+                    );
+                  }),
+              _buildNavItemCompact(
+                context: context,
+                icon: CupertinoIcons.camera,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(builder: (context) => CameraScreen()),
+                  );
+                },
+              ),
+              _buildNavItemCompact(
+                context: context,
+                icon: CupertinoIcons.graph_circle,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  NativeStatsScreen.show(context);
+                },
+              ),
+              _buildNavItemCompact(
+                context: context,
+                icon: CupertinoIcons.person,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(builder: (context) => AccountDashboard()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -428,36 +417,76 @@ class CalorieTracker extends StatefulWidget {
 
 class _CalorieTrackerState extends State<CalorieTracker> {
   final HealthService _healthService = HealthService();
-  int steps = 0;
-  double caloriesBurned = 0;
+  int _steps = 0;
+  double _caloriesBurned = 0;
   bool _hasHealthPermissions = false;
+  bool _isLoadingHealthData = false; // Added loading state
+  DateTime? _lastFetchedDate; // Track the date for which data was fetched
 
-  // Remove the nutrition goals variables, as we'll get them directly from the provider
-  int stepsGoal = 9000;
+  // Default goal, consider making this configurable or fetched
+  final int _stepsGoal = 9000;
 
   @override
   void initState() {
     super.initState();
-    _checkAndRequestPermissions();
-    // Remove _loadNutritionGoals() call
+    // Use addPostFrameCallback to ensure context is available for Provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeHealthData();
+      // Listen to date changes
+      Provider.of<DateProvider>(context, listen: false).addListener(_onDateChanged);
+    });
   }
 
+  @override
+  void dispose() {
+    // Remove listener when the widget is disposed
+    Provider.of<DateProvider>(context, listen: false).removeListener(_onDateChanged);
+    super.dispose();
+  }
+
+  // Called when the DateProvider notifies listeners
+  void _onDateChanged() {
+    // Fetch data only if the date has actually changed since the last fetch
+    final selectedDate = Provider.of<DateProvider>(context, listen: false).selectedDate;
+    if (_lastFetchedDate == null || !_isSameDay(_lastFetchedDate!, selectedDate)) {
+       _fetchHealthData();
+    }
+  }
+
+  // Helper to check if two DateTime objects represent the same day
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
+  }
+
+
+  Future<void> _initializeHealthData() async {
+    await _checkAndRequestPermissions();
+    // Initial fetch if permissions are granted
+    if (_hasHealthPermissions) {
+      await _fetchHealthData();
+    }
+  }
+
+
   Future<void> _checkAndRequestPermissions() async {
+    // Don't check if already checked and granted
+    if (_hasHealthPermissions) return;
+
     try {
       final granted = await _healthService.requestPermissions();
-      if (!mounted) return; // Check if widget is still mounted
+      if (!mounted) return;
       setState(() {
         _hasHealthPermissions = granted;
       });
 
-      if (_hasHealthPermissions) {
-        await _fetchHealthData();
-      } else if (mounted) {
-        // Check if widget is still mounted before showing dialog
-        _showPermissionDialog();
+      if (!_hasHealthPermissions) {
+         _showPermissionDialog();
       }
     } catch (e) {
       print('Error checking permissions: $e');
+      if (mounted) {
+        // Optionally show an error message to the user
+      }
     }
   }
 
@@ -477,8 +506,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
             child: Text('Open Settings'),
             onPressed: () {
               Navigator.pop(context);
-              // Open app settings
-              openAppSettings();
+              // Open app settings using permission_handler
+              openAppSettings(); // Call the imported function
             },
           ),
         ],
@@ -487,46 +516,72 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 
   Future<void> _fetchHealthData() async {
+    if (!_hasHealthPermissions || _isLoadingHealthData) return;
+
+    if (mounted) {
+      setState(() {
+        _isLoadingHealthData = true;
+      });
+    }
+
     // Get the selected date from the DateProvider
+    // Ensure context is valid before accessing Provider
+    if (!mounted) return;
     final dateProvider = Provider.of<DateProvider>(context, listen: false);
     final selectedDate = dateProvider.selectedDate;
+
+    // Avoid fetching if data for this date is already loaded
+    if (_lastFetchedDate != null && _isSameDay(_lastFetchedDate!, selectedDate)) {
+       if (mounted) {
+         setState(() { _isLoadingHealthData = false; });
+       }
+       return;
+    }
+
 
     try {
       // Fetch steps specifically for the selected date
       final fetchedSteps = await _healthService.getStepsForDate(selectedDate);
-      final fetchedCalories =
-          await _healthService.getCaloriesForDate(selectedDate);
+      final fetchedCalories = await _healthService.getCaloriesForDate(selectedDate);
 
       if (mounted) {
         setState(() {
-          steps = fetchedSteps;
-          caloriesBurned = fetchedCalories;
+          _steps = fetchedSteps;
+          _caloriesBurned = fetchedCalories;
+          _lastFetchedDate = selectedDate; // Update the last fetched date
         });
       }
     } catch (e) {
       print('Error fetching health data: $e');
+      if (mounted) {
+        // Optionally show an error message
+      }
+    } finally {
+       if (mounted) {
+         setState(() {
+           _isLoadingHealthData = false;
+         });
+       }
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
-    // Listen to date changes
-    return Consumer<DateProvider>(
-      builder: (context, dateProvider, child) {
-        // Fetch health data when date changes
-        _fetchHealthData();
+     // No longer need the top-level DateProvider Consumer for triggering fetch
+     // Fetching is handled by the listener added in initState
 
-        return Consumer2<FoodEntryProvider, DateProvider>(
-          builder: (context, foodEntryProvider, dateProvider, child) {
-            // Get nutrition goals directly from the provider
-            final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
-            final proteinGoal = foodEntryProvider.proteinGoal.toInt();
-            final carbGoal = foodEntryProvider.carbsGoal.toInt();
-            final fatGoal = foodEntryProvider.fatGoal.toInt();
+     return Consumer2<FoodEntryProvider, DateProvider>(
+       builder: (context, foodEntryProvider, dateProvider, child) {
+         // Get nutrition goals directly from the provider
+         final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
+         final proteinGoal = foodEntryProvider.proteinGoal.toInt();
+         final carbGoal = foodEntryProvider.carbsGoal.toInt();
+         final fatGoal = foodEntryProvider.fatGoal.toInt();
 
-            // Calculate total macros from all food entries
-            final entries = foodEntryProvider
-                .getAllEntriesForDate(dateProvider.selectedDate);
+         // Calculate total macros from all food entries for the selected date
+         final entries = foodEntryProvider
+             .getAllEntriesForDate(dateProvider.selectedDate);
 
             double totalCarbs = 0;
             double totalFat = 0;
@@ -722,13 +777,14 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 12),
                               child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center, // Center items vertically
                                 children: [
                                   _buildCalorieInfoCard(
                                     context,
                                     'Goal',
                                     caloriesGoal,
                                     const Color(0xFF34C85A),
-                                    Icons.flag,
+                                    Icons.flag_outlined, // Use outlined icon
                                   ),
                                   const SizedBox(height: 8),
                                   _buildCalorieInfoCard(
@@ -736,15 +792,15 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                                     'Food',
                                     caloriesFromFood.toInt(),
                                     const Color(0xFFFFA726),
-                                    Icons.restaurant,
+                                    Icons.restaurant_menu_outlined, // Use outlined icon
                                   ),
                                   const SizedBox(height: 8),
                                   _buildCalorieInfoCard(
                                     context,
                                     'Burned',
-                                    caloriesBurned.toInt(),
+                                    _caloriesBurned.toInt(), // Use state variable _caloriesBurned
                                     const Color(0xFF42A5F5),
-                                    Icons.local_fire_department,
+                                    Icons.local_fire_department_outlined, // Use outlined icon
                                   ),
                                 ],
                               ),
@@ -820,8 +876,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                             _buildMacroProgressEnhanced(
                               context,
                               'Steps',
-                              steps,
-                              stepsGoal,
+                              _steps, // Use state variable _steps
+                              _stepsGoal, // Use state variable _stepsGoal
                               const Color(0xFF66BB6A),
                               '',
                             ),
@@ -835,9 +891,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
             );
           },
         );
-      },
-    );
-  }
+     // Removed the outer Consumer<DateProvider>
+   }
 }
 
 // Add this helper method to get appropriate icons for macros

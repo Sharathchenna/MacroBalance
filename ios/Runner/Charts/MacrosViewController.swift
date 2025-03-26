@@ -1,26 +1,33 @@
 import UIKit
 import SwiftUI
-import Charts
+import Charts // Keep Charts import if MacrosChartView uses it, otherwise remove. DGCharts is used elsewhere.
 
-class MacrosViewController: UIViewController {
+class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UIScrollViewDelegate conformance
     // MARK: - Properties
     private let scrollView = UIScrollView()
-    private let contentView = UIView()
-    
+    // Change contentView to UIStackView
+    private let contentView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 24 // Use the defined spacing
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        return stackView
+    }()
+
     // Main stats views
-    private let headerView = UIView()
+    private let headerView = UIView() // Keep as UIView for now, maybe replace later
     private let macrosSummaryView = MacrosSummaryView()
-    private let dateFilterControl = DateFilterControl()
-    private let macrosChartContainer = UIView()
-    private let macrosTrendChart = MacrosTrendChartView()
-    private let mealBreakdownView = MealBreakdownView()
-    private let goalProgressView = GoalProgressView()
+    private let dateFilterControl = DateFilterControl() // Keep as separate view
+    private let macrosChartContainer = UIView() // Keep container for SwiftUI chart
+    private let macrosTrendChart = MacrosTrendChartView() // Keep custom view
+    private let mealBreakdownView = MealBreakdownView() // Keep custom view
+    private let goalProgressView = GoalProgressView() // Keep custom view
     private let refreshControl = UIRefreshControl()
-    
+
     // New components
-    private let nutritionInsightsView = NutritionInsightsView()
-    private let weeklyOverviewChart = WeeklyOverviewChartView()
-    private let macroBalanceView = MacroBalanceView()
+    private let nutritionInsightsView = NutritionInsightsView() // Keep custom view
+    private let weeklyOverviewChart = WeeklyOverviewChartView() // Keep custom view
+    private let macroBalanceView = MacroBalanceView() // Keep custom view
     
     // Animation properties
     private var cardViews: [UIView] = []
@@ -62,26 +69,27 @@ class MacrosViewController: UIViewController {
         
         // Setup scroll view with physics
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.contentInsetAdjustmentBehavior = .automatic // Change to automatic or handle safe area manually
         scrollView.showsVerticalScrollIndicator = false
         scrollView.alwaysBounceVertical = true
-        scrollView.delegate = self
-        
-        contentView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.delegate = self // Ensure delegate is set
+
+        // contentView is already configured as UIStackView
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
-        
-        // Header section
+
+        // Header section - Keep setup, but it will be added to stack view later
         headerView.translatesAutoresizingMaskIntoConstraints = false
         headerView.backgroundColor = .clear
-        
-        // Date filter control with improved appearance
+
+        // Date filter control - Keep setup, but it will be added to stack view later
         dateFilterControl.translatesAutoresizingMaskIntoConstraints = false
         dateFilterControl.delegate = self
-        dateFilterControl.layer.cornerRadius = 22
-        dateFilterControl.clipsToBounds = true
-        
-        // Configure the chart container
+        // Remove cornerRadius/clipsToBounds from control itself, apply to a container if needed
+        // dateFilterControl.layer.cornerRadius = 22
+        // dateFilterControl.clipsToBounds = true
+
+        // Configure the chart container - Keep setup, but it will be added to stack view later
         macrosChartContainer.translatesAutoresizingMaskIntoConstraints = false
         macrosChartContainer.backgroundColor = .secondarySystemBackground
         macrosChartContainer.layer.cornerRadius = 20
@@ -99,97 +107,59 @@ class MacrosViewController: UIViewController {
             view.layer.shadowOpacity = 1
             cardViews.append(view)
         }
-        
-        // Add subviews to content view
-        [headerView, dateFilterControl, macrosSummaryView, macrosChartContainer, 
-         macrosTrendChart, weeklyOverviewChart, mealBreakdownView, 
+
+        // Add subviews to the UIStackView (contentView)
+        [headerView, dateFilterControl, macrosSummaryView, macrosChartContainer,
+         macrosTrendChart, weeklyOverviewChart, mealBreakdownView,
          macroBalanceView, nutritionInsightsView, goalProgressView].forEach { subview in
-            contentView.addSubview(subview)
+            // Add horizontal padding if needed, or handle it in constraints
+            contentView.addArrangedSubview(subview)
         }
     }
-    
+
     private func setupConstraints() {
-        // Increase spacing between components
-        let spacing: CGFloat = 24
         let sideMargin: CGFloat = 20
-        
+
         NSLayoutConstraint.activate([
             // ScrollView constraints
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            // ContentView constraints - make it the same width as scroll view
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            
-            // Header constraints
-            headerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: spacing),
-            headerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            headerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
+
+            // ContentView (UIStackView) constraints
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 24), // Add top padding
+            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: sideMargin),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -sideMargin),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -32), // Add bottom padding
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -2 * sideMargin), // Constrain width relative to scroll view frame
+
+            // --- Remove individual vertical constraints ---
+            // The UIStackView handles vertical layout and spacing.
+
+            // --- Keep necessary height constraints (or let intrinsic size work) ---
+            // Keep fixed heights for header and date control for now.
             headerView.heightAnchor.constraint(equalToConstant: 50),
-            
-            // Date filter control - increased margin
-            dateFilterControl.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 16),
-            dateFilterControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            dateFilterControl.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
             dateFilterControl.heightAnchor.constraint(equalToConstant: 44),
-            
-            // Macros summary view - increased margin
-            macrosSummaryView.topAnchor.constraint(equalTo: dateFilterControl.bottomAnchor, constant: spacing),
-            macrosSummaryView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            macrosSummaryView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
-            macrosSummaryView.heightAnchor.constraint(equalToConstant: 160),
-            
-            // Macros chart container - increased margin
-            macrosChartContainer.topAnchor.constraint(equalTo: macrosSummaryView.bottomAnchor, constant: spacing + 8),
-            macrosChartContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            macrosChartContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
-            macrosChartContainer.heightAnchor.constraint(equalToConstant: 380),
-            
-            // Weekly overview chart - increased margin
-            weeklyOverviewChart.topAnchor.constraint(equalTo: macrosChartContainer.bottomAnchor, constant: spacing + 8),
-            weeklyOverviewChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            weeklyOverviewChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
-            weeklyOverviewChart.heightAnchor.constraint(equalToConstant: 280),
-            
-            // Macros trend chart - increased margin
-            macrosTrendChart.topAnchor.constraint(equalTo: weeklyOverviewChart.bottomAnchor, constant: spacing + 8),
-            macrosTrendChart.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            macrosTrendChart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
-            macrosTrendChart.heightAnchor.constraint(equalToConstant: 320),
-            
-            // Macro balance view - increased margin with additional spacing to prevent overlap
-            macroBalanceView.topAnchor.constraint(equalTo: macrosTrendChart.bottomAnchor, constant: spacing + 32),
-            macroBalanceView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            macroBalanceView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
-            macroBalanceView.heightAnchor.constraint(equalToConstant: 260),
-            
-            // Meal breakdown view - increased margin
-            mealBreakdownView.topAnchor.constraint(equalTo: macroBalanceView.bottomAnchor, constant: spacing + 8),
-            mealBreakdownView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            mealBreakdownView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
-            mealBreakdownView.heightAnchor.constraint(equalToConstant: 320),
-            
-            // Nutrition insights view - increased margin
-            nutritionInsightsView.topAnchor.constraint(equalTo: mealBreakdownView.bottomAnchor, constant: spacing + 8),
-            nutritionInsightsView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            nutritionInsightsView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
-            nutritionInsightsView.heightAnchor.constraint(equalToConstant: 240),
-            
-            // Goal progress view - increased margin
-            goalProgressView.topAnchor.constraint(equalTo: nutritionInsightsView.bottomAnchor, constant: spacing + 8),
-            goalProgressView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: sideMargin),
-            goalProgressView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -sideMargin),
-            goalProgressView.heightAnchor.constraint(equalToConstant: 240),
-            goalProgressView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -32)
+            // Remove fixed heights for the content cards to allow dynamic sizing.
+            // Ensure these views have proper internal constraints or intrinsicContentSize.
+            // macrosSummaryView.heightAnchor.constraint(equalToConstant: 160),
+            // macrosChartContainer.heightAnchor.constraint(equalToConstant: 380), // Remove height constraint for SwiftUI container too.
+            // weeklyOverviewChart.heightAnchor.constraint(equalToConstant: 280),
+            // macrosTrendChart.heightAnchor.constraint(equalToConstant: 320),
+            // macroBalanceView.heightAnchor.constraint(equalToConstant: 260),
+            // mealBreakdownView.heightAnchor.constraint(equalToConstant: 320),
+            // nutritionInsightsView.heightAnchor.constraint(equalToConstant: 240),
+            // goalProgressView.heightAnchor.constraint(equalToConstant: 240),
+
+            // --- Keep horizontal constraints if needed (though stack view might handle this if alignment is .fill) ---
+            // Example: If headerView shouldn't fill width:
+            // headerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            // headerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            // (Repeat for other views if they don't fill width by default)
         ])
     }
-    
+
     private func setupNavigationBar() {
         title = "Nutrition"
         
@@ -398,16 +368,17 @@ extension MacrosViewController: DateFilterControlDelegate {
     }
 }
 
-// MARK: - UIScrollViewDelegate
-extension MacrosViewController: UIScrollViewDelegate {
+    // MARK: - UIScrollViewDelegate
+    // Comment out parallax for now to isolate layout issues
+    /*
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         // Parallax effect for chart views
         let offset = scrollView.contentOffset.y
-        
+
         macrosChartContainer.transform = CGAffineTransform(translationX: 0, y: offset * 0.05)
         macrosTrendChart.transform = CGAffineTransform(translationX: 0, y: offset * 0.03)
     }
-}
+    */
 
 // MARK: - Sample Data Generator
 private extension MacrosViewController {

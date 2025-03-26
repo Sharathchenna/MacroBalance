@@ -3,13 +3,6 @@ import DGCharts
 
 class MacrosTrendChartView: UIView {
     // MARK: - UI Components
-    private let containerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .clear
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.text = "Macros Trend"
@@ -44,17 +37,17 @@ class MacrosTrendChartView: UIView {
         chart.legend.horizontalAlignment = .right
         chart.legend.verticalAlignment = .top
         chart.legend.orientation = .horizontal
-        chart.legend.drawInside = true
+        chart.legend.drawInside = false // Keep legend outside chart area
         chart.legend.font = .systemFont(ofSize: 12)
-        chart.legend.yOffset = 8
+        chart.legend.yOffset = 0 // Adjust offset if needed
         chart.legend.xOffset = -8
         
         // Configure x-axis
         chart.xAxis.labelPosition = .bottom
         chart.xAxis.labelFont = .systemFont(ofSize: 10)
         chart.xAxis.granularity = 1
-        chart.xAxis.valueFormatter = DateAxisValueFormatter()
-        chart.xAxis.labelCount = 5
+        // chart.xAxis.valueFormatter = DateAxisValueFormatter() // Remove initial incorrect formatter
+        chart.xAxis.labelCount = 5 // Consider if forceLabelsEnabled is needed
         chart.xAxis.axisLineWidth = 1.0
         chart.xAxis.axisLineColor = .tertiaryLabel
         chart.xAxis.gridColor = .quaternaryLabel
@@ -112,34 +105,62 @@ class MacrosTrendChartView: UIView {
         backgroundColor = .secondarySystemBackground
         layer.cornerRadius = 16
         
-        addSubview(containerView)
+        // Add subviews directly to self
+        addSubview(titleLabel)
+        addSubview(periodToggle)
+        addSubview(lineChartView)
+        addSubview(infoLabel)
         
-        containerView.addSubview(titleLabel)
-        containerView.addSubview(periodToggle)
-        containerView.addSubview(lineChartView)
-        containerView.addSubview(infoLabel)
+        // Set up chart appearance (some might be redundant from initialization block)
+        lineChartView.rightAxis.enabled = false
+        lineChartView.legend.form = .circle
+        lineChartView.legend.horizontalAlignment = .right
+        lineChartView.legend.verticalAlignment = .top
+        lineChartView.legend.orientation = .horizontal
+        lineChartView.legend.drawInside = false // Keep legend outside chart area
+        lineChartView.legend.font = .systemFont(ofSize: 12)
+        lineChartView.legend.yOffset = 0 // Adjust offset if needed
+        lineChartView.legend.xOffset = -8
         
+        // Configure x-axis with better styling
+        lineChartView.xAxis.labelPosition = .bottom
+        lineChartView.xAxis.labelFont = .systemFont(ofSize: 10)
+        // lineChartView.xAxis.valueFormatter = DateAxisValueFormatter() // Remove initial incorrect formatter
+        lineChartView.xAxis.labelCount = 5 // Consider if forceLabelsEnabled is needed
+        lineChartView.xAxis.axisLineWidth = 0.5
+        lineChartView.xAxis.axisLineColor = .tertiaryLabel
+        lineChartView.xAxis.gridColor = .quaternaryLabel
+        lineChartView.xAxis.gridLineDashLengths = [4, 2]
+        
+        // Configure left axis with improved appearance
+        lineChartView.leftAxis.labelFont = .systemFont(ofSize: 10)
+        lineChartView.leftAxis.axisMinimum = 0
+        lineChartView.leftAxis.gridColor = .quaternaryLabel
+        lineChartView.leftAxis.gridLineDashLengths = [4, 2]
+        lineChartView.leftAxis.axisLineColor = .tertiaryLabel
+        lineChartView.leftAxis.axisLineWidth = 0.5
+
         NSLayoutConstraint.activate([
-            containerView.topAnchor.constraint(equalTo: topAnchor),
-            containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            // Title constraints
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             
-            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 20),
-            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
-            
+            // Period Toggle constraints (relative to title and trailing edge)
             periodToggle.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            periodToggle.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20),
-            periodToggle.widthAnchor.constraint(equalToConstant: 200),
+            periodToggle.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 8), // Ensure space between title and toggle
+            periodToggle.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            // Removed fixed width constraint
             
-            lineChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
-            lineChartView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 12),
-            lineChartView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -12),
-            lineChartView.bottomAnchor.constraint(equalTo: infoLabel.topAnchor, constant: -12),
+            // Chart constraints
+            lineChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
+            lineChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            lineChartView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            lineChartView.bottomAnchor.constraint(equalTo: infoLabel.topAnchor, constant: -8),
             
-            infoLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 20),
-            infoLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -20),
-            infoLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -16)
+            // Info Label constraints
+            infoLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            infoLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            infoLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
         ])
         
         // Set chart marker
@@ -405,4 +426,4 @@ private class DateAxisValueFormatter: NSObject, AxisValueFormatter {
         let date = Date(timeIntervalSinceNow: TimeInterval(value * 24 * 60 * 60))
         return dateFormatter.string(from: date)
     }
-} 
+}

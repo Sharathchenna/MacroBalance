@@ -1,14 +1,19 @@
 import UIKit
-import DGCharts
+import SwiftUI // Import SwiftUI
+// Remove DGCharts import if no longer needed elsewhere in this file
+// import DGCharts 
 
 class CaloriesViewController: UIViewController {
     // MARK: - Properties
     private let scrollView = UIScrollView()
     private let contentView = UIStackView()
-    private let chartView = LineChartView()
+    // Remove DGCharts chartView
+    // private let chartView = LineChartView() 
     private let dataManager = StatsDataManager.shared
-    private var calorieEntries: [Models.CaloriesEntry] = []
-    
+    // Change to store MacrosEntry
+    private var macrosEntries: [Models.MacrosEntry] = [] 
+    private var hostingController: UIHostingController<AnyView>? // Change type to AnyView
+
     // Time range selection
     private let timeRangeSegmentedControl: UISegmentedControl = {
         let control = UISegmentedControl(items: ["Day", "Week", "Month", "Year"])
@@ -49,9 +54,10 @@ class CaloriesViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        setupChartView()
+        // Remove setupChartView call
+        // setupChartView() 
         setupGestures()
-        loadCalorieData()
+        loadData() // Renamed from loadCalorieData
     }
     
     // MARK: - UI Setup
@@ -64,7 +70,7 @@ class CaloriesViewController: UIViewController {
         setupCaloriesSummary()
         setupTrendAnalysis()
         setupStatsCards()
-        setupChartContainer()
+        setupChartContainer() // Keep the container setup
         setupBreakdown()
         setupComparisonSection()
         
@@ -233,18 +239,17 @@ class CaloriesViewController: UIViewController {
         let chartContainer = UIView()
         chartContainer.backgroundColor = .secondarySystemBackground
         chartContainer.layer.cornerRadius = 16
+        chartContainer.clipsToBounds = true // Ensure SwiftUI view is clipped
         
-        chartView.translatesAutoresizingMaskIntoConstraints = false
-        chartContainer.addSubview(chartView)
+        // Don't add the old chartView here
+        // chartView.translatesAutoresizingMaskIntoConstraints = false
+        // chartContainer.addSubview(chartView)
         
         contentView.addArrangedSubview(chartContainer)
         
         NSLayoutConstraint.activate([
-            chartContainer.heightAnchor.constraint(equalToConstant: 300),
-            chartView.topAnchor.constraint(equalTo: chartContainer.topAnchor, constant: 16),
-            chartView.leadingAnchor.constraint(equalTo: chartContainer.leadingAnchor, constant: 16),
-            chartView.trailingAnchor.constraint(equalTo: chartContainer.trailingAnchor, constant: -16),
-            chartView.bottomAnchor.constraint(equalTo: chartContainer.bottomAnchor, constant: -16)
+            chartContainer.heightAnchor.constraint(equalToConstant: 400) // Match SwiftUI view height
+            // Constraints for the hostingController's view will be added when data loads
         ])
     }
     
@@ -471,43 +476,8 @@ class CaloriesViewController: UIViewController {
         present(alertController, animated: true)
     }
     
-    private func setupChartView() {
-        chartView.rightAxis.enabled = false
-        chartView.legend.enabled = false
-        
-        chartView.drawGridBackgroundEnabled = false
-        chartView.drawBordersEnabled = false
-        
-        // Style X-axis
-        let xAxis = chartView.xAxis
-        xAxis.labelPosition = .bottom
-        xAxis.drawGridLinesEnabled = false
-        xAxis.labelTextColor = .secondaryLabel
-        xAxis.labelFont = .systemFont(ofSize: 12)
-        xAxis.granularity = 1
-        
-        // Style left axis
-        let leftAxis = chartView.leftAxis
-        leftAxis.axisMinimum = 0
-        leftAxis.drawGridLinesEnabled = true
-        leftAxis.gridLineDashLengths = [4, 4]
-        leftAxis.gridColor = .systemGray4
-        leftAxis.labelTextColor = .secondaryLabel
-        leftAxis.labelFont = .systemFont(ofSize: 12)
-        
-        // Add gradient background
-        let gradientLayer = CAGradientLayer()
-        gradientLayer.colors = [
-            UIColor.systemGreen.withAlphaComponent(0.2).cgColor,
-            UIColor.systemGreen.withAlphaComponent(0.05).cgColor
-        ]
-        gradientLayer.locations = [0, 1]
-        chartView.layer.insertSublayer(gradientLayer, at: 0)
-        
-        loadCalorieData()
-    }
-    
-    private func loadCalorieData() {
+    // Renamed from loadCalorieData
+    private func loadData() { 
         let timeRange: TimeInterval
         switch timeRangeSegmentedControl.selectedSegmentIndex {
         case 0: // Day
@@ -519,76 +489,103 @@ class CaloriesViewController: UIViewController {
         case 3: // Year
             timeRange = 365 * 24 * 60 * 60
         default:
-            timeRange = 7 * 24 * 60 * 60
+            timeRange = 7 * 24 * 60 * 60 // Default to 7 days
         }
         
         let endDate = Date()
         let startDate = endDate.addingTimeInterval(-timeRange)
         
-        dataManager.fetchCalorieData(from: startDate, to: endDate) { [weak self] entries in
-            self?.calorieEntries = entries
+        // Fetch MacrosEntry data instead
+        dataManager.fetchMacroData(from: startDate, to: endDate) { [weak self] entries in
+            guard let self = self else { return }
+            self.macrosEntries = entries
             DispatchQueue.main.async {
-                self?.updateChartData()
-                self?.updateStats()
-                self?.updateWeeklyProgress()
+                self.updateChartView() // New method to update SwiftUI chart
+                self.updateStats()
+                // Remove updateWeeklyProgress call
+                // self.updateWeeklyProgress() 
             }
         }
     }
-    
-    private func updateChartData() {
-        let entries = calorieEntries.enumerated().map { index, entry in
-            ChartDataEntry(x: Double(index), y: entry.calories)
+
+    // New method to update the SwiftUI Chart
+    private func updateChartView() {
+        // Map MacrosEntry to CaloriesEntry for the SwiftUI chart
+        let calorieEntriesForChart = macrosEntries.map { macroEntry -> Models.CaloriesEntry in
+            return Models.CaloriesEntry(
+                date: macroEntry.date,
+                calories: macroEntry.calories,
+                goal: macroEntry.calorieGoal,
+                // Assuming consumed = calories for simplicity, adjust if needed
+                consumed: macroEntry.calories, 
+                // Pass burned calories if available in MacrosEntry, otherwise 0
+                burned: 0 // Placeholder - update if burned calories are in MacrosEntry
+            )
+        }
+
+        // Pass both calorie and macro entries to the SwiftUI view
+        let chartView = CaloriesChartView(calorieEntries: calorieEntriesForChart, macroEntries: macrosEntries)
+            .environment(\.colorScheme, self.traitCollection.userInterfaceStyle == .dark ? .dark : .light)
+        // Removed unnecessary .eraseToAnyView()
+
+        // Remove existing hosting controller if it exists
+        if let existingHC = self.hostingController {
+            existingHC.willMove(toParent: nil)
+            existingHC.view.removeFromSuperview()
+            existingHC.removeFromParent()
+            self.hostingController = nil
+        }
+
+        // Create and add a new hosting controller
+        // Wrap the chartView in AnyView directly during initialization
+        let newHostingController = UIHostingController(rootView: AnyView(chartView)) 
+        newHostingController.view.backgroundColor = UIColor.clear // Specify UIColor
+        addChild(newHostingController)
+        
+        // Find the chartContainer added in setupUI
+        // Ensure chartContainer is accessible or find it reliably
+        guard let chartContainer = contentView.arrangedSubviews.first(where: { $0.layer.cornerRadius == 16 && $0.backgroundColor == .secondarySystemBackground }) else {
+             print("Error: Chart container not found in updateChartView")
+             return
         }
         
-        let dataSet = LineChartDataSet(entries: entries, label: "Calories")
+        // Clear container before adding new view
+        chartContainer.subviews.forEach { $0.removeFromSuperview() } 
         
-        // Style the line
-        dataSet.mode = .cubicBezier
-        dataSet.drawCirclesEnabled = true
-        dataSet.circleRadius = 4
-        dataSet.circleColors = [.systemGreen]
-        dataSet.circleHoleColor = .secondarySystemBackground
-        dataSet.colors = [.systemGreen]
-        dataSet.lineWidth = 2
-        
-        // Style the fill
-        dataSet.drawFilledEnabled = true
-        dataSet.fillColor = .systemGreen
-        dataSet.fillAlpha = 0.1
-        
-        // Add value labels
-        dataSet.drawValuesEnabled = true
-        dataSet.valueFont = .systemFont(ofSize: 10)
-        dataSet.valueTextColor = .secondaryLabel
-        dataSet.valueFormatter = DefaultValueFormatter(decimals: 0)
-        
-        chartView.data = LineChartData(dataSet: dataSet)
-        
-        // Animate
-        chartView.animate(xAxisDuration: 0.5, yAxisDuration: 0.5, easingOption: .easeInOutQuart)
+        chartContainer.addSubview(newHostingController.view)
+        newHostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            newHostingController.view.topAnchor.constraint(equalTo: chartContainer.topAnchor),
+            newHostingController.view.leadingAnchor.constraint(equalTo: chartContainer.leadingAnchor),
+            newHostingController.view.trailingAnchor.constraint(equalTo: chartContainer.trailingAnchor),
+            newHostingController.view.bottomAnchor.constraint(equalTo: chartContainer.bottomAnchor)
+        ])
+        newHostingController.didMove(toParent: self)
+        self.hostingController = newHostingController // Store the new controller
     }
 
     private func updateStats() {
-        guard !calorieEntries.isEmpty else { return }
+        // Use macrosEntries now
+        guard !macrosEntries.isEmpty else { return }
         
-        // Calculate average
-        let average = calorieEntries.map { $0.calories }.reduce(0, +) / Double(calorieEntries.count)
+        // Calculate average calories from macrosEntries
+        let average = macrosEntries.map { $0.calories }.reduce(0, +) / Double(macrosEntries.count)
         
-        // Calculate deficit/surplus
-        let lastEntry = calorieEntries.last!
-        let deficit = lastEntry.goal - lastEntry.calories
+        // Calculate deficit/surplus using calorieGoal from macrosEntries
+        let lastEntry = macrosEntries.last!
+        let deficit = lastEntry.calorieGoal - lastEntry.calories
         
-        // Calculate streak
+        // Calculate streak based on calorieGoal
         var streak = 0
-        for entry in calorieEntries.reversed() {
-            if entry.calories <= entry.goal {
+        for entry in macrosEntries.reversed() {
+            if entry.calories <= entry.calorieGoal {
                 streak += 1
             } else {
                 break
             }
         }
         
-        // Update UI with animations
+        // Update UI with animations (find labels by structure or add identifiers)
         UIView.animate(withDuration: 0.5, delay: 0, options: [.curveEaseInOut], animations: {
             // Update stats cards
             if let averageLabel = self.averageCard.subviews.first?.subviews[1] as? UILabel {
@@ -603,30 +600,32 @@ class CaloriesViewController: UIViewController {
             if let streakLabel = self.streakCard.subviews.first?.subviews[1] as? UILabel {
                 streakLabel.text = "\(streak)"
             }
-        }, completion: nil)
-    }
-
-    private func updateWeeklyProgress() {
-        // Calculate total calories for the week
-        let calendar = Calendar.current
-        let today = Date()
-        let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today))!
-        
-        let weeklyEntries = calorieEntries.filter { entry in
-            // Check if date is in the current week
-            let entryWeek = calendar.component(.weekOfYear, from: entry.date)
-            let entryYear = calendar.component(.yearForWeekOfYear, from: entry.date)
-            let currentWeek = calendar.component(.weekOfYear, from: today)
-            let currentYear = calendar.component(.yearForWeekOfYear, from: today)
             
-            return entryWeek == currentWeek && entryYear == currentYear
-        }
-        
-        let totalWeeklyCalories = weeklyEntries.reduce(0) { $0 + $1.calories }
-        let weeklyProgress = totalWeeklyCalories / weeklyCalorieGoal
-        
-        // Update UI with the weekly progress
-        // This would be shown in a dedicated weekly progress section
+            // Update summary card labels (calories, goal)
+            // Use self.contentView inside closure
+            if let summaryCard = self.contentView.arrangedSubviews.first(where: { $0.accessibilityIdentifier == "caloriesSummaryCard" }) { // Add identifier if needed
+                 if let caloriesLabel = summaryCard.viewWithTagSafe(1) as? UILabel { // Use tags or identifiers
+                     caloriesLabel.text = "\(Int(lastEntry.calories))"
+                 }
+                 if let goalLabel = summaryCard.viewWithTagSafe(3) as? UILabel { // Use tags or identifiers
+                     goalLabel.text = "Daily Goal: \(Int(lastEntry.calorieGoal)) calories"
+                 }
+                 // Update progress ring
+                 if let progressRing = summaryCard.viewWithTagSafe(2) as? CircularProgressView { // Use tags or identifiers
+                     let progress = lastEntry.calorieGoal > 0 ? CGFloat(lastEntry.calories / lastEntry.calorieGoal) : 0
+                     progressRing.progress = progress
+                 }
+                 if let goalLabel = summaryCard.viewWithTag(3) as? UILabel { // Use tags or identifiers
+                     goalLabel.text = "Daily Goal: \(Int(lastEntry.calorieGoal)) calories"
+                 }
+                 // Update progress ring
+                 if let progressRing = summaryCard.viewWithTag(2) as? CircularProgressView { // Use tags or identifiers
+                     let progress = lastEntry.calorieGoal > 0 ? CGFloat(lastEntry.calories / lastEntry.calorieGoal) : 0
+                     progressRing.progress = progress
+                 }
+            }
+            
+        }, completion: nil)
     }
 
     // MARK: - Helper Functions
@@ -721,7 +720,7 @@ class CaloriesViewController: UIViewController {
     // MARK: - Actions
     @objc private func timeRangeChanged() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        loadCalorieData()
+        loadData() // Call renamed method
     }
 
     // MARK: - Gestures
@@ -745,9 +744,11 @@ class CaloriesViewController: UIViewController {
             }, completion: nil)
         }
     }
+} // Add missing closing brace for CaloriesViewController class
 
-    // Add the property to store calorie goals
-    private var weeklyCalorieGoal: Double {
-        return dataManager.getUserCalorieGoal() * 7
+// Helper extension to safely access viewWithTag
+extension UIView {
+    func viewWithTagSafe(_ tag: Int) -> UIView? {
+        return self.viewWithTag(tag)
     }
 }

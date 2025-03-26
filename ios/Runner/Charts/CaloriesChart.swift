@@ -9,8 +9,9 @@ import SwiftUI
 import Charts
 
 struct CaloriesChartView: View {
-    let entries: [Models.CaloriesEntry]
-    @State private var selectedEntry: Models.CaloriesEntry?
+    let calorieEntries: [Models.CaloriesEntry] // Renamed for clarity
+    let macroEntries: [Models.MacrosEntry] // Add macro entries
+    @State private var selectedCalorieEntry: Models.CaloriesEntry? // Renamed
     @State private var highlightedDate: Date?
     @State private var showingMacroBreakdown = false
     @Environment(\.colorScheme) var colorScheme
@@ -43,7 +44,7 @@ struct CaloriesChartView: View {
                 
                 // Enhanced chart with tooltip and interactive elements
                 Chart {
-                    ForEach(entries) { entry in
+                    ForEach(calorieEntries) { entry in // Use calorieEntries
                         LineMark(
                             x: .value("Day", entry.date, unit: .day),
                             y: .value("Calories", entry.calories)
@@ -87,7 +88,7 @@ struct CaloriesChartView: View {
                     }
                     
                     // Display selected point if any
-                    if let selected = selectedEntry {
+                    if let selected = selectedCalorieEntry { // Use selectedCalorieEntry
                         PointMark(
                             x: .value("Day", selected.date, unit: .day),
                             y: .value("Calories", selected.calories)
@@ -132,9 +133,9 @@ struct CaloriesChartView: View {
                                         guard let date = proxy.value(atX: xPosition, as: Date.self) else { return }
                                         
                                         // Find closest date in data
-                                        if let closestEntry = findClosestEntry(to: date) {
+                                        if let closestEntry = findClosestCalorieEntry(to: date) { // Renamed helper
                                             highlightedDate = closestEntry.date
-                                            selectedEntry = closestEntry
+                                            selectedCalorieEntry = closestEntry // Update selectedCalorieEntry
                                         }
                                     }
                                     .onEnded { _ in
@@ -142,7 +143,7 @@ struct CaloriesChartView: View {
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                                             // You could choose to clear selection after delay or keep it
                                             // highlightedDate = nil
-                                            // selectedEntry = nil
+                                            // selectedCalorieEntry = nil
                                         }
                                     }
                             )
@@ -150,7 +151,7 @@ struct CaloriesChartView: View {
                 }
                 
                 // Display selected data details
-                if let selected = selectedEntry {
+                if let selected = selectedCalorieEntry { // Use selectedCalorieEntry
                     HStack(alignment: .center, spacing: 12) {
                         VStack(alignment: .leading) {
                             Text(selected.date, format: .dateTime.month().day())
@@ -205,8 +206,8 @@ struct CaloriesChartView: View {
                     .transition(.opacity)
                 } else {
                     // Summary view when nothing is selected
-                    let avgCalories = entries.isEmpty ? 0 : entries.map { $0.calories }.reduce(0, +) / Double(entries.count)
-                    let maxCaloriesEntry = entries.max(by: { $0.calories < $1.calories })
+                    let avgCalories = calorieEntries.isEmpty ? 0 : calorieEntries.map { $0.calories }.reduce(0, +) / Double(calorieEntries.count) // Use calorieEntries
+                    let maxCaloriesEntry = calorieEntries.max(by: { $0.calories < $1.calories }) // Use calorieEntries
                     
                     HStack {
                         VStack(alignment: .leading) {
@@ -232,7 +233,7 @@ struct CaloriesChartView: View {
                         Spacer()
                         
                         // Weekly total
-                        let totalCalories = entries.map { $0.calories }.reduce(0, +)
+                        let totalCalories = calorieEntries.map { $0.calories }.reduce(0, +) // Use calorieEntries
                         VStack(alignment: .leading) {
                             Text("Weekly Total")
                                 .font(.caption)
@@ -248,8 +249,13 @@ struct CaloriesChartView: View {
             }
             .padding(.horizontal, 16)
             .sheet(isPresented: $showingMacroBreakdown) {
-                if let entry = selectedEntry {
-                    MacroBreakdownView(entry: entry)
+                // Find the corresponding MacrosEntry for the selected CaloriesEntry date
+                if let selectedCalEntry = selectedCalorieEntry,
+                   let macroEntry = macroEntries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: selectedCalEntry.date) }) {
+                    MacroBreakdownView(entry: macroEntry) // Pass MacrosEntry
+                } else {
+                    // Optional: Show an error or empty state if no macro data found
+                    Text("Macro details not available for this date.")
                 }
             }
         }
@@ -257,22 +263,22 @@ struct CaloriesChartView: View {
     }
     
     // Helper function to find the closest entry to a given date
-    private func findClosestEntry(to date: Date) -> Models.CaloriesEntry? {
-        guard !entries.isEmpty else { return nil }
+    private func findClosestCalorieEntry(to date: Date) -> Models.CaloriesEntry? { // Renamed
+        guard !calorieEntries.isEmpty else { return nil } // Use calorieEntries
         
-        return entries.min(by: { 
+        return calorieEntries.min(by: { // Use calorieEntries
             abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
         })
     }
     
     var yAxisDomain: ClosedRange<Double> {
-        if entries.isEmpty {
+        if calorieEntries.isEmpty { // Use calorieEntries
             return 0...2500
         }
         
-        let calories = entries.map { $0.calories }
-        let goals = entries.map { $0.goal }
-        let burned = entries.map { $0.burned }
+        let calories = calorieEntries.map { $0.calories } // Use calorieEntries
+        let goals = calorieEntries.map { $0.goal } // Use calorieEntries
+        let burned = calorieEntries.map { $0.burned } // Use calorieEntries
         
         let maxCalories = calories.max() ?? 0
         let maxGoal = goals.max() ?? 0
@@ -286,9 +292,9 @@ struct CaloriesChartView: View {
     }
 }
 
-// A sample view for macro breakdown
+// Updated view for macro breakdown using MacrosEntry
 struct MacroBreakdownView: View {
-    let entry: Models.CaloriesEntry
+    let entry: Models.MacrosEntry // Changed to MacrosEntry
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -298,32 +304,19 @@ struct MacroBreakdownView: View {
                     HStack {
                         Text("Total Calories")
                         Spacer()
-                        Text("\(Int(entry.calories))")
+                        Text("\(Int(entry.calories))") // Use calories from MacrosEntry
                     }
                     
-                    if entry.consumed != entry.calories {
-                        HStack {
-                            Text("Consumed")
-                            Spacer()
-                            Text("\(Int(entry.consumed))")
-                        }
-                    }
-                    
-                    if entry.burned > 0 {
-                        HStack {
-                            Text("Burned")
-                            Spacer()
-                            Text("\(Int(entry.burned))")
-                        }
-                    }
+                    // Removed consumed/burned as they might not be directly in MacrosEntry
+                    // Add them back if your MacrosEntry model includes them
                     
                     HStack {
                         Text("Daily Goal")
                         Spacer()
-                        Text("\(Int(entry.goal))")
+                        Text("\(Int(entry.calorieGoal))") // Use calorieGoal from MacrosEntry
                     }
                     
-                    let remaining = entry.goal - entry.calories
+                    let remaining = entry.calorieGoal - entry.calories
                     HStack {
                         Text(remaining >= 0 ? "Remaining" : "Exceeded")
                         Spacer()
@@ -332,51 +325,42 @@ struct MacroBreakdownView: View {
                     }
                 }
                 
-                Section("Time of Day") {
-                    // Placeholder for meal-by-meal breakdown that would come from backend
-                    HStack {
-                        Text("Breakfast")
-                        Spacer()
-                        Text("450 cal")
+                // Display actual meals if available
+                if let meals = entry.meals, !meals.isEmpty {
+                    Section("Meals") {
+                        ForEach(meals.sorted(by: { $0.time < $1.time })) { meal in
+                            HStack {
+                                Text(meal.name)
+                                Spacer()
+                                Text("\(Int(meal.calories)) cal")
+                            }
+                        }
                     }
-                    
-                    HStack {
-                        Text("Lunch")
-                        Spacer()
-                        Text("650 cal")
-                    }
-                    
-                    HStack {
-                        Text("Dinner")
-                        Spacer()
-                        Text("550 cal")
-                    }
-                    
-                    HStack {
-                        Text("Snacks")
-                        Spacer()
-                        Text("200 cal")
-                    }
+                } else {
+                     Section("Time of Day") {
+                         Text("No meal data available for this day.")
+                             .foregroundColor(.secondary)
+                     }
                 }
                 
                 Section("Macronutrients") {
-                    // Estimated macros - in a real app this would come from the entry
+                    // Use actual macro data from MacrosEntry
                     HStack {
                         Text("Protein")
                         Spacer()
-                        Text("95g (25%)")
+                        Text("\(Int(entry.proteins))g (\(Int(entry.proteinPercentage))%)")
                     }
                     
                     HStack {
                         Text("Carbs")
                         Spacer()
-                        Text("215g (55%)")
+                        Text("\(Int(entry.carbs))g (\(Int(entry.carbsPercentage))%)")
                     }
                     
                     HStack {
                         Text("Fats")
                         Spacer()
-                        Text("35g (20%)")
+                        Text("\(Int(entry.fats))g (\(Int(entry.fatsPercentage))%)")
                     }
                 }
             }
