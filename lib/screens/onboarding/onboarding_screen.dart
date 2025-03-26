@@ -37,6 +37,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   int _deficit = 500;
   double _proteinRatio = 1.8;
   double _fatRatio = 0.25;
+  double _goalWeightKg = 70; // Added goal weight tracking
+  int _bmrFormula = MacroCalculatorService.FORMULA_MIFFLIN_ST_JEOR; // Added BMR formula selection
+  double _bodyFatPercentage = 20.0; // Add body fat percentage variable
+  bool _showBodyFatInput = false; // Flag to show/hide body fat input
 
   // Removed unit system toggle - always using metric
   bool _isMetricWeight = true;
@@ -165,6 +169,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 deficit: _deficit,
                 proteinRatio: _proteinRatio,
                 fatRatio: _fatRatio,
+                goalWeightKg: _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
+                bmrFormula: _bmrFormula,
+                bodyFatPercentage: _showBodyFatInput ? _bodyFatPercentage : null,
               );
 
               // Pop the paywall screen
@@ -262,6 +269,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'deficit_surplus': _deficit,
           'protein_ratio': _proteinRatio,
           'fat_ratio': _fatRatio,
+          'goal_weight_kg': _goalWeightKg,
+          'bmr_formula': _bmrFormula,
+          'body_fat_percentage': _showBodyFatInput ? _bodyFatPercentage : null,
           'updated_at': DateTime.now().toIso8601String(),
         };
 
@@ -283,6 +293,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             'protein_goal', (macroResults['protein'] ?? 0).toDouble());
         prefs.setDouble('carbs_goal', (macroResults['carbs'] ?? 0).toDouble());
         prefs.setDouble('fat_goal', (macroResults['fat'] ?? 0).toDouble());
+        
+        // Save goal weight if applicable
+        if (_goal != MacroCalculatorService.GOAL_MAINTAIN) {
+          prefs.setDouble('goal_weight_kg', _goalWeightKg);
+        }
       } catch (e) {
         print('Error saving macro results to Supabase: $e');
         // Show error message to user
@@ -1231,7 +1246,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget _buildGoalPage() {
     final customColors = Theme.of(context).extension<CustomColors>();
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1264,6 +1279,168 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             icon: Icons.trending_up,
             description: 'Calorie surplus to build muscle',
           ),
+          
+          // Conditionally show goal weight input for weight loss/gain
+          if (_goal != MacroCalculatorService.GOAL_MAINTAIN) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Text(
+                  'Target Weight',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: customColors?.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                _buildTooltip(
+                    '${_goal == MacroCalculatorService.GOAL_LOSE ? 'Set your target weight loss goal' : 'Set your target weight gain goal'} - this helps calculate a realistic timeframe'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: customColors?.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Weight picker for goal weight
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_isMetricWeight) ...[
+                        // Metric (kg) pickers for goal weight
+                        NumberPicker(
+                          value: _goalWeightKg.floor(),
+                          minValue: _goal == MacroCalculatorService.GOAL_LOSE ? 40 : _weightKg.floor(),
+                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE ? _weightKg.floor() - 1 : 150,
+                          onChanged: (value) {
+                            setState(() {
+                              _goalWeightKg = value + (_goalWeightKg - _goalWeightKg.floor());
+                            });
+                          },
+                          selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textStyle: TextStyle(
+                            color: customColors?.textSecondary,
+                            fontSize: 20,
+                          ),
+                        ),
+                        Text(
+                          '.',
+                          style: TextStyle(
+                            color: customColors?.textPrimary,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        NumberPicker(
+                          value: ((_goalWeightKg - _goalWeightKg.floor()) * 10).round(),
+                          minValue: 0,
+                          maxValue: 9,
+                          onChanged: (value) {
+                            setState(() {
+                              _goalWeightKg = _goalWeightKg.floor() + (value / 10);
+                            });
+                          },
+                          selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textStyle: TextStyle(
+                            color: customColors?.textSecondary,
+                            fontSize: 20,
+                          ),
+                        ),
+                        Text(
+                          'kg',
+                          style: TextStyle(
+                            color: customColors?.textPrimary,
+                            fontSize: 20, 
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ] else ...[
+                        // Imperial (lbs) picker for goal weight
+                        NumberPicker(
+                          value: (_goalWeightKg * 2.20462).round(),
+                          minValue: _goal == MacroCalculatorService.GOAL_LOSE ? 88 : (_weightKg * 2.20462).round(),
+                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE ? (_weightKg * 2.20462).round() - 2 : 330,
+                          onChanged: (value) {
+                            setState(() {
+                              _goalWeightKg = value / 2.20462;
+                            });
+                          },
+                          selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textStyle: TextStyle(
+                            color: customColors?.textSecondary,
+                            fontSize: 20,
+                          ),
+                        ),
+                        Text(
+                          'lbs',
+                          style: TextStyle(
+                            color: customColors?.textPrimary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  
+                  // Weight difference indicator
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: Text(
+                      _goal == MacroCalculatorService.GOAL_LOSE 
+                          ? 'Lose ${(_weightKg - _goalWeightKg).toStringAsFixed(1)} kg' 
+                          : 'Gain ${(_goalWeightKg - _weightKg).toStringAsFixed(1)} kg',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _goal == MacroCalculatorService.GOAL_LOSE 
+                            ? Colors.red.shade400 
+                            : Colors.green.shade500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Safe weight change note based on Harvard/NIH recommendations
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0, left: 16.0),
+              child: Text(
+                _goal == MacroCalculatorService.GOAL_LOSE
+                    ? 'Safe weight loss is typically 0.5-1 kg (1-2 lbs) per week'
+                    : 'Safe muscle gain is typically 0.25-0.5 kg (0.5-1 lb) per week',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: customColors?.textSecondary,
+                    ),
+              ),
+            ),
+          ],
+          
+          // Deficit/Surplus section - keep existing code
           if (_goal != MacroCalculatorService.GOAL_MAINTAIN) ...[
             const SizedBox(height: 24),
             Text(
@@ -1332,7 +1509,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget _buildAdvancedSettingsPage() {
     final customColors = Theme.of(context).extension<CustomColors>();
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1346,11 +1523,187 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Fine-tune your macro distribution (optional)',
+            'Fine-tune your macro distribution and calculation methods',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: customColors?.textPrimary,
                 ),
           ),
+          const SizedBox(height: 32),
+
+          // BMR Formula Selection
+          Row(
+            children: [
+              Text(
+                'BMR Calculation Formula',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: customColors?.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(width: 8),
+              _buildTooltip(
+                  'Different formulas calculate BMR with varying accuracy for different body types'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: customColors?.cardBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.2),
+              ),
+            ),
+            child: Column(
+              children: [
+                _buildFormulaOption(
+                  title: 'Mifflin-St Jeor',
+                  subtitle: 'Most accurate for general population',
+                  formula: MacroCalculatorService.FORMULA_MIFFLIN_ST_JEOR,
+                ),
+                Divider(color: Colors.grey.withOpacity(0.2)),
+                _buildFormulaOption(
+                  title: 'Revised Harris-Benedict',
+                  subtitle: 'Updated classic formula (1984)',
+                  formula: MacroCalculatorService.FORMULA_REVISED_HARRIS_BENEDICT,
+                ),
+                Divider(color: Colors.grey.withOpacity(0.2)),
+                _buildFormulaOption(
+                  title: 'Original Harris-Benedict',
+                  subtitle: 'Classic formula (1919)',
+                  formula: MacroCalculatorService.FORMULA_HARRIS_BENEDICT,
+                ),
+                Divider(color: Colors.grey.withOpacity(0.2)),
+                _buildFormulaOption(
+                  title: 'Katch-McArdle',
+                  subtitle: 'For those who know their body fat %',
+                  formula: MacroCalculatorService.FORMULA_KATCH_MCARDLE,
+                ),
+              ],
+            ),
+          ),
+          
+          // Body Fat Percentage Input (only shown when Katch-McArdle is selected)
+          if (_showBodyFatInput) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Text(
+                  'Body Fat Percentage',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: customColors?.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                _buildTooltip(
+                    'Required for the Katch-McArdle formula to calculate lean body mass'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: customColors?.cardBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey.withOpacity(0.2),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          if (_bodyFatPercentage > 5) {
+                            setState(() {
+                              _bodyFatPercentage -= 1;
+                            });
+                            HapticFeedback.lightImpact();
+                          }
+                        },
+                        icon: Icon(
+                          Icons.remove_circle_outline,
+                          color: _bodyFatPercentage > 5
+                              ? customColors?.textPrimary
+                              : Colors.grey.withOpacity(0.3),
+                        ),
+                      ),
+                      Text(
+                        '${_bodyFatPercentage.round()}%',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: customColors?.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          if (_bodyFatPercentage < 50) {
+                            setState(() {
+                              _bodyFatPercentage += 1;
+                            });
+                            HapticFeedback.lightImpact();
+                          }
+                        },
+                        icon: Icon(
+                          Icons.add_circle_outline,
+                          color: _bodyFatPercentage < 50
+                              ? customColors?.textPrimary
+                              : Colors.grey.withOpacity(0.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  // Slider for more precise control
+                  Slider(
+                    value: _bodyFatPercentage,
+                    min: 5,
+                    max: 50,
+                    divisions: 45,
+                    label: '${_bodyFatPercentage.round()}%',
+                    onChanged: (value) {
+                      setState(() {
+                        _bodyFatPercentage = value;
+                      });
+                    },
+                  ),
+                  
+                  // Healthy range indicators
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _gender == MacroCalculatorService.MALE
+                              ? 'Athletic: 6-13%'
+                              : 'Athletic: 14-20%',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: customColors?.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          _gender == MacroCalculatorService.MALE
+                              ? 'Healthy: 14-24%'
+                              : 'Healthy: 21-31%',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: customColors?.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          
           const SizedBox(height: 32),
 
           // Protein ratio slider
@@ -1560,6 +1913,85 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFormulaOption({
+    required String title,
+    required String subtitle,
+    required int formula,
+  }) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    final isSelected = _bmrFormula == formula;
+    
+    return InkWell(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _bmrFormula = formula;
+          // Show body fat input only when Katch-McArdle is selected
+          _showBodyFatInput = formula == MacroCalculatorService.FORMULA_KATCH_MCARDLE;
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? customColors!.textPrimary
+                    : Colors.transparent,
+                border: Border.all(
+                  color: isSelected
+                      ? customColors!.textPrimary
+                      : Colors.grey.withOpacity(0.5),
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? Center(
+                      child: Icon(
+                        Icons.check,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected
+                          ? customColors!.textPrimary
+                          : customColors?.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: customColors?.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1885,6 +2317,21 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       return 'Unknown';
     }
 
+    String getBmrFormulaText() {
+      switch(_bmrFormula) {
+        case MacroCalculatorService.FORMULA_MIFFLIN_ST_JEOR:
+          return 'Mifflin-St Jeor (most accurate)';
+        case MacroCalculatorService.FORMULA_HARRIS_BENEDICT:
+          return 'Harris-Benedict (original)';
+        case MacroCalculatorService.FORMULA_REVISED_HARRIS_BENEDICT:
+          return 'Harris-Benedict (revised)';
+        case MacroCalculatorService.FORMULA_KATCH_MCARDLE:
+          return 'Katch-McArdle (body composition based)';
+        default:
+          return 'Mifflin-St Jeor';
+      }
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -1952,7 +2399,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 'value': getGoalText(),
                 'page': 4,
               },
-              if (_goal != MacroCalculatorService.GOAL_MAINTAIN)
+              if (_goal != MacroCalculatorService.GOAL_MAINTAIN) ...[
                 {
                   'label': _goal == MacroCalculatorService.GOAL_LOSE
                       ? 'Calorie Deficit'
@@ -1960,6 +2407,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   'value': '$_deficit calories per day',
                   'page': 4,
                 },
+                {
+                  'label': 'Target Weight',
+                  'value': '${_goalWeightKg.toStringAsFixed(1)} kg',
+                  'page': 4,
+                },
+              ],
             ],
           ),
 
@@ -1984,6 +2437,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               {
                 'label': 'Carbs',
                 'value': 'Remaining calories after protein and fat',
+                'page': 5,
+              },
+              {
+                'label': 'BMR Formula', 
+                'value': getBmrFormulaText(),
+                'page': 5,
+              },
+              if (_showBodyFatInput) {
+                'label': 'Body Fat Percentage',
+                'value': '${_bodyFatPercentage.round()}%',
                 'page': 5,
               },
             ],
