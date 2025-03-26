@@ -110,8 +110,6 @@ void main() async {
     debugPrint("Firebase initialization error: $e");
   }
 
-  // Initialize notification service
-  await NotificationService().initialize();
 
   // Set initial status bar style for iOS
   if (Platform.isIOS) {
@@ -128,6 +126,9 @@ void main() async {
     url: "https://mdivtblabmnftdqlgysv.supabase.co",
   );
 
+  // Initialize notification service
+  await NotificationService().initialize();
+  
   // Initialize the widget service
   await WidgetService.initWidgetService();
 
