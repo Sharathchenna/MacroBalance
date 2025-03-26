@@ -777,7 +777,12 @@ Meal to analyze: ${_mealController.text}
 
   @override
   void dispose() {
+    // Dispose controllers first
     _mealController.dispose();
+    // Call super.dispose() last
     super.dispose();
+    
+    // IMPORTANT: Do not access context or call any methods using context after this point
+    // This ensures we don't reference deactivated widgets
   }
 }

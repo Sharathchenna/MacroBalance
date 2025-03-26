@@ -15,9 +15,18 @@ import FirebaseCore
 import FirebaseMessaging
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, MessagingDelegate {
+// Remove CameraHandlerDelegate, Add NativeCameraViewControllerDelegate
+@objc class AppDelegate: FlutterAppDelegate, MessagingDelegate, NativeCameraViewControllerDelegate {
     private var methodHandler: FlutterMethodHandler?
     private var statsMethodHandler: StatsMethodHandler?
+    // Remove old camera handler properties
+    // private var cameraHandler: CameraHandler?
+    // private var cameraMethodChannel: FlutterMethodChannel?
+    // private let cameraChannelName = "com.macrotracker/camera"
+
+    // New channel for presenting the native view
+    private var nativeCameraViewChannel: FlutterMethodChannel?
+    private let nativeCameraViewChannelName = "com.macrotracker/native_camera_view"
     
     override func application(
         _ application: UIApplication,
@@ -46,6 +55,11 @@ import FirebaseMessaging
             withId: "stats_view"
         )
 
+        // Initialize NEW Method Channel for Native Camera View
+        nativeCameraViewChannel = FlutterMethodChannel(name: nativeCameraViewChannelName,
+                                                      binaryMessenger: controller.binaryMessenger)
+        nativeCameraViewChannel?.setMethodCallHandler(handleNativeCameraViewMethodCall) // Set the NEW handler
+
         // Explicitly configure Firebase here BEFORE registering plugins
         FirebaseApp.configure()
         print("[AppDelegate] Firebase configured via FirebaseApp.configure()")
@@ -65,14 +79,78 @@ import FirebaseMessaging
             let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
             UNUserNotificationCenter.current().requestAuthorization(
                 options: authOptions,
-                completionHandler: { _, _ in }
-            )
-        }
-        
-        application.registerForRemoteNotifications()
-        
-        return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-    }
+                 completionHandler: { _, _ in }
+             )
+         } // <-- Corrected placement of closing brace for if #available
+
+         application.registerForRemoteNotifications()
+
+         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+     } // <-- Correct closing brace for application(_:didFinishLaunchingWithOptions:)
+
+
+     // MARK: - Native Camera View Method Channel Handler -
+
+     private func handleNativeCameraViewMethodCall(call: FlutterMethodCall, result: @escaping FlutterResult) {
+         print("[AppDelegate] Native Camera View Method Call: \(call.method)")
+
+         guard let controller = window?.rootViewController as? FlutterViewController else {
+             result(FlutterError(code: "INTERNAL_ERROR", message: "Cannot get root view controller", details: nil))
+             return
+         }
+
+         switch call.method {
+         case "showNativeCamera":
+             let nativeCameraVC = NativeCameraViewController()
+             nativeCameraVC.delegate = self // Set AppDelegate as the delegate
+             nativeCameraVC.modalPresentationStyle = .fullScreen // Present full screen
+             controller.present(nativeCameraVC, animated: true, completion: nil)
+             result(nil) // Acknowledge the call
+         default:
+             result(FlutterMethodNotImplemented)
+         }
+     }
+
+
+     // MARK: - NativeCameraViewControllerDelegate Methods -
+
+     func nativeCameraDidFinish(withBarcode barcode: String) {
+         print("[AppDelegate] Native Camera Finished with Barcode: \(barcode)")
+         // Send result back to Flutter via the new channel
+         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: ["type": "barcode", "value": barcode])
+     }
+
+     func nativeCameraDidFinish(withPhotoData photoData: Data) {
+         print("[AppDelegate] Native Camera Finished with Photo Data: \(photoData.count) bytes")
+         // Send result back to Flutter via the new channel
+         // Note: Sending large data like images over method channels can be inefficient.
+         // Consider saving to a temp file and sending the path if performance is an issue.
+         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: ["type": "photo", "value": FlutterStandardTypedData(bytes: photoData)])
+     }
+
+     func nativeCameraDidCancel() {
+         print("[AppDelegate] Native Camera Cancelled")
+         // Optionally notify Flutter that the user cancelled
+         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: ["type": "cancel"])
+     }
+
+
+     // MARK: - Old Camera Handler Code (To be removed) -
+     /*
+     // MARK: - Camera Method Channel Handler - (REMOVED)
+     private func handleCameraMethodCall(...) { ... }
+
+     // MARK: - CameraHandlerDelegate Methods - (REMOVED)
+     func didFindBarcode(...) { ... }
+     func didCapturePhoto(...) { ... }
+     func cameraSetupFailed(...) { ... }
+     func cameraAccessDenied(...) { ... }
+     func cameraInitialized(...) { ... }
+     func zoomLevelsAvailable(...) { ... }
+     */
+
+
+     // MARK: - Stats and Other Methods (Keep these) -
     
     private func initializeStatsServices(completion: @escaping (Bool) -> Void) {
         // Check if HealthKit is available
@@ -127,4 +205,9 @@ import FirebaseMessaging
                         didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("[AppDelegate] Failed to register for remote notifications: \(error.localizedDescription)")
     }
+
+    // MARK: - App Lifecycle (No changes needed for NativeCameraViewController presentation) -
+    // Keep existing applicationWillResignActive, applicationDidBecomeActive, applicationWillTerminate
+    // They don't directly interact with the modally presented NativeCameraViewController lifecycle,
+    // which manages its own session start/stop in viewWillAppear/viewWillDisappear.
 }

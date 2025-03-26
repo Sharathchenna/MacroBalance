@@ -33,23 +33,23 @@ class ResultsPage extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              // Navigate to dashboard (replacing the entire stack)
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                '/dashboard', // Your dashboard route
-                (route) => false, // This will clear the entire navigation stack
-              );
-            },
-            icon:
-                Icon(Icons.dashboard_outlined, color: customColors.textPrimary),
-            label: Text(
-              'Dashboard',
-              style: TextStyle(color: customColors.textPrimary),
-            ),
-          ),
-        ],
+        // actions: [
+        //   TextButton.icon(
+        //     onPressed: () {
+        //       // Navigate to dashboard (replacing the entire stack)
+        //       Navigator.of(context).pushNamedAndRemoveUntil(
+        //         '/dashboard', // Your dashboard route
+        //         (route) => false, // This will clear the entire navigation stack
+        //       );
+        //     },
+        //     icon:
+        //         Icon(Icons.dashboard_outlined, color: customColors.textPrimary),
+        //     label: Text(
+        //       'Dashboard',
+        //       style: TextStyle(color: customColors.textPrimary),
+        //     ),
+        //   ),
+        // ],
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
