@@ -59,6 +59,12 @@ class _ResultsScreenState extends State<ResultsScreen>
     final fat = widget.results['fat'];
     final carbs = widget.results['carbs'];
     final recommendedSteps = widget.results['recommended_steps'];
+    
+    // New goal-related fields
+    final goalWeightKg = widget.results['goal_weight_kg'];
+    final recommendedWeeklyRate = widget.results['recommended_weekly_rate'];
+    final goalTimeframeWeeks = widget.results['goal_timeframe_weeks'];
+    final hasGoalWeight = goalWeightKg != null;
 
     return Scaffold(
       body: SafeArea(
@@ -215,6 +221,35 @@ class _ResultsScreenState extends State<ResultsScreen>
                             ),
                       ),
                       const SizedBox(height: 16),
+                      
+                      // Goal-related information (if applicable)
+                      if (hasGoalWeight) ...[
+                        _buildInfoCard(
+                          context,
+                          'Target Weight',
+                          '${goalWeightKg.toStringAsFixed(1)} kg',
+                          'This is your target weight goal that you want to achieve.',
+                          Icons.track_changes,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInfoCard(
+                          context,
+                          'Recommended Rate',
+                          '${recommendedWeeklyRate.toStringAsFixed(1)} kg/week',
+                          'This is a safe and sustainable rate of weight change based on scientific research.',
+                          Icons.show_chart,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInfoCard(
+                          context,
+                          'Estimated Timeframe',
+                          '${goalTimeframeWeeks.toString()} weeks',
+                          'This is how long it may take to reach your goal weight at your current deficit/surplus.',
+                          Icons.calendar_today,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      
                       _buildInfoCard(
                         context,
                         'Basal Metabolic Rate (BMR)',
@@ -237,6 +272,50 @@ class _ResultsScreenState extends State<ResultsScreen>
                         '$recommendedSteps steps/day',
                         'Aim for this step count to support your fitness goal.',
                         Icons.directions_walk,
+                      ),
+                      
+                      // Add scientific source information
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: customColors?.cardBackground?.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 18,
+                                  color: customColors?.textSecondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Scientific Sources',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: customColors?.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'These calculations are based on research from the International Society of Sports Nutrition, Harvard Medical School, and the National Institutes of Health.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: customColors?.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 40),
