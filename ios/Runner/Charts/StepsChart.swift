@@ -29,7 +29,7 @@ struct StepsChartView: View {
     private let showTrendline = false
     
     /// Performance optimization for large datasets
-    private let maxDisplayedPoints = 60 // Maximum number of points to display at once
+    private let maxDisplayedPoints = 30 // Reduced from 60 for better performance
     
     // Initialize with animation control
     init(entries: [Models.StepsEntry], animateChart: Bool = true) {
@@ -38,26 +38,9 @@ struct StepsChartView: View {
     }
     
     // MARK: - Computed Properties
-    
-    /// Moving average of steps for trendline
-    private var movingAverages: [Double] {
-        guard entries.count >= 7 else { return [] }
-        
-        let windowSize = 7
-        var result: [Double] = []
-        
-        for i in 0..<entries.count {
-            let startIndex = max(0, i - windowSize + 1)
-            let endIndex = i
-            let window = entries[startIndex...endIndex]
-            let sum = window.reduce(0) { $0 + $1.steps }
-            let average = Double(sum) / Double(window.count)
-            result.append(average)
-        }
-        
-        return result
-    }
-    
+
+    // Removed movingAverages calculation
+
     /// Optimized entries for display
     private var displayEntries: [Models.StepsEntry] {
         guard entries.count > maxDisplayedPoints else { return entries }
@@ -184,18 +167,6 @@ struct StepsChartView: View {
                     }
                 }
             }
-            
-            // Add 7-day moving average line if enough data
-            if showTrendline && entries.count >= 7 {
-                ForEach(movingAverages.indices.dropFirst().dropLast(), id: \.self) { index in
-                    LineMark(
-                        x: .value("Day", entries[index].date, unit: .day),
-                        y: .value("Average", movingAverages[index])
-                    )
-                    .foregroundStyle(Color(hex: "3A86FF").opacity(0.3))
-                    .interpolationMethod(.catmullRom)
-                }
-            }
         }
         .chartYScale(domain: yAxisDomain)
         .chartXAxis {
@@ -225,13 +196,14 @@ struct StepsChartView: View {
             }
         }
         .frame(height: 300)
+        .drawingGroup() // Use Metal rendering for better performance
     }
     
     // MARK: - Body
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            LazyVStack(alignment: .leading, spacing: 24) { // Changed to LazyVStack for better performance
                 // Header
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Your Steps")
@@ -243,28 +215,33 @@ struct StepsChartView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(.horizontal)
+                .drawingGroup() // Optimize the header
                 
                 // Stats Cards
                 statsCardsSection
                     .padding(.horizontal)
                 
-                // Main Chart
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Weekly Progress")
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
-                        .padding(.horizontal)
-                    
-                    createStepsBarChart()
-                        .padding(.horizontal, 8)
+                // Main Chart - wrapped in a container for better performance
+                HStack { // HStack forces a single-pass layout
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Weekly Progress")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal)
+                        
+                        createStepsBarChart()
+                            .padding(.horizontal, 8)
+                            .drawingGroup() // Use Metal rendering for chart
+                    }
+                    .frame(height: 350) // Fixed height for chart section
                 }
-                .frame(height: 350) // Fixed height for chart section
+                .frame(maxWidth: .infinity) // Force full width
                 
                 // Selection Details
                 if let selected = selectedEntry, showDetails {
                     selectionDetailsCard(for: selected)
                         .padding(.horizontal)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(.opacity) // Simpler transition for better performance
                 }
                 
                 // Today's Status
@@ -276,17 +253,24 @@ struct StepsChartView: View {
         }
         .background(Color(.systemBackground))
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.8).delay(0.2)) {
+            // Faster animation duration
+            withAnimation(.easeInOut(duration: 0.5)) {
                 animateChart = true
             }
         }
+        // Improve scroll performance with these modifiers
+        .scrollIndicators(.hidden)
+        .scrollDisabled(false)
+        // Use this modifier to improve scrolling performance
+        .scrollContentBackground(.hidden)
     }
     
     // MARK: - View Components
     
     /// Stats cards showing summary metrics
     private var statsCardsSection: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) { // Reduced spacing between cards
+            // Daily average card with explicit frame
             StatCard(
                 title: "Daily Avg",
                 value: "\(averageSteps.formattedWithCommas)",
@@ -295,7 +279,9 @@ struct StepsChartView: View {
                 color: Color(hex: "3A86FF"),
                 trend: calculateTrend()
             )
+            .frame(minWidth: 0, maxWidth: .infinity)
             
+            // Goal rate card with explicit frame
             StatCard(
                 title: "Goal Rate",
                 value: "\(Int(goalCompletionRate))%",
@@ -303,7 +289,9 @@ struct StepsChartView: View {
                 icon: "checkmark.circle",
                 color: goalCompletionRate >= 80 ? Color(hex: "38B000") : Color(hex: "FB8500")
             )
+            .frame(minWidth: 0, maxWidth: .infinity)
             
+            // Total card with explicit frame
             StatCard(
                 title: "Total",
                 value: "\(totalSteps.formattedWithCommas)",
@@ -311,8 +299,9 @@ struct StepsChartView: View {
                 icon: "sum",
                 color: Color(hex: "8338EC")
             )
+            .frame(minWidth: 0, maxWidth: .infinity)
         }
-        .frame(height: 100)
+        .frame(height: 110) // Increased height
     }
     
     /// Card showing details for selected day
@@ -434,7 +423,7 @@ struct ActivityStatusView: View {
                 Text("\(Int(animateProgress ? progress * 100 : 0))%")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(progress >= 1 ? Color(hex: "38B000") : Color(hex: "3A86FF"))
-                    .animation(.easeInOut(duration: 1.5), value: animateProgress)
+                    // Remove animation for smoother scrolling
             }
             
             // Progress bar
@@ -454,7 +443,8 @@ struct ActivityStatusView: View {
                         )
                     )
                     .frame(width: animateProgress ? min(progress, 1.0) * UIScreen.main.bounds.width * 0.85 : 0, height: 12)
-                    .animation(.easeInOut(duration: 1.2), value: animateProgress)
+                    // Use faster animation for better performance
+                    .animation(.easeInOut(duration: 0.8), value: animateProgress)
             }
             
             // Status footer
@@ -494,10 +484,12 @@ struct ActivityStatusView: View {
             }
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.5).delay(0.3)) {
+            // Faster animation
+            withAnimation(.easeInOut(duration: 0.8)) {
                 animateProgress = true
             }
         }
+        .drawingGroup() // Use Metal rendering for better performance
     }
 }
 
@@ -519,26 +511,28 @@ struct StatCard: View {
     // MARK: - Body
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) { // Reduced spacing
             // Icon
             HStack {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24) // Reduced icon size
                     .background(color)
-                    .cornerRadius(8)
+                    .cornerRadius(6)
                 
                 Text(title)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .font(.system(size: 12, weight: .medium, design: .rounded)) // Reduced font size
                     .foregroundColor(.secondary)
             }
             
             // Value with trend
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) { // Reduced spacing
                 Text(value)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(.system(size: 18, weight: .bold, design: .rounded)) // Reduced font size
                     .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8) // Allow text to scale down if needed
                 
                 // Optional trend indicator
                 if let trend = trend {
@@ -546,19 +540,19 @@ struct StatCard: View {
                         Image(systemName: trend >= 0 ? "arrow.up.right" : "arrow.down.right")
                         Text("\(abs(Int(trend)))%")
                     }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 10, weight: .medium)) // Reduced font size
                     .foregroundColor(trend >= 0 ? Color(hex: "38B000") : Color(hex: "FF006E"))
                 }
             }
             
             Text(subtitle)
-                .font(.system(size: 12, weight: .regular, design: .rounded))
+                .font(.system(size: 11, weight: .regular, design: .rounded)) // Reduced font size
                 .foregroundColor(.secondary)
         }
-        .padding(12)
+        .padding(10) // Reduced padding
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
+        .cornerRadius(12) // Reduced corner radius
         .opacity(appear ? 1 : 0)
         .offset(y: appear ? 0 : 20)
         .onAppear {
@@ -608,5 +602,3 @@ extension Color {
         )
     }
 }
-
-
