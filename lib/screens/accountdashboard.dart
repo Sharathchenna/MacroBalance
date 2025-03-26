@@ -19,6 +19,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
+import 'package:macrotracker/services/notification_service.dart';
+// Removed Firebase Messaging import if only used for testing token retrieval
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -42,9 +44,7 @@ class _AccountDashboardState extends State<AccountDashboard>
   };
   final Map<String, bool> _notificationSettings = {
     'mealReminders': true,
-    // 'hydrationTracking': true,
     'weeklyReports': true,
-    // 'achievementAlerts': true,
   };
 
   @override
@@ -56,6 +56,7 @@ class _AccountDashboardState extends State<AccountDashboard>
     );
     _checkHealthConnection();
     _loadUserData(); // Add this line
+    _loadNotificationPreferences(); // Add this line
 
     // Force iOS status bar to use black icons (for light mode)
     if (Platform.isIOS) {
@@ -139,6 +140,36 @@ class _AccountDashboardState extends State<AccountDashboard>
     }
   }
 
+  Future<void> _loadNotificationPreferences() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        final response = await _supabase
+            .from('user_notification_preferences')
+            .select()
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (response != null) {
+          setState(() {
+            _notificationSettings['mealReminders'] =
+                response['meal_reminders'] ?? true;
+            _notificationSettings['weeklyReports'] =
+                response['weekly_reports'] ?? true;
+          });
+        } else {
+          // Create default preferences if none exist
+          await NotificationService().updateNotificationPreferences(
+            _notificationSettings['mealReminders'] ?? true,
+            _notificationSettings['weeklyReports'] ?? true,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading notification preferences: $e');
+    }
+  }
+
   Future<void> _handleLogout() async {
     try {
       // Clear user data from SharedPreferences first
@@ -168,6 +199,15 @@ class _AccountDashboardState extends State<AccountDashboard>
       }
     }
   }
+
+  Future<void> _saveNotificationPreferences() async {
+    await NotificationService().updateNotificationPreferences(
+      _notificationSettings['mealReminders'] ?? false,
+      _notificationSettings['weeklyReports'] ?? false,
+    );
+  }
+
+  // --- Removed Notification Test Functions ---
 
   @override
   Widget build(BuildContext context) {
@@ -361,12 +401,31 @@ class _AccountDashboardState extends State<AccountDashboard>
                       setState(() {
                         _notificationSettings[entry.key] = value;
                       });
+                      _saveNotificationPreferences();
+                      // After the meal reminder toggle
+                      if (_notificationSettings['mealReminders'] == true) {
+                        _buildListTile(
+                          icon: CupertinoIcons.clock,
+                          iconColor: Colors.orange,
+                          title: 'Reminder Time',
+                          subtitle: 'Set when to receive meal reminders',
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _showMealReminderTimePicker();
+                          },
+                          colorScheme: colorScheme,
+                          customColors: customColors,
+                        );
+                      }
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
                   );
                 }).toList(),
               ),
+
+              // --- Removed Testing Section ---
 
               // Privacy & Security section
               _buildSection(
@@ -1056,6 +1115,61 @@ class _AccountDashboardState extends State<AccountDashboard>
         );
       }
     }
+  }
+
+  void _showMealReminderTimePicker() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.3,
+          padding: const EdgeInsets.only(top: 6.0),
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      child: const Text('Cancel'),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    CupertinoButton(
+                      child: const Text('Done'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        // Time is saved when picker value changes
+                      },
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.time,
+                    initialDateTime:
+                        DateTime(2022, 1, 1, 19, 0), // 7:00 PM default
+                    onDateTimeChanged: (DateTime newTime) {
+                      final formattedTime =
+                          '${newTime.hour.toString().padLeft(2, '0')}:${newTime.minute.toString().padLeft(2, '0')}:00';
+                      NotificationService().updateNotificationPreferences(
+                        _notificationSettings['mealReminders'] ?? false,
+                        _notificationSettings['weeklyReports'] ?? false,
+                        mealReminderTime: formattedTime,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "777530387724",
+    "project_id": "macrobalance-47200",
+    "storage_bucket": "macrobalance-47200.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:777530387724:android:ec5214ef518bea75beed29",
+        "android_client_info": {
+          "package_name": "com.sharathchenna88.nutrino"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADDYeH7Sp7rqslH9BXbwOu6nTytVyh2_Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -11,9 +11,11 @@ import app_settings
 import flutter_native_splash
 import device_info_plus
 import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, MessagingDelegate {
     private var methodHandler: FlutterMethodHandler?
     private var statsMethodHandler: StatsMethodHandler?
     
@@ -43,11 +45,28 @@ import UserNotifications
             statsFactory,
             withId: "stats_view"
         )
+
+        // Explicitly configure Firebase here BEFORE registering plugins
+        FirebaseApp.configure()
+        print("[AppDelegate] Firebase configured via FirebaseApp.configure()")
+        
+        GeneratedPluginRegistrant.register(with: self)
+        
+        // Note: FirebaseApp.configure() is now handled in Flutter code (comment remains, but we added configure above)
+        // Just set up the messaging delegate
+        Messaging.messaging().delegate = self
         
         if #available(iOS 10.0, *) {
-            UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
+            UNUserNotificationCenter.current().delegate = self
+            let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+            UNUserNotificationCenter.current().requestAuthorization(
+                options: authOptions,
+                completionHandler: { _, _ in }
+            )
         }
-        GeneratedPluginRegistrant.register(with: self)
+        
+        application.registerForRemoteNotifications()
+        
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
     
@@ -83,5 +102,25 @@ import UserNotifications
         let navController = UINavigationController(rootViewController: statsVC)
         navController.modalPresentationStyle = .fullScreen
         flutterViewController.present(navController, animated: true)
+    }
+    
+    // Add messaging delegate methods
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        print("Firebase registration token: \(String(describing: fcmToken))")
+        // Optionally: Send token to your backend server
+    }
+
+    // MARK: - Remote Notifications Registration
+
+    override func application(_ application: UIApplication,
+                        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        print("[AppDelegate] Registered for remote notifications with token.")
+        // Pass device token to Firebase Messaging
+        Messaging.messaging().apnsToken = deviceToken
+    }
+
+    override func application(_ application: UIApplication,
+                        didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("[AppDelegate] Failed to register for remote notifications: \(error.localizedDescription)")
     }
 }

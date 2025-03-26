@@ -1,7 +1,9 @@
 // ignore_for_file: unused_import
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
+import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
@@ -12,6 +14,7 @@ import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
+import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/services/widget_service.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -87,6 +90,19 @@ void updateStatusBarForIOS(bool isDarkMode) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase with explicit options
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint("Firebase initialized successfully with explicit options");
+  } catch (e) {
+    debugPrint("Firebase initialization error: $e");
+  }
+
+  // Initialize notification service
+  await NotificationService().initialize();
 
   // Set initial status bar style for iOS
   if (Platform.isIOS) {
