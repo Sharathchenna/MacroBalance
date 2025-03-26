@@ -47,6 +47,9 @@ class MacrosChartFactory {
         // Base configuration
         chart.chartDescription.enabled = false
         
+        // Set theme background
+        chart.backgroundColor = ThemeManager.shared.cardBackground
+        
         // Configure legend based on config
         chart.legend.enabled = config.showLegend
         if config.showLegend {
@@ -54,10 +57,10 @@ class MacrosChartFactory {
             chart.legend.verticalAlignment = .bottom
             chart.legend.orientation = .horizontal
             chart.legend.drawInside = false
-            chart.legend.font = .systemFont(ofSize: 12)
+            chart.legend.font = ThemeManager.shared.fontCaption()
             chart.legend.xEntrySpace = 12
             chart.legend.yOffset = 6
-            chart.legend.textColor = .label
+            chart.legend.textColor = ThemeManager.shared.textPrimary
             chart.legend.form = .circle
             chart.legend.formSize = 12
         }
@@ -75,8 +78,8 @@ class MacrosChartFactory {
         
         // Configure values
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 13, weight: .medium),
-            .foregroundColor: UIColor.label
+            .font: ThemeManager.shared.fontBody1(),
+            .foregroundColor: ThemeManager.shared.textPrimary
         ]
         chart.centerAttributedText = NSAttributedString(string: "Macros", attributes: attributes)
         
@@ -89,6 +92,9 @@ class MacrosChartFactory {
         // Base configuration
         chart.chartDescription.enabled = false
         
+        // Set theme background
+        chart.backgroundColor = ThemeManager.shared.cardBackground
+        
         // Configure legend based on config
         chart.legend.enabled = config.showLegend
         if config.showLegend {
@@ -96,10 +102,10 @@ class MacrosChartFactory {
             chart.legend.verticalAlignment = .top
             chart.legend.orientation = .horizontal
             chart.legend.drawInside = true
-            chart.legend.font = .systemFont(ofSize: 12)
+            chart.legend.font = ThemeManager.shared.fontCaption()
             chart.legend.form = .circle
             chart.legend.formSize = 8
-            chart.legend.textColor = .label
+            chart.legend.textColor = ThemeManager.shared.textPrimary
             chart.legend.xOffset = -5
             chart.legend.yOffset = 5
         }
@@ -109,19 +115,19 @@ class MacrosChartFactory {
         
         let xAxis = chart.xAxis
         xAxis.labelPosition = .bottom
-        xAxis.labelFont = .systemFont(ofSize: 10)
-        xAxis.labelTextColor = .secondaryLabel
+        xAxis.labelFont = ThemeManager.shared.fontCaption()
+        xAxis.labelTextColor = ThemeManager.shared.textSecondary
         xAxis.drawGridLinesEnabled = config.showGridLines
         xAxis.drawAxisLineEnabled = true
         xAxis.granularity = 1
         
         let leftAxis = chart.leftAxis
-        leftAxis.labelFont = .systemFont(ofSize: 10)
-        leftAxis.labelTextColor = .secondaryLabel
+        leftAxis.labelFont = ThemeManager.shared.fontCaption()
+        leftAxis.labelTextColor = ThemeManager.shared.textSecondary
         leftAxis.axisMinimum = 0
         leftAxis.drawGridLinesEnabled = config.showGridLines
         if config.showGridLines {
-            leftAxis.gridColor = .quaternaryLabel
+            leftAxis.gridColor = ThemeManager.shared.textSecondary.withAlphaComponent(0.2)
             leftAxis.gridLineDashLengths = [4, 2]
         }
         
@@ -140,6 +146,9 @@ class MacrosChartFactory {
         // Base configuration
         chart.chartDescription.enabled = false
         
+        // Set theme background
+        chart.backgroundColor = ThemeManager.shared.cardBackground
+        
         // Configure legend based on config
         chart.legend.enabled = config.showLegend
         if config.showLegend {
@@ -147,10 +156,10 @@ class MacrosChartFactory {
             chart.legend.verticalAlignment = .top
             chart.legend.orientation = .vertical
             chart.legend.drawInside = true
-            chart.legend.font = .systemFont(ofSize: 12)
+            chart.legend.font = ThemeManager.shared.fontCaption()
             chart.legend.form = .circle
             chart.legend.formSize = 8
-            chart.legend.textColor = .label
+            chart.legend.textColor = ThemeManager.shared.textPrimary
         }
         
         // Configure axes
@@ -158,19 +167,19 @@ class MacrosChartFactory {
         
         let xAxis = chart.xAxis
         xAxis.labelPosition = .bottom
-        xAxis.labelFont = .systemFont(ofSize: 10)
-        xAxis.labelTextColor = .secondaryLabel
+        xAxis.labelFont = ThemeManager.shared.fontCaption()
+        xAxis.labelTextColor = ThemeManager.shared.textSecondary
         xAxis.drawGridLinesEnabled = config.showGridLines
         xAxis.drawAxisLineEnabled = true
         xAxis.granularity = 1
         
         let leftAxis = chart.leftAxis
-        leftAxis.labelFont = .systemFont(ofSize: 10)
-        leftAxis.labelTextColor = .secondaryLabel
+        leftAxis.labelFont = ThemeManager.shared.fontCaption()
+        leftAxis.labelTextColor = ThemeManager.shared.textSecondary
         leftAxis.axisMinimum = 0
         leftAxis.drawGridLinesEnabled = config.showGridLines
         if config.showGridLines {
-            leftAxis.gridColor = .quaternaryLabel
+            leftAxis.gridColor = ThemeManager.shared.textSecondary.withAlphaComponent(0.2)
             leftAxis.gridLineDashLengths = [4, 2]
         }
         
@@ -674,6 +683,9 @@ class PieChartView: UIView {
         chartView = MacrosChartFactory.createPieChart()
         chartView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(chartView)
+        
+        // Apply the theme to the chart
+        ThemeManager.shared.applyChartTheme(to: chartView)
         
         NSLayoutConstraint.activate([
             chartView.topAnchor.constraint(equalTo: topAnchor),

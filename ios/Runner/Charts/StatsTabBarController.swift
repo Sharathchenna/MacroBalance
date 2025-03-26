@@ -60,13 +60,6 @@ class StatsTabBarController: UITabBarController {
             selectedImage: UIImage(systemName: "scalemass.fill")
         )
         
-        let caloriesVC = CaloriesViewController()
-        caloriesVC.tabBarItem = UITabBarItem(
-            title: "Calories",
-            image: UIImage(systemName: "flame"),
-            selectedImage: UIImage(systemName: "flame.fill")
-        )
-        
         let stepsVC = StepsViewController()
         stepsVC.tabBarItem = UITabBarItem(
             title: "Steps",
@@ -84,7 +77,6 @@ class StatsTabBarController: UITabBarController {
         // Wrap each view controller in a navigation controller to allow for proper nav bar setup
         viewControllers = [
             UINavigationController(rootViewController: weightVC),
-            UINavigationController(rootViewController: caloriesVC),
             UINavigationController(rootViewController: stepsVC),
             UINavigationController(rootViewController: macrosVC)
         ]
@@ -115,12 +107,10 @@ class StatsTabBarController: UITabBarController {
         switch section.lowercased() {
         case "weight":
             selectedIndex = 0
-        case "calories":
-            selectedIndex = 1
         case "steps":
-            selectedIndex = 2
+            selectedIndex = 1
         case "macros":
-            selectedIndex = 3
+            selectedIndex = 2
         default:
             selectedIndex = 0
         }

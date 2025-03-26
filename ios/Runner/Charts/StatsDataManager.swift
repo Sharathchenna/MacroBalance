@@ -191,15 +191,27 @@ class StatsDataManager: StatsDataProvider {
         let startDate = Calendar.current.date(byAdding: .day, value: -7, to: endDate)!
         fetchStepData(from: startDate, to: endDate, completion: completion)
     }
-    
+
     func fetchStepData(from startDate: Date, to endDate: Date, completion: @escaping ([Models.StepsEntry]) -> Void) {
-        // Check if HealthKit is available and we have permission
-        guard HKHealthStore.isHealthDataAvailable(),
-              UserDefaults.standard.bool(forKey: "healthkit_connected") else {
+        // Removed check for UserDefaults flag "healthkit_connected"
+        print("[StatsDataManager] fetchStepData called.")
+
+        // Get the current goal from UserDefaults
+        let currentGoal = UserDefaults.standard.integer(forKey: "steps_goal")
+        let goal = currentGoal > 0 ? currentGoal : 10000
+        print("[StatsDataManager] Using step goal: \(goal)")
+
+        // Check only if HealthKit is available on the device
+        guard HKHealthStore.isHealthDataAvailable() else {
+            print("[StatsDataManager] HealthKit not available on this device. Generating mock data.") // Log fallback
             completion(generateMockStepData(from: startDate, to: endDate))
             return
         }
-        
+
+        // Note: We now rely on the HealthKit query itself to handle authorization status.
+        // If permissions are denied, the query will likely return an error or empty results.
+        print("[StatsDataManager] Attempting HealthKit query for steps from \(startDate) to \(endDate)") // Log query attempt
+
         let stepsType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
         
         let predicate = HKQuery.predicateForSamples(
@@ -212,31 +224,47 @@ class StatsDataManager: StatsDataProvider {
             quantityType: stepsType,
             quantitySamplePredicate: predicate,
             options: .cumulativeSum,
-            anchorDate: startDate,
+            // Use start of day for anchor date for better alignment with daily intervals
+            anchorDate: Calendar.current.startOfDay(for: startDate), 
             intervalComponents: DateComponents(day: 1)
         )
-        
+
         query.initialResultsHandler = { [weak self] query, results, error in
-            guard let self = self,
-                  let results = results else {
+            // Handle potential errors first
+            if let error = error {
+                print("[StatsDataManager] HealthKit step query error: \(error.localizedDescription)")
                 DispatchQueue.main.async {
-                    completion(self?.generateMockStepData(from: startDate, to: endDate) ?? [])
+                    completion([]) // Return empty on error
                 }
                 return
             }
-            
+
+            guard let self = self, let results = results else {
+                print("[StatsDataManager] HealthKit query returned nil results (no error).") // Log nil results
+                DispatchQueue.main.async {
+                    completion([])
+                }
+                return
+            }
+
             var entries: [Models.StepsEntry] = []
-            let goal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? 
-                      UserDefaults.standard.integer(forKey: "steps_goal") : 10000
-            
+
+            print("[StatsDataManager] Enumerating HealthKit statistics...") // Log enumeration start
+            var statisticsCount = 0
             results.enumerateStatistics(from: startDate, to: endDate) { statistics, stop in
-                let steps = statistics.sumQuantity()?.doubleValue(for: .count()) ?? 0
+                statisticsCount += 1
+                let stepsQuantity = statistics.sumQuantity()
+                let steps = stepsQuantity?.doubleValue(for: .count()) ?? 0
+                
+                // Log each statistic processed
+                print("[StatsDataManager] Statistic for \(statistics.startDate): \(steps) steps (Quantity: \(stepsQuantity?.description ?? "nil"))")
+
                 let statsDataEntry = StatsData.Steps(
                     date: statistics.startDate,
                     count: Int(steps),
                     goal: goal
                 )
-                self.stepsData.append(statsDataEntry)
+                
                 let entry = Models.StepsEntry(
                     date: statistics.startDate,
                     steps: Int(steps),
@@ -244,8 +272,16 @@ class StatsDataManager: StatsDataProvider {
                 )
                 entries.append(entry)
             }
-            
+
+            print("[StatsDataManager] Finished enumerating. Processed \(statisticsCount) statistics.") // Log enumeration end
+            if entries.isEmpty && statisticsCount > 0 {
+                 print("[StatsDataManager] Warning: Processed statistics but generated 0 entries.") // Log if entries are empty despite stats
+            } else if entries.isEmpty && statisticsCount == 0 {
+                 print("[StatsDataManager] No statistics found in the given date range.") // Log if no stats found
+            }
+
             DispatchQueue.main.async {
+                print("[StatsDataManager] Completion handler called with \(entries.count) entries.") // Log completion
                 completion(entries)
             }
         }
@@ -258,6 +294,7 @@ class StatsDataManager: StatsDataProvider {
         let goal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? 
                   UserDefaults.standard.integer(forKey: "steps_goal") : 10000
         
+        print("[StatsDataManager] Generating mock step data with goal: \(goal)")
         let days = calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 0
         
         return (0...days).map { day in
@@ -266,14 +303,23 @@ class StatsDataManager: StatsDataProvider {
             
             // Generate realistic step counts
             let baseSteps = isWeekend ? 8000 : 10000
-            let variation = Int.random(in: -2000...2000)
+            let variation = Int.random(in: -2000...4000) // Increased upper range to sometimes exceed goal
             let steps = max(0, baseSteps + variation)
             
-            return Models.StepsEntry(
+            // Make today's and some random days exceed goal for testing
+            let shouldExceedGoal = calendar.isDateInToday(date) || 
+                                   (day % 3 == 0 && Bool.random(probability: 0.7))
+            
+            let finalSteps = shouldExceedGoal ? max(steps, goal + Int.random(in: 500...2000)) : steps
+            
+            let entry = Models.StepsEntry(
                 date: date,
-                steps: steps,
+                steps: finalSteps,
                 goal: goal
             )
+            
+            print("[StatsDataManager] Mock entry: Date: \(date), Steps: \(finalSteps), Goal: \(goal)")
+            return entry
         }
     }
     
@@ -649,6 +695,7 @@ class StatsDataManager: StatsDataProvider {
                 if success {
                     // Save that we've successfully connected to HealthKit
                     UserDefaults.standard.set(true, forKey: "healthkit_connected")
+                    UserDefaults.standard.synchronize() // Ensure the value is saved immediately
                 }
                 
                 completion(success)

@@ -49,6 +49,18 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
         setupRefreshControl()
         setupNotificationObserver() // Add observer setup
         loadData()
+        
+        // Apply theme to navigation and tab bar
+        if let navigationBar = navigationController?.navigationBar {
+            navigationBar.tintColor = ThemeManager.shared.accentPrimary
+            navigationBar.titleTextAttributes = [
+                NSAttributedString.Key.font: ThemeManager.shared.fontH2(),
+                NSAttributedString.Key.foregroundColor: ThemeManager.shared.textPrimary
+            ]
+        }
+        
+        // Apply theme to refresh control
+        refreshControl.tintColor = ThemeManager.shared.accentPrimary
     }
 
     deinit {
@@ -77,7 +89,7 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
     
     // MARK: - UI Setup
     private func setupUI() {
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = ThemeManager.shared.scaffoldBackground
         
         // Setup scroll view with physics
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -97,36 +109,24 @@ class MacrosViewController: UIViewController, UIScrollViewDelegate { // Add UISc
         // Date filter control - Keep setup, but it will be added to stack view later
         dateFilterControl.translatesAutoresizingMaskIntoConstraints = false
         dateFilterControl.delegate = self
-        // Remove cornerRadius/clipsToBounds from control itself, apply to a container if needed
-        // dateFilterControl.layer.cornerRadius = 22
-        // dateFilterControl.clipsToBounds = true
+        // Apply theme to date filter control background
+        dateFilterControl.backgroundColor = ThemeManager.shared.dateNavigatorBackground
 
         // Configure the chart container - Keep setup, but it will be added to stack view later
         macrosChartContainer.translatesAutoresizingMaskIntoConstraints = false
-        macrosChartContainer.backgroundColor = .secondarySystemBackground
-        macrosChartContainer.layer.cornerRadius = 20
+        ThemeManager.shared.styleCardView(macrosChartContainer)
         
-        // Setup shadow for card views
-        // Removed macrosSummaryView, mealBreakdownView, goalProgressView, macroBalanceView from this list
-        [macrosChartContainer, macrosTrendChart,
-         nutritionInsightsView, weeklyOverviewChart].forEach { view in
+        // Setup styling for card views
+        [macrosTrendChart, nutritionInsightsView, weeklyOverviewChart].forEach { view in
             view.translatesAutoresizingMaskIntoConstraints = false
-            view.layer.cornerRadius = 20
-            view.backgroundColor = .secondarySystemBackground
-            view.layer.shadowColor = UIColor.black.withAlphaComponent(0.1).cgColor
-            view.layer.shadowOffset = CGSize(width: 0, height: 6)
-            view.layer.shadowRadius = 16
-            view.layer.shadowOpacity = 1
+            ThemeManager.shared.styleCardView(view)
             cardViews.append(view)
         }
 
         // Add subviews to the UIStackView (contentView) in the desired order
-        // Moved dateFilterControl above weeklyOverviewChart
-        // Removed macrosSummaryView, mealBreakdownView, goalProgressView, macroBalanceView
         [headerView, macrosChartContainer, macrosTrendChart,
          dateFilterControl, weeklyOverviewChart,
          nutritionInsightsView].forEach { subview in
-            // Add horizontal padding if needed, or handle it in constraints
             contentView.addArrangedSubview(subview)
         }
     }
