@@ -196,6 +196,11 @@ class StatsDataManager: StatsDataProvider {
         // Removed check for UserDefaults flag "healthkit_connected"
         print("[StatsDataManager] fetchStepData called.")
 
+        // Get the current goal from UserDefaults
+        let currentGoal = UserDefaults.standard.integer(forKey: "steps_goal")
+        let goal = currentGoal > 0 ? currentGoal : 10000
+        print("[StatsDataManager] Using step goal: \(goal)")
+
         // Check only if HealthKit is available on the device
         guard HKHealthStore.isHealthDataAvailable() else {
             print("[StatsDataManager] HealthKit not available on this device. Generating mock data.") // Log fallback
@@ -243,8 +248,6 @@ class StatsDataManager: StatsDataProvider {
             }
 
             var entries: [Models.StepsEntry] = []
-            let goal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ?
-                      UserDefaults.standard.integer(forKey: "steps_goal") : 10000
 
             print("[StatsDataManager] Enumerating HealthKit statistics...") // Log enumeration start
             var statisticsCount = 0
@@ -252,6 +255,7 @@ class StatsDataManager: StatsDataProvider {
                 statisticsCount += 1
                 let stepsQuantity = statistics.sumQuantity()
                 let steps = stepsQuantity?.doubleValue(for: .count()) ?? 0
+                
                 // Log each statistic processed
                 print("[StatsDataManager] Statistic for \(statistics.startDate): \(steps) steps (Quantity: \(stepsQuantity?.description ?? "nil"))")
 
@@ -260,13 +264,12 @@ class StatsDataManager: StatsDataProvider {
                     count: Int(steps),
                     goal: goal
                 )
-                // self.stepsData.append(statsDataEntry) // Removed duplicate append
+                
                 let entry = Models.StepsEntry(
                     date: statistics.startDate,
                     steps: Int(steps),
                     goal: goal
                 )
-                // self.stepsData.append(statsDataEntry) // Removed duplicate append
                 entries.append(entry)
             }
 
@@ -291,6 +294,7 @@ class StatsDataManager: StatsDataProvider {
         let goal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? 
                   UserDefaults.standard.integer(forKey: "steps_goal") : 10000
         
+        print("[StatsDataManager] Generating mock step data with goal: \(goal)")
         let days = calendar.dateComponents([.day], from: startDate, to: endDate).day ?? 0
         
         return (0...days).map { day in
@@ -299,14 +303,23 @@ class StatsDataManager: StatsDataProvider {
             
             // Generate realistic step counts
             let baseSteps = isWeekend ? 8000 : 10000
-            let variation = Int.random(in: -2000...2000)
+            let variation = Int.random(in: -2000...4000) // Increased upper range to sometimes exceed goal
             let steps = max(0, baseSteps + variation)
             
-            return Models.StepsEntry(
+            // Make today's and some random days exceed goal for testing
+            let shouldExceedGoal = calendar.isDateInToday(date) || 
+                                   (day % 3 == 0 && Bool.random(probability: 0.7))
+            
+            let finalSteps = shouldExceedGoal ? max(steps, goal + Int.random(in: 500...2000)) : steps
+            
+            let entry = Models.StepsEntry(
                 date: date,
-                steps: steps,
+                steps: finalSteps,
                 goal: goal
             )
+            
+            print("[StatsDataManager] Mock entry: Date: \(date), Steps: \(finalSteps), Goal: \(goal)")
+            return entry
         }
     }
     

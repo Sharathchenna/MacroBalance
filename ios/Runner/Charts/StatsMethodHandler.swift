@@ -184,7 +184,7 @@ class StatsMethodHandler: NSObject {
             group.leave()
         }
         
-        // Fetch calories data
+        // Fetch calories data - still keeping this for Flutter side which might use it
         group.enter()
         dataManager.fetchCalorieData { entries in
             stats["calories"] = entries.map { [

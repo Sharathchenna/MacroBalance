@@ -26,8 +26,6 @@ class StatsViewController: UITabBarController {
                                    image: "scalemass", selectedImage: "scalemass.fill"),
             lazyNavigationController(for: StepsViewController.self, title: "Steps", 
                                    image: "figure.walk", selectedImage: "figure.walk.circle.fill"),
-            lazyNavigationController(for: CaloriesViewController.self, title: "Calories", 
-                                   image: "flame", selectedImage: "flame.fill"),
             lazyNavigationController(for: MacrosViewController.self, title: "Macros", 
                                    image: "chart.pie", selectedImage: "chart.pie.fill")
         ]
@@ -119,10 +117,8 @@ class StatsViewController: UITabBarController {
             selectedIndex = 0
         case "steps":
             selectedIndex = 1
-        case "calories":
-            selectedIndex = 2
         case "macros":
-            selectedIndex = 3
+            selectedIndex = 2
         default:
             selectedIndex = 0
         }
@@ -141,7 +137,6 @@ extension StatsViewController: UINavigationControllerDelegate {
         if viewController is UIViewController,
            !(viewController is WeightViewController),
            !(viewController is StepsViewController),
-           !(viewController is CaloriesViewController),
            !(viewController is MacrosViewController) {
             
             // Create the actual view controller based on the navigation controller's index
@@ -154,8 +149,6 @@ extension StatsViewController: UINavigationControllerDelegate {
             case 1:
                 actualVC = StepsViewController()
             case 2:
-                actualVC = CaloriesViewController()
-            case 3:
                 actualVC = MacrosViewController()
             default:
                 return
