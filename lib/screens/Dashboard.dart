@@ -458,8 +458,9 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   int _steps = 0;
   double _caloriesBurned = 0;
   bool _hasHealthPermissions = false;
-  bool _isLoadingHealthData = false; // Added loading state
-  DateTime? _lastFetchedDate; // Track the date for which data was fetched
+  bool _isLoadingHealthData = false;
+  DateTime? _lastFetchedDate;
+  late DateProvider _dateProvider;
 
   // Default goal, consider making this configurable or fetched
   final int _stepsGoal = 9000;
@@ -469,23 +470,22 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     super.initState();
     // Use addPostFrameCallback to ensure context is available for Provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _dateProvider = Provider.of<DateProvider>(context, listen: false);
       _initializeHealthData();
-      // Listen to date changes
-      Provider.of<DateProvider>(context, listen: false).addListener(_onDateChanged);
+      _dateProvider.addListener(_onDateChanged);
     });
   }
 
   @override
   void dispose() {
-    // Remove listener when the widget is disposed
-    Provider.of<DateProvider>(context, listen: false).removeListener(_onDateChanged);
+    _dateProvider.removeListener(_onDateChanged);
     super.dispose();
   }
 
   // Called when the DateProvider notifies listeners
   void _onDateChanged() {
     // Fetch data only if the date has actually changed since the last fetch
-    final selectedDate = Provider.of<DateProvider>(context, listen: false).selectedDate;
+    final selectedDate = _dateProvider.selectedDate;
     if (_lastFetchedDate == null || !_isSameDay(_lastFetchedDate!, selectedDate)) {
        _fetchHealthData();
     }
