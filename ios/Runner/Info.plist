@@ -47,6 +47,8 @@
 	<string>Location access may be used to enhance food tracking and nutritional recommendations based on your location</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs access to the microphone for video recording.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library access is needed to select images for food analysis.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

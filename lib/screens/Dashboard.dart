@@ -7,6 +7,9 @@ import 'package:macrotracker/screens/NativeStatsScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/screens/searchPage.dart';
+import 'package:macrotracker/camera/barcode_results.dart'; // Import for navigation
+import 'package:macrotracker/camera/results_page.dart'; // Import for navigation
+import 'package:macrotracker/models/ai_food_item.dart'; // Import for type casting
 import 'package:permission_handler/permission_handler.dart'; // Import needed for openAppSettings
 import 'package:provider/provider.dart';
 import '../Health/Health.dart';
@@ -126,12 +129,47 @@ class _DashboardState extends State<Dashboard> {
               _buildNavItemCompact(
                 context: context,
                 icon: CupertinoIcons.camera,
-                onTap: () {
+                onTap: () async { // Make async
                   HapticFeedback.lightImpact();
-                  Navigator.push(
+                  // Await the result from CameraScreen
+                  final CameraResult? result = await Navigator.push<CameraResult?>(
                     context,
-                    CupertinoPageRoute(builder: (context) => CameraScreen()),
+                    CupertinoPageRoute(builder: (context) => const CameraScreen()),
                   );
+
+                  // Handle the result after CameraScreen pops
+                  if (result != null && context.mounted) { // Check context.mounted
+                    final String type = result['type'] as String;
+                    final dynamic value = result['value'];
+
+                    if (type == 'barcode') {
+                      final String barcode = value as String;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => BarcodeResults(barcode: barcode)),
+                      );
+                    } else if (type == 'photo') {
+                      final List<AIFoodItem> foods = value as List<AIFoodItem>;
+                      if (foods.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(builder: (context) => ResultsPage(foods: foods)),
+                        );
+                      } else {
+                        // Show snackbar if no food identified
+                        ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('No food items identified in the image.'),
+                            backgroundColor: Colors.orangeAccent,
+                          ),
+                        );
+                      }
+                    }
+                  } else if (result == null) {
+                     print("[Dashboard] Camera cancelled or error occurred.");
+                     // Optionally show a message if needed
+                  }
                 },
               ),
               _buildNavItemCompact(
