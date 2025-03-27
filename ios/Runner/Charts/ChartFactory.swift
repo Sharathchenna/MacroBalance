@@ -54,9 +54,20 @@ class ChartFactory {
                       let dateString = dict["date"] as? String,
                       let date = ISO8601DateFormatter().date(from: dateString)
                 else { return nil }
+                // Note: The 'goal' from the dictionary might be outdated,
+                // but we'll pass the current goal from UserDefaults to the chart view anyway.
                 return Models.StepsEntry(date: date, steps: steps, goal: goal)
             }
-            let chartView = StepsChartView(entries: stepsData)
+            
+            // Get current goal from UserDefaults or default
+            let currentGoal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? UserDefaults.standard.integer(forKey: "steps_goal") : 10000
+            
+            // Provide default values for the new parameters
+            let chartView = StepsChartView(
+                entries: stepsData,
+                selectedTimePeriod: .week, // Default to week view for factory context
+                currentGoal: currentGoal // Pass the current goal
+            )
                 .environment(\.colorScheme, parent.traitCollection.userInterfaceStyle == .dark ? .dark : .light)
                 .frame(height: 300)
             hostingController = UIHostingController(rootView: AnyView(chartView))
