@@ -20,6 +20,9 @@ import 'package:macrotracker/screens/setting_screens/health_integration_screen.d
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
+import 'package:macrotracker/screens/privacy_policy_screen.dart'; // Added import
+import 'package:macrotracker/screens/terms_screen.dart'; // Added import
+import 'package:macrotracker/screens/feedback_screen.dart' as fb_screen; // Added import for feedback with prefix
 // Removed Firebase Messaging import if only used for testing token retrieval
 
 class AccountDashboard extends StatefulWidget {
@@ -439,9 +442,33 @@ class _AccountDashboardState extends State<AccountDashboard>
                     iconColor: Colors.grey,
                     title: 'Privacy Policy',
                     subtitle: 'Read our privacy policy',
-                    trailing: const Icon(Icons.open_in_new),
+                    trailing: const Icon(Icons.chevron_right), // Changed icon
                     onTap: () {
-                      HapticFeedback.lightImpact(); /* Open privacy policy */
+                      HapticFeedback.lightImpact();
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => const PrivacyPolicyScreen(),
+                        ),
+                      );
+                    },
+                    colorScheme: colorScheme,
+                    customColors: customColors,
+                  ),
+                  _buildListTile( // Added Terms & Conditions
+                    icon: CupertinoIcons.doc_text_fill,
+                    iconColor: Colors.blueGrey,
+                    title: 'Terms & Conditions',
+                    subtitle: 'Read our terms of service',
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => const TermsScreen(),
+                        ),
+                      );
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
@@ -488,8 +515,13 @@ class _AccountDashboardState extends State<AccountDashboard>
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      // Open feedback dialog
-                      // _showFeedbackDialog(context);
+                      // Navigate to FeedbackScreen
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => const fb_screen.FeedbackScreen(), // Use prefix here
+                        ),
+                      );
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,

@@ -30,6 +30,8 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  package_info_plus: ^8.3.0 # Updated for feedback screen (dependency resolution)
+  device_info_plus: ^9.1.2 # Added for feedback screen
   font_awesome_flutter: ^10.8.0
   supabase_flutter: ^2.8.3
   google_sign_in: ^6.2.2
@@ -42,7 +44,7 @@ dependencies:
   google_fonts: ^6.2.1
   camera: ^0.11.1
   health: ^12.0.1
-  image_picker: ^1.1.2
+  image_picker: ^1.1.2 # Already present, ensure it's up-to-date if needed
   fl_chart: ^0.70.2
   syncfusion_flutter_charts: ^28.2.6
   camerawesome: ^2.1.0
@@ -81,6 +83,7 @@ dependencies:
   purchases_ui_flutter: ^8.6.1
   visibility_detector: ^0.4.0+2
   rename_app: ^1.6.2
+  webview_flutter: ^4.10.0
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 # The following section is specific to Flutter packages.
@@ -95,6 +98,8 @@ flutter:
     - assets/splash_screen/
     - assets/images/
     - assets/animations/ # Added Lottie animations folder
+    - assets/privacy_policy.html # Added privacy policy
+    - assets/terms.html # Added terms and conditions
     # - images/a_dot_ham.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
