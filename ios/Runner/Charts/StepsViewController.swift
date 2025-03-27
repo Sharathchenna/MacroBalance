@@ -31,7 +31,8 @@ class StepsViewController: UIViewController {
         }
     }
 
-    private enum TimePeriod: String, CaseIterable {
+    // Made internal (default) by removing 'private'
+    enum TimePeriod: String, CaseIterable {
         case week = "Week"
         case month = "Month"
         case year = "Year"
@@ -51,7 +52,7 @@ class StepsViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupNavigationBar()
-        setupRefreshControl()
+        // setupRefreshControl() // Removed pull-to-refresh
         setupScrollViewDelegate()
         setupScrollingOptimizations()
         loadStepsData() // Load data initially
@@ -78,7 +79,7 @@ class StepsViewController: UIViewController {
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
         refreshControl.tintColor = UIColor(named: "AccentColor") ?? .systemBlue
         refreshControl.attributedTitle = NSAttributedString(string: "Pull to refresh")
-        scrollView.refreshControl = refreshControl
+        // scrollView.refreshControl = refreshControl // Removed pull-to-refresh
     }
 
     private func setupUI() {
@@ -141,7 +142,7 @@ class StepsViewController: UIViewController {
 
         headerTitle.text = "Steps"
         headerTitle.font = .systemFont(ofSize: 28, weight: .bold)
-        headerTitle.translatesAutoresizingMaskIntoConstraints = false
+        headerTitle.translatesAutoresizingMaskIntoConstraints = false                                                                                                                                                                                                                                                                                                                                                                                                       
 
         headerSubtitle.text = "Track your daily activity"
         headerSubtitle.font = .systemFont(ofSize: 16, weight: .regular)
@@ -188,9 +189,14 @@ class StepsViewController: UIViewController {
 
     private func updateAppearance() {
         if let hc = hostingController {
+            // Get current goal
+            let currentGoal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? UserDefaults.standard.integer(forKey: "steps_goal") : 10000
+
             // Update the environment for the existing SwiftUI view
             let chartView = StepsChartView(
                 entries: entries,
+                selectedTimePeriod: selectedTimePeriod, // Pass time period
+                currentGoal: currentGoal, // Pass current goal
                 animateChart: false // No animation on theme change
             )
             .environment(\.colorScheme, traitCollection.userInterfaceStyle == .dark ? .dark : .light)
@@ -205,9 +211,14 @@ class StepsViewController: UIViewController {
         // Remove empty state view if it exists
         hideEmptyState()
 
+        // Get current goal
+        let currentGoal = UserDefaults.standard.integer(forKey: "steps_goal") > 0 ? UserDefaults.standard.integer(forKey: "steps_goal") : 10000
+
         // Create the SwiftUI chart view content
         let chartView = StepsChartView(
             entries: entries,
+            selectedTimePeriod: selectedTimePeriod, // Pass time period
+            currentGoal: currentGoal, // Pass current goal
             animateChart: animated && selectedTimePeriod == .week // Only animate for week view
         )
         .environment(\.colorScheme, traitCollection.userInterfaceStyle == .dark ? .dark : .light)

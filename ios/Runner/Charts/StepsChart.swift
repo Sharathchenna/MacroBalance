@@ -14,6 +14,10 @@ struct StepsChartView: View {
     
     /// Collection of step entries to display
     let entries: [Models.StepsEntry]
+    /// The selected time period (passed from ViewController)
+    let selectedTimePeriod: StepsViewController.TimePeriod // Added
+    /// The current step goal (passed from ViewController)
+    let currentGoal: Int // Added
     
     /// Current color scheme (light/dark mode)
     @Environment(\.colorScheme) var colorScheme
@@ -30,25 +34,24 @@ struct StepsChartView: View {
     
     /// Performance optimization for large datasets
     private let maxDisplayedPoints = 30 // Reduced from 60 for better performance
-    
-    // Initialize with animation control
-    init(entries: [Models.StepsEntry], animateChart: Bool = true) {
+    // Initialize with animation control, time period, and goal
+    init(
+        entries: [Models.StepsEntry],
+        selectedTimePeriod: StepsViewController.TimePeriod, // Added
+        currentGoal: Int, // Added
+        animateChart: Bool = true
+    ) {
         self.entries = entries
+        self.selectedTimePeriod = selectedTimePeriod // Added
+        self.currentGoal = currentGoal // Added
         self._animateChart = State(initialValue: animateChart)
     }
     
     // MARK: - Computed Properties
 
     // Removed movingAverages calculation
+    // Removed displayEntries - using raw entries now
 
-    /// Optimized entries for display
-    private var displayEntries: [Models.StepsEntry] {
-        guard entries.count > maxDisplayedPoints else { return entries }
-        
-        let strideSize = max(1, entries.count / maxDisplayedPoints)
-        return Array(stride(from: 0, to: entries.count, by: strideSize)).map { entries[$0] }
-    }
-    
     /// Primary gradient for the chart bars
     private var primaryGradient: LinearGradient {
         LinearGradient(
@@ -96,9 +99,9 @@ struct StepsChartView: View {
         
         // Return 0 if no valid entries
         guard !validEntries.isEmpty else { return 0 }
-        
-        // Calculate percentage based on valid entries only
-        let completedDays = validEntries.filter { $0.steps >= $0.goal }.count
+
+        // Use the currentGoal passed into the view for calculation
+        let completedDays = validEntries.filter { $0.steps >= currentGoal }.count
         return Double(completedDays) / Double(validEntries.count) * 100
     }
     
@@ -106,11 +109,11 @@ struct StepsChartView: View {
     private var yAxisDomain: ClosedRange<Int> {
         if entries.isEmpty {
             return 0...10000
-        }
-        
+        } // <-- Added missing closing brace
+
         let maxSteps = entries.map(\.steps).max() ?? 0
-        let maxGoal = entries.map(\.goal).max() ?? 0
-        let maxValue = max(maxSteps, maxGoal)
+        // Use currentGoal for the domain calculation
+        let maxValue = max(maxSteps, currentGoal)
         
         // Add 20% padding to the top for better visualization
         return 0...Int(Double(maxValue) * 1.2)
@@ -145,52 +148,70 @@ struct StepsChartView: View {
     
     /// Creates an optimized bar chart for the current dataset
     private func createStepsBarChart() -> some View {
-        Chart {
-            // Step bars - use displayEntries for optimization
-            ForEach(displayEntries) { entry in
+        let yDomain = yAxisDomain // Calculate domain once
+
+        // Calculate stride parameters outside the closure
+        let strideUnit: Calendar.Component
+        let strideCount: Int
+        switch selectedTimePeriod {
+        case .week:
+            strideUnit = .day
+            strideCount = 1
+        case .month:
+            strideUnit = .day
+            strideCount = 7 // Label every week
+        case .year:
+            strideUnit = .month // Label every month
+            strideCount = 1
+        }
+
+        return Chart {
+            // Goal Line - Draw once across the chart
+            RuleMark(y: .value("Goal", currentGoal))
+                .lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 4]))
+                .foregroundStyle(Color(hex: "FF006E").opacity(0.7))
+                .annotation(position: .topTrailing, alignment: .leading) {
+                    Text("Goal: \(currentGoal.formattedWithCommas)")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(Color(hex: "FF006E"))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color(hex: "FF006E").opacity(0.1))
+                        .cornerRadius(4)
+                }
+
+            // Step bars - use raw entries
+            ForEach(entries) { entry in
+                let barValue = animateChart ? entry.steps : 0
+                // Ensure bar value doesn't exceed the chart domain if animating from 0
+                let clampedBarValue = min(barValue, yDomain.upperBound)
+
                 BarMark(
-                    x: .value("Day", entry.date, unit: .day),
-                    y: .value("Steps", animateChart ? entry.steps : 0),
-                    width: .fixed(25) // Fixed bar width
+                    x: .value("Day", entry.date, unit: xAxisTimeUnit), // Use dynamic time unit
+                    y: .value("Steps", clampedBarValue)
+                    // Removed fixed width
                 )
                 .foregroundStyle(
-                    entry.steps >= entry.goal ? successGradient : primaryGradient
+                    entry.steps >= currentGoal ? successGradient : primaryGradient // Use currentGoal
                 )
-                .cornerRadius(8)
-                
-                // Goal marker - only show for first and last points
-                if entry.id == displayEntries.first?.id || entry.id == displayEntries.last?.id {
-                    RuleMark(
-                        y: .value("Goal", entry.goal)
-                    )
-                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 4]))
-                    .foregroundStyle(Color(hex: "FF006E").opacity(0.5))
-                    .annotation(position: .trailing, alignment: .leading) {
-                        if entry.id == displayEntries.last?.id {
-                            Text("Goal: \(entry.goal.formattedWithCommas)")
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundColor(Color(hex: "FF006E"))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color(hex: "FF006E").opacity(0.1))
-                                .cornerRadius(4)
-                        }
-                    }
-                }
+                .cornerRadius(selectedTimePeriod == .week ? 8 : 4) // Smaller radius for more bars
             }
         }
-        .chartYScale(domain: yAxisDomain)
+        .chartYScale(domain: yDomain) // Use pre-calculated domain
+        // Use pre-calculated stride parameters
         .chartXAxis {
-            AxisMarks(values: .stride(by: .day)) { value in
-                if let date = value.as(Date.self),
-                   displayEntries.contains(where: { Calendar.current.isDate($0.date, equalTo: date, toGranularity: .day) }) {
-                    AxisValueLabel {
-                        Text(date, format: .dateTime.weekday(.abbreviated))
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
+             AxisMarks(values: .stride(by: strideUnit, count: strideCount)) { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
+                        Text(date, format: xAxisLabelFormat)
+                            .font(.system(size: 12, weight: .medium, design: .rounded)) // Smaller font for month/year
                             .foregroundColor(.secondary)
+                    } else {
+                        // Return an empty Text view if date conversion fails
+                        Text("")
                     }
-                    AxisGridLine()
-                    AxisTick()
                 }
             }
         }
@@ -215,13 +236,13 @@ struct StepsChartView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) { // Changed to LazyVStack for better performance
-                // Header
+                // Header - Now dynamic based on selectedTimePeriod
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Your Steps")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                     
-                    Text("Last 7 days")
+                    Text(headerSubtitleText) // Use dynamic subtitle
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundColor(.secondary)
                 }
@@ -231,21 +252,18 @@ struct StepsChartView: View {
                 // Stats Cards
                 statsCardsSection
                     .padding(.horizontal)
-                
                 // Main Chart - wrapped in a container for better performance
-                HStack { // HStack forces a single-pass layout
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Weekly Progress")
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
-                            .foregroundColor(.primary)
-                            .padding(.horizontal)
-                        
-                        createStepsBarChart()
-                            .padding(.horizontal, 8)
-                            .drawingGroup() // Use Metal rendering for chart
-                    }
-                    .frame(height: 350) // Fixed height for chart section
+                VStack(alignment: .leading, spacing: 16) { // Use VStack directly
+                    Text(chartTitleText) // Use dynamic title
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal)
+                    
+                    createStepsBarChart()
+                        .padding(.horizontal, 8)
+                        .drawingGroup() // Use Metal rendering for chart
                 }
+                .frame(height: 350) // Fixed height for chart section
                 .frame(maxWidth: .infinity) // Force full width
                 
                 // Selection Details
@@ -335,15 +353,16 @@ struct StepsChartView: View {
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(.secondary)
                 
-                let percentage = Int((Double(entry.steps) / Double(entry.goal)) * 100)
+                // Use currentGoal for percentage calculation
+                let percentage = Int((Double(entry.steps) / Double(currentGoal)) * 100)
                 HStack(spacing: 4) {
                     Text("\(percentage)%")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                     
-                    Image(systemName: entry.steps >= entry.goal ? "checkmark.circle.fill" : "arrow.up.circle.fill")
+                    Image(systemName: entry.steps >= currentGoal ? "checkmark.circle.fill" : "arrow.up.circle.fill")
                         .font(.system(size: 16))
                 }
-                .foregroundColor(entry.steps >= entry.goal ? Color(hex: "38B000") : Color(hex: "3A86FF"))
+                .foregroundColor(entry.steps >= currentGoal ? Color(hex: "38B000") : Color(hex: "3A86FF"))
             }
         }
         .padding(16)
@@ -354,9 +373,10 @@ struct StepsChartView: View {
     /// Section showing today's status
     private var todayStatusSection: some View {
         Group {
-            if let todayEntry = entries.last, 
+            if let todayEntry = entries.last,
                Calendar.current.isDateInToday(todayEntry.date) {
-                ActivityStatusView(entry: todayEntry)
+                // Pass currentGoal to ActivityStatusView
+                ActivityStatusView(entry: todayEntry, currentGoal: currentGoal)
                     .frame(minHeight: 150) // Increased minimum height
             }
         }
@@ -369,22 +389,25 @@ struct StepsChartView: View {
 struct ActivityStatusView: View {
     // MARK: - Properties
     
-    /// The step entry to display
+    /// The step entry to display (should use currentGoal)
     let entry: Models.StepsEntry
+    /// The current step goal
+    let currentGoal: Int
     
     /// Animation state
     @State private var animateProgress = false
     
     // MARK: - Computed Properties
     
-    /// Progress toward goal (0.0 to 1.0)
+    /// Progress toward goal (0.0 to 1.0) - Use currentGoal
     private var progress: Double {
-        Double(entry.steps) / Double(entry.goal)
+        guard currentGoal > 0 else { return 0 } // Avoid division by zero
+        return min(1.0, Double(entry.steps) / Double(currentGoal)) // Cap at 1.0
     }
     
-    /// Remaining steps to reach goal
+    /// Remaining steps to reach goal - Use currentGoal
     private var remaining: Int {
-        max(0, entry.goal - entry.steps)
+        max(0, currentGoal - entry.steps)
     }
     
     /// Status text for current pace
@@ -443,31 +466,33 @@ struct ActivityStatusView: View {
                     .fill(Color.gray.opacity(0.2))
                     .frame(height: 12)
                 
+                // Use currentGoal for color logic
                 RoundedRectangle(cornerRadius: 6)
                     .fill(
                         LinearGradient(
-                            colors: progress >= 1 ? 
-                                [Color(hex: "38B000").opacity(0.7), Color(hex: "38B000")] : 
+                            colors: entry.steps >= currentGoal ?
+                                [Color(hex: "38B000").opacity(0.7), Color(hex: "38B000")] :
                                 [Color(hex: "3A86FF").opacity(0.7), Color(hex: "3A86FF")],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
-                    .frame(width: animateProgress ? min(progress, 1.0) * UIScreen.main.bounds.width * 0.85 : 0, height: 12)
+                    // Calculate width based on screen size and padding
+                    .frame(width: calculateProgressBarWidth(), height: 12)
                     // Use faster animation for better performance
                     .animation(.easeInOut(duration: 0.8), value: animateProgress)
             }
             
             // Status footer
             HStack(alignment: .top) {
-                // Left side - completion status
-                if progress >= 1 {
+                // Left side - completion status (use currentGoal)
+                if entry.steps >= currentGoal {
                     Label("Goal Achieved! 🎉", systemImage: "checkmark.circle.fill")
                         .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundColor(Color(hex: "38B000"))
                 } else {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(remaining.formattedWithCommas) steps to goal")
+                        Text("\(remaining.formattedWithCommas) steps to goal") // Uses computed remaining
                             .font(.system(size: 16, weight: .medium, design: .rounded))
                             .foregroundColor(.secondary)
                         Text("Keep moving! You're doing great!")
@@ -501,6 +526,64 @@ struct ActivityStatusView: View {
             }
         }
         .drawingGroup() // Use Metal rendering for better performance
+    }
+
+    /// Calculate the width of the progress bar dynamically
+    private func calculateProgressBarWidth() -> CGFloat {
+        // Get the screen width minus horizontal padding (approx 16pt each side)
+        let availableWidth = UIScreen.main.bounds.width - 32
+        let calculatedWidth = min(progress, 1.0) * availableWidth
+        // Ensure width is not negative and respects animation state
+        return animateProgress ? max(0, calculatedWidth) : 0
+    }
+}
+
+// MARK: - Chart Helpers (Moved inside StepsChartView)
+
+extension StepsChartView {
+    // Removed xAxisMarks computed property
+
+    /// Provides the appropriate time unit for the X-axis based on the selected period
+    private var xAxisTimeUnit: Calendar.Component {
+        switch selectedTimePeriod {
+        case .week: return .day
+        case .month: return .day
+        case .year: return .weekOfYear // Group by week for year view
+        }
+    }
+
+    /// Provides the appropriate date format for X-axis labels
+    private var xAxisLabelFormat: Date.FormatStyle {
+        switch selectedTimePeriod {
+        case .week:
+            return .dateTime.weekday(.abbreviated)
+        case .month:
+            // Show day number, maybe first/last day of week? Let's try day number.
+             return .dateTime.day()
+        case .year:
+            // Show week number or month? Let's try month abbreviation.
+            return .dateTime.month(.abbreviated)
+        }
+    }
+
+    // Removed xAxisMarks computed property
+
+    /// Dynamic subtitle for the main header
+    private var headerSubtitleText: String {
+        switch selectedTimePeriod {
+        case .week: return "Last 7 days"
+        case .month: return "Last 30 days"
+        case .year: return "Last 365 days"
+        }
+    }
+
+    /// Dynamic title for the chart section
+    private var chartTitleText: String {
+        switch selectedTimePeriod {
+        case .week: return "Weekly Progress"
+        case .month: return "Monthly Progress"
+        case .year: return "Yearly Progress"
+        }
     }
 }
 
@@ -612,4 +695,4 @@ extension Color {
             opacity: Double(a) / 255
         )
     }
-}
+} // <-- Added missing closing brace for extension Color
