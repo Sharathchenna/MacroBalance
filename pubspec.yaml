@@ -81,6 +81,7 @@ dependencies:
   purchases_ui_flutter: ^8.6.1
   visibility_detector: ^0.4.0+2
   rename_app: ^1.6.2
+  webview_flutter: ^4.10.0
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 # The following section is specific to Flutter packages.
@@ -95,6 +96,8 @@ flutter:
     - assets/splash_screen/
     - assets/images/
     - assets/animations/ # Added Lottie animations folder
+    - assets/privacy_policy.html # Added privacy policy
+    - assets/terms.html # Added terms and conditions
     # - images/a_dot_ham.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
