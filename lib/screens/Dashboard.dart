@@ -1166,169 +1166,221 @@ class _MealSectionState extends State<MealSection> {
             clipBehavior:
                 Clip.antiAlias, // Important: clip to the border radius
             child: Column(
-              children: [
-                // Header section
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      expandedState[mealType] = !expandedState[mealType]!;
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
+                children: [
+                  // Header section
+                  InkWell(
+                    splashColor: Colors.transparent, // Remove splash effect
+                    highlightColor: Colors.transparent, // Remove highlight effect
+                    onTap: () {
+                      setState(() {
+                        expandedState[mealType] = !expandedState[mealType]!;
+                      });
+                      // Add haptic feedback for better interaction
+                      HapticFeedback.lightImpact();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 14),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color:
-                                _getMealColor(mealType).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: _getMealColor(mealType).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              getMealIcon(),
+                              color: _getMealColor(mealType),
+                              size: 20,
+                            ),
                           ),
-                          child: Icon(
-                            getMealIcon(),
-                            color: _getMealColor(mealType),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                mealType,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context)
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  mealType,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
                                       .extension<CustomColors>()
                                       ?.textPrimary,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                '${entries.length} item${entries.length != 1 ? 's' : ''}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.light
+                                Text(
+                                  '${entries.length} item${entries.length != 1 ? 's' : ''}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: Theme.of(context).brightness ==
+                                        Brightness.light
                                       ? Colors.grey.shade600
                                       : Colors.grey.shade400,
+                                  ),
                                 ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${totalCalories.toStringAsFixed(0)} kcal',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context)
+                                    .extension<CustomColors>()
+                                    ?.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              TweenAnimationBuilder<double>(
+                                tween: Tween<double>(
+                                  begin: 0,
+                                  end: expandedState[mealType]! ? 1.0 : 0,
+                                ),
+                                duration: const Duration(milliseconds: 350),
+                                curve: Curves.easeInOutCubic,
+                                builder: (context, value, child) {
+                                  return Transform.rotate(
+                                    angle: value * 3.14159,
+                                    child: Icon(
+                                      Icons.expand_more,
+                                      color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                        ? Colors.grey.shade700
+                                        : Colors.grey.shade400,
+                                      size: 18,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '${totalCalories.toStringAsFixed(0)} kcal',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context)
-                                    .extension<CustomColors>()
-                                    ?.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            AnimatedRotation(
-                              turns: expandedState[mealType]! ? 0.5 : 0,
-                              duration: const Duration(milliseconds: 300),
-                              child: Icon(
-                                Icons.expand_more,
-                                color: Theme.of(context).brightness ==
-                                        Brightness.light
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade400,
-                                size: 18,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                // Expandable content
-                AnimatedCrossFade(
-                  firstChild: const SizedBox(height: 0),
-                  secondChild: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Add dividers between items
-                      for (int i = 0; i < entries.length; i++) ...[
-                        if (i == 0)
-                          const Divider(
-                              height: 1,
-                              thickness: 0.5), // Divider before the first item
-                        _buildFoodItem(context, entries[i], foodEntryProvider),
-                        if (i < entries.length - 1) // Divider between items
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0), // Indent divider
-                            child: Divider(height: 1, thickness: 0.5),
-                          ),
-                      ],
-                      // Refined "Add Food" Button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 16.0), // Adjusted padding
-                        child: TextButton.icon(
-                          icon: Icon(
-                            Icons.add_circle_outline,
-                            size: 18, // Slightly larger icon
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary, // Use theme color
-                          ),
-                          label: Text(
-                            'Add Food to $mealType',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13, // Slightly larger text
-                              fontWeight: FontWeight.w500,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary, // Use theme color
+                  // Expandable content with improved animation
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeOutCubic,
+                    child: expandedState[mealType]!
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Custom animated container for the divider
+                            TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: 0.0, end: 1.0),
+                              duration: const Duration(milliseconds: 250),
+                              builder: (context, value, child) {
+                                return Opacity(
+                                  opacity: value,
+                                  child: const Divider(
+                                    height: 1,
+                                    thickness: 0.5,
+                                  ),
+                                );
+                              },
                             ),
-                          ),
-                          style: TextButton.styleFrom(
-                            backgroundColor: Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withOpacity(0.1), // Subtle background
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 10, horizontal: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(12), // More rounded
-                            ),
-                            minimumSize:
-                                Size(double.infinity, 40), // Make button wider
-                          ),
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            Navigator.push(
-                              context,
-                              CupertinoPageRoute(
-                                builder: (context) =>
-                                    FoodSearchPage(selectedMeal: mealType),
+                            // Staggered animation for list items
+                            for (int i = 0; i < entries.length; i++)
+                              AnimatedOpacity(
+                                opacity: 1.0,
+                                duration: Duration(
+                                  milliseconds: 200 + (i * 50).clamp(0, 300)),
+                                curve: Curves.easeOutCubic,
+                                child: AnimatedPadding(
+                                  padding: const EdgeInsets.all(0),
+                                  duration: Duration(
+                                    milliseconds:
+                                      200 + (i * 50).clamp(0, 300)),
+                                  curve: Curves.easeOutCubic,
+                                  child: Column(
+                                    children: [
+                                      _buildFoodItem(
+                                        context, entries[i], foodEntryProvider),
+                                      if (i < entries.length - 1)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16.0),
+                                          child: Divider(
+                                            height: 1, thickness: 0.5),
+                                        ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                            // Animated Add Food button
+                            TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: 0.0, end: 1.0),
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, child) {
+                                return Transform.scale(
+                                  scale: 0.8 + (0.2 * value),
+                                  child: Opacity(
+                                    opacity: value,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8.0, horizontal: 16.0),
+                                      child: TextButton.icon(
+                                        icon: Icon(
+                                          Icons.add_circle_outline,
+                                          size: 18,
+                                          color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        ),
+                                        label: Text(
+                                          'Add Food to $mealType',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          ),
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          backgroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                            .withOpacity(0.1),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 10, horizontal: 16),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                              BorderRadius.circular(12),
+                                          ),
+                                          minimumSize:
+                                            Size(double.infinity, 40),
+                                        ),
+                                        onPressed: () {
+                                          HapticFeedback.lightImpact();
+                                          Navigator.push(
+                                            context,
+                                            CupertinoPageRoute(
+                                              builder: (context) =>
+                                                FoodSearchPage(
+                                                  selectedMeal: mealType),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
                   ),
-                  crossFadeState: expandedState[mealType]!
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 300),
-                ),
               ],
             ),
           ),

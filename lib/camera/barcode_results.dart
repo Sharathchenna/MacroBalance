@@ -799,6 +799,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 'Try Again',
                 style: AppTypography.button.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: customColors.textPrimary,
                 ),
               ),
             ),
