@@ -22,6 +22,7 @@ import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/screens/privacy_policy_screen.dart'; // Added import
 import 'package:macrotracker/screens/terms_screen.dart'; // Added import
+import 'package:macrotracker/screens/feedback_screen.dart' as fb_screen; // Added import for feedback with prefix
 // Removed Firebase Messaging import if only used for testing token retrieval
 
 class AccountDashboard extends StatefulWidget {
@@ -514,8 +515,13 @@ class _AccountDashboardState extends State<AccountDashboard>
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      // Open feedback dialog
-                      // _showFeedbackDialog(context);
+                      // Navigate to FeedbackScreen
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => const fb_screen.FeedbackScreen(), // Use prefix here
+                        ),
+                      );
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
