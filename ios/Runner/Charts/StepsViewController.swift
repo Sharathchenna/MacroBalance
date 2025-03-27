@@ -2,8 +2,6 @@ import UIKit
 import SwiftUI
 import HealthKit
 import Charts
-import DGCharts
-import CoreMotion
 
 class StepsViewController: UIViewController {
     // MARK: - Properties
@@ -23,24 +21,6 @@ class StepsViewController: UIViewController {
     private let headerSubtitle = UILabel()
     private let segmentedControl = UISegmentedControl(items: ["Week", "Month", "Year"])
     private var emptyStateView: UIView? // To hold the empty state view
-    
-    // Stats UI Components - Add these as properties
-    private let currentStepsCard = UIView()
-    private let weeklyAverageCard = UIView()
-    private let totalDistanceCard = UIView()
-    private let caloriesBurnedCard = UIView()
-    private let stepsChartView = UIView()
-    private let headerLabel = UILabel()
-    private let currentStepsValueLabel = UILabel()
-    private let currentStepsLabel = UILabel()
-    private let weeklyAverageValueLabel = UILabel()
-    private let weeklyAverageLabel = UILabel()
-    private let totalDistanceValueLabel = UILabel()
-    private let totalDistanceLabel = UILabel()
-    private let caloriesBurnedValueLabel = UILabel()
-    private let caloriesBurnedLabel = UILabel()
-    private let statsGrid = UIStackView()
-    private let statsGrid2 = UIStackView()
 
     // Time period for data
     private var selectedTimePeriod: TimePeriod = .week {
@@ -96,15 +76,14 @@ class StepsViewController: UIViewController {
 
     private func setupRefreshControl() {
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
-        refreshControl.tintColor = ThemeManager.shared.accentPrimary
+        refreshControl.tintColor = UIColor(named: "AccentColor") ?? .systemBlue
         refreshControl.attributedTitle = NSAttributedString(string: "Pull to refresh")
         scrollView.refreshControl = refreshControl
     }
 
     private func setupUI() {
-        // Apply theme background color
-        view.backgroundColor = ThemeManager.shared.scaffoldBackground
-        
+        view.backgroundColor = .systemBackground
+
         // Setup header
         setupHeaderView()
 
@@ -113,85 +92,18 @@ class StepsViewController: UIViewController {
 
         // Setup scroll view
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = true
         scrollView.alwaysBounceVertical = true
-        scrollView.refreshControl = refreshControl
+        // Fix scrolling performance issues
+        scrollView.decelerationRate = .normal
+        scrollView.contentInsetAdjustmentBehavior = .automatic
         view.addSubview(scrollView)
 
         // Setup chart container view inside scroll view
         chartContainerView.translatesAutoresizingMaskIntoConstraints = false
-        chartContainerView.backgroundColor = ThemeManager.shared.cardBackground
-        chartContainerView.layer.cornerRadius = 20
-        chartContainerView.layer.shadowColor = UIColor.black.withAlphaComponent(0.1).cgColor
-        chartContainerView.layer.shadowOffset = CGSize(width: 0, height: 6)
-        chartContainerView.layer.shadowRadius = 16
-        chartContainerView.layer.shadowOpacity = 1
         scrollView.addSubview(chartContainerView)
         chartContainerView.tag = 99 // Tag to identify the chart container
-        
-        // Setup date filter control (it's segmentedControl in this class)
-        // No need to set delegate on segmentedControl since it uses target-action
 
-        // Setup stats card views
-        [currentStepsCard, weeklyAverageCard, totalDistanceCard, caloriesBurnedCard].forEach { card in
-            card.translatesAutoresizingMaskIntoConstraints = false
-            card.layer.cornerRadius = 16
-            // Apply theme to card
-            ThemeManager.shared.styleCardView(card)
-        }
-        
-        // Setup step chart view
-        stepsChartView.translatesAutoresizingMaskIntoConstraints = false
-        stepsChartView.layer.cornerRadius = 20
-        // Apply theme to chart container
-        ThemeManager.shared.styleCardView(stepsChartView)
-        
-        // Setup header label
-        headerLabel.translatesAutoresizingMaskIntoConstraints = false
-        headerLabel.text = "Steps"
-        // Apply typography theme
-        ThemeManager.shared.styleLabel(headerLabel, type: .h1)
-        
-        // Initialize UI elements for stat cards
-        initializeStatLabels()
-        
-        // Add views to container
-        chartContainerView.addSubview(headerLabel)
-        
-        // Add stats cards to grid
-        statsGrid.translatesAutoresizingMaskIntoConstraints = false
-        statsGrid.axis = .horizontal
-        statsGrid.distribution = .fillEqually
-        statsGrid.spacing = 16
-        statsGrid.addArrangedSubview(currentStepsCard)
-        statsGrid.addArrangedSubview(weeklyAverageCard)
-        chartContainerView.addSubview(statsGrid)
-        
-        statsGrid2.translatesAutoresizingMaskIntoConstraints = false
-        statsGrid2.axis = .horizontal
-        statsGrid2.distribution = .fillEqually
-        statsGrid2.spacing = 16
-        statsGrid2.addArrangedSubview(totalDistanceCard)
-        statsGrid2.addArrangedSubview(caloriesBurnedCard)
-        chartContainerView.addSubview(statsGrid2)
-        
-        // Add chart view to container
-        chartContainerView.addSubview(stepsChartView)
-        
-        // Style step count labels
-        ThemeManager.shared.styleLabel(currentStepsValueLabel, type: .h1)
-        ThemeManager.shared.styleLabel(currentStepsLabel, type: .caption)
-        ThemeManager.shared.styleLabel(weeklyAverageValueLabel, type: .h2)
-        ThemeManager.shared.styleLabel(weeklyAverageLabel, type: .caption)
-        ThemeManager.shared.styleLabel(totalDistanceValueLabel, type: .h2)
-        ThemeManager.shared.styleLabel(totalDistanceLabel, type: .caption)
-        ThemeManager.shared.styleLabel(caloriesBurnedValueLabel, type: .h2)
-        ThemeManager.shared.styleLabel(caloriesBurnedLabel, type: .caption)
-        
-        // Configure refresh control
-        refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
-        refreshControl.tintColor = ThemeManager.shared.accentPrimary
-        
         NSLayoutConstraint.activate([
             // Header constraints
             headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
@@ -210,35 +122,12 @@ class StepsViewController: UIViewController {
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            // ContainerView constraints (inside ScrollView)
+            // ChartContainerView constraints (inside ScrollView)
             chartContainerView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
             chartContainerView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             chartContainerView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             chartContainerView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            chartContainerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-
-            // HeaderLabel constraints
-            headerLabel.topAnchor.constraint(equalTo: chartContainerView.topAnchor, constant: 20),
-            headerLabel.leadingAnchor.constraint(equalTo: chartContainerView.leadingAnchor, constant: 20),
-            headerLabel.trailingAnchor.constraint(equalTo: chartContainerView.trailingAnchor, constant: -20),
-
-            // StatsGrid constraints
-            statsGrid.topAnchor.constraint(equalTo: headerLabel.bottomAnchor, constant: 20),
-            statsGrid.leadingAnchor.constraint(equalTo: chartContainerView.leadingAnchor, constant: 20),
-            statsGrid.trailingAnchor.constraint(equalTo: chartContainerView.trailingAnchor, constant: -20),
-            statsGrid.heightAnchor.constraint(equalToConstant: 100),
-
-            statsGrid2.topAnchor.constraint(equalTo: statsGrid.bottomAnchor, constant: 20),
-            statsGrid2.leadingAnchor.constraint(equalTo: chartContainerView.leadingAnchor, constant: 20),
-            statsGrid2.trailingAnchor.constraint(equalTo: chartContainerView.trailingAnchor, constant: -20),
-            statsGrid2.heightAnchor.constraint(equalToConstant: 100),
-
-            // StepsChartView constraints
-            stepsChartView.topAnchor.constraint(equalTo: statsGrid2.bottomAnchor, constant: 20),
-            stepsChartView.leadingAnchor.constraint(equalTo: chartContainerView.leadingAnchor, constant: 20),
-            stepsChartView.trailingAnchor.constraint(equalTo: chartContainerView.trailingAnchor, constant: -20),
-            stepsChartView.bottomAnchor.constraint(equalTo: chartContainerView.bottomAnchor, constant: -20),
-            stepsChartView.heightAnchor.constraint(equalToConstant: 300)
+            chartContainerView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor) // Match scroll view width
         ])
 
         // Setup empty state initially (it will be added/removed from chartContainerView)
@@ -249,21 +138,19 @@ class StepsViewController: UIViewController {
     private func setupHeaderView() {
         headerView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(headerView)
-        
-        // Configure title
-        headerTitle.translatesAutoresizingMaskIntoConstraints = false
+
         headerTitle.text = "Steps"
-        // Apply theme styling
-        ThemeManager.shared.styleLabel(headerTitle, type: .h1)
-        headerView.addSubview(headerTitle)
-        
-        // Configure subtitle
-        headerSubtitle.translatesAutoresizingMaskIntoConstraints = false
+        headerTitle.font = .systemFont(ofSize: 28, weight: .bold)
+        headerTitle.translatesAutoresizingMaskIntoConstraints = false
+
         headerSubtitle.text = "Track your daily activity"
-        // Apply theme styling
-        ThemeManager.shared.styleLabel(headerSubtitle, type: .caption)
+        headerSubtitle.font = .systemFont(ofSize: 16, weight: .regular)
+        headerSubtitle.textColor = .secondaryLabel
+        headerSubtitle.translatesAutoresizingMaskIntoConstraints = false
+
+        headerView.addSubview(headerTitle)
         headerView.addSubview(headerSubtitle)
-        
+
         NSLayoutConstraint.activate([
             headerTitle.topAnchor.constraint(equalTo: headerView.topAnchor),
             headerTitle.leadingAnchor.constraint(equalTo: headerView.leadingAnchor),
@@ -275,28 +162,18 @@ class StepsViewController: UIViewController {
     }
 
     private func setupSegmentedControl() {
-        segmentedControl.translatesAutoresizingMaskIntoConstraints = false
         segmentedControl.selectedSegmentIndex = 0
-        
-        // Apply theme styling
-        if #available(iOS 13.0, *) {
-            segmentedControl.selectedSegmentTintColor = ThemeManager.shared.accentPrimary
-            segmentedControl.setTitleTextAttributes([
-                .foregroundColor: ThemeManager.shared.textPrimary,
-                .font: ThemeManager.shared.fontBody2()
-            ], for: .normal)
-            segmentedControl.setTitleTextAttributes([
-                .foregroundColor: UIColor.white,
-                .font: ThemeManager.shared.fontBody2()
-            ], for: .selected)
-            
-            // Set background color
-            segmentedControl.backgroundColor = ThemeManager.shared.dateNavigatorBackground
-        } else {
-            segmentedControl.tintColor = ThemeManager.shared.accentPrimary
-        }
-        
+        segmentedControl.translatesAutoresizingMaskIntoConstraints = false
         segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
+
+        segmentedControl.backgroundColor = .tertiarySystemBackground
+        segmentedControl.selectedSegmentTintColor = UIColor(named: "AccentColor") ?? .systemBlue
+
+        let textAttributes = [NSAttributedString.Key.foregroundColor: UIColor.label]
+        let selectedTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
+        segmentedControl.setTitleTextAttributes(textAttributes, for: .normal)
+        segmentedControl.setTitleTextAttributes(selectedTextAttributes, for: .selected)
+
         view.addSubview(segmentedControl)
     }
 
@@ -310,61 +187,14 @@ class StepsViewController: UIViewController {
     }
 
     private func updateAppearance() {
-        // Update colors based on current theme
-        view.backgroundColor = ThemeManager.shared.scaffoldBackground
-        chartContainerView.backgroundColor = ThemeManager.shared.cardBackground
-        
-        // Update text colors
-        headerTitle.textColor = ThemeManager.shared.textPrimary
-        headerSubtitle.textColor = ThemeManager.shared.textSecondary
-        
-        // Refresh the chart with new theme colors
-        loadStepsData(animated: false)
-    }
-
-    // MARK: - Initialize Labels
-    private func initializeStatLabels() {
-        // Set up currentStepsCard
-        currentStepsValueLabel.text = "0"
-        currentStepsLabel.text = "Today's Steps"
-        currentStepsCard.addSubview(currentStepsValueLabel)
-        currentStepsCard.addSubview(currentStepsLabel)
-        
-        // Set up weeklyAverageCard
-        weeklyAverageValueLabel.text = "0"
-        weeklyAverageLabel.text = "Weekly Average"
-        weeklyAverageCard.addSubview(weeklyAverageValueLabel)
-        weeklyAverageCard.addSubview(weeklyAverageLabel)
-        
-        // Set up totalDistanceCard
-        totalDistanceValueLabel.text = "0 mi"
-        totalDistanceLabel.text = "Total Distance"
-        totalDistanceCard.addSubview(totalDistanceValueLabel)
-        totalDistanceCard.addSubview(totalDistanceLabel)
-        
-        // Set up caloriesBurnedCard
-        caloriesBurnedValueLabel.text = "0"
-        caloriesBurnedLabel.text = "Calories Burned"
-        caloriesBurnedCard.addSubview(caloriesBurnedValueLabel)
-        caloriesBurnedCard.addSubview(caloriesBurnedLabel)
-        
-        // Position labels within cards
-        [
-            (currentStepsValueLabel, currentStepsLabel, currentStepsCard),
-            (weeklyAverageValueLabel, weeklyAverageLabel, weeklyAverageCard),
-            (totalDistanceValueLabel, totalDistanceLabel, totalDistanceCard),
-            (caloriesBurnedValueLabel, caloriesBurnedLabel, caloriesBurnedCard)
-        ].forEach { (valueLabel, titleLabel, container) in
-            valueLabel.translatesAutoresizingMaskIntoConstraints = false
-            titleLabel.translatesAutoresizingMaskIntoConstraints = false
-            
-            NSLayoutConstraint.activate([
-                valueLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-                valueLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: -10),
-                
-                titleLabel.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-                titleLabel.topAnchor.constraint(equalTo: valueLabel.bottomAnchor, constant: 4),
-            ])
+        if let hc = hostingController {
+            // Update the environment for the existing SwiftUI view
+            let chartView = StepsChartView(
+                entries: entries,
+                animateChart: false // No animation on theme change
+            )
+            .environment(\.colorScheme, traitCollection.userInterfaceStyle == .dark ? .dark : .light)
+            hc.rootView = AnyView(chartView)
         }
     }
 
@@ -374,13 +204,7 @@ class StepsViewController: UIViewController {
     private func updateChartView(with entries: [Models.StepsEntry], animated: Bool = true) {
         // Remove empty state view if it exists
         hideEmptyState()
-        
-        // Debug print to inspect entries
-        print("[StepsViewController] Updating chart with \(entries.count) entries:")
-        for entry in entries {
-            print("   Date: \(entry.date), Steps: \(entry.steps), Goal: \(entry.goal)")
-        }
-        
+
         // Create the SwiftUI chart view content
         let chartView = StepsChartView(
             entries: entries,
@@ -548,21 +372,6 @@ class StepsViewController: UIViewController {
         let calendar = Calendar.current
         let startDate = calendar.date(byAdding: .day, value: -selectedTimePeriod.days, to: now) ?? now
 
-        // Check if this is a refresh after goal update
-        let isGoalUpdate = UserDefaults.standard.bool(forKey: "goal_recently_updated")
-        if isGoalUpdate {
-            // Reset flag
-            UserDefaults.standard.set(false, forKey: "goal_recently_updated")
-            // Force a complete refresh by removing the existing hosting controller
-            if let existingHC = hostingController {
-                existingHC.willMove(toParent: nil)
-                existingHC.view.removeFromSuperview()
-                existingHC.removeFromParent()
-                hostingController = nil
-                print("[StepsViewController] Removed existing chart view for goal update.")
-            }
-        }
-
         // Use background queue for data processing
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
@@ -699,23 +508,19 @@ class StepsViewController: UIViewController {
 
         let saveAction = UIAlertAction(title: "Save", style: .default) { [weak self] _ in
             guard let text = alert.textFields?.first?.text,
-                  let goalValue = Int(text),
+                  let goal = Int(text),
                   let self = self else { return }
 
             let oldGoal = UserDefaults.standard.integer(forKey: "steps_goal")
-            
+                
             // Only update if goal actually changed
-            if oldGoal != goalValue {
+            if oldGoal != goal {
                 // Log the change
-                print("[StepsViewController] Goal updated from \(oldGoal) to \(goalValue)")
-                
-                // Set the flag for goal update
-                UserDefaults.standard.set(true, forKey: "goal_recently_updated")
-                
+                print("[StepsViewController] Goal updated from \(oldGoal) to \(goal)")
+                    
                 // Update the goal value in UserDefaults
-                UserDefaults.standard.set(goalValue, forKey: "steps_goal")
-                UserDefaults.standard.synchronize() // Force synchronize
-                
+                UserDefaults.standard.set(goal, forKey: "steps_goal")
+                    
                 // Remove the current hosting controller to force a full refresh
                 if let existingHC = self.hostingController {
                     existingHC.willMove(toParent: nil)
@@ -724,10 +529,10 @@ class StepsViewController: UIViewController {
                     self.hostingController = nil
                     print("[StepsViewController] Removed chart view for goal update")
                 }
-                
+
                 // Reload data to reflect new goal in chart/stats
                 self.loadStepsData()
-                
+
                 // Show success feedback
                 self.showToast(message: "Step goal updated!")
             } else {

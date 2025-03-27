@@ -99,13 +99,7 @@ struct StepsChartView: View {
         
         // Calculate percentage based on valid entries only
         let completedDays = validEntries.filter { $0.steps >= $0.goal }.count
-        let percentage = Double(completedDays) / Double(validEntries.count) * 100
-        
-        // Debug print to help troubleshoot
-        print("[StepsChartView] Goal Completion Rate: \(percentage)% (\(completedDays)/\(validEntries.count) days)")
-        print("[StepsChartView] Valid entries: \(validEntries.map { "Date: \($0.date), Steps: \($0.steps), Goal: \($0.goal)" }.joined(separator: "\n"))")
-        
-        return percentage
+        return Double(completedDays) / Double(validEntries.count) * 100
     }
     
     /// Y-axis range for the chart
@@ -300,14 +294,13 @@ struct StepsChartView: View {
             
             // Goal rate card with explicit frame
             StatCard(
-                title: "Goal Rate", 
+                title: "Goal Rate",
                 value: "\(Int(goalCompletionRate))%",
                 subtitle: "completion",
                 icon: "checkmark.circle",
                 color: goalCompletionRate >= 80 ? Color(hex: "38B000") : Color(hex: "FB8500")
             )
             .frame(minWidth: 0, maxWidth: .infinity)
-            .id("goalRate-\(Int(goalCompletionRate))") // Force refresh when rate changes
             
             // Total card with explicit frame
             StatCard(
@@ -573,17 +566,10 @@ struct StatCard: View {
         .cornerRadius(12) // Reduced corner radius
         .opacity(appear ? 1 : 0)
         .offset(y: appear ? 0 : 20)
-        .id("StatCard-\(title)-\(value)") // Add an id to force refresh when value changes
         .onAppear {
-            // Reset appear state when view appears with new data
-            if !appear {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
-                    appear = true
-                }
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.1)) {
+                appear = true
             }
-        }
-        .onDisappear {
-            appear = false
         }
     }
 }
