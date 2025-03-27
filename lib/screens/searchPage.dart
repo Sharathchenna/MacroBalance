@@ -118,7 +118,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   void _onSearchChanged(String query) {
     if (_debouncer?.isActive ?? false) _debouncer!.cancel();
-    _debouncer = Timer(const Duration(milliseconds: 300), () {
+    _debouncer = Timer(const Duration(milliseconds: 50), () {
       _getAutocompleteSuggestions(query);
     });
   }
