@@ -171,13 +171,23 @@ class _CameraScreenState extends State<CameraScreen> {
           .toList();
       // --- End Gemini Processing ---
 
-      // Prepare result (even if foods list is empty)
-      popResult = {'type': 'photo', 'value': foods};
+      // Check if Gemini identified any food
+      if (foods.isEmpty) {
+        print('[Flutter Camera] Gemini returned an empty food list.');
+        if (mounted) {
+          _showErrorSnackbar('Unable to identify food, try again');
+        }
+        popResult = null; // Treat empty result as an error case for popping
+      } else {
+        // Prepare result only if foods list is not empty
+        popResult = {'type': 'photo', 'value': foods};
+      }
 
     } catch (e) {
       print('[Flutter Camera] Error processing photo result: ${e.toString()}');
       if (mounted) {
-          _showErrorSnackbar('Error processing image: ${e.toString()}');
+          // Show generic error message for other exceptions
+          _showErrorSnackbar('Something went wrong, try again');
       }
       // Prepare null result for error case
       popResult = null;
