@@ -16,31 +16,15 @@ class DateFilterControl: UIView {
         let items = ["Today", "7D", "30D"] // Shorter labels
         let control = UISegmentedControl(items: items)
         control.selectedSegmentIndex = 0
-        
-        // Apply theme to segmented control
-        if #available(iOS 13.0, *) {
-            control.selectedSegmentTintColor = ThemeManager.shared.accentPrimary
-            control.setTitleTextAttributes([
-                .foregroundColor: ThemeManager.shared.textPrimary,
-                .font: ThemeManager.shared.fontBody2()
-            ], for: .normal)
-            control.setTitleTextAttributes([
-                .foregroundColor: UIColor.white,
-                .font: ThemeManager.shared.fontBody2()
-            ], for: .selected)
-        } else {
-            control.tintColor = ThemeManager.shared.accentPrimary
-        }
-        
+        // control.backgroundColor = .systemGray5 // Subtle background
         control.translatesAutoresizingMaskIntoConstraints = false
         return control
     }()
     
     private let dateRangeLabel: UILabel = {
         let label = UILabel()
-        // Apply theme fonts and colors
-        label.font = ThemeManager.shared.fontCaption()
-        label.textColor = ThemeManager.shared.textSecondary
+        label.font = .systemFont(ofSize: 13, weight: .regular) // Adjust font
+        label.textColor = .secondaryLabel
         label.textAlignment = .right
         label.translatesAutoresizingMaskIntoConstraints = false
         label.setContentCompressionResistancePriority(.required, for: .horizontal) // Prevent label from being compressed
@@ -64,8 +48,7 @@ class DateFilterControl: UIView {
     
     // MARK: - UI Setup
     private func setupUI() {
-        backgroundColor = ThemeManager.shared.dateNavigatorBackground
-        layer.cornerRadius = 22
+        backgroundColor = .clear // Make background clear
         
         addSubview(segmentedControl)
         addSubview(dateRangeLabel)

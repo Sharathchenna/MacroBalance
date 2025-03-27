@@ -1,206 +1,232 @@
 import 'dart:math';
 
 class MacroCalculatorService {
-  // Gender constants
-  static const int MALE = 0;
-  static const int FEMALE = 1;
+  // Constants
+  static const String MALE = 'male';
+  static const String FEMALE = 'female';
 
-  // Activity level multipliers - Updated based on recent research
-  static const double SEDENTARY = 1.2;
-  static const double LIGHTLY_ACTIVE = 1.375;
-  static const double MODERATELY_ACTIVE = 1.55;
-  static const double VERY_ACTIVE = 1.725;
-  static const double EXTRA_ACTIVE = 1.9;
+  static const int SEDENTARY = 1;
+  static const int LIGHTLY_ACTIVE = 2;
+  static const int MODERATELY_ACTIVE = 3;
+  static const int VERY_ACTIVE = 4;
+  static const int EXTRA_ACTIVE = 5;
 
-  // Goals
-  static const int GOAL_LOSE = 0;
-  static const int GOAL_MAINTAIN = 1;
-  static const int GOAL_GAIN = 2;
+  static const String GOAL_LOSE = 'lose';
+  static const String GOAL_MAINTAIN = 'maintain';
+  static const String GOAL_GAIN = 'gain';
 
-  // BMR Formula types
-  static const int FORMULA_MIFFLIN_ST_JEOR = 0; // Default, most accurate for general population
-  static const int FORMULA_HARRIS_BENEDICT = 1; // Original equation
-  static const int FORMULA_REVISED_HARRIS_BENEDICT = 2; // Revised in 1984
-  static const int FORMULA_KATCH_MCARDLE = 3; // For those who know body fat %
+  // BMR Formulas
+  static const int FORMULA_MIFFLIN_ST_JEOR = 1;
+  static const int FORMULA_HARRIS_BENEDICT = 2;
+  static const int FORMULA_REVISED_HARRIS_BENEDICT = 3;
+  static const int FORMULA_KATCH_MCARDLE = 4;
 
-  // Calculate BMR using multiple formulas based on scientific research
-  double calculateBMR(int gender, double weightKg, double heightCm, int age, {int formula = FORMULA_MIFFLIN_ST_JEOR, double? bodyFatPercentage}) {
-    // Default to Mifflin-St Jeor (most accurate according to research)
-    switch (formula) {
-      case FORMULA_MIFFLIN_ST_JEOR:
-        // Mifflin-St Jeor Equation (1990) - endorsed by the Academy of Nutrition and Dietetics
-        double bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age);
-        return gender == MALE ? bmr + 5 : bmr - 161;
-        
-      case FORMULA_HARRIS_BENEDICT:
-        // Original Harris-Benedict Equation (1919)
-        if (gender == MALE) {
-          return 66.47 + (13.75 * weightKg) + (5.003 * heightCm) - (6.755 * age);
-        } else {
-          return 655.1 + (9.563 * weightKg) + (1.85 * heightCm) - (4.676 * age);
-        }
-        
-      case FORMULA_REVISED_HARRIS_BENEDICT:
-        // Revised Harris-Benedict Equation by Roza and Shizgal (1984)
-        if (gender == MALE) {
-          return 88.362 + (13.397 * weightKg) + (4.799 * heightCm) - (5.677 * age);
-        } else {
-          return 447.593 + (9.247 * weightKg) + (3.098 * heightCm) - (4.33 * age);
-        }
-        
-      case FORMULA_KATCH_MCARDLE:
-        // Katch-McArdle Formula (1996) - accounts for body composition
-        if (bodyFatPercentage != null) {
-          double leanBodyMass = weightKg * (1 - (bodyFatPercentage / 100));
-          return 370 + (21.6 * leanBodyMass);
-        } else {
-          // Fall back to Mifflin-St Jeor if body fat % not provided
-          double bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age);
-          return gender == MALE ? bmr + 5 : bmr - 161;
-        }
-        
-      default:
-        // Default to Mifflin-St Jeor
-        double bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age);
-        return gender == MALE ? bmr + 5 : bmr - 161;
-    }
-  }
-
-  // Calculate TDEE (Total Daily Energy Expenditure)
-  double calculateTDEE(double bmr, double activityMultiplier) {
-    return bmr * activityMultiplier;
-  }
-
-  // Calculate calorie target based on goal
-  int calculateCalorieTarget(double tdee, int goal, int deficit, int gender) {
-    // Minimum safe calorie intakes based on Harvard Medical School and NIH recommendations
-    final int maleMinimumCalories = 1500;
-    final int femaleMinimumCalories = 1200;
-    
-    switch (goal) {
-      case GOAL_LOSE:
-        // Ensure deficit doesn't go below safe minimum
-        return max((tdee - deficit).round(), (gender == MALE) ? maleMinimumCalories : femaleMinimumCalories);
-      case GOAL_GAIN:
-        // For muscle gain, ISSN recommends surplus of 350-500 calories
-        return (tdee + deficit).round();
-      case GOAL_MAINTAIN:
-      default:
-        return tdee.round();
-    }
-  }
-
-  // Calculate goal weight timeframe (in weeks)
-  double calculateGoalTimeframe(double currentWeightKg, double goalWeightKg, int calorieTarget, double tdee) {
-    // Based on scientific consensus: 1kg of fat ≈ 7700 calories
-    double calorieDeficitSurplusPerDay = (tdee - calorieTarget).abs();
-    double weightDifferenceKg = (currentWeightKg - goalWeightKg).abs();
-    double caloriesNeeded = weightDifferenceKg * 7700;
-    
-    // Calculate days and convert to weeks
-    double days = caloriesNeeded / calorieDeficitSurplusPerDay;
-    return days / 7;
-  }
-
-  // Calculate recommended weight loss/gain rate (kg per week)
-  double calculateRecommendedRate(int goal, int gender) {
-    // NIH and Harvard recommendations: safe weight change is 0.5-1kg per week
-    switch (goal) {
-      case GOAL_LOSE:
-        return gender == MALE ? 0.9 : 0.7; // Men can safely lose slightly more
-      case GOAL_GAIN:
-        return 0.5; // ISSN recommends 0.25-0.5kg/week for muscle gain
-      default:
-        return 0.0;
-    }
-  }
-
-  // Calculate macronutrient targets based on ISSN recommendations
-  Map<String, int> calculateMacros(double weightKg, int calorieTarget,
-      double proteinRatio, double fatRatio, int goal) {
-    
-    // ISSN protein recommendations: 1.6-2.2g/kg for active individuals
-    // Higher for cutting, lower for bulking
-    double adjustedProteinRatio = proteinRatio;
-    if (goal == GOAL_LOSE && proteinRatio < 2.0) {
-      adjustedProteinRatio = 2.0; // Higher protein for preservation during weight loss
-    }
-    
-    // Calculate protein (g per kg of body weight)
-    int proteinGrams = (weightKg * adjustedProteinRatio).round();
-
-    // Calculate fat (percentage of total calories)
-    // Harvard and NIH recommend 20-35% of calories from healthy fats
-    int fatGrams = ((calorieTarget * fatRatio) / 9).round();
-
-    // Calculate remaining calories for carbs
-    int proteinCalories = proteinGrams * 4;
-    int fatCalories = fatGrams * 9;
-    int carbCalories = calorieTarget - proteinCalories - fatCalories;
-    int carbGrams = (carbCalories / 4).round();
-
-    return {
-      'protein': proteinGrams,
-      'fat': fatGrams,
-      'carbs': max(carbGrams, 50), // Minimum 50g carbs recommended by NIH
-      'calories': calorieTarget
-    };
-  }
-
-  // Calculate step recommendations based on physical activity guidelines
-  int recommendSteps(int goal) {
-    // Based on CDC and American Heart Association guidelines
-    switch (goal) {
-      case GOAL_LOSE:
-        return 12000; // Higher step count for weight loss
-      case GOAL_GAIN:
-        return 7500; // Moderate step count for muscle gain
-      case GOAL_MAINTAIN:
-      default:
-        return 10000; // Standard recommendation
-    }
-  }
-
-  // Main calculation function that brings it all together
   Map<String, dynamic> calculateAll({
-    required int gender,
+    required String gender,
     required double weightKg,
     required double heightCm,
     required int age,
-    required double activityLevel,
-    required int goal,
+    required int activityLevel,
+    required String goal,
+    int? deficit,
+    double? proteinRatio,
+    double? fatRatio,
     double? goalWeightKg,
-    int deficit = 500, // Default deficit/surplus of 500 calories
-    double proteinRatio = 1.8, // Default protein g/kg
-    double fatRatio = 0.25, // Default fat as 25% of total calories
+    // bmrFormula parameter is optional now - the service will determine the best one
+    int? bmrFormula,
     double? bodyFatPercentage,
-    int bmrFormula = FORMULA_MIFFLIN_ST_JEOR,
+    bool? isAthlete,
   }) {
-    double bmr = calculateBMR(gender, weightKg, heightCm, age, formula: bmrFormula, bodyFatPercentage: bodyFatPercentage);
-    double tdee = calculateTDEE(bmr, activityLevel);
-    int calorieTarget = calculateCalorieTarget(tdee, goal, deficit, gender);
-    Map<String, int> macros = calculateMacros(weightKg, calorieTarget, proteinRatio, fatRatio, goal);
-    int steps = recommendSteps(goal);
-    
-    // Goal weight related calculations
-    double recommendedWeeklyRate = calculateRecommendedRate(goal, gender);
-    double timeframeWeeks = 0;
-    
-    if (goalWeightKg != null && goalWeightKg > 0) {
-      timeframeWeeks = calculateGoalTimeframe(weightKg, goalWeightKg, calorieTarget, tdee);
+    // Use auto-detection if no specific formula is provided
+    final selectedFormula = bmrFormula ?? 
+        determineBestFormula(
+          gender: gender,
+          weightKg: weightKg,
+          heightCm: heightCm,
+          age: age,
+          bodyFatPercentage: bodyFatPercentage,
+          isAthlete: isAthlete ?? false,
+        );
+
+    // First, calculate BMR using the selected formula
+    double bmr;
+    if (selectedFormula == FORMULA_KATCH_MCARDLE && bodyFatPercentage != null) {
+      // Calculate lean body mass
+      double lbm = weightKg * (1 - (bodyFatPercentage / 100));
+      // Katch-McArdle Formula
+      bmr = 370 + (21.6 * lbm);
+    } else if (selectedFormula == FORMULA_REVISED_HARRIS_BENEDICT) {
+      // Revised Harris-Benedict Equation (1984)
+      if (gender == MALE) {
+        bmr = 88.362 + (13.397 * weightKg) + (4.799 * heightCm) - (5.677 * age);
+      } else {
+        bmr = 447.593 + (9.247 * weightKg) + (3.098 * heightCm) - (4.330 * age);
+      }
+    } else if (selectedFormula == FORMULA_HARRIS_BENEDICT) {
+      // Original Harris-Benedict Equation (1919)
+      if (gender == MALE) {
+        bmr = 66.5 + (13.75 * weightKg) + (5.003 * heightCm) - (6.75 * age);
+      } else {
+        bmr = 655.1 + (9.563 * weightKg) + (1.850 * heightCm) - (4.676 * age);
+      }
+    } else {
+      // Default to Mifflin-St Jeor Equation (most accurate for general population)
+      if (gender == MALE) {
+        bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
+      } else {
+        bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161;
+      }
     }
 
+    // Calculate TDEE (Total Daily Energy Expenditure)
+    double tdee;
+    switch (activityLevel) {
+      case SEDENTARY:
+        tdee = bmr * 1.2;
+        break;
+      case LIGHTLY_ACTIVE:
+        tdee = bmr * 1.375;
+        break;
+      case MODERATELY_ACTIVE:
+        tdee = bmr * 1.55;
+        break;
+      case VERY_ACTIVE:
+        tdee = bmr * 1.725;
+        break;
+      case EXTRA_ACTIVE:
+        tdee = bmr * 1.9;
+        break;
+      default:
+        tdee = bmr * 1.2; // Default to sedentary
+    }
+
+    // Calculate target calories based on goal
+    double targetCalories;
+    if (goal == GOAL_LOSE) {
+      targetCalories = tdee - (deficit ?? 500);
+      // Ensure minimum calories threshold met (safety)
+      targetCalories = max(1200, targetCalories);
+    } else if (goal == GOAL_GAIN) {
+      targetCalories = tdee + (deficit ?? 500);
+    } else {
+      // Maintain
+      targetCalories = tdee;
+    }
+
+    // Calculate macros based on target calories
+    final protein = proteinRatio != null
+        ? weightKg * proteinRatio
+        : (gender == MALE ? weightKg * 2.0 : weightKg * 1.8);
+    final proteinCalories = protein * 4;
+
+    final fatPercent = fatRatio ?? 0.25;
+    final fatCalories = targetCalories * fatPercent;
+    final fat = fatCalories / 9;
+
+    final carbCalories = targetCalories - proteinCalories - fatCalories;
+    final carb = carbCalories / 4;
+
+    // Calculate weight change rate
+    double weeklyWeightChange = 0;
+    if (goal != GOAL_MAINTAIN) {
+      // 7700 calories = approximately 1 kg of body fat
+      weeklyWeightChange =
+          ((goal == GOAL_LOSE ? -1 : 1) * (deficit ?? 500) * 7) / 7700;
+    }
+
+    // Calculate weight-related stats
+    Map<String, dynamic> weightStats = {};
+    if (goalWeightKg != null && goal != GOAL_MAINTAIN) {
+      final double weightDifference =
+          goal == GOAL_LOSE ? weightKg - goalWeightKg : goalWeightKg - weightKg;
+      
+      if (weeklyWeightChange != 0) {
+        final double weeksToGoal = weightDifference / weeklyWeightChange.abs();
+        weightStats = {
+          'current_weight': weightKg,
+          'goal_weight': goalWeightKg,
+          'weight_difference': weightDifference,
+          'weekly_change': weeklyWeightChange,
+          'weeks_to_goal': weeksToGoal,
+          'days_to_goal': weeksToGoal * 7,
+          'goal_date': DateTime.now().add(Duration(days: (weeksToGoal * 7).round())).toIso8601String(),
+        };
+      }
+    }
+
+    String getFormulaName(int formula) {
+      switch(formula) {
+        case FORMULA_MIFFLIN_ST_JEOR:
+          return 'Mifflin-St Jeor';
+        case FORMULA_HARRIS_BENEDICT:
+          return 'Harris-Benedict (Original)';
+        case FORMULA_REVISED_HARRIS_BENEDICT:
+          return 'Harris-Benedict (Revised)';
+        case FORMULA_KATCH_MCARDLE:
+          return 'Katch-McArdle';
+        default:
+          return 'Unknown Formula';
+      }
+    }
+
+    // Return all calculated values
     return {
       'bmr': bmr.round(),
       'tdee': tdee.round(),
-      'calorie_target': calorieTarget,
-      'protein': macros['protein'],
-      'fat': macros['fat'],
-      'carbs': macros['carbs'],
-      'recommended_steps': steps,
-      'recommended_weekly_rate': recommendedWeeklyRate,
-      'goal_timeframe_weeks': timeframeWeeks.round(),
-      'goal_weight_kg': goalWeightKg,
+      'target_calories': targetCalories.round(),
+      'protein_g': protein.round(),
+      'fat_g': fat.round(),
+      'carb_g': carb.round(),
+      'protein_calories': proteinCalories.round(),
+      'fat_calories': fatCalories.round(),
+      'carb_calories': carbCalories.round(),
+      'protein_percent': (proteinCalories / targetCalories * 100).round(),
+      'fat_percent': (fatCalories / targetCalories * 100).round(),
+      'carb_percent': (carbCalories / targetCalories * 100).round(),
+      'weekly_weight_change': weeklyWeightChange,
+      'weight_stats': weightStats,
+      'formula_used': getFormulaName(selectedFormula),
+      'formula_code': selectedFormula,
+      'body_fat_percentage': bodyFatPercentage,
+      'is_athlete': isAthlete,
     };
+  }
+
+  // New method to determine the best BMR formula based on user characteristics
+  int determineBestFormula({
+    required String gender,
+    required double weightKg,
+    required double heightCm,
+    required int age,
+    double? bodyFatPercentage,
+    required bool isAthlete,
+  }) {
+    // If body fat percentage is known, Katch-McArdle is generally the most accurate
+    if (bodyFatPercentage != null) {
+      return FORMULA_KATCH_MCARDLE;
+    }
+    
+    // Calculate BMI to help determine the best formula
+    double heightMeters = heightCm / 100;
+    double bmi = weightKg / (heightMeters * heightMeters);
+    
+    // For athletes, Revised Harris-Benedict works well
+    if (isAthlete) {
+      return FORMULA_REVISED_HARRIS_BENEDICT;
+    }
+    
+    // For people with normal/average BMI, Mifflin-St Jeor is considered most accurate
+    if (bmi >= 18.5 && bmi <= 29.9) {
+      return FORMULA_MIFFLIN_ST_JEOR;
+    }
+    
+    // For people outside normal BMI range, consider alternatives
+    if (bmi < 18.5) {
+      // For underweight individuals, Revised Harris-Benedict tends to be more accurate
+      return FORMULA_REVISED_HARRIS_BENEDICT;
+    } else {
+      // For those with higher BMI, Mifflin-St Jeor is still generally recommended
+      return FORMULA_MIFFLIN_ST_JEOR;
+    }
   }
 }

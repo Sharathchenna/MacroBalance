@@ -7,10 +7,12 @@ import 'package:numberpicker/numberpicker.dart'; // Add this import
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'dart:math'; // Import dart:math for min/max functions
 import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 import 'package:macrotracker/screens/revenuecat/paywall_screen.dart';
+import 'package:flutter/foundation.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -28,23 +30,28 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   late Animation<double> _progressAnimation;
 
   // User data
-  int _gender = MacroCalculatorService.MALE;
+  String _gender = MacroCalculatorService.MALE;
   double _weightKg = 70;
   double _heightCm = 170;
   int _age = 30;
-  double _activityLevel = MacroCalculatorService.MODERATELY_ACTIVE;
-  int _goal = MacroCalculatorService.GOAL_MAINTAIN;
+  int _activityLevel = MacroCalculatorService.MODERATELY_ACTIVE;
+  String _goal = MacroCalculatorService.GOAL_MAINTAIN;
   int _deficit = 500;
   double _proteinRatio = 1.8;
   double _fatRatio = 0.25;
   double _goalWeightKg = 70; // Added goal weight tracking
-  int _bmrFormula = MacroCalculatorService.FORMULA_MIFFLIN_ST_JEOR; // Added BMR formula selection
   double _bodyFatPercentage = 20.0; // Add body fat percentage variable
+  bool _isAthlete = false; // Whether the user is an athlete
   bool _showBodyFatInput = false; // Flag to show/hide body fat input
 
   // Removed unit system toggle - always using metric
   bool _isMetricWeight = true;
   bool _isMetricHeight = true;
+
+  int _imperialWeightLbs = 154; // Imperial weight in lbs
+  int _imperialGoalWeightLbs = 154; // Imperial goal weight in lbs
+  int _imperialHeightFeet = 5; // Imperial height in feet
+  int _imperialHeightInches = 9; // Imperial height in inches
 
   @override
   void initState() {
@@ -61,6 +68,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       curve: Curves.easeInOut,
     ));
     _animationController.forward();
+    
+    // Initialize goal weight to match current weight
+    _goalWeightKg = _weightKg;
   }
 
   @override
@@ -74,6 +84,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   void _nextPage() {
     if (_currentPage < _totalPages - 1) {
+      // If moving from goal page, validate the goal weight
+      if (_currentPage == 4) {
+        _validateRanges();
+      }
+      
       setState(() {
         _currentPage++;
         _progressAnimation = Tween<double>(
@@ -148,78 +163,50 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _calculateAndShowResults() async {
-    // Show the PaywallView first, before calculating anything
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (context) => PaywallScreen(
-          onDismiss: () async {
-            // Check if user has active subscription
-            CustomerInfo customerInfo = await Purchases.getCustomerInfo();
-            if (customerInfo.entitlements.active.containsKey("pro")) {
-              // Only calculate results if user has pro entitlement
-              final calculatorService = MacroCalculatorService();
-              final results = calculatorService.calculateAll(
-                gender: _gender,
-                weightKg: _weightKg,
-                heightCm: _heightCm,
-                age: _age,
-                activityLevel: _activityLevel,
-                goal: _goal,
-                deficit: _deficit,
-                proteinRatio: _proteinRatio,
-                fatRatio: _fatRatio,
-                goalWeightKg: _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
-                bmrFormula: _bmrFormula,
-                bodyFatPercentage: _showBodyFatInput ? _bodyFatPercentage : null,
-              );
+    // Calculate results first without showing the paywall
+    final calculatorService = MacroCalculatorService();
+    final results = calculatorService.calculateAll(
+      gender: _gender,
+      weightKg: _weightKg,
+      heightCm: _heightCm,
+      age: _age,
+      activityLevel: _activityLevel,
+      goal: _goal,
+      deficit: _deficit,
+      proteinRatio: _proteinRatio,
+      fatRatio: _fatRatio,
+      goalWeightKg: _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
+      bodyFatPercentage: _showBodyFatInput ? _bodyFatPercentage : null,
+      isAthlete: _isAthlete,
+    );
 
-              // Pop the paywall screen
-              Navigator.of(context).pop();
+    // Save macro results
+    await saveMacroResults(results);
 
-              // Save macro results
-              await saveMacroResults(results);
+    // Navigate to results screen with a transition
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            ResultsScreen(results: results),
+        transitionsBuilder:
+            (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutCubic;
 
-              // Navigate to results screen with a transition
-              Navigator.of(context).pushReplacement(
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      ResultsScreen(results: results),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) {
-                    const begin = Offset(1.0, 0.0);
-                    const end = Offset.zero;
-                    const curve = Curves.easeInOutCubic;
+          var tween = Tween(begin: begin, end: end)
+              .chain(CurveTween(curve: curve));
+          var offsetAnimation = animation.drive(tween);
 
-                    var tween = Tween(begin: begin, end: end)
-                        .chain(CurveTween(curve: curve));
-                    var offsetAnimation = animation.drive(tween);
-
-                    return SlideTransition(
-                      position: offsetAnimation,
-                      child: FadeTransition(
-                        opacity: animation,
-                        child: child,
-                      ),
-                    );
-                  },
-                  transitionDuration: const Duration(milliseconds: 500),
-                ),
-              );
-            } else {
-              // If user doesn't have pro entitlement, just pop the paywall
-              Navigator.of(context).pop();
-              // Show message that pro subscription is required
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Pro subscription required to view results'),
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          },
-        ),
+          return SlideTransition(
+            position: offsetAnimation,
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
       ),
     );
   }
@@ -270,7 +257,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'protein_ratio': _proteinRatio,
           'fat_ratio': _fatRatio,
           'goal_weight_kg': _goalWeightKg,
-          'bmr_formula': _bmrFormula,
+          'bmr_formula': 'Auto-selected based on your profile',
           'body_fat_percentage': _showBodyFatInput ? _bodyFatPercentage : null,
           'updated_at': DateTime.now().toIso8601String(),
         };
@@ -1246,6 +1233,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget _buildGoalPage() {
     final customColors = Theme.of(context).extension<CustomColors>();
 
+    // Update goal weight when goal changes to ensure it's valid
+    if (_goal == MacroCalculatorService.GOAL_LOSE && _goalWeightKg >= _weightKg) {
+      _goalWeightKg = max(40.0, _weightKg - 5.0); // Default to 5kg loss
+    } else if (_goal == MacroCalculatorService.GOAL_GAIN && _goalWeightKg <= _weightKg) {
+      _goalWeightKg = min(150.0, _weightKg + 5.0); // Default to 5kg gain
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -1318,14 +1312,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (_isMetricWeight) ...[
-                        // Metric (kg) pickers for goal weight
+                        // Calculate safe min and max values for metric
                         NumberPicker(
                           value: _goalWeightKg.floor(),
-                          minValue: _goal == MacroCalculatorService.GOAL_LOSE ? 40 : _weightKg.floor(),
-                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE ? _weightKg.floor() - 1 : 150,
+                          // For weight loss: min is 40kg, max is current weight - 0.1kg
+                          // For weight gain: min is current weight + 0.1kg, max is 150kg
+                          minValue: _goal == MacroCalculatorService.GOAL_LOSE ? 40 : (_weightKg.floor() + 1),
+                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE ? (_weightKg.floor() - 1) : 150,
                           onChanged: (value) {
                             setState(() {
                               _goalWeightKg = value + (_goalWeightKg - _goalWeightKg.floor());
+                              _validateRanges();
                             });
                           },
                           selectedTextStyle: TextStyle(
@@ -1353,6 +1350,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           onChanged: (value) {
                             setState(() {
                               _goalWeightKg = _goalWeightKg.floor() + (value / 10);
+                              _validateRanges();
                             });
                           },
                           selectedTextStyle: TextStyle(
@@ -1377,11 +1375,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         // Imperial (lbs) picker for goal weight
                         NumberPicker(
                           value: (_goalWeightKg * 2.20462).round(),
-                          minValue: _goal == MacroCalculatorService.GOAL_LOSE ? 88 : (_weightKg * 2.20462).round(),
-                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE ? (_weightKg * 2.20462).round() - 2 : 330,
+                          // Calculate min/max inline to avoid issues
+                          minValue: _goal == MacroCalculatorService.GOAL_LOSE 
+                              ? 88 
+                              : ((_weightKg * 2.20462).round() + 1),
+                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE 
+                              ? ((_weightKg * 2.20462).round() - 1) 
+                              : 330,
                           onChanged: (value) {
                             setState(() {
                               _goalWeightKg = value / 2.20462;
+                              _validateRanges();
                             });
                           },
                           selectedTextStyle: TextStyle(
@@ -1523,18 +1527,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Fine-tune your macro distribution and calculation methods',
+            'Fine-tune your macro distribution and calculation details',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: customColors?.textPrimary,
                 ),
           ),
           const SizedBox(height: 32),
-
-          // BMR Formula Selection
+  
+          // Athletic status selection
           Row(
             children: [
               Text(
-                'BMR Calculation Formula',
+                'Are you an athlete?',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: customColors?.textPrimary,
                       fontWeight: FontWeight.w600,
@@ -1542,12 +1546,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
               const SizedBox(width: 8),
               _buildTooltip(
-                  'Different formulas calculate BMR with varying accuracy for different body types'),
+                  'Select "Yes" if you regularly engage in intense sports or training'),
             ],
           ),
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: customColors?.cardBackground,
               borderRadius: BorderRadius.circular(12),
@@ -1555,52 +1559,74 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 color: Colors.grey.withOpacity(0.2),
               ),
             ),
-            child: Column(
+            child: Row(
               children: [
-                _buildFormulaOption(
-                  title: 'Mifflin-St Jeor',
-                  subtitle: 'Most accurate for general population',
-                  formula: MacroCalculatorService.FORMULA_MIFFLIN_ST_JEOR,
+                Expanded(
+                  child: _buildToggleOption(
+                    label: 'No',
+                    isSelected: !_isAthlete,
+                    onTap: () => setState(() => _isAthlete = false),
+                  ),
                 ),
-                Divider(color: Colors.grey.withOpacity(0.2)),
-                _buildFormulaOption(
-                  title: 'Revised Harris-Benedict',
-                  subtitle: 'Updated classic formula (1984)',
-                  formula: MacroCalculatorService.FORMULA_REVISED_HARRIS_BENEDICT,
-                ),
-                Divider(color: Colors.grey.withOpacity(0.2)),
-                _buildFormulaOption(
-                  title: 'Original Harris-Benedict',
-                  subtitle: 'Classic formula (1919)',
-                  formula: MacroCalculatorService.FORMULA_HARRIS_BENEDICT,
-                ),
-                Divider(color: Colors.grey.withOpacity(0.2)),
-                _buildFormulaOption(
-                  title: 'Katch-McArdle',
-                  subtitle: 'For those who know their body fat %',
-                  formula: MacroCalculatorService.FORMULA_KATCH_MCARDLE,
+                Expanded(
+                  child: _buildToggleOption(
+                    label: 'Yes',
+                    isSelected: _isAthlete,
+                    onTap: () => setState(() => _isAthlete = true),
+                  ),
                 ),
               ],
             ),
           ),
           
-          // Body Fat Percentage Input (only shown when Katch-McArdle is selected)
-          if (_showBodyFatInput) ...[
-            const SizedBox(height: 24),
-            Row(
+          // Body Fat Percentage Input (shown to all users, but optional)
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Text(
+                'Body Fat Percentage (Optional)',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: customColors?.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(width: 8),
+              _buildTooltip(
+                  'If you know your body fat percentage, enter it here for more accurate calculations'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: customColors?.cardBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.2),
+              ),
+            ),
+            child: Row(
               children: [
-                Text(
-                  'Body Fat Percentage',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: customColors?.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                Expanded(
+                  child: _buildToggleOption(
+                    label: 'Skip',
+                    isSelected: !_showBodyFatInput,
+                    onTap: () => setState(() => _showBodyFatInput = false),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _buildTooltip(
-                    'Required for the Katch-McArdle formula to calculate lean body mass'),
+                Expanded(
+                  child: _buildToggleOption(
+                    label: 'Enter',
+                    isSelected: _showBodyFatInput,
+                    onTap: () => setState(() => _showBodyFatInput = true),
+                  ),
+                ),
               ],
             ),
+          ),
+          
+          // Body fat percentage slider if selected
+          if (_showBodyFatInput) ...[
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
@@ -1703,7 +1729,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
             ),
           ],
-          
+                    
           const SizedBox(height: 32),
 
           // Protein ratio slider
@@ -1917,31 +1943,29 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  Widget _buildFormulaOption({
-    required String title,
-    required String subtitle,
-    required int formula,
+  Widget _buildToggleOption({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
   }) {
     final customColors = Theme.of(context).extension<CustomColors>();
-    final isSelected = _bmrFormula == formula;
     
-    return InkWell(
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        setState(() {
-          _bmrFormula = formula;
-          // Show body fat input only when Katch-McArdle is selected
-          _showBodyFatInput = formula == MacroCalculatorService.FORMULA_KATCH_MCARDLE;
-        });
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 8.0),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? customColors!.textPrimary.withOpacity(0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 24,
-              height: 24,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected
@@ -1955,39 +1979,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
               ),
               child: isSelected
-                  ? Center(
-                      child: Icon(
-                        Icons.check,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                      ),
+                  ? const Icon(
+                      Icons.check,
+                      size: 14,
+                      color: Colors.white,
                     )
                   : null,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isSelected
-                          ? customColors!.textPrimary
-                          : customColors?.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: customColors?.textSecondary,
-                    ),
-                  ),
-                ],
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected
+                    ? customColors!.textPrimary
+                    : customColors?.textPrimary,
               ),
             ),
           ],
@@ -2077,7 +2084,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildActivityLevelCard({
-    required double level,
+    required int level,
     required String title,
     required String description,
   }) {
@@ -2178,7 +2185,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildGoalCard({
-    required int goal,
+    required String goal,
     required String title,
     required IconData icon,
     required String description,
@@ -2316,21 +2323,95 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       if (_goal == MacroCalculatorService.GOAL_GAIN) return 'Gain Weight';
       return 'Unknown';
     }
-
-    String getBmrFormulaText() {
-      switch(_bmrFormula) {
-        case MacroCalculatorService.FORMULA_MIFFLIN_ST_JEOR:
-          return 'Mifflin-St Jeor (most accurate)';
-        case MacroCalculatorService.FORMULA_HARRIS_BENEDICT:
-          return 'Harris-Benedict (original)';
-        case MacroCalculatorService.FORMULA_REVISED_HARRIS_BENEDICT:
-          return 'Harris-Benedict (revised)';
-        case MacroCalculatorService.FORMULA_KATCH_MCARDLE:
-          return 'Katch-McArdle (body composition based)';
-        default:
-          return 'Mifflin-St Jeor';
-      }
+    
+    // Create the items lists for each section
+    final personalInfoItems = [
+      {
+        'label': 'Gender',
+        'value': _gender == MacroCalculatorService.MALE ? 'Male' : 'Female',
+        'page': 1,
+      },
+      {
+        'label': 'Age',
+        'value': '$_age years',
+        'page': 2,
+      },
+      {
+        'label': 'Weight',
+        'value': '${_weightKg.toStringAsFixed(1)} kg',
+        'page': 2,
+      },
+      {
+        'label': 'Height',
+        'value': '${_heightCm.round()} cm',
+        'page': 2,
+      },
+      {
+        'label': 'Athletic Status',
+        'value': _isAthlete ? 'Athlete' : 'Non-Athlete',
+        'page': 5,
+      },
+      if (_showBodyFatInput) {
+        'label': 'Body Fat Percentage',
+        'value': '${_bodyFatPercentage.round()}%',
+        'page': 5,
+      },
+    ];
+    
+    // Create activity and goals items
+    final List<Map<String, dynamic>> activityGoalsItems = [
+      {
+        'label': 'Activity Level',
+        'value': getActivityLevelText(),
+        'page': 3,
+      },
+      {
+        'label': 'Goal',
+        'value': getGoalText(),
+        'page': 4,
+      },
+    ];
+    
+    // Add deficit/surplus and target weight if not maintaining
+    if (_goal != MacroCalculatorService.GOAL_MAINTAIN) {
+      activityGoalsItems.add({
+        'label': _goal == MacroCalculatorService.GOAL_LOSE
+            ? 'Calorie Deficit'
+            : 'Calorie Surplus',
+        'value': '$_deficit calories per day',
+        'page': 4,
+      });
+      
+      activityGoalsItems.add({
+        'label': 'Target Weight',
+        'value': '${_goalWeightKg.toStringAsFixed(1)} kg',
+        'page': 4,
+      });
     }
+    
+    // Create macro settings items
+    final List<Map<String, dynamic>> macroSettingsItems = [
+      {
+        'label': 'Protein Ratio',
+        'value': '${_proteinRatio.toStringAsFixed(1)} g per kg of bodyweight',
+        'page': 5,
+      },
+      {
+        'label': 'Fat Ratio',
+        'value': '${(_fatRatio * 100).round()}% of total calories',
+        'page': 5,
+      },
+      {
+        'label': 'Carbs',
+        'value': 'Remaining calories after protein and fat',
+        'page': 5,
+      },
+      {
+        'label': 'BMR Formula', 
+        'value': 'Auto-selected based on your profile',
+        'page': 5,
+      },
+    ];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -2357,29 +2438,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           _buildSummarySection(
             title: 'Personal Information',
             icon: Icons.person,
-            items: [
-              {
-                'label': 'Gender',
-                'value':
-                    _gender == MacroCalculatorService.MALE ? 'Male' : 'Female',
-                'page': 1,
-              },
-              {
-                'label': 'Age',
-                'value': '$_age years',
-                'page': 2,
-              },
-              {
-                'label': 'Weight',
-                'value': '${_weightKg.toStringAsFixed(1)} kg',
-                'page': 2,
-              },
-              {
-                'label': 'Height',
-                'value': '${_heightCm.round()} cm',
-                'page': 2,
-              },
-            ],
+            items: personalInfoItems,
           ),
 
           const SizedBox(height: 24),
@@ -2388,32 +2447,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           _buildSummarySection(
             title: 'Activity & Goals',
             icon: Icons.fitness_center,
-            items: [
-              {
-                'label': 'Activity Level',
-                'value': getActivityLevelText(),
-                'page': 3,
-              },
-              {
-                'label': 'Goal',
-                'value': getGoalText(),
-                'page': 4,
-              },
-              if (_goal != MacroCalculatorService.GOAL_MAINTAIN) ...[
-                {
-                  'label': _goal == MacroCalculatorService.GOAL_LOSE
-                      ? 'Calorie Deficit'
-                      : 'Calorie Surplus',
-                  'value': '$_deficit calories per day',
-                  'page': 4,
-                },
-                {
-                  'label': 'Target Weight',
-                  'value': '${_goalWeightKg.toStringAsFixed(1)} kg',
-                  'page': 4,
-                },
-              ],
-            ],
+            items: activityGoalsItems,
           ),
 
           const SizedBox(height: 24),
@@ -2422,34 +2456,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           _buildSummarySection(
             title: 'Macro Settings',
             icon: Icons.science,
-            items: [
-              {
-                'label': 'Protein Ratio',
-                'value':
-                    '${_proteinRatio.toStringAsFixed(1)} g per kg of bodyweight',
-                'page': 5,
-              },
-              {
-                'label': 'Fat Ratio',
-                'value': '${(_fatRatio * 100).round()}% of total calories',
-                'page': 5,
-              },
-              {
-                'label': 'Carbs',
-                'value': 'Remaining calories after protein and fat',
-                'page': 5,
-              },
-              {
-                'label': 'BMR Formula', 
-                'value': getBmrFormulaText(),
-                'page': 5,
-              },
-              if (_showBodyFatInput) {
-                'label': 'Body Fat Percentage',
-                'value': '${_bodyFatPercentage.round()}%',
-                'page': 5,
-              },
-            ],
+            items: macroSettingsItems,
           ),
         ],
       ),
@@ -2633,5 +2640,64 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         ),
       ),
     );
+  }
+
+  // Add this method to ensure values are within valid ranges
+  void _validateRanges() {
+    // Ensure goal weight is realistic based on current weight and goal
+    if (_goal == MacroCalculatorService.GOAL_LOSE) {
+      // For weight loss, goal weight should be less than current weight
+      // and not too extreme (safe to assume not less than 75% of current weight)
+      double minWeight = _weightKg * 0.75;
+      _goalWeightKg = _goalWeightKg < minWeight ? minWeight : _goalWeightKg;
+      _goalWeightKg = _goalWeightKg >= _weightKg ? _weightKg - 0.5 : _goalWeightKg;
+    } else if (_goal == MacroCalculatorService.GOAL_GAIN) {
+      // For weight gain, goal weight should be more than current weight
+      // and not too extreme (safe to assume not more than 150% of current weight)
+      double maxWeight = _weightKg * 1.5;
+      _goalWeightKg = _goalWeightKg > maxWeight ? maxWeight : _goalWeightKg;
+      _goalWeightKg = _goalWeightKg <= _weightKg ? _weightKg + 0.5 : _goalWeightKg;
+    }
+    // If goal is MAINTAIN, no validation needed for goal weight
+  }
+
+  void _setImperialValues() {
+    // Convert kg to lbs
+    _imperialWeightLbs = (_weightKg * 2.20462).round();
+    _imperialGoalWeightLbs = (_goalWeightKg * 2.20462).round();
+    
+    // Convert cm to feet and inches
+    double totalInches = _heightCm / 2.54;
+    _imperialHeightFeet = (totalInches / 12).floor();
+    _imperialHeightInches = (totalInches % 12).round();
+    
+    // Update UI
+    setState(() {});
+  }
+
+  void _updateGoal(String newGoal) {
+    setState(() {
+      _goal = newGoal;
+      
+      // Update goal weight and deficit based on goal
+      if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
+        _goalWeightKg = _weightKg;
+        _deficit = 0; // No deficit/surplus for maintaining
+      } else if (_goal == MacroCalculatorService.GOAL_LOSE) {
+        _goalWeightKg = _weightKg * 0.9; // Default to 10% weight loss
+        _deficit = 500; // Default deficit
+      } else if (_goal == MacroCalculatorService.GOAL_GAIN) {
+        _goalWeightKg = _weightKg * 1.1; // Default to 10% weight gain
+        _deficit = 500; // Default surplus
+      }
+      
+      // Update imperial values if needed
+      if (!_isMetricWeight) {
+        _setImperialValues();
+      }
+      
+      // Validate the ranges
+      _validateRanges();
+    });
   }
 }

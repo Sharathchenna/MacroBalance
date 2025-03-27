@@ -684,8 +684,8 @@ class PieChartView: UIView {
         chartView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(chartView)
         
-        // Apply the theme to the chart
-        ThemeManager.shared.applyChartTheme(to: chartView)
+        // Apply the theme to the chart - only set background color for safety
+        chartView.backgroundColor = ThemeManager.shared.cardBackground
         
         NSLayoutConstraint.activate([
             chartView.topAnchor.constraint(equalTo: topAnchor),

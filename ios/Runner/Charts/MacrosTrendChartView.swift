@@ -1,30 +1,42 @@
 import UIKit
 import DGCharts
 
-class MacrosTrendChartView: UIView {
+final class MacrosTrendChartView: UIView {
+    // Define constants that will be accessed by marker
+    fileprivate static let markerWidth: CGFloat = 80
+    fileprivate static let markerHeight: CGFloat = 40
+    
+    // MARK: - Types
+    fileprivate enum Constants {
+        static let cornerRadius: CGFloat = 16
+        static let padding: CGFloat = 16
+        static let smallPadding: CGFloat = 8
+        static let titleFontSize: CGFloat = 20
+        static let legendFontSize: CGFloat = 12
+        static let axisFontSize: CGFloat = 10
+        static let lineWidth: CGFloat = 2.5
+        static let circleRadius: CGFloat = 3.5
+        static let circleHoleRadius: CGFloat = 1.5
+        static let animationDuration: TimeInterval = 1.2
+        static let cubicIntensity: CGFloat = 0.2
+        static let visibleDaysRange: Double = 7
+    }
+    
     // MARK: - UI Components
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.text = "Macros Trend"
-        label.font = .systemFont(ofSize: 20, weight: .bold)
+        label.font = UIFont.systemFont(ofSize: Constants.titleFontSize, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
     
-    private let periodToggle: UISegmentedControl = {
+    private lazy var periodToggle: UISegmentedControl = {
         let segment = UISegmentedControl(items: ["7 Days", "14 Days", "30 Days"])
         segment.selectedSegmentIndex = 0
         segment.translatesAutoresizingMaskIntoConstraints = false
+        segment.addTarget(self, action: #selector(periodChanged), for: .valueChanged)
         return segment
-    }()
-    
-    private let stackView: UIStackView = {
-        let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.spacing = 8
-        stack.distribution = .fillProportionally
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        return stack
     }()
     
     private let lineChartView: LineChartView = {
@@ -37,31 +49,31 @@ class MacrosTrendChartView: UIView {
         chart.legend.horizontalAlignment = .right
         chart.legend.verticalAlignment = .top
         chart.legend.orientation = .horizontal
-        chart.legend.drawInside = false // Keep legend outside chart area
-        chart.legend.font = .systemFont(ofSize: 12)
-        chart.legend.yOffset = 0 // Adjust offset if needed
+        chart.legend.drawInside = false
+        chart.legend.font = .systemFont(ofSize: Constants.legendFontSize)
+        chart.legend.yOffset = 0
         chart.legend.xOffset = -8
         
         // Configure x-axis
         chart.xAxis.labelPosition = .bottom
-        chart.xAxis.labelFont = .systemFont(ofSize: 10)
+        chart.xAxis.labelFont = .systemFont(ofSize: Constants.axisFontSize)
         chart.xAxis.granularity = 1
-        // chart.xAxis.valueFormatter = DateAxisValueFormatter() // Remove initial incorrect formatter
-        chart.xAxis.labelCount = 5 // Consider if forceLabelsEnabled is needed
-        chart.xAxis.axisLineWidth = 1.0
+        chart.xAxis.labelCount = 5
+        chart.xAxis.axisLineWidth = 0.5
         chart.xAxis.axisLineColor = .tertiaryLabel
         chart.xAxis.gridColor = .quaternaryLabel
         chart.xAxis.gridLineDashLengths = [4, 2]
         
         // Configure left axis
-        chart.leftAxis.labelFont = .systemFont(ofSize: 10)
+        chart.leftAxis.labelFont = .systemFont(ofSize: Constants.axisFontSize)
         chart.leftAxis.axisMinimum = 0
         chart.leftAxis.drawGridLinesEnabled = true
         chart.leftAxis.gridColor = .quaternaryLabel
         chart.leftAxis.gridLineDashLengths = [4, 2]
         chart.leftAxis.axisLineColor = .tertiaryLabel
+        chart.leftAxis.axisLineWidth = 0.5
         
-        // Enable pinch zooming
+        // Enable zooming
         chart.scaleYEnabled = false
         chart.scaleXEnabled = true
         chart.pinchZoomEnabled = true
@@ -86,80 +98,50 @@ class MacrosTrendChartView: UIView {
     // MARK: - Properties
     private var allEntries: [Models.MacrosEntry] = []
     private var periodDays: Int = 7
+    private let dateFormatter = DateFormatter()
     
     // MARK: - Initialization
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
-        setupActions()
+        setupDateFormatter()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupUI()
-        setupActions()
+        setupDateFormatter()
     }
     
     // MARK: - UI Setup
     private func setupUI() {
         backgroundColor = .secondarySystemBackground
-        layer.cornerRadius = 16
+        layer.cornerRadius = Constants.cornerRadius
         
-        // Add subviews directly to self
         addSubview(titleLabel)
         addSubview(periodToggle)
         addSubview(lineChartView)
         addSubview(infoLabel)
         
-        // Set up chart appearance (some might be redundant from initialization block)
-        lineChartView.rightAxis.enabled = false
-        lineChartView.legend.form = .circle
-        lineChartView.legend.horizontalAlignment = .right
-        lineChartView.legend.verticalAlignment = .top
-        lineChartView.legend.orientation = .horizontal
-        lineChartView.legend.drawInside = false // Keep legend outside chart area
-        lineChartView.legend.font = .systemFont(ofSize: 12)
-        lineChartView.legend.yOffset = 0 // Adjust offset if needed
-        lineChartView.legend.xOffset = -8
-        
-        // Configure x-axis with better styling
-        lineChartView.xAxis.labelPosition = .bottom
-        lineChartView.xAxis.labelFont = .systemFont(ofSize: 10)
-        // lineChartView.xAxis.valueFormatter = DateAxisValueFormatter() // Remove initial incorrect formatter
-        lineChartView.xAxis.labelCount = 5 // Consider if forceLabelsEnabled is needed
-        lineChartView.xAxis.axisLineWidth = 0.5
-        lineChartView.xAxis.axisLineColor = .tertiaryLabel
-        lineChartView.xAxis.gridColor = .quaternaryLabel
-        lineChartView.xAxis.gridLineDashLengths = [4, 2]
-        
-        // Configure left axis with improved appearance
-        lineChartView.leftAxis.labelFont = .systemFont(ofSize: 10)
-        lineChartView.leftAxis.axisMinimum = 0
-        lineChartView.leftAxis.gridColor = .quaternaryLabel
-        lineChartView.leftAxis.gridLineDashLengths = [4, 2]
-        lineChartView.leftAxis.axisLineColor = .tertiaryLabel
-        lineChartView.leftAxis.axisLineWidth = 0.5
-
         NSLayoutConstraint.activate([
             // Title constraints
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: Constants.padding),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Constants.padding),
             
-            // Period Toggle constraints (relative to title and trailing edge)
+            // Period Toggle constraints
             periodToggle.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            periodToggle.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 8), // Ensure space between title and toggle
-            periodToggle.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            // Removed fixed width constraint
+            periodToggle.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: Constants.smallPadding),
+            periodToggle.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Constants.padding),
             
             // Chart constraints
-            lineChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
-            lineChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            lineChartView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            lineChartView.bottomAnchor.constraint(equalTo: infoLabel.topAnchor, constant: -8),
+            lineChartView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: Constants.padding),
+            lineChartView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Constants.smallPadding),
+            lineChartView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Constants.smallPadding),
+            lineChartView.bottomAnchor.constraint(equalTo: infoLabel.topAnchor, constant: -Constants.smallPadding),
             
             // Info Label constraints
-            infoLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            infoLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            infoLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Constants.padding),
+            infoLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Constants.padding),
             infoLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -12)
         ])
         
@@ -169,8 +151,16 @@ class MacrosTrendChartView: UIView {
         lineChartView.marker = marker
     }
     
-    private func setupActions() {
-        periodToggle.addTarget(self, action: #selector(periodChanged), for: .valueChanged)
+    private func setupDateFormatter() {
+        dateFormatter.dateFormat = "MM/dd"
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            updateChartWithPeriod()
+        }
     }
     
     @objc private func periodChanged() {
@@ -190,15 +180,12 @@ class MacrosTrendChartView: UIView {
     
     // MARK: - Configuration
     func configure(with entries: [Models.MacrosEntry]) {
-        print("[MacrosTrendChartView] configure called with \(entries.count) entries.") // Log entry count
         self.allEntries = entries
         updateChartWithPeriod()
     }
     
     private func updateChartWithPeriod() {
-        print("[MacrosTrendChartView] updateChartWithPeriod called. Period: \(periodDays) days.") // Log period
         guard !allEntries.isEmpty else {
-            print("[MacrosTrendChartView] No entries, resetting chart.") // Log empty case
             resetChart()
             return
         }
@@ -221,29 +208,33 @@ class MacrosTrendChartView: UIView {
         }
         
         // Create datasets
-        let proteinDataSet = createDataSet(entries: proteinEntries,
-                                         label: "Protein",
-                                         color: .proteinColor,
-                                         fillColor: .proteinColor.withAlphaComponent(0.2))
+        let proteinDataSet = createDataSet(
+            entries: proteinEntries,
+            label: "Protein",
+            color: .proteinColor,
+            fillColor: .proteinColor.withAlphaComponent(0.2)
+        )
         
-        let carbDataSet = createDataSet(entries: carbEntries,
-                                      label: "Carbs",
-                                      color: .carbColor,
-                                      fillColor: .carbColor.withAlphaComponent(0.2))
+        let carbDataSet = createDataSet(
+            entries: carbEntries,
+            label: "Carbs",
+            color: .carbColor,
+            fillColor: .carbColor.withAlphaComponent(0.2)
+        )
         
-        let fatDataSet = createDataSet(entries: fatEntries,
-                                     label: "Fat",
-                                     color: .fatColor,
-                                     fillColor: .fatColor.withAlphaComponent(0.2))
+        let fatDataSet = createDataSet(
+            entries: fatEntries,
+            label: "Fat",
+            color: .fatColor,
+            fillColor: .fatColor.withAlphaComponent(0.2)
+        )
         
         // Create and set chart data
         let data = LineChartData(dataSets: [proteinDataSet, carbDataSet, fatDataSet])
-        data.setDrawValues(false) // Hide values for cleaner look
+        data.setDrawValues(false)
         lineChartView.data = data
         
         // Update x-axis values with dates
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MM/dd"
         let dates = periodEntries.map { dateFormatter.string(from: $0.date) }
         lineChartView.xAxis.valueFormatter = IndexAxisValueFormatter(values: dates)
         
@@ -251,40 +242,43 @@ class MacrosTrendChartView: UIView {
         setInitialChartVisibleRange(count: periodEntries.count)
         
         // Animate chart
-        lineChartView.animate(xAxisDuration: 1.2, yAxisDuration: 1.2, easingOption: .easeInOutQuart)
+        lineChartView.animate(
+            xAxisDuration: Constants.animationDuration,
+            yAxisDuration: Constants.animationDuration,
+            easingOption: .easeInOutQuart
+        )
     }
     
     private func setInitialChartVisibleRange(count: Int) {
-        if count > 7 {
-            lineChartView.setVisibleXRangeMaximum(7) // Show 7 days at a time
-            lineChartView.moveViewToX(Double(count - 1)) // Move to latest data
+        if count > Int(Constants.visibleDaysRange) {
+            lineChartView.setVisibleXRangeMaximum(Constants.visibleDaysRange)
+            lineChartView.moveViewToX(Double(count - 1))
         }
     }
     
-    private func createDataSet(entries: [ChartDataEntry],
-                             label: String,
-                             color: UIColor,
-                             fillColor: UIColor) -> LineChartDataSet {
+    private func createDataSet(
+        entries: [ChartDataEntry],
+        label: String,
+        color: UIColor,
+        fillColor: UIColor
+    ) -> LineChartDataSet {
         let dataSet = LineChartDataSet(entries: entries, label: label)
         
         // Configure appearance
         dataSet.colors = [color]
-        dataSet.lineWidth = 2.5
+        dataSet.lineWidth = Constants.lineWidth
         dataSet.drawCirclesEnabled = true
         dataSet.circleColors = [color]
-        dataSet.circleRadius = 3.5
-        dataSet.circleHoleRadius = 1.5
+        dataSet.circleRadius = Constants.circleRadius
+        dataSet.circleHoleRadius = Constants.circleHoleRadius
         dataSet.drawCircleHoleEnabled = true
-        dataSet.circleHoleColor = .systemBackground
+        dataSet.circleHoleColor = traitCollection.userInterfaceStyle == .dark ? .black : .white
         dataSet.mode = .cubicBezier
-        dataSet.cubicIntensity = 0.2
+        dataSet.cubicIntensity = Constants.cubicIntensity
         dataSet.drawValuesEnabled = false
         
         // Add gradient fill
-        let gradientColors = [color.cgColor, color.withAlphaComponent(0).cgColor] as CFArray
-        let locations: [CGFloat] = [0.0, 1.0]
-        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors, locations: locations)!
-        dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
+        dataSet.fill = getFill(for: color)
         dataSet.drawFilledEnabled = true
         
         // Line style
@@ -296,40 +290,36 @@ class MacrosTrendChartView: UIView {
         return dataSet
     }
     
-    private func getGradient(for color: UIColor) -> CGGradient {
-        let gradientColors = [
-            color.cgColor,
-            color.withAlphaComponent(0).cgColor
-        ]
+    private func getFill(for color: UIColor) -> Fill {
+        let gradientColors = [color.cgColor, color.withAlphaComponent(0).cgColor] as CFArray
         let locations: [CGFloat] = [0.0, 1.0]
-        return CGGradient(
-            colorsSpace: nil,
-            colors: gradientColors as CFArray,
-            locations: locations
-        )!
+        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors, locations: locations)!
+        return LinearGradientFill(gradient: gradient, angle: 90)
     }
     
     private func resetChart() {
-        print("[MacrosTrendChartView] resetChart called.") // Log reset
         lineChartView.data = nil
         lineChartView.notifyDataSetChanged()
     }
 }
 
 // MARK: - ChartMarker
-private class ChartMarker: MarkerView {
+private final class ChartMarker: MarkerView {
     private let contentView = UIView()
     private let valueLabel = UILabel()
     private let dateLabel = UILabel()
+    private let dateFormatter = DateFormatter()
     
     override init(frame: CGRect) {
-        super.init(frame: CGRect(x: 0, y: 0, width: 80, height: 40))
+        super.init(frame: CGRect(x: 0, y: 0, width: MacrosTrendChartView.markerWidth, height: MacrosTrendChartView.markerHeight))
         setupUI()
+        setupDateFormatter()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupUI()
+        setupDateFormatter()
     }
     
     private func setupUI() {
@@ -374,14 +364,16 @@ private class ChartMarker: MarkerView {
         ])
     }
     
+    private func setupDateFormatter() {
+        dateFormatter.dateFormat = "MMM d"
+    }
+    
     override func refreshContent(entry: ChartDataEntry, highlight: Highlight) {
         // Format the value
         valueLabel.text = "\(Int(entry.y))g"
         
         // Format the date if available
         if let date = entry.data as? Date {
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "MMM d"
             dateLabel.text = dateFormatter.string(from: date)
         } else {
             dateLabel.text = ""
@@ -397,14 +389,12 @@ private class ChartMarker: MarkerView {
     }
     
     override func offsetForDrawing(atPoint point: CGPoint) -> CGPoint {
-        // Adjust marker position to be above the data point
         var offset = super.offsetForDrawing(atPoint: point)
-        offset.y = -self.bounds.size.height - 5 // Position the marker above the point
+        offset.y = -bounds.size.height - 5
         
-        // Adjust horizontal position to keep marker within chart bounds
         guard let chart = chartView else { return offset }
         
-        let width = self.bounds.size.width
+        let width = bounds.size.width
         let leftMargin = 15.0
         let rightMargin = 15.0
         

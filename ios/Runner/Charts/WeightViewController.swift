@@ -3,16 +3,22 @@ import SwiftUI
 import DGCharts
 import Charts
 
-class WeightViewController: UIViewController {
+// MARK: - Weight View Controller
+final class WeightViewController: UIViewController {
+    // MARK: - Private Properties
     private let scrollView = UIScrollView()
     private let contentView = UIStackView()
     private var entries: [Models.WeightEntry] = []
     private let dataManager = StatsDataManager.shared
     private var weightUnit: String = "kg"
-    private let chartView = LineChartView()
+    private lazy var chartView = LineChartView()
     private var goalWeight: Double = 0
     private var timeSegmentControl: UISegmentedControl!
     private let dateFormatter = DateFormatter()
+    
+    // Cache values to avoid recalculations
+    private var lastChartPeriod: ChartPeriod = .week
+    private var cachedTrendLineEntries: [ChartDataEntry]?
     
     // Define chart period options
     private enum ChartPeriod: Int {
@@ -24,20 +30,27 @@ class WeightViewController: UIViewController {
     
     private var currentPeriod: ChartPeriod = .week
     
+    // MARK: - Lifecycle Methods
     override func viewDidLoad() {
         super.viewDidLoad()
+        configureDefaults()
         setupUI()
         loadWeightData()
+    }
+    
+    // MARK: - Private Methods
+    
+    private func configureDefaults() {
         loadWeightUnit()
         loadGoalWeight()
-        setupChartView()
+        
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .none
     }
     
     private func setupUI() {
         title = "Weight"
         view.backgroundColor = .systemBackground
-        dateFormatter.dateStyle = .medium
-        dateFormatter.timeStyle = .none
         
         // Add button
         navigationItem.rightBarButtonItem = UIBarButtonItem(
@@ -47,43 +60,41 @@ class WeightViewController: UIViewController {
             action: #selector(addWeightEntry)
         )
         
-        // Setup scroll view
+        setupScrollView()
+        setupContentView()
+        setupTimeSegmentControl()
+        setupStatsView()
+        setupChartContainer()
+        setupChartView()
+        setupInsightsView()
+        setupWeightEntryButton()
+    }
+    
+    private func setupScrollView() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
         
-        // Setup content stack view
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    private func setupContentView() {
         contentView.axis = .vertical
         contentView.spacing = 20
         contentView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(contentView)
         
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 16),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 16),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -16),
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -16),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32)
         ])
-        
-        // Add time segment control for chart periods
-        setupTimeSegmentControl()
-        
-        // Add weight stats view
-        setupStatsView()
-        
-        // Add chart container
-        setupChartContainer()
-        
-        // Add insights view
-        setupInsightsView()
-        
-        // Add weight entry button at the bottom
-        setupWeightEntryButton()
     }
     
     private func setupTimeSegmentControl() {
@@ -309,18 +320,26 @@ class WeightViewController: UIViewController {
     }
     
     private func setupChartView() {
+        // Configure base chart settings
         chartView.noDataText = "Loading..."
         chartView.drawGridBackgroundEnabled = false
         chartView.chartDescription.enabled = false
         
-        // Optimize rendering
+        // Optimize chart rendering
         chartView.dragEnabled = true
         chartView.setScaleEnabled(true)
         chartView.pinchZoomEnabled = true
         chartView.doubleTapToZoomEnabled = false  // Disable to prevent unnecessary redraws
+        chartView.highlightPerTapEnabled = true   // Only highlight on tap, not drag
+        chartView.highlightPerDragEnabled = false // Disable drag highlighting for better performance
         
-        // Reduce memory usage
+        // Reduce memory usage with viewport limiting
         chartView.maxVisibleCount = 60
+        chartView.autoScaleMinMaxEnabled = true // Automatically adjust Y axis
+        
+        // Use hardware acceleration for better performance
+        chartView.layer.shouldRasterize = true
+        chartView.layer.rasterizationScale = UIScreen.main.scale
         
         // Configure axes
         configureChartAxes()
@@ -357,24 +376,100 @@ class WeightViewController: UIViewController {
     }
     
     @objc private func timeSegmentChanged() {
-        currentPeriod = ChartPeriod(rawValue: timeSegmentControl.selectedSegmentIndex) ?? .week
-        loadWeightData()
+        let newPeriod = ChartPeriod(rawValue: timeSegmentControl.selectedSegmentIndex) ?? .week
+        if currentPeriod != newPeriod {
+            // Only reload if the period actually changed
+            currentPeriod = newPeriod
+            
+            // Clear cache when period changes
+            cachedTrendLineEntries = nil
+            
+            // Reload data with new period
+            loadWeightData()
+        }
     }
     
     private func loadWeightData() {
         // Move data fetching to background queue
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.dataManager.fetchWeightData { entries in
+            guard let self = self else { return }
+            
+            self.dataManager.fetchWeightData { [weak self] entries in
+                guard let self = self else { return }
+                
                 // Process data in background
-                let sortedEntries = entries.sorted { $0.date < $1.date }
+                var sortedEntries = entries.sorted { $0.date < $1.date }
+                
+                // If no entries exist, check if we have onboarding weight data
+                if sortedEntries.isEmpty {
+                    if let onboardingEntry = self.getOnboardingWeightEntry() {
+                        sortedEntries.append(onboardingEntry)
+                        
+                        // Save this entry for future use
+                        self.dataManager.saveWeightEntry(onboardingEntry) { success in
+                            print("Onboarding weight saved: \(success)")
+                        }
+                    }
+                }
+                
+                // Filter entries based on time period
+                let filteredEntries = self.filterEntriesByPeriod(sortedEntries, period: self.currentPeriod)
                 
                 // Update UI on main thread
-                DispatchQueue.main.async {
-                    self?.entries = sortedEntries
-                    self?.updateUI()
-                    self?.updateInsights()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    self.entries = filteredEntries
+                    self.updateUI()
+                    self.updateInsights()
                 }
             }
+        }
+    }
+    
+    private func filterEntriesByPeriod(_ entries: [Models.WeightEntry], period: ChartPeriod) -> [Models.WeightEntry] {
+        guard !entries.isEmpty else { return [] }
+        
+        let calendar = Calendar.current
+        let now = Date()
+        let startDate: Date
+        
+        switch period {
+        case .week:
+            startDate = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+        case .month:
+            startDate = calendar.date(byAdding: .month, value: -1, to: now) ?? now
+        case .threeMonths:
+            startDate = calendar.date(byAdding: .month, value: -3, to: now) ?? now
+        case .year:
+            startDate = calendar.date(byAdding: .year, value: -1, to: now) ?? now
+        }
+        
+        return entries.filter { $0.date >= startDate }
+    }
+    
+    private func getOnboardingWeightEntry() -> Models.WeightEntry? {
+        // Try to get the weight from onboarding results saved in UserDefaults
+        guard let resultsData = UserDefaults.standard.string(forKey: "macro_results"),
+              let data = resultsData.data(using: .utf8) else {
+            return nil
+        }
+        
+        do {
+            guard let results = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                  let weightKg = results["weight_kg"] as? Double else {
+                return nil
+            }
+            
+            // Create a weight entry with the onboarding weight
+            // Use current date as we're creating a starting point
+            return Models.WeightEntry(
+                date: Date(),
+                weight: weightKg,
+                unit: weightUnit
+            )
+        } catch {
+            print("Error parsing onboarding data: \(error)")
+            return nil
         }
     }
     
@@ -390,12 +485,37 @@ class WeightViewController: UIViewController {
         // Try to load goal weight from UserDefaults
         goalWeight = UserDefaults.standard.double(forKey: "goal_weight")
         if goalWeight == 0 {
-            // Set a default goal based on current weight if available
-            if let lastWeight = entries.last?.weight {
+            // Try to get goal weight from onboarding data
+            if let goalWeightFromOnboarding = getGoalWeightFromOnboarding() {
+                goalWeight = goalWeightFromOnboarding
+                UserDefaults.standard.set(goalWeight, forKey: "goal_weight")
+            }
+            // If still no goal weight, set a default based on current weight if available
+            else if let lastWeight = entries.last?.weight {
                 // Default goal is 10% less than current weight
                 goalWeight = lastWeight * 0.9
                 UserDefaults.standard.set(goalWeight, forKey: "goal_weight")
             }
+        }
+    }
+    
+    private func getGoalWeightFromOnboarding() -> Double? {
+        // Try to get the goal weight from onboarding results
+        guard let resultsData = UserDefaults.standard.string(forKey: "macro_results"),
+              let data = resultsData.data(using: .utf8) else {
+            return nil
+        }
+        
+        do {
+            guard let results = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                  let goalWeightKg = results["goal_weight_kg"] as? Double else {
+                return nil
+            }
+            
+            return goalWeightKg
+        } catch {
+            print("Error parsing onboarding data: \(error)")
+            return nil
         }
     }
     
@@ -412,11 +532,12 @@ class WeightViewController: UIViewController {
         }
         
         let addAction = UIAlertAction(title: "Add", style: .default) { [weak self] _ in
-            guard let weightText = alert.textFields?.first?.text,
+            guard let self = self,
+                  let weightText = alert.textFields?.first?.text,
                   let weight = Double(weightText) else { return }
             
-            let entry = Models.WeightEntry(date: Date(), weight: weight, unit: self?.weightUnit ?? "kg")
-            self?.dataManager.saveWeightEntry(entry) { success in
+            let entry = Models.WeightEntry(date: Date(), weight: weight, unit: self.weightUnit)
+            self.dataManager.saveWeightEntry(entry) { [weak self] success in
                 if success {
                     self?.loadWeightData()
                 }
@@ -443,6 +564,8 @@ class WeightViewController: UIViewController {
     }
     
     private func updateStats() {
+        guard !entries.isEmpty else { return }
+        
         // Sort entries by date
         let sortedEntries = entries.sorted { $0.date < $1.date }
         
@@ -452,31 +575,45 @@ class WeightViewController: UIViewController {
         let change = currentWeight - firstWeight
         let changeType: Change = change < 0 ? .negative : .positive
         
-        // Update stat cards
-        if let currentValueLabel = view.viewWithTag(1201) as? UILabel {
-            currentValueLabel.text = "\(String(format: "%.1f", currentWeight)) \(weightUnit)"
-        }
+        // Update stat cards using a utility method to avoid code duplication
+        updateStatCardLabel(tag: 1201, text: "\(String(format: "%.1f", currentWeight)) \(weightUnit)")
         
-        if let changeValueLabel = view.viewWithTag(1202) as? UILabel {
-            let prefix = change < 0 ? "" : "+"
-            changeValueLabel.text = "\(prefix)\(String(format: "%.1f", change)) \(weightUnit)"
-            changeValueLabel.textColor = change < 0 ? .systemGreen : .systemRed
-        }
+        // Format change with sign and color
+        let prefix = change < 0 ? "" : "+"
+        let changeText = "\(prefix)\(String(format: "%.1f", change)) \(weightUnit)"
+        updateStatCardLabel(tag: 1202, text: changeText, color: change < 0 ? .systemGreen : .systemRed)
         
-        if let goalValueLabel = view.viewWithTag(1203) as? UILabel {
-            goalValueLabel.text = "\(String(format: "%.1f", goalWeight)) \(weightUnit)"
+        // Goal weight
+        updateStatCardLabel(tag: 1203, text: "\(String(format: "%.1f", goalWeight)) \(weightUnit)")
+    }
+    
+    private func updateStatCardLabel(tag: Int, text: String, color: UIColor? = nil) {
+        if let label = view.viewWithTag(tag) as? UILabel {
+            label.text = text
+            if let color = color {
+                label.textColor = color
+            }
         }
     }
     
     private func updateChart(with entries: [Models.WeightEntry]) {
+        // Avoid unnecessary chart updates
+        guard !entries.isEmpty else {
+            chartView.data = nil
+            chartView.notifyDataSetChanged()
+            return
+        }
+        
         // Process chart data in background
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
+            // Convert entries to chart data points
             let dataPoints = entries.map { entry -> ChartDataEntry in
                 ChartDataEntry(x: entry.date.timeIntervalSince1970, y: entry.weight)
             }
             
+            // Create and configure weight dataset
             let weightDataSet = LineChartDataSet(entries: dataPoints, label: "Weight")
             self.configureDataSet(weightDataSet, color: .systemBlue, fillColor: UIColor.systemBlue.withAlphaComponent(0.2))
             
@@ -492,32 +629,55 @@ class WeightViewController: UIViewController {
                 dataSets.append(goalDataSet)
             }
             
-            // Calculate trend line in background
+            // Calculate trend line in background or use cached values
             if entries.count >= 3 {
-                let trendEntries = self.calculateTrendLine(for: entries)
+                let trendEntries: [ChartDataEntry]
+                
+                // Check if we can use cached trend line data
+                if let cached = self.cachedTrendLineEntries, 
+                   self.lastChartPeriod == self.currentPeriod {
+                    trendEntries = cached
+                } else {
+                    trendEntries = self.calculateTrendLine(for: entries)
+                    self.cachedTrendLineEntries = trendEntries
+                    self.lastChartPeriod = self.currentPeriod
+                }
+                
                 let trendDataSet = LineChartDataSet(entries: trendEntries, label: "Trend")
                 self.configureDataSet(trendDataSet, color: .systemGreen, fillColor: .clear, lineStyle: [[8.0, 4.0]])
                 dataSets.append(trendDataSet)
             }
             
             // Update chart on main thread
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
                 let chartData = LineChartData(dataSets: dataSets)
-                chartData.setDrawValues(false)
+                chartData.setDrawValues(false) // Disable value drawing for better performance
+                
+                // Batch update chart and animations
+                CATransaction.begin()
+                CATransaction.setAnimationDuration(0.3)
                 
                 self.chartView.data = chartData
-                self.chartView.animate(xAxisDuration: 0.3)
+                self.chartView.notifyDataSetChanged()
+                
+                CATransaction.commit()
             }
         }
     }
     
     private func configureDataSet(_ dataSet: LineChartDataSet, color: UIColor, fillColor: UIColor, lineStyle: [[CGFloat]] = []) {
+        // Basic configuration
         dataSet.mode = .cubicBezier
         dataSet.drawCirclesEnabled = true
         dataSet.circleRadius = 4
         dataSet.circleColors = [color]
         dataSet.circleHoleColor = .systemBackground
         dataSet.colors = [color]
+        
+        // Performance optimizations
+        dataSet.drawValuesEnabled = false
         
         if !lineStyle.isEmpty {
             dataSet.lineDashLengths = lineStyle[0]
@@ -552,6 +712,9 @@ class WeightViewController: UIViewController {
     }
     
     private func calculateTrendLine(for entries: [Models.WeightEntry]) -> [ChartDataEntry] {
+        // Early return if not enough data
+        guard entries.count >= 3 else { return [] }
+        
         // Simple linear regression calculation
         let count = Double(entries.count)
         
@@ -560,97 +723,129 @@ class WeightViewController: UIViewController {
         let xValues = entries.map { $0.date.timeIntervalSince(startDate) / (60 * 60 * 24) }
         let yValues = entries.map { $0.weight }
         
+        // Pre-allocate variables to avoid repeated allocation
         var sumX: Double = 0
         var sumY: Double = 0
         var sumXY: Double = 0
         var sumX2: Double = 0
         
+        // Calculate in a single pass
         for i in 0..<entries.count {
-            sumX += xValues[i]
-            sumY += yValues[i]
-            sumXY += xValues[i] * yValues[i]
-            sumX2 += xValues[i] * xValues[i]
+            let x = xValues[i]
+            let y = yValues[i]
+            sumX += x
+            sumY += y
+            sumXY += x * y
+            sumX2 += x * x
         }
         
         // Calculate slope and y-intercept for line equation: y = mx + b
-        let slope = (count * sumXY - sumX * sumY) / (count * sumX2 - sumX * sumX)
+        let denominator = count * sumX2 - sumX * sumX
+        // Avoid division by zero
+        guard denominator != 0 else { return [] }
+        
+        let slope = (count * sumXY - sumX * sumY) / denominator
         let intercept = (sumY - slope * sumX) / count
         
         // Create trend line data points
-        return entries.map { entry in
+        // Optimize by only creating points for first, last, and a few points in between
+        // This reduces the number of objects created while still showing an accurate trend line
+        let resultCount = min(entries.count, 10) // Use at most 10 points for the trend line
+        let step = max(1, entries.count / resultCount)
+        
+        var result: [ChartDataEntry] = []
+        result.reserveCapacity(resultCount)
+        
+        for i in stride(from: 0, to: entries.count, by: step) {
+            let entry = entries[i]
             let days = entry.date.timeIntervalSince(startDate) / (60 * 60 * 24)
             let trendValue = slope * days + intercept
-            return ChartDataEntry(x: entry.date.timeIntervalSince1970, y: trendValue)
+            result.append(ChartDataEntry(x: entry.date.timeIntervalSince1970, y: trendValue))
         }
+        
+        // Ensure the last point is always included
+        if let lastEntry = entries.last, 
+           (result.isEmpty || result.last?.x != lastEntry.date.timeIntervalSince1970) {
+            let days = lastEntry.date.timeIntervalSince(startDate) / (60 * 60 * 24)
+            let trendValue = slope * days + intercept
+            result.append(ChartDataEntry(x: lastEntry.date.timeIntervalSince1970, y: trendValue))
+        }
+        
+        return result
     }
     
     private func updateInsights() {
-        guard entries.count >= 2 else {
-            updateInsightLabels(trend: "Not enough data", 
-                              weeklyChange: "Need more entries", 
-                              projection: "Add more data")
-            return
-        }
-        
-        // Sort entries by date
-        let sortedEntries = entries.sorted { $0.date < $1.date }
-        
-        // Calculate trend direction
-        let firstWeight = sortedEntries.first!.weight
-        let currentWeight = sortedEntries.last!.weight
-        let totalChange = currentWeight - firstWeight
-        
-        // Calculate weekly average change
-        let firstDate = sortedEntries.first!.date
-        let lastDate = sortedEntries.last!.date
-        let totalDays = max(1.0, lastDate.timeIntervalSince(firstDate) / (60 * 60 * 24))
-        let weeklyChange = (totalChange / totalDays) * 7
-        
-        // Determine trend text
-        let trendText: String
-        if abs(totalChange) < 0.5 {
-            trendText = "Maintaining"
-        } else if totalChange < 0 {
-            trendText = "Losing weight"
-        } else {
-            trendText = "Gaining weight"
-        }
-        
-        // Format weekly change text
-        let weeklyChangeText = String(format: "%.1f %@/week", abs(weeklyChange), weightUnit)
-        
-        // Calculate goal projection
-        let projectionText: String
-        if goalWeight > 0 && abs(weeklyChange) > 0.1 {
-            let remainingChange = goalWeight - currentWeight
-            
-            // Only show projection if moving toward goal
-            if (remainingChange < 0 && weeklyChange < 0) || (remainingChange > 0 && weeklyChange > 0) {
-                let weeksToGoal = abs(remainingChange / weeklyChange)
-                let goalDate = Date().addingTimeInterval(weeksToGoal * 7 * 24 * 60 * 60)
-                projectionText = dateFormatter.string(from: goalDate)
-            } else {
-                projectionText = "Moving away from goal"
+        // Move calculations to background thread
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self, self.entries.count >= 2 else {
+                DispatchQueue.main.async {
+                    self?.updateInsightLabels(trend: "Not enough data", 
+                                          weeklyChange: "Need more entries", 
+                                          projection: "Add more data")
+                }
+                return
             }
-        } else {
-            projectionText = "Set a goal weight"
+            
+            // Sort entries by date
+            let sortedEntries = self.entries.sorted { $0.date < $1.date }
+            
+            // Calculate trend direction
+            let firstWeight = sortedEntries.first!.weight
+            let currentWeight = sortedEntries.last!.weight
+            let totalChange = currentWeight - firstWeight
+            
+            // Calculate weekly average change
+            let firstDate = sortedEntries.first!.date
+            let lastDate = sortedEntries.last!.date
+            let totalDays = max(1.0, lastDate.timeIntervalSince(firstDate) / (60 * 60 * 24))
+            let weeklyChange = (totalChange / totalDays) * 7
+            
+            // Determine trend text
+            let trendText: String
+            if abs(totalChange) < 0.5 {
+                trendText = "Maintaining"
+            } else if totalChange < 0 {
+                trendText = "Losing weight"
+            } else {
+                trendText = "Gaining weight"
+            }
+            
+            // Format weekly change text
+            let weeklyChangeText = String(format: "%.1f %@/week", abs(weeklyChange), self.weightUnit)
+            
+            // Calculate goal projection
+            let projectionText: String
+            if self.goalWeight > 0 && abs(weeklyChange) > 0.1 {
+                let remainingChange = self.goalWeight - currentWeight
+                
+                // Only show projection if moving toward goal
+                if (remainingChange < 0 && weeklyChange < 0) || (remainingChange > 0 && weeklyChange > 0) {
+                    let weeksToGoal = abs(remainingChange / weeklyChange)
+                    let goalDate = Date().addingTimeInterval(weeksToGoal * 7 * 24 * 60 * 60)
+                    projectionText = self.dateFormatter.string(from: goalDate)
+                } else {
+                    projectionText = "Moving away from goal"
+                }
+            } else {
+                projectionText = "Set a goal weight"
+            }
+            
+            // Update insight labels on main thread
+            DispatchQueue.main.async {
+                self.updateInsightLabels(trend: trendText, weeklyChange: weeklyChangeText, projection: projectionText)
+            }
         }
-        
-        // Update insight labels
-        updateInsightLabels(trend: trendText, weeklyChange: weeklyChangeText, projection: projectionText)
     }
     
     private func updateInsightLabels(trend: String, weeklyChange: String, projection: String) {
-        if let trendLabel = view.viewWithTag(301) as? UILabel {
-            trendLabel.text = trend
-        }
-        
-        if let weeklyChangeLabel = view.viewWithTag(302) as? UILabel {
-            weeklyChangeLabel.text = weeklyChange
-        }
-        
-        if let projectionLabel = view.viewWithTag(303) as? UILabel {
-            projectionLabel.text = projection
+        updateLabelText(tag: 301, text: trend)
+        updateLabelText(tag: 302, text: weeklyChange)
+        updateLabelText(tag: 303, text: projection)
+    }
+    
+    private func updateLabelText(tag: Int, text: String) {
+        if let label = view.viewWithTag(tag) as? UILabel {
+            label.text = text
         }
     }
     
@@ -677,18 +872,47 @@ class WeightViewController: UIViewController {
     private func handleWeightEntry(_ weight: Double) {
         // Create a new weight entry and save it
         let entry = Models.WeightEntry(date: Date(), weight: weight, unit: weightUnit)
-        dataManager.saveWeightEntry(entry) { [weak self] success in
-            if success {
-                self?.loadWeightData()
+        
+        // Show activity indicator while saving
+        let loadingView = UIActivityIndicatorView(style: .medium)
+        loadingView.startAnimating()
+        loadingView.center = view.center
+        view.addSubview(loadingView)
+        
+        dataManager.saveWeightEntry(entry) { [weak self, weak loadingView] success in
+            DispatchQueue.main.async {
+                loadingView?.removeFromSuperview()
                 
-                // Show a success toast
-                self?.showToast(message: "Weight saved successfully")
+                if success {
+                    self?.loadWeightData()
+                    
+                    // Show a success toast
+                    self?.showToast(message: "Weight saved successfully")
+                } else {
+                    // Show error toast
+                    self?.showToast(message: "Failed to save weight")
+                }
             }
         }
     }
     
     private func showToast(message: String) {
+        // Reuse existing toast if possible
+        if let existingToast = view.viewWithTag(999) as? UILabel {
+            existingToast.text = message
+            
+            // Reset any ongoing animations
+            existingToast.layer.removeAllAnimations()
+            existingToast.alpha = 0
+            
+            // Animate again
+            animateToast(existingToast)
+            return
+        }
+        
+        // Create new toast if none exists
         let toastLabel = UILabel()
+        toastLabel.tag = 999 // Tag for reuse
         toastLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
         toastLabel.textColor = .white
         toastLabel.font = .systemFont(ofSize: 14)
@@ -708,20 +932,23 @@ class WeightViewController: UIViewController {
             toastLabel.heightAnchor.constraint(equalToConstant: 40)
         ])
         
-        UIView.animate(withDuration: 0.5, animations: {
+        animateToast(toastLabel)
+    }
+    
+    private func animateToast(_ toastLabel: UILabel) {
+        UIView.animate(withDuration: 0.3, animations: {
             toastLabel.alpha = 1
         }, completion: { _ in
-            UIView.animate(withDuration: 0.5, delay: 1.5, options: [], animations: {
+            UIView.animate(withDuration: 0.3, delay: 1.5, options: [], animations: {
                 toastLabel.alpha = 0
-            }, completion: { _ in
-                toastLabel.removeFromSuperview()
-            })
+            }, completion: nil)
         })
     }
 }
 
 // MARK: - Supporting Types
 
+/// Represents the direction of weight change
 enum Change {
     case positive
     case negative
@@ -736,10 +963,12 @@ enum Change {
     }
 }
 
-class DateValueFormatter: AxisValueFormatter {
+/// Formats chart x-axis values as dates
+final class DateValueFormatter: NSObject, AxisValueFormatter {
     private let dateFormatter = DateFormatter()
     
-    init() {
+    override init() {
+        super.init()
         dateFormatter.dateFormat = "MMM d"
     }
     
@@ -749,16 +978,19 @@ class DateValueFormatter: AxisValueFormatter {
     }
 }
 
-class BalloonMarker: MarkerImage {
+/// Custom marker view for displaying chart data points
+final class BalloonMarker: MarkerImage {
+    // MARK: - Properties
     var color: UIColor
     var font: UIFont
     var textColor: UIColor
     var insets: UIEdgeInsets
     var minimumSize = CGSize()
     
-    fileprivate var label: String?
-    fileprivate var _labelSize: CGSize = CGSize()
+    private var label: String?
+    private var _labelSize: CGSize = CGSize()
     
+    // MARK: - Initialization
     init(color: UIColor, font: UIFont, textColor: UIColor, insets: UIEdgeInsets) {
         self.color = color
         self.font = font
@@ -767,6 +999,7 @@ class BalloonMarker: MarkerImage {
         super.init()
     }
     
+    // MARK: - Drawing
     override func offsetForDrawing(atPoint point: CGPoint) -> CGPoint {
         var offset = CGPoint(x: -size.width / 2.0, y: -size.height)
         offset.x = max(offset.x, 0)
@@ -786,16 +1019,17 @@ class BalloonMarker: MarkerImage {
         )
         
         context.setFillColor(color.cgColor)
-        context.beginPath()
-        context.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        context.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        context.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - 5))
-        context.addLine(to: CGPoint(x: rect.midX + 5, y: rect.maxY - 5))
-        context.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-        context.addLine(to: CGPoint(x: rect.midX - 5, y: rect.maxY - 5))
-        context.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - 5))
+        
+        // More efficient path drawing
+        context.saveGState()
+        
+        // Create rounded rect path
+        let path = CGPath(roundedRect: rect, cornerWidth: 10, cornerHeight: 10, transform: nil)
+        context.addPath(path)
         context.closePath()
         context.fillPath()
+        
+        context.restoreGState()
         
         // Draw text
         let paragraphStyle = NSMutableParagraphStyle()

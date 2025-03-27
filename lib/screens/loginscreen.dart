@@ -229,27 +229,6 @@ class _LoginScreenState extends State<LoginScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 40),
-                    // App logo or icon could be added here
-                    Hero(
-                      tag: 'app_logo',
-                      child: Container(
-                        height: 80,
-                        width: 80,
-                        alignment: Alignment.center,
-                        child: Image.asset(
-                          'assets/splash_screen/Fitpro.png',
-                          height: 80,
-                          fit: BoxFit.contain,
-                          errorBuilder: (ctx, obj, stack) => Icon(
-                            Icons.fitness_center,
-                            size: 60,
-                            color: theme.primaryColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-
                     Text(
                       'Welcome Back',
                       textAlign: TextAlign.center,

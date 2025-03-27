@@ -36,7 +36,8 @@ class _DashboardState extends State<Dashboard> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      extendBody: true, // Allows body to go behind bottom nav bar if transparent
+      extendBody:
+          true, // Allows body to go behind bottom nav bar if transparent
       body: Stack(
         children: [
           // Main Content Area
@@ -72,8 +73,8 @@ class _DashboardState extends State<Dashboard> {
           // Floating Navigation Bar
           Positioned(
             bottom: screenHeight * 0.04, // Adjust as needed
-            left: screenWidth * 0.18,   // Adjust as needed
-            right: screenWidth * 0.18,  // Adjust as needed
+            left: screenWidth * 0.18, // Adjust as needed
+            right: screenWidth * 0.18, // Adjust as needed
             child: _buildFloatingNavBar(context),
           ),
         ],
@@ -94,7 +95,7 @@ class _DashboardState extends State<Dashboard> {
             borderRadius: BorderRadius.circular(14.0),
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.grey.shade50.withOpacity(0.4) // Use withOpacity
-                : Colors.black.withOpacity(0.4),      // Use withOpacity
+                : Colors.black.withOpacity(0.4), // Use withOpacity
             border: Border.all(
               color: Theme.of(context).brightness == Brightness.light
                   ? Colors.grey.withOpacity(0.2)
@@ -129,16 +130,20 @@ class _DashboardState extends State<Dashboard> {
               _buildNavItemCompact(
                 context: context,
                 icon: CupertinoIcons.camera,
-                onTap: () async { // Make async
+                onTap: () async {
+                  // Make async
                   HapticFeedback.lightImpact();
                   // Await the result from CameraScreen
-                  final CameraResult? result = await Navigator.push<CameraResult?>(
+                  final CameraResult? result =
+                      await Navigator.push<CameraResult?>(
                     context,
-                    CupertinoPageRoute(builder: (context) => const CameraScreen()),
+                    CupertinoPageRoute(
+                        builder: (context) => const CameraScreen()),
                   );
 
                   // Handle the result after CameraScreen pops
-                  if (result != null && context.mounted) { // Check context.mounted
+                  if (result != null && context.mounted) {
+                    // Check context.mounted
                     final String type = result['type'] as String;
                     final dynamic value = result['value'];
 
@@ -146,29 +151,33 @@ class _DashboardState extends State<Dashboard> {
                       final String barcode = value as String;
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => BarcodeResults(barcode: barcode)),
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                BarcodeResults(barcode: barcode)),
                       );
                     } else if (type == 'photo') {
                       final List<AIFoodItem> foods = value as List<AIFoodItem>;
                       if (foods.isNotEmpty) {
                         Navigator.push(
                           context,
-                          CupertinoPageRoute(builder: (context) => ResultsPage(foods: foods)),
+                          CupertinoPageRoute(
+                              builder: (context) => ResultsPage(foods: foods)),
                         );
                       } else {
                         // Show snackbar if no food identified
                         ScaffoldMessenger.of(context).removeCurrentSnackBar();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('No food items identified in the image.'),
+                            content:
+                                Text('No food items identified in the image.'),
                             backgroundColor: Colors.orangeAccent,
                           ),
                         );
                       }
                     }
                   } else if (result == null) {
-                     print("[Dashboard] Camera cancelled or error occurred.");
-                     // Optionally show a message if needed
+                    print("[Dashboard] Camera cancelled or error occurred.");
+                    // Optionally show a message if needed
                   }
                 },
               ),
@@ -187,7 +196,8 @@ class _DashboardState extends State<Dashboard> {
                   HapticFeedback.lightImpact();
                   Navigator.push(
                     context,
-                    CupertinoPageRoute(builder: (context) => AccountDashboard()),
+                    CupertinoPageRoute(
+                        builder: (context) => AccountDashboard()),
                   );
                 },
               ),
@@ -486,16 +496,18 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   void _onDateChanged() {
     // Fetch data only if the date has actually changed since the last fetch
     final selectedDate = _dateProvider.selectedDate;
-    if (_lastFetchedDate == null || !_isSameDay(_lastFetchedDate!, selectedDate)) {
-       _fetchHealthData();
+    if (_lastFetchedDate == null ||
+        !_isSameDay(_lastFetchedDate!, selectedDate)) {
+      _fetchHealthData();
     }
   }
 
   // Helper to check if two DateTime objects represent the same day
   bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
-
 
   Future<void> _initializeHealthData() async {
     await _checkAndRequestPermissions();
@@ -504,7 +516,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
       await _fetchHealthData();
     }
   }
-
 
   Future<void> _checkAndRequestPermissions() async {
     // Don't check if already checked and granted
@@ -518,7 +529,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
       });
 
       if (!_hasHealthPermissions) {
-         _showPermissionDialog();
+        _showPermissionDialog();
       }
     } catch (e) {
       print('Error checking permissions: $e');
@@ -570,18 +581,22 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
     // Avoid fetching if data for this date is already loaded, UNLESS it's today
     final bool isToday = _isSameDay(selectedDate, DateTime.now());
-    if (!isToday && _lastFetchedDate != null && _isSameDay(_lastFetchedDate!, selectedDate)) {
-       if (mounted) {
-         setState(() { _isLoadingHealthData = false; });
-       }
-       return;
+    if (!isToday &&
+        _lastFetchedDate != null &&
+        _isSameDay(_lastFetchedDate!, selectedDate)) {
+      if (mounted) {
+        setState(() {
+          _isLoadingHealthData = false;
+        });
+      }
+      return;
     }
-
 
     try {
       // Fetch steps specifically for the selected date
       final fetchedSteps = await _healthService.getStepsForDate(selectedDate);
-      final fetchedCalories = await _healthService.getCaloriesForDate(selectedDate);
+      final fetchedCalories =
+          await _healthService.getCaloriesForDate(selectedDate);
 
       if (mounted) {
         setState(() {
@@ -596,342 +611,343 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         // Optionally show an error message
       }
     } finally {
-       if (mounted) {
-         setState(() {
-           _isLoadingHealthData = false;
-         });
-       }
+      if (mounted) {
+        setState(() {
+          _isLoadingHealthData = false;
+        });
+      }
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-     // No longer need the top-level DateProvider Consumer for triggering fetch
-     // Fetching is handled by the listener added in initState
+    // No longer need the top-level DateProvider Consumer for triggering fetch
+    // Fetching is handled by the listener added in initState
 
-     return Consumer2<FoodEntryProvider, DateProvider>(
-       builder: (context, foodEntryProvider, dateProvider, child) {
-         // Get nutrition goals directly from the provider
-         final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
-         final proteinGoal = foodEntryProvider.proteinGoal.toInt();
-         final carbGoal = foodEntryProvider.carbsGoal.toInt();
-         final fatGoal = foodEntryProvider.fatGoal.toInt();
+    return Consumer2<FoodEntryProvider, DateProvider>(
+      builder: (context, foodEntryProvider, dateProvider, child) {
+        // Get nutrition goals directly from the provider
+        final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
+        final proteinGoal = foodEntryProvider.proteinGoal.toInt();
+        final carbGoal = foodEntryProvider.carbsGoal.toInt();
+        final fatGoal = foodEntryProvider.fatGoal.toInt();
 
-         // Calculate total macros from all food entries for the selected date
-         final entries = foodEntryProvider
-             .getAllEntriesForDate(dateProvider.selectedDate);
+        // Calculate total macros from all food entries for the selected date
+        final entries =
+            foodEntryProvider.getAllEntriesForDate(dateProvider.selectedDate);
 
-            double totalCarbs = 0;
-            double totalFat = 0;
-            double totalProtein = 0;
+        double totalCarbs = 0;
+        double totalFat = 0;
+        double totalProtein = 0;
 
-            for (var entry in entries) {
-              final carbs =
-                  entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-              final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-              final protein = entry.food.nutrients["Protein"] ?? 0;
+        for (var entry in entries) {
+          final carbs =
+              entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
+          final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
+          final protein = entry.food.nutrients["Protein"] ?? 0;
 
-              // Convert quantity to grams
-              double quantityInGrams = entry.quantity;
-              switch (entry.unit) {
-                case "oz":
-                  quantityInGrams *= 28.35;
-                  break;
-                case "kg":
-                  quantityInGrams *= 1000;
-                  break;
-                case "lbs":
-                  quantityInGrams *= 453.59;
-                  break;
-              }
+          // Convert quantity to grams
+          double quantityInGrams = entry.quantity;
+          switch (entry.unit) {
+            case "oz":
+              quantityInGrams *= 28.35;
+              break;
+            case "kg":
+              quantityInGrams *= 1000;
+              break;
+            case "lbs":
+              quantityInGrams *= 453.59;
+              break;
+          }
 
-              // Since nutrients are per 100g, divide by 100 to get per gram
-              final multiplier = quantityInGrams / 100;
-              totalCarbs += carbs * multiplier;
-              totalFat += fat * multiplier;
-              totalProtein += protein * multiplier;
-            }
+          // Since nutrients are per 100g, divide by 100 to get per gram
+          final multiplier = quantityInGrams / 100;
+          totalCarbs += carbs * multiplier;
+          totalFat += fat * multiplier;
+          totalProtein += protein * multiplier;
+        }
 
-            // Calculate calories from food entries
-            final caloriesFromFood = foodEntryProvider
-                .getTotalCaloriesForDate(dateProvider.selectedDate);
+        // Calculate calories from food entries
+        final caloriesFromFood = foodEntryProvider
+            .getTotalCaloriesForDate(dateProvider.selectedDate);
 
-            // Calculate remaining calories (updated logic)
-            final int caloriesRemaining =
-                caloriesGoal - caloriesFromFood.toInt();
-            double progress = caloriesFromFood / caloriesGoal;
-            progress = progress.clamp(0.0, 1.0);
+        // Calculate remaining calories (updated logic)
+        final int caloriesRemaining = caloriesGoal - caloriesFromFood.toInt();
+        double progress = caloriesFromFood / caloriesGoal;
+        progress = progress.clamp(0.0, 1.0);
 
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: const EdgeInsets.all(16), // Reduced from 20
-              decoration: BoxDecoration(
-                color:
-                    Theme.of(context).extension<CustomColors>()?.cardBackground,
-                borderRadius: BorderRadius.circular(20.0),
-                boxShadow: [
-                  BoxShadow(
-                    // Softer shadow, more spread out
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade300.withOpacity(0.5) // Lighter shadow for light mode
-                        : Colors.black.withOpacity(0.2), // Slightly darker shadow for dark mode
-                    blurRadius: 20, // Increased blur
-                    spreadRadius: 0, // No spread, just blur
-                    offset: const Offset(0, 5), // Slightly increased offset
-                  ),
-                ],
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(16), // Reduced from 20
+          decoration: BoxDecoration(
+            color: Theme.of(context).extension<CustomColors>()?.cardBackground,
+            borderRadius: BorderRadius.circular(20.0),
+            boxShadow: [
+              BoxShadow(
+                // Softer shadow, more spread out
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade300
+                        .withOpacity(0.5) // Lighter shadow for light mode
+                    : Colors.black.withOpacity(
+                        0.2), // Slightly darker shadow for dark mode
+                blurRadius: 20, // Increased blur
+                spreadRadius: 0, // No spread, just blur
+                offset: const Offset(0, 5), // Slightly increased offset
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, // Align to start
-                children: [
-                  // Add a header
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(children: [
-                      Icon(
-                        Icons.pie_chart_outline,
-                        size: 20,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade700
-                            : Colors.grey.shade400,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        "Today's Nutrition and Activity",
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          // color: Theme.of(context)
-                          //     .extension<CustomColors>()
-                          //     ?.textPrimary,
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? Colors.grey.shade700
-                                  : Colors.grey.shade400,
-                        ),
-                      ),
-                    ]),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, // Align to start
+            children: [
+              // Add a header
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(children: [
+                  Icon(
+                    Icons.pie_chart_outline,
+                    size: 20,
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.grey.shade700
+                        : Colors.grey.shade400,
                   ),
+                  const SizedBox(width: 6),
+                  Text(
+                    "Today's Nutrition and Activity",
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      // color: Theme.of(context)
+                      //     .extension<CustomColors>()
+                      //     ?.textPrimary,
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.grey.shade700
+                          : Colors.grey.shade400,
+                    ),
+                  ),
+                ]),
+              ),
 
-                  // Rest of your existing code...
-                  Column(
+              // Rest of your existing code...
+              Column(
+                children: [
+                  // Calories Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Calories Section
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Calorie Circle
-                          GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                  builder: (context) => EditGoalsScreen(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              height: 130,
-                              width: 130,
-                              decoration: BoxDecoration(
+                      // Calorie Circle
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) => EditGoalsScreen(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          height: 130,
+                          width: 130,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness ==
+                                    Brightness.light
+                                ? Colors.white
+                                : Colors.grey.shade900.withValues(alpha: 0.3),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
                                 color: Theme.of(context).brightness ==
                                         Brightness.light
-                                    ? Colors.white
-                                    : Colors.grey.shade900
-                                        .withValues(alpha: 0.3),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Theme.of(context).brightness ==
-                                            Brightness.light
-                                        ? Colors.grey.withValues(alpha: 0.1)
-                                        : Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 10,
-                                    spreadRadius: 1,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
+                                    ? Colors.grey.withValues(alpha: 0.1)
+                                    : Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 3),
                               ),
-                              child: Stack(
-                                alignment: Alignment.center,
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Progress circle
+                              SizedBox(
+                                width: 110,
+                                height: 110,
+                                child: CircularProgressIndicator(
+                                  value: progress,
+                                  strokeWidth: 10,
+                                  strokeCap: StrokeCap
+                                      .round, // Added circular stroke cap
+                                  backgroundColor:
+                                      Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? Colors.grey.shade200
+                                          : Colors.grey.shade800,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    progress > 1.0
+                                        ? Colors.red
+                                        : const Color(0xFF34C85A),
+                                  ),
+                                ),
+                              ),
+                              // Calorie text
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  // Progress circle
-                                  SizedBox(
-                                    width: 110,
-                                    height: 110,
-                                    child: CircularProgressIndicator(
-                                      value: progress,
-                                      strokeWidth: 10,
-                                      strokeCap: StrokeCap
-                                          .round, // Added circular stroke cap
-                                      backgroundColor:
-                                          Theme.of(context).brightness ==
-                                                  Brightness.light
-                                              ? Colors.grey.shade200
-                                              : Colors.grey.shade800,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        progress > 1.0
-                                            ? Colors.red
-                                            : const Color(0xFF34C85A),
-                                      ),
+                                  Text(
+                                    caloriesRemaining.toString(),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context)
+                                          .extension<CustomColors>()
+                                          ?.textPrimary,
                                     ),
                                   ),
-                                  // Calorie text
-                                  Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        caloriesRemaining.toString(),
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: Theme.of(context)
-                                              .extension<CustomColors>()
-                                              ?.textPrimary,
-                                        ),
-                                      ),
-                                      Text(
-                                        'cal left',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: Theme.of(context).brightness ==
-                                                  Brightness.light
-                                              ? Colors.grey.shade600
-                                              : Colors.grey.shade400,
-                                        ),
-                                      ),
-                                    ],
+                                  Text(
+                                    'cal left',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? Colors.grey.shade600
+                                          : Colors.grey.shade400,
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
+                            ],
                           ),
-
-                          // Calories Info - Vertical layout with colored cards
-                          Expanded(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center, // Center items vertically
-                                children: [
-                                  _buildCalorieInfoCard(
-                                    context,
-                                    'Goal',
-                                    caloriesGoal,
-                                    const Color(0xFF34C85A),
-                                    Icons.flag_outlined, // Use outlined icon
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildCalorieInfoCard(
-                                    context,
-                                    'Food',
-                                    caloriesFromFood.toInt(),
-                                    const Color(0xFFFFA726),
-                                    Icons.restaurant_menu_outlined, // Use outlined icon
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildCalorieInfoCard(
-                                    context,
-                                    'Burned',
-                                    _caloriesBurned.toInt(), // Use state variable _caloriesBurned
-                                    const Color(0xFF42A5F5),
-                                    Icons.local_fire_department_outlined, // Use outlined icon
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
 
-                      const SizedBox(height: 30), // Increased space before macro rings
-
-                      // Macro section header
-                      // Padding(
-                      //   padding: const EdgeInsets.symmetric(
-                      //       horizontal: 4.0, vertical: 4.0),
-                      //   child: Row(
-                      //     children: [
-                      //       Icon(
-                      //         Icons.pie_chart_outline,
-                      //         size: 14,
-                      //         color:
-                      //             Theme.of(context).brightness == Brightness.light
-                      //                 ? Colors.grey.shade700
-                      //                 : Colors.grey.shade400,
-                      //       ),
-                      //       // const SizedBox(width: 6),
-                      //       // Text(
-                      //       //   "Macronutrients & Activity",
-                      //       //   style: GoogleFonts.poppins(
-                      //       //     fontSize: 12,
-                      //       //     fontWeight: FontWeight.w600,
-                      //       //     color:
-                      //       //         Theme.of(context).brightness == Brightness.light
-                      //       //             ? Colors.grey.shade700
-                      //       //             : Colors.grey.shade400,
-                      //       //   ),
-                      //       // ),
-                      //     ],
-                      //   ),
-                      // ),
-
-                      const SizedBox(height: 0),
-
-                      // Macro circles - Enhanced with circular progress
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildMacroProgressEnhanced(
-                              context,
-                              'Carbs',
-                              totalCarbs.round(),
-                              carbGoal,
-                              const Color(0xFF42A5F5),
-                              'g',
-                            ),
-                            _buildMacroProgressEnhanced(
-                              context,
-                              'Protein',
-                              totalProtein.round(),
-                              proteinGoal,
-                              const Color(0xFFEF5350),
-                              'g',
-                            ),
-                            _buildMacroProgressEnhanced(
-                              context,
-                              'Fat',
-                              totalFat.round(),
-                              fatGoal,
-                              const Color(0xFFFFA726),
-                              'g',
-                            ),
-                            _buildMacroProgressEnhanced(
-                              context,
-                              'Steps',
-                              _steps, // Use state variable _steps
-                              _stepsGoal, // Use state variable _stepsGoal
-                              const Color(0xFF66BB6A),
-                              '',
-                            ),
-                          ],
+                      // Calories Info - Vertical layout with colored cards
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment
+                                .center, // Center items vertically
+                            children: [
+                              _buildCalorieInfoCard(
+                                context,
+                                'Goal',
+                                caloriesGoal,
+                                const Color(0xFF34C85A),
+                                Icons.flag_outlined, // Use outlined icon
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCalorieInfoCard(
+                                context,
+                                'Food',
+                                caloriesFromFood.toInt(),
+                                const Color(0xFFFFA726),
+                                Icons
+                                    .restaurant_menu_outlined, // Use outlined icon
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCalorieInfoCard(
+                                context,
+                                'Burned',
+                                _caloriesBurned
+                                    .toInt(), // Use state variable _caloriesBurned
+                                const Color(0xFF42A5F5),
+                                Icons
+                                    .local_fire_department_outlined, // Use outlined icon
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
+
+                  const SizedBox(
+                      height: 30), // Increased space before macro rings
+
+                  // Macro section header
+                  // Padding(
+                  //   padding: const EdgeInsets.symmetric(
+                  //       horizontal: 4.0, vertical: 4.0),
+                  //   child: Row(
+                  //     children: [
+                  //       Icon(
+                  //         Icons.pie_chart_outline,
+                  //         size: 14,
+                  //         color:
+                  //             Theme.of(context).brightness == Brightness.light
+                  //                 ? Colors.grey.shade700
+                  //                 : Colors.grey.shade400,
+                  //       ),
+                  //       // const SizedBox(width: 6),
+                  //       // Text(
+                  //       //   "Macronutrients & Activity",
+                  //       //   style: GoogleFonts.poppins(
+                  //       //     fontSize: 12,
+                  //       //     fontWeight: FontWeight.w600,
+                  //       //     color:
+                  //       //         Theme.of(context).brightness == Brightness.light
+                  //       //             ? Colors.grey.shade700
+                  //       //             : Colors.grey.shade400,
+                  //       //   ),
+                  //       // ),
+                  //     ],
+                  //   ),
+                  // ),
+
+                  const SizedBox(height: 0),
+
+                  // Macro circles - Enhanced with circular progress
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Carbs',
+                          totalCarbs.round(),
+                          carbGoal,
+                          const Color(0xFF42A5F5),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Protein',
+                          totalProtein.round(),
+                          proteinGoal,
+                          const Color(0xFFEF5350),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Fat',
+                          totalFat.round(),
+                          fatGoal,
+                          const Color(0xFFFFA726),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Steps',
+                          _steps, // Use state variable _steps
+                          _stepsGoal, // Use state variable _stepsGoal
+                          const Color(0xFF66BB6A),
+                          '',
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            );
-          },
+            ],
+          ),
         );
-     // Removed the outer Consumer<DateProvider>
-   }
+      },
+    );
+    // Removed the outer Consumer<DateProvider>
+  }
 }
 
 // Add this helper method to get appropriate icons for macros
@@ -975,9 +991,10 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
     child: Container(
       // Adjusted height to accommodate text below
       height: 125, // Slightly increased height for better spacing
-      width: 75,   // Slightly increased width for better spacing
+      width: 75, // Slightly increased width for better spacing
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start, // Align to start for better layout
+        mainAxisAlignment:
+            MainAxisAlignment.start, // Align to start for better layout
         children: [
           // Original Stack with Progress Circle and Icon
           Stack(
@@ -991,9 +1008,10 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
                   value: progress,
                   strokeWidth: 7, // Slightly thicker stroke
                   strokeCap: StrokeCap.round,
-                  backgroundColor: Theme.of(context).brightness == Brightness.light
-                      ? color.withOpacity(0.15) // Use withOpacity
-                      : color.withOpacity(0.2), // Use withOpacity
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.light
+                          ? color.withOpacity(0.15) // Use withOpacity
+                          : color.withOpacity(0.2), // Use withOpacity
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
               ),
@@ -1132,8 +1150,10 @@ class _MealSectionState extends State<MealSection> {
               BoxShadow(
                 // Apply similar softer shadow as CalorieTracker card
                 color: Theme.of(context).brightness == Brightness.light
-                    ? Colors.grey.shade300.withOpacity(0.4) // Lighter shadow for light mode
-                    : Colors.black.withOpacity(0.15), // Slightly darker shadow for dark mode
+                    ? Colors.grey.shade300
+                        .withOpacity(0.4) // Lighter shadow for light mode
+                    : Colors.black.withOpacity(
+                        0.15), // Slightly darker shadow for dark mode
                 blurRadius: 15, // Adjusted blur
                 spreadRadius: 0,
                 offset: const Offset(0, 4), // Adjusted offset
@@ -1241,48 +1261,64 @@ class _MealSectionState extends State<MealSection> {
                     children: [
                       // Add dividers between items
                       for (int i = 0; i < entries.length; i++) ...[
-                        if (i == 0) const Divider(height: 1, thickness: 0.5), // Divider before the first item
+                        if (i == 0)
+                          const Divider(
+                              height: 1,
+                              thickness: 0.5), // Divider before the first item
                         _buildFoodItem(context, entries[i], foodEntryProvider),
                         if (i < entries.length - 1) // Divider between items
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0), // Indent divider
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0), // Indent divider
                             child: Divider(height: 1, thickness: 0.5),
                           ),
                       ],
                       // Refined "Add Food" Button
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0), // Adjusted padding
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8.0,
+                            horizontal: 16.0), // Adjusted padding
                         child: TextButton.icon(
                           icon: Icon(
                             Icons.add_circle_outline,
                             size: 18, // Slightly larger icon
-                            color: Theme.of(context).colorScheme.primary, // Use theme color
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary, // Use theme color
                           ),
                           label: Text(
                             'Add Food to $mealType',
                             style: GoogleFonts.poppins(
                               fontSize: 13, // Slightly larger text
                               fontWeight: FontWeight.w500,
-                              color: Theme.of(context).colorScheme.primary, // Use theme color
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary, // Use theme color
                             ),
                           ),
                           style: TextButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1), // Subtle background
-                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.1), // Subtle background
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 10, horizontal: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12), // More rounded
+                              borderRadius:
+                                  BorderRadius.circular(12), // More rounded
                             ),
-                            minimumSize: Size(double.infinity, 40), // Make button wider
+                            minimumSize:
+                                Size(double.infinity, 40), // Make button wider
                           ),
                           onPressed: () {
-                             HapticFeedback.lightImpact();
-                             Navigator.push(
-                               context,
-                               CupertinoPageRoute(
-                                 builder: (context) =>
-                                     FoodSearchPage(selectedMeal: mealType),
-                               ),
-                             );
+                            HapticFeedback.lightImpact();
+                            Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                builder: (context) =>
+                                    FoodSearchPage(selectedMeal: mealType),
+                              ),
+                            );
                           },
                         ),
                       ),
@@ -1431,7 +1467,8 @@ Widget _buildFoodItem(
 Widget _buildCalorieInfoCard(
     BuildContext context, String label, int value, Color color, IconData icon) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Slightly increased padding
+    padding: const EdgeInsets.symmetric(
+        horizontal: 12, vertical: 8), // Slightly increased padding
     decoration: BoxDecoration(
       color: Theme.of(context).brightness == Brightness.light
           ? color.withOpacity(0.1) // Slightly more opacity
