@@ -7,6 +7,7 @@ import 'dart:typed_data'; // For Uint8List
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lottie/lottie.dart'; // Import Lottie package
 // Results pages are no longer navigated to from here
 // import 'package:macrotracker/camera/barcode_results.dart';
 // import 'package:macrotracker/camera/results_page.dart';
@@ -231,20 +232,29 @@ class _CameraScreenState extends State<CameraScreen> {
        context: context,
        barrierDismissible: false,
        builder: (BuildContext dialogContext) {
+         // Improved Loading Dialog Layout
          return Dialog(
-           backgroundColor: Colors.black.withOpacity(0.7),
-           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+           backgroundColor: Colors.black.withOpacity(0.8), // Slightly darker
+           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
            child: Padding(
-             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-             child: Row(
+             padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 24), // More padding
+             child: Column( // Use Column for vertical centering
                mainAxisSize: MainAxisSize.min,
+               mainAxisAlignment: MainAxisAlignment.center, // Center vertically
                children: [
-                 const CircularProgressIndicator(
-                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                   strokeWidth: 3,
+                 // Replace CircularProgressIndicator with Lottie animation
+                 Lottie.asset(
+                   'assets/animations/loading_spinner.json',
+                   width: 200, // Adjust size as needed
+                   height: 200,
+                   fit: BoxFit.contain,
                  ),
-                 const SizedBox(width: 24),
-                 Text(message, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                 const SizedBox(height: 16), // Adjusted spacing
+                 Text(
+                   message,
+                   style: const TextStyle(color: Colors.white, fontSize: 17), // Slightly larger font
+                   textAlign: TextAlign.center,
+                 ),
                ],
              ),
            ),
@@ -258,11 +268,14 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   Widget build(BuildContext context) {
     // Shows Loading or Error states. The actual camera view is native.
-    // This screen will be popped automatically when a result/cancel/error occurs.
+    // This screen primarily handles errors during native camera launch
+    // or acts as a placeholder. Loading during processing is handled by the dialog.
     Widget bodyContent;
-    if (_isLoading) {
-       bodyContent = const CircularProgressIndicator(color: Colors.white);
-    } else if (_error != null) {
+    // if (_isLoading) { // REMOVED: No need for initial loading indicator here
+    //    bodyContent = const CircularProgressIndicator(color: Colors.white);
+    // } else
+    if (_error != null) {
+       // Show error if native camera failed to launch
        bodyContent = Padding(
          padding: const EdgeInsets.all(20.0),
          child: Column(
@@ -291,10 +304,13 @@ class _CameraScreenState extends State<CameraScreen> {
     } else {
        // If not loading and no error, native view should be showing or transitioning.
        // Show loading as a fallback state.
-       bodyContent = const CircularProgressIndicator(color: Colors.white);
+       // If no error, show a simple container. The native view is expected
+       // to be visible, or the loading dialog during processing.
+       bodyContent = Container(); // Empty container, native view/dialog takes precedence
     }
 
     return Scaffold(
+      // Keep background black for consistency during transitions
       backgroundColor: Colors.black,
       body: Center(child: bodyContent),
       // Prevent accidental back navigation while native view is potentially active
