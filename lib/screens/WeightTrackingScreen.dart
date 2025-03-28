@@ -106,6 +106,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     _buildWeightHistory(customColors),
                     const SizedBox(height: 24),
                     _buildWeightGoalCard(customColors),
+                    const SizedBox(height: 50)
                   ],
                 ),
               ),
@@ -235,7 +236,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade100
+                            : customColors.cardBackground,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -244,7 +247,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                       height: 120,
                       child: CircularProgressIndicator(
                         value: progress,
-                        backgroundColor: Colors.grey.shade200,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.light
+                                ? Colors.grey.shade200
+                                : customColors.dateNavigatorBackground,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           progress >= 1.0
                               ? Colors.green
@@ -755,17 +761,18 @@ class CustomWeightChart extends StatefulWidget {
   State<CustomWeightChart> createState() => _CustomWeightChartState();
 }
 
-class _CustomWeightChartState extends State<CustomWeightChart> with SingleTickerProviderStateMixin {
+class _CustomWeightChartState extends State<CustomWeightChart>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   TouchData? _touchData;
   final List<Offset> _animatedPoints = [];
-  
+
   double _zoomLevel = 1.0; // Default zoom level
   double _zoomFactor = 1.0; // Current zoom factor
   Offset? _lastFocalPoint;
   late double _panOffset = 0.0; // Horizontal panning offset
   final double _maxPanOffset = 100.0; // Maximum pan offset
-  
+
   @override
   void initState() {
     super.initState();
@@ -773,20 +780,20 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    
+
     _animationController.forward();
   }
-  
+
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
   }
-  
+
   @override
   void didUpdateWidget(CustomWeightChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.weightPoints != widget.weightPoints || 
+    if (oldWidget.weightPoints != widget.weightPoints ||
         oldWidget.timeFrame != widget.timeFrame) {
       _animationController.reset();
       _animationController.forward();
@@ -799,36 +806,39 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
   List<WeightPoint> _getFilteredData() {
     final now = DateTime.now();
     List<WeightPoint> filteredPoints;
-    
+
     switch (widget.timeFrame) {
       case 'Week':
         final weekAgo = now.subtract(const Duration(days: 7));
-        filteredPoints = widget.weightPoints.where((point) => 
-          point.date.isAfter(weekAgo) || 
-          point.date.isAtSameMomentAs(weekAgo)
-        ).toList();
+        filteredPoints = widget.weightPoints
+            .where((point) =>
+                point.date.isAfter(weekAgo) ||
+                point.date.isAtSameMomentAs(weekAgo))
+            .toList();
         break;
       case 'Month':
         final monthAgo = DateTime(now.year, now.month - 1, now.day);
-        filteredPoints = widget.weightPoints.where((point) => 
-          point.date.isAfter(monthAgo) || 
-          point.date.isAtSameMomentAs(monthAgo)
-        ).toList();
+        filteredPoints = widget.weightPoints
+            .where((point) =>
+                point.date.isAfter(monthAgo) ||
+                point.date.isAtSameMomentAs(monthAgo))
+            .toList();
         break;
       case 'Year':
         final yearAgo = DateTime(now.year - 1, now.month, now.day);
-        filteredPoints = widget.weightPoints.where((point) => 
-          point.date.isAfter(yearAgo) || 
-          point.date.isAtSameMomentAs(yearAgo)
-        ).toList();
+        filteredPoints = widget.weightPoints
+            .where((point) =>
+                point.date.isAfter(yearAgo) ||
+                point.date.isAtSameMomentAs(yearAgo))
+            .toList();
         break;
       default:
         filteredPoints = widget.weightPoints;
     }
-    
+
     // Sort points by date just to be sure
     filteredPoints.sort((a, b) => a.date.compareTo(b.date));
-    
+
     return filteredPoints;
   }
 
@@ -853,10 +863,11 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
             if (details.scale != 1.0) {
               setState(() {
                 // Calculate new zoom level with limits
-                final newZoom = (_zoomLevel * details.scale / _zoomFactor).clamp(1.0, 3.5);
+                final newZoom =
+                    (_zoomLevel * details.scale / _zoomFactor).clamp(1.0, 3.5);
                 _zoomFactor = details.scale;
                 _zoomLevel = newZoom;
-                
+
                 // Clear touch data when zooming
                 _touchData = null;
               });
@@ -866,11 +877,12 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
               setState(() {
                 // Update pan offset with limits based on zoom level
                 final maxOffset = _maxPanOffset * (_zoomLevel - 1);
-                _panOffset = (_panOffset + delta / 5).clamp(-maxOffset, maxOffset);
+                _panOffset =
+                    (_panOffset + delta / 5).clamp(-maxOffset, maxOffset);
                 _lastFocalPoint = details.focalPoint;
               });
             }
-            
+
             // Handle touch interaction during scale if scale is 1.0 (just moving)
             if (details.scale == 1.0) {
               _updateTouch(details.localFocalPoint);
@@ -878,7 +890,7 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
           },
           onScaleEnd: (details) {
             _lastFocalPoint = null;
-            
+
             // Keep tooltip visible for a moment after touch ends
             Future.delayed(const Duration(seconds: 2), () {
               if (mounted) {
@@ -969,36 +981,38 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
       ],
     );
   }
-  
+
   void _updateTouch(Offset position) {
     final size = context.size;
     if (size == null) return;
-    
+
     final filteredData = _getFilteredData();
     if (filteredData.isEmpty) return;
-    
+
     final chartWidth = size.width - 60; // Accounting for padding
     final chartHeight = size.height - 50; // Accounting for padding
-    
+
     // Calculate min and max values
     final weights = filteredData.map((p) => p.weight).toList();
     final double minWeight = weights.reduce(math.min) - 1;
     final double maxWeight = weights.reduce(math.max) + 1;
-    
+
     // Find closest point, accounting for zoom and pan
     double minDistance = double.infinity;
     WeightPoint? closestPoint;
     Offset? closestPos;
-    
+
     // Calculate visible range based on zoom and pan
     final visiblePoints = _getVisiblePointsIndices(filteredData.length);
-    
+
     for (int i = visiblePoints.start; i <= visiblePoints.end; i++) {
       final point = filteredData[i];
-      final pointX = _getXPositionForIndex(i, filteredData.length, chartWidth, size);
-      final pointY = size.height - 40 - 
+      final pointX =
+          _getXPositionForIndex(i, filteredData.length, chartWidth, size);
+      final pointY = size.height -
+          40 -
           ((point.weight - minWeight) / (maxWeight - minWeight)) * chartHeight;
-      
+
       final distance = (Offset(pointX, pointY) - position).distance;
       if (distance < minDistance && distance < 30) {
         minDistance = distance;
@@ -1006,7 +1020,7 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
         closestPos = Offset(pointX, pointY);
       }
     }
-    
+
     setState(() {
       if (closestPoint != null && closestPos != null) {
         _touchData = TouchData(
@@ -1018,33 +1032,34 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
       }
     });
   }
-  
+
   // Calculate which points are visible based on zoom and pan
   _VisibleRange _getVisiblePointsIndices(int totalPoints) {
     if (totalPoints <= 1) return _VisibleRange(0, 0);
-    
+
     // Calculate visible range based on zoom level and pan offset
     final visiblePortion = 1.0 / _zoomLevel;
     final center = 0.5 + (_panOffset / (_maxPanOffset * 2));
-    
+
     // Calculate start and end indices
     int start = ((center - visiblePortion / 2) * (totalPoints - 1)).floor();
     int end = ((center + visiblePortion / 2) * (totalPoints - 1)).ceil();
-    
+
     // Ensure indices are within bounds
     start = math.max(0, start);
     end = math.min(totalPoints - 1, end);
-    
+
     return _VisibleRange(start, end);
   }
-  
+
   // Calculate x position for point at index, accounting for zoom and pan
-  double _getXPositionForIndex(int index, int totalPoints, double chartWidth, Size size) {
+  double _getXPositionForIndex(
+      int index, int totalPoints, double chartWidth, Size size) {
     final visibleRange = _getVisiblePointsIndices(totalPoints);
     final visibleCount = visibleRange.end - visibleRange.start;
-    
+
     if (visibleCount <= 0) return 30 + (index / (totalPoints - 1)) * chartWidth;
-    
+
     // Map index to position within visible range
     final relativeIndex = index - visibleRange.start;
     return 30 + (relativeIndex / visibleCount) * chartWidth;
@@ -1055,7 +1070,7 @@ class _CustomWeightChartState extends State<CustomWeightChart> with SingleTicker
 class _VisibleRange {
   final int start;
   final int end;
-  
+
   _VisibleRange(this.start, this.end);
 }
 
@@ -1068,7 +1083,7 @@ class _WeightChartPainter extends CustomPainter {
   final bool isMetric;
   final double zoomLevel;
   final double panOffset;
-  
+
   _WeightChartPainter({
     required this.weightPoints,
     required this.customColors,
@@ -1079,24 +1094,24 @@ class _WeightChartPainter extends CustomPainter {
     this.zoomLevel = 1.0,
     this.panOffset = 0.0,
   });
-  
+
   @override
   void paint(Canvas canvas, Size size) {
     if (weightPoints.isEmpty) return;
-    
+
     final chartWidth = size.width - 60; // Left and right padding
     final chartHeight = size.height - 50; // Top and bottom padding
-    
+
     // Calculate min and max values with padding
     final weights = weightPoints.map((p) => p.weight).toList();
     final double minWeight = weights.reduce(math.min) - 1;
     final double maxWeight = weights.reduce(math.max) + 1;
-    
+
     // Paint for the grid lines
     final gridPaint = Paint()
       ..color = customColors.textSecondary.withOpacity(0.1)
       ..strokeWidth = 1;
-    
+
     // Paint for the axis labels
     final labelStyle = TextStyle(
       color: customColors.textSecondary,
@@ -1106,161 +1121,161 @@ class _WeightChartPainter extends CustomPainter {
       textDirection: ui.TextDirection.ltr,
       textAlign: TextAlign.center,
     );
-    
+
     // Draw horizontal grid lines
     final stepCount = 5;
     for (int i = 0; i <= stepCount; i++) {
       final y = size.height - 40 - (i / stepCount) * chartHeight;
-      
+
       // Draw grid line
       canvas.drawLine(
-        Offset(30, y), 
-        Offset(size.width - 30, y), 
+        Offset(30, y),
+        Offset(size.width - 30, y),
         gridPaint,
       );
-      
+
       // Draw weight label
       final weight = minWeight + (i / stepCount) * (maxWeight - minWeight);
-      final weightText = isMetric 
-          ? '${weight.toStringAsFixed(1)}' 
+      final weightText = isMetric
+          ? '${weight.toStringAsFixed(1)}'
           : '${(weight * 2.20462).toStringAsFixed(1)}';
-      
+
       labelPainter
         ..text = TextSpan(text: weightText, style: labelStyle)
         ..layout();
-      
+
       labelPainter.paint(
-        canvas, 
+        canvas,
         Offset(10, y - labelPainter.height / 2),
       );
     }
-    
+
     // Draw unit label
     labelPainter
       ..text = TextSpan(
-        text: isMetric ? 'kg' : 'lbs', 
-        style: labelStyle.copyWith(fontWeight: FontWeight.bold)
-      )
+          text: isMetric ? 'kg' : 'lbs',
+          style: labelStyle.copyWith(fontWeight: FontWeight.bold))
       ..layout();
-    
+
     labelPainter.paint(
-      canvas, 
+      canvas,
       Offset(10, 10),
     );
-    
+
     // Calculate visible range of points based on zoom level
     final visibleRange = _getVisiblePointsIndices(weightPoints.length);
-    
+
     // Calculate date interval based on zoom and visible points
-    int dateInterval = _calculateDateInterval(visibleRange.end - visibleRange.start + 1);
-    
+    int dateInterval =
+        _calculateDateInterval(visibleRange.end - visibleRange.start + 1);
+
     // Draw vertical grid lines and date labels for visible points
     for (int i = visibleRange.start; i <= visibleRange.end; i++) {
       // Only show labels at intervals
-      if ((i - visibleRange.start) % dateInterval != 0 && i != visibleRange.end) continue;
-      
+      if ((i - visibleRange.start) % dateInterval != 0 && i != visibleRange.end)
+        continue;
+
       final x = _getXPositionForIndex(i, chartWidth);
-      
+
       // Draw grid line
       canvas.drawLine(
-        Offset(x, 10), 
-        Offset(x, size.height - 40), 
+        Offset(x, 10),
+        Offset(x, size.height - 40),
         gridPaint,
       );
-      
+
       // Draw date label
       final date = weightPoints[i].date;
       final dateText = _formatDateForInterval(date, dateInterval);
-      
+
       labelPainter
         ..text = TextSpan(text: dateText, style: labelStyle)
         ..layout();
-      
+
       labelPainter.paint(
-        canvas, 
+        canvas,
         Offset(x - labelPainter.width / 2, size.height - 25),
       );
     }
-    
+
     // Draw target weight line with improved visibility
-    final targetY = size.height - 40 - 
+    final targetY = size.height -
+        40 -
         ((targetWeight - minWeight) / (maxWeight - minWeight)) * chartHeight;
-    
+
     final targetPaint = Paint()
       ..color = Colors.green.shade600
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-    
+
     // Draw solid line instead of dashed for better visibility
     canvas.drawLine(
       Offset(30, targetY),
       Offset(size.width - 30, targetY),
       targetPaint,
     );
-    
+
     // Draw target indicator
     labelPainter
       ..text = TextSpan(
-        text: 'Target Goal', 
-        style: labelStyle.copyWith(
-          color: Colors.green.shade600, 
-          fontWeight: FontWeight.bold,
-          fontSize: 11,
-        )
-      )
+          text: 'Target Goal',
+          style: labelStyle.copyWith(
+            color: Colors.green.shade600,
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+          ))
       ..layout();
-    
+
     // Draw target label with better visibility
     final targetLabelBackground = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        size.width - labelPainter.width - 18, 
-        targetY - 12, 
-        labelPainter.width + 16, 
-        24
-      ),
+      Rect.fromLTWH(size.width - labelPainter.width - 18, targetY - 12,
+          labelPainter.width + 16, 24),
       const Radius.circular(12),
     );
-    
+
     // Draw a colored background for the target label
     canvas.drawRRect(
       targetLabelBackground,
       Paint()..color = Colors.green.shade50.withOpacity(0.8),
     );
-    
+
     // Draw border
     canvas.drawRRect(
-      targetLabelBackground,
-      Paint()
-        ..color = Colors.green.shade600
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-    );
-    
+        targetLabelBackground,
+        Paint()
+          ..color = Colors.green.shade600
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5);
+
     labelPainter.paint(
-      canvas, 
-      Offset(size.width - labelPainter.width - 10, targetY - labelPainter.height / 2),
+      canvas,
+      Offset(size.width - labelPainter.width - 10,
+          targetY - labelPainter.height / 2),
     );
-    
+
     // Calculate points for weight line with zoom consideration
     final points = <Offset>[];
     final animatedPoints = <Offset>[];
-    
+
     for (int i = visibleRange.start; i <= visibleRange.end; i++) {
       final point = weightPoints[i];
       final x = _getXPositionForIndex(i, chartWidth);
-      final y = size.height - 40 - 
+      final y = size.height -
+          40 -
           ((point.weight - minWeight) / (maxWeight - minWeight)) * chartHeight;
-      
+
       points.add(Offset(x, y));
-      
+
       // Apply animation only to points that should be visible
-      if (animation >= 1.0 || 
-          i <= visibleRange.start + (visibleRange.end - visibleRange.start) * animation) {
+      if (animation >= 1.0 ||
+          i <=
+              visibleRange.start +
+                  (visibleRange.end - visibleRange.start) * animation) {
         animatedPoints.add(Offset(x, y));
       }
     }
-    
+
     // Draw line connecting points
     if (animatedPoints.length > 1) {
       final linePaint = Paint()
@@ -1269,81 +1284,82 @@ class _WeightChartPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke;
-      
+
       final path = Path();
       path.moveTo(animatedPoints.first.dx, animatedPoints.first.dy);
-      
+
       for (int i = 1; i < animatedPoints.length; i++) {
         path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
       }
-      
+
       canvas.drawPath(path, linePaint);
     }
-    
+
     // Draw fill under the line
     if (animatedPoints.length > 1) {
       final fillPath = Path();
       fillPath.moveTo(animatedPoints.first.dx, size.height - 40);
       fillPath.lineTo(animatedPoints.first.dx, animatedPoints.first.dy);
-      
+
       for (int i = 1; i < animatedPoints.length; i++) {
         fillPath.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
       }
-      
+
       fillPath.lineTo(animatedPoints.last.dx, size.height - 40);
       fillPath.close();
-      
+
       canvas.drawPath(
-        fillPath, 
-        Paint()
-          ..color = customColors.accentPrimary.withOpacity(0.1)
-          ..style = PaintingStyle.fill
-      );
+          fillPath,
+          Paint()
+            ..color = customColors.accentPrimary.withOpacity(0.1)
+            ..style = PaintingStyle.fill);
     }
-    
+
     // Draw data points
     final pointPaint = Paint()
       ..color = customColors.cardBackground
       ..style = PaintingStyle.fill;
-    
+
     final pointBorderPaint = Paint()
       ..color = customColors.accentPrimary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
-    
+
     for (int i = 0; i < animatedPoints.length; i++) {
       final point = animatedPoints[i];
       final originalIndex = i + visibleRange.start;
-      
+
       // Determine if this is a point that should be highlighted
       bool isHighlighted = false;
-      if (i == 0 || i == animatedPoints.length - 1 || 
-          originalIndex == 0 || originalIndex == weightPoints.length - 1) {
+      if (i == 0 ||
+          i == animatedPoints.length - 1 ||
+          originalIndex == 0 ||
+          originalIndex == weightPoints.length - 1) {
         isHighlighted = true;
       }
-      
+
       // Draw all points with subtle appearance
       canvas.drawCircle(point, 4, pointPaint);
       canvas.drawCircle(point, 4, pointBorderPaint);
-      
+
       // Draw emphasized points
       if (isHighlighted) {
         canvas.drawCircle(point, 6, pointPaint);
         canvas.drawCircle(point, 6, pointBorderPaint);
       }
     }
-    
+
     // Draw tooltip for touched point
     if (touchData != null) {
       final point = touchData!.point;
       final position = touchData!.position;
-      
+
       // Format weight and date for tooltip
-      final weightText = isMetric 
-          ? '${point.weight.toStringAsFixed(1)} kg' 
+      final weightText = isMetric
+          ? '${point.weight.toStringAsFixed(1)} kg'
           : '${(point.weight * 2.20462).toStringAsFixed(1)} lbs';
       final dateText = DateFormat('MMM dd, yyyy').format(point.date);
-      
+
       // Prepare tooltip text
       labelPainter
         ..text = TextSpan(
@@ -1366,68 +1382,65 @@ class _WeightChartPainter extends CustomPainter {
           ],
         )
         ..layout(maxWidth: 120);
-      
+
       // Draw tooltip background
       final tooltipWidth = math.max(labelPainter.width + 16, 80.0);
       final tooltipHeight = labelPainter.height + 12;
-      
+
       // Calculate tooltip position
       double tooltipX = position.dx - tooltipWidth / 2;
       final tooltipY = position.dy - tooltipHeight - 12;
-      
+
       // Ensure tooltip stays within bounds
-      tooltipX = math.max(10, math.min(size.width - tooltipWidth - 10, tooltipX));
-      
+      tooltipX =
+          math.max(10, math.min(size.width - tooltipWidth - 10, tooltipX));
+
       final tooltipRect = RRect.fromRectAndRadius(
         Rect.fromLTWH(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
         const Radius.circular(8),
       );
-      
+
       final tooltipTrianglePath = Path()
         ..moveTo(position.dx, position.dy - 6)
         ..lineTo(position.dx - 8, tooltipY)
         ..lineTo(position.dx + 8, tooltipY)
         ..close();
-      
+
       canvas.drawRRect(
-        tooltipRect, 
+        tooltipRect,
         Paint()..color = customColors.cardBackground,
       );
-      
-      canvas.drawShadow(
-        Path()..addRRect(tooltipRect), 
-        Colors.black.withOpacity(0.2), 
-        4, 
-        true
-      );
-      
+
+      canvas.drawShadow(Path()..addRRect(tooltipRect),
+          Colors.black.withOpacity(0.2), 4, true);
+
       canvas.drawPath(
-        tooltipTrianglePath, 
+        tooltipTrianglePath,
         Paint()..color = customColors.cardBackground,
       );
-      
+
       labelPainter.paint(
-        canvas, 
+        canvas,
         Offset(tooltipX + 8, tooltipY + 6),
       );
-      
+
       // Emphasize the selected point
       canvas.drawCircle(
-        position, 
-        8, 
+        position,
+        8,
         pointPaint,
       );
-      
+
       canvas.drawCircle(
-        position, 
-        8, 
+        position,
+        8,
         Paint()
           ..color = customColors.accentPrimary
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3,
       );
     }
-    
+
     // Draw zoom instructions if not zoomed
     if (zoomLevel <= 1.05 && animation >= 1.0) {
       labelPainter
@@ -1440,45 +1453,46 @@ class _WeightChartPainter extends CustomPainter {
           ),
         )
         ..layout();
-      
+
       labelPainter.paint(
         canvas,
         Offset(size.width - labelPainter.width - 10, size.height - 15),
       );
     }
   }
-  
+
   // Calculate which points are visible based on zoom and pan
   _VisibleRange _getVisiblePointsIndices(int totalPoints) {
     if (totalPoints <= 1) return _VisibleRange(0, 0);
-    
+
     // Calculate visible range based on zoom level and pan offset
     final visiblePortion = 1.0 / zoomLevel;
     final center = 0.5 + (panOffset / 100);
-    
+
     // Calculate start and end indices
     int start = ((center - visiblePortion / 2) * (totalPoints - 1)).floor();
     int end = ((center + visiblePortion / 2) * (totalPoints - 1)).ceil();
-    
+
     // Ensure indices are within bounds
     start = math.max(0, start);
     end = math.min(totalPoints - 1, end);
-    
+
     return _VisibleRange(start, end);
   }
-  
+
   // Calculate x position for point at index, accounting for zoom and pan
   double _getXPositionForIndex(int index, double chartWidth) {
     final visibleRange = _getVisiblePointsIndices(weightPoints.length);
     final visibleCount = visibleRange.end - visibleRange.start;
-    
-    if (visibleCount <= 0) return 30 + (index / (weightPoints.length - 1)) * chartWidth;
-    
+
+    if (visibleCount <= 0)
+      return 30 + (index / (weightPoints.length - 1)) * chartWidth;
+
     // Map index to position within visible range
     final relativeIndex = index - visibleRange.start;
     return 30 + (relativeIndex / visibleCount) * chartWidth;
   }
-  
+
   // Calculate appropriate date interval based on number of visible points
   int _calculateDateInterval(int visiblePoints) {
     if (visiblePoints <= 7) return 1;
@@ -1488,7 +1502,7 @@ class _WeightChartPainter extends CustomPainter {
     if (visiblePoints <= 180) return 30;
     return math.max(1, (visiblePoints / 10).round());
   }
-  
+
   // Format date based on interval size
   String _formatDateForInterval(DateTime date, int interval) {
     if (interval <= 2) {
@@ -1501,14 +1515,14 @@ class _WeightChartPainter extends CustomPainter {
       return DateFormat('MM/yy').format(date);
     }
   }
-  
+
   @override
   bool shouldRepaint(covariant _WeightChartPainter oldDelegate) {
     return oldDelegate.weightPoints != weightPoints ||
-           oldDelegate.animation != animation ||
-           oldDelegate.touchData != touchData ||
-           oldDelegate.isMetric != isMetric ||
-           oldDelegate.zoomLevel != zoomLevel ||
-           oldDelegate.panOffset != panOffset;
+        oldDelegate.animation != animation ||
+        oldDelegate.touchData != touchData ||
+        oldDelegate.isMetric != isMetric ||
+        oldDelegate.zoomLevel != zoomLevel ||
+        oldDelegate.panOffset != panOffset;
   }
 }

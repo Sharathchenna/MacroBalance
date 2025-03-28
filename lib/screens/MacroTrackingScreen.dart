@@ -132,6 +132,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     _buildMacroBreakdown(customColors),
                     const SizedBox(height: 24),
                     _buildMacroGoals(customColors),
+                    const SizedBox(height: 50),
                   ],
                 ),
               ),
@@ -247,7 +248,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade100
+                            : customColors.cardBackground.withOpacity(0.5),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -256,7 +259,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                       height: 120,
                       child: CircularProgressIndicator(
                         value: calorieProgress,
-                        backgroundColor: Colors.grey.shade200,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.light
+                                ? Colors.grey.shade200
+                                : customColors.dateNavigatorBackground,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           calorieProgress >= 1.0
                               ? Colors.green
@@ -432,7 +438,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   Widget _buildMacroChart(CustomColors customColors) {
     // Filter history based on selected time frame
     final List<Map<String, dynamic>> filteredHistory = _getFilteredHistory();
-    
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -460,7 +466,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   color: customColors.textPrimary,
                 ),
               ),
-              
+
               // Add tabs for "Calories" and "Grams" views
               Container(
                 height: 32,
@@ -496,17 +502,20 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             ),
           ),
           const SizedBox(height: 24),
-          
+
           // Chart legend
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildLegendItem('Protein (${_targetProtein.toInt()}g)', Colors.amber.shade300, customColors),
-              _buildLegendItem('Carbs (${_targetCarbs.toInt()}g)', Colors.teal.shade300, customColors),
-              _buildLegendItem('Fat (${_targetFat.toInt()}g)', Colors.purple.shade400, customColors),
+              _buildLegendItem('Protein (${_targetProtein.toInt()}g)',
+                  Colors.amber.shade300, customColors),
+              _buildLegendItem('Carbs (${_targetCarbs.toInt()}g)',
+                  Colors.teal.shade300, customColors),
+              _buildLegendItem('Fat (${_targetFat.toInt()}g)',
+                  Colors.purple.shade400, customColors),
             ],
           ),
-          
+
           // Goal vs Average comparison
           const SizedBox(height: 24),
           Row(
@@ -514,54 +523,42 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             children: [
               // Column headings
               Container(width: 100),
-              Text('Avg', style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: customColors.textSecondary,
-              )),
-              Text('Goal', style: GoogleFonts.inter(
-                fontSize: 14, 
-                fontWeight: FontWeight.w600,
-                color: customColors.textSecondary,
-              )),
+              Text('Avg',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: customColors.textSecondary,
+                  )),
+              Text('Goal',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: customColors.textSecondary,
+                  )),
             ],
           ),
-          
+
           const SizedBox(height: 12),
           // Carbs comparison
           _buildMacroComparison(
-            'Net Carbs',
-            '22%',
-            '35%',
-            Colors.teal.shade300,
-            customColors
-          ),
-          
+              'Net Carbs', '22%', '35%', Colors.teal.shade300, customColors),
+
           const SizedBox(height: 12),
-          // Fat comparison  
+          // Fat comparison
           _buildMacroComparison(
-            'Fat',
-            '33%',
-            '25%',
-            Colors.purple.shade400,
-            customColors
-          ),
-          
+              'Fat', '33%', '25%', Colors.purple.shade400, customColors),
+
           const SizedBox(height: 12),
           // Protein comparison
           _buildMacroComparison(
-            'Protein',
-            '45%',
-            '40%',
-            Colors.amber.shade300,
-            customColors
-          ),
+              'Protein', '45%', '40%', Colors.amber.shade300, customColors),
         ],
       ),
     );
   }
-  
-  Widget _buildChartViewTab(String title, bool isSelected, CustomColors customColors) {
+
+  Widget _buildChartViewTab(
+      String title, bool isSelected, CustomColors customColors) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -573,13 +570,16 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
         style: GoogleFonts.inter(
           fontSize: 12,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          color: isSelected ? customColors.accentPrimary : customColors.textSecondary,
+          color: isSelected
+              ? customColors.accentPrimary
+              : customColors.textSecondary,
         ),
       ),
     );
   }
-  
-  Widget _buildMacroComparison(String label, String actual, String goal, Color color, CustomColors customColors) {
+
+  Widget _buildMacroComparison(String label, String actual, String goal,
+      Color color, CustomColors customColors) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -609,7 +609,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             ],
           ),
         ),
-        
+
         // Actual percentage
         Text(
           actual,
@@ -618,7 +618,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             color: customColors.textPrimary,
           ),
         ),
-        
+
         // Goal percentage with indicator dot
         Row(
           children: [
@@ -648,25 +648,27 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   List<Map<String, dynamic>> _getFilteredHistory() {
     final DateTime now = DateTime.now();
     List<Map<String, dynamic>> filtered = [];
-    
+
     switch (_selectedTimeFrame) {
       case 'Week':
         // Get the last 7 days
         final weekAgo = now.subtract(const Duration(days: 7));
-        filtered = _macroHistory.where((entry) => 
-          (entry['date'] as DateTime).isAfter(weekAgo) || 
-          DateFormat('yyyy-MM-dd').format(entry['date'] as DateTime) == 
-          DateFormat('yyyy-MM-dd').format(weekAgo)
-        ).toList();
+        filtered = _macroHistory
+            .where((entry) =>
+                (entry['date'] as DateTime).isAfter(weekAgo) ||
+                DateFormat('yyyy-MM-dd').format(entry['date'] as DateTime) ==
+                    DateFormat('yyyy-MM-dd').format(weekAgo))
+            .toList();
         break;
       case 'Month':
         // Get the last 30 days
         final monthAgo = DateTime(now.year, now.month - 1, now.day);
-        filtered = _macroHistory.where((entry) => 
-          (entry['date'] as DateTime).isAfter(monthAgo) || 
-          DateFormat('yyyy-MM-dd').format(entry['date'] as DateTime) == 
-          DateFormat('yyyy-MM-dd').format(monthAgo)
-        ).toList();
+        filtered = _macroHistory
+            .where((entry) =>
+                (entry['date'] as DateTime).isAfter(monthAgo) ||
+                DateFormat('yyyy-MM-dd').format(entry['date'] as DateTime) ==
+                    DateFormat('yyyy-MM-dd').format(monthAgo))
+            .toList();
         break;
       case 'Year':
         // Get the last 12 months
@@ -675,27 +677,27 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
       default:
         filtered = _macroHistory;
     }
-    
+
     // Ensure we have at most 7 entries for week view by taking the most recent
     if (_selectedTimeFrame == 'Week' && filtered.length > 7) {
       filtered = filtered.sublist(filtered.length - 7);
     }
-    
+
     // For month view, aggregate by week
     if (_selectedTimeFrame == 'Month' && filtered.length > 7) {
       // Aggregate data by weeks (for simplicity just take every ~4th entry)
       final int step = (filtered.length / 7).ceil();
       List<Map<String, dynamic>> aggregated = [];
-      
+
       for (int i = filtered.length - 1; i >= 0; i -= step) {
         if (aggregated.length < 7) {
           aggregated.add(filtered[i]);
         }
       }
-      
+
       filtered = aggregated.reversed.toList();
     }
-    
+
     return filtered;
   }
 
@@ -1173,14 +1175,14 @@ class _MacroBarChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (macroData.isEmpty) return;
-    
+
     final chartArea = Rect.fromLTWH(
       40, // Left padding for y-axis labels
       10, // Top padding
       size.width - 50, // Width minus padding
       size.height - 40, // Height minus padding for x-axis labels
     );
-    
+
     // Calculate the max value for the y-axis
     double maxTotalMacros = 0;
     for (var data in macroData) {
@@ -1192,33 +1194,33 @@ class _MacroBarChartPainter extends CustomPainter {
         maxTotalMacros = total;
       }
     }
-    
+
     // Round up to nearest 500 for clean y-axis
     maxTotalMacros = ((maxTotalMacros / 500).ceil() * 500).toDouble();
     maxTotalMacros = math.max(maxTotalMacros, 1800); // Ensure minimum scale
-    
+
     // Draw y-axis grid lines and labels
     _drawYAxis(canvas, chartArea, maxTotalMacros);
-    
+
     // Draw bars
     final barWidth = chartArea.width / (macroData.length * 2 + 1);
-    
+
     // Pre-compute target goal line position
     final double targetTotalMacros = targetProtein + targetCarbs + targetFat;
-    final double targetY = chartArea.bottom - 
+    final double targetY = chartArea.bottom -
         (targetTotalMacros / maxTotalMacros * chartArea.height);
-    
+
     for (int i = 0; i < macroData.length; i++) {
       final data = macroData[i];
       final double protein = (data['protein'] as double) * animation;
       final double carbs = (data['carbs'] as double) * animation;
       final double fat = (data['fat'] as double) * animation;
-      
+
       final double x = chartArea.left + (i * 2 + 1) * barWidth;
-      
+
       // Draw stacked bar segments
       double segmentBottom = chartArea.bottom;
-      
+
       // Draw protein segment (bottom)
       final proteinHeight = (protein / maxTotalMacros) * chartArea.height;
       final proteinRect = Rect.fromLTWH(
@@ -1232,7 +1234,7 @@ class _MacroBarChartPainter extends CustomPainter {
         Paint()..color = Colors.amber.shade300,
       );
       segmentBottom -= proteinHeight;
-      
+
       // Draw fat segment (middle)
       final fatHeight = (fat / maxTotalMacros) * chartArea.height;
       final fatRect = Rect.fromLTWH(
@@ -1246,7 +1248,7 @@ class _MacroBarChartPainter extends CustomPainter {
         Paint()..color = Colors.purple.shade400,
       );
       segmentBottom -= fatHeight;
-      
+
       // Draw carbs segment (top)
       final carbsHeight = (carbs / maxTotalMacros) * chartArea.height;
       final carbsRect = Rect.fromLTWH(
@@ -1259,29 +1261,28 @@ class _MacroBarChartPainter extends CustomPainter {
         carbsRect,
         Paint()..color = Colors.teal.shade300,
       );
-      
+
       // Draw bar border
       final totalHeight = proteinHeight + fatHeight + carbsHeight;
       if (totalHeight > 0) {
         canvas.drawRect(
-          Rect.fromLTWH(
-            x - barWidth / 2,
-            chartArea.bottom - totalHeight,
-            barWidth,
-            totalHeight,
-          ),
-          Paint()
-            ..color = customColors.cardBackground.withOpacity(0.5)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1
-        );
+            Rect.fromLTWH(
+              x - barWidth / 2,
+              chartArea.bottom - totalHeight,
+              barWidth,
+              totalHeight,
+            ),
+            Paint()
+              ..color = customColors.cardBackground.withOpacity(0.5)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1);
       }
-      
+
       // Draw x-axis labels
       final date = data['date'] as DateTime;
       final dayLabel = _getDayLabel(date);
       final dateLabel = DateFormat('d').format(date);
-      
+
       final dayTextPainter = TextPainter(
         text: TextSpan(
           text: dayLabel,
@@ -1293,12 +1294,12 @@ class _MacroBarChartPainter extends CustomPainter {
         textDirection: ui.TextDirection.ltr,
         textAlign: TextAlign.center,
       )..layout();
-      
+
       dayTextPainter.paint(
-        canvas, 
+        canvas,
         Offset(x - dayTextPainter.width / 2, chartArea.bottom + 5),
       );
-      
+
       final dateTextPainter = TextPainter(
         text: TextSpan(
           text: dateLabel,
@@ -1310,25 +1311,25 @@ class _MacroBarChartPainter extends CustomPainter {
         textDirection: ui.TextDirection.ltr,
         textAlign: TextAlign.center,
       )..layout();
-      
+
       dateTextPainter.paint(
-        canvas, 
+        canvas,
         Offset(x - dateTextPainter.width / 2, chartArea.bottom + 22),
       );
     }
-    
+
     // Draw target goal horizontal line
     final targetLinePaint = Paint()
       ..color = Colors.blue.shade500
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
-    
+
     // Draw dashed line
     double dashWidth = 5;
     double dashSpace = 3;
     double startX = chartArea.left;
-    
+
     while (startX < chartArea.right) {
       canvas.drawLine(
         Offset(startX, targetY),
@@ -1337,7 +1338,7 @@ class _MacroBarChartPainter extends CustomPainter {
       );
       startX += dashWidth + dashSpace;
     }
-    
+
     // Add target label
     final targetTextPainter = TextPainter(
       text: TextSpan(
@@ -1350,7 +1351,7 @@ class _MacroBarChartPainter extends CustomPainter {
       ),
       textDirection: ui.TextDirection.ltr,
     )..layout();
-    
+
     // Draw a background for the label
     final labelRect = Rect.fromLTWH(
       chartArea.right - targetTextPainter.width - 8,
@@ -1358,41 +1359,42 @@ class _MacroBarChartPainter extends CustomPainter {
       targetTextPainter.width + 6,
       targetTextPainter.height + 4,
     );
-    
+
     canvas.drawRRect(
       RRect.fromRectAndRadius(labelRect, const Radius.circular(2)),
       Paint()..color = customColors.cardBackground.withOpacity(0.9),
     );
-    
+
     targetTextPainter.paint(
       canvas,
-      Offset(chartArea.right - targetTextPainter.width - 5, targetY - targetTextPainter.height / 2),
+      Offset(chartArea.right - targetTextPainter.width - 5,
+          targetY - targetTextPainter.height / 2),
     );
   }
-  
+
   void _drawYAxis(Canvas canvas, Rect chartArea, double maxValue) {
     final gridPaint = Paint()
       ..color = Colors.grey.withOpacity(0.2)
       ..strokeWidth = 1;
-    
+
     final labelStyle = TextStyle(
       color: Colors.grey.shade600,
       fontSize: 10,
     );
-    
+
     final verticalSteps = 6;
     final stepSize = maxValue / verticalSteps;
-    
+
     for (int i = 0; i <= verticalSteps; i++) {
       final y = chartArea.bottom - (i * chartArea.height / verticalSteps);
-      
+
       // Draw horizontal grid line
       canvas.drawLine(
         Offset(chartArea.left, y),
         Offset(chartArea.right, y),
         gridPaint,
       );
-      
+
       // Draw label
       final value = (i * stepSize).toInt();
       final textPainter = TextPainter(
@@ -1403,14 +1405,15 @@ class _MacroBarChartPainter extends CustomPainter {
         textDirection: ui.TextDirection.ltr,
         textAlign: TextAlign.right,
       )..layout();
-      
+
       textPainter.paint(
         canvas,
-        Offset(chartArea.left - textPainter.width - 5, y - textPainter.height / 2),
+        Offset(
+            chartArea.left - textPainter.width - 5, y - textPainter.height / 2),
       );
     }
   }
-  
+
   String _getDayLabel(DateTime date) {
     final daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     return daysOfWeek[date.weekday % 7];
@@ -1419,7 +1422,7 @@ class _MacroBarChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MacroBarChartPainter oldDelegate) {
     return oldDelegate.animation != animation ||
-           oldDelegate.macroData != macroData;
+        oldDelegate.macroData != macroData;
   }
 }
 
@@ -1463,8 +1466,10 @@ class MacroDistributionPainter extends CustomPainter {
           Colors.red.withOpacity(0.1));
 
       // Draw progress arcs
-      final proteinAngle = (protein / targetProtein).clamp(0.0, 1.0) * (2 * math.pi / 3);
-      final carbsAngle = (carbs / targetCarbs).clamp(0.0, 1.0) * (2 * math.pi / 3);
+      final proteinAngle =
+          (protein / targetProtein).clamp(0.0, 1.0) * (2 * math.pi / 3);
+      final carbsAngle =
+          (carbs / targetCarbs).clamp(0.0, 1.0) * (2 * math.pi / 3);
       final fatAngle = (fat / targetFat).clamp(0.0, 1.0) * (2 * math.pi / 3);
 
       _drawArc(canvas, center, radius, 0, proteinAngle * animation.value,

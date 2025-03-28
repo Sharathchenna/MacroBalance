@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
+import 'package:macrotracker/screens/MacroTrackingScreen.dart'; // Added import
 import 'package:macrotracker/screens/NativeStatsScreen.dart';
+import 'package:macrotracker/screens/StepsTrackingScreen.dart'; // Added import
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/editGoals.dart';
@@ -746,7 +748,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                           Navigator.push(
                             context,
                             CupertinoPageRoute(
-                              builder: (context) => EditGoalsScreen(),
+                              builder: (context) => MacroTrackingScreen(),
                             ),
                           );
                         },
@@ -988,9 +990,17 @@ Widget _buildMacroProgressEnhanced(BuildContext context, String label,
       HapticFeedback.selectionClick();
       // Navigate to different sections based on the macro type
       if (label == 'Steps') {
-        NativeStatsScreen.show(context, initialSection: 'steps');
+        // Navigate to StepTrackingScreen
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (context) => const StepTrackingScreen()),
+        );
       } else if (label == 'Carbs' || label == 'Protein' || label == 'Fat') {
-        NativeStatsScreen.show(context, initialSection: 'macros');
+        // Navigate to MacroTrackingScreen
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (context) => const MacroTrackingScreen()),
+        );
       }
     },
     child: Container(
