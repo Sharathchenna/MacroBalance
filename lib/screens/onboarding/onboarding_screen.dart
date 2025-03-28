@@ -11,7 +11,7 @@ import 'dart:math'; // Import dart:math for min/max functions
 import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
-import 'package:macrotracker/screens/revenuecat/paywall_screen.dart';
+import 'package:macrotracker/screens/RevenueCat/paywall_screen.dart';
 import 'package:flutter/foundation.dart';
 
 class OnboardingScreen extends StatefulWidget {

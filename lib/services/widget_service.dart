@@ -7,7 +7,7 @@ import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 
 // Constants for app group and widget kinds
-const String APP_GROUP = 'group.com.sharathchenna.shared';
+const String APP_GROUP = 'group.app.macrobalance.com';
 const String MACRO_DATA_KEY = 'macro_data';
 const String DAILY_MEALS_KEY = 'daily_meals';
 

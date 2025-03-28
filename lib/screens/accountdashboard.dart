@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/main.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
+import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Add this import
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
@@ -25,7 +26,7 @@ import 'package:macrotracker/screens/terms_screen.dart'; // Added import
 import 'package:macrotracker/screens/feedback_screen.dart'
     as fb_screen; // Added import for feedback with prefix
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
-// Removed Firebase Messaging import if only used for testing token retrieval
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -547,6 +548,73 @@ class _AccountDashboardState extends State<AccountDashboard>
               const SizedBox(height: 24),
               _buildLogoutButton(colorScheme),
               const SizedBox(height: 32),
+
+              // Only show in debug mode
+              if (kDebugMode)
+                _buildSection(
+                  title: 'Subscription Debug',
+                  icon: CupertinoIcons.hammer_fill,
+                  colorScheme: colorScheme,
+                  customColors: customColors,
+                  children: [
+                    Consumer<SubscriptionProvider>(
+                      builder: (context, subscriptionProvider, _) {
+                        return _buildListTile(
+                          icon: subscriptionProvider.isProUser 
+                              ? CupertinoIcons.star_fill 
+                              : CupertinoIcons.star_slash,
+                          iconColor: subscriptionProvider.isProUser
+                              ? Colors.amber
+                              : Colors.grey,
+                          title: 'Subscription Status',
+                          subtitle: subscriptionProvider.isProUser
+                              ? 'Pro Subscription Active'
+                              : 'No Subscription',
+                          trailing: ElevatedButton(
+                            onPressed: () async {
+                              HapticFeedback.mediumImpact();
+                              // Toggle the subscription status (for testing only)
+                              final prefs = await SharedPreferences.getInstance();
+                              final isCurrentlyPro = subscriptionProvider.isProUser;
+                              await prefs.setBool('is_pro_user', !isCurrentlyPro);
+                              await subscriptionProvider.refreshSubscriptionStatus();
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(!isCurrentlyPro
+                                      ? 'Pro access enabled (DEBUG)'
+                                      : 'Pro access disabled (DEBUG)'),
+                                  duration: Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.fixed,
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: subscriptionProvider.isProUser
+                                  ? Colors.red.shade200
+                                  : Colors.green.shade200,
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            child: Text(
+                              subscriptionProvider.isProUser ? 'Disable Pro' : 'Enable Pro',
+                              style: TextStyle(
+                                color: subscriptionProvider.isProUser
+                                    ? Colors.red.shade800
+                                    : Colors.green.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          onTap: () {
+                            // Do nothing on tap - the button handles it
+                          },
+                          colorScheme: colorScheme,
+                          customColors: customColors,
+                        );
+                      },
+                    ),
+                  ],
+                ),
             ],
           ),
         );

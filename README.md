@@ -107,3 +107,71 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Supabase for backend services
 - PostHog for analytics
 - All contributors and users of the app
+
+# MacroTracker RevenueCat Hard Paywall Implementation
+
+## Overview
+
+MacroTracker implements a hard paywall approach using RevenueCat. A hard paywall blocks access to the entire app until a subscription is purchased. This is different from a soft paywall, which would allow partial access to app features.
+
+## Implementation Details
+
+### PaywallGate Component
+
+The implementation uses a `PaywallGate` component that wraps all routes in the app. This gate checks if the user has a valid subscription before allowing access to any screen.
+
+Key features:
+- Blocks all app functionality until a subscription is purchased
+- No trial or free tier access
+- Clear subscription options with RevenueCat's PaywallView
+- Proper subscription status management
+
+### RevenueCat Integration
+
+RevenueCat is used for:
+1. In-app purchase management
+2. Subscription validation
+3. Cross-platform subscription handling
+4. Paywall presentation
+
+## Code Structure
+
+### Key Components
+
+1. **PaywallGate**: Wraps all routes and checks subscription status
+2. **PaywallScreen**: Handles displaying the RevenueCat paywall UI
+3. **SubscriptionProvider**: Manages subscription state throughout the app
+
+### Configuration
+
+The RevenueCat SDK is initialized in `main.dart` with the appropriate API keys for each platform.
+
+## App Store Submission Guidelines
+
+When submitting an app with a hard paywall, ensure:
+
+1. The full billed amount is clearly shown
+2. Introductory offer details (if any) are clearly disclosed
+3. Opportunity to cancel is clearly stated
+4. Terms & conditions and privacy policy are accessible
+5. No misleading marketing text
+
+## Testing
+
+To test the paywall:
+1. Use RevenueCat sandbox mode for iOS
+2. Use Google Play testing tracks for Android
+3. Verify all subscription states are handled correctly
+
+## Development Notes
+
+- The `allowDismissal: false` parameter ensures users cannot dismiss the paywall without subscribing
+- Subscription status is refreshed after any interaction with the paywall
+- A snackbar message informs users that subscription is required if they attempt to dismiss the paywall
+
+## Resources
+
+- [RevenueCat Documentation](https://www.revenuecat.com/docs/welcome/overview)
+- [RevenueCat Paywalls](https://www.revenuecat.com/docs/tools/paywalls)
+- [App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
+- [Google Play Policies](https://play.google.com/about/developer-content-policy/)

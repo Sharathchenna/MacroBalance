@@ -19,6 +19,34 @@ class StepTrackingScreen extends StatefulWidget {
   State<StepTrackingScreen> createState() => _StepTrackingScreenState();
 }
 
+// Helper class for monthly statistics
+class _MonthlyStats {
+  final DateTime date;
+  final String monthName;
+  final int year;
+  final int month;
+  int totalSteps = 0;
+  int daysTracked = 0;
+
+  _MonthlyStats({
+    required this.date,
+    required this.monthName,
+    required this.year,
+    required this.month,
+  });
+
+  void addDayStats(int steps) {
+    if (steps > 0) {
+      // Only count days with actual steps
+      totalSteps += steps;
+      daysTracked++;
+    }
+  }
+
+  int get averageDailySteps =>
+      daysTracked > 0 ? (totalSteps / daysTracked).round() : 0;
+}
+
 class _StepTrackingScreenState extends State<StepTrackingScreen>
     with AutomaticKeepAliveClientMixin {
   final HealthService _healthService = HealthService();
@@ -32,7 +60,6 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
   // New variables for tracking different time periods
   List<Map<String, dynamic>> _weeklyStepsData = [];
   List<Map<String, dynamic>> _monthlyStepsData = [];
-  List<Map<String, dynamic>> _yearlyStepsData = [];
 
   @override
   void initState() {
@@ -49,16 +76,14 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       // Load today's steps
       final todaySteps = await _healthService.getSteps();
 
-      // Load data for all time frames at once for smoother UX when switching
+      // Load data for time frames at once for smoother UX when switching
       final weeklyStepsData = await _healthService.getStepsForLastWeek();
       final monthlyStepsData = await _healthService.getStepsForLastMonth();
-      final yearlyStepsData = await _healthService.getStepsForLastYear();
 
       setState(() {
         _todaySteps = todaySteps;
         _weeklyStepsData = weeklyStepsData;
         _monthlyStepsData = monthlyStepsData;
-        _yearlyStepsData = yearlyStepsData;
 
         // Set current data based on selected time frame
         _updateCurrentStepsData();
@@ -83,44 +108,18 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       case 'Month':
         _stepsData = _monthlyStepsData;
         break;
-      case 'Year':
-        _stepsData = _yearlyStepsData;
-        break;
       default:
         _stepsData = _weeklyStepsData;
     }
   }
 
-  // Calculate nice rounded values for the y-axis based on time frame
-  List<double> _calculateYAxisValues(double maxValue, int stepCount) {
-    // Find a nice rounded maximum that's at least 10% higher than the actual max
-    final double adjustedMax = maxValue * 1.1;
-
-    // Round up to a nice number based on scale
-    double roundedMax;
-    if (adjustedMax < 50) {
-      roundedMax = (adjustedMax / 5).ceil() * 5; // Round to nearest 5
-    } else if (adjustedMax < 100) {
-      roundedMax = (adjustedMax / 10).ceil() * 10; // Round to nearest 10
-    } else if (adjustedMax < 1000) {
-      roundedMax = (adjustedMax / 100).ceil() * 100; // Round to nearest 100
-    } else if (adjustedMax < 10000) {
-      roundedMax = (adjustedMax / 1000).ceil() * 1000; // Round to nearest 1000
-    } else {
-      roundedMax = (adjustedMax / 5000).ceil() * 5000; // Round to nearest 5000
-    }
-
-    // Calculate step values
-    final step = roundedMax / stepCount;
-    return List.generate(stepCount + 1, (i) => step * i);
-  }
-
   double _getMaxSteps() {
-    if (_stepsData.isEmpty)
+    final currentData = _getTransformedStepsData(); // Use transformed data
+    if (currentData.isEmpty)
       return _stepGoal * 1.2; // Default value with padding
 
-    // Get the maximum step value from the data
-    final maxSteps = _stepsData
+    // Get the maximum step value from the transformed data
+    final maxSteps = currentData
         .map((data) => data['steps'] as int)
         .reduce((a, b) => a > b ? a : b)
         .toDouble();
@@ -139,9 +138,6 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         return _stepGoal.toDouble(); // Daily goal
       case 'Month':
         return _stepGoal.toDouble(); // Daily goal shown as reference
-      case 'Year':
-        // For yearly view, calculate average daily steps per month (daily goal * average days in month)
-        return _stepGoal * 30.4; // Average days in a month (365/12)
       default:
         return _stepGoal.toDouble();
     }
@@ -153,8 +149,6 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         return 'Daily Goal';
       case 'Month':
         return 'Daily Goal';
-      case 'Year':
-        return 'Monthly Goal';
       default:
         return 'Goal';
     }
@@ -180,32 +174,26 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         return _weeklyStepsData.length - 1;
 
       case 'Month':
-        // For monthly view, we now use individual days
+        // For month view, find which week contains today
         final monthlyData = _getTransformedStepsData();
+        
+        // If no data, return -1
+        if (monthlyData.isEmpty) return -1;
+        
+        // First, find which week today belongs to
         for (int i = 0; i < monthlyData.length; i++) {
-          final date = monthlyData[i]['date'] as DateTime;
-          final dateFormatted = DateFormat('yyyy-MM-dd').format(date);
-          if (dateFormatted == todayFormatted) {
+          final weekStart = monthlyData[i]['date'] as DateTime;
+          final weekEnd = weekStart.add(const Duration(days: 6));
+          
+          // Check if today falls within this week
+          if (today.isAfter(weekStart.subtract(const Duration(days: 1))) && 
+              today.isBefore(weekEnd.add(const Duration(days: 1)))) {
             return i;
           }
         }
-        // If today is not found, return the last index
+        
+        // If not found in any week, return the most recent week
         return monthlyData.length - 1;
-
-      case 'Year':
-        // For yearly view, find the index of the current month
-        final currentMonth = today.month;
-        final currentYear = today.year;
-
-        final yearlyData = _getTransformedStepsData();
-        for (int i = 0; i < yearlyData.length; i++) {
-          final date = yearlyData[i]['date'] as DateTime;
-          if (date.month == currentMonth && date.year == currentYear) {
-            return i;
-          }
-        }
-        // If current month is not found, return the last index
-        return yearlyData.length - 1;
 
       default:
         return _weeklyStepsData.length - 1;
@@ -215,75 +203,189 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
   String _getDateRangeText() {
     if (_stepsData.isEmpty) return '';
 
-    final startDate = _stepsData.first['date'] as DateTime;
-    final endDate = _stepsData.last['date'] as DateTime;
+    // Use transformed data to get correct date range
+    final transformedData = _getTransformedStepsData();
+    if (transformedData.isEmpty) return '';
 
-    if (_selectedTimeFrame == 'Year') {
-      return '${DateFormat('MMM yyyy').format(startDate)} - ${DateFormat('MMM yyyy').format(endDate)}';
-    } else {
-      return '${DateFormat('MMM d').format(startDate)} - ${DateFormat('MMM d').format(endDate)}';
+    final startDate = transformedData.first['date'] as DateTime;
+    final endDate = transformedData.last['date'] as DateTime;
+
+    switch (_selectedTimeFrame) {
+      case 'Month':
+        // For monthly view (grouped by week), show the range of the month
+        final firstDayOfMonth = DateTime(startDate.year, startDate.month, 1);
+        final lastDayOfMonth = DateTime(endDate.year, endDate.month + 1, 0);
+        return '${DateFormat('MMM d').format(firstDayOfMonth)} - ${DateFormat('MMM d, yyyy').format(lastDayOfMonth)}';
+      default: // Week
+        return '${DateFormat('MMM d').format(startDate)} - ${DateFormat('MMM d').format(endDate)}';
+    }
+  }
+
+  String _formatBarLabel(Map<String, dynamic> data) {
+    final date = data['date'] as DateTime;
+
+    switch (_selectedTimeFrame) {
+      case 'Month':
+        // For monthly view, just show a clean week number format
+        // Get week number of the month
+        int weekOfMonth = ((date.day - 1) ~/ 7) + 1;
+        return 'W$weekOfMonth';
+      default: // Week
+        return DateFormat('d').format(date);
+    }
+  }
+
+  String _getTooltipText(Map<String, dynamic> data) {
+    final date = data['date'] as DateTime;
+
+    switch (_selectedTimeFrame) {
+      case 'Month':
+        // Enhanced tooltip for monthly (weekly average) view
+        final avgSteps = data['steps'] as int; // This is the weekly average
+        final totalSteps = data['totalSteps'] as int;
+        final daysCount = data['daysCount'] as int;
+        final weekNumber = data['weekNumber'] as int;
+        final weekEnd = date.add(const Duration(days: 6));
+        
+        // Calculate the percentage relative to the goal
+        final goalPercentage = ((avgSteps / _stepGoal) * 100).round();
+        
+        String percentageLabel;
+        if (goalPercentage >= 100) {
+          percentageLabel = 'Goal achieved! ($goalPercentage%)';
+        } else {
+          percentageLabel = '$goalPercentage% of daily goal';
+        }
+
+        return 'Week $weekNumber: ${DateFormat('MMM d').format(date)} - ${DateFormat('MMM d').format(weekEnd)}\n'
+            'Daily Average: ${NumberFormat.decimalPattern().format(avgSteps)} steps\n'
+            'Total: ${NumberFormat.decimalPattern().format(totalSteps)} steps\n'
+            'Active Days: $daysCount\n'
+            '$percentageLabel';
+
+      default: // Week
+        final steps = data['steps'] as int;
+        // Calculate the percentage relative to the goal
+        final goalPercentage = ((steps / _stepGoal) * 100).round();
+        
+        String percentageLabel;
+        if (goalPercentage >= 100) {
+          percentageLabel = 'Goal achieved! ($goalPercentage%)';
+        } else {
+          percentageLabel = '$goalPercentage% of daily goal';
+        }
+        
+        return '${DateFormat('EEEE, MMM d').format(date)}\n'
+            '${NumberFormat.decimalPattern().format(steps)} steps\n'
+            '$percentageLabel';
+    }
+  }
+
+  String _getChartTitle() {
+    switch (_selectedTimeFrame) {
+      case 'Year':
+        return 'Monthly Average Steps';
+      case 'Month':
+        return 'Weekly Average Steps';
+      default: // Week
+        return 'Daily Steps';
     }
   }
 
   List<Map<String, dynamic>> _getTransformedStepsData() {
-    if (_selectedTimeFrame == 'Year') {
-      // Rewrite logic to calculate monthly averages for yearly chart
-      final monthlyData = <Map<String, dynamic>>[];
+    if (_selectedTimeFrame == 'Month') {
+      // For monthly view, group by week for clearer visualization
+      final weeklyData = <Map<String, dynamic>>[];
+      
+      // Sort data chronologically
+      final sortedData = List<Map<String, dynamic>>.from(_monthlyStepsData)
+        ..sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
 
-      // Group data by month and calculate average daily steps
-      final Map<String, Map<String, dynamic>> monthlyGroups = {};
+      if (sortedData.isEmpty) {
+        return [];
+      }
 
-      for (final data in _stepsData) {
+      // Find the first and last dates in the data
+      final firstDate = sortedData.first['date'] as DateTime;
+      final lastDate = sortedData.last['date'] as DateTime;
+      
+      // Get the first day of the month for the first date
+      final firstDayOfMonth = DateTime(firstDate.year, firstDate.month, 1);
+      // Get last day of the month for visualization
+      final lastDayOfMonth = DateTime(lastDate.year, lastDate.month + 1, 0);
+      
+      // Group steps data by week of month (weeks starting on Monday)
+      // First, adjust firstDayOfMonth to the start of the week (Monday)
+      final int firstWeekday = firstDayOfMonth.weekday; // 1 = Monday, 7 = Sunday
+      final startOfFirstWeek = firstDayOfMonth.subtract(Duration(days: firstWeekday - 1));
+      
+      // Create map to store data per week
+      final Map<int, Map<String, dynamic>> weekGroups = {};
+      
+      // Calculate weeks between start and end
+      final int totalDays = lastDayOfMonth.difference(startOfFirstWeek).inDays + 1;
+      final int totalWeeks = (totalDays / 7).ceil();
+      
+      // Initialize week groups for the entire month
+      for (int i = 0; i < totalWeeks; i++) {
+        final weekStart = startOfFirstWeek.add(Duration(days: i * 7));
+        final weekNumber = i + 1;
+        
+        weekGroups[weekNumber] = {
+          'date': weekStart,
+          'totalSteps': 0,
+          'daysCount': 0,
+          'weekOfMonth': ((weekStart.day - 1) ~/ 7) + 1,
+          'startDay': weekStart.day,
+          'weekNumber': weekNumber,
+        };
+      }
+      
+      // Assign data to the corresponding week
+      for (final data in sortedData) {
         final date = data['date'] as DateTime;
-        final steps = data['steps'] as int? ?? 0; // Add null safety
-        final monthKey =
-            '${date.year}-${date.month.toString().padLeft(2, '0')}';
-
-        if (!monthlyGroups.containsKey(monthKey)) {
-          monthlyGroups[monthKey] = {
-            'month': DateFormat('MMM').format(date),
-            'totalSteps': 0,
-            'daysCount': 0,
-            'date': DateTime(date.year, date.month, 1),
-          };
+        final steps = data['steps'] as int;
+        
+        // Calculate which week this date belongs to
+        final int daysSinceStart = date.difference(startOfFirstWeek).inDays;
+        final int weekIndex = (daysSinceStart / 7).floor() + 1;
+        
+        if (weekGroups.containsKey(weekIndex)) {
+          weekGroups[weekIndex]!['totalSteps'] = 
+              (weekGroups[weekIndex]!['totalSteps'] as int) + steps;
+          weekGroups[weekIndex]!['daysCount'] = 
+              (weekGroups[weekIndex]!['daysCount'] as int) + 1;
         }
-
-        final currentTotal = monthlyGroups[monthKey]!['totalSteps'] as int? ??
-            0; // Add null safety
-        final currentCount = monthlyGroups[monthKey]!['daysCount'] as int? ??
-            0; // Add null safety
-
-        monthlyGroups[monthKey]!['totalSteps'] = currentTotal + steps;
-        monthlyGroups[monthKey]!['daysCount'] = currentCount + 1;
       }
-
-      // Calculate averages and prepare data for the chart
-      for (final entry in monthlyGroups.entries) {
-        final monthData = entry.value;
-        final totalSteps =
-            monthData['totalSteps'] as int? ?? 0; // Add null safety
-        final daysCount =
-            monthData['daysCount'] as int? ?? 0; // Add null safety
-        final averageSteps =
-            daysCount > 0 ? (totalSteps / daysCount).round() : 0;
-
-        monthlyData.add({
-          'month': monthData['month'],
-          'steps': averageSteps,
-          'date': monthData['date'],
-          'daysCount': daysCount,
-          'totalSteps': totalSteps, // Include this for detailed view
-        });
-      }
-
-      // Sort data by date
-      monthlyData.sort(
-          (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
-
-      return monthlyData;
+      
+      // Process all week groups into the final format
+      weekGroups.forEach((weekNum, data) {
+        final totalSteps = data['totalSteps'] as int;
+        final daysCount = data['daysCount'] as int;
+        final weekStart = data['date'] as DateTime;
+        final weekOfMonth = data['weekOfMonth'] as int;
+        
+        // Only include weeks that have data
+        if (daysCount > 0) {
+          weeklyData.add({
+            'date': weekStart,
+            'steps': (totalSteps / daysCount).round(), // Average daily steps for this week
+            'weekOfMonth': weekOfMonth,
+            'totalSteps': totalSteps,
+            'daysCount': daysCount,
+            'weekNumber': weekNum,
+          });
+        }
+      });
+      
+      // Sort by date
+      weeklyData.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+      
+      return weeklyData;
     }
 
-    return _stepsData;
+    // Default: Return daily data for the 'Week' timeframe
+    return _weeklyStepsData;
   }
 
   @override
@@ -653,13 +755,13 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
 
   Widget _buildTimeFrameSelector(CustomColors customColors) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: customColors.dateNavigatorBackground,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -667,7 +769,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: ['Week', 'Month', 'Year'].map((timeFrame) {
+        children: ['Week', 'Month'].map((timeFrame) {
           final isSelected = _selectedTimeFrame == timeFrame;
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -676,6 +778,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               curve: Curves.easeInOut,
               child: TextButton(
                 onPressed: () {
+                  HapticFeedback.selectionClick();
                   setState(() {
                     _selectedTimeFrame = timeFrame;
                     _updateCurrentStepsData();
@@ -693,7 +796,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                     ),
                   ),
                   padding: MaterialStateProperty.all(
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   ),
                   overlayColor: MaterialStateProperty.all(
                     customColors.accentPrimary.withOpacity(0.05),
@@ -702,7 +805,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                 child: Text(
                   timeFrame,
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     color: isSelected
                         ? customColors.accentPrimary
@@ -717,130 +820,118 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
     );
   }
 
-  Widget _buildStepsChart(CustomColors customColors) {
-    String chartTitle;
-    String labelExtractorField;
+  double _calculateBarWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final availableWidth = screenWidth - 80.0; // Account for padding and y-axis
+    final dataLength = _getTransformedStepsData().length;
+    if (dataLength == 0) return 24.0; // Default width if no data
 
-    // Set appropriate chart title and label extractor based on time frame
     switch (_selectedTimeFrame) {
-      case 'Week':
-        chartTitle = 'Daily Steps';
-        labelExtractorField = 'day';
-        break;
       case 'Month':
-        chartTitle = 'Daily Activity (30 Days)';
-        labelExtractorField = 'day';
-        break;
-      case 'Year':
-        chartTitle = 'Monthly Average Daily Steps';
-        labelExtractorField = 'month';
-        break;
-      default:
-        chartTitle = 'Step History';
-        labelExtractorField = 'day';
+        // For monthly view, use wider bars since there are fewer data points (weeks)
+        return math.min((availableWidth / dataLength) - 6.0, 40.0);
+      default: // Week
+        // For weekly view, balanced width for 7 days
+        return math.min((availableWidth / dataLength) - 4.0, 32.0);
     }
+  }
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: customColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                chartTitle,
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: customColors.textPrimary,
-                ),
+  Widget _buildStepsChart(CustomColors customColors) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final transformedData = _getTransformedStepsData();
+        final barWidth = _calculateBarWidth(context);
+        final spacing = _selectedTimeFrame == 'Month' ? 12.0 : 8.0; // More spacing for month view
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: customColors.cardBackground,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              // Add date range display
-              Text(
-                _getDateRangeText(),
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: customColors.textSecondary,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _selectedTimeFrame == 'Month' ? 'Weekly Average Steps' : 'Daily Steps',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: customColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _getDateRangeText(),
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: customColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 230,
+                child: CustomBarChart(
+                  data: transformedData,
+                  primaryColor: customColors.accentPrimary,
+                  textColor: customColors.textPrimary,
+                  secondaryTextColor: customColors.textSecondary,
+                  maxValue: _getMaxSteps(),
+                  labelExtractor: (data) => _formatBarLabel(data),
+                  valueExtractor: (data) => (data['steps'] as int).toDouble(),
+                  todayIndex: _getTodayIndex(),
+                  showGoalLine: true,
+                  goalValue: _getGoalValueForTimeFrame(),
+                  goalLineColor: Colors.red.withOpacity(0.6),
+                  enableColorCoding: true,
+                  timeFrame: _selectedTimeFrame,
+                  goalLabel: _getGoalLabelForTimeFrame(),
+                  barWidth: barWidth,
+                  barSpacing: spacing,
+                  onBarTap: (index) {
+                    if (index < 0 || index >= transformedData.length) return;
+                    final data = transformedData[index];
+                    HapticFeedback.selectionClick();
+                    ScaffoldMessenger.of(context).clearSnackBars();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          _getTooltipText(data),
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        backgroundColor: customColors.accentPrimary,
+                        duration: const Duration(seconds: 3),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        margin: const EdgeInsets.all(8),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 220,
-            child: CustomBarChart(
-              data: _getTransformedStepsData(),
-              primaryColor: customColors.accentPrimary,
-              textColor: customColors.textPrimary,
-              secondaryTextColor: customColors.textSecondary,
-              maxValue: _getMaxSteps(),
-              labelExtractor: (data) => data[labelExtractorField] as String,
-              valueExtractor: (data) => (data['steps'] as int).toDouble(),
-              todayIndex: _getTodayIndex(),
-              showGoalLine: true,
-              goalValue: _getGoalValueForTimeFrame(),
-              goalLineColor: Colors.red.withOpacity(0.5),
-              enableColorCoding: true,
-              timeFrame: _selectedTimeFrame,
-              goalLabel: _getGoalLabelForTimeFrame(),
-              onBarTap: (index) {
-                // Show detailed information for the selected period
-                final data = _getTransformedStepsData()[index];
-                final steps = data['steps'] as int;
-                final date = data['date'] as DateTime;
-
-                String message;
-                if (_selectedTimeFrame == 'Year') {
-                  // For yearly view: Average daily steps in this month
-                  final daysCount = data['daysCount'] as int;
-                  final totalSteps = data['totalSteps'] as int;
-
-                  message =
-                      'Average ${NumberFormat.decimalPattern().format(steps)} steps per day in ${DateFormat('MMMM yyyy').format(date)}.\n'
-                      'Total ${NumberFormat.decimalPattern().format(totalSteps)} steps over $daysCount days.';
-                } else if (_selectedTimeFrame == 'Month' &&
-                    data['isDay'] == true) {
-                  // For monthly view: Daily steps on this specific day
-                  message =
-                      '${NumberFormat.decimalPattern().format(steps)} steps on ${DateFormat('EEEE, MMMM d').format(date)}';
-                } else {
-                  // For weekly view: Total steps on this day
-                  message =
-                      '${NumberFormat.decimalPattern().format(steps)} steps on ${DateFormat('EEEE, MMMM d').format(date)}';
-                }
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      message,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: Colors.white,
-                      ),
-                    ),
-                    backgroundColor: customColors.accentPrimary,
-                    duration: const Duration(seconds: 3),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -860,10 +951,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         listTitle = 'Daily Activity';
         break;
       case 'Month':
-        listTitle = 'Daily Activity (Last 30 Days)';
-        break;
-      case 'Year':
-        listTitle = 'Monthly Average Steps';
+        listTitle = 'Weekly Average Activity';
         break;
       default:
         listTitle = 'Activity History';
@@ -873,11 +961,11 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: customColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -894,150 +982,193 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
             ),
           ),
           const SizedBox(height: 16),
-          ...sortedData.take(10).map((data) {
-            final date = data['date'] as DateTime;
-            final steps = data['steps'] as int;
-            final percentage = steps / _stepGoal;
-
-            final isToday = DateFormat('yyyy-MM-dd').format(date) ==
-                DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-            // Format the date display based on the timeframe
-            Widget dateDisplay;
-            String periodLabel;
-            String stepsLabel;
-
-            if (_selectedTimeFrame == 'Year') {
-              // For yearly view, show month and year
-              dateDisplay = Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    DateFormat('MMM').format(date),
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: customColors.textPrimary,
+          if (sortedData.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.directions_walk_outlined,
+                      size: 40,
+                      color: customColors.textSecondary.withOpacity(0.5),
                     ),
-                  ),
-                  Text(
-                    DateFormat('yyyy').format(date),
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: customColors.textSecondary,
+                    const SizedBox(height: 12),
+                    Text(
+                      'No step data available for this period.',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: customColors.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
-              );
-              periodLabel = DateFormat('MMMM yyyy').format(date);
-              stepsLabel = 'avg/day';
+                  ],
+                ),
+              ),
+            )
+          else
+            ...sortedData.take(10).map((data) {
+              final date = data['date'] as DateTime;
+              final steps = data['steps'] as int;
+              final percentage = steps / _stepGoal;
 
-              // Add days count to the label for context
-              if (data['daysCount'] != null) {
-                int daysCount = data['daysCount'] as int;
-                periodLabel += ' (${daysCount} days)';
+              final isToday = DateFormat('yyyy-MM-dd').format(date) ==
+                  DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+              // Format the date display based on the timeframe
+              Widget dateDisplay;
+              String periodLabel;
+              String stepsLabel;
+
+              if (_selectedTimeFrame == 'Month') {
+                // For monthly (weekly average) view
+                final weekEnd = date.add(const Duration(days: 6));
+                dateDisplay = Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      DateFormat('d').format(date),
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: customColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      DateFormat('MMM').format(date),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: customColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                );
+                periodLabel =
+                    '${DateFormat('MMM d').format(date)} - ${DateFormat('d').format(weekEnd)}';
+                stepsLabel = 'avg/day';
+              } else {
+                // For week (daily) view
+                dateDisplay = Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      DateFormat('d').format(date),
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: customColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      DateFormat('MMM').format(date),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: customColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                );
+                periodLabel =
+                    isToday ? 'Today' : DateFormat('EEEE').format(date);
+                stepsLabel = 'steps';
               }
-            } else {
-              // For week and month views, show day and month
-              dateDisplay = Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    DateFormat('d').format(date),
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: customColors.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    DateFormat('MMM').format(date),
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: customColors.textSecondary,
-                    ),
-                  ),
-                ],
-              );
-              periodLabel = isToday ? 'Today' : DateFormat('EEEE').format(date);
-              stepsLabel = 'steps';
-            }
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: customColors.dateNavigatorBackground,
-                      borderRadius: BorderRadius.circular(8),
+              // Define color for progress bar
+              Color progressColor;
+              if (percentage >= 1.0) {
+                progressColor = Colors.green;
+              } else if (percentage >= 0.7) {
+                progressColor = Colors.orange;
+              } else {
+                progressColor = Colors.red.shade400;
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 45,
+                      height: 45,
+                      decoration: BoxDecoration(
+                        color: customColors.dateNavigatorBackground,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: dateDisplay,
                     ),
-                    alignment: Alignment.center,
-                    child: dateDisplay,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            periodLabel,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: customColors.textPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          LinearProgressIndicator(
+                            value: percentage > 1.0 ? 1.0 : percentage,
+                            backgroundColor: Colors.grey.withOpacity(0.15),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              progressColor,
+                            ),
+                            minHeight: 6,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          periodLabel,
+                          NumberFormat.decimalPattern().format(steps),
                           style: GoogleFonts.inter(
                             fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                             color: customColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        LinearProgressIndicator(
-                          value: percentage > 1.0 ? 1.0 : percentage,
-                          backgroundColor: Colors.grey.withOpacity(0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            percentage >= 1.0
-                                ? Colors.green
-                                : customColors.accentPrimary,
+                        Text(
+                          stepsLabel,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: customColors.textSecondary,
                           ),
-                          minHeight: 6,
-                          borderRadius: BorderRadius.circular(3),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '$steps',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: customColors.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        stepsLabel,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: customColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+                  ],
+                ),
+              );
+            }).toList(),
           if (sortedData.length > 10)
             Align(
               alignment: Alignment.center,
-              child: TextButton(
+              child: TextButton.icon(
                 onPressed: () {
-                  // Could implement a "view all" screen here
+                  // TODO: Implement a "view all" screen or scrollable list
+                  HapticFeedback.selectionClick();
                 },
-                child: Text(
+                icon: Icon(
+                  Icons.visibility_outlined,
+                  size: 18,
+                  color: customColors.accentPrimary,
+                ),
+                label: Text(
                   'View all ${sortedData.length} entries',
                   style: GoogleFonts.inter(
                     fontSize: 14,
@@ -1053,156 +1184,101 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
   }
 
   Widget _buildActivityInsights(CustomColors customColors) {
+    // Use transformed data for calculations
+    final transformedData = _getTransformedStepsData();
+    if (transformedData.isEmpty) {
+      // Return an empty container or a placeholder if no data
+      return Container();
+    }
+
     // Calculate average steps based on timeframe
     double avgSteps = 0;
-    if (!_stepsData.isEmpty) {
-      if (_selectedTimeFrame == 'Year') {
-        // For yearly view, calculate the average of the monthly averages
-        // We're using the transformed data to ensure we're getting the correct averages
-        final yearlyData = _getTransformedStepsData();
-        int totalAvgSteps = 0;
-        for (final data in yearlyData) {
-          totalAvgSteps +=
-              data['steps'] as int; // These are already daily averages
-        }
-        avgSteps = yearlyData.isEmpty ? 0 : totalAvgSteps / yearlyData.length;
-      } else {
-        // For weekly and monthly views, direct average
-        avgSteps = _stepsData
-                .map((data) => data['steps'] as int)
-                .reduce((a, b) => a + b) /
-            _stepsData.length;
+    if (_selectedTimeFrame == 'Month') {
+      // Average of the weekly daily averages
+      int totalAvgSteps = 0;
+      for (final data in transformedData) {
+        totalAvgSteps += data['steps'] as int; // 'steps' holds weekly avg here
       }
+      avgSteps = totalAvgSteps / transformedData.length;
+    } else {
+      // Direct average for daily steps in 'Week' view
+      int totalSteps = 0;
+      for (final data in transformedData) {
+        totalSteps += data['steps'] as int;
+      }
+      avgSteps = totalSteps / transformedData.length;
     }
 
     // Determine if trending up or down
     bool? trendingUp;
     String trendMessage = '';
 
-    // Customize trend message based on timeframe
-    if (_stepsData.length >= 3) {
-      if (_selectedTimeFrame == 'Year') {
-        // For yearly view, compare the last 3 months from the transformed data
-        final yearlyData = _getTransformedStepsData();
-        if (yearlyData.length >= 3) {
-          // Sort chronologically to ensure we're comparing oldest to newest
-          final recentMonths = yearlyData.length > 3
-              ? List.from(yearlyData.sublist(yearlyData.length - 3))
-              : List.from(yearlyData);
+    // Customize trend message based on timeframe using transformedData
+    if (transformedData.length >= 3) {
+      if (_selectedTimeFrame == 'Month') {
+        // Compare the first and last weeks in the displayed monthly data
+        final firstWeekAvg = transformedData.first['steps'] as int;
+        final lastWeekAvg = transformedData.last['steps'] as int;
 
-          recentMonths.sort((a, b) =>
-              (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+        trendingUp = lastWeekAvg > firstWeekAvg;
+        final percentChange = firstWeekAvg > 0
+            ? ((lastWeekAvg - firstWeekAvg) / firstWeekAvg * 100).abs()
+            : 0;
 
-          final firstMonth = recentMonths.first['steps'] as int;
-          final lastMonth = recentMonths.last['steps'] as int;
-
-          trendingUp = lastMonth > firstMonth;
-          final percentChange = firstMonth > 0
-              ? ((lastMonth - firstMonth) / firstMonth * 100).abs()
-              : 0;
-
-          if (percentChange >= 5) {
-            // Only show trend if there's at least 5% change
-            if (trendingUp) {
-              trendMessage =
-                  'Your daily steps are trending up! ${percentChange.toStringAsFixed(0)}% increase over the last 3 months.';
-            } else {
-              trendMessage =
-                  'Your daily steps have decreased by ${percentChange.toStringAsFixed(0)}% over the last 3 months.';
-            }
-          }
-        }
-      } else if (_selectedTimeFrame == 'Month') {
-        // For monthly view, compare the first and last weeks (average of 7 days)
-        // Make sure data is sorted chronologically
-        List<Map<String, dynamic>> sortedData = List.from(_stepsData)
-          ..sort((a, b) =>
-              (a['date'] as DateTime).compareTo(b['date'] as DateTime));
-
-        if (sortedData.length >= 14) {
-          // Need at least 14 days to compare first and last week
-          final firstWeekAvg = sortedData
-                  .sublist(0, 7)
-                  .map((data) => data['steps'] as int)
-                  .reduce((a, b) => a + b) /
-              7;
-
-          final lastWeekAvg = sortedData
-                  .sublist(sortedData.length - 7)
-                  .map((data) => data['steps'] as int)
-                  .reduce((a, b) => a + b) /
-              7;
-
-          trendingUp = lastWeekAvg > firstWeekAvg;
-          final percentChange = firstWeekAvg > 0
-              ? ((lastWeekAvg - firstWeekAvg) / firstWeekAvg * 100).abs()
-              : 0;
-
-          if (percentChange >= 5) {
-            // Only show trend if there's at least 5% change
-            if (trendingUp) {
-              trendMessage =
-                  'Your daily steps are trending up! ${percentChange.toStringAsFixed(0)}% increase from earlier this month.';
-            } else {
-              trendMessage =
-                  'Your daily steps have decreased by ${percentChange.toStringAsFixed(0)}% from earlier this month.';
-            }
+        if (percentChange >= 5) {
+          if (trendingUp) {
+            trendMessage =
+                'Your weekly average is trending up! ${percentChange.toStringAsFixed(0)}% increase over the last month.';
+          } else {
+            trendMessage =
+                'Your weekly average has decreased by ${percentChange.toStringAsFixed(0)}% over the last month.';
           }
         }
       } else {
-        // For weekly view, compare first and last days
-        // Make sure data is sorted chronologically
-        List<Map<String, dynamic>> sortedData = List.from(_stepsData)
-          ..sort((a, b) =>
-              (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+        // Week
+        // Compare first and last days in the displayed weekly data
+        final firstDaySteps = transformedData.first['steps'] as int;
+        final lastDaySteps = transformedData.last['steps'] as int;
 
-        if (sortedData.length >= 3) {
-          final firstDay = sortedData.first['steps'] as int;
-          final lastDay = sortedData.last['steps'] as int;
+        trendingUp = lastDaySteps > firstDaySteps;
+        final percentChange = firstDaySteps > 0
+            ? ((lastDaySteps - firstDaySteps) / firstDaySteps * 100).abs()
+            : 0;
 
-          trendingUp = lastDay > firstDay;
-          final percentChange =
-              firstDay > 0 ? ((lastDay - firstDay) / firstDay * 100).abs() : 0;
-
-          if (percentChange >= 10) {
-            // Only show trend if there's at least 10% change
-            if (trendingUp) {
-              trendMessage =
-                  'You\'re walking more! Up ${percentChange.toStringAsFixed(0)}% from earlier this week.';
-            } else {
-              trendMessage =
-                  'Your steps are down ${percentChange.toStringAsFixed(0)}% from earlier this week.';
-            }
+        if (percentChange >= 10) {
+          if (trendingUp) {
+            trendMessage =
+                'You\'re walking more! Up ${percentChange.toStringAsFixed(0)}% from earlier this week.';
+          } else {
+            trendMessage =
+                'Your steps are down ${percentChange.toStringAsFixed(0)}% from earlier this week.';
           }
         }
       }
     }
 
-    // Calculate appropriate average based on timeframe
+    // Calculate appropriate average label based on timeframe
     String avgPeriod;
-    int displayedAvg = avgSteps.toInt();
+    int displayedAvg = avgSteps.round(); // Round the average
 
     switch (_selectedTimeFrame) {
-      case 'Year':
-        avgPeriod = 'Average Daily Steps (Year)';
-        break;
       case 'Month':
-        avgPeriod = 'Average Daily Steps (30 Days)';
+        avgPeriod = 'Avg Daily Steps (Monthly)';
         break;
       case 'Week':
       default:
-        avgPeriod = 'Average Daily Steps (Week)';
+        avgPeriod = 'Avg Daily Steps (Week)';
     }
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: customColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -1218,13 +1294,13 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               color: customColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: customColors.accentPrimary.withOpacity(0.1),
+                  color: customColors.accentPrimary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -1247,9 +1323,9 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       ),
                     ),
                     Text(
-                      '$displayedAvg steps',
+                      '${NumberFormat.decimalPattern().format(displayedAvg)} steps',
                       style: GoogleFonts.inter(
-                        fontSize: 14,
+                        fontSize: 15,
                         color: customColors.textSecondary,
                       ),
                     ),
@@ -1259,14 +1335,14 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
             ],
           ),
           if (trendMessage.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: (trendingUp ?? false)
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                    ? Colors.green.withOpacity(0.12)
+                    : Colors.orange.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 children: [
@@ -1283,6 +1359,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       trendMessage,
                       style: GoogleFonts.inter(
                         fontSize: 14,
+                        fontWeight: FontWeight.w500,
                         color: (trendingUp ?? false)
                             ? Colors.green
                             : Colors.orange,
@@ -1293,33 +1370,32 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          TextButton(
+          const SizedBox(height: 20),
+          TextButton.icon(
             onPressed: () {
               // Show edit goal dialog
+              HapticFeedback.selectionClick();
               _showEditGoalDialog(context, customColors);
             },
             style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              backgroundColor: customColors.accentPrimary.withOpacity(0.08),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.edit,
-                  size: 16,
-                  color: customColors.accentPrimary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Edit Step Goal',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: customColors.accentPrimary,
-                  ),
-                ),
-              ],
+            icon: Icon(
+              Icons.edit,
+              size: 18,
+              color: customColors.accentPrimary,
+            ),
+            label: Text(
+              'Edit Step Goal ($_stepGoal)', // Show current goal
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: customColors.accentPrimary,
+              ),
             ),
           ),
         ],
@@ -1331,6 +1407,8 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
     BuildContext context,
     CustomColors customColors,
   ) async {
+    final TextEditingController controller =
+        TextEditingController(text: _stepGoal.toString());
     int newGoal = _stepGoal;
 
     return showDialog(
@@ -1345,62 +1423,115 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               color: customColors.textPrimary,
             ),
           ),
-          content: TextField(
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              hintText: 'Enter your daily step goal',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Set your daily step goal to keep you motivated and active.',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: customColors.textSecondary,
+                ),
               ),
-            ),
-            onChanged: (value) {
-              if (value.isNotEmpty) {
-                newGoal = int.tryParse(value) ?? _stepGoal;
-              }
-            },
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
+              const SizedBox(height: 20),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Enter your daily step goal',
+                  prefixIcon: Icon(
+                    Icons.directions_walk,
+                    color: customColors.accentPrimary,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: customColors.accentPrimary.withOpacity(0.5),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: customColors.textSecondary.withOpacity(0.3),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: customColors.accentPrimary,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                onChanged: (value) {
+                  newGoal = int.tryParse(value) ?? _stepGoal;
+                },
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                autofocus: true,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  color: customColors.textPrimary,
+                ),
+              ),
             ],
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
               child: Text(
                 'Cancel',
                 style: GoogleFonts.inter(
                   color: customColors.textSecondary,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
             ElevatedButton(
               onPressed: () {
-                setState(() {
-                  _stepGoal = newGoal;
-                  _progressPercentage = _todaySteps / _stepGoal;
-                  if (_progressPercentage > 1.0) _progressPercentage = 1.0;
-                });
+                if (newGoal > 0) {
+                  // Ensure goal is positive
+                  setState(() {
+                    _stepGoal = newGoal;
+                    _progressPercentage = _todaySteps / _stepGoal;
+                    if (_progressPercentage > 1.0) _progressPercentage = 1.0;
+                  });
+                  HapticFeedback.lightImpact();
+                }
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: customColors.accentPrimary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 0,
               ),
               child: Text(
                 'Save',
                 style: GoogleFonts.inter(
-                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         );
       },
     );
   }
 }
 
+// --- CustomBarChart Widget ---
 class CustomBarChart extends StatefulWidget {
   final List<Map<String, dynamic>> data;
   final Color primaryColor;
@@ -1416,7 +1547,9 @@ class CustomBarChart extends StatefulWidget {
   final Color goalLineColor;
   final bool enableColorCoding;
   final String timeFrame;
-  final String? goalLabel; // Added goal label parameter
+  final String? goalLabel;
+  final double barWidth;
+  final double barSpacing;
 
   const CustomBarChart({
     Key? key,
@@ -1434,39 +1567,80 @@ class CustomBarChart extends StatefulWidget {
     this.goalLineColor = Colors.red,
     this.enableColorCoding = true,
     required this.timeFrame,
-    this.goalLabel, // Added to constructor
+    this.goalLabel,
+    this.barWidth = 20.0,
+    this.barSpacing = 10.0,
   }) : super(key: key);
 
   @override
-  State<CustomBarChart> createState() => _CustomBarChartState();
+  State<CustomBarChart> createState() => _BarChartState();
 }
 
-class _CustomBarChartState extends State<CustomBarChart>
-    with SingleTickerProviderStateMixin {
+class _BarChartState extends State<CustomBarChart>
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late AnimationController _animationController;
   int? _highlightedIndex;
-  double? _hoverX;
-  double? _hoverY;
   bool _showTooltip = false;
+  final ScrollController _scrollController = ScrollController();
+  final ScrollController _labelsScrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
-      duration: const Duration(milliseconds: 800),
     );
+
     _animationController.forward();
+
+    // Set highlighted index to today initially
+    if (widget.todayIndex >= 0) {
+      _highlightedIndex = widget.todayIndex;
+    }
+
+    // Sync scroll controllers
+    _scrollController.addListener(() {
+      if (_scrollController.hasClients && _labelsScrollController.hasClients) {
+        _labelsScrollController.jumpTo(_scrollController.offset);
+      }
+    });
+
+    // Make sure we're scrolled to a good position initially
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.todayIndex >= 0) {
+        final barWidth = widget.barWidth + widget.barSpacing;
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        
+        // Scroll to position where today is visible, with a few bars before it
+        final targetScroll = math.max(
+            0.0, math.min(maxScroll, (widget.todayIndex - 1) * barWidth));
+        
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            targetScroll,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _scrollController.dispose();
+    _labelsScrollController.dispose();
     super.dispose();
   }
 
   // Format large numbers with K suffix
   String _formatYAxisValue(double value) {
+    if (value.isNaN || value.isInfinite) return "0"; // Handle invalid values
     if (value >= 10000) {
       return '${(value / 1000).toStringAsFixed(0)}k';
     } else if (value >= 1000) {
@@ -1477,27 +1651,26 @@ class _CustomBarChartState extends State<CustomBarChart>
 
   @override
   Widget build(BuildContext context) {
-    // Calculate bar width based on available space
-    final barSpacing = 10.0;
-    final chartWidth = MediaQuery.of(context).size.width -
-        40 -
-        (2 * 20); // screen width - padding - container padding
-    final numBars = widget.data.length;
-    final barWidth = (chartWidth - (barSpacing * (numBars - 1))) / numBars;
+    super.build(context); // Required by AutomaticKeepAliveClientMixin
+    final theme = Theme.of(context);
+    final customColors = theme.extension<CustomColors>()!;
+
+    // Handle case where maxValue is zero or invalid
+    final effectiveMaxValue = (widget.maxValue <= 0 ||
+            widget.maxValue.isNaN ||
+            widget.maxValue.isInfinite)
+        ? widget.goalValue * 1.2 // Use goal as fallback
+        : widget.maxValue;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final chartHeight =
-            constraints.maxHeight - 35; // Reserve more space for labels
-        final yAxisLabelWidth = 45.0; // Width reserved for y-axis labels
+            constraints.maxHeight - 65; // Space for x-axis labels
+        final yAxisLabelWidth = 45.0;
+        final chartAreaWidth = constraints.maxWidth - yAxisLabelWidth;
 
-        // Generate y-axis label values with more granular divisions
-        final yAxisSteps = 5; // 5 steps for better granularity
-        final yAxisLabels = List.generate(yAxisSteps + 1, (i) {
-          if (i == 0) return null; // Skip the bottom label (0)
-          final value = (i / yAxisSteps * widget.maxValue);
-          return _formatYAxisValue(value);
-        });
+        // Generate y-axis label values
+        final yAxisSteps = 5;
 
         return Column(
           children: [
@@ -1505,7 +1678,7 @@ class _CustomBarChartState extends State<CustomBarChart>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Y-axis labels with better alignment and styling
+                  // Y-axis labels
                   SizedBox(
                     width: yAxisLabelWidth,
                     child: Column(
@@ -1513,8 +1686,8 @@ class _CustomBarChartState extends State<CustomBarChart>
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         ...List.generate(yAxisSteps, (i) {
-                          final value = widget.maxValue -
-                              (i / yAxisSteps * widget.maxValue);
+                          final value = effectiveMaxValue -
+                              (i / yAxisSteps * effectiveMaxValue);
                           final label = _formatYAxisValue(value);
                           return Padding(
                             padding: const EdgeInsets.only(right: 8.0),
@@ -1544,231 +1717,364 @@ class _CustomBarChartState extends State<CustomBarChart>
                     ),
                   ),
 
-                  // Chart area with interactive gesture detection
+                  // Chart area (Scrollable)
                   Expanded(
                     child: GestureDetector(
-                      onPanUpdate: (details) {
+                      onTapDown: (details) {
                         final RenderBox box =
                             context.findRenderObject() as RenderBox;
                         final localPosition =
                             box.globalToLocal(details.globalPosition);
+                        final scrollOffset = _scrollController.offset;
+                        final tapX = localPosition.dx + scrollOffset;
 
-                        if (localPosition.dx >= 0 &&
-                            localPosition.dx <=
-                                constraints.maxWidth - yAxisLabelWidth &&
+                        if (tapX >= 0 &&
                             localPosition.dy >= 0 &&
                             localPosition.dy <= chartHeight) {
-                          // Calculate which bar is being hovered
-                          final barArea =
-                              constraints.maxWidth - yAxisLabelWidth;
                           final barIndex =
-                              ((localPosition.dx / barArea) * numBars).floor();
+                              (tapX / (widget.barWidth + widget.barSpacing))
+                                  .floor();
 
                           if (barIndex >= 0 && barIndex < widget.data.length) {
+                            HapticFeedback.lightImpact();
                             setState(() {
                               _highlightedIndex = barIndex;
-                              _hoverX = localPosition.dx;
-                              _hoverY = localPosition.dy;
-                              _showTooltip = true;
+                              _showTooltip = true; // Show tooltip immediately on tap
+                            });
+                            widget.onBarTap?.call(barIndex);
+
+                            // Hide tooltip after a delay
+                            Future.delayed(const Duration(seconds: 2), () {
+                              if (mounted && _highlightedIndex == barIndex) {
+                                setState(() {
+                                  _showTooltip = false;
+                                });
+                              }
                             });
                           }
-                        } else {
-                          setState(() {
-                            _showTooltip = false;
-                          });
                         }
                       },
-                      onPanEnd: (_) {
-                        setState(() {
-                          _showTooltip = false;
-                        });
+                      onHorizontalDragStart: (_) {
+                        if (_showTooltip) {
+                          setState(() {
+                            _showTooltip = false;
+                          }); // Hide tooltip on scroll start
+                        }
                       },
-                      child: Stack(
-                        children: [
-                          // Grid lines with improved styling
-                          CustomPaint(
-                            size: Size(constraints.maxWidth - yAxisLabelWidth,
-                                chartHeight),
-                            painter: GridPainter(
-                              maxValue: widget.maxValue,
-                              lineColor: Colors.grey.withOpacity(0.15),
-                              textColor: widget.secondaryTextColor,
-                              steps: yAxisSteps,
-                              showGoalLine: widget.showGoalLine,
-                              goalValue: widget.goalValue,
-                              goalLineColor: widget.goalLineColor,
-                              goalLabel: widget.goalLabel,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Stack(
+                          children: [
+                            CustomPaint(
+                              size: Size(
+                                  widget.data.length *
+                                      (widget.barWidth +
+                                          widget
+                                              .barSpacing), // Total width based on data
+                                  chartHeight),
+                              painter: GridPainter(
+                                maxValue: effectiveMaxValue,
+                                lineColor: Colors.grey.withOpacity(0.15),
+                                textColor: widget.secondaryTextColor,
+                                steps: yAxisSteps,
+                                showGoalLine: widget.showGoalLine,
+                                goalValue: widget.goalValue,
+                                goalLineColor: widget.goalLineColor,
+                                goalLabel: widget.goalLabel,
+                              ),
                             ),
-                          ),
+                            Container(
+                              height: chartHeight,
+                              padding: const EdgeInsets.only(
+                                  right: 10.0), // Ensure last bar isn't cut off
+                              child: AnimatedBuilder(
+                                animation: _animationController,
+                                builder: (context, child) {
+                                  final animationValue = Curves.easeOutCubic
+                                      .transform(_animationController.value);
 
-                          // Bars with animation and hover state
-                          Padding(
-                            padding: const EdgeInsets.only(right: 10.0),
-                            child: AnimatedBuilder(
-                              animation: _animationController,
-                              builder: (context, child) {
-                                final animationValue = Curves.easeOut
-                                    .transform(_animationController.value);
+                                  return Row(
+                                    mainAxisAlignment: MainAxisAlignment
+                                        .start, // Align bars to the start
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: List.generate(widget.data.length,
+                                        (index) {
+                                      final value = widget
+                                          .valueExtractor(widget.data[index]);
+                                      // Handle potential NaN or infinite values
+                                      final safeValue =
+                                          (value.isNaN || value.isInfinite)
+                                              ? 0.0
+                                              : value;
+                                      final normalized = effectiveMaxValue > 0
+                                          ? safeValue / effectiveMaxValue
+                                          : 0.0;
+                                      final barHeight = math.max(
+                                          0.0,
+                                          chartHeight *
+                                              normalized *
+                                              animationValue); // Ensure non-negative height
+                                      final isToday =
+                                          index == widget.todayIndex;
+                                      final isHighlighted =
+                                          _highlightedIndex == index;
 
-                                return Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: List.generate(widget.data.length,
-                                      (index) {
-                                    final value = widget
-                                        .valueExtractor(widget.data[index]);
-                                    final normalized = value / widget.maxValue;
-                                    final barHeight = chartHeight *
-                                        normalized *
-                                        animationValue;
-                                    final isToday = index == widget.todayIndex;
-                                    final isHighlighted =
-                                        _highlightedIndex == index;
-
-                                    // Determine bar color based on progress
-                                    Color barColor;
-                                    if (widget.enableColorCoding) {
-                                      final percentOfGoal =
-                                          value / widget.goalValue;
-                                      if (percentOfGoal >= 1.0) {
-                                        // Achieved or exceeded goal
-                                        barColor = Colors.green;
-                                      } else if (percentOfGoal >= 0.7) {
-                                        // Good progress (70-99% of goal)
-                                        barColor = Colors.orange;
+                                      // Define color based on steps compared to goal
+                                      Color barColor;
+                                      Color gradientEndColor;
+                                      
+                                      if (widget.enableColorCoding &&
+                                          widget.goalValue > 0) {
+                                        final percentOfGoal =
+                                            safeValue / widget.goalValue;
+                                        if (percentOfGoal >= 1.0) {
+                                          barColor = Colors.green;
+                                          gradientEndColor = Colors.green.shade700;
+                                        } else if (percentOfGoal >= 0.7) {
+                                          barColor = Colors.orange;
+                                          gradientEndColor = Colors.orange.shade800;
+                                        } else {
+                                          barColor = Colors.red.shade400;
+                                          gradientEndColor = Colors.red.shade700;
+                                        }
                                       } else {
-                                        // Below target (less than 70% of goal)
-                                        barColor = Colors.red;
+                                        barColor = widget.primaryColor;
+                                        gradientEndColor = Color.lerp(widget.primaryColor, Colors.black, 0.3)!;
                                       }
-                                    } else {
-                                      barColor = widget.primaryColor;
-                                    }
 
-                                    return GestureDetector(
-                                      onTap: () {
-                                        HapticFeedback.lightImpact();
-                                        setState(() {
-                                          _highlightedIndex = index;
-                                          _showTooltip = true;
-                                        });
-                                        widget.onBarTap?.call(index);
-                                      },
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          // Value label above bar when highlighted
-                                          if (isHighlighted && _showTooltip)
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 6,
-                                                      vertical: 3),
-                                              margin: const EdgeInsets.only(
-                                                  bottom: 4),
-                                              decoration: BoxDecoration(
-                                                color: widget.primaryColor,
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                _formatYAxisValue(value),
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ),
-                                          AnimatedContainer(
-                                            duration: const Duration(
-                                                milliseconds: 150),
-                                            width: barWidth,
-                                            height: barHeight,
-                                            decoration: BoxDecoration(
-                                              color: isToday
-                                                  ? barColor
-                                                  : barColor.withOpacity(
-                                                      isHighlighted
-                                                          ? 0.9
-                                                          : 0.7),
-                                              borderRadius:
-                                                  const BorderRadius.only(
-                                                topLeft: Radius.circular(4),
-                                                topRight: Radius.circular(4),
-                                              ),
-                                              boxShadow: isHighlighted
-                                                  ? [
-                                                      BoxShadow(
-                                                        color: barColor
-                                                            .withOpacity(0.4),
-                                                        blurRadius: 8,
-                                                        offset:
-                                                            const Offset(0, 2),
-                                                      ),
-                                                    ]
-                                                  : null,
+                                      // Add week number indicator for month view
+                                      Widget weekIndicator;
+                                      if (widget.timeFrame == 'Month' && isHighlighted) {
+                                        weekIndicator = Container(
+                                          margin: const EdgeInsets.only(bottom: 8),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: barColor.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            // Use label directly for cleaner look
+                                            widget.labelExtractor(widget.data[index]),
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: barColor,
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    );
-                                  }),
-                                );
-                              },
-                            ),
-                          ),
+                                        );
+                                      } else {
+                                        weekIndicator = const SizedBox.shrink();
+                                      }
 
-                          // Zero line indicator
-                          Positioned(
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            child: Container(
-                              height: 1,
-                              color: widget.textColor.withOpacity(0.2),
+                                      return Padding(
+                                        padding: EdgeInsets.only(
+                                            right: widget
+                                                .barSpacing), // Add spacing between bars
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            // Week indicator for month view (above tooltip)
+                                            weekIndicator,
+                                            // Tooltip shown above the bar
+                                            if (isHighlighted && _showTooltip)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
+                                                margin: const EdgeInsets.only(
+                                                    bottom: 5),
+                                                decoration: BoxDecoration(
+                                                    color: barColor,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black
+                                                            .withOpacity(0.2),
+                                                        blurRadius: 4,
+                                                        offset:
+                                                            const Offset(0, 2),
+                                                      )
+                                                    ]),
+                                                child: Text(
+                                                  _formatYAxisValue(safeValue),
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            // The bar itself with gradient
+                                            AnimatedContainer(
+                                              duration: const Duration(
+                                                  milliseconds: 150),
+                                              width: widget.barWidth,
+                                              height: math.max(barHeight, 2.0), // Ensure minimum height for visibility
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.bottomCenter,
+                                                  end: Alignment.topCenter,
+                                                  colors: [
+                                                    barColor,
+                                                    gradientEndColor,
+                                                  ],
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                boxShadow: isHighlighted || isToday
+                                                    ? [
+                                                        BoxShadow(
+                                                          color: barColor
+                                                              .withOpacity(0.3),
+                                                          blurRadius: 8,
+                                                          offset: const Offset(
+                                                              0, 1),
+                                                        ),
+                                                      ]
+                                                    : null,
+                                              ),
+                                            ),
+                                            // Small indicator for today's bar for better identification
+                                            if (isToday) 
+                                              Container(
+                                                margin: const EdgeInsets.only(top: 4),
+                                                width: 6,
+                                                height: 6,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: barColor,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                        ],
+                            // X-axis line (drawn separately to be under bars)
+                            // Conditionally render the line only if data exists
+                            if (widget.data.isNotEmpty)
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                // Use width instead of right: 0 to avoid assertion
+                                width: widget.data.length *
+                                    (widget.barWidth + widget.barSpacing),
+                                child: Container(
+                                  height: 1,
+                                  color: widget.textColor.withOpacity(0.15),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-
-            // X-axis labels with improved styling
+            // X-axis labels (Scrollable, synced with bars)
             SizedBox(
-              height: 35,
+              height: 55, // Increased space for rotated labels
               child: Padding(
-                padding: EdgeInsets.only(left: yAxisLabelWidth, top: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(widget.data.length, (index) {
-                    final label = widget.labelExtractor(widget.data[index]);
-                    final isToday = index == widget.todayIndex;
-                    final isHighlighted = _highlightedIndex == index;
-
-                    return SizedBox(
-                      width: barWidth,
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: isToday || isHighlighted
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                          color: isToday
-                              ? widget.primaryColor
-                              : isHighlighted
-                                  ? widget.textColor
-                                  : widget.secondaryTextColor,
-                        ),
-                      ),
-                    );
-                  }),
+                padding: EdgeInsets.only(
+                    left: yAxisLabelWidth), // Align with chart area
+                child: SingleChildScrollView(
+                  controller: _labelsScrollController, // Use the separate controller
+                  scrollDirection: Axis.horizontal,
+                  physics:
+                      const NeverScrollableScrollPhysics(), // Disable direct scrolling on labels
+                  child: Container(
+                    padding: const EdgeInsets.only(
+                        right: 10.0, top: 8), // Match bar padding + top margin
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start, // Align text to top
+                      children: List.generate(widget.data.length, (index) {
+                        final label = widget.labelExtractor(widget.data[index]);
+                        final isToday = index == widget.todayIndex;
+                        final isHighlighted = _highlightedIndex == index;
+                        
+                        // Enhanced label styling for month view
+                        if (widget.timeFrame == 'Month') {
+                          final date = widget.data[index]['date'] as DateTime;
+                          final weekEnd = date.add(const Duration(days: 6));
+                          
+                          return Container(
+                            width: widget.barWidth +
+                                widget.barSpacing, // Width includes spacing
+                            padding: EdgeInsets.only(
+                                right: widget.barSpacing), // Apply spacing here
+                            alignment: Alignment.topCenter,
+                            child: Column(
+                              children: [
+                                Text(
+                                  label,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: isToday || isHighlighted
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: isToday
+                                        ? widget.primaryColor
+                                        : isHighlighted
+                                            ? widget.textColor
+                                            : widget.secondaryTextColor,
+                                  ),
+                                ),
+                                Text(
+                                  '${date.day}-${weekEnd.day}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    color: isHighlighted || isToday
+                                        ? widget.textColor.withOpacity(0.8)
+                                        : widget.secondaryTextColor.withOpacity(0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        
+                        // Default label for week view
+                        return Container(
+                          width: widget.barWidth +
+                              widget.barSpacing, // Width includes spacing
+                          padding: EdgeInsets.only(
+                              right: widget.barSpacing), // Apply spacing here
+                          alignment:
+                              Alignment.topCenter, // Center label under the bar
+                          child: Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.visible,
+                            style: GoogleFonts.inter(
+                              fontSize: 12, // Slightly larger for better readability
+                              fontWeight: isToday || isHighlighted
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isToday
+                                  ? widget.primaryColor
+                                  : isHighlighted
+                                      ? widget.textColor
+                                      : widget.secondaryTextColor,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1779,6 +2085,7 @@ class _CustomBarChartState extends State<CustomBarChart>
   }
 }
 
+// --- GridPainter ---
 class GridPainter extends CustomPainter {
   final double maxValue;
   final Color lineColor;
@@ -1802,151 +2109,94 @@ class GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0)
+      return; // Avoid painting on zero size
+
     final paint = Paint()
       ..color = lineColor
-      ..strokeWidth = 1
+      ..strokeWidth = 0.8 // Thinner lines for a cleaner look
       ..style = PaintingStyle.stroke;
 
-    final dashArray = [4, 4]; // Smaller, more elegant dash pattern
+    final dashArray = [3, 4]; // Adjusted dash pattern
 
-    // Draw horizontal grid lines with tick marks
+    // Draw horizontal grid lines
     for (int i = 0; i <= steps; i++) {
       final y = size.height - (i / steps * size.height);
 
-      // Skip the bottom line
+      // Skip the bottom line (it's drawn separately)
       if (i == 0) continue;
 
       // Draw dashed horizontal line
       double startX = 0;
-      final stopX = size.width;
-      final path = Path();
-
-      path.moveTo(startX, y);
-
-      bool isDash = true;
-      while (startX < stopX) {
-        final nextX = startX + (isDash ? dashArray[0] : dashArray[1]);
-        if (isDash) {
-          path.lineTo(math.min(nextX, stopX), y);
-        } else {
-          path.moveTo(math.min(nextX, stopX), y);
-        }
-
-        startX = nextX;
-        isDash = !isDash;
+      final path = Path()..moveTo(startX, y);
+      while (startX < size.width) {
+        startX += dashArray[0];
+        path.lineTo(math.min(startX, size.width), y);
+        startX += dashArray[1];
+        path.moveTo(math.min(startX, size.width), y);
       }
-
       canvas.drawPath(path, paint);
-
-      // Add tick mark on y-axis
-      canvas.drawLine(
-          Offset(-2, y),
-          Offset(0, y),
-          Paint()
-            ..color = textColor.withOpacity(0.7)
-            ..strokeWidth = 1.5
-            ..style = PaintingStyle.stroke);
     }
 
-    // Draw vertical axis line
+    // Draw vertical axis line (Y-axis)
     final axisLinePaint = Paint()
-      ..color = textColor.withOpacity(0.5)
-      ..strokeWidth = 1.5
+      ..color = textColor.withOpacity(0.25) // Lighter axis line
+      ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
-
     canvas.drawLine(const Offset(0, 0), Offset(0, size.height), axisLinePaint);
 
-    // Draw x-axis line with subtle gradient
-    final xAxisPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [textColor.withOpacity(0.6), textColor.withOpacity(0.2)],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      ).createShader(Rect.fromLTWH(0, 0, size.width, 2))
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawLine(
-        Offset(0, size.height), Offset(size.width, size.height), xAxisPaint);
-
-    // Draw goal line if enabled
-    if (showGoalLine && goalValue > 0) {
+    // Draw goal line if enabled and valid
+    if (showGoalLine && goalValue > 0 && maxValue > 0) {
       final goalY = size.height - (goalValue / maxValue * size.height);
 
-      // Draw goal line with dash pattern
-      final goalPaint = Paint()
-        ..color = goalLineColor
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke;
+      if (goalY >= 0 && goalY <= size.height) {
+        // Ensure goal line is within bounds
+        final goalPaint = Paint()
+          ..color = goalLineColor
+          ..strokeWidth = 1.2 // Adjusted goal line thickness
+          ..style = PaintingStyle.stroke;
 
-      // Create dashed line for goal
-      double startX = 0;
-      final stopX = size.width;
-      final goalPath = Path();
-      goalPath.moveTo(startX, goalY);
-
-      final goalDashArray = [6, 4]; // Different dash pattern for goal line
-      bool isDash = true;
-
-      while (startX < stopX) {
-        final nextX = startX + (isDash ? goalDashArray[0] : goalDashArray[1]);
-        if (isDash) {
-          goalPath.lineTo(math.min(nextX, stopX), goalY);
-        } else {
-          goalPath.moveTo(math.min(nextX, stopX), goalY);
+        // Create dashed line for goal
+        double startX = 0;
+        final goalPath = Path()..moveTo(startX, goalY);
+        final goalDashArray = [6, 4]; // Different dash pattern for distinction
+        while (startX < size.width) {
+          startX += goalDashArray[0];
+          goalPath.lineTo(math.min(startX, size.width), goalY);
+          startX += goalDashArray[1];
+          goalPath.moveTo(math.min(startX, size.width), goalY);
         }
-
-        startX = nextX;
-        isDash = !isDash;
-      }
-
-      canvas.drawPath(goalPath, goalPaint);
-
-      // Add goal label next to the line
-      final labelText = goalLabel ?? 'Goal';
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: labelText,
-          style: TextStyle(
-            color: goalLineColor,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+        canvas.drawPath(goalPath, goalPaint);
+        
+        // Add a small label for the goal line
+        final TextPainter textPainter = TextPainter(
+          text: TextSpan(
+            text: 'Goal',
+            style: TextStyle(
+              color: goalLineColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        textDirection: ui.TextDirection.rtl,
-      );
-      textPainter.layout();
-      textPainter.paint(
-          canvas,
-          Offset(size.width - textPainter.width - 4,
-              goalY - textPainter.height - 2));
-
-      // Format goal value appropriately based on size
-      final String formattedGoal;
-      if (goalValue >= 10000) {
-        formattedGoal = '${(goalValue / 1000).toStringAsFixed(0)}k';
-      } else {
-        formattedGoal = goalValue.toInt().toString();
+          textDirection: ui.TextDirection.ltr,
+        );
+        
+        textPainter.layout(minWidth: 0, maxWidth: 40);
+        textPainter.paint(
+          canvas, 
+          Offset(5, goalY - textPainter.height - 2),
+        );
       }
-
-      // Add goal value label
-      final valueTextPainter = TextPainter(
-        text: TextSpan(
-          text: formattedGoal,
-          style: TextStyle(
-            color: goalLineColor,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        textDirection: ui.TextDirection.rtl,
-      );
-      valueTextPainter.layout();
-      valueTextPainter.paint(
-          canvas, Offset(4, goalY - valueTextPainter.height - 2));
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant GridPainter oldDelegate) =>
+      oldDelegate.maxValue != maxValue ||
+      oldDelegate.lineColor != lineColor ||
+      oldDelegate.textColor != textColor ||
+      oldDelegate.steps != steps ||
+      oldDelegate.showGoalLine != showGoalLine ||
+      oldDelegate.goalValue != goalValue ||
+      oldDelegate.goalLineColor != goalLineColor;
 }

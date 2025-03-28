@@ -5,6 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
 // Weight data point model
 class WeightPoint {
@@ -48,26 +51,68 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     _loadWeightData();
   }
 
-  Future<void> _loadWeightData() {
+  Future<void> _loadWeightData() async {
     setState(() {
       _isLoading = true;
     });
 
-    // Simulate loading weight data
-    // TODO: Replace with actual data loading from your backend
-    _weightData = List.generate(30, (index) {
-      final date = DateTime.now().subtract(Duration(days: 29 - index));
-      return {
-        'date': date,
-        'weight': _currentWeight + (math.Random().nextDouble() * 2 - 1),
-      };
-    });
+    try {
+      // Load weights from SharedPreferences first
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Try to get the current weight from macro_results
+      final String? macroResultsJson = prefs.getString('macro_results');
+      if (macroResultsJson != null) {
+        final macroResults = json.decode(macroResultsJson);
+        if (macroResults['weight_kg'] != null) {
+          _currentWeight = macroResults['weight_kg'].toDouble();
+        }
+      }
+      
+      // Try to get the goal weight
+      _targetWeight = prefs.getDouble('goal_weight_kg') ?? _currentWeight;
 
-    setState(() {
-      _isLoading = false;
-    });
+      // If user is authenticated, try to get the latest values from Supabase
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser != null) {
+        final response = await Supabase.instance.client
+            .from('user_macros')
+            .select('weight, goal_weight_kg')
+            .eq('id', currentUser.id)
+            .order('updated_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
 
-    return Future.value();
+        if (response != null) {
+          if (response['weight'] != null) {
+            _currentWeight = response['weight'].toDouble();
+          }
+          if (response['goal_weight_kg'] != null) {
+            _targetWeight = response['goal_weight_kg'].toDouble();
+          }
+        }
+      }
+
+      // Generate sample weight data around the current weight
+      _weightData = List.generate(30, (index) {
+        final date = DateTime.now().subtract(Duration(days: 29 - index));
+        // Generate more realistic weight fluctuations (±0.5 kg)
+        final randomFluctuation = (math.Random().nextDouble() - 0.5);
+        return {
+          'date': date,
+          'weight': _currentWeight + randomFluctuation,
+        };
+      });
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading weight data: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   double _getProgressPercentage() {
@@ -620,6 +665,37 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     );
   }
 
+  Future<void> _saveWeightChanges() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Save to SharedPreferences
+      await prefs.setDouble('current_weight', _currentWeight);
+      await prefs.setDouble('goal_weight_kg', _targetWeight);
+
+      // Update macro_results with new current weight
+      final String? macroResultsJson = prefs.getString('macro_results');
+      if (macroResultsJson != null) {
+        final macroResults = json.decode(macroResultsJson);
+        macroResults['weight_kg'] = _currentWeight;
+        await prefs.setString('macro_results', json.encode(macroResults));
+      }
+
+      // If user is authenticated, sync to Supabase
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser != null) {
+        await Supabase.instance.client.from('user_macros').upsert({
+          'id': currentUser.id,
+          'weight': _currentWeight,
+          'goal_weight_kg': _targetWeight,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+    } catch (e) {
+      print('Error saving weight changes: $e');
+    }
+  }
+
   Future<void> _showAddWeightDialog(
       BuildContext context, CustomColors customColors) async {
     double newWeight = _currentWeight;
@@ -663,11 +739,23 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               setState(() {
                 _currentWeight = newWeight;
-                // TODO: Save weight to backend
+                // Add the new weight entry to the data
+                _weightData.add({
+                  'date': DateTime.now(),
+                  'weight': newWeight,
+                });
+                // Sort the data by date
+                _weightData.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+                // Keep only the last 30 entries
+                if (_weightData.length > 30) {
+                  _weightData = _weightData.sublist(_weightData.length - 30);
+                }
               });
+              // Save the changes
+              await _saveWeightChanges();
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
@@ -723,11 +811,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               setState(() {
                 _targetWeight = newTarget;
-                // TODO: Save target to backend
               });
+              // Save the changes
+              await _saveWeightChanges();
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(

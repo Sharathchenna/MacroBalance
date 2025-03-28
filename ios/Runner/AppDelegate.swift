@@ -25,6 +25,10 @@ import AVFoundation  // Added for camera functionality
     private var nativeCameraViewChannel: FlutterMethodChannel?
     private let nativeCameraViewChannelName = "com.macrotracker/native_camera_view"
     
+    // Add stats channel
+    private var statsChannel: FlutterMethodChannel?
+    private let statsChannelName = "app.macrobalance.com/stats"
+    
     override func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -48,6 +52,11 @@ import AVFoundation  // Added for camera functionality
         nativeCameraViewChannel = FlutterMethodChannel(name: nativeCameraViewChannelName,
                                                      binaryMessenger: controller.binaryMessenger)
         nativeCameraViewChannel?.setMethodCallHandler(handleNativeCameraViewMethodCall)
+
+        // Initialize stats channel
+        statsChannel = FlutterMethodChannel(name: statsChannelName,
+                                          binaryMessenger: controller.binaryMessenger)
+        statsChannel?.setMethodCallHandler(handleStatsMethodCall)
 
         // Explicitly configure Firebase here BEFORE registering plugins
         FirebaseApp.configure()
@@ -93,6 +102,22 @@ import AVFoundation  // Added for camera functionality
              controller.present(nativeCameraVC, animated: true, completion: nil)
              result(nil) // Acknowledge successful presentation
          } else {
+             result(FlutterMethodNotImplemented)
+         }
+     }
+
+     // MARK: - Stats Method Channel Handler -
+     
+     private func handleStatsMethodCall(call: FlutterMethodCall, result: @escaping FlutterResult) {
+         print("[AppDelegate] Stats Method Call: \(call.method)")
+         
+         switch call.method {
+         case "macrosDataChanged":
+             // Handle the macros data changed notification
+             // This is just an acknowledgment that the data changed
+             // No need to return any data
+             result(nil)
+         default:
              result(FlutterMethodNotImplemented)
          }
      }

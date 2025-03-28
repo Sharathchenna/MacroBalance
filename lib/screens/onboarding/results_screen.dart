@@ -6,9 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:macrotracker/screens/revenuecat/paywall_screen.dart';
+import 'package:macrotracker/screens/RevenueCat/paywall_screen.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/subscription_provider.dart';
+import 'package:macrotracker/auth/paywall_gate.dart';
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -75,42 +78,58 @@ class _ResultsScreenState extends State<ResultsScreen>
         fullscreenDialog: true,
         builder: (context) => PaywallScreen(
           onDismiss: () async {
-            // Check if user has active subscription
-            CustomerInfo customerInfo = await Purchases.getCustomerInfo();
+            // Use our subscription provider to check subscription status
+            final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+            await subscriptionProvider.refreshSubscriptionStatus();
             
-            // Consider both sandbox/test and production entitlements
-            bool isProUser = customerInfo.entitlements.active.containsKey("pro") || 
-                          customerInfo.entitlements.all.containsKey("pro");
-            
-            if (isProUser) {
-              // Pro user - proceed to dashboard quietly
+            if (subscriptionProvider.isProUser) {
+              // Pro user - proceed to dashboard
               if (mounted) {
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
-                    builder: (context) => const Dashboard(),
+                    // Wrap Dashboard with PaywallGate for extra security
+                    builder: (context) => const PaywallGate(
+                      child: Dashboard(),
+                    ),
                   ),
                 );
               }
             } else {
-              // Free user - still proceed to dashboard with a message
+              // Free user - hard paywall, show them the paywall again with explicit message
               if (mounted) {
-                // Use SnackBarBehavior.fixed to avoid positioning issues
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Some features will be limited in the free version'),
+                    content: Text('A subscription is required to use this app'),
                     duration: Duration(seconds: 3),
                     behavior: SnackBarBehavior.fixed,
                   ),
                 );
                 
+                // Show the paywall again, but this time with harder enforcement
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
-                    builder: (context) => const Dashboard(),
+                    fullscreenDialog: true,
+                    builder: (context) => PaywallScreen(
+                      allowDismissal: false, // Don't allow dismissal without subscribing
+                      onDismiss: () async {
+                        // This will only be called if they subscribe
+                        await subscriptionProvider.refreshSubscriptionStatus();
+                        if (mounted && subscriptionProvider.isProUser) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const Dashboard(),
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ),
                 );
               }
             }
           },
+          // Start with a soft paywall to give users a chance to subscribe willingly
+          allowDismissal: true, 
         ),
       ),
     );

@@ -3,9 +3,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
+import 'package:macrotracker/auth/paywall_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
 import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
@@ -44,6 +46,13 @@ const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
 // This is needed because the method handler is outside the widget tree.
 // Ensure it's initialized after Supabase and before runApp.
 late FoodEntryProvider _foodEntryProviderInstance;
+
+// Add these variables at the top of the file, after imports
+DateTime? _lastStatsUpdate;
+Map<String, List<Map<String, dynamic>>>? _statsCache;
+const _minimumUpdateInterval = Duration(minutes: 15); // Increased to 15 minutes
+DateTime? _lastRequestTime;
+const _requestThrottleInterval = Duration(seconds: 2); // Throttle requests to max once every 2 seconds
 
 // Add route name constants at the top level
 class Routes {
@@ -166,6 +175,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => MealProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
       child: const MyApp(),
     ),
@@ -178,6 +188,20 @@ void _setupStatsChannelHandler() {
     switch (call.method) {
       case 'getMacroData':
         try {
+          // Implement request throttling
+          final now = DateTime.now();
+          if (_lastRequestTime != null && 
+              now.difference(_lastRequestTime!) < _requestThrottleInterval) {
+            // If we have any cached data, return the most recent cache
+            if (_statsCache?.isNotEmpty == true) {
+              final mostRecentCache = _statsCache!.entries.reduce((a, b) => 
+                a.key.compareTo(b.key) > 0 ? a : b).value;
+              debugPrint('[Flutter Stats Handler] Throttled request, returning most recent cache');
+              return mostRecentCache;
+            }
+          }
+          _lastRequestTime = now;
+
           final args = call.arguments as Map<dynamic, dynamic>?;
           final startDateString = args?['startDate'] as String?;
           final endDateString = args?['endDate'] as String?;
@@ -186,30 +210,25 @@ void _setupStatsChannelHandler() {
             throw PlatformException(code: 'INVALID_ARGS', message: 'Missing date arguments');
           }
 
-          final startDate = DateTime.parse(startDateString).toLocal(); // Convert to local time
-          final endDate = DateTime.parse(endDateString).toLocal(); // Convert to local time
-          final dateFormatter = DateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); // ISO 8601 format
+          final startDate = DateTime.parse(startDateString).toLocal();
+          final endDate = DateTime.parse(endDateString).toLocal();
+          
+          // Check cache first
+          final cacheKey = '${startDateString}_${endDateString}';
+          if (_statsCache?.containsKey(cacheKey) == true && 
+              _lastStatsUpdate != null && 
+              now.difference(_lastStatsUpdate!) < _minimumUpdateInterval) {
+            debugPrint('[Flutter Stats Handler] Returning cached data');
+            return _statsCache![cacheKey];
+          }
 
-          // --- Logging ---
-          debugPrint('[Flutter Stats Handler] Received request for dates: $startDateString to $endDateString');
-          debugPrint('[Flutter Stats Handler] Parsed local dates: $startDate to $endDate');
-          // --- End Logging ---
-
-
+          final dateFormatter = DateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
           List<Map<String, dynamic>> results = [];
           DateTime currentDate = startDate;
 
           while (currentDate.isBefore(endDate) || currentDate.isAtSameMomentAs(endDate)) {
-             // --- Logging ---
-             debugPrint('[Flutter Stats Handler] Processing date: $currentDate');
-             // --- End Logging ---
-
-            // Calculate consumed macros for the current date
             final entries = _foodEntryProviderInstance.getAllEntriesForDate(currentDate);
-             // --- Logging ---
-             debugPrint('[Flutter Stats Handler] Found ${entries.length} entries for $currentDate');
-             // --- End Logging ---
-
+            
             double totalCarbs = 0;
             double totalFat = 0;
             double totalProtein = 0;
@@ -231,39 +250,39 @@ void _setupStatsChannelHandler() {
               totalProtein += protein * multiplier;
             }
 
-            // Get goals from the provider
             final proteinGoal = _foodEntryProviderInstance.proteinGoal;
             final carbGoal = _foodEntryProviderInstance.carbsGoal;
             final fatGoal = _foodEntryProviderInstance.fatGoal;
 
             results.add({
-              'date': dateFormatter.format(currentDate.toUtc()), // Use UTC ISO format
-              'proteins': totalProtein, // Corrected key
+              'date': dateFormatter.format(currentDate.toUtc()),
+              'proteins': totalProtein,
               'carbs': totalCarbs,
-              'fats': totalFat,         // Corrected key
+              'fats': totalFat,
               'proteinGoal': proteinGoal,
               'carbGoal': carbGoal,
               'fatGoal': fatGoal,
             });
 
-            // Move to the next day
             currentDate = currentDate.add(const Duration(days: 1));
           }
-          debugPrint('[Flutter Stats Handler] Sending ${results.length} macro entries to native.');
-          return results; // Return the list of maps
+
+          // Update cache and last update time
+          _lastStatsUpdate = now;
+          _statsCache ??= {};
+          _statsCache!['${startDateString}_${endDateString}'] = results;
+
+          debugPrint('[Flutter Stats Handler] Cache updated with ${results.length} entries');
+          return results;
         } catch (e) {
-           debugPrint('[Flutter Stats Handler] Error handling getMacroData: $e');
-           // Return an empty list or throw an error that native side can interpret
-           return []; // Or throw PlatformException(...)
+          debugPrint('[Flutter Stats Handler] Error: $e');
+          rethrow;
         }
-
-      // Add other cases for 'getCalorieData' if needed
-      // case 'getCalorieData':
-      //   // ... implementation ...
-      //   return calorieResults;
-
       default:
-        throw MissingPluginException('Not implemented: ${call.method}');
+        throw PlatformException(
+          code: 'UNSUPPORTED_METHOD',
+          message: 'Method ${call.method} not supported',
+        );
     }
   });
 }
@@ -397,13 +416,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         routes: {
           Routes.initial: (context) => const AuthGate(),
           Routes.onboarding: (context) => const OnboardingScreen(),
-          Routes.home: (context) => const Dashboard(),
-          Routes.dashboard: (context) => const Dashboard(),
-          Routes.goals: (context) => const StepTrackingScreen(),
-          Routes.search: (context) => const FoodSearchPage(),
-          Routes.account: (context) => const AccountDashboard(),
-          Routes.weightTracking: (context) => const WeightTrackingScreen(),
-          Routes.macroTracking: (context) => const MacroTrackingScreen(),
+          Routes.home: (context) => const PaywallGate(child: Dashboard()),
+          Routes.dashboard: (context) => const PaywallGate(child: Dashboard()),
+          Routes.goals: (context) => const PaywallGate(child: StepTrackingScreen()),
+          Routes.search: (context) => const PaywallGate(child: FoodSearchPage()),
+          Routes.account: (context) => const PaywallGate(child: AccountDashboard()),
+          Routes.weightTracking: (context) => const PaywallGate(child: WeightTrackingScreen()),
+          Routes.macroTracking: (context) => const PaywallGate(child: MacroTrackingScreen()),
         },
         onGenerateRoute: (settings) {
           // Handle any dynamic routes or routes with parameters here

@@ -24,6 +24,11 @@ class FoodEntryProvider with ChangeNotifier {
   double _carbsGoal = 225.0;
   double _fatGoal = 65.0;
 
+  // Cache for date entries
+  final Map<String, List<FoodEntry>> _dateEntriesCache = {};
+  final Map<String, DateTime> _dateCacheTimestamp = {};
+  static const Duration _cacheDuration = Duration(minutes: 15);
+
   FoodEntryProvider() {
     _loadEntries();
     _loadNutritionGoals();
@@ -367,16 +372,18 @@ class FoodEntryProvider with ChangeNotifier {
 
   Future<void> addEntry(FoodEntry entry) async {
     _entries.add(entry);
+    await _clearDateCache();
     notifyListeners();
     await _saveEntries();
-    _notifyNativeStatsChanged(); // Notify native side
+    _notifyNativeStatsChanged();
   }
 
   Future<void> removeEntry(String id) async {
     _entries.removeWhere((entry) => entry.id == id);
+    await _clearDateCache();
     notifyListeners();
     await _saveEntries();
-    _notifyNativeStatsChanged(); // Notify native side
+    _notifyNativeStatsChanged();
   }
 
   Future<void> clearEntries() async {
@@ -413,27 +420,33 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   List<FoodEntry> getAllEntriesForDate(DateTime date) {
-    // Ensure the comparison happens based on the local timezone's day boundaries
-    final startOfDay = DateTime(date.year, date.month, date.day); // Local start of day
-    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59, 999); // Local end of day
-
-    debugPrint('[FoodEntryProvider] getAllEntriesForDate: Target date: $date (Local)');
-    debugPrint('[FoodEntryProvider] getAllEntriesForDate: Checking between $startOfDay and $endOfDay (Local)');
-
+    // Convert date to local timezone for consistent comparison
+    final localDate = date.toLocal();
+    final startOfDay = DateTime(localDate.year, localDate.month, localDate.day);
+    final endOfDay = DateTime(localDate.year, localDate.month, localDate.day, 23, 59, 59, 999);
+    
+    // Create cache key in format 'YYYY-MM-DD'
+    final cacheKey = '${startOfDay.year}-${startOfDay.month.toString().padLeft(2, '0')}-${startOfDay.day.toString().padLeft(2, '0')}';
+    
+    // Check if we have a valid cache entry
+    if (_dateEntriesCache.containsKey(cacheKey)) {
+      final cacheTimestamp = _dateCacheTimestamp[cacheKey];
+      if (cacheTimestamp != null && DateTime.now().difference(cacheTimestamp) < _cacheDuration) {
+        // Cache is still valid
+        return _dateEntriesCache[cacheKey]!;
+      }
+    }
+    
+    // If cache is invalid or missing, filter entries
     final filteredEntries = _entries.where((entry) {
-      // Convert entry date to local time for comparison if it's not already
-      final entryDateLocal = entry.date.toLocal();
-      final bool isInRange = !entryDateLocal.isBefore(startOfDay) && entryDateLocal.isBefore(endOfDay.add(const Duration(milliseconds: 1))); // Inclusive end
-
-      // --- Logging ---
-      // Uncomment for detailed debugging if needed
-      // debugPrint('[FoodEntryProvider] Comparing entry date: ${entry.date} (Stored) / ${entryDateLocal} (Local) -> In Range: $isInRange');
-      // --- End Logging ---
-
-      return isInRange;
+      final entryDate = entry.date.toLocal();
+      return !entryDate.isBefore(startOfDay) && !entryDate.isAfter(endOfDay);
     }).toList();
-
-    debugPrint('[FoodEntryProvider] getAllEntriesForDate: Found ${filteredEntries.length} entries for $date');
+    
+    // Update cache
+    _dateEntriesCache[cacheKey] = filteredEntries;
+    _dateCacheTimestamp[cacheKey] = DateTime.now();
+    
     return filteredEntries;
   }
 
@@ -810,5 +823,11 @@ class FoodEntryProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading entries from Supabase: $e');
     }
+  }
+
+  // Clear cache when entries are modified
+  Future<void> _clearDateCache() async {
+    _dateEntriesCache.clear();
+    _dateCacheTimestamp.clear();
   }
 }

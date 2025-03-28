@@ -62,7 +62,7 @@ struct MacroWidgetEntry: TimelineEntry {
 // MARK: - Provider
 
 struct Provider: TimelineProvider {
-    private let userDefaults = UserDefaults(suiteName: "group.app.macrobalance.shared")
+    private let userDefaults = UserDefaults(suiteName: "group.app.macrobalance.com")
     private let logger = Logger(subsystem: "app.macrobalance.com", category: "Widget")
     
     func placeholder(in context: Context) -> MacroWidgetEntry {
@@ -92,32 +92,52 @@ struct Provider: TimelineProvider {
         let currentDate = Date()
         logger.log("🔄 Nutrino Widget: Starting timeline refresh")
         
-        // Calculate next refresh times
+        // Set minimum refresh interval to 15 minutes
+        let minimumRefreshInterval: TimeInterval = 15 * 60 // 15 minutes in seconds
+        
+        // Calculate next refresh time based on current time
         let calendar = Calendar.current
-        var nextRefreshDate = calendar.date(byAdding: .minute, value: 15, to: currentDate) ?? currentDate
+        let currentMinute = calendar.component(.minute, from: currentDate)
+        let minutesToNextQuarter = 15 - (currentMinute % 15)
+        
+        // Calculate the next refresh date
+        var nextRefreshDate = calendar.date(byAdding: .minute, value: minutesToNextQuarter, to: currentDate) ?? currentDate
+        
+        // Ensure minimum refresh interval is respected
+        let minimumNextRefresh = currentDate.addingTimeInterval(minimumRefreshInterval)
+        if nextRefreshDate < minimumNextRefresh {
+            nextRefreshDate = minimumNextRefresh
+            logger.log("⏰ Adjusted to minimum refresh interval: \(nextRefreshDate)")
+        }
         
         // Find midnight for daily reset
-        var components = DateComponents()
-        components.day = 1
-        components.hour = 0
-        components.minute = 0
+        let nextMidnight = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate)
         
-        if let nextMidnight = calendar.nextDate(after: currentDate, matching: components, matchingPolicy: .nextTime) {
+        // If next refresh would be after midnight, use midnight instead
+        if nextRefreshDate > nextMidnight {
             nextRefreshDate = nextMidnight
             logger.log("⏰ Next refresh scheduled at midnight: \(nextMidnight)")
         }
         
-        // Create entries
+        // Load data
         let macroData = loadMacroData()
         let meals = loadRecentMeals()
         
-        if let macroData = macroData {
-            logger.log("✅ Widget loaded data: \(Int(macroData.calories))/\(Int(macroData.caloriesGoal)) calories")
-        }
+        // Create entry
+        let entry = MacroWidgetEntry(
+            date: currentDate,
+            macroData: macroData,
+            recentMeals: meals,
+            isPreview: false
+        )
         
-        let entry = MacroWidgetEntry(date: currentDate, macroData: macroData, recentMeals: meals, isPreview: false)
-        let timeline = Timeline(entries: [entry], policy: .after(nextRefreshDate))
+        // Create timeline with strict refresh policy
+        let timeline = Timeline(
+            entries: [entry],
+            policy: .after(nextRefreshDate)
+        )
         
+        logger.log("📅 Timeline created - Next refresh at: \(nextRefreshDate)")
         completion(timeline)
     }
     

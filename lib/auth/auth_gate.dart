@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/subscription_provider.dart';
+import 'package:macrotracker/auth/paywall_gate.dart'; // Import the PaywallGate
 import 'dart:convert'; // Add for JSON parsing
 
 class AuthGate extends StatefulWidget {
@@ -255,7 +257,10 @@ class _AuthGateState extends State<AuthGate> {
         }
 
         // User is authenticated and has macro data
-        return const Dashboard();
+        // Wrap the Dashboard with the PaywallGate
+        return PaywallGate(
+          child: const Dashboard(),
+        );
       },
     );
   }
