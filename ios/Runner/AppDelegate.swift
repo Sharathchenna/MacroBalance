@@ -13,10 +13,10 @@ import device_info_plus
 import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
+import AVFoundation  // Added for camera functionality
 
 @main
-// Remove NativeCameraViewControllerDelegate as well since it's likely missing
-@objc class AppDelegate: FlutterAppDelegate, MessagingDelegate {
+@objc class AppDelegate: FlutterAppDelegate, MessagingDelegate, NativeCameraViewControllerDelegate {
     // Remove these properties
     // private var methodHandler: FlutterMethodHandler?
     // private var statsMethodHandler: StatsMethodHandler?
@@ -85,40 +85,37 @@ import FirebaseMessaging
              return
          }
 
-         // Just return not implemented for now since NativeCameraViewController is probably missing too
-         result(FlutterMethodNotImplemented)
-         
-         /* Remove this code as it likely depends on missing classes
-         switch call.method {
-         case "showNativeCamera":
+         // Handle specific methods
+         if call.method == "showNativeCamera" {
              let nativeCameraVC = NativeCameraViewController()
              nativeCameraVC.delegate = self
              nativeCameraVC.modalPresentationStyle = .fullScreen
              controller.present(nativeCameraVC, animated: true, completion: nil)
-             result(nil)
-         default:
+             result(nil) // Acknowledge successful presentation
+         } else {
              result(FlutterMethodNotImplemented)
          }
-         */
      }
 
-     // Remove all camera delegate methods as they reference missing classes
-     /*
+     // MARK: - NativeCameraViewControllerDelegate Methods -
+
      func nativeCameraDidFinish(withBarcode barcode: String) {
          print("[AppDelegate] Native Camera Finished with Barcode: \(barcode)")
+         // Send result back to Flutter via the channel
          nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: ["type": "barcode", "value": barcode])
      }
 
      func nativeCameraDidFinish(withPhotoData photoData: Data) {
          print("[AppDelegate] Native Camera Finished with Photo Data: \(photoData.count) bytes")
+         // Send result back to Flutter
          nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: ["type": "photo", "value": FlutterStandardTypedData(bytes: photoData)])
      }
 
      func nativeCameraDidCancel() {
          print("[AppDelegate] Native Camera Cancelled")
+         // Notify Flutter that the user cancelled
          nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: ["type": "cancel"])
      }
-     */
 
      // Remove Stats methods
      /*

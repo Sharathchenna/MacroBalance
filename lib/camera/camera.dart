@@ -95,22 +95,16 @@ class _CameraScreenState extends State<CameraScreen> {
           _isLoading = false;
           _error = 'Camera feature is only available on iOS.';
         });
-        // Pop immediately if not iOS? Or let error screen show?
-        // Consider popping after a delay:
-        // Future.delayed(Duration(seconds: 2), () {
-        //   if (mounted) Navigator.pop(context, null);
-        // });
       }
       return;
     }
 
     try {
       print('[Flutter Camera] Invoking showNativeCamera...');
-      // This method now just presents the native view.
-      // The result comes back via the method channel handler.
+      // Re-enable native camera implementation
       await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
       if (mounted) {
-         // Keep loading true while native view is presented
+        // Keep loading true while native view is presented
       }
       print('[Flutter Camera] showNativeCamera invoked successfully.');
     } on PlatformException catch (e) {
@@ -120,10 +114,10 @@ class _CameraScreenState extends State<CameraScreen> {
           _isLoading = false;
           _error = 'Failed to open camera: ${e.message}';
         });
-         // Pop after showing error?
-        // Future.delayed(Duration(seconds: 2), () {
-        //   if (mounted) Navigator.pop(context, null);
-        // });
+        // Pop after showing error
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) Navigator.pop(context, null);
+        });
       }
     }
   }
