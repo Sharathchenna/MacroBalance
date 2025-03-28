@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/camera.dart';
 import 'package:macrotracker/screens/NativeStatsScreen.dart';
+import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/screens/searchPage.dart';
@@ -186,7 +187,11 @@ class _DashboardState extends State<Dashboard> {
                 icon: CupertinoIcons.graph_circle,
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  NativeStatsScreen.show(context);
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(
+                        builder: (context) => TrackingPagesScreen()),
+                  );
                 },
               ),
               _buildNavItemCompact(

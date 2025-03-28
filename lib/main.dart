@@ -30,8 +30,10 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:uni_links/uni_links.dart';
 import 'dart:io' show Platform;
-import 'package:intl/intl.dart'; // Needed for date formatting
-
+import 'package:intl/intl.dart';
+import 'package:macrotracker/screens/MacroTrackingScreen.dart';
+import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for date formatting
+import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -53,6 +55,8 @@ class Routes {
   static const String goals = '/goals';
   static const String search = '/search';
   static const String account = '/account';
+  static const String weightTracking = '/weightTracking';
+  static const String macroTracking = '/macroTracking';
 }
 
 // Add route observer
@@ -395,15 +399,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           Routes.onboarding: (context) => const OnboardingScreen(),
           Routes.home: (context) => const Dashboard(),
           Routes.dashboard: (context) => const Dashboard(),
-          Routes.goals: (context) => Builder(builder: (context) {
-                // Use a Builder to get a context and then call the static method
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  NativeStatsScreen.show(context);
-                });
-                return const Dashboard(); // Return to Dashboard as a fallback
-              }),
+          Routes.goals: (context) => const StepTrackingScreen(),
           Routes.search: (context) => const FoodSearchPage(),
           Routes.account: (context) => const AccountDashboard(),
+          Routes.weightTracking: (context) => const WeightTrackingScreen(),
+          Routes.macroTracking: (context) => const MacroTrackingScreen(),
         },
         onGenerateRoute: (settings) {
           // Handle any dynamic routes or routes with parameters here

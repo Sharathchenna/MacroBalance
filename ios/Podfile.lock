@@ -16,9 +16,6 @@ PODS:
     - JPSVolumeButtonHandler
   - device_info_plus (0.0.1):
     - Flutter
-  - DGCharts (5.1.0):
-    - DGCharts/Core (= 5.1.0)
-  - DGCharts/Core (5.1.0)
   - Firebase/CoreOnly (11.8.0):
     - FirebaseCore (~> 11.8.0)
   - Firebase/Messaging (11.8.0):
@@ -201,7 +198,6 @@ DEPENDENCIES:
   - camera_avfoundation (from `.symlinks/plugins/camera_avfoundation/ios`)
   - camerawesome (from `.symlinks/plugins/camerawesome/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
-  - DGCharts
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
@@ -231,7 +227,6 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - AppAuth
-    - DGCharts
     - Firebase
     - FirebaseCore
     - FirebaseCoreInternal
@@ -326,7 +321,6 @@ SPEC CHECKSUMS:
   camera_avfoundation: 04b44aeb14070126c6529e5ab82cc7c9fca107cf
   camerawesome: ae69de297ab1a69a0bcaeef8797d3045ed57172f
   device_info_plus: 335f3ce08d2e174b9fdc3db3db0f4e3b1f66bd89
-  DGCharts: 1c6daf585b6cfc78807af44ea690d357c410627f
   Firebase: d80354ed7f6df5f9aca55e9eb47cc4b634735eaf
   firebase_core: 8d552814f6c01ccde5d88939fced4ec26f2f5510
   firebase_messaging: 8b96a4f09841c15a16b96973ef5c3dcfc1a064e4
@@ -377,6 +371,6 @@ SPEC CHECKSUMS:
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
   webview_flutter_wkwebview: 1821ceac936eba6f7984d89a9f3bcb4dea99ebb2
 
-PODFILE CHECKSUM: d843cc57ce61f9ca6032e38b70bdfee981ba718d
+PODFILE CHECKSUM: 59d6a86a59b90c50023b3a50ad49ac880dbd78c8
 
 COCOAPODS: 1.16.2

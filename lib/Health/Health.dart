@@ -140,10 +140,9 @@ class HealthService {
         }
 
         result.add({
-          'date': startOfDay.toIso8601String(), // Convert to ISO8601
-          'steps': steps,
-          'goal':
-              9000 // Using default goal, you might want to make this dynamic
+          'date': startOfDay,
+          'day': DateFormat('E').format(startOfDay),
+          'steps': steps
         });
       }
       return result;
@@ -280,7 +279,7 @@ class HealthService {
       final endTime = DateTime(date.year, date.month, date.day, 23, 59, 59);
 
       final steps = await health.getTotalStepsInInterval(startTime, endTime);
-      return steps ?? 0;
+      return steps?.toInt() ?? 0;
     } catch (e) {
       print('Error getting steps for date: $e');
       return 0;
@@ -323,6 +322,101 @@ class HealthService {
     } catch (e) {
       print('Error getting calories for date: $e');
       return 0.0;
+    }
+  }
+
+  // Method to get steps for the last month (30 days)
+  Future<List<Map<String, dynamic>>> getStepsForLastMonth() async {
+    final List<Map<String, dynamic>> result = [];
+    final now = DateTime.now();
+
+    try {
+      final hasPermissions =
+          await health.hasPermissions([HealthDataType.STEPS]);
+      if (hasPermissions == null || !hasPermissions) {
+        final granted = await requestPermissions();
+        if (!granted) {
+          throw Exception('Health data access not authorized');
+        }
+      }
+
+      // Fetch steps for each of the last 30 days
+      for (int i = 29; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final startOfDay = DateTime(date.year, date.month, date.day);
+
+        // Use the existing getStepsForDate method to get steps
+        final steps = await getStepsForDate(startOfDay);
+
+        result.add({
+          'date': startOfDay,
+          'day': DateFormat('d').format(startOfDay), // Just the day number
+          'steps': steps
+        });
+      }
+
+      return result;
+    } catch (error) {
+      print('Error fetching steps for the month: $error');
+      return [];
+    }
+  }
+
+  // Method to get steps for the last year (12 months)
+  Future<List<Map<String, dynamic>>> getStepsForLastYear() async {
+    final List<Map<String, dynamic>> result = [];
+    final now = DateTime.now();
+
+    try {
+      final hasPermissions =
+          await health.hasPermissions([HealthDataType.STEPS]);
+      if (hasPermissions == null || !hasPermissions) {
+        final granted = await requestPermissions();
+        if (!granted) {
+          throw Exception('Health data access not authorized');
+        }
+      }
+
+      // Fetch steps for each of the last 12 months
+      for (int i = 11; i >= 0; i--) {
+        final currentMonth = DateTime(now.year, now.month - i, 1);
+        final lastDayOfMonth =
+            DateTime(currentMonth.year, currentMonth.month + 1, 0);
+
+        // Get first and last day of month
+        final startOfMonth = DateTime(currentMonth.year, currentMonth.month, 1);
+        final endOfMonth = DateTime(currentMonth.year, currentMonth.month,
+            lastDayOfMonth.day, 23, 59, 59);
+
+        // For the current month, only count days up to today
+        final endDate = i == 0 ? now : endOfMonth;
+
+        // Get total steps for the month
+        int totalSteps = 0;
+        DateTime currentDate = startOfMonth;
+
+        while (currentDate.isBefore(endDate) ||
+            currentDate.isAtSameMomentAs(endDate)) {
+          // Use the existing getStepsForDate method
+          final daySteps = await getStepsForDate(currentDate);
+          totalSteps += daySteps;
+
+          currentDate = currentDate.add(const Duration(days: 1));
+          // Break if we've reached the end of the month
+          if (currentDate.month != startOfMonth.month) break;
+        }
+
+        result.add({
+          'date': startOfMonth,
+          'month': DateFormat('MMM').format(startOfMonth), // Month abbreviation
+          'steps': totalSteps
+        });
+      }
+
+      return result;
+    } catch (error) {
+      print('Error fetching steps for the year: $error');
+      return [];
     }
   }
 }
