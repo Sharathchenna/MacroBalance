@@ -22,7 +22,8 @@ import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/screens/privacy_policy_screen.dart'; // Added import
 import 'package:macrotracker/screens/terms_screen.dart'; // Added import
-import 'package:macrotracker/screens/feedback_screen.dart' as fb_screen; // Added import for feedback with prefix
+import 'package:macrotracker/screens/feedback_screen.dart'
+    as fb_screen; // Added import for feedback with prefix
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
 // Removed Firebase Messaging import if only used for testing token retrieval
 
@@ -324,7 +325,12 @@ class _AccountDashboardState extends State<AccountDashboard>
                     onTap: () {
                       HapticFeedback.lightImpact();
                       // Use the static show method instead of trying to navigate to it as a widget
-                      NativeStatsScreen.show(context, initialSection: 'macros');
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => EditGoalsScreen(),
+                        ),
+                      );
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
@@ -456,7 +462,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  _buildListTile( // Added Terms & Conditions
+                  _buildListTile(
+                    // Added Terms & Conditions
                     icon: CupertinoIcons.doc_text_fill,
                     iconColor: Colors.blueGrey,
                     title: 'Terms & Conditions',
@@ -525,7 +532,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                       Navigator.push(
                         context,
                         CupertinoPageRoute(
-                          builder: (context) => const fb_screen.FeedbackScreen(), // Use prefix here
+                          builder: (context) => const fb_screen
+                              .FeedbackScreen(), // Use prefix here
                         ),
                       );
                     },
