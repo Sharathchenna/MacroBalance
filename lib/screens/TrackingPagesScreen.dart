@@ -1,5 +1,5 @@
 import 'dart:ui'; // Added for ImageFilter
-import 'package:flutter/cupertino.dart'; // Added for potential icons if needed
+import 'package:flutter/cupertino.dart'; // Added for CupertinoIcons, HapticFeedback
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,7 +7,7 @@ import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import '../theme/app_theme.dart';
 import 'WeightTrackingScreen.dart';
 import 'MacroTrackingScreen.dart';
-import 'StepsTrackingScreen.dart';
+// Removed duplicate import of StepsTrackingScreen
 
 class TrackingPagesScreen extends StatefulWidget {
   const TrackingPagesScreen({Key? key}) : super(key: key);
@@ -31,7 +31,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentPage);
-    
+
     // Show swipe hint after a short delay
     Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted && _isInitialLoad) {
@@ -39,7 +39,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           _isInitialLoad = false;
           _showSwipeHint = true;
         });
-        
+
         // Hide the hint after 3 seconds
         Future.delayed(const Duration(seconds: 3), () {
           if (mounted) {
@@ -116,8 +116,12 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           ),
         ],
       ),
+      // Removed bottomNavigationBar, using Stack for floating effect
       body: Stack(
+        // Parent Stack for PageView and Floating Nav
         children: [
+          // Main Content Area (PageView) with bottom padding
+          // Add padding ONLY to the PageView container to prevent overlap with floating bar
           PageView(
             controller: _pageController,
             onPageChanged: (index) {
@@ -132,23 +136,32 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
               KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
             ],
           ),
-          
-          // Subtle edge indicators for swipe navigation
+
+          // Subtle edge indicators for swipe navigation (keep these)
           if (_currentPage < _titles.length - 1)
             _buildEdgeGradient(customColors, false),
-          
-          if (_currentPage > 0)
-            _buildEdgeGradient(customColors, true),
-            
-          // Initial swipe hint - more elegant and minimal
-          if (_showSwipeHint)
-            _buildSwipeHint(customColors, size),
+
+          if (_currentPage > 0) _buildEdgeGradient(customColors, true),
+
+          // Initial swipe hint - more elegant and minimal (keep this)
+          // if (_showSwipeHint) _buildSwipeHint(customColors, size),
+
+          // Positioned Floating Navigation Bar
+          Positioned(
+            // Use similar positioning as Dashboard
+            bottom: size.height * 0.04, // Adjust as needed
+            left: size.width * 0.18, // Adjust as needed
+            right: size.width * 0.18, // Adjust as needed
+            child: _buildPageIndicator(
+                theme, customColors), // This now builds the floating bar
+          ),
         ],
       ),
-      bottomNavigationBar: _buildPageIndicator(theme, customColors),
     );
   }
-  
+
+  // --- Helper Methods (Defined ONCE) ---
+
   Widget _buildEdgeGradient(CustomColors customColors, bool isLeft) {
     return Positioned(
       top: 0,
@@ -198,10 +211,10 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
       ),
     );
   }
-  
+
   Widget _buildSwipeHint(CustomColors customColors, Size size) {
     return Positioned(
-      bottom: 100,
+      bottom: 100, // Keep this above the floating nav bar
       left: 0,
       right: 0,
       child: Center(
@@ -215,7 +228,8 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
               child: Transform.translate(
                 offset: Offset(0, 20 * (1 - value)),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: customColors.cardBackground,
                     borderRadius: BorderRadius.circular(30),
@@ -268,78 +282,68 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     );
   }
 
-  // Replaces the old _buildPageIndicator
+  // This function builds the floating bar content
   Widget _buildPageIndicator(ThemeData theme, CustomColors customColors) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    // Define icons for each page
     final List<IconData> icons = [
       Icons.directions_walk, // Steps
       Icons.monitor_weight_outlined, // Weight
       Icons.pie_chart_outline_rounded, // Macros
     ];
 
-    return Padding(
-      // Add padding to mimic floating effect, adjust as needed
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom + 10, // Respect safe area + extra space
-        left: screenWidth * 0.18, // Match dashboard horizontal padding
-        right: screenWidth * 0.18,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14.0), // Match dashboard radius
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0), // Frosted glass
-          child: Container(
-            height: 45, // Match dashboard height
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2), // Match dashboard padding
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14.0),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+        child: Container(
+          height: 45,
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14.0),
+            color: theme.brightness == Brightness.light
+                ? Colors.grey.shade50.withOpacity(0.4)
+                : Colors.black.withOpacity(0.4),
+            border: Border.all(
               color: theme.brightness == Brightness.light
-                  ? Colors.grey.shade50.withOpacity(0.4) // Match dashboard color
-                  : Colors.black.withOpacity(0.4), // Match dashboard color
-              border: Border.all( // Match dashboard border
+                  ? Colors.grey.withOpacity(0.2)
+                  : Colors.white.withOpacity(0.1),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
                 color: theme.brightness == Brightness.light
-                    ? Colors.grey.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.1),
-                width: 0.5,
+                    ? Colors.black.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                spreadRadius: 0,
               ),
-              boxShadow: [ // Match dashboard shadow
-                BoxShadow(
-                  color: theme.brightness == Brightness.light
-                      ? Colors.black.withOpacity(0.05)
-                      : Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  spreadRadius: 0,
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: List.generate(_titles.length, (index) {
-                return _buildTrackingNavItem( // Use the new helper function
-                  context: context,
-                  icon: icons[index],
-                  isActive: _currentPage == index,
-                  onTap: () {
-                    if (_currentPage != index) {
-                      HapticFeedback.lightImpact();
-                      _pageController.animateToPage(
-                        index,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    }
-                  },
-                );
-              }),
-            ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(_titles.length, (index) {
+              return _buildTrackingNavItem(
+                context: context,
+                icon: icons[index],
+                isActive: _currentPage == index,
+                onTap: () {
+                  if (_currentPage != index) {
+                    HapticFeedback.lightImpact();
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  }
+                },
+              );
+            }),
           ),
         ),
       ),
     );
   }
 
-  // New helper function similar to _buildNavItemCompact from Dashboard
+  // Helper function for individual nav items
   Widget _buildTrackingNavItem({
     required BuildContext context,
     required IconData icon,
@@ -351,19 +355,17 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Container(
-          padding: const EdgeInsets.all(6), // Match dashboard padding
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            // Use accent color with opacity for active state background
             color: isActive
-                ? const Color(0xFFFFC107).withOpacity(0.2) // Match dashboard active bg
+                ? const Color(0xFFFFC107).withOpacity(0.2)
                 : Colors.transparent,
             shape: BoxShape.circle,
           ),
           child: Icon(
             icon,
-            // Use the same accent color for the icon itself
-            color: const Color(0xFFFFC107), // Match dashboard icon color
-            size: 24, // Match dashboard icon size
+            color: const Color(0xFFFFC107),
+            size: 24,
           ),
         ),
       ),
@@ -371,6 +373,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
   }
 }
 
+// --- KeepAlivePage Class (Defined ONCE) ---
 class KeepAlivePage extends StatefulWidget {
   final Widget child;
 

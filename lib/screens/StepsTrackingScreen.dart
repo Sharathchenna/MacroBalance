@@ -335,6 +335,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       _buildStepsHistoryList(customColors),
                       const SizedBox(height: 16),
                       _buildActivityInsights(customColors),
+                      const SizedBox(height: 50)
                     ],
                   ),
                 ),
@@ -435,11 +436,18 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                           width: 120,
                           height: 120,
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.grey.shade100
+                                    : customColors.cardBackground,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.shade200,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade200
+                                    : customColors.cardBackground
+                                        .withOpacity(0.1),
                                 blurRadius: 5,
                                 spreadRadius: 2,
                                 offset: const Offset(0, 2),
@@ -453,7 +461,10 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                           height: 120,
                           child: CircularProgressIndicator(
                             value: value,
-                            backgroundColor: Colors.grey.shade200,
+                            backgroundColor:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.grey.shade200
+                                    : customColors.dateNavigatorBackground,
                             valueColor: AlwaysStoppedAnimation<Color>(
                               value >= 1.0
                                   ? Colors.green
@@ -471,7 +482,11 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.grey.shade200,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade200
+                                    : customColors.cardBackground
+                                        .withOpacity(0.3),
                                 blurRadius: 3,
                                 spreadRadius: 1,
                                 offset: const Offset(0, 1),
