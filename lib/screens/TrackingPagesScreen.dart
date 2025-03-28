@@ -1,3 +1,5 @@
+import 'dart:ui'; // Added for ImageFilter
+import 'package:flutter/cupertino.dart'; // Added for potential icons if needed
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -266,63 +268,104 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     );
   }
 
+  // Replaces the old _buildPageIndicator
   Widget _buildPageIndicator(ThemeData theme, CustomColors customColors) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Define icons for each page
+    final List<IconData> icons = [
+      Icons.directions_walk, // Steps
+      Icons.monitor_weight_outlined, // Weight
+      Icons.pie_chart_outline_rounded, // Macros
+    ];
+
+    return Padding(
+      // Add padding to mimic floating effect, adjust as needed
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 10, // Respect safe area + extra space
+        left: screenWidth * 0.18, // Match dashboard horizontal padding
+        right: screenWidth * 0.18,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Page title indicators
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (int i = 0; i < _titles.length; i++)
-                GestureDetector(
-                  onTap: () {
-                    _pageController.animateToPage(
-                      i,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: i == _currentPage ? 16 : 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: i == _currentPage
-                          ? customColors.accentPrimary
-                          : customColors.dateNavigatorBackground,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      _titles[i],
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: i == _currentPage ? FontWeight.w600 : FontWeight.w500,
-                        color: i == _currentPage
-                            ? Colors.white
-                            : customColors.textSecondary,
-                      ),
-                    ),
-                  ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14.0), // Match dashboard radius
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0), // Frosted glass
+          child: Container(
+            height: 45, // Match dashboard height
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2), // Match dashboard padding
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14.0),
+              color: theme.brightness == Brightness.light
+                  ? Colors.grey.shade50.withOpacity(0.4) // Match dashboard color
+                  : Colors.black.withOpacity(0.4), // Match dashboard color
+              border: Border.all( // Match dashboard border
+                color: theme.brightness == Brightness.light
+                    ? Colors.grey.withOpacity(0.2)
+                    : Colors.white.withOpacity(0.1),
+                width: 0.5,
+              ),
+              boxShadow: [ // Match dashboard shadow
+                BoxShadow(
+                  color: theme.brightness == Brightness.light
+                      ? Colors.black.withOpacity(0.05)
+                      : Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  spreadRadius: 0,
                 ),
-            ],
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(_titles.length, (index) {
+                return _buildTrackingNavItem( // Use the new helper function
+                  context: context,
+                  icon: icons[index],
+                  isActive: _currentPage == index,
+                  onTap: () {
+                    if (_currentPage != index) {
+                      HapticFeedback.lightImpact();
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                  },
+                );
+              }),
+            ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  // New helper function similar to _buildNavItemCompact from Dashboard
+  Widget _buildTrackingNavItem({
+    required BuildContext context,
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          padding: const EdgeInsets.all(6), // Match dashboard padding
+          decoration: BoxDecoration(
+            // Use accent color with opacity for active state background
+            color: isActive
+                ? const Color(0xFFFFC107).withOpacity(0.2) // Match dashboard active bg
+                : Colors.transparent,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            // Use the same accent color for the icon itself
+            color: const Color(0xFFFFC107), // Match dashboard icon color
+            size: 24, // Match dashboard icon size
+          ),
+        ),
       ),
     );
   }
