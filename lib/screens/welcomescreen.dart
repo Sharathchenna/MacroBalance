@@ -115,7 +115,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                         ),
                         const SizedBox(height: 16),
                         const Text(
-                          'MacroTracker',
+                          'MacroBalance',
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
