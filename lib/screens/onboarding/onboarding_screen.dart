@@ -1089,7 +1089,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       value: _age,
                       minValue: 18,
                       maxValue: 80,
-                      onChanged: (value) => setState(() => _age = value),
+                      onChanged: (value) {
+                        HapticFeedback.lightImpact();
+                        setState(() => _age = value);
+                      },
                       selectedTextStyle: TextStyle(
                         color: customColors?.textPrimary,
                         fontSize: 32,
