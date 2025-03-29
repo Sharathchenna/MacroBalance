@@ -37,7 +37,8 @@ class WeightTrackingScreen extends StatefulWidget {
   State<WeightTrackingScreen> createState() => _WeightTrackingScreenState();
 }
 
-class _WeightTrackingScreenState extends State<WeightTrackingScreen> with SingleTickerProviderStateMixin {
+class _WeightTrackingScreenState extends State<WeightTrackingScreen>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   double _currentWeight = 70.0;
   double _targetWeight = 65.0;
@@ -66,14 +67,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
 
   Future<void> _loadWeightData() async {
     if (_isLoading) return;
-    
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Load cached data first for instant display
       final String? cachedData = prefs.getString('weight_data_cache');
       if (cachedData != null) {
@@ -81,7 +82,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
         setState(() {
           _currentWeight = cached['current_weight'] ?? _currentWeight;
           _targetWeight = cached['target_weight'] ?? _targetWeight;
-          _weightData = List<Map<String, dynamic>>.from(cached['weight_data'] ?? []);
+          _weightData =
+              List<Map<String, dynamic>>.from(cached['weight_data'] ?? []);
         });
       }
 
@@ -93,7 +95,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
           _currentWeight = macroResults['weight_kg'].toDouble();
         }
       }
-      
+
       _targetWeight = prefs.getDouble('goal_weight_kg') ?? _currentWeight;
 
       // If user is authenticated, fetch from Supabase
@@ -117,12 +119,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
         }
 
         // Cache the new data
-        await prefs.setString('weight_data_cache', json.encode({
-          'current_weight': _currentWeight,
-          'target_weight': _targetWeight,
-          'weight_data': _weightData,
-          'timestamp': DateTime.now().toIso8601String(),
-        }));
+        await prefs.setString(
+            'weight_data_cache',
+            json.encode({
+              'current_weight': _currentWeight,
+              'target_weight': _targetWeight,
+              'weight_data': _weightData,
+              'timestamp': DateTime.now().toIso8601String(),
+            }));
       }
 
       // Generate sample weight data around the current weight
@@ -134,7 +138,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
           'weight': _currentWeight + randomFluctuation,
         };
       });
-
     } catch (e) {
       print('Error loading weight data: $e');
     } finally {
@@ -169,7 +172,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(customColors.accentPrimary),
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(customColors.accentPrimary),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -265,9 +269,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
     return body;
   }
 
-  Widget _buildWeightStatusCard(BuildContext context, CustomColors customColors) {
+  Widget _buildWeightStatusCard(
+      BuildContext context, CustomColors customColors) {
     final progress = _getProgressPercentage();
-    
+
     return AnimatedBuilder(
       animation: _pageController,
       builder: (context, child) {
@@ -344,10 +349,13 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      Theme.of(context).brightness == Brightness.light
+                                      Theme.of(context).brightness ==
+                                              Brightness.light
                                           ? Colors.grey.shade50
-                                          : customColors.cardBackground.withOpacity(0.5),
-                                      Theme.of(context).brightness == Brightness.light  
+                                          : customColors
+                                              .dateNavigatorBackground,
+                                      Theme.of(context).brightness ==
+                                              Brightness.light
                                           ? Colors.grey.shade100
                                           : customColors.cardBackground,
                                     ],
@@ -362,7 +370,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                                   ],
                                 ),
                               ),
-                              
+
                               // Animated progress indicator
                               TweenAnimationBuilder<double>(
                                 tween: Tween(begin: 0, end: progress),
@@ -373,13 +381,20 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                                     children: [
                                       CircularProgressIndicator(
                                         value: value,
-                                        backgroundColor: Theme.of(context).brightness == Brightness.light
-                                            ? Colors.grey.shade200.withOpacity(0.5)
-                                            : customColors.dateNavigatorBackground.withOpacity(0.3),
-                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                        backgroundColor:
+                                            Theme.of(context).brightness ==
+                                                    Brightness.light
+                                                ? Colors.grey.shade200
+                                                    .withOpacity(0.5)
+                                                : customColors
+                                                    .dateNavigatorBackground
+                                                    .withOpacity(0.3),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
                                           value >= 1.0
                                               ? Colors.green.withOpacity(0.8)
-                                              : customColors.accentPrimary.withOpacity(0.8),
+                                              : customColors.accentPrimary
+                                                  .withOpacity(0.8),
                                         ),
                                         strokeWidth: 12,
                                         strokeCap: StrokeCap.round,
@@ -387,7 +402,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                                       CircularProgressIndicator(
                                         value: value,
                                         backgroundColor: Colors.transparent,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
                                           value >= 1.0
                                               ? Colors.green
                                               : customColors.accentPrimary,
@@ -403,22 +419,23 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                               // Animated weight display
                               TweenAnimationBuilder<double>(
                                 tween: Tween(begin: 0, end: _currentWeight),
-                                duration: const Duration(milliseconds: 1500), 
+                                duration: const Duration(milliseconds: 1500),
                                 curve: Curves.easeOutCubic,
                                 builder: (context, value, child) {
                                   return Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: customColors.cardBackground,
+                                      color: Colors.transparent,
                                       shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: customColors.accentPrimary.withOpacity(0.1),
-                                          blurRadius: 8,
-                                          spreadRadius: 2,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+                                      // boxShadow: [
+                                      //   BoxShadow(
+                                      //     color: customColors.accentPrimary
+                                      //         .withOpacity(0.1),
+                                      //     blurRadius: 8,
+                                      //     spreadRadius: 2,
+                                      //     offset: const Offset(0, 2),
+                                      //   ),
+                                      // ],
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -457,7 +474,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                             _buildProgressItem(
                               context,
                               'To Go',
-                              _formatWeight((_currentWeight - _targetWeight).abs()),
+                              _formatWeight(
+                                  (_currentWeight - _targetWeight).abs()),
                               Icons.trending_down,
                               customColors,
                             ),
@@ -475,7 +493,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
     );
   }
 
-  Widget _buildAddWeightButton(BuildContext context, CustomColors customColors) {
+  Widget _buildAddWeightButton(
+      BuildContext context, CustomColors customColors) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -594,7 +613,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                         },
                         style: ButtonStyle(
                           backgroundColor: MaterialStateProperty.all(
-                            isSelected ? customColors.cardBackground : Colors.transparent,
+                            isSelected
+                                ? customColors.cardBackground
+                                : Colors.transparent,
                           ),
                           shape: MaterialStateProperty.all(
                             RoundedRectangleBorder(
@@ -602,7 +623,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                             ),
                           ),
                           padding: MaterialStateProperty.all(
-                            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 10),
                           ),
                           overlayColor: MaterialStateProperty.all(
                             customColors.accentPrimary.withOpacity(0.1),
@@ -612,7 +634,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                           timeFrame,
                           style: GoogleFonts.inter(
                             fontSize: 14,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
                             color: isSelected
                                 ? customColors.accentPrimary
                                 : customColors.textPrimary,
@@ -666,10 +689,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                   SizedBox(
                     height: 240,
                     child: CustomWeightChart(
-                      weightPoints: _weightData.map((data) => WeightPoint(
-                        date: DateTime.parse(data['date'] as String),
-                        weight: data['weight'] as double,
-                      )).toList(),
+                      weightPoints: _weightData
+                          .map((data) => WeightPoint(
+                                date: DateTime.parse(data['date'] as String),
+                                weight: data['weight'] as double,
+                              ))
+                          .toList(),
                       isMetric: _isMetric,
                       customColors: customColors,
                       targetWeight: _targetWeight,
@@ -744,11 +769,13 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color: customColors.dateNavigatorBackground,
+                                      color:
+                                          customColors.dateNavigatorBackground,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           DateFormat('d').format(date),
@@ -771,7 +798,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           DateFormat('EEEE').format(date),
@@ -870,7 +898,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => _showEditGoalDialog(context, customColors),
+                      onPressed: () =>
+                          _showEditGoalDialog(context, customColors),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: customColors.accentPrimary,
                         foregroundColor: Colors.white,
@@ -901,7 +930,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
   Future<void> _saveWeightChanges() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Save to SharedPreferences
       await prefs.setDouble('current_weight', _currentWeight);
       await prefs.setDouble('goal_weight_kg', _targetWeight);
@@ -981,7 +1010,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> with Single
                   'weight': newWeight,
                 });
                 // Sort the data by date
-                _weightData.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+                _weightData.sort((a, b) =>
+                    (a['date'] as String).compareTo(b['date'] as String));
                 // Keep only the last 30 entries
                 if (_weightData.length > 30) {
                   _weightData = _weightData.sublist(_weightData.length - 30);
@@ -1489,8 +1519,9 @@ class _WeightChartPainter extends CustomPainter {
 
     for (int i = visibleRange.start; i <= visibleRange.end; i++) {
       if (animation < 1.0 &&
-          i > visibleRange.start +
-              (visibleRange.end - visibleRange.start) * animation) {
+          i >
+              visibleRange.start +
+                  (visibleRange.end - visibleRange.start) * animation) {
         break;
       }
 
@@ -1552,10 +1583,12 @@ class _WeightChartPainter extends CustomPainter {
     _drawWeightLine(canvas, size, chartWidth, chartHeight);
     _drawPoints(canvas, chartWidth, chartHeight);
     if (touchData != null) _drawTooltip(canvas, size);
-    if (zoomLevel <= 1.05 && animation >= 1.0) _drawZoomInstructions(canvas, size);
+    if (zoomLevel <= 1.05 && animation >= 1.0)
+      _drawZoomInstructions(canvas, size);
   }
 
-  void _drawGrid(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  void _drawGrid(
+      Canvas canvas, Size size, double chartWidth, double chartHeight) {
     final stepCount = 5;
     for (int i = 0; i <= stepCount; i++) {
       final y = size.height - 40 - (i / stepCount) * chartHeight;
@@ -1625,7 +1658,8 @@ class _WeightChartPainter extends CustomPainter {
     }
   }
 
-  void _drawTargetLine(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  void _drawTargetLine(
+      Canvas canvas, Size size, double chartWidth, double chartHeight) {
     final targetY = size.height -
         40 -
         ((targetWeight - minWeight) / (maxWeight - minWeight)) * chartHeight;
@@ -1677,7 +1711,8 @@ class _WeightChartPainter extends CustomPainter {
     );
   }
 
-  void _drawWeightLine(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  void _drawWeightLine(
+      Canvas canvas, Size size, double chartWidth, double chartHeight) {
     if (animatedPoints.length > 1) {
       final path = Path();
       path.moveTo(animatedPoints.first.dx, animatedPoints.first.dy);
@@ -1685,13 +1720,13 @@ class _WeightChartPainter extends CustomPainter {
       for (int i = 1; i < animatedPoints.length; i++) {
         final current = animatedPoints[i];
         final previous = animatedPoints[i - 1];
-        
+
         // Use quadratic bezier curves for smoother lines
         final controlPoint = Offset(
           (previous.dx + current.dx) / 2,
           previous.dy,
         );
-        
+
         path.quadraticBezierTo(
           controlPoint.dx,
           controlPoint.dy,
@@ -1710,12 +1745,12 @@ class _WeightChartPainter extends CustomPainter {
       for (int i = 1; i < animatedPoints.length; i++) {
         final current = animatedPoints[i];
         final previous = animatedPoints[i - 1];
-        
+
         final controlPoint = Offset(
           (previous.dx + current.dx) / 2,
           previous.dy,
         );
-        
+
         fillPath.quadraticBezierTo(
           controlPoint.dx,
           controlPoint.dy,

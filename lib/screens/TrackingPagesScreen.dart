@@ -138,10 +138,10 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           ),
 
           // Subtle edge indicators for swipe navigation (keep these)
-          if (_currentPage < _titles.length - 1)
-            _buildEdgeGradient(customColors, false),
+          // if (_currentPage < _titles.length - 1)
+          //   _buildEdgeGradient(customColors, false),
 
-          if (_currentPage > 0) _buildEdgeGradient(customColors, true),
+          // if (_currentPage > 0) _buildEdgeGradient(customColors, true),
 
           // Initial swipe hint - more elegant and minimal (keep this)
           // if (_showSwipeHint) _buildSwipeHint(customColors, size),
