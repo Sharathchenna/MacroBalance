@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -498,7 +499,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _showAddWeightDialog(context, customColors),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _showAddWeightDialog(context, customColors);
+        },
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(8),
@@ -961,73 +965,193 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
   Future<void> _showAddWeightDialog(
       BuildContext context, CustomColors customColors) async {
     double newWeight = _currentWeight;
+    DateTime selectedDate = DateTime.now(); // Initialize with today's date
 
     return showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Add Weight',
-          style: GoogleFonts.inter(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: customColors.textPrimary,
-          ),
-        ),
-        content: TextField(
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            hintText: 'Enter your weight',
-            suffix: Text(_isMetric ? 'kg' : 'lbs'),
-          ),
-          onChanged: (value) {
-            if (value.isNotEmpty) {
-              try {
-                newWeight = double.parse(value);
-                if (!_isMetric) {
-                  newWeight = newWeight / 2.20462; // Convert to kg
-                }
-              } catch (e) {
-                // Handle invalid input
-              }
-            }
+      builder: (context) {
+        return StatefulBuilder(
+          // Use StatefulBuilder to manage date state
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                'Add Weight Entry',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: customColors.textPrimary,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min, // Prevent excessive height
+                children: [
+                  TextField(
+                    keyboardType:
+                        TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      hintText: 'Enter your weight',
+                      suffix: Text(_isMetric ? 'kg' : 'lbs'),
+                    ),
+                    onChanged: (value) {
+                      if (value.isNotEmpty) {
+                        try {
+                          newWeight = double.parse(value);
+                          if (!_isMetric) {
+                            newWeight = newWeight / 2.20462; // Convert to kg
+                          }
+                        } catch (e) {
+                          // Handle invalid input
+                          print('Invalid weight input: $e');
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Date Picker Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Date:',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          color: customColors.textSecondary,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            builder: (BuildContext builder) {
+                              return Container(
+                                height: 250,
+                                color: customColors.cardBackground,
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          child: Text(
+                                            'Cancel',
+                                            style: TextStyle(
+                                                color:
+                                                    customColors.textSecondary),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          child: Text(
+                                            'Done',
+                                            style: TextStyle(
+                                                color:
+                                                    customColors.accentPrimary),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Expanded(
+                                      child: CupertinoDatePicker(
+                                        mode: CupertinoDatePickerMode.date,
+                                        initialDateTime: selectedDate,
+                                        maximumDate: DateTime.now(),
+                                        minimumDate: DateTime(2000),
+                                        onDateTimeChanged: (DateTime newDate) {
+                                          setDialogState(() {
+                                            selectedDate = newDate;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        },
+                        child: Text(
+                          DateFormat('MMM d, yyyy').format(selectedDate),
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: customColors.accentPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: customColors.textSecondary),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    // Basic validation: ensure weight is positive
+                    if (newWeight <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Please enter a valid weight.'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
+                    setState(() {
+                      // Add the new weight entry with the selected date
+                      _weightData.add({
+                        'date':
+                            selectedDate.toIso8601String(), // Use selected date
+                        'weight': newWeight,
+                      });
+                      // Sort the data by date after adding
+                      _weightData.sort((a, b) =>
+                          DateTime.parse(a['date'] as String)
+                              .compareTo(DateTime.parse(b['date'] as String)));
+
+                      // Update current weight only if the selected date is the latest
+                      if (_weightData.isNotEmpty &&
+                          selectedDate.isAfter(DateTime.parse(
+                              _weightData[_weightData.length - 2]['date']
+                                  as String))) {
+                        _currentWeight = newWeight;
+                      } else if (_weightData.length == 1) {
+                        // If it's the only entry, it's the current weight
+                        _currentWeight = newWeight;
+                      }
+
+                      // Optional: Limit history size if needed (e.g., keep last 100)
+                      // if (_weightData.length > 100) {
+                      //   _weightData = _weightData.sublist(_weightData.length - 100);
+                      // }
+                    });
+                    // Save the changes (Note: _saveWeightChanges only saves current/goal)
+                    // A separate mechanism would be needed to persist the full history
+                    Navigator.pop(context);
+                    await _saveWeightChanges();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: customColors.accentPrimary,
+                  ),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
           },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: customColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              setState(() {
-                _currentWeight = newWeight;
-                // Add the new weight entry to the data
-                _weightData.add({
-                  'date': DateTime.now().toIso8601String(),
-                  'weight': newWeight,
-                });
-                // Sort the data by date
-                _weightData.sort((a, b) =>
-                    (a['date'] as String).compareTo(b['date'] as String));
-                // Keep only the last 30 entries
-                if (_weightData.length > 30) {
-                  _weightData = _weightData.sublist(_weightData.length - 30);
-                }
-              });
-              // Save the changes
-              await _saveWeightChanges();
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: customColors.accentPrimary,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
