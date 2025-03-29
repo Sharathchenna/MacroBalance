@@ -13,6 +13,7 @@ import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/widgets/search_header.dart';
 import 'dart:async';
+import 'package:lottie/lottie.dart';
 
 class FoodSearchPage extends StatefulWidget {
   final String? selectedMeal;
@@ -279,10 +280,12 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            height: 150,
+            width: 150,
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
+              // borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
                   color: Theme.of(context).primaryColor.withOpacity(0.1),
@@ -291,20 +294,16 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 ),
               ],
             ),
-            child: RotationTransition(
-              turns: _loadingController,
-              child: Icon(
-                Icons.restaurant_rounded,
-                size: 48,
-                color: customColors!.textPrimary,
-              ),
+            child: Lottie.asset(
+              'assets/animations/potato_walking.json',
+              fit: BoxFit.contain,
             ),
           ),
           const SizedBox(height: 24),
           Text(
             'Finding delicious foods...',
             style: AppTypography.caption.copyWith(
-              color: customColors.textPrimary,
+              color: customColors!.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
