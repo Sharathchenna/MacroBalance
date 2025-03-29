@@ -113,63 +113,13 @@ void updateStatusBarForIOS(bool isDarkMode) {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase with explicit options
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    debugPrint("Firebase initialized successfully with explicit options");
-  } catch (e) {
-    debugPrint("Firebase initialization error: $e");
-  }
-
-
-  // Set initial status bar style for iOS
-  if (Platform.isIOS) {
-    // Start with light mode styling (dark icons) by default
-    updateStatusBarForIOS(false);
-  }
-
-  // await CameraService().controller;
-  await ApiService().getAccessToken();
-  //supabase setup
-  await Supabase.initialize(
-    anonKey:
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
-    url: "https://mdivtblabmnftdqlgysv.supabase.co",
-  );
-
-  // Initialize notification service
-  await NotificationService().initialize();
-  
-  // Initialize the widget service
-  await WidgetService.initWidgetService();
-
-  // Force refresh widgets when app starts to ensure sync
-  try {
-    await WidgetService.forceWidgetRefresh();
-  } catch (e) {
-    debugPrint('Failed to refresh widgets on app start: $e');
-  }
-
-  await Posthog().screen(screenName: "MainScreen");
-
-  // Initialize deep link handling
-  initDeepLinks();
-  await initPlatformState();
-
-  // Initialize FoodEntryProvider instance
+  // Initialize essential services first to show UI faster
   _foodEntryProviderInstance = FoodEntryProvider();
-  // Ensure it loads initial data if necessary (might need async init)
-  // await _foodEntryProviderInstance.loadInitialData(); // Example if needed
-
-  // Setup the method call handler for stats AFTER initializing the provider
   _setupStatsChannelHandler();
 
-
+  // Launch the app immediately without waiting for non-critical services
   runApp(
     MultiProvider(
-      // Use the globally created instance here
       providers: [
         ChangeNotifierProvider.value(value: _foodEntryProviderInstance),
         ChangeNotifierProvider(create: (_) => DateProvider()),
@@ -180,6 +130,113 @@ void main() async {
       child: const MyApp(),
     ),
   );
+
+  // Set initial status bar style for iOS
+  if (Platform.isIOS) {
+    updateStatusBarForIOS(false);
+  }
+
+  // Initialize services in the background after UI is shown
+  _initializeServicesInBackground();
+}
+
+// New function to initialize non-essential services in the background
+Future<void> _initializeServicesInBackground() async {
+  // Use multiple parallel operations for faster initialization
+  await Future.wait([
+    _initializeFirebase(),
+    _initializeSupabase(),
+    _initializeDeepLinks(),
+    _initializePlatformState(),
+  ]);
+
+  // Then initialize services that depend on above initializations
+  ApiService().getAccessToken(); // Don't await this 
+  NotificationService().initialize(); // Don't await this 
+  WidgetService.initWidgetService(); // Don't await this
+
+  // Delay widget refresh to avoid slowing down initial UI rendering
+  _delayedWidgetRefresh();
+
+  // Posthog logging (not critical for initial UI)
+  Posthog().screen(screenName: "MainScreen");
+}
+
+Future<void> _initializeFirebase() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint("Firebase initialized successfully with explicit options");
+  } catch (e) {
+    debugPrint("Firebase initialization error: $e");
+  }
+}
+
+Future<void> _initializeSupabase() async {
+  try {
+    await Supabase.initialize(
+      anonKey:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
+      url: "https://mdivtblabmnftdqlgysv.supabase.co",
+    );
+  } catch (e) {
+    debugPrint("Supabase initialization error: $e");
+  }
+}
+
+Future<void> _initializeDeepLinks() async {
+  try {
+    final initialUri = await getInitialUri();
+    if (initialUri != null) {
+      debugPrint('Initial URI: $initialUri');
+      _handleDeepLink(initialUri);
+    }
+    _initialUriHandled = true;
+
+    // Handle links when app is already running
+    uriLinkStream.listen((Uri? uri) {
+      if (!_initialUriHandled) return;
+      if (uri != null) {
+        debugPrint('URI link received: $uri');
+        _handleDeepLink(uri);
+      }
+    }, onError: (Object err) {
+      debugPrint('URI link error: $err');
+    });
+  } catch (e) {
+    debugPrint('Deep links initialization error: $e');
+  }
+}
+
+Future<void> _initializePlatformState() async {
+  try {
+    await Purchases.setLogLevel(LogLevel.debug);
+
+    PurchasesConfiguration? configuration;
+    if (Platform.isAndroid) {
+      // Android Implementation
+    } else if (Platform.isIOS) {
+      configuration = PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
+    }
+
+    if (configuration != null) {
+      await Purchases.configure(configuration);
+    }
+  } catch (e) {
+    debugPrint('Platform state initialization error: $e');
+  }
+}
+
+// Delay widget refresh to avoid impacting startup time
+Future<void> _delayedWidgetRefresh() async {
+  // Delay widget refresh to avoid slowing startup
+  await Future.delayed(const Duration(seconds: 3));
+  try {
+    await WidgetService.forceWidgetRefresh();
+  } catch (e) {
+    debugPrint('Delayed widget refresh failed: $e');
+  }
 }
 
 // Function to setup the method channel handler
@@ -285,47 +342,6 @@ void _setupStatsChannelHandler() {
         );
     }
   });
-}
-
-// Add this function to handle deep links
-Future<void> initDeepLinks() async {
-  // Handle app opened from a link
-  try {
-    final initialUri = await getInitialUri();
-    if (initialUri != null) {
-      debugPrint('Initial URI: $initialUri');
-      _handleDeepLink(initialUri);
-    }
-    _initialUriHandled = true;
-  } on PlatformException catch (e) {
-    debugPrint('Failed to get initial URI: ${e.message}');
-  }
-
-  // Handle links when app is already running
-  uriLinkStream.listen((Uri? uri) {
-    if (!_initialUriHandled) return;
-    if (uri != null) {
-      debugPrint('URI link received: $uri');
-      _handleDeepLink(uri);
-    }
-  }, onError: (Object err) {
-    debugPrint('URI link error: $err');
-  });
-}
-
-Future<void> initPlatformState() async {
-  await Purchases.setLogLevel(LogLevel.debug);
-
-  PurchasesConfiguration? configuration;
-  if (Platform.isAndroid) {
-    // Android Implementation
-  } else if (Platform.isIOS) {
-    configuration = PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
-  }
-
-  if (configuration != null) {
-    await Purchases.configure(configuration);
-  }
 }
 
 // Function to handle the deep link

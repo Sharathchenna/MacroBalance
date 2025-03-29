@@ -225,33 +225,41 @@ class _HardPaywallScreenState extends State<_HardPaywallScreen> with WidgetsBind
   Widget build(BuildContext context) {
     // We wrap PaywallScreen in a repaint boundary to optimize rendering
     return RepaintBoundary(
-      child: PaywallScreen(
-        // When the paywall is dismissed, check if the subscription status changed
-        onDismiss: () async {
-          if (_isDisposed) return;
-          
-          // Call onSubscriptionChanged first (might trigger UI updates)
-          widget.onSubscriptionChanged();
-          
-          // Do additional verification and force UI refresh if needed
-          await _forceSubscriptionRefresh();
-          
-          if (_isDisposed) return;
-          
-          // After checking subscription status, if the user still hasn't subscribed,
-          // show a snackbar informing them that a subscription is required
-          final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-          if (!subscriptionProvider.isProUser && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('A subscription is required to use this app'),
-                duration: Duration(seconds: 3),
-                behavior: SnackBarBehavior.fixed,
-              ),
-            );
-          }
-        },
-        allowDismissal: false, // Don't allow dismissal without subscribing
+      child: Container(
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height,
+        padding: EdgeInsets.zero,
+        margin: EdgeInsets.zero,
+        child: SizedBox.expand(
+          child: PaywallScreen(
+            // When the paywall is dismissed, check if the subscription status changed
+            onDismiss: () async {
+              if (_isDisposed) return;
+              
+              // Call onSubscriptionChanged first (might trigger UI updates)
+              widget.onSubscriptionChanged();
+              
+              // Do additional verification and force UI refresh if needed
+              await _forceSubscriptionRefresh();
+              
+              if (_isDisposed) return;
+              
+              // After checking subscription status, if the user still hasn't subscribed,
+              // show a snackbar informing them that a subscription is required
+              final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+              if (!subscriptionProvider.isProUser && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('A subscription is required to use this app'),
+                    duration: Duration(seconds: 3),
+                    behavior: SnackBarBehavior.fixed,
+                  ),
+                );
+              }
+            },
+            allowDismissal: false, // Don't allow dismissal without subscribing
+          ),
+        ),
       ),
     );
   }

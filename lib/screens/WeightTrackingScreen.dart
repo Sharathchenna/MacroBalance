@@ -83,9 +83,26 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         setState(() {
           _currentWeight = cached['current_weight'] ?? _currentWeight;
           _targetWeight = cached['target_weight'] ?? _targetWeight;
-          _weightData =
-              List<Map<String, dynamic>>.from(cached['weight_data'] ?? []);
+          _weightData = List<Map<String, dynamic>>.from(cached['weight_data'] ?? []);
         });
+      }
+
+      // Get stored weight history
+      final String? weightHistoryJson = prefs.getString('weight_history');
+      if (weightHistoryJson != null && weightHistoryJson.isNotEmpty) {
+        final List<dynamic> weightHistory = json.decode(weightHistoryJson);
+        if (weightHistory.isNotEmpty) {
+          setState(() {
+            _weightData = List<Map<String, dynamic>>.from(weightHistory);
+            
+            // Set current weight to the latest entry
+            if (_weightData.isNotEmpty) {
+              final latestEntry = _weightData.reduce((a, b) => 
+                DateTime.parse(a['date'] as String).isAfter(DateTime.parse(b['date'] as String)) ? a : b);
+              _currentWeight = latestEntry['weight'] as double;
+            }
+          });
+        }
       }
 
       // Try to get the current weight from macro_results
@@ -94,6 +111,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         final macroResults = json.decode(macroResultsJson);
         if (macroResults['weight_kg'] != null) {
           _currentWeight = macroResults['weight_kg'].toDouble();
+          
+          // If we have the current weight but no history, create first entry
+          if (_weightData.isEmpty) {
+            _weightData.add({
+              'date': DateTime.now().toIso8601String(),
+              'weight': _currentWeight,
+            });
+          }
         }
       }
 
@@ -119,26 +144,52 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           }
         }
 
-        // Cache the new data
-        await prefs.setString(
-            'weight_data_cache',
-            json.encode({
-              'current_weight': _currentWeight,
-              'target_weight': _targetWeight,
-              'weight_data': _weightData,
-              'timestamp': DateTime.now().toIso8601String(),
-            }));
+        // Try to fetch weight history from Supabase
+        try {
+          final historyResponse = await Supabase.instance.client
+              .from('weight_history')
+              .select()
+              .eq('user_id', currentUser.id)
+              .order('date', ascending: true);
+
+          if (historyResponse != null && historyResponse.isNotEmpty) {
+            setState(() {
+              _weightData = List<Map<String, dynamic>>.from(historyResponse.map((item) => {
+                'date': item['date'],
+                'weight': item['weight'].toDouble(),
+              }).toList());
+            });
+          }
+        } catch (e) {
+          print('Error fetching weight history: $e');
+        }
       }
 
-      // Generate sample weight data around the current weight
-      _weightData = List.generate(30, (index) {
-        final date = DateTime.now().subtract(Duration(days: 29 - index));
-        final randomFluctuation = (math.Random().nextDouble() - 0.5);
-        return {
-          'date': date.toIso8601String(),
-          'weight': _currentWeight + randomFluctuation,
-        };
-      });
+      // Create sample data only if we have no actual data
+      if (_weightData.isEmpty) {
+        _weightData = List.generate(30, (index) {
+          final date = DateTime.now().subtract(Duration(days: 29 - index));
+          final randomFluctuation = (math.Random().nextDouble() - 0.5);
+          return {
+            'date': date.toIso8601String(),
+            'weight': _currentWeight + randomFluctuation,
+          };
+        });
+      }
+
+      // Cache the new data
+      await prefs.setString(
+          'weight_data_cache',
+          json.encode({
+            'current_weight': _currentWeight,
+            'target_weight': _targetWeight,
+            'weight_data': _weightData,
+            'timestamp': DateTime.now().toIso8601String(),
+          }));
+          
+      // Also save to weight_history for persistence
+      await prefs.setString('weight_history', json.encode(_weightData));
+      
     } catch (e) {
       print('Error loading weight data: $e');
     } finally {
@@ -658,6 +709,43 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
   }
 
   Widget _buildWeightChart(CustomColors customColors) {
+    // Calculate statistics
+    double weightChange = 0;
+    String timeDescription = '';
+    
+    if (_weightData.length > 1) {
+      // Sort by date to ensure we're comparing oldest with newest
+      _weightData.sort((a, b) => 
+        DateTime.parse(a['date'] as String).compareTo(DateTime.parse(b['date'] as String)));
+      
+      // Get first and last entries based on selected time frame
+      final firstEntry = _filterWeightDataByTimeFrame(_weightData).first;
+      final lastEntry = _filterWeightDataByTimeFrame(_weightData).last;
+      
+      // Calculate change
+      final startWeight = firstEntry['weight'] as double;
+      final endWeight = lastEntry['weight'] as double;
+      weightChange = endWeight - startWeight;
+      
+      // Format time description
+      final startDate = DateTime.parse(firstEntry['date'] as String);
+      final endDate = DateTime.parse(lastEntry['date'] as String);
+      final days = endDate.difference(startDate).inDays;
+      
+      if (days < 7) {
+        timeDescription = days == 0 ? 'today' : 'in the last $days day${days == 1 ? '' : 's'}';
+      } else if (days < 30) {
+        final weeks = (days / 7).floor();
+        timeDescription = 'in the last $weeks week${weeks == 1 ? '' : 's'}';
+      } else if (days < 365) {
+        final months = (days / 30).floor();
+        timeDescription = 'in the last $months month${months == 1 ? '' : 's'}';
+      } else {
+        final years = (days / 365).floor();
+        timeDescription = 'in the last $years year${years == 1 ? '' : 's'}';
+      }
+    }
+    
     return AnimatedBuilder(
       animation: _pageController,
       builder: (context, child) {
@@ -665,53 +753,189 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           offset: Offset(0, 20 * (1 - _pageController.value)),
           child: Opacity(
             opacity: _pageController.value,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: customColors.cardBackground,
+            child: Card(
+              elevation: 2,
+              shadowColor: Colors.black.withOpacity(0.1),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Weight Trend',
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: customColors.textPrimary,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: customColors.cardBackground,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    height: 240,
-                    child: CustomWeightChart(
-                      weightPoints: _weightData
-                          .map((data) => WeightPoint(
-                                date: DateTime.parse(data['date'] as String),
-                                weight: data['weight'] as double,
-                              ))
-                          .toList(),
-                      isMetric: _isMetric,
-                      customColors: customColors,
-                      targetWeight: _targetWeight,
-                      timeFrame: _selectedTimeFrame,
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header with title and add button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Weight Trend',
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: customColors.textPrimary,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => _showAddWeightDialog(context, customColors),
+                          icon: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: customColors.accentPrimary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.add,
+                              size: 16,
+                              color: customColors.accentPrimary,
+                            ),
+                          ),
+                          tooltip: 'Add weight entry',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    
+                    // Weight change information
+                    if (_weightData.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 16),
+                        child: Row(
+                          children: [
+                            Icon(
+                              weightChange > 0 
+                                ? Icons.arrow_upward 
+                                : weightChange < 0
+                                  ? Icons.arrow_downward
+                                  : Icons.remove,
+                              size: 16,
+                              color: weightChange > 0
+                                ? Colors.redAccent
+                                : weightChange < 0
+                                  ? Colors.greenAccent.shade700
+                                  : customColors.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${weightChange.abs().toStringAsFixed(1)} ${_isMetric ? 'kg' : 'lbs'} ${weightChange > 0 ? 'gained' : weightChange < 0 ? 'lost' : 'maintained'} $timeDescription',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: weightChange > 0
+                                  ? Colors.redAccent
+                                  : weightChange < 0
+                                    ? Colors.greenAccent.shade700
+                                    : customColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    
+                    // Chart
+                    SizedBox(
+                      height: 240,
+                      child: CustomWeightChart(
+                        weightPoints: _weightData
+                            .map((data) => WeightPoint(
+                                  date: DateTime.parse(data['date'] as String),
+                                  weight: data['weight'] as double,
+                                ))
+                            .toList(),
+                        isMetric: _isMetric,
+                        customColors: customColors,
+                        targetWeight: _targetWeight,
+                        timeFrame: _selectedTimeFrame,
+                      ),
+                    ),
+                    
+                    // Chart instructions
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.touch_app,
+                            size: 14,
+                            color: customColors.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Touch to see details • Pinch to zoom',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: customColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         );
       },
     );
+  }
+  
+  List<Map<String, dynamic>> _filterWeightDataByTimeFrame(List<Map<String, dynamic>> data) {
+    if (data.isEmpty) return [];
+    
+    final now = DateTime.now();
+    final oneWeekAgo = now.subtract(const Duration(days: 7));
+    final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
+    final threeMonthsAgo = DateTime(now.year, now.month - 3, now.day);
+    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
+    final yearAgo = DateTime(now.year - 1, now.month, now.day);
+    
+    // Make a copy to avoid modifying the original
+    final filteredData = List<Map<String, dynamic>>.from(data);
+    
+    // Filter based on selected timeframe
+    switch (_selectedTimeFrame) {
+      case 'Week':
+        return filteredData.where((entry) {
+          final date = DateTime.parse(entry['date'] as String);
+          return date.isAfter(oneWeekAgo) || date.isAtSameMomentAs(oneWeekAgo);
+        }).toList();
+      case 'Month':
+        return filteredData.where((entry) {
+          final date = DateTime.parse(entry['date'] as String);
+          return date.isAfter(oneMonthAgo) || date.isAtSameMomentAs(oneMonthAgo);
+        }).toList();
+      case '3 Months':
+        return filteredData.where((entry) {
+          final date = DateTime.parse(entry['date'] as String);
+          return date.isAfter(threeMonthsAgo) || date.isAtSameMomentAs(threeMonthsAgo);
+        }).toList();
+      case '6 Months':
+        return filteredData.where((entry) {
+          final date = DateTime.parse(entry['date'] as String);
+          return date.isAfter(sixMonthsAgo) || date.isAtSameMomentAs(sixMonthsAgo);
+        }).toList();
+      case 'Year':
+        return filteredData.where((entry) {
+          final date = DateTime.parse(entry['date'] as String);
+          return date.isAfter(yearAgo) || date.isAtSameMomentAs(yearAgo);
+        }).toList();
+      default:
+        return filteredData;
+    }
   }
 
   Widget _buildWeightHistory(CustomColors customColors) {
@@ -935,9 +1159,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Save to SharedPreferences
+      // Save current and target weights
       await prefs.setDouble('current_weight', _currentWeight);
       await prefs.setDouble('goal_weight_kg', _targetWeight);
+
+      // Save the full weight history
+      await prefs.setString('weight_history', json.encode(_weightData));
 
       // Update macro_results with new current weight
       final String? macroResultsJson = prefs.getString('macro_results');
@@ -947,15 +1174,47 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         await prefs.setString('macro_results', json.encode(macroResults));
       }
 
+      // Cache the data for quicker loading
+      await prefs.setString(
+          'weight_data_cache',
+          json.encode({
+            'current_weight': _currentWeight,
+            'target_weight': _targetWeight,
+            'weight_data': _weightData,
+            'timestamp': DateTime.now().toIso8601String(),
+          }));
+
       // If user is authenticated, sync to Supabase
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser != null) {
+        // Update current weight and goal
         await Supabase.instance.client.from('user_macros').upsert({
           'id': currentUser.id,
           'weight': _currentWeight,
           'goal_weight_kg': _targetWeight,
           'updated_at': DateTime.now().toIso8601String(),
         });
+        
+        // Sync the weight history to Supabase if table exists
+        try {
+          // First clear existing entries to avoid duplicates
+          await Supabase.instance.client
+              .from('weight_history')
+              .delete()
+              .eq('user_id', currentUser.id);
+              
+          // Then insert all entries
+          for (var entry in _weightData) {
+            await Supabase.instance.client.from('weight_history').insert({
+              'user_id': currentUser.id,
+              'date': entry['date'],
+              'weight': entry['weight'],
+            });
+          }
+        } catch (e) {
+          print('Weight history sync failed: $e');
+          // This might fail if the table doesn't exist, which is ok
+        }
       }
     } catch (e) {
       print('Error saving weight changes: $e');
@@ -1281,27 +1540,44 @@ class _CustomWeightChartState extends State<CustomWeightChart>
 
   List<WeightPoint> _getFilteredData() {
     final now = DateTime.now();
+    final oneWeekAgo = now.subtract(const Duration(days: 7));
+    final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
+    final threeMonthsAgo = DateTime(now.year, now.month - 3, now.day);
+    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
+    final yearAgo = DateTime(now.year - 1, now.month, now.day);
+
     List<WeightPoint> filteredPoints;
 
     switch (widget.timeFrame) {
       case 'Week':
-        final weekAgo = now.subtract(const Duration(days: 7));
         filteredPoints = widget.weightPoints
             .where((point) =>
-                point.date.isAfter(weekAgo) ||
-                point.date.isAtSameMomentAs(weekAgo))
+                point.date.isAfter(oneWeekAgo) ||
+                point.date.isAtSameMomentAs(oneWeekAgo))
             .toList();
         break;
       case 'Month':
-        final monthAgo = DateTime(now.year, now.month - 1, now.day);
         filteredPoints = widget.weightPoints
             .where((point) =>
-                point.date.isAfter(monthAgo) ||
-                point.date.isAtSameMomentAs(monthAgo))
+                point.date.isAfter(oneMonthAgo) ||
+                point.date.isAtSameMomentAs(oneMonthAgo))
+            .toList();
+        break;
+      case '3 Months':
+        filteredPoints = widget.weightPoints
+            .where((point) =>
+                point.date.isAfter(threeMonthsAgo) ||
+                point.date.isAtSameMomentAs(threeMonthsAgo))
+            .toList();
+        break;
+      case '6 Months':
+        filteredPoints = widget.weightPoints
+            .where((point) =>
+                point.date.isAfter(sixMonthsAgo) ||
+                point.date.isAtSameMomentAs(sixMonthsAgo))
             .toList();
         break;
       case 'Year':
-        final yearAgo = DateTime(now.year - 1, now.month, now.day);
         filteredPoints = widget.weightPoints
             .where((point) =>
                 point.date.isAfter(yearAgo) ||
@@ -1358,46 +1634,35 @@ class _CustomWeightChartState extends State<CustomWeightChart>
                 _lastFocalPoint = details.focalPoint;
               });
             }
-
-            // Handle touch interaction during scale if scale is 1.0 (just moving)
-            if (details.scale == 1.0) {
-              _updateTouch(details.localFocalPoint);
-            }
           },
           onScaleEnd: (details) {
             _lastFocalPoint = null;
-
-            // Keep tooltip visible for a moment after touch ends
-            Future.delayed(const Duration(seconds: 2), () {
-              if (mounted) {
-                setState(() {
-                  _touchData = null;
-                });
-              }
-            });
           },
           onTapDown: (details) {
             _updateTouch(details.localPosition);
           },
-          child: AnimatedBuilder(
-            animation: _animationController,
-            builder: (context, _) {
-              return CustomPaint(
-                size: Size.infinite,
-                painter: _WeightChartPainter(
-                  weightPoints: _getFilteredData(),
-                  customColors: widget.customColors,
-                  targetWeight: widget.targetWeight,
-                  animation: _animationController.value,
-                  touchData: _touchData,
-                  isMetric: widget.isMetric,
-                  zoomLevel: _zoomLevel,
-                  panOffset: _panOffset,
-                ),
-              );
-            },
+          onTapUp: (details) {
+            // Optional: Hide touch data after a delay
+            // Future.delayed(Duration(seconds: 2), () {
+            //   if (mounted) setState(() => _touchData = null);
+            // });
+          },
+          child: CustomPaint(
+            painter: _WeightChartPainter(
+              weightPoints: _getFilteredData(),
+              customColors: widget.customColors,
+              targetWeight: widget.targetWeight,
+              animation: _animationController.value,
+              touchData: _touchData,
+              isMetric: widget.isMetric,
+              zoomLevel: _zoomLevel,
+              panOffset: _panOffset,
+              timeFrame: widget.timeFrame, // Pass the time frame to the painter
+            ),
+            size: Size.infinite,
           ),
         ),
+        
         // Zoom indicator
         Positioned(
           right: 10,
@@ -1559,6 +1824,7 @@ class _WeightChartPainter extends CustomPainter {
   final bool isMetric;
   final double zoomLevel;
   final double panOffset;
+  final String timeFrame;
   late final Size size;
 
   // Cache for expensive calculations
@@ -1583,6 +1849,7 @@ class _WeightChartPainter extends CustomPainter {
     required this.isMetric,
     this.zoomLevel = 1.0,
     this.panOffset = 0.0,
+    required this.timeFrame,
   });
 
   void _initializeValues(Size size) {
@@ -1594,35 +1861,47 @@ class _WeightChartPainter extends CustomPainter {
     maxWeight = weights.isEmpty ? 0 : weights.reduce(math.max) + 1;
     visibleRange = _getVisiblePointsIndices(weightPoints.length);
 
-    // Initialize paints
+    // Initialize paints with improved styling
     gridPaint = Paint()
-      ..color = customColors.textSecondary.withOpacity(0.1)
-      ..strokeWidth = 1;
+      ..color = customColors.textSecondary.withOpacity(0.12)
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
 
     linePaint = Paint()
       ..color = customColors.accentPrimary
-      ..strokeWidth = 3
+      ..strokeWidth = 3.0
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
 
     fillPaint = Paint()
-      ..color = customColors.accentPrimary.withOpacity(0.1)
-      ..style = PaintingStyle.fill;
+      ..shader = ui.Gradient.linear(
+        Offset(size.width / 2, 0),
+        Offset(size.width / 2, size.height),
+        [
+          customColors.accentPrimary.withOpacity(0.4),
+          customColors.accentPrimary.withOpacity(0.05),
+        ],
+      )
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
 
     pointPaint = Paint()
       ..color = customColors.cardBackground
-      ..style = PaintingStyle.fill;
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
 
     pointBorderPaint = Paint()
       ..color = customColors.accentPrimary
+      ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..isAntiAlias = true;
 
-    // Initialize text styles
     labelStyle = TextStyle(
-      color: customColors.textSecondary,
-      fontSize: 10,
+      color: customColors.textPrimary,
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
     );
 
     labelPainter = TextPainter(
@@ -1630,44 +1909,96 @@ class _WeightChartPainter extends CustomPainter {
       textAlign: TextAlign.center,
     );
 
-    // Pre-calculate animated points
-    animatedPoints = _calculateAnimatedPoints();
+    // Calculate animated points for smooth drawing
+    animatedPoints = [];
+    if (weightPoints.isNotEmpty) {
+      final filteredPoints = _getFilteredData();
+      final chartWidth = size.width - 60;
+      final chartHeight = size.height - 50;
+
+      for (int i = visibleRange.start; i <= visibleRange.end; i++) {
+        if (i < filteredPoints.length) {
+          final point = filteredPoints[i];
+          final pointX = _getXPositionForIndex(
+              i, filteredPoints.length, chartWidth, size);
+          final pointY = size.height -
+              40 -
+              ((point.weight - minWeight) / (maxWeight - minWeight)) *
+                  chartHeight *
+                  animation;
+          animatedPoints.add(Offset(pointX, pointY));
+        }
+      }
+    }
   }
 
-  List<Offset> _calculateAnimatedPoints() {
-    if (weightPoints.isEmpty) return [];
+  List<WeightPoint> _getFilteredData() {
+    // Similar to the method in CustomWeightChart
+    final now = DateTime.now();
+    final oneWeekAgo = now.subtract(const Duration(days: 7));
+    final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
+    final threeMonthsAgo = DateTime(now.year, now.month - 3, now.day);
+    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
+    final yearAgo = DateTime(now.year - 1, now.month, now.day);
 
-    final points = <Offset>[];
-    final chartWidth = size.width - 60;
-    final chartHeight = size.height - 50;
+    List<WeightPoint> filteredPoints;
 
-    for (int i = visibleRange.start; i <= visibleRange.end; i++) {
-      if (animation < 1.0 &&
-          i >
-              visibleRange.start +
-                  (visibleRange.end - visibleRange.start) * animation) {
+    switch (timeFrame) {
+      case 'Week':
+        filteredPoints = weightPoints
+            .where((point) =>
+                point.date.isAfter(oneWeekAgo) ||
+                point.date.isAtSameMomentAs(oneWeekAgo))
+            .toList();
         break;
-      }
-
-      final point = weightPoints[i];
-      final x = _getXPositionForIndex(i, chartWidth);
-      final y = size.height -
-          40 -
-          ((point.weight - minWeight) / (maxWeight - minWeight)) * chartHeight;
-
-      points.add(Offset(x, y));
+      case 'Month':
+        filteredPoints = weightPoints
+            .where((point) =>
+                point.date.isAfter(oneMonthAgo) ||
+                point.date.isAtSameMomentAs(oneMonthAgo))
+            .toList();
+        break;
+      case '3 Months':
+        filteredPoints = weightPoints
+            .where((point) =>
+                point.date.isAfter(threeMonthsAgo) ||
+                point.date.isAtSameMomentAs(threeMonthsAgo))
+            .toList();
+        break;
+      case '6 Months':
+        filteredPoints = weightPoints
+            .where((point) =>
+                point.date.isAfter(sixMonthsAgo) ||
+                point.date.isAtSameMomentAs(sixMonthsAgo))
+            .toList();
+        break;
+      case 'Year':
+        filteredPoints = weightPoints
+            .where((point) =>
+                point.date.isAfter(yearAgo) ||
+                point.date.isAtSameMomentAs(yearAgo))
+            .toList();
+        break;
+      default:
+        filteredPoints = weightPoints;
     }
 
-    return points;
+    // Sort points by date just to be sure
+    filteredPoints.sort((a, b) => a.date.compareTo(b.date));
+
+    return filteredPoints;
   }
 
-  // Calculate which points are visible based on zoom and pan
+  String getTimeFrame() {
+    return timeFrame;
+  }
+
   _VisibleRange _getVisiblePointsIndices(int totalPoints) {
     if (totalPoints <= 1) return _VisibleRange(0, 0);
 
     // Calculate visible range based on zoom level and pan offset
     final visiblePortion = 1.0 / zoomLevel;
-    final center = 0.5 + (panOffset / 100);
+    final center = 0.5 + (panOffset / (100.0 * 2));
 
     // Calculate start and end indices
     int start = ((center - visiblePortion / 2) * (totalPoints - 1)).floor();
@@ -1680,13 +2011,12 @@ class _WeightChartPainter extends CustomPainter {
     return _VisibleRange(start, end);
   }
 
-  // Calculate x position for point at index, accounting for zoom and pan
-  double _getXPositionForIndex(int index, double chartWidth) {
-    final visibleRange = _getVisiblePointsIndices(weightPoints.length);
+  double _getXPositionForIndex(
+      int index, int totalPoints, double chartWidth, Size size) {
+    final visibleRange = _getVisiblePointsIndices(totalPoints);
     final visibleCount = visibleRange.end - visibleRange.start;
 
-    if (visibleCount <= 0)
-      return 30 + (index / (weightPoints.length - 1)) * chartWidth;
+    if (visibleCount <= 0) return 30 + (index / (totalPoints - 1)) * chartWidth;
 
     // Map index to position within visible range
     final relativeIndex = index - visibleRange.start;
@@ -1695,355 +2025,403 @@ class _WeightChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (weightPoints.isEmpty) return;
+    if (weightPoints.isEmpty) {
+      _drawEmptyState(canvas, size);
+      return;
+    }
 
     _initializeValues(size);
 
-    final chartWidth = size.width - 60;
-    final chartHeight = size.height - 50;
+    final chartWidth = size.width - 60; // Accounting for padding
+    final chartHeight = size.height - 50; // Height excluding bottom labels
 
+    // Draw grid lines and labels
     _drawGrid(canvas, size, chartWidth, chartHeight);
-    _drawTargetLine(canvas, size, chartWidth, chartHeight);
-    _drawWeightLine(canvas, size, chartWidth, chartHeight);
-    _drawPoints(canvas, chartWidth, chartHeight);
-    if (touchData != null) _drawTooltip(canvas, size);
-    if (zoomLevel <= 1.05 && animation >= 1.0)
-      _drawZoomInstructions(canvas, size);
+
+    // Draw target weight line if in range
+    if (targetWeight >= minWeight && targetWeight <= maxWeight) {
+      _drawTargetLine(canvas, size, chartWidth, chartHeight);
+    }
+
+    // Draw data points and connecting lines
+    if (animatedPoints.length > 1) {
+      // Draw area fill first (behind the line)
+      _drawAreaFill(canvas, size, chartWidth, chartHeight);
+      
+      // Draw connecting line
+      _drawConnectingLine(canvas, size, chartWidth, chartHeight);
+    }
+
+    // Draw individual data points
+    _drawDataPoints(canvas, size, chartWidth, chartHeight);
+
+    // Draw touch interaction elements
+    if (touchData != null) {
+      _drawTouchInteraction(canvas, size, chartWidth, chartHeight);
+    }
   }
 
-  void _drawGrid(
-      Canvas canvas, Size size, double chartWidth, double chartHeight) {
-    final stepCount = 5;
-    for (int i = 0; i <= stepCount; i++) {
-      final y = size.height - 40 - (i / stepCount) * chartHeight;
+  void _drawEmptyState(Canvas canvas, Size size) {
+    final textStyle = TextStyle(
+      color: customColors.textSecondary,
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+    );
+    
+    const text = 'No weight data available';
+    final textSpan = TextSpan(text: text, style: textStyle);
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: ui.TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+    
+    textPainter.layout(maxWidth: size.width);
+    textPainter.paint(
+      canvas,
+      Offset((size.width - textPainter.width) / 2, size.height / 2 - 10),
+    );
+  }
 
+  void _drawGrid(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+    // Draw horizontal grid lines with improved spacing
+    final gridLineCount = 5;
+    for (int i = 0; i <= gridLineCount; i++) {
+      final y = 20 + (i / gridLineCount) * chartHeight;
+      
       // Draw grid line
       canvas.drawLine(
         Offset(30, y),
-        Offset(size.width - 30, y),
+        Offset(size.width - 20, y),
         gridPaint,
       );
 
-      // Draw weight label
-      final weight = minWeight + (i / stepCount) * (maxWeight - minWeight);
-      final weightText = isMetric
-          ? '${weight.toStringAsFixed(1)}'
-          : '${(weight * 2.20462).toStringAsFixed(1)}';
-
-      labelPainter
-        ..text = TextSpan(text: weightText, style: labelStyle)
-        ..layout();
-
-      labelPainter.paint(
-        canvas,
-        Offset(10, y - labelPainter.height / 2),
-      );
+      // Draw weight labels
+      if (i < gridLineCount) {
+        final weight = maxWeight - (i / gridLineCount) * (maxWeight - minWeight);
+        final formattedWeight = isMetric
+            ? '${weight.toStringAsFixed(1)} kg'
+            : '${(weight * 2.20462).toStringAsFixed(1)} lbs';
+            
+        labelPainter
+          ..text = TextSpan(
+            text: formattedWeight,
+            style: labelStyle,
+          )
+          ..layout(minWidth: 0, maxWidth: 60);
+          
+        labelPainter.paint(
+          canvas,
+          Offset(size.width - labelPainter.width - 5, y - labelPainter.height / 2),
+        );
+      }
     }
 
-    // Draw unit label
-    labelPainter
-      ..text = TextSpan(
-          text: isMetric ? 'kg' : 'lbs',
-          style: labelStyle.copyWith(fontWeight: FontWeight.bold))
-      ..layout();
-
-    labelPainter.paint(
-      canvas,
-      Offset(10, 10),
-    );
-
-    // Draw vertical grid lines and date labels
-    final dateInterval =
-        _calculateDateInterval(visibleRange.end - visibleRange.start + 1);
-
-    for (int i = visibleRange.start; i <= visibleRange.end; i++) {
-      if ((i - visibleRange.start) % dateInterval != 0 && i != visibleRange.end)
-        continue;
-
-      final x = _getXPositionForIndex(i, chartWidth);
-
-      canvas.drawLine(
-        Offset(x, 10),
-        Offset(x, size.height - 40),
-        gridPaint,
-      );
-
-      final date = weightPoints[i].date;
-      final dateText = _formatDateForInterval(date, dateInterval);
-
-      labelPainter
-        ..text = TextSpan(text: dateText, style: labelStyle)
-        ..layout();
-
-      labelPainter.paint(
-        canvas,
-        Offset(x - labelPainter.width / 2, size.height - 25),
-      );
+    // Draw date labels at the bottom if we have enough points
+    if (animatedPoints.length > 1) {
+      final filteredPoints = _getFilteredData();
+      
+      // Show appropriate number of date labels based on available width
+      final maxLabels = math.max(3, (chartWidth / 100).floor());
+      final step = math.max(1, (filteredPoints.length / maxLabels).ceil());
+      
+      for (int i = visibleRange.start; i <= visibleRange.end; i += step) {
+        if (i < filteredPoints.length) {
+          final point = filteredPoints[i];
+          final xPos = _getXPositionForIndex(i, filteredPoints.length, chartWidth, size);
+          
+          // Format date based on time frame
+          String dateLabel;
+          final timeFrame = getTimeFrame();
+          if (timeFrame == 'Week') {
+            dateLabel = DateFormat('E').format(point.date);
+          } else if (timeFrame == 'Month') {
+            dateLabel = DateFormat('d').format(point.date);
+          } else {
+            dateLabel = DateFormat('MMM d').format(point.date);
+          }
+          
+          labelPainter
+            ..text = TextSpan(
+              text: dateLabel,
+              style: labelStyle.copyWith(
+                fontSize: 10,
+                color: customColors.textSecondary,
+              ),
+            )
+            ..layout(minWidth: 0, maxWidth: 50);
+            
+          labelPainter.paint(
+            canvas,
+            Offset(xPos - labelPainter.width / 2, size.height - labelPainter.height),
+          );
+        }
+      }
     }
   }
 
-  void _drawTargetLine(
-      Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  void _drawTargetLine(Canvas canvas, Size size, double chartWidth, double chartHeight) {
     final targetY = size.height -
         40 -
         ((targetWeight - minWeight) / (maxWeight - minWeight)) * chartHeight;
-
-    final targetPaint = Paint()
-      ..color = Colors.green.shade600
-      ..strokeWidth = 2
+        
+    // Target line
+    final targetLinePaint = Paint()
+      ..color = customColors.accentPrimary.withOpacity(0.3)
+      ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-
-    canvas.drawLine(
-      Offset(30, targetY),
-      Offset(size.width - 30, targetY),
-      targetPaint,
-    );
-
+      
+    // Draw dashed line
+    final dashWidth = 6;
+    final dashSpace = 4;
+    double startX = 30;
+    final endX = size.width - 20;
+    
+    while (startX < endX) {
+      final endDash = math.min(startX + dashWidth, endX);
+      canvas.drawLine(
+        Offset(startX, targetY),
+        Offset(endDash, targetY),
+        targetLinePaint,
+      );
+      startX = endDash + dashSpace;
+    }
+    
+    // Target label
     labelPainter
       ..text = TextSpan(
-          text: 'Target Goal',
-          style: labelStyle.copyWith(
-            color: Colors.green.shade600,
-            fontWeight: FontWeight.bold,
-            fontSize: 11,
-          ))
-      ..layout();
-
-    final tooltipRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(size.width - labelPainter.width - 18, targetY - 12,
-          labelPainter.width + 16, 24),
-      const Radius.circular(12),
+        text: 'Target',
+        style: labelStyle.copyWith(
+          color: customColors.accentPrimary,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      )
+      ..layout(minWidth: 0, maxWidth: 50);
+      
+    // Draw small rectangle background
+    final labelRect = Rect.fromLTWH(
+      30, 
+      targetY - labelPainter.height / 2 - 2, 
+      labelPainter.width + 8, 
+      labelPainter.height + 4
     );
-
+    
     canvas.drawRRect(
-      tooltipRect,
-      Paint()..color = Colors.green.shade50.withOpacity(0.8),
+      RRect.fromRectAndRadius(labelRect, const Radius.circular(4)),
+      Paint()..color = customColors.cardBackground.withOpacity(0.8),
     );
-
-    canvas.drawRRect(
-        tooltipRect,
-        Paint()
-          ..color = Colors.green.shade600
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5);
-
+    
     labelPainter.paint(
       canvas,
-      Offset(size.width - labelPainter.width - 10,
-          targetY - labelPainter.height / 2),
+      Offset(34, targetY - labelPainter.height / 2),
     );
   }
 
-  void _drawWeightLine(
-      Canvas canvas, Size size, double chartWidth, double chartHeight) {
-    if (animatedPoints.length > 1) {
-      final path = Path();
-      path.moveTo(animatedPoints.first.dx, animatedPoints.first.dy);
-
-      for (int i = 1; i < animatedPoints.length; i++) {
-        final current = animatedPoints[i];
-        final previous = animatedPoints[i - 1];
-
-        // Use quadratic bezier curves for smoother lines
+  void _drawAreaFill(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+    if (animatedPoints.length < 2) return;
+    
+    final path = Path();
+    
+    // Start from bottom left of the first point
+    path.moveTo(animatedPoints.first.dx, size.height - 40);
+    
+    // Go to the first actual point
+    path.lineTo(animatedPoints.first.dx, animatedPoints.first.dy);
+    
+    // Add all points
+    for (int i = 1; i < animatedPoints.length; i++) {
+      // For a smoother curve, use quadratic bezier curves
+      if (i < animatedPoints.length - 1) {
         final controlPoint = Offset(
-          (previous.dx + current.dx) / 2,
-          previous.dy,
+          (animatedPoints[i].dx + animatedPoints[i+1].dx) / 2,
+          animatedPoints[i].dy
         );
-
         path.quadraticBezierTo(
+          animatedPoints[i].dx,
+          animatedPoints[i].dy,
           controlPoint.dx,
-          controlPoint.dy,
-          current.dx,
-          current.dy,
+          controlPoint.dy
         );
+      } else {
+        path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
       }
+    }
+    
+    // Close the path by going to the bottom right and then back to start
+    path.lineTo(animatedPoints.last.dx, size.height - 40);
+    path.lineTo(animatedPoints.first.dx, size.height - 40);
+    
+    canvas.drawPath(path, fillPaint);
+  }
 
-      canvas.drawPath(path, linePaint);
+  void _drawConnectingLine(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+    if (animatedPoints.length < 2) return;
+    
+    final path = Path();
+    path.moveTo(animatedPoints.first.dx, animatedPoints.first.dy);
+    
+    // For a smoother curve, use quadratic bezier curves between points
+    for (int i = 0; i < animatedPoints.length - 1; i++) {
+      final controlPoint = Offset(
+        (animatedPoints[i].dx + animatedPoints[i+1].dx) / 2,
+        animatedPoints[i].dy
+      );
+      path.quadraticBezierTo(
+        controlPoint.dx,
+        controlPoint.dy,
+        (animatedPoints[i+1].dx + controlPoint.dx) / 2,
+        (animatedPoints[i+1].dy + controlPoint.dy) / 2
+      );
+    }
+    
+    path.lineTo(animatedPoints.last.dx, animatedPoints.last.dy);
+    canvas.drawPath(path, linePaint);
+  }
 
-      // Draw fill
-      final fillPath = Path();
-      fillPath.moveTo(animatedPoints.first.dx, size.height - 40);
-      fillPath.lineTo(animatedPoints.first.dx, animatedPoints.first.dy);
-
-      for (int i = 1; i < animatedPoints.length; i++) {
-        final current = animatedPoints[i];
-        final previous = animatedPoints[i - 1];
-
-        final controlPoint = Offset(
-          (previous.dx + current.dx) / 2,
-          previous.dy,
-        );
-
-        fillPath.quadraticBezierTo(
-          controlPoint.dx,
-          controlPoint.dy,
-          current.dx,
-          current.dy,
-        );
-      }
-
-      fillPath.lineTo(animatedPoints.last.dx, size.height - 40);
-      fillPath.close();
-
-      canvas.drawPath(fillPath, fillPaint);
+  void _drawDataPoints(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+    for (final point in animatedPoints) {
+      // Draw outer stroke circle
+      canvas.drawCircle(point, 5, pointBorderPaint);
+      
+      // Draw inner fill circle
+      canvas.drawCircle(point, 3.5, pointPaint);
     }
   }
 
-  void _drawPoints(Canvas canvas, double chartWidth, double chartHeight) {
-    for (int i = 0; i < animatedPoints.length; i++) {
-      final point = animatedPoints[i];
-      final originalIndex = i + visibleRange.start;
-
-      bool isHighlighted = false;
-      if (i == 0 ||
-          i == animatedPoints.length - 1 ||
-          originalIndex == 0 ||
-          originalIndex == weightPoints.length - 1) {
-        isHighlighted = true;
-      }
-
-      final radius = isHighlighted ? 6.0 : 4.0;
-      canvas.drawCircle(point, radius, pointPaint);
-      canvas.drawCircle(point, radius, pointBorderPaint);
-    }
-  }
-
-  void _drawTooltip(Canvas canvas, Size size) {
-    final point = touchData!.point;
-    final position = touchData!.position;
-
+  void _drawTouchInteraction(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+    final touchPoint = touchData!.position;
+    final weightPoint = touchData!.point;
+    
+    // Draw highlight circle
+    canvas.drawCircle(
+      touchPoint,
+      8,
+      Paint()
+        ..color = customColors.accentPrimary.withOpacity(0.3)
+        ..style = PaintingStyle.fill,
+    );
+    
+    canvas.drawCircle(
+      touchPoint,
+      6,
+      Paint()
+        ..color = customColors.accentPrimary
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    
+    // Draw tooltip background
     final weightText = isMetric
-        ? '${point.weight.toStringAsFixed(1)} kg'
-        : '${(point.weight * 2.20462).toStringAsFixed(1)} lbs';
-    final dateText = DateFormat('MMM dd, yyyy').format(point.date);
-
-    labelPainter
-      ..text = TextSpan(
-        children: [
-          TextSpan(
-            text: weightText,
-            style: TextStyle(
-              color: customColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextSpan(
-            text: '\n$dateText',
-            style: TextStyle(
-              color: customColors.textSecondary,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      )
-      ..layout(maxWidth: 120);
-
-    final tooltipWidth = math.max(labelPainter.width + 16, 80.0);
-    final tooltipHeight = labelPainter.height + 12;
-    double tooltipX = position.dx - tooltipWidth / 2;
-    final tooltipY = position.dy - tooltipHeight - 12;
-
-    tooltipX = math.max(10, math.min(size.width - tooltipWidth - 10, tooltipX));
-
+        ? '${weightPoint.weight.toStringAsFixed(1)} kg'
+        : '${(weightPoint.weight * 2.20462).toStringAsFixed(1)} lbs';
+    final dateText = DateFormat('MMM d, yyyy').format(weightPoint.date);
+    
+    // Prepare text painters
+    final weightPainter = TextPainter(
+      text: TextSpan(
+        text: weightText,
+        style: labelStyle.copyWith(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: customColors.textPrimary,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    
+    final datePainter = TextPainter(
+      text: TextSpan(
+        text: dateText,
+        style: labelStyle.copyWith(
+          fontSize: 12,
+          color: customColors.textSecondary,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    
+    // Calculate tooltip dimensions and position
+    final tooltipWidth = math.max(weightPainter.width, datePainter.width) + 20;
+    final tooltipHeight = weightPainter.height + datePainter.height + 16;
+    
+    // Position tooltip to avoid going off-screen
+    double tooltipX = touchPoint.dx - tooltipWidth / 2;
+    if (tooltipX < 10) tooltipX = 10;
+    if (tooltipX + tooltipWidth > size.width - 10) {
+      tooltipX = size.width - tooltipWidth - 10;
+    }
+    
+    // Position tooltip above or below the point depending on space
+    final tooltipAbove = touchPoint.dy > tooltipHeight + 20;
+    final tooltipY = tooltipAbove
+        ? touchPoint.dy - tooltipHeight - 15
+        : touchPoint.dy + 15;
+    
+    // Draw tooltip background
     final tooltipRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
       const Radius.circular(8),
     );
-
-    final tooltipTrianglePath = Path()
-      ..moveTo(position.dx, position.dy - 6)
-      ..lineTo(position.dx - 8, tooltipY)
-      ..lineTo(position.dx + 8, tooltipY)
-      ..close();
-
+    
     canvas.drawRRect(
       tooltipRect,
-      Paint()..color = customColors.cardBackground,
-    );
-
-    canvas.drawShadow(
-      Path()..addRRect(tooltipRect),
-      Colors.black.withOpacity(0.2),
-      4,
-      true,
-    );
-
-    canvas.drawPath(
-      tooltipTrianglePath,
-      Paint()..color = customColors.cardBackground,
-    );
-
-    labelPainter.paint(
-      canvas,
-      Offset(tooltipX + 8, tooltipY + 6),
-    );
-
-    canvas.drawCircle(
-      position,
-      8,
-      pointPaint,
-    );
-
-    canvas.drawCircle(
-      position,
-      8,
       Paint()
-        ..color = customColors.accentPrimary
+        ..color = customColors.cardBackground
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    
+    canvas.drawRRect(
+      tooltipRect,
+      Paint()
+        ..color = customColors.textSecondary.withOpacity(0.1)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
+        ..strokeWidth = 1,
     );
-  }
-
-  void _drawZoomInstructions(Canvas canvas, Size size) {
-    labelPainter
-      ..text = TextSpan(
-        text: 'Pinch to zoom',
-        style: TextStyle(
-          color: customColors.textSecondary.withOpacity(0.6),
-          fontSize: 10,
-          fontStyle: FontStyle.italic,
-        ),
-      )
-      ..layout();
-
-    labelPainter.paint(
+    
+    // Draw tooltip text
+    weightPainter.paint(
       canvas,
-      Offset(size.width - labelPainter.width - 10, size.height - 15),
+      Offset(tooltipX + (tooltipWidth - weightPainter.width) / 2, tooltipY + 8),
     );
-  }
-
-  // Calculate appropriate date interval based on number of visible points
-  int _calculateDateInterval(int visiblePoints) {
-    if (visiblePoints <= 7) return 1;
-    if (visiblePoints <= 14) return 2;
-    if (visiblePoints <= 30) return 5;
-    if (visiblePoints <= 60) return 10;
-    if (visiblePoints <= 180) return 30;
-    return math.max(1, (visiblePoints / 10).round());
-  }
-
-  // Format date based on interval size
-  String _formatDateForInterval(DateTime date, int interval) {
-    if (interval <= 2) {
-      return DateFormat('MM/dd').format(date);
-    } else if (interval <= 10) {
-      return DateFormat('MM/dd').format(date);
-    } else if (interval <= 30) {
-      return DateFormat('MM/dd').format(date);
+    
+    datePainter.paint(
+      canvas,
+      Offset(
+        tooltipX + (tooltipWidth - datePainter.width) / 2,
+        tooltipY + 8 + weightPainter.height + 4,
+      ),
+    );
+    
+    // Draw connecting line between tooltip and point
+    final path = Path();
+    if (tooltipAbove) {
+      path.moveTo(touchPoint.dx, touchPoint.dy - 8);
+      path.lineTo(tooltipX + tooltipWidth / 2, tooltipY + tooltipHeight);
     } else {
-      return DateFormat('MM/yy').format(date);
+      path.moveTo(touchPoint.dx, touchPoint.dy + 8);
+      path.lineTo(tooltipX + tooltipWidth / 2, tooltipY);
     }
+    
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = customColors.textSecondary.withOpacity(0.2)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _WeightChartPainter oldDelegate) {
+  bool shouldRepaint(_WeightChartPainter oldDelegate) {
     return oldDelegate.weightPoints != weightPoints ||
         oldDelegate.animation != animation ||
         oldDelegate.touchData != touchData ||
-        oldDelegate.isMetric != isMetric ||
         oldDelegate.zoomLevel != zoomLevel ||
-        oldDelegate.panOffset != panOffset;
+        oldDelegate.panOffset != panOffset ||
+        oldDelegate.isMetric != isMetric ||
+        oldDelegate.timeFrame != timeFrame;
   }
 }

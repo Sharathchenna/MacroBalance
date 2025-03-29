@@ -127,105 +127,120 @@ class _PaywallScreenState extends State<PaywallScreen> with WidgetsBindingObserv
     final customColors = Theme.of(context).extension<CustomColors>();
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: widget.allowDismissal ? IconButton(
-          icon: Icon(Icons.close, color: customColors?.textPrimary),
-          onPressed: widget.onDismiss,
-        ) : null,
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _offering != null && _shouldShowPaywall
-              ? Builder(
-                  builder: (context) {
-                    // Mark that we're about to mount the paywall
-                    _isPaywallMounted = true;
-                    
-                    return PaywallView(
-                      offering: _offering,
-                      onRestoreCompleted: (CustomerInfo customerInfo) {
-                        // Check if user has access to pro features
-                        if (_hasProAccess(customerInfo)) {
-                          print("Restore completed with pro access");
-                          _handlePurchaseSuccess(customerInfo);
-                        }
-                      },
-                      onPurchaseCompleted: (CustomerInfo customerInfo, StoreTransaction transaction) {
-                        // This callback is triggered when a purchase is completed successfully
-                        print("Purchase completed: ${transaction.productIdentifier}");
-                        print("Active entitlements: ${customerInfo.entitlements.active.keys}");
-                        
-                        if (_hasProAccess(customerInfo)) {
-                          print("Pro entitlement active after purchase");
-                          _handlePurchaseSuccess(customerInfo);
-                        } else {
-                          print("WARNING: Purchase completed but no Pro entitlement detected!");
-                          // Dismiss anyway since the purchase was confirmed
-                          _handlePurchaseSuccess(customerInfo);
-                        }
-                      },
-                      onDismiss: widget.allowDismissal ? () {
-                        // Mark paywall as unmounted first
-                        setState(() {
-                          _isPaywallMounted = false;
-                        });
-                        
-                        // Then dismiss
-                        widget.onDismiss();
-                      } : null,
-                      displayCloseButton: widget.allowDismissal,
-                    );
-                  }
-                )
-              : Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "Upgrade to Premium",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: customColors?.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        "Something went wrong. Please try again later.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: customColors?.textSecondary,
-                        ),
-                      ),
-                      SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _fetchOffering,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
+      // Remove the app bar to maximize screen space
+      // appBar: AppBar(
+      //   backgroundColor: Colors.transparent,
+      //   elevation: 0,
+      //   leading: widget.allowDismissal ? IconButton(
+      //     icon: Icon(Icons.close, color: customColors?.textPrimary),
+      //     onPressed: widget.onDismiss,
+      //   ) : null,
+      // ),
+      body: SafeArea(
+        // Remove any default padding
+        minimum: EdgeInsets.zero,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _offering != null && _shouldShowPaywall
+                ? Builder(
+                    builder: (context) {
+                      // Mark that we're about to mount the paywall
+                      _isPaywallMounted = true;
+                      
+                      return SizedBox.expand(
+                        child: Container(
+                          width: MediaQuery.of(context).size.width,
+                          height: MediaQuery.of(context).size.height,
+                          padding: EdgeInsets.zero,
+                          margin: EdgeInsets.zero,
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          child: Stack(
+                            children: [
+                              // The paywall view
+                              Positioned.fill(
+                                child: PaywallView(
+                                  offering: _offering,
+                                  onRestoreCompleted: (CustomerInfo customerInfo) {
+                                    if (_hasProAccess(customerInfo)) {
+                                      print("Restore completed with pro access");
+                                      _handlePurchaseSuccess(customerInfo);
+                                    }
+                                  },
+                                  onPurchaseCompleted: (CustomerInfo customerInfo, StoreTransaction transaction) {
+                                    print("Purchase completed: ${transaction.productIdentifier}");
+                                    print("Active entitlements: ${customerInfo.entitlements.active.keys}");
+                                    
+                                    if (_hasProAccess(customerInfo)) {
+                                      print("Pro entitlement active after purchase");
+                                      _handlePurchaseSuccess(customerInfo);
+                                    } else {
+                                      print("WARNING: Purchase completed but no Pro entitlement detected!");
+                                      _handlePurchaseSuccess(customerInfo);
+                                    }
+                                  },
+                                  onDismiss: widget.allowDismissal ? () {
+                                    setState(() {
+                                      _isPaywallMounted = false;
+                                    });
+                                    widget.onDismiss();
+                                  } : null,
+                                  displayCloseButton: widget.allowDismissal,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Text("Try Again"),
-                      ),
-                      SizedBox(height: 16),
-                      if (widget.allowDismissal)
-                        TextButton(
-                          onPressed: widget.onDismiss,
-                          child: Text(
-                            "Continue Without Premium",
-                            style: TextStyle(
-                              color: customColors?.textSecondary,
+                      );
+                    }
+                  )
+                : Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Upgrade to Premium",
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: customColors?.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          "Something went wrong. Please try again later.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: customColors?.textSecondary,
+                          ),
+                        ),
+                        SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _fetchOffering,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
                             ),
                           ),
+                          child: Text("Try Again"),
                         ),
-                    ],
+                        SizedBox(height: 16),
+                        if (widget.allowDismissal)
+                          TextButton(
+                            onPressed: widget.onDismiss,
+                            child: Text(
+                              "Continue Without Premium",
+                              style: TextStyle(
+                                color: customColors?.textSecondary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
+      ),
     );
   }
 }
