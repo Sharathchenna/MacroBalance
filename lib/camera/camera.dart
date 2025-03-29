@@ -225,10 +225,11 @@ class _CameraScreenState extends State<CameraScreen> {
      showDialog(
        context: context,
        barrierDismissible: false,
+       barrierColor: Colors.white,
        builder: (BuildContext dialogContext) {
          // Improved Loading Dialog Layout
          return Dialog(
-           backgroundColor: Colors.black.withOpacity(0.8), // Slightly darker
+           backgroundColor: Colors.white, // Changed from black.withOpacity(0.8) to white
            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
            child: Padding(
              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 24), // More padding
@@ -238,7 +239,7 @@ class _CameraScreenState extends State<CameraScreen> {
                children: [
                  // Replace CircularProgressIndicator with Lottie animation
                  Lottie.asset(
-                   'assets/animations/loading_spinner.json',
+                   'assets/animations/food_loading.json',
                    width: 200, // Adjust size as needed
                    height: 200,
                    fit: BoxFit.contain,
@@ -246,7 +247,7 @@ class _CameraScreenState extends State<CameraScreen> {
                  const SizedBox(height: 16), // Adjusted spacing
                  Text(
                    message,
-                   style: const TextStyle(color: Colors.white, fontSize: 17), // Slightly larger font
+                   style: const TextStyle(color: Colors.black, fontSize: 17), // Change text color to black
                    textAlign: TextAlign.center,
                  ),
                ],
@@ -304,8 +305,8 @@ class _CameraScreenState extends State<CameraScreen> {
     }
 
     return Scaffold(
-      // Keep background black for consistency during transitions
-      backgroundColor: Colors.black,
+      // Keep background white for consistency during transitions
+      backgroundColor: Colors.white,
       body: Center(child: bodyContent),
       // Prevent accidental back navigation while native view is potentially active
       // WillPopScope might be needed if native view presentation isn't fully modal

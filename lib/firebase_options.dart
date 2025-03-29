@@ -29,10 +29,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -51,19 +48,29 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyADDYeH7Sp7rqslH9BXbwOu6nTytVyh2_Q',
-    appId: '1:777530387724:android:ec5214ef518bea75beed29',
-    messagingSenderId: '777530387724',
-    projectId: 'macrobalance-47200',
-    storageBucket: 'macrobalance-47200.firebasestorage.app',
+    apiKey: 'AIzaSyCqNLm3oFQinnrr75D4m28hWnRnPjCXJsg',
+    appId: '1:116498755817:android:df411ae69473290d6fc078',
+    messagingSenderId: '116498755817',
+    projectId: 'macrobalance-18139',
+    storageBucket: 'macrobalance-18139.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDgVYlmXVsInLm-znc4iW4gpOGxX809CfI',
-    appId: '1:777530387724:ios:0783b55e4e122260beed29',
-    messagingSenderId: '777530387724',
-    projectId: 'macrobalance-47200',
-    storageBucket: 'macrobalance-47200.firebasestorage.app',
+    apiKey: 'AIzaSyCdUI4sL1_7dFCq7PA7h-ND58hwHP51tKw',
+    appId: '1:116498755817:ios:0a16163fc5b9dcb76fc078',
+    messagingSenderId: '116498755817',
+    projectId: 'macrobalance-18139',
+    storageBucket: 'macrobalance-18139.firebasestorage.app',
     iosBundleId: 'app.macrobalance.com',
   );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyCdUI4sL1_7dFCq7PA7h-ND58hwHP51tKw',
+    appId: '1:116498755817:ios:303ad3bf4d5855606fc078',
+    messagingSenderId: '116498755817',
+    projectId: 'macrobalance-18139',
+    storageBucket: 'macrobalance-18139.firebasestorage.app',
+    iosBundleId: 'com.example.macrotracker',
+  );
+
 }

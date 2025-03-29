@@ -85,6 +85,8 @@ dependencies:
   rename_app: ^1.6.2
   webview_flutter: ^4.10.0
   url_launcher: ^6.3.1 # Added for contact support email
+  firebase_vertexai: ^1.4.0
+  flutter_image_compress: ^2.4.0
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 # The following section is specific to Flutter packages.

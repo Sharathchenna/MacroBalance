@@ -87,7 +87,11 @@ serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
 
-    const { type, userId } = await req.json()
+    const requestBody = await req.json()
+    console.log('Request body:', JSON.stringify(requestBody))
+    const { type, userId } = requestBody
+    console.log('Extracted type:', type)
+    console.log('Extracted userId:', userId)
     
     // Get user's notification preferences
     const { data: preferences } = await supabaseAdmin
@@ -98,7 +102,9 @@ serve(async (req) => {
     
     if (!preferences || 
         (type === 'meal_reminder' && !preferences.meal_reminders) || 
-        (type === 'weekly_report' && !preferences.weekly_reports)) {
+        (type === 'weekly_report' && !preferences.weekly_reports) ||
+        // Always allow test notifications to bypass preference checks
+        (type !== 'test_notification' && !preferences.enabled)) {
       return new Response(
         JSON.stringify({ success: false, message: 'Notifications disabled' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -126,6 +132,9 @@ serve(async (req) => {
     } else if (type === 'weekly_report') {
       title = 'Weekly Nutrition Report'
       body = 'Check out your progress this week in meeting your nutrition goals!'
+    } else if (type === 'test_notification') {
+      title = 'Test Notification'
+      body = 'Your push notifications are working correctly! 🎉'
     } else {
       throw new Error('Invalid notification type')
     }

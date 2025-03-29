@@ -234,6 +234,55 @@ class NotificationService {
      debugPrint('Test local notification displayed/scheduled.');
   }
 
+  /// Tests a Firebase Cloud Messaging (FCM) notification through the server.
+  /// This tests the full end-to-end flow including APN on iOS.
+  Future<void> testFirebaseCloudMessaging() async {
+    try {
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('Cannot test FCM: User not logged in.');
+        throw Exception('User not logged in');
+      }
+
+      // Get the FCM token first to ensure it's registered
+      final token = await _messaging.getToken();
+      if (token != null) {
+        await _saveFcmToken(token);
+        debugPrint('FCM token refreshed before test: $token');
+      } else {
+        debugPrint('Warning: FCM token is null');
+      }
+
+      debugPrint('Sending test notification for user: ${currentUser.id}');
+      
+      // Define request body
+      final requestBody = {
+        'type': 'test_notification',
+        'userId': currentUser.id,
+      };
+      
+      debugPrint('Request body: ${requestBody.toString()}');
+
+      // Call the Supabase Edge Function to send a test notification
+      final response = await Supabase.instance.client.functions.invoke(
+        'send-notifications',
+        body: requestBody,
+      );
+
+      debugPrint('Response status: ${response.status}');
+      debugPrint('Response data: ${response.data}');
+
+      if (response.status != 200) {
+        throw Exception('Failed to send test notification: ${response.data}');
+      }
+
+      debugPrint('Test FCM notification sent successfully: ${response.data}');
+      return;
+    } catch (e) {
+      debugPrint('Error sending test FCM notification: $e');
+      rethrow; // Rethrow to handle in the UI
+    }
+  }
 
   // --- Preference Update ---
 

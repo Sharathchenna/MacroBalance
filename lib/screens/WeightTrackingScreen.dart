@@ -37,29 +37,54 @@ class WeightTrackingScreen extends StatefulWidget {
   State<WeightTrackingScreen> createState() => _WeightTrackingScreenState();
 }
 
-class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
+class _WeightTrackingScreenState extends State<WeightTrackingScreen> with SingleTickerProviderStateMixin {
   bool _isLoading = false;
-  double _currentWeight = 70.0; // Default weight in kg
-  double _targetWeight = 65.0; // Default target weight in kg
+  double _currentWeight = 70.0;
+  double _targetWeight = 65.0;
   String _selectedTimeFrame = 'Month';
   List<Map<String, dynamic>> _weightData = [];
-  bool _isMetric = true; // Toggle between kg and lbs
+  bool _isMetric = true;
+  late AnimationController _pageController;
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _pageController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     _loadWeightData();
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadWeightData() async {
+    if (_isLoading) return;
+    
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Load weights from SharedPreferences first
       final prefs = await SharedPreferences.getInstance();
       
+      // Load cached data first for instant display
+      final String? cachedData = prefs.getString('weight_data_cache');
+      if (cachedData != null) {
+        final cached = json.decode(cachedData);
+        setState(() {
+          _currentWeight = cached['current_weight'] ?? _currentWeight;
+          _targetWeight = cached['target_weight'] ?? _targetWeight;
+          _weightData = List<Map<String, dynamic>>.from(cached['weight_data'] ?? []);
+        });
+      }
+
       // Try to get the current weight from macro_results
       final String? macroResultsJson = prefs.getString('macro_results');
       if (macroResultsJson != null) {
@@ -69,10 +94,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         }
       }
       
-      // Try to get the goal weight
       _targetWeight = prefs.getDouble('goal_weight_kg') ?? _currentWeight;
 
-      // If user is authenticated, try to get the latest values from Supabase
+      // If user is authenticated, fetch from Supabase
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser != null) {
         final response = await Supabase.instance.client
@@ -91,27 +115,33 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             _targetWeight = response['goal_weight_kg'].toDouble();
           }
         }
+
+        // Cache the new data
+        await prefs.setString('weight_data_cache', json.encode({
+          'current_weight': _currentWeight,
+          'target_weight': _targetWeight,
+          'weight_data': _weightData,
+          'timestamp': DateTime.now().toIso8601String(),
+        }));
       }
 
       // Generate sample weight data around the current weight
       _weightData = List.generate(30, (index) {
         final date = DateTime.now().subtract(Duration(days: 29 - index));
-        // Generate more realistic weight fluctuations (±0.5 kg)
         final randomFluctuation = (math.Random().nextDouble() - 0.5);
         return {
-          'date': date,
+          'date': date.toIso8601String(),
           'weight': _currentWeight + randomFluctuation,
         };
       });
 
-      setState(() {
-        _isLoading = false;
-      });
     } catch (e) {
       print('Error loading weight data: $e');
+    } finally {
       setState(() {
         _isLoading = false;
       });
+      _pageController.forward();
     }
   }
 
@@ -134,26 +164,54 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final customColors = theme.extension<CustomColors>()!;
 
     Widget body = _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : SafeArea(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildWeightStatusCard(context, customColors),
-                    const SizedBox(height: 24),
-                    _buildTimeFrameSelector(customColors),
-                    const SizedBox(height: 24),
-                    _buildWeightChart(customColors),
-                    const SizedBox(height: 24),
-                    _buildWeightHistory(customColors),
-                    const SizedBox(height: 24),
-                    _buildWeightGoalCard(customColors),
-                    const SizedBox(height: 50)
-                  ],
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(customColors.accentPrimary),
                 ),
+                const SizedBox(height: 16),
+                Text(
+                  'Loading your progress...',
+                  style: GoogleFonts.inter(
+                    color: customColors.textSecondary,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          )
+        : SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _loadWeightData,
+              color: customColors.accentPrimary,
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          _buildWeightStatusCard(context, customColors),
+                          const SizedBox(height: 24),
+                          _buildTimeFrameSelector(customColors),
+                          const SizedBox(height: 24),
+                          _buildWeightChart(customColors),
+                          const SizedBox(height: 24),
+                          _buildWeightHistory(customColors),
+                          const SizedBox(height: 24),
+                          _buildWeightGoalCard(customColors),
+                          const SizedBox(height: 50),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -179,7 +237,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           actions: [
-            // Unit toggle button
             TextButton.icon(
               onPressed: () {
                 setState(() {
@@ -208,152 +265,248 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     return body;
   }
 
-  Widget _buildWeightStatusCard(
-      BuildContext context, CustomColors customColors) {
+  Widget _buildWeightStatusCard(BuildContext context, CustomColors customColors) {
     final progress = _getProgressPercentage();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            customColors.cardBackground,
-            customColors.cardBackground.withOpacity(0.95),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Current Weight',
-                    style: GoogleFonts.inter(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: customColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat('EEEE, MMMM d').format(DateTime.now()),
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: customColors.textSecondary,
-                    ),
+    
+    return AnimatedBuilder(
+      animation: _pageController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 50 * (1 - _pageController.value)),
+          child: Opacity(
+            opacity: _pageController.value,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    customColors.cardBackground,
+                    customColors.cardBackground.withOpacity(0.95),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
-              IconButton(
-                onPressed: () => _showAddWeightDialog(context, customColors),
-                icon: Icon(
-                  Icons.add_circle_outline,
-                  color: customColors.accentPrimary,
-                  size: 24,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              SizedBox(
-                width: 120,
-                height: 120,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade100
-                            : customColors.cardBackground,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        backgroundColor:
-                            Theme.of(context).brightness == Brightness.light
-                                ? Colors.grey.shade200
-                                : customColors.dateNavigatorBackground,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          progress >= 1.0
-                              ? Colors.green
-                              : customColors.accentPrimary,
-                        ),
-                        strokeWidth: 12,
-                        strokeCap: StrokeCap.round,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: customColors.cardBackground,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _formatWeight(_currentWeight),
+                            'Current Weight',
                             style: GoogleFonts.inter(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
                               color: customColors.textPrimary,
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: customColors.textSecondary,
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
+                      _buildAddWeightButton(context, customColors),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Hero(
+                        tag: 'weight_progress',
+                        child: SizedBox(
+                          width: 120,
+                          height: 120,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Background circle
+                              Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Theme.of(context).brightness == Brightness.light
+                                          ? Colors.grey.shade50
+                                          : customColors.cardBackground.withOpacity(0.5),
+                                      Theme.of(context).brightness == Brightness.light  
+                                          ? Colors.grey.shade100
+                                          : customColors.cardBackground,
+                                    ],
+                                  ),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              
+                              // Animated progress indicator
+                              TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0, end: progress),
+                                duration: const Duration(milliseconds: 1500),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, value, child) {
+                                  return Stack(
+                                    children: [
+                                      CircularProgressIndicator(
+                                        value: value,
+                                        backgroundColor: Theme.of(context).brightness == Brightness.light
+                                            ? Colors.grey.shade200.withOpacity(0.5)
+                                            : customColors.dateNavigatorBackground.withOpacity(0.3),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          value >= 1.0
+                                              ? Colors.green.withOpacity(0.8)
+                                              : customColors.accentPrimary.withOpacity(0.8),
+                                        ),
+                                        strokeWidth: 12,
+                                        strokeCap: StrokeCap.round,
+                                      ),
+                                      CircularProgressIndicator(
+                                        value: value,
+                                        backgroundColor: Colors.transparent,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          value >= 1.0
+                                              ? Colors.green
+                                              : customColors.accentPrimary,
+                                        ),
+                                        strokeWidth: 8,
+                                        strokeCap: StrokeCap.round,
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+
+                              // Animated weight display
+                              TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0, end: _currentWeight),
+                                duration: const Duration(milliseconds: 1500), 
+                                curve: Curves.easeOutCubic,
+                                builder: (context, value, child) {
+                                  return Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: customColors.cardBackground,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: customColors.accentPrimary.withOpacity(0.1),
+                                          blurRadius: 8,
+                                          spreadRadius: 2,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _formatWeight(value),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w700,
+                                            color: customColors.textPrimary,
+                                            letterSpacing: -0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildProgressItem(
+                              context,
+                              'Target',
+                              _formatWeight(_targetWeight),
+                              Icons.flag_rounded,
+                              customColors,
+                            ),
+                            const SizedBox(height: 20),
+                            _buildProgressItem(
+                              context,
+                              'To Go',
+                              _formatWeight((_currentWeight - _targetWeight).abs()),
+                              Icons.trending_down,
+                              customColors,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildProgressItem(
-                      context,
-                      'Target',
-                      _formatWeight(_targetWeight),
-                      Icons.flag_rounded,
-                      customColors,
-                    ),
-                    const SizedBox(height: 20),
-                    _buildProgressItem(
-                      context,
-                      'To Go',
-                      _formatWeight((_currentWeight - _targetWeight).abs()),
-                      Icons.trending_down,
-                      customColors,
-                    ),
-                  ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAddWeightButton(BuildContext context, CustomColors customColors) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showAddWeightDialog(context, customColors),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: customColors.accentPrimary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.add_circle_outline,
+                color: customColors.accentPrimary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Add Weight',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: customColors.accentPrimary,
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -405,263 +558,343 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   }
 
   Widget _buildTimeFrameSelector(CustomColors customColors) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      decoration: BoxDecoration(
-        color: customColors.dateNavigatorBackground,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: ['Week', 'Month', 'Year'].map((timeFrame) {
-          final isSelected = _selectedTimeFrame == timeFrame;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: TextButton(
-              onPressed: () {
-                setState(() {
-                  _selectedTimeFrame = timeFrame;
-                });
-              },
-              style: ButtonStyle(
-                backgroundColor: MaterialStateProperty.all(
-                  isSelected ? customColors.cardBackground : Colors.transparent,
-                ),
-                shape: MaterialStateProperty.all(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+    return AnimatedBuilder(
+      animation: _pageController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 30 * (1 - _pageController.value)),
+          child: Opacity(
+            opacity: _pageController.value,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: customColors.dateNavigatorBackground,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                ),
-                padding: MaterialStateProperty.all(
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                ),
+                ],
               ),
-              child: Text(
-                timeFrame,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected
-                      ? customColors.accentPrimary
-                      : customColors.textPrimary,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: ['Week', 'Month', 'Year'].map((timeFrame) {
+                  final isSelected = _selectedTimeFrame == timeFrame;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      child: TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedTimeFrame = timeFrame;
+                          });
+                        },
+                        style: ButtonStyle(
+                          backgroundColor: MaterialStateProperty.all(
+                            isSelected ? customColors.cardBackground : Colors.transparent,
+                          ),
+                          shape: MaterialStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          padding: MaterialStateProperty.all(
+                            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          ),
+                          overlayColor: MaterialStateProperty.all(
+                            customColors.accentPrimary.withOpacity(0.1),
+                          ),
+                        ),
+                        child: Text(
+                          timeFrame,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            color: isSelected
+                                ? customColors.accentPrimary
+                                : customColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
-          );
-        }).toList(),
-      ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildWeightChart(CustomColors customColors) {
-    // Extract weight data as points for chart
-    final weightPoints = _weightData.map((data) {
-      return WeightPoint(
-        date: data['date'] as DateTime,
-        weight: data['weight'] as double,
-      );
-    }).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: customColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Weight Trend',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: customColors.textPrimary,
+    return AnimatedBuilder(
+      animation: _pageController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - _pageController.value)),
+          child: Opacity(
+            opacity: _pageController.value,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: customColors.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Weight Trend',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: customColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 240,
+                    child: CustomWeightChart(
+                      weightPoints: _weightData.map((data) => WeightPoint(
+                        date: DateTime.parse(data['date'] as String),
+                        weight: data['weight'] as double,
+                      )).toList(),
+                      isMetric: _isMetric,
+                      customColors: customColors,
+                      targetWeight: _targetWeight,
+                      timeFrame: _selectedTimeFrame,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 240,
-            child: CustomWeightChart(
-              weightPoints: weightPoints,
-              isMetric: _isMetric,
-              customColors: customColors,
-              targetWeight: _targetWeight,
-              timeFrame: _selectedTimeFrame,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildWeightHistory(CustomColors customColors) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: customColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Weight History',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: customColors.textPrimary,
+    return AnimatedBuilder(
+      animation: _pageController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 10 * (1 - _pageController.value)),
+          child: Opacity(
+            opacity: _pageController.value,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: customColors.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Weight History',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: customColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: math.min(5, _weightData.length),
+                    itemBuilder: (context, index) {
+                      final data = _weightData[_weightData.length - 1 - index];
+                      final weight = data['weight'] as double;
+                      final date = DateTime.parse(data['date'] as String);
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              // Show detailed view or edit options
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: customColors.dateNavigatorBackground,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          DateFormat('d').format(date),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: customColors.textPrimary,
+                                          ),
+                                        ),
+                                        Text(
+                                          DateFormat('MMM').format(date),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color: customColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          DateFormat('EEEE').format(date),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: customColors.textPrimary,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatWeight(weight),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            color: customColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color: customColors.textSecondary,
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: math.min(5, _weightData.length),
-            itemBuilder: (context, index) {
-              final data = _weightData[_weightData.length - 1 - index];
-              final weight = data['weight'] as double;
-              final date = data['date'] as DateTime;
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: customColors.dateNavigatorBackground,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            DateFormat('d').format(date),
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: customColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            DateFormat('MMM').format(date),
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: customColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            DateFormat('EEEE').format(date),
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: customColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            _formatWeight(weight),
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: customColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildWeightGoalCard(CustomColors customColors) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: customColors.cardBackground,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Weight Goal',
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: customColors.textPrimary,
+    return AnimatedBuilder(
+      animation: _pageController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 5 * (1 - _pageController.value)),
+          child: Opacity(
+            opacity: _pageController.value,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: customColors.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Weight Goal',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: customColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Target Weight:',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          color: customColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        _formatWeight(_targetWeight),
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: customColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _showEditGoalDialog(context, customColors),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: customColors.accentPrimary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Edit Goal',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Target Weight:',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  color: customColors.textPrimary,
-                ),
-              ),
-              Text(
-                _formatWeight(_targetWeight),
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: customColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => _showEditGoalDialog(context, customColors),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: customColors.accentPrimary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Edit Goal'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -744,11 +977,11 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 _currentWeight = newWeight;
                 // Add the new weight entry to the data
                 _weightData.add({
-                  'date': DateTime.now(),
+                  'date': DateTime.now().toIso8601String(),
                   'weight': newWeight,
                 });
                 // Sort the data by date
-                _weightData.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+                _weightData.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
                 // Keep only the last 30 entries
                 if (_weightData.length > 30) {
                   _weightData = _weightData.sublist(_weightData.length - 30);
@@ -1092,9 +1325,9 @@ class _CustomWeightChartState extends State<CustomWeightChart>
     Offset? closestPos;
 
     // Calculate visible range based on zoom and pan
-    final visiblePoints = _getVisiblePointsIndices(filteredData.length);
+    final visibleRange = _getVisiblePointsIndices(filteredData.length);
 
-    for (int i = visiblePoints.start; i <= visiblePoints.end; i++) {
+    for (int i = visibleRange.start; i <= visibleRange.end; i++) {
       final point = filteredData[i];
       final pointX =
           _getXPositionForIndex(i, filteredData.length, chartWidth, size);
@@ -1172,6 +1405,20 @@ class _WeightChartPainter extends CustomPainter {
   final bool isMetric;
   final double zoomLevel;
   final double panOffset;
+  late final Size size;
+
+  // Cache for expensive calculations
+  late final double minWeight;
+  late final double maxWeight;
+  late final _VisibleRange visibleRange;
+  late final List<Offset> animatedPoints;
+  late final Paint gridPaint;
+  late final Paint linePaint;
+  late final Paint fillPaint;
+  late final Paint pointPaint;
+  late final Paint pointBorderPaint;
+  late final TextStyle labelStyle;
+  late final TextPainter labelPainter;
 
   _WeightChartPainter({
     required this.weightPoints,
@@ -1184,34 +1431,131 @@ class _WeightChartPainter extends CustomPainter {
     this.panOffset = 0.0,
   });
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (weightPoints.isEmpty) return;
+  void _initializeValues(Size size) {
+    this.size = size;
 
-    final chartWidth = size.width - 60; // Left and right padding
-    final chartHeight = size.height - 50; // Top and bottom padding
-
-    // Calculate min and max values with padding
+    // Initialize cached values
     final weights = weightPoints.map((p) => p.weight).toList();
-    final double minWeight = weights.reduce(math.min) - 1;
-    final double maxWeight = weights.reduce(math.max) + 1;
+    minWeight = weights.isEmpty ? 0 : weights.reduce(math.min) - 1;
+    maxWeight = weights.isEmpty ? 0 : weights.reduce(math.max) + 1;
+    visibleRange = _getVisiblePointsIndices(weightPoints.length);
 
-    // Paint for the grid lines
-    final gridPaint = Paint()
+    // Initialize paints
+    gridPaint = Paint()
       ..color = customColors.textSecondary.withOpacity(0.1)
       ..strokeWidth = 1;
 
-    // Paint for the axis labels
-    final labelStyle = TextStyle(
+    linePaint = Paint()
+      ..color = customColors.accentPrimary
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    fillPaint = Paint()
+      ..color = customColors.accentPrimary.withOpacity(0.1)
+      ..style = PaintingStyle.fill;
+
+    pointPaint = Paint()
+      ..color = customColors.cardBackground
+      ..style = PaintingStyle.fill;
+
+    pointBorderPaint = Paint()
+      ..color = customColors.accentPrimary
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    // Initialize text styles
+    labelStyle = TextStyle(
       color: customColors.textSecondary,
       fontSize: 10,
     );
-    final labelPainter = TextPainter(
+
+    labelPainter = TextPainter(
       textDirection: ui.TextDirection.ltr,
       textAlign: TextAlign.center,
     );
 
-    // Draw horizontal grid lines
+    // Pre-calculate animated points
+    animatedPoints = _calculateAnimatedPoints();
+  }
+
+  List<Offset> _calculateAnimatedPoints() {
+    if (weightPoints.isEmpty) return [];
+
+    final points = <Offset>[];
+    final chartWidth = size.width - 60;
+    final chartHeight = size.height - 50;
+
+    for (int i = visibleRange.start; i <= visibleRange.end; i++) {
+      if (animation < 1.0 &&
+          i > visibleRange.start +
+              (visibleRange.end - visibleRange.start) * animation) {
+        break;
+      }
+
+      final point = weightPoints[i];
+      final x = _getXPositionForIndex(i, chartWidth);
+      final y = size.height -
+          40 -
+          ((point.weight - minWeight) / (maxWeight - minWeight)) * chartHeight;
+
+      points.add(Offset(x, y));
+    }
+
+    return points;
+  }
+
+  // Calculate which points are visible based on zoom and pan
+  _VisibleRange _getVisiblePointsIndices(int totalPoints) {
+    if (totalPoints <= 1) return _VisibleRange(0, 0);
+
+    // Calculate visible range based on zoom level and pan offset
+    final visiblePortion = 1.0 / zoomLevel;
+    final center = 0.5 + (panOffset / 100);
+
+    // Calculate start and end indices
+    int start = ((center - visiblePortion / 2) * (totalPoints - 1)).floor();
+    int end = ((center + visiblePortion / 2) * (totalPoints - 1)).ceil();
+
+    // Ensure indices are within bounds
+    start = math.max(0, start);
+    end = math.min(totalPoints - 1, end);
+
+    return _VisibleRange(start, end);
+  }
+
+  // Calculate x position for point at index, accounting for zoom and pan
+  double _getXPositionForIndex(int index, double chartWidth) {
+    final visibleRange = _getVisiblePointsIndices(weightPoints.length);
+    final visibleCount = visibleRange.end - visibleRange.start;
+
+    if (visibleCount <= 0)
+      return 30 + (index / (weightPoints.length - 1)) * chartWidth;
+
+    // Map index to position within visible range
+    final relativeIndex = index - visibleRange.start;
+    return 30 + (relativeIndex / visibleCount) * chartWidth;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (weightPoints.isEmpty) return;
+
+    _initializeValues(size);
+
+    final chartWidth = size.width - 60;
+    final chartHeight = size.height - 50;
+
+    _drawGrid(canvas, size, chartWidth, chartHeight);
+    _drawTargetLine(canvas, size, chartWidth, chartHeight);
+    _drawWeightLine(canvas, size, chartWidth, chartHeight);
+    _drawPoints(canvas, chartWidth, chartHeight);
+    if (touchData != null) _drawTooltip(canvas, size);
+    if (zoomLevel <= 1.05 && animation >= 1.0) _drawZoomInstructions(canvas, size);
+  }
+
+  void _drawGrid(Canvas canvas, Size size, double chartWidth, double chartHeight) {
     final stepCount = 5;
     for (int i = 0; i <= stepCount; i++) {
       final y = size.height - 40 - (i / stepCount) * chartHeight;
@@ -1251,29 +1595,22 @@ class _WeightChartPainter extends CustomPainter {
       Offset(10, 10),
     );
 
-    // Calculate visible range of points based on zoom level
-    final visibleRange = _getVisiblePointsIndices(weightPoints.length);
-
-    // Calculate date interval based on zoom and visible points
-    int dateInterval =
+    // Draw vertical grid lines and date labels
+    final dateInterval =
         _calculateDateInterval(visibleRange.end - visibleRange.start + 1);
 
-    // Draw vertical grid lines and date labels for visible points
     for (int i = visibleRange.start; i <= visibleRange.end; i++) {
-      // Only show labels at intervals
       if ((i - visibleRange.start) % dateInterval != 0 && i != visibleRange.end)
         continue;
 
       final x = _getXPositionForIndex(i, chartWidth);
 
-      // Draw grid line
       canvas.drawLine(
         Offset(x, 10),
         Offset(x, size.height - 40),
         gridPaint,
       );
 
-      // Draw date label
       final date = weightPoints[i].date;
       final dateText = _formatDateForInterval(date, dateInterval);
 
@@ -1286,8 +1623,9 @@ class _WeightChartPainter extends CustomPainter {
         Offset(x - labelPainter.width / 2, size.height - 25),
       );
     }
+  }
 
-    // Draw target weight line with improved visibility
+  void _drawTargetLine(Canvas canvas, Size size, double chartWidth, double chartHeight) {
     final targetY = size.height -
         40 -
         ((targetWeight - minWeight) / (maxWeight - minWeight)) * chartHeight;
@@ -1298,14 +1636,12 @@ class _WeightChartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    // Draw solid line instead of dashed for better visibility
     canvas.drawLine(
       Offset(30, targetY),
       Offset(size.width - 30, targetY),
       targetPaint,
     );
 
-    // Draw target indicator
     labelPainter
       ..text = TextSpan(
           text: 'Target Goal',
@@ -1316,22 +1652,19 @@ class _WeightChartPainter extends CustomPainter {
           ))
       ..layout();
 
-    // Draw target label with better visibility
-    final targetLabelBackground = RRect.fromRectAndRadius(
+    final tooltipRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(size.width - labelPainter.width - 18, targetY - 12,
           labelPainter.width + 16, 24),
       const Radius.circular(12),
     );
 
-    // Draw a colored background for the target label
     canvas.drawRRect(
-      targetLabelBackground,
+      tooltipRect,
       Paint()..color = Colors.green.shade50.withOpacity(0.8),
     );
 
-    // Draw border
     canvas.drawRRect(
-        targetLabelBackground,
+        tooltipRect,
         Paint()
           ..color = Colors.green.shade600
           ..style = PaintingStyle.stroke
@@ -1342,83 +1675,67 @@ class _WeightChartPainter extends CustomPainter {
       Offset(size.width - labelPainter.width - 10,
           targetY - labelPainter.height / 2),
     );
+  }
 
-    // Calculate points for weight line with zoom consideration
-    final points = <Offset>[];
-    final animatedPoints = <Offset>[];
-
-    for (int i = visibleRange.start; i <= visibleRange.end; i++) {
-      final point = weightPoints[i];
-      final x = _getXPositionForIndex(i, chartWidth);
-      final y = size.height -
-          40 -
-          ((point.weight - minWeight) / (maxWeight - minWeight)) * chartHeight;
-
-      points.add(Offset(x, y));
-
-      // Apply animation only to points that should be visible
-      if (animation >= 1.0 ||
-          i <=
-              visibleRange.start +
-                  (visibleRange.end - visibleRange.start) * animation) {
-        animatedPoints.add(Offset(x, y));
-      }
-    }
-
-    // Draw line connecting points
+  void _drawWeightLine(Canvas canvas, Size size, double chartWidth, double chartHeight) {
     if (animatedPoints.length > 1) {
-      final linePaint = Paint()
-        ..color = customColors.accentPrimary
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
-
       final path = Path();
       path.moveTo(animatedPoints.first.dx, animatedPoints.first.dy);
 
       for (int i = 1; i < animatedPoints.length; i++) {
-        path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
+        final current = animatedPoints[i];
+        final previous = animatedPoints[i - 1];
+        
+        // Use quadratic bezier curves for smoother lines
+        final controlPoint = Offset(
+          (previous.dx + current.dx) / 2,
+          previous.dy,
+        );
+        
+        path.quadraticBezierTo(
+          controlPoint.dx,
+          controlPoint.dy,
+          current.dx,
+          current.dy,
+        );
       }
 
       canvas.drawPath(path, linePaint);
-    }
 
-    // Draw fill under the line
-    if (animatedPoints.length > 1) {
+      // Draw fill
       final fillPath = Path();
       fillPath.moveTo(animatedPoints.first.dx, size.height - 40);
       fillPath.lineTo(animatedPoints.first.dx, animatedPoints.first.dy);
 
       for (int i = 1; i < animatedPoints.length; i++) {
-        fillPath.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
+        final current = animatedPoints[i];
+        final previous = animatedPoints[i - 1];
+        
+        final controlPoint = Offset(
+          (previous.dx + current.dx) / 2,
+          previous.dy,
+        );
+        
+        fillPath.quadraticBezierTo(
+          controlPoint.dx,
+          controlPoint.dy,
+          current.dx,
+          current.dy,
+        );
       }
 
       fillPath.lineTo(animatedPoints.last.dx, size.height - 40);
       fillPath.close();
 
-      canvas.drawPath(
-          fillPath,
-          Paint()
-            ..color = customColors.accentPrimary.withOpacity(0.1)
-            ..style = PaintingStyle.fill);
+      canvas.drawPath(fillPath, fillPaint);
     }
+  }
 
-    // Draw data points
-    final pointPaint = Paint()
-      ..color = customColors.cardBackground
-      ..style = PaintingStyle.fill;
-
-    final pointBorderPaint = Paint()
-      ..color = customColors.accentPrimary
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
+  void _drawPoints(Canvas canvas, double chartWidth, double chartHeight) {
     for (int i = 0; i < animatedPoints.length; i++) {
       final point = animatedPoints[i];
       final originalIndex = i + visibleRange.start;
 
-      // Determine if this is a point that should be highlighted
       bool isHighlighted = false;
       if (i == 0 ||
           i == animatedPoints.length - 1 ||
@@ -1427,159 +1744,115 @@ class _WeightChartPainter extends CustomPainter {
         isHighlighted = true;
       }
 
-      // Draw all points with subtle appearance
-      canvas.drawCircle(point, 4, pointPaint);
-      canvas.drawCircle(point, 4, pointBorderPaint);
-
-      // Draw emphasized points
-      if (isHighlighted) {
-        canvas.drawCircle(point, 6, pointPaint);
-        canvas.drawCircle(point, 6, pointBorderPaint);
-      }
+      final radius = isHighlighted ? 6.0 : 4.0;
+      canvas.drawCircle(point, radius, pointPaint);
+      canvas.drawCircle(point, radius, pointBorderPaint);
     }
+  }
 
-    // Draw tooltip for touched point
-    if (touchData != null) {
-      final point = touchData!.point;
-      final position = touchData!.position;
+  void _drawTooltip(Canvas canvas, Size size) {
+    final point = touchData!.point;
+    final position = touchData!.position;
 
-      // Format weight and date for tooltip
-      final weightText = isMetric
-          ? '${point.weight.toStringAsFixed(1)} kg'
-          : '${(point.weight * 2.20462).toStringAsFixed(1)} lbs';
-      final dateText = DateFormat('MMM dd, yyyy').format(point.date);
+    final weightText = isMetric
+        ? '${point.weight.toStringAsFixed(1)} kg'
+        : '${(point.weight * 2.20462).toStringAsFixed(1)} lbs';
+    final dateText = DateFormat('MMM dd, yyyy').format(point.date);
 
-      // Prepare tooltip text
-      labelPainter
-        ..text = TextSpan(
-          children: [
-            TextSpan(
-              text: weightText,
-              style: TextStyle(
-                color: customColors.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+    labelPainter
+      ..text = TextSpan(
+        children: [
+          TextSpan(
+            text: weightText,
+            style: TextStyle(
+              color: customColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
             ),
-            TextSpan(
-              text: '\n$dateText',
-              style: TextStyle(
-                color: customColors.textSecondary,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        )
-        ..layout(maxWidth: 120);
-
-      // Draw tooltip background
-      final tooltipWidth = math.max(labelPainter.width + 16, 80.0);
-      final tooltipHeight = labelPainter.height + 12;
-
-      // Calculate tooltip position
-      double tooltipX = position.dx - tooltipWidth / 2;
-      final tooltipY = position.dy - tooltipHeight - 12;
-
-      // Ensure tooltip stays within bounds
-      tooltipX =
-          math.max(10, math.min(size.width - tooltipWidth - 10, tooltipX));
-
-      final tooltipRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
-        const Radius.circular(8),
-      );
-
-      final tooltipTrianglePath = Path()
-        ..moveTo(position.dx, position.dy - 6)
-        ..lineTo(position.dx - 8, tooltipY)
-        ..lineTo(position.dx + 8, tooltipY)
-        ..close();
-
-      canvas.drawRRect(
-        tooltipRect,
-        Paint()..color = customColors.cardBackground,
-      );
-
-      canvas.drawShadow(Path()..addRRect(tooltipRect),
-          Colors.black.withOpacity(0.2), 4, true);
-
-      canvas.drawPath(
-        tooltipTrianglePath,
-        Paint()..color = customColors.cardBackground,
-      );
-
-      labelPainter.paint(
-        canvas,
-        Offset(tooltipX + 8, tooltipY + 6),
-      );
-
-      // Emphasize the selected point
-      canvas.drawCircle(
-        position,
-        8,
-        pointPaint,
-      );
-
-      canvas.drawCircle(
-        position,
-        8,
-        Paint()
-          ..color = customColors.accentPrimary
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3,
-      );
-    }
-
-    // Draw zoom instructions if not zoomed
-    if (zoomLevel <= 1.05 && animation >= 1.0) {
-      labelPainter
-        ..text = TextSpan(
-          text: 'Pinch to zoom',
-          style: TextStyle(
-            color: customColors.textSecondary.withOpacity(0.6),
-            fontSize: 10,
-            fontStyle: FontStyle.italic,
           ),
-        )
-        ..layout();
+          TextSpan(
+            text: '\n$dateText',
+            style: TextStyle(
+              color: customColors.textSecondary,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      )
+      ..layout(maxWidth: 120);
 
-      labelPainter.paint(
-        canvas,
-        Offset(size.width - labelPainter.width - 10, size.height - 15),
-      );
-    }
+    final tooltipWidth = math.max(labelPainter.width + 16, 80.0);
+    final tooltipHeight = labelPainter.height + 12;
+    double tooltipX = position.dx - tooltipWidth / 2;
+    final tooltipY = position.dy - tooltipHeight - 12;
+
+    tooltipX = math.max(10, math.min(size.width - tooltipWidth - 10, tooltipX));
+
+    final tooltipRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
+      const Radius.circular(8),
+    );
+
+    final tooltipTrianglePath = Path()
+      ..moveTo(position.dx, position.dy - 6)
+      ..lineTo(position.dx - 8, tooltipY)
+      ..lineTo(position.dx + 8, tooltipY)
+      ..close();
+
+    canvas.drawRRect(
+      tooltipRect,
+      Paint()..color = customColors.cardBackground,
+    );
+
+    canvas.drawShadow(
+      Path()..addRRect(tooltipRect),
+      Colors.black.withOpacity(0.2),
+      4,
+      true,
+    );
+
+    canvas.drawPath(
+      tooltipTrianglePath,
+      Paint()..color = customColors.cardBackground,
+    );
+
+    labelPainter.paint(
+      canvas,
+      Offset(tooltipX + 8, tooltipY + 6),
+    );
+
+    canvas.drawCircle(
+      position,
+      8,
+      pointPaint,
+    );
+
+    canvas.drawCircle(
+      position,
+      8,
+      Paint()
+        ..color = customColors.accentPrimary
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
   }
 
-  // Calculate which points are visible based on zoom and pan
-  _VisibleRange _getVisiblePointsIndices(int totalPoints) {
-    if (totalPoints <= 1) return _VisibleRange(0, 0);
+  void _drawZoomInstructions(Canvas canvas, Size size) {
+    labelPainter
+      ..text = TextSpan(
+        text: 'Pinch to zoom',
+        style: TextStyle(
+          color: customColors.textSecondary.withOpacity(0.6),
+          fontSize: 10,
+          fontStyle: FontStyle.italic,
+        ),
+      )
+      ..layout();
 
-    // Calculate visible range based on zoom level and pan offset
-    final visiblePortion = 1.0 / zoomLevel;
-    final center = 0.5 + (panOffset / 100);
-
-    // Calculate start and end indices
-    int start = ((center - visiblePortion / 2) * (totalPoints - 1)).floor();
-    int end = ((center + visiblePortion / 2) * (totalPoints - 1)).ceil();
-
-    // Ensure indices are within bounds
-    start = math.max(0, start);
-    end = math.min(totalPoints - 1, end);
-
-    return _VisibleRange(start, end);
-  }
-
-  // Calculate x position for point at index, accounting for zoom and pan
-  double _getXPositionForIndex(int index, double chartWidth) {
-    final visibleRange = _getVisiblePointsIndices(weightPoints.length);
-    final visibleCount = visibleRange.end - visibleRange.start;
-
-    if (visibleCount <= 0)
-      return 30 + (index / (weightPoints.length - 1)) * chartWidth;
-
-    // Map index to position within visible range
-    final relativeIndex = index - visibleRange.start;
-    return 30 + (relativeIndex / visibleCount) * chartWidth;
+    labelPainter.paint(
+      canvas,
+      Offset(size.width - labelPainter.width - 10, size.height - 15),
+    );
   }
 
   // Calculate appropriate date interval based on number of visible points
