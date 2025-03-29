@@ -541,134 +541,135 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  // Add test notification button
-                  _buildListTile(
-                    icon: CupertinoIcons.bell_fill,
-                    iconColor: Colors.red,
-                    title: 'Test Notifications',
-                    subtitle: 'Send a test push notification',
-                    trailing: ElevatedButton(
-                      onPressed: () async {
-                        HapticFeedback.mediumImpact();
-                        // Show options dialog
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: Text(
-                                'Test Notifications',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              content: Text(
-                                'Choose which type of notification to test:',
-                                style: GoogleFonts.poppins(),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () async {
-                                    Navigator.of(context).pop();
-                                    // Show toast/snackbar
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Sending local notification...'),
-                                        duration: Duration(seconds: 1),
-                                      ),
-                                    );
-                                    
-                                    try {
-                                      await NotificationService().scheduleTestLocalNotification();
-                                      
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Local notification sent!'),
-                                            backgroundColor: Colors.green,
-                                            duration: Duration(seconds: 2),
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Error: ${e.toString()}'),
-                                            backgroundColor: Colors.red,
-                                            duration: Duration(seconds: 3),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                                  child: Text(
-                                    'Local Notification',
-                                    style: GoogleFonts.poppins(
-                                      color: colorScheme.primary,
-                                    ),
+                  // Only show test notifications button in debug mode
+                  if (kDebugMode)
+                    _buildListTile(
+                      icon: CupertinoIcons.bell_fill,
+                      iconColor: Colors.red,
+                      title: 'Test Notifications',
+                      subtitle: 'Send a test push notification',
+                      trailing: ElevatedButton(
+                        onPressed: () async {
+                          HapticFeedback.mediumImpact();
+                          // Show options dialog
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: Text(
+                                  'Test Notifications',
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                TextButton(
-                                  onPressed: () async {
-                                    Navigator.of(context).pop();
-                                    // Show toast/snackbar
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Sending FCM/APN notification...'),
-                                        duration: Duration(seconds: 1),
-                                      ),
-                                    );
-                                    
-                                    try {
-                                      await NotificationService().testFirebaseCloudMessaging();
+                                content: Text(
+                                  'Choose which type of notification to test:',
+                                  style: GoogleFonts.poppins(),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () async {
+                                      Navigator.of(context).pop();
+                                      // Show toast/snackbar
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Sending local notification...'),
+                                          duration: Duration(seconds: 1),
+                                        ),
+                                      );
                                       
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('FCM/APN notification sent! Check device notifications.'),
-                                            backgroundColor: Colors.green,
-                                            duration: Duration(seconds: 3),
-                                          ),
-                                        );
+                                      try {
+                                        await NotificationService().scheduleTestLocalNotification();
+                                        
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Local notification sent!'),
+                                              backgroundColor: Colors.green,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Error: ${e.toString()}'),
+                                              backgroundColor: Colors.red,
+                                              duration: Duration(seconds: 3),
+                                            ),
+                                          );
+                                        }
                                       }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Error: ${e.toString()}'),
-                                            backgroundColor: Colors.red,
-                                            duration: Duration(seconds: 3),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                                  child: Text(
-                                    'Firebase/APN',
-                                    style: GoogleFonts.poppins(
-                                      color: colorScheme.secondary,
-                                      fontWeight: FontWeight.w600,
+                                    },
+                                    child: Text(
+                                      'Local Notification',
+                                      style: GoogleFonts.poppins(
+                                        color: colorScheme.primary,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  TextButton(
+                                    onPressed: () async {
+                                      Navigator.of(context).pop();
+                                      // Show toast/snackbar
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Sending FCM/APN notification...'),
+                                          duration: Duration(seconds: 1),
+                                        ),
+                                      );
+                                      
+                                      try {
+                                        await NotificationService().testFirebaseCloudMessaging();
+                                        
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('FCM/APN notification sent! Check device notifications.'),
+                                              backgroundColor: Colors.green,
+                                              duration: Duration(seconds: 3),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Error: ${e.toString()}'),
+                                              backgroundColor: Colors.red,
+                                              duration: Duration(seconds: 3),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    child: Text(
+                                      'Firebase/APN',
+                                      style: GoogleFonts.poppins(
+                                        color: colorScheme.secondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        child: const Text('Test'),
                       ),
-                      child: const Text('Test'),
+                      onTap: () {
+                        // Button handles the action
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
                     ),
-                    onTap: () {
-                      // Button handles the action
-                    },
-                    colorScheme: colorScheme,
-                    customColors: customColors,
-                  ),
                 ],
               ),
 
