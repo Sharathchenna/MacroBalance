@@ -281,7 +281,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
 
                                 // Macro info grid (now in column)
                                 Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     // First row: Calories and Protein
                                     Row(
@@ -291,7 +292,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                           child: MacroInfoBox(
                                             icon: "🔥",
                                             iconColor: Colors.black,
-                                            value: nutrition.calories.toStringAsFixed(0),
+                                            value: nutrition.calories
+                                                .toStringAsFixed(0),
                                             label: "Calories",
                                           ),
                                         ),
@@ -303,7 +305,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                           child: MacroInfoBox(
                                             icon: "🍗",
                                             iconColor: Colors.black,
-                                            value: nutrition.protein.toStringAsFixed(1),
+                                            value: nutrition.protein
+                                                .toStringAsFixed(1),
                                             label: "Protein (g)",
                                           ),
                                         ),
@@ -320,7 +323,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                           child: MacroInfoBox(
                                             icon: "🟫",
                                             iconColor: Colors.black,
-                                            value: nutrition.carbohydrates.toStringAsFixed(1),
+                                            value: nutrition.carbohydrates
+                                                .toStringAsFixed(1),
                                             label: "Carbs (g)",
                                           ),
                                         ),
@@ -332,7 +336,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                           child: MacroInfoBox(
                                             icon: "🥑",
                                             iconColor: Colors.black,
-                                            value: nutrition.fat.toStringAsFixed(1),
+                                            value: nutrition.fat
+                                                .toStringAsFixed(1),
                                             label: "Fat (g)",
                                           ),
                                         ),
@@ -878,7 +883,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
             ),
           ],
         ),
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 0.8),
+        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: EdgeInsets.all(8),

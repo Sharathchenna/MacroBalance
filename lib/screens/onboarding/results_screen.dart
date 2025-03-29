@@ -42,12 +42,12 @@ class _ResultsScreenState extends State<ResultsScreen>
       ),
     );
     _animationController.forward();
-    
+
     _scrollController = ScrollController();
 
     // Save results to shared preferences
     _saveResultsToPrefs();
-    
+
     // Ensure all SnackBars use fixed behavior by default
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -79,9 +79,10 @@ class _ResultsScreenState extends State<ResultsScreen>
         builder: (context) => PaywallScreen(
           onDismiss: () async {
             // Use our subscription provider to check subscription status
-            final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+            final subscriptionProvider =
+                Provider.of<SubscriptionProvider>(context, listen: false);
             await subscriptionProvider.refreshSubscriptionStatus();
-            
+
             if (subscriptionProvider.isProUser) {
               // Pro user - proceed to dashboard
               if (mounted) {
@@ -104,13 +105,14 @@ class _ResultsScreenState extends State<ResultsScreen>
                     behavior: SnackBarBehavior.fixed,
                   ),
                 );
-                
+
                 // Show the paywall again, but this time with harder enforcement
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
                     fullscreenDialog: true,
                     builder: (context) => PaywallScreen(
-                      allowDismissal: false, // Don't allow dismissal without subscribing
+                      allowDismissal:
+                          false, // Don't allow dismissal without subscribing
                       onDismiss: () async {
                         // This will only be called if they subscribe
                         await subscriptionProvider.refreshSubscriptionStatus();
@@ -129,7 +131,7 @@ class _ResultsScreenState extends State<ResultsScreen>
             }
           },
           // Start with a soft paywall to give users a chance to subscribe willingly
-          allowDismissal: true, 
+          allowDismissal: true,
         ),
       ),
     );
@@ -145,7 +147,7 @@ class _ResultsScreenState extends State<ResultsScreen>
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>()!;
-    
+
     return Scaffold(
       backgroundColor: customColors.cardBackground,
       appBar: AppBar(
@@ -159,13 +161,13 @@ class _ResultsScreenState extends State<ResultsScreen>
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: _shareResults,
-            icon: Icon(Icons.share_rounded, color: customColors.textPrimary),
-            tooltip: 'Share your results',
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     onPressed: _shareResults,
+        //     icon: Icon(Icons.share_rounded, color: customColors.textPrimary),
+        //     tooltip: 'Share your results',
+        //   ),
+        // ],
       ),
       body: AnimatedBuilder(
         animation: _fadeInAnimation,
@@ -190,7 +192,8 @@ class _ResultsScreenState extends State<ResultsScreen>
                     SizedBox(height: 20),
                     _buildMacroDistributionCard(),
                     SizedBox(height: 20),
-                    _buildGoalRelatedInformation(widget.results['goal_weight_kg'] != null),
+                    _buildGoalRelatedInformation(
+                        widget.results['goal_weight_kg'] != null),
                     SizedBox(height: 20),
                     _buildCalculationDetails(),
                     SizedBox(height: 20),
@@ -338,7 +341,7 @@ class _ResultsScreenState extends State<ResultsScreen>
     final proteinPercent = widget.results['protein_percent'] ?? 0;
     final fatPercent = widget.results['fat_percent'] ?? 0;
     final carbPercent = widget.results['carb_percent'] ?? 0;
-    
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -403,27 +406,27 @@ class _ResultsScreenState extends State<ResultsScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildMacroLegendItem(
-                        'Protein', 
-                        '$protein g', 
-                        '$proteinPercent%', 
+                        'Protein',
+                        '$protein g',
+                        '$proteinPercent%',
                         Colors.red.shade400,
                         isAnimated: true,
                         animationDelay: 300,
                       ),
                       SizedBox(height: 14),
                       _buildMacroLegendItem(
-                        'Carbs', 
-                        '$carbs g', 
-                        '$carbPercent%', 
+                        'Carbs',
+                        '$carbs g',
+                        '$carbPercent%',
                         Colors.blue.shade400,
                         isAnimated: true,
                         animationDelay: 500,
                       ),
                       SizedBox(height: 14),
                       _buildMacroLegendItem(
-                        'Fat', 
-                        '$fat g', 
-                        '$fatPercent%', 
+                        'Fat',
+                        '$fat g',
+                        '$fatPercent%',
                         Colors.orange.shade400,
                         isAnimated: true,
                         animationDelay: 700,
@@ -449,17 +452,12 @@ class _ResultsScreenState extends State<ResultsScreen>
       ),
     );
   }
-  
+
   Widget _buildMacroLegendItem(
-    String name, 
-    String grams, 
-    String percentage, 
-    Color color, 
-    {bool isAnimated = false, 
-    int animationDelay = 0}
-  ) {
+      String name, String grams, String percentage, Color color,
+      {bool isAnimated = false, int animationDelay = 0}) {
     final customColors = Theme.of(context).extension<CustomColors>()!;
-    
+
     Widget content = Row(
       children: [
         Container(
@@ -515,7 +513,7 @@ class _ResultsScreenState extends State<ResultsScreen>
         ),
       ],
     );
-    
+
     if (isAnimated) {
       return TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0, end: 1),
@@ -532,7 +530,7 @@ class _ResultsScreenState extends State<ResultsScreen>
         },
       );
     }
-    
+
     return content;
   }
 
@@ -541,7 +539,7 @@ class _ResultsScreenState extends State<ResultsScreen>
     final goalWeightKg = widget.results['goal_weight_kg'];
     final recommendedWeeklyRate = widget.results['recommended_weekly_rate'];
     final goalTimeframeWeeks = widget.results['goal_timeframe_weeks'];
-    
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -572,9 +570,9 @@ class _ResultsScreenState extends State<ResultsScreen>
             ),
             SizedBox(height: 8),
             Text(
-              hasGoalWeight 
-                ? 'Projected timeline and metrics for your goal' 
-                : 'Your baseline metabolic calculations',
+              hasGoalWeight
+                  ? 'Projected timeline and metrics for your goal'
+                  : 'Your baseline metabolic calculations',
               style: TextStyle(
                 fontSize: 14,
                 color: customColors.textSecondary,
@@ -636,81 +634,75 @@ class _ResultsScreenState extends State<ResultsScreen>
     );
   }
 
-  Widget _buildProgressRow(
-    String startLabel, 
-    String endLabel, 
-    String startValue, 
-    String endValue, 
-    Color progressColor
-  ) {
+  Widget _buildProgressRow(String startLabel, String endLabel,
+      String startValue, String endValue, Color progressColor) {
     final customColors = Theme.of(context).extension<CustomColors>()!;
-    
+
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: Duration(milliseconds: 1500),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) {
-        return Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      startLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: customColors.textSecondary,
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: Duration(milliseconds: 1500),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, child) {
+          return Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        startLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: customColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      startValue,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: customColors.textPrimary,
+                      SizedBox(height: 4),
+                      Text(
+                        startValue,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: customColors.textPrimary,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      endLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: customColors.textSecondary,
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        endLabel,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: customColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      endValue,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: customColors.textPrimary,
+                      SizedBox(height: 4),
+                      Text(
+                        endValue,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: customColors.textPrimary,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: value,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ],
-        );
-      }
-    );
+                    ],
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: value,
+                minHeight: 8,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ],
+          );
+        });
   }
 
   Widget _buildInfoRow(
@@ -783,7 +775,7 @@ class _ResultsScreenState extends State<ResultsScreen>
 
   Widget _buildCalculationDetails() {
     final customColors = Theme.of(context).extension<CustomColors>();
-    
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -821,22 +813,22 @@ class _ResultsScreenState extends State<ResultsScreen>
               ),
             ),
             SizedBox(height: 20),
-            
+
             // BMR Formula
             _buildMethodCard(
               'Formula Used',
               widget.results.containsKey('formula_used')
-                ? '${widget.results['formula_used']}'
-                : 'Automatically selected formula',
+                  ? '${widget.results['formula_used']}'
+                  : 'Automatically selected formula',
               'Our system selected the most accurate formula for your body type',
               Icons.functions_rounded,
               Colors.indigo.shade400,
             ),
-            
+
             SizedBox(height: 16),
-            
-            // Show body fat percentage if provided 
-            if (widget.results.containsKey('body_fat_percentage') && 
+
+            // Show body fat percentage if provided
+            if (widget.results.containsKey('body_fat_percentage') &&
                 widget.results['body_fat_percentage'] != null)
               Column(
                 children: [
@@ -850,9 +842,9 @@ class _ResultsScreenState extends State<ResultsScreen>
                   SizedBox(height: 16),
                 ],
               ),
-            
+
             // Show athletic status if provided
-            if (widget.results.containsKey('is_athlete') && 
+            if (widget.results.containsKey('is_athlete') &&
                 widget.results['is_athlete'] == true)
               Column(
                 children: [
@@ -866,13 +858,13 @@ class _ResultsScreenState extends State<ResultsScreen>
                   SizedBox(height: 16),
                 ],
               ),
-            
+
             // Add scientific sources section
             Divider(height: 32),
             Row(
               children: [
                 Icon(
-                  Icons.science_rounded, 
+                  Icons.science_rounded,
                   color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
                   size: 18,
                 ),
@@ -913,7 +905,7 @@ class _ResultsScreenState extends State<ResultsScreen>
     Color color,
   ) {
     final customColors = Theme.of(context).extension<CustomColors>()!;
-    
+
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -974,8 +966,9 @@ class _ResultsScreenState extends State<ResultsScreen>
 
   Widget _buildLifestyleRecommendations() {
     final customColors = Theme.of(context).extension<CustomColors>()!;
-    final weight = widget.results['weight_kg'] ?? 70; // Default to 70kg if not available
-    
+    final weight =
+        widget.results['weight_kg'] ?? 70; // Default to 70kg if not available
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1048,17 +1041,11 @@ class _ResultsScreenState extends State<ResultsScreen>
     );
   }
 
-  Widget _buildLifestyleCard(
-    String title,
-    String value,
-    String description,
-    IconData icon,
-    Color color,
-    {bool isAnimated = false, 
-    int animationDelay = 0}
-  ) {
+  Widget _buildLifestyleCard(String title, String value, String description,
+      IconData icon, Color color,
+      {bool isAnimated = false, int animationDelay = 0}) {
     final customColors = Theme.of(context).extension<CustomColors>()!;
-    
+
     Widget card = Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1116,7 +1103,7 @@ class _ResultsScreenState extends State<ResultsScreen>
         ],
       ),
     );
-    
+
     if (isAnimated) {
       return TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0, end: 1),
@@ -1133,7 +1120,7 @@ class _ResultsScreenState extends State<ResultsScreen>
         },
       );
     }
-    
+
     return card;
   }
 
@@ -1161,7 +1148,8 @@ class _ResultsScreenState extends State<ResultsScreen>
                 borderRadius: BorderRadius.circular(30),
               ),
               elevation: 4,
-              shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+              shadowColor:
+                  Theme.of(context).colorScheme.primary.withOpacity(0.4),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1175,7 +1163,11 @@ class _ResultsScreenState extends State<ResultsScreen>
                   ),
                 ),
                 SizedBox(width: 8),
-                Icon(Icons.arrow_forward_rounded, size: 18),
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
               ],
             ),
           ),
@@ -1185,7 +1177,7 @@ class _ResultsScreenState extends State<ResultsScreen>
   }
 }
 
-// Custom painter for macro pie chart 
+// Custom painter for macro pie chart
 class MacroPieChartPainter extends CustomPainter {
   final double proteinPercent;
   final double carbPercent;
@@ -1201,29 +1193,29 @@ class MacroPieChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2;
-    
+
     // Define colors for each segment
     final proteinColor = Colors.red.shade400;
     final carbColor = Colors.blue.shade400;
     final fatColor = Colors.orange.shade400;
-    
+
     // Calculate total - should equal 1.0 but just in case
     final total = proteinPercent + carbPercent + fatPercent;
-    
+
     // Convert percentages to radians
     final proteinRadians = 2 * math.pi * (proteinPercent / total);
     final carbRadians = 2 * math.pi * (carbPercent / total);
     final fatRadians = 2 * math.pi * (fatPercent / total);
-    
+
     // Starting angle is -π/2 (top of circle)
     double startAngle = -math.pi / 2;
-    
+
     // Draw protein segment
     if (proteinPercent > 0) {
       final paint = Paint()
         ..color = proteinColor
         ..style = PaintingStyle.fill;
-      
+
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle,
@@ -1231,16 +1223,16 @@ class MacroPieChartPainter extends CustomPainter {
         true,
         paint,
       );
-      
+
       startAngle += proteinRadians;
     }
-    
+
     // Draw carb segment
     if (carbPercent > 0) {
       final paint = Paint()
         ..color = carbColor
         ..style = PaintingStyle.fill;
-      
+
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle,
@@ -1248,16 +1240,16 @@ class MacroPieChartPainter extends CustomPainter {
         true,
         paint,
       );
-      
+
       startAngle += carbRadians;
     }
-    
+
     // Draw fat segment
     if (fatPercent > 0) {
       final paint = Paint()
         ..color = fatColor
         ..style = PaintingStyle.fill;
-      
+
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle,
@@ -1266,12 +1258,12 @@ class MacroPieChartPainter extends CustomPainter {
         paint,
       );
     }
-    
+
     // Draw inner circle to create a donut chart
     final innerPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
-    
+
     canvas.drawCircle(
       center,
       radius * 0.6, // Inner radius is 60% of outer radius
@@ -1282,8 +1274,8 @@ class MacroPieChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(MacroPieChartPainter oldDelegate) {
     return oldDelegate.proteinPercent != proteinPercent ||
-           oldDelegate.carbPercent != carbPercent ||
-           oldDelegate.fatPercent != fatPercent;
+        oldDelegate.carbPercent != carbPercent ||
+        oldDelegate.fatPercent != fatPercent;
   }
 }
 
@@ -1299,7 +1291,7 @@ extension ColorExtension on Color {
       (blue * f).round(),
     );
   }
-  
+
   Color lighten([int percent = 10]) {
     assert(1 <= percent && percent <= 100);
     final p = percent / 100;

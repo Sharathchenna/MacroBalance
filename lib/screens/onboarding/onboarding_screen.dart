@@ -68,7 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       curve: Curves.easeInOut,
     ));
     _animationController.forward();
-    
+
     // Initialize goal weight to match current weight
     _goalWeightKg = _weightKg;
   }
@@ -88,7 +88,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       if (_currentPage == 4) {
         _validateRanges();
       }
-      
+
       setState(() {
         _currentPage++;
         _progressAnimation = Tween<double>(
@@ -175,7 +175,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       deficit: _deficit,
       proteinRatio: _proteinRatio,
       fatRatio: _fatRatio,
-      goalWeightKg: _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
+      goalWeightKg:
+          _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
       bodyFatPercentage: _showBodyFatInput ? _bodyFatPercentage : null,
       isAthlete: _isAthlete,
     );
@@ -188,14 +189,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
             ResultsScreen(results: results),
-        transitionsBuilder:
-            (context, animation, secondaryAnimation, child) {
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;
           const curve = Curves.easeInOutCubic;
 
-          var tween = Tween(begin: begin, end: end)
-              .chain(CurveTween(curve: curve));
+          var tween =
+              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
           var offsetAnimation = animation.drive(tween);
 
           return SlideTransition(
@@ -280,7 +280,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             'protein_goal', (macroResults['protein'] ?? 0).toDouble());
         prefs.setDouble('carbs_goal', (macroResults['carbs'] ?? 0).toDouble());
         prefs.setDouble('fat_goal', (macroResults['fat'] ?? 0).toDouble());
-        
+
         // Save goal weight if applicable
         if (_goal != MacroCalculatorService.GOAL_MAINTAIN) {
           prefs.setDouble('goal_weight_kg', _goalWeightKg);
@@ -305,7 +305,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget build(BuildContext context) {
     // Get the custom colors from theme
     final customColors = Theme.of(context).extension<CustomColors>();
-
+    final theme = Theme.of(context);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -409,7 +409,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 children: [
                   _currentPage > 0
                       ? TextButton(
-                          onPressed: _previousPage,
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            _previousPage();
+                          },
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 12),
@@ -438,7 +441,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         )
                       : const SizedBox(width: 80),
                   ElevatedButton(
-                    onPressed: _nextPage,
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      _nextPage();
+                    },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 32, vertical: 12),
@@ -472,7 +478,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               ? Icons.check_circle_outline_rounded
                               : Icons.arrow_forward_rounded,
                           size: 16,
-                          color: Colors.black,
+                          color: theme.colorScheme.onPrimary,
                         ),
                       ],
                     ),
@@ -512,9 +518,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Theme.of(context)
-                              .colorScheme
-                              .onPrimary
+                          customColors!.dateNavigatorBackground
                               .withOpacity(0.8),
                           Theme.of(context)
                               .colorScheme
@@ -535,11 +539,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.restaurant,
-                        size: 64,
-                        color: Colors.white,
+                    child: Center(
+                      child: Image.asset(
+                        Theme.of(context).brightness == Brightness.light
+                            ? 'assets/icons/icon_black.png'
+                            : 'assets/icons/icon_white.png',
+                        width: 200,
+                        height: 200,
                       ),
                     ),
                   ),
@@ -560,10 +566,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 child: Transform.translate(
                   offset: Offset(0, 20 * (1 - value)),
                   child: Text(
-                    'Welcome to MacroBalance 🥑',
+                    'Welcome to MacroBalance',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: customColors?.textPrimary,
+                          fontSize: 24,
                         ),
                     textAlign: TextAlign.center,
                   ),
@@ -695,8 +702,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               Expanded(
                 child: _buildSelectionCard(
                   isSelected: _gender == MacroCalculatorService.MALE,
-                  onTap: () =>
-                      setState(() => _gender = MacroCalculatorService.MALE),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _gender = MacroCalculatorService.MALE);
+                  },
                   icon: Icons.male,
                   label: 'Male',
                 ),
@@ -705,8 +714,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               Expanded(
                 child: _buildSelectionCard(
                   isSelected: _gender == MacroCalculatorService.FEMALE,
-                  onTap: () =>
-                      setState(() => _gender = MacroCalculatorService.FEMALE),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _gender = MacroCalculatorService.FEMALE);
+                  },
                   icon: Icons.female,
                   label: 'Female',
                 ),
@@ -720,356 +731,440 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   Widget _buildBodyMeasurementsPage() {
     final customColors = Theme.of(context).extension<CustomColors>();
+    // Create a scroll controller to detect scroll position
+    final ScrollController scrollController = ScrollController();
+    // State variable to track if we're at the bottom of the scroll
+    final ValueNotifier<bool> isAtBottom = ValueNotifier<bool>(false);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Your body measurements',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: customColors?.textPrimary,
-                ),
-          ),
-          const SizedBox(height: 32),
+    // Add listener to check scroll position
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        scrollController.addListener(() {
+          if (scrollController.position.pixels >=
+              scrollController.position.maxScrollExtent - 20) {
+            isAtBottom.value = true;
+          } else {
+            isAtBottom.value = false;
+          }
+        });
+      }
+    });
 
-          // Weight Picker
-          Row(
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Weight',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                'Your body measurements',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
                       color: customColors?.textPrimary,
-                      fontWeight: FontWeight.w600,
                     ),
               ),
-              const SizedBox(width: 8),
-              _buildTooltip(
-                  'Your current body weight is used to calculate your daily caloric needs'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              color: customColors?.cardBackground,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+              const SizedBox(height: 32),
+
+              // Weight Picker
+              Row(
+                children: [
+                  Text(
+                    'Weight',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: customColors?.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTooltip(
+                      'Your current body weight is used to calculate your daily caloric needs'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: customColors?.cardBackground,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color.fromRGBO(0, 0, 0, 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Unit selector
-                Row(
+                child: Column(
+                  children: [
+                    // Unit selector
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildUnitSelector(
+                          isMetric: _isMetricWeight,
+                          metricUnit: 'kg',
+                          imperialUnit: 'lbs',
+                          onChanged: (isMetric) {
+                            HapticFeedback.heavyImpact();
+                            setState(() {
+                              _isMetricWeight = isMetric;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Weight pickers
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isMetricWeight) ...[
+                          // Metric (kg) pickers
+                          NumberPicker(
+                            value: _weightKg.floor(),
+                            minValue: 30,
+                            maxValue: 200,
+                            onChanged: (value) {
+                              HapticFeedback.lightImpact();
+                              setState(() {
+                                _weightKg =
+                                    value + (_weightKg - _weightKg.floor());
+                              });
+                            },
+                            selectedTextStyle: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textStyle: TextStyle(
+                              color: customColors?.textSecondary,
+                              fontSize: 20,
+                            ),
+                          ),
+                          Text(
+                            '.',
+                            style: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          NumberPicker(
+                            value:
+                                ((_weightKg - _weightKg.floor()) * 10).round(),
+                            minValue: 0,
+                            maxValue: 9,
+                            onChanged: (value) {
+                              HapticFeedback.lightImpact();
+                              setState(() {
+                                _weightKg = _weightKg.floor() + (value / 10);
+                              });
+                            },
+                            selectedTextStyle: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textStyle: TextStyle(
+                              color: customColors?.textSecondary,
+                              fontSize: 20,
+                            ),
+                          ),
+                        ] else ...[
+                          // Imperial (lbs) picker
+                          NumberPicker(
+                            value: (_weightKg * 2.20462).round(),
+                            minValue: 66, // 30kg in lbs
+                            maxValue: 441, // 200kg in lbs
+                            onChanged: (value) {
+                              HapticFeedback.lightImpact();
+                              setState(() {
+                                _weightKg = value / 2.20462;
+                              });
+                            },
+                            selectedTextStyle: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textStyle: TextStyle(
+                              color: customColors?.textSecondary,
+                              fontSize: 20,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Height Picker
+              Row(
+                children: [
+                  Text(
+                    'Height',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: customColors?.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTooltip(
+                      'Your height is used to calculate your BMI and base metabolic rate'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: customColors?.cardBackground,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Unit selector
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildUnitSelector(
+                          isMetric: _isMetricHeight,
+                          metricUnit: 'cm',
+                          imperialUnit: 'ft',
+                          onChanged: (isMetric) {
+                            HapticFeedback.heavyImpact();
+                            setState(() {
+                              _isMetricHeight = isMetric;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Height pickers
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isMetricHeight) ...[
+                          // Metric (cm) picker
+                          NumberPicker(
+                            value: _heightCm.round(),
+                            minValue: 90,
+                            maxValue: 220,
+                            onChanged: (value) {
+                              HapticFeedback.lightImpact();
+                              setState(() {
+                                _heightCm = value.toDouble();
+                              });
+                            },
+                            selectedTextStyle: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textStyle: TextStyle(
+                              color: customColors?.textSecondary,
+                              fontSize: 20,
+                            ),
+                          ),
+                        ] else ...[
+                          // Imperial (ft & in) pickers
+                          NumberPicker(
+                            value: max(3, min(7, (_heightCm / 30.48).floor())),
+                            minValue: 3,
+                            maxValue: 7,
+                            onChanged: (feet) {
+                              HapticFeedback.lightImpact();
+                              // Calculate current inches, ensuring value stays within bounds
+                              double remainingCm = _heightCm -
+                                  ((_heightCm / 30.48).floor() * 30.48);
+                              int currentInches =
+                                  max(0, min(11, (remainingCm / 2.54).round()));
+
+                              setState(() {
+                                _heightCm =
+                                    (feet * 30.48) + (currentInches * 2.54);
+                              });
+                            },
+                            selectedTextStyle: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textStyle: TextStyle(
+                              color: customColors?.textSecondary,
+                              fontSize: 20,
+                            ),
+                          ),
+                          Text(
+                            'ft',
+                            style: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          NumberPicker(
+                            value: max(0,
+                                min(11, ((_heightCm % 30.48) / 2.54).round())),
+                            minValue: 0,
+                            maxValue: 11,
+                            onChanged: (inches) {
+                              HapticFeedback.lightImpact();
+                              final feet = (_heightCm / 30.48).floor();
+                              setState(() {
+                                _heightCm = (feet * 30.48) + (inches * 2.54);
+                              });
+                            },
+                            selectedTextStyle: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textStyle: TextStyle(
+                              color: customColors?.textSecondary,
+                              fontSize: 20,
+                            ),
+                          ),
+                          Text(
+                            'in',
+                            style: TextStyle(
+                              color: customColors?.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Age Picker
+              Row(
+                children: [
+                  Text(
+                    'Age',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: customColors?.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTooltip(
+                      'Your age affects your basal metabolic rate (BMR) calculation'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: customColors?.cardBackground,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildUnitSelector(
-                      isMetric: _isMetricWeight,
-                      metricUnit: 'kg',
-                      imperialUnit: 'lbs',
-                      onChanged: (isMetric) {
-                        HapticFeedback.heavyImpact();
-                        setState(() {
-                          _isMetricWeight = isMetric;
-                        });
+                    NumberPicker(
+                      value: _age,
+                      minValue: 18,
+                      maxValue: 80,
+                      onChanged: (value) => setState(() => _age = value),
+                      selectedTextStyle: TextStyle(
+                        color: customColors?.textPrimary,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textStyle: TextStyle(
+                        color: customColors?.textSecondary,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'years',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Extra padding to ensure content can scroll enough to hide arrow
+              const SizedBox(height: 60),
+            ],
+          ),
+        ),
+
+        // Scroll indicator arrow
+        Positioned(
+          bottom: 16,
+          left: 0,
+          right: 0,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: isAtBottom,
+            builder: (context, isAtBottom, child) {
+              return AnimatedOpacity(
+                opacity: isAtBottom ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 300),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: customColors!.textPrimary.withOpacity(0.8),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: 4),
+                      duration: const Duration(seconds: 1),
+                      curve: Curves.easeInOut,
+                      builder: (context, value, child) {
+                        return Transform.translate(
+                          offset: Offset(0, sin(value) * 3),
+                          child: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                            size: 24,
+                          ),
+                        );
                       },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // Weight pickers
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (_isMetricWeight) ...[
-                      // Metric (kg) pickers
-                      NumberPicker(
-                        value: _weightKg.floor(),
-                        minValue: 30,
-                        maxValue: 200,
-                        onChanged: (value) {
-                          setState(() {
-                            _weightKg = value + (_weightKg - _weightKg.floor());
-                          });
-                        },
-                        selectedTextStyle: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textStyle: TextStyle(
-                          color: customColors?.textSecondary,
-                          fontSize: 20,
-                        ),
-                      ),
-                      Text(
-                        '.',
-                        style: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      NumberPicker(
-                        value: ((_weightKg - _weightKg.floor()) * 10).round(),
-                        minValue: 0,
-                        maxValue: 9,
-                        onChanged: (value) {
-                          setState(() {
-                            _weightKg = _weightKg.floor() + (value / 10);
-                          });
-                        },
-                        selectedTextStyle: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textStyle: TextStyle(
-                          color: customColors?.textSecondary,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ] else ...[
-                      // Imperial (lbs) picker
-                      NumberPicker(
-                        value: (_weightKg * 2.20462).round(),
-                        minValue: 66, // 30kg in lbs
-                        maxValue: 441, // 200kg in lbs
-                        onChanged: (value) {
-                          setState(() {
-                            _weightKg = value / 2.20462;
-                          });
-                        },
-                        selectedTextStyle: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textStyle: TextStyle(
-                          color: customColors?.textSecondary,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Height Picker
-          Row(
-            children: [
-              Text(
-                'Height',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: customColors?.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(width: 8),
-              _buildTooltip(
-                  'Your height is used to calculate your BMI and base metabolic rate'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              color: customColors?.cardBackground,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Unit selector
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildUnitSelector(
-                      isMetric: _isMetricHeight,
-                      metricUnit: 'cm',
-                      imperialUnit: 'ft',
-                      onChanged: (isMetric) {
-                        HapticFeedback.heavyImpact();
-                        setState(() {
-                          _isMetricHeight = isMetric;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // Height pickers
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (_isMetricHeight) ...[
-                      // Metric (cm) picker
-                      NumberPicker(
-                        value: _heightCm.round(),
-                        minValue: 140,
-                        maxValue: 220,
-                        onChanged: (value) {
-                          setState(() {
-                            _heightCm = value.toDouble();
-                          });
-                        },
-                        selectedTextStyle: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textStyle: TextStyle(
-                          color: customColors?.textSecondary,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ] else ...[
-                      // Imperial (ft & in) pickers
-                      NumberPicker(
-                        value: (_heightCm / 30.48).floor(),
-                        minValue: 3,
-                        maxValue: 7,
-                        onChanged: (feet) {
-                          final inches = (_heightCm - (feet * 30.48)) ~/ 2.54;
-                          setState(() {
-                            _heightCm = (feet * 30.48) + (inches * 2.54);
-                          });
-                        },
-                        selectedTextStyle: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textStyle: TextStyle(
-                          color: customColors?.textSecondary,
-                          fontSize: 20,
-                        ),
-                      ),
-                      Text(
-                        'ft',
-                        style: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      NumberPicker(
-                        value: ((_heightCm -
-                                    ((_heightCm / 30.48).floor() * 30.48)) /
-                                2.54)
-                            .round(),
-                        minValue: 0,
-                        maxValue: 11,
-                        onChanged: (inches) {
-                          final feet = (_heightCm / 30.48).floor();
-                          setState(() {
-                            _heightCm = (feet * 30.48) + (inches * 2.54);
-                          });
-                        },
-                        selectedTextStyle: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textStyle: TextStyle(
-                          color: customColors?.textSecondary,
-                          fontSize: 20,
-                        ),
-                      ),
-                      Text(
-                        'in',
-                        style: TextStyle(
-                          color: customColors?.textPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Age Picker
-          Row(
-            children: [
-              Text(
-                'Age',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: customColors?.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(width: 8),
-              _buildTooltip(
-                  'Your age affects your basal metabolic rate (BMR) calculation'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              color: customColors?.cardBackground,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                NumberPicker(
-                  value: _age,
-                  minValue: 18,
-                  maxValue: 80,
-                  onChanged: (value) => setState(() => _age = value),
-                  selectedTextStyle: TextStyle(
-                    color: customColors?.textPrimary,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textStyle: TextStyle(
-                    color: customColors?.textSecondary,
-                    fontSize: 20,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  'years',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1234,9 +1329,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final customColors = Theme.of(context).extension<CustomColors>();
 
     // Update goal weight when goal changes to ensure it's valid
-    if (_goal == MacroCalculatorService.GOAL_LOSE && _goalWeightKg >= _weightKg) {
+    if (_goal == MacroCalculatorService.GOAL_LOSE &&
+        _goalWeightKg >= _weightKg) {
       _goalWeightKg = max(40.0, _weightKg - 5.0); // Default to 5kg loss
-    } else if (_goal == MacroCalculatorService.GOAL_GAIN && _goalWeightKg <= _weightKg) {
+    } else if (_goal == MacroCalculatorService.GOAL_GAIN &&
+        _goalWeightKg <= _weightKg) {
       _goalWeightKg = min(150.0, _weightKg + 5.0); // Default to 5kg gain
     }
 
@@ -1273,7 +1370,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             icon: Icons.trending_up,
             description: 'Calorie surplus to build muscle',
           ),
-          
+
           // Conditionally show goal weight input for weight loss/gain
           if (_goal != MacroCalculatorService.GOAL_MAINTAIN) ...[
             const SizedBox(height: 24),
@@ -1317,11 +1414,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           value: _goalWeightKg.floor(),
                           // For weight loss: min is 40kg, max is current weight - 0.1kg
                           // For weight gain: min is current weight + 0.1kg, max is 150kg
-                          minValue: _goal == MacroCalculatorService.GOAL_LOSE ? 40 : (_weightKg.floor() + 1),
-                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE ? (_weightKg.floor() - 1) : 150,
+                          minValue: _goal == MacroCalculatorService.GOAL_LOSE
+                              ? 40
+                              : (_weightKg.floor() + 1),
+                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE
+                              ? (_weightKg.floor() - 1)
+                              : 150,
                           onChanged: (value) {
+                            HapticFeedback.lightImpact();
                             setState(() {
-                              _goalWeightKg = value + (_goalWeightKg - _goalWeightKg.floor());
+                              _goalWeightKg = value +
+                                  (_goalWeightKg - _goalWeightKg.floor());
                               _validateRanges();
                             });
                           },
@@ -1344,12 +1447,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           ),
                         ),
                         NumberPicker(
-                          value: ((_goalWeightKg - _goalWeightKg.floor()) * 10).round(),
+                          value: ((_goalWeightKg - _goalWeightKg.floor()) * 10)
+                              .round(),
                           minValue: 0,
                           maxValue: 9,
                           onChanged: (value) {
+                            HapticFeedback.lightImpact();
                             setState(() {
-                              _goalWeightKg = _goalWeightKg.floor() + (value / 10);
+                              _goalWeightKg =
+                                  _goalWeightKg.floor() + (value / 10);
                               _validateRanges();
                             });
                           },
@@ -1367,7 +1473,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           'kg',
                           style: TextStyle(
                             color: customColors?.textPrimary,
-                            fontSize: 20, 
+                            fontSize: 20,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -1376,11 +1482,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         NumberPicker(
                           value: (_goalWeightKg * 2.20462).round(),
                           // Calculate min/max inline to avoid issues
-                          minValue: _goal == MacroCalculatorService.GOAL_LOSE 
-                              ? 88 
+                          minValue: _goal == MacroCalculatorService.GOAL_LOSE
+                              ? 88
                               : ((_weightKg * 2.20462).round() + 1),
-                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE 
-                              ? ((_weightKg * 2.20462).round() - 1) 
+                          maxValue: _goal == MacroCalculatorService.GOAL_LOSE
+                              ? ((_weightKg * 2.20462).round() - 1)
                               : 330,
                           onChanged: (value) {
                             setState(() {
@@ -1409,19 +1515,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       ],
                     ],
                   ),
-                  
+
                   // Weight difference indicator
                   Padding(
                     padding: const EdgeInsets.only(top: 12.0),
                     child: Text(
-                      _goal == MacroCalculatorService.GOAL_LOSE 
-                          ? 'Lose ${(_weightKg - _goalWeightKg).toStringAsFixed(1)} kg' 
+                      _goal == MacroCalculatorService.GOAL_LOSE
+                          ? 'Lose ${(_weightKg - _goalWeightKg).toStringAsFixed(1)} kg'
                           : 'Gain ${(_goalWeightKg - _weightKg).toStringAsFixed(1)} kg',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: _goal == MacroCalculatorService.GOAL_LOSE 
-                            ? Colors.red.shade400 
+                        color: _goal == MacroCalculatorService.GOAL_LOSE
+                            ? Colors.red.shade400
                             : Colors.green.shade500,
                       ),
                     ),
@@ -1429,7 +1535,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ],
               ),
             ),
-            
+
             // Safe weight change note based on Harvard/NIH recommendations
             Padding(
               padding: const EdgeInsets.only(top: 8.0, left: 16.0),
@@ -1443,7 +1549,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
             ),
           ],
-          
+
           // Deficit/Surplus section - keep existing code
           if (_goal != MacroCalculatorService.GOAL_MAINTAIN) ...[
             const SizedBox(height: 24),
@@ -1533,7 +1639,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
           ),
           const SizedBox(height: 32),
-  
+
           // Athletic status selection
           Row(
             children: [
@@ -1563,22 +1669,27 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               children: [
                 Expanded(
                   child: _buildToggleOption(
-                    label: 'No',
-                    isSelected: !_isAthlete,
-                    onTap: () => setState(() => _isAthlete = false),
-                  ),
+                      label: 'No',
+                      isSelected: !_isAthlete,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _isAthlete = false);
+                      }),
                 ),
                 Expanded(
                   child: _buildToggleOption(
                     label: 'Yes',
                     isSelected: _isAthlete,
-                    onTap: () => setState(() => _isAthlete = true),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() => _isAthlete = true);
+                    },
                   ),
                 ),
               ],
             ),
           ),
-          
+
           // Body Fat Percentage Input (shown to all users, but optional)
           const SizedBox(height: 24),
           Row(
@@ -1609,22 +1720,27 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               children: [
                 Expanded(
                   child: _buildToggleOption(
-                    label: 'Skip',
-                    isSelected: !_showBodyFatInput,
-                    onTap: () => setState(() => _showBodyFatInput = false),
-                  ),
+                      label: 'Skip',
+                      isSelected: !_showBodyFatInput,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        setState(() => _showBodyFatInput = false);
+                      }),
                 ),
                 Expanded(
                   child: _buildToggleOption(
                     label: 'Enter',
                     isSelected: _showBodyFatInput,
-                    onTap: () => setState(() => _showBodyFatInput = true),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() => _showBodyFatInput = true);
+                    },
                   ),
                 ),
               ],
             ),
           ),
-          
+
           // Body fat percentage slider if selected
           if (_showBodyFatInput) ...[
             const SizedBox(height: 16),
@@ -1660,10 +1776,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       ),
                       Text(
                         '${_bodyFatPercentage.round()}%',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: customColors?.textPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  color: customColors?.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                       IconButton(
                         onPressed: () {
@@ -1683,7 +1800,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       ),
                     ],
                   ),
-                  
+
                   // Slider for more precise control
                   Slider(
                     value: _bodyFatPercentage,
@@ -1697,7 +1814,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       });
                     },
                   ),
-                  
+
                   // Healthy range indicators
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1729,7 +1846,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
             ),
           ],
-                    
+
           const SizedBox(height: 32),
 
           // Protein ratio slider
@@ -1949,15 +2066,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     required VoidCallback onTap,
   }) {
     final customColors = Theme.of(context).extension<CustomColors>();
-    
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? customColors!.textPrimary.withOpacity(0.1)
-              : Colors.transparent,
+          color: //isSelected
+              // ? customColors!.textSecondary.withOpacity(0.1)
+              Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -1968,9 +2085,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isSelected
-                    ? customColors!.textPrimary
-                    : Colors.transparent,
+                color:
+                    isSelected ? customColors!.textPrimary : Colors.transparent,
                 border: Border.all(
                   color: isSelected
                       ? customColors!.textPrimary
@@ -2094,7 +2210,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: GestureDetector(
-        onTap: () => setState(() => _activityLevel = level),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _activityLevel = level);
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
@@ -2323,7 +2442,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       if (_goal == MacroCalculatorService.GOAL_GAIN) return 'Gain Weight';
       return 'Unknown';
     }
-    
+
     // Create the items lists for each section
     final personalInfoItems = [
       {
@@ -2351,13 +2470,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         'value': _isAthlete ? 'Athlete' : 'Non-Athlete',
         'page': 5,
       },
-      if (_showBodyFatInput) {
-        'label': 'Body Fat Percentage',
-        'value': '${_bodyFatPercentage.round()}%',
-        'page': 5,
-      },
+      if (_showBodyFatInput)
+        {
+          'label': 'Body Fat Percentage',
+          'value': '${_bodyFatPercentage.round()}%',
+          'page': 5,
+        },
     ];
-    
+
     // Create activity and goals items
     final List<Map<String, dynamic>> activityGoalsItems = [
       {
@@ -2371,7 +2491,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         'page': 4,
       },
     ];
-    
+
     // Add deficit/surplus and target weight if not maintaining
     if (_goal != MacroCalculatorService.GOAL_MAINTAIN) {
       activityGoalsItems.add({
@@ -2381,14 +2501,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         'value': '$_deficit calories per day',
         'page': 4,
       });
-      
+
       activityGoalsItems.add({
         'label': 'Target Weight',
         'value': '${_goalWeightKg.toStringAsFixed(1)} kg',
         'page': 4,
       });
     }
-    
+
     // Create macro settings items
     final List<Map<String, dynamic>> macroSettingsItems = [
       {
@@ -2407,7 +2527,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         'page': 5,
       },
       {
-        'label': 'BMR Formula', 
+        'label': 'BMR Formula',
         'value': 'Auto-selected based on your profile',
         'page': 5,
       },
@@ -2650,13 +2770,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       // and not too extreme (safe to assume not less than 75% of current weight)
       double minWeight = _weightKg * 0.75;
       _goalWeightKg = _goalWeightKg < minWeight ? minWeight : _goalWeightKg;
-      _goalWeightKg = _goalWeightKg >= _weightKg ? _weightKg - 0.5 : _goalWeightKg;
+      _goalWeightKg =
+          _goalWeightKg >= _weightKg ? _weightKg - 0.5 : _goalWeightKg;
     } else if (_goal == MacroCalculatorService.GOAL_GAIN) {
       // For weight gain, goal weight should be more than current weight
       // and not too extreme (safe to assume not more than 150% of current weight)
       double maxWeight = _weightKg * 1.5;
       _goalWeightKg = _goalWeightKg > maxWeight ? maxWeight : _goalWeightKg;
-      _goalWeightKg = _goalWeightKg <= _weightKg ? _weightKg + 0.5 : _goalWeightKg;
+      _goalWeightKg =
+          _goalWeightKg <= _weightKg ? _weightKg + 0.5 : _goalWeightKg;
     }
     // If goal is MAINTAIN, no validation needed for goal weight
   }
@@ -2665,12 +2787,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     // Convert kg to lbs
     _imperialWeightLbs = (_weightKg * 2.20462).round();
     _imperialGoalWeightLbs = (_goalWeightKg * 2.20462).round();
-    
+
     // Convert cm to feet and inches
     double totalInches = _heightCm / 2.54;
     _imperialHeightFeet = (totalInches / 12).floor();
     _imperialHeightInches = (totalInches % 12).round();
-    
+
     // Update UI
     setState(() {});
   }
@@ -2678,7 +2800,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void _updateGoal(String newGoal) {
     setState(() {
       _goal = newGoal;
-      
+
       // Update goal weight and deficit based on goal
       if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
         _goalWeightKg = _weightKg;
@@ -2690,12 +2812,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         _goalWeightKg = _weightKg * 1.1; // Default to 10% weight gain
         _deficit = 500; // Default surplus
       }
-      
+
       // Update imperial values if needed
       if (!_isMetricWeight) {
         _setImperialValues();
       }
-      
+
       // Validate the ranges
       _validateRanges();
     });

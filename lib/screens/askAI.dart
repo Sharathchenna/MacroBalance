@@ -13,6 +13,7 @@ import 'package:macrotracker/models/foodEntry.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
+import 'package:lottie/lottie.dart';
 
 class Askai extends StatefulWidget {
   const Askai({super.key});
@@ -305,7 +306,7 @@ Meal to analyze: ${_mealController.text}
             ),
           ],
         ),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: EdgeInsets.all(8),
@@ -647,13 +648,35 @@ Meal to analyze: ${_mealController.text}
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const CupertinoActivityIndicator(radius: 16),
-                          const SizedBox(height: 16),
+                          Container(
+                            height: 150,
+                            width: 150,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              shape: BoxShape.circle,
+                              // borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.1),
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Lottie.asset(
+                              'assets/animations/potato_walking.json',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
                           Text(
                             'Analyzing your meal...',
                             style: TextStyle(
                               color: customColors.textSecondary,
                               fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -781,7 +804,7 @@ Meal to analyze: ${_mealController.text}
     _mealController.dispose();
     // Call super.dispose() last
     super.dispose();
-    
+
     // IMPORTANT: Do not access context or call any methods using context after this point
     // This ensures we don't reference deactivated widgets
   }

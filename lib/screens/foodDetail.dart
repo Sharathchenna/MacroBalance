@@ -334,9 +334,11 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             ),
           ],
         ),
+        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFFFFC107).withValues(alpha: 0.8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: EdgeInsets.all(8),
+        duration: const Duration(seconds: 2),
       ),
     );
 

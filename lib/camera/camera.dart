@@ -48,7 +48,8 @@ class _CameraScreenState extends State<CameraScreen> {
           // Use addPostFrameCallback to ensure state is stable before popping
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) {
-              print('[Flutter Camera] Post-frame callback: Widget is unmounted. Ignoring result.');
+              print(
+                  '[Flutter Camera] Post-frame callback: Widget is unmounted. Ignoring result.');
               return;
             }
 
@@ -62,30 +63,33 @@ class _CameraScreenState extends State<CameraScreen> {
               _handleBarcodeResult(currentContext, barcode);
             } else if (type == 'photo') {
               final Uint8List photoData = result['value'] as Uint8List;
-              print('[Flutter Camera] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
+              print(
+                  '[Flutter Camera] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
               // Don't await, let it pop when done
               _handlePhotoResult(currentContext, photoData);
             } else if (type == 'cancel') {
-               print('[Flutter Camera] Post-frame: Handling cancel.');
-               // Pop with null result to indicate cancellation
-               Navigator.pop(currentContext, null);
+              print('[Flutter Camera] Post-frame: Handling cancel.');
+              // Pop with null result to indicate cancellation
+              Navigator.pop(currentContext, null);
             } else {
-               print('[Flutter Camera] Post-frame: Unknown camera result type: $type');
-               if (mounted) {
-                  setState(() => _error = 'Received unknown result from camera.');
-                  // Optionally pop with null on unknown error after showing message?
-                  // Future.delayed(Duration(seconds: 2), () {
-                  //   if (mounted) Navigator.pop(currentContext, null);
-                  // });
-               }
+              print(
+                  '[Flutter Camera] Post-frame: Unknown camera result type: $type');
+              if (mounted) {
+                setState(() => _error = 'Received unknown result from camera.');
+                // Optionally pop with null on unknown error after showing message?
+                // Future.delayed(Duration(seconds: 2), () {
+                //   if (mounted) Navigator.pop(currentContext, null);
+                // });
+              }
             }
           });
-           break;
-         default:
-           print('[Flutter Camera] Unknown method call from native: ${call.method}');
-       }
-     });
-   }
+          break;
+        default:
+          print(
+              '[Flutter Camera] Unknown method call from native: ${call.method}');
+      }
+    });
+  }
 
   Future<void> _showNativeCamera() async {
     if (!Platform.isIOS) {
@@ -124,43 +128,48 @@ class _CameraScreenState extends State<CameraScreen> {
 
   // --- Result Handling ---
 
-   // Pops with barcode result
-   void _handleBarcodeResult(BuildContext safeContext, String barcode) {
-      print('[Flutter Camera] Popping CameraScreen with barcode result');
-      if (!mounted) return;
-      Navigator.pop(safeContext, {'type': 'barcode', 'value': barcode});
-   }
+  // Pops with barcode result
+  void _handleBarcodeResult(BuildContext safeContext, String barcode) {
+    print('[Flutter Camera] Popping CameraScreen with barcode result');
+    if (!mounted) return;
+    Navigator.pop(safeContext, {'type': 'barcode', 'value': barcode});
+  }
 
-   // Processes photo, then pops with photo result (list of foods)
-   Future<void> _handlePhotoResult(BuildContext safeContext, Uint8List photoData) async {
-     if (!mounted) return;
+  // Processes photo, then pops with photo result (list of foods)
+  Future<void> _handlePhotoResult(
+      BuildContext safeContext, Uint8List photoData) async {
+    if (!mounted) return;
 
-     _showLoadingDialog('Analyzing Image...'); // Show loading for Gemini
+    _showLoadingDialog('Analyzing Image...'); // Show loading for Gemini
 
     CameraResult? popResult; // Variable to hold the result for popping
 
     try {
       // --- Gemini Processing ---
       final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String tempPath =
+          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
       final File tempFile = File(tempPath);
       await tempFile.writeAsBytes(photoData);
       print('[Flutter Camera] Photo saved to temporary file: $tempPath');
       String jsonResponse = await processImageWithGemini(tempFile.path);
       print('[Flutter Camera] Gemini response received.');
       // try { await tempFile.delete(); } catch (e) { print('[Flutter Camera] Warn: Could not delete temp file: $e'); }
-      jsonResponse = jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
+      jsonResponse =
+          jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
       dynamic decodedJson = json.decode(jsonResponse);
       List<dynamic> mealData;
-       if (decodedJson is Map<String, dynamic> && decodedJson.containsKey('meal') && decodedJson['meal'] is List) {
-         mealData = decodedJson['meal'] as List;
-       } else if (decodedJson is List) {
-         mealData = decodedJson;
-       } else if (decodedJson is Map<String, dynamic>) {
-          mealData = [decodedJson];
-       } else {
-         throw Exception('Unexpected JSON structure from Gemini');
-       }
+      if (decodedJson is Map<String, dynamic> &&
+          decodedJson.containsKey('meal') &&
+          decodedJson['meal'] is List) {
+        mealData = decodedJson['meal'] as List;
+      } else if (decodedJson is List) {
+        mealData = decodedJson;
+      } else if (decodedJson is Map<String, dynamic>) {
+        mealData = [decodedJson];
+      } else {
+        throw Exception('Unexpected JSON structure from Gemini');
+      }
       final List<AIFoodItem> foods = mealData
           .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
           .toList();
@@ -177,86 +186,97 @@ class _CameraScreenState extends State<CameraScreen> {
         // Prepare result only if foods list is not empty
         popResult = {'type': 'photo', 'value': foods};
       }
-
     } catch (e) {
       print('[Flutter Camera] Error processing photo result: ${e.toString()}');
       if (mounted) {
-          // Show generic error message for other exceptions
-          _showErrorSnackbar('Something went wrong, try again');
+        // Show generic error message for other exceptions
+        _showErrorSnackbar('Something went wrong, try again');
       }
       // Prepare null result for error case
       popResult = null;
     } finally {
-       // Ensure loading dialog is dismissed and screen is popped
-       if (mounted) {
-         // Dismiss loading dialog safely
-         try {
-           if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
-              Navigator.of(safeContext, rootNavigator: true).pop(); // Dismiss dialog
-           }
-         } catch (e) { print("[Flutter Camera] Error dismissing loading dialog in finally: $e"); }
+      // Ensure loading dialog is dismissed and screen is popped
+      if (mounted) {
+        // Dismiss loading dialog safely
+        try {
+          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
+            Navigator.of(safeContext, rootNavigator: true)
+                .pop(); // Dismiss dialog
+          }
+        } catch (e) {
+          print(
+              "[Flutter Camera] Error dismissing loading dialog in finally: $e");
+        }
 
-         // Pop CameraScreen with the result (or null on error)
-         // Check mounted again right before popping
-         if (mounted) {
-            print('[Flutter Camera] Popping CameraScreen with photo result: $popResult');
-            Navigator.pop(safeContext, popResult);
-         }
-       }
+        // Pop CameraScreen with the result (or null on error)
+        // Check mounted again right before popping
+        if (mounted) {
+          print(
+              '[Flutter Camera] Popping CameraScreen with photo result: $popResult');
+          Navigator.pop(safeContext, popResult);
+        }
+      }
     }
   }
 
   // --- UI Helper Methods ---
 
-   void _showErrorSnackbar(String message) {
-     if (!mounted) return;
-     ScaffoldMessenger.of(context).removeCurrentSnackBar();
-     ScaffoldMessenger.of(context).showSnackBar(
-       SnackBar(
-         content: Text(message),
-         backgroundColor: Colors.redAccent,
-         duration: const Duration(seconds: 3),
-       ),
-     );
-   }
+  void _showErrorSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
-   void _showLoadingDialog(String message) {
-     if (!mounted) return;
-     showDialog(
-       context: context,
-       barrierDismissible: false,
-       barrierColor: Colors.white,
-       builder: (BuildContext dialogContext) {
-         // Improved Loading Dialog Layout
-         return Dialog(
-           backgroundColor: Colors.white, // Changed from black.withOpacity(0.8) to white
-           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-           child: Padding(
-             padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 24), // More padding
-             child: Column( // Use Column for vertical centering
-               mainAxisSize: MainAxisSize.min,
-               mainAxisAlignment: MainAxisAlignment.center, // Center vertically
-               children: [
-                 // Replace CircularProgressIndicator with Lottie animation
-                 Lottie.asset(
-                   'assets/animations/food_loading.json',
-                   width: 200, // Adjust size as needed
-                   height: 200,
-                   fit: BoxFit.contain,
-                 ),
-                 const SizedBox(height: 16), // Adjusted spacing
-                 Text(
-                   message,
-                   style: const TextStyle(color: Colors.black, fontSize: 17), // Change text color to black
-                   textAlign: TextAlign.center,
-                 ),
-               ],
-             ),
-           ),
-         );
-       },
-     );
-   }
+  void _showLoadingDialog(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.white,
+      builder: (BuildContext dialogContext) {
+        // Improved Loading Dialog Layout
+        return Dialog(
+          backgroundColor:
+              Colors.white, // Changed from black.withOpacity(0.8) to white
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                vertical: 30, horizontal: 24), // More padding
+            child: Column(
+              // Use Column for vertical centering
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+              children: [
+                // Replace CircularProgressIndicator with Lottie animation
+                Lottie.asset(
+                  'assets/animations/food_loading.json',
+                  width: 200, // Adjust size as needed
+                  height: 200,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 16), // Adjusted spacing
+                Text(
+                  message,
+                  style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 17), // Change text color to black
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   // --- Build Method ---
 
@@ -270,38 +290,39 @@ class _CameraScreenState extends State<CameraScreen> {
     //    bodyContent = const CircularProgressIndicator(color: Colors.white);
     // } else
     if (_error != null) {
-       // Show error if native camera failed to launch
-       bodyContent = Padding(
-         padding: const EdgeInsets.all(20.0),
-         child: Column(
-           mainAxisAlignment: MainAxisAlignment.center,
-           children: [
-              Icon(Icons.error_outline, color: Colors.red[300], size: 50),
-              const SizedBox(height: 16),
-              Text(
-                _error!,
-                style: TextStyle(color: Colors.red[300], fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              // No back button needed, should pop automatically after error display or timeout
-              // ElevatedButton.icon(
-              //    icon: const Icon(Icons.arrow_back),
-              //    label: const Text('Go Back'),
-              //    onPressed: () => Navigator.pop(context, null), // Pop with null on manual back
-              //    style: ElevatedButton.styleFrom(
-              //      foregroundColor: Colors.black, backgroundColor: Colors.white,
-              //    ),
-              //  )
-           ],
-         ),
-       );
+      // Show error if native camera failed to launch
+      bodyContent = Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: Colors.red[300], size: 50),
+            const SizedBox(height: 16),
+            Text(
+              _error!,
+              style: TextStyle(color: Colors.red[300], fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            // No back button needed, should pop automatically after error display or timeout
+            // ElevatedButton.icon(
+            //    icon: const Icon(Icons.arrow_back),
+            //    label: const Text('Go Back'),
+            //    onPressed: () => Navigator.pop(context, null), // Pop with null on manual back
+            //    style: ElevatedButton.styleFrom(
+            //      foregroundColor: Colors.black, backgroundColor: Colors.white,
+            //    ),
+            //  )
+          ],
+        ),
+      );
     } else {
-       // If not loading and no error, native view should be showing or transitioning.
-       // Show loading as a fallback state.
-       // If no error, show a simple container. The native view is expected
-       // to be visible, or the loading dialog during processing.
-       bodyContent = Container(); // Empty container, native view/dialog takes precedence
+      // If not loading and no error, native view should be showing or transitioning.
+      // Show loading as a fallback state.
+      // If no error, show a simple container. The native view is expected
+      // to be visible, or the loading dialog during processing.
+      bodyContent =
+          Container(); // Empty container, native view/dialog takes precedence
     }
 
     return Scaffold(
