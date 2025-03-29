@@ -193,6 +193,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           const SnackBar(
             content: Text('Goals saved successfully'),
             behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green,
           ),
         );
       }

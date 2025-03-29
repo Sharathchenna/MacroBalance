@@ -1840,9 +1840,11 @@ class _BarcodeResultsState extends State<BarcodeResults>
   void _showSuccessSnackbar(String meal) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 0.8),
+        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: EdgeInsets.all(8),
+        duration: const Duration(seconds: 2),
         content: Row(
           children: [
             const Icon(Icons.check_circle, color: Colors.white),

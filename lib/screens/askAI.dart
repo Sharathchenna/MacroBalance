@@ -306,7 +306,7 @@ Meal to analyze: ${_mealController.text}
             ),
           ],
         ),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: EdgeInsets.all(8),
