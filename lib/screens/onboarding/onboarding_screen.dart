@@ -749,6 +749,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       }
     });
 
+    // Function to scroll to the bottom
+    void scrollToBottom() {
+      if (scrollController.hasClients) {
+        HapticFeedback.lightImpact();
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+
     return Stack(
       children: [
         SingleChildScrollView(
@@ -1130,33 +1142,36 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               return AnimatedOpacity(
                 opacity: isAtBottom ? 0.0 : 1.0,
                 duration: const Duration(milliseconds: 300),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: customColors!.textPrimary.withOpacity(0.8),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0, end: 4),
-                    duration: const Duration(seconds: 1),
-                    curve: Curves.easeInOut,
-                    builder: (context, value, child) {
-                      return Transform.translate(
-                        offset: Offset(0, sin(value) * 3),
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: Theme.of(context).colorScheme.onPrimary,
-                          size: 24,
+                child: GestureDetector(
+                  onTap: scrollToBottom,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: customColors!.textPrimary.withOpacity(0.8),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                      );
-                    },
+                      ],
+                    ),
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: 4),
+                      duration: const Duration(seconds: 1),
+                      curve: Curves.easeInOut,
+                      builder: (context, value, child) {
+                        return Transform.translate(
+                          offset: Offset(0, sin(value) * 3),
+                          child: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                            size: 24,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               );

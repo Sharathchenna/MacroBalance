@@ -44,23 +44,23 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       'description':
           'Track every meal with unlimited entries and detailed macro breakdowns',
       'icon': Icons.analytics_outlined,
-      'animation': 'assets/animations/food_tracking.json',
+      'animation': 'assets/animations/nutrition.json',
       'highlight': 'Unlimited',
     },
     {
-      'title': 'AI-Powered Insights',
+      'title': 'AI-Powered',
       'description':
-          'Get personalized nutrition analysis and recommendations powered by advanced AI',
-      'icon': Icons.lightbulb_outline,
-      'animation': 'assets/animations/insights.json',
+          'Track your meals with AI assistance for accurate and quick logging',
+      'icon': Icons.auto_awesome_mosaic_outlined,
+      'animation': 'assets/animations/AI_powered.json',
       'highlight': 'AI-Powered',
     },
     {
-      'title': 'Smart Meal Planning',
+      'title': 'Easy Meal Logging',
       'description':
-          'Let AI create custom meal plans tailored to your goals and preferences',
+          'Log meals effortlessly with our intuitive interface and smart suggestions',
       'icon': Icons.psychology_outlined,
-      'animation': 'assets/animations/meal_planning.json',
+      'animation': 'assets/animations/meal_logging.json',
       'highlight': 'Smart',
     },
     {
@@ -80,7 +80,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       vsync: this,
       duration: const Duration(seconds: 5),
     )..repeat(reverse: false);
-
     _pageController.addListener(() {
       int nextPage = _pageController.page!.round();
       if (_currentPage != nextPage) {
@@ -90,7 +89,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
         _resetCarouselTimer();
       }
     });
-
     // Set system UI overlay style for better immersion
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -98,10 +96,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
         statusBarIconBrightness: Brightness.light,
       ),
     );
-
     _fetchOfferings();
     _startCarouselTimer();
-
     // Delay showing dismiss button
     _dismissButtonTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
@@ -126,26 +122,19 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       setState(() {
         _isLoading = true;
       });
-
       final offerings = await Purchases.getOfferings();
-
       if (mounted) {
         if (offerings.current != null) {
-          // Find default package (prefer monthly)
           Package? defaultPackage;
           if (offerings.current!.availablePackages.isNotEmpty) {
             defaultPackage = offerings.current!.availablePackages.first;
-
-            // Try to find monthly package for default selection
             final monthlyPackage = offerings.current!.availablePackages
                 .where((p) => p.packageType == PackageType.monthly)
                 .firstOrNull;
-
             if (monthlyPackage != null) {
               defaultPackage = monthlyPackage;
             }
           }
-
           setState(() {
             _offering = offerings.current;
             _selectedPackage = defaultPackage;
@@ -169,14 +158,11 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
   Future<void> _purchasePackage(Package package) async {
     if (_isPurchasing) return;
-
     setState(() {
       _isPurchasing = true;
     });
-
     try {
       final customerInfo = await Purchases.purchasePackage(package);
-
       if (customerInfo.entitlements.active.isNotEmpty) {
         widget.onDismiss();
       } else {
@@ -184,7 +170,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       }
     } catch (e) {
       if (e is PurchasesErrorCode) {
-        // Don't show error for user cancellation
         if (e != PurchasesErrorCode.purchaseCancelledError) {
           _showError(e.toString());
         }
@@ -202,14 +187,11 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
   Future<void> _restorePurchases() async {
     if (_isPurchasing) return;
-
     setState(() {
       _isPurchasing = true;
     });
-
     try {
       final customerInfo = await Purchases.restorePurchases();
-
       if (customerInfo.entitlements.active.isNotEmpty) {
         widget.onDismiss();
       } else {
@@ -233,7 +215,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
   void _showError(String message) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Error: $message'),
@@ -266,7 +247,16 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final size = MediaQuery.of(context).size;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = true; // Force dark theme regardless of system preference
+
+    // Define premium paywall-specific colors (dark mode only)
+    final premiumGradientStart = const Color(0xFF14162D);
+    final premiumGradientEnd = const Color(0xFF0F111E);
+    final premiumAccent = const Color(0xFF64D2FF);
+    final premiumAccentSecondary = const Color(0xFF9B81FF);
+    final premiumTextColor = Colors.white;
+    final goldAccent = const Color(0xFFE6C06A);
+    final highlightColor = const Color(0xFF2A3052);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -277,8 +267,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              isDark ? const Color(0xFF121212) : Colors.white,
-              isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF8F7F3),
+              premiumGradientStart,
+              premiumGradientEnd,
             ],
           ),
         ),
@@ -286,7 +276,17 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
             ? _buildLoadingState(customColors)
             : _offering == null
                 ? _buildErrorState(customColors)
-                : _buildPaywallContent(customColors, size, isDark),
+                : _buildPaywallContent(
+                    customColors,
+                    size,
+                    isDark,
+                    PremiumColors(
+                      accent: premiumAccent,
+                      accentSecondary: premiumAccentSecondary,
+                      textColor: premiumTextColor,
+                      gold: goldAccent,
+                      highlight: highlightColor,
+                    )),
       ),
     );
   }
@@ -369,11 +369,10 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     );
   }
 
-  Widget _buildPaywallContent(
-      CustomColors? customColors, Size size, bool isDark) {
-    final textColor =
-        customColors?.textPrimary ?? (isDark ? Colors.white : Colors.black);
-    final accentColor = customColors?.accentPrimary ?? Colors.green;
+  Widget _buildPaywallContent(CustomColors? customColors, Size size,
+      bool isDark, PremiumColors colors) {
+    final textColor = colors.textColor;
+    final accentColor = colors.accent;
 
     return Stack(
       children: [
@@ -387,6 +386,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                   isDark: isDark,
                   progress: _animationController.value,
                   primaryColor: accentColor,
+                  secondaryColor: colors.accentSecondary,
+                  goldColor: colors.gold,
                 ),
               );
             },
@@ -427,7 +428,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           children: [
                             const SizedBox(height: 5),
 
-                            // Enhanced hero section with premium branding
+                            // Enhanced hero section with premium branding and gradient title
                             RepaintBoundary(
                               child: TweenAnimationBuilder<double>(
                                 tween: Tween<double>(begin: 0.9, end: 1.0),
@@ -441,69 +442,39 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                 },
                                 child: Column(
                                   children: [
-                                    // Premium badge with animation
-                                    // Container(
-                                    //   padding: const EdgeInsets.symmetric(
-                                    //       horizontal: 16, vertical: 8),
-                                    //   decoration: BoxDecoration(
-                                    //     color: accentColor.withOpacity(0.1),
-                                    //     borderRadius: BorderRadius.circular(20),
-                                    //     border: Border.all(
-                                    //       color: accentColor.withOpacity(0.3),
-                                    //       width: 1,
-                                    //     ),
-                                    //   ),
-                                    // child: Row(
-                                    //   mainAxisSize: MainAxisSize.min,
-                                    //   children: [
-                                    //     Icon(Icons.workspace_premium,
-                                    //         color: accentColor, size: 16),
-                                    //     const SizedBox(width: 8),
-                                    //     Text(
-                                    //       'PREMIUM',
-                                    //       style: TextStyle(
-                                    //         color: accentColor,
-                                    //         fontSize: 12,
-                                    //         fontWeight: FontWeight.bold,
-                                    //         letterSpacing: 1.2,
-                                    //       ),
-                                    //     ),
-                                    //   ],
-                                    // ),
-                                    // ),
-                                    // const SizedBox(height: 24),
-                                    // Main title with gradient
+                                    // Title with gradient
                                     ShaderMask(
                                       shaderCallback: (bounds) =>
                                           LinearGradient(
                                         colors: [
-                                          accentColor,
-                                          Color.lerp(accentColor, Colors.blue,
-                                                  0.4) ??
-                                              accentColor
+                                          colors.accent,
+                                          colors.accentSecondary,
+                                          colors.gold,
                                         ],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                       ).createShader(bounds),
                                       child: const Text(
-                                        'MacroBalance Premium',
+                                        'Track Smarter, Eat Better, Live Healthier',
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           fontSize: 28,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.white,
+                                          color: Colors
+                                              .white, // This will be replaced by the gradient
                                           height: 1.2,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
+                                    // const SizedBox(height: 8),
                                     // Subtitle
                                     // Text(
-                                    //   'Join thousands of users who have transformed their nutrition journey',
+                                    //   'Unlock your full nutrition potential',
                                     //   textAlign: TextAlign.center,
                                     //   style: TextStyle(
                                     //     fontSize: 14,
-                                    //     color: textColor.withOpacity(0.7),
+                                    //     color: const Color(0xFFBBCCFF)
+                                    //         .withOpacity(0.9),
                                     //     height: 1.4,
                                     //   ),
                                     // ),
@@ -522,14 +493,18 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                   controller: _pageController,
                                   itemCount: _features.length,
                                   itemBuilder: (context, index) {
-                                    return _buildFeatureCard(_features[index],
-                                        customColors, textColor);
+                                    return _buildFeatureCard(
+                                      _features[index],
+                                      customColors,
+                                      textColor,
+                                      premiumColors: colors,
+                                    );
                                   },
                                 ),
                               ),
                             ),
 
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 0),
 
                             // Enhanced page indicator
                             RepaintBoundary(
@@ -556,52 +531,15 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               RepaintBoundary(
                                 child: Column(
                                   children: _buildSubscriptionCards(
-                                      textColor, accentColor),
+                                    textColor,
+                                    accentColor,
+                                    goldAccent: colors.gold,
+                                    highlightColor: colors.highlight,
+                                  ),
                                 ),
                               ),
 
                             const SizedBox(height: 5),
-
-                            // Enhanced price comparison with social proof
-                            // RepaintBoundary(
-                            //   child: Container(
-                            //     padding: const EdgeInsets.all(16),
-                            //     decoration: BoxDecoration(
-                            //       color: accentColor.withOpacity(0.05),
-                            //       borderRadius: BorderRadius.circular(16),
-                            //       border: Border.all(
-                            //         color: accentColor.withOpacity(0.1),
-                            //         width: 1,
-                            //       ),
-                            //     ),
-                            //     child: Column(
-                            //       children: [
-                            //         Text(
-                            //           _isTrialMode
-                            //               ? "Start with a 14-day free trial"
-                            //               : "Join thousands of satisfied users",
-                            //           textAlign: TextAlign.center,
-                            //           style: TextStyle(
-                            //             fontSize: 18,
-                            //             fontWeight: FontWeight.w600,
-                            //             color: textColor,
-                            //           ),
-                            //         ),
-                            //         const SizedBox(height: 6),
-                            //         Text(
-                            //           "Less than a coffee per week for better nutrition insights",
-                            //           textAlign: TextAlign.center,
-                            //           style: TextStyle(
-                            //             fontSize: 16,
-                            //             color: textColor.withOpacity(0.6),
-                            //           ),
-                            //         ),
-                            //       ],
-                            //     ),
-                            //   ),
-                            // ),
-
-                            // const SizedBox(height: -5),
 
                             // Enhanced subscribe button with animation and gradient
                             RepaintBoundary(
@@ -811,34 +749,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
                             const SizedBox(height: 16),
 
-                            // Manage Subscription Button
-                            // RepaintBoundary(
-                            //   child: Center(
-                            //     child: TextButton(
-                            //       onPressed: () {
-                            //         HapticFeedback.lightImpact();
-                            //         // Add subscription management navigation
-                            //       },
-                            //       style: TextButton.styleFrom(
-                            //         foregroundColor: textColor.withOpacity(0.6),
-                            //         padding: const EdgeInsets.symmetric(
-                            //             horizontal: 24, vertical: 12),
-                            //       ),
-                            //       child: Row(
-                            //         mainAxisSize: MainAxisSize.min,
-                            //         children: [
-                            //           Icon(Icons.settings, size: 16),
-                            //           const SizedBox(width: 8),
-                            //           const Text(
-                            //             "Manage Subscription",
-                            //             style: TextStyle(fontSize: 14),
-                            //           ),
-                            //         ],
-                            //       ),
-                            //     ),
-                            //   ),
-                            // ),
-
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -914,7 +824,12 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     );
   }
 
-  List<Widget> _buildSubscriptionCards(Color textColor, Color accentColor) {
+  List<Widget> _buildSubscriptionCards(
+    Color textColor,
+    Color accentColor, {
+    required Color goldAccent,
+    required Color highlightColor,
+  }) {
     List<Widget> cards = [];
 
     if (_offering?.availablePackages == null ||
@@ -937,7 +852,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     if (annualPackage != null && monthlyPackage != null) {
       double annualPricePerMonth = annualPackage.storeProduct.price / 12;
       double monthlyPrice = monthlyPackage.storeProduct.price;
-
       if (monthlyPrice > 0) {
         int savingsPercentage =
             ((1 - (annualPricePerMonth / monthlyPrice)) * 100).round();
@@ -1016,10 +930,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? accentColor.withOpacity(0.1)
-                    : Theme.of(context).brightness == Brightness.dark
-                        ? Colors.black.withOpacity(0.3)
-                        : Colors.white,
+                    ? highlightColor
+                    : const Color(0xFF1A1E33).withOpacity(0.7),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isSelected ? accentColor : textColor.withOpacity(0.1),
@@ -1131,14 +1043,18 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: accentColor,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [accentColor, goldAccent],
+                          ),
                           borderRadius: const BorderRadius.only(
                             bottomLeft: Radius.circular(8),
                             bottomRight: Radius.circular(8),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: accentColor.withOpacity(0.3),
+                              color: goldAccent.withOpacity(0.3),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -1172,14 +1088,18 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
         ),
       );
     }
-
     return cards;
   }
 
-  Widget _buildFeatureCard(Map<String, dynamic> feature,
-      CustomColors? customColors, Color textColor) {
-    final accentColor = customColors?.accentPrimary ?? Colors.green;
+  Widget _buildFeatureCard(
+    Map<String, dynamic> feature,
+    CustomColors? customColors,
+    Color textColor, {
+    required PremiumColors premiumColors,
+  }) {
+    final accentColor = premiumColors.accent;
     final hasAnimation = feature['animation'] != null;
+    final highlight = feature['highlight'] ?? '';
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -1210,13 +1130,28 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                 ),
         ),
         const SizedBox(height: 20),
-        Text(
-          feature['title'],
+        RichText(
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: textColor,
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: feature['title'].replaceAll(highlight, ''),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              if (highlight.isNotEmpty)
+                TextSpan(
+                  text: highlight,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: premiumColors.gold,
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 6),
@@ -1234,101 +1169,38 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       ],
     );
   }
+}
 
-  void _showExitDialog(Color textColor, Color accentColor) {
-    HapticFeedback.mediumImpact();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          "Before you go...",
-          style: TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Would you like to try our app with premium features at a special discount?",
-              style: TextStyle(color: textColor.withOpacity(0.8)),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.check_circle, color: accentColor, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "Unlimited food tracking",
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.check_circle, color: accentColor, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "Personalized meal plans",
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              "Cancel anytime. Subscription automatically renews unless canceled at least 24 hours before the end of the current period.",
-              style: TextStyle(
-                fontSize: 12,
-                color: textColor.withOpacity(0.6),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              widget.onDismiss();
-            },
-            child: Text(
-              "No thanks",
-              style: TextStyle(color: textColor.withOpacity(0.6)),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: accentColor,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              HapticFeedback.mediumImpact();
-              Navigator.of(context).pop();
-              // Apply special discount logic here if needed
-            },
-            child: const Text("Get Discount"),
-          ),
-        ],
-      ),
-    );
-  }
+// Premium colors class to hold all the special paywall colors
+class PremiumColors {
+  final Color accent;
+  final Color accentSecondary;
+  final Color textColor;
+  final Color gold;
+  final Color highlight;
+
+  PremiumColors({
+    required this.accent,
+    required this.accentSecondary,
+    required this.textColor,
+    required this.gold,
+    required this.highlight,
+  });
 }
 
 class NutritionBackgroundPainter extends CustomPainter {
   final bool isDark;
   final double progress;
   final Color primaryColor;
+  final Color secondaryColor;
+  final Color goldColor;
 
   NutritionBackgroundPainter({
     required this.isDark,
     required this.progress,
     required this.primaryColor,
+    this.secondaryColor = Colors.blue,
+    this.goldColor = Colors.amber,
   });
 
   @override
@@ -1339,15 +1211,9 @@ class NutritionBackgroundPainter extends CustomPainter {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        isDark
-            ? primaryColor.withOpacity(0.03)
-            : primaryColor.withOpacity(0.08),
-        isDark
-            ? primaryColor.withOpacity(0.05)
-            : primaryColor.withOpacity(0.12),
-        isDark
-            ? primaryColor.withOpacity(0.03)
-            : primaryColor.withOpacity(0.08),
+        primaryColor.withOpacity(0.03),
+        secondaryColor.withOpacity(0.04),
+        goldColor.withOpacity(0.02),
       ],
     );
 
@@ -1362,7 +1228,7 @@ class NutritionBackgroundPainter extends CustomPainter {
 
   void _drawPremiumPatterns(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = primaryColor.withOpacity(isDark ? 0.03 : 0.08)
+      ..color = primaryColor.withOpacity(0.03)
       ..style = PaintingStyle.fill;
 
     // Draw floating hexagons
@@ -1383,7 +1249,6 @@ class NutritionBackgroundPainter extends CustomPainter {
       final offset = (i * 0.3 + progress) % 1.0;
       final x = size.width * (0.2 + offset * 0.6);
       final y = size.height * (0.1 + offset * 0.8);
-
       _drawHexagon(canvas, Offset(x, y), hexSize, paint);
     }
   }
@@ -1479,9 +1344,9 @@ class NutritionBackgroundPainter extends CustomPainter {
 
   void _drawConnectingLines(Canvas canvas, Size size, Paint paint) {
     final linePaint = Paint()
-      ..color = primaryColor.withOpacity(isDark ? 0.02 : 0.06)
+      ..color = primaryColor.withOpacity(0.02)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = isDark ? 1 : 1.5;
+      ..strokeWidth = 1;
 
     // Draw curved connecting lines between elements
     for (int i = 0; i < 3; i++) {
