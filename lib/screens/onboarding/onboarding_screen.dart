@@ -756,415 +756,412 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           controller: scrollController,
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your body measurements',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: customColors?.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Weight Picker
+          Row(
             children: [
-              Text(
-                'Your body measurements',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: customColors?.textPrimary,
-                    ),
-              ),
-              const SizedBox(height: 32),
-
-              // Weight Picker
-              Row(
-                children: [
-                  Text(
-                    'Weight',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildTooltip(
-                      'Your current body weight is used to calculate your daily caloric needs'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: customColors?.cardBackground,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color.fromRGBO(0, 0, 0, 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Unit selector
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildUnitSelector(
-                          isMetric: _isMetricWeight,
-                          metricUnit: 'kg',
-                          imperialUnit: 'lbs',
-                          onChanged: (isMetric) {
-                            HapticFeedback.heavyImpact();
-                            setState(() {
-                              _isMetricWeight = isMetric;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Weight pickers
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_isMetricWeight) ...[
-                          // Metric (kg) pickers
-                          NumberPicker(
-                            value: _weightKg.floor(),
-                            minValue: 30,
-                            maxValue: 200,
-                            onChanged: (value) {
-                              HapticFeedback.lightImpact();
-                              setState(() {
-                                _weightKg =
-                                    value + (_weightKg - _weightKg.floor());
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
-                          Text(
-                            '.',
-                            style: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          NumberPicker(
-                            value:
-                                ((_weightKg - _weightKg.floor()) * 10).round(),
-                            minValue: 0,
-                            maxValue: 9,
-                            onChanged: (value) {
-                              HapticFeedback.lightImpact();
-                              setState(() {
-                                _weightKg = _weightKg.floor() + (value / 10);
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
-                        ] else ...[
-                          // Imperial (lbs) picker
-                          NumberPicker(
-                            value: (_weightKg * 2.20462).round(),
-                            minValue: 66, // 30kg in lbs
-                            maxValue: 441, // 200kg in lbs
-                            onChanged: (value) {
-                              HapticFeedback.lightImpact();
-                              setState(() {
-                                _weightKg = value / 2.20462;
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Height Picker
-              Row(
-                children: [
-                  Text(
-                    'Height',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildTooltip(
-                      'Your height is used to calculate your BMI and base metabolic rate'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: customColors?.cardBackground,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Unit selector
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildUnitSelector(
-                          isMetric: _isMetricHeight,
-                          metricUnit: 'cm',
-                          imperialUnit: 'ft',
-                          onChanged: (isMetric) {
-                            HapticFeedback.heavyImpact();
-                            setState(() {
-                              _isMetricHeight = isMetric;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Height pickers
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_isMetricHeight) ...[
-                          // Metric (cm) picker
-                          NumberPicker(
-                            value: _heightCm.round(),
-                            minValue: 90,
-                            maxValue: 220,
-                            onChanged: (value) {
-                              HapticFeedback.lightImpact();
-                              setState(() {
-                                _heightCm = value.toDouble();
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
-                        ] else ...[
-                          // Imperial (ft & in) pickers
-                          NumberPicker(
-                            value: max(3, min(7, (_heightCm / 30.48).floor())),
-                            minValue: 3,
-                            maxValue: 7,
-                            onChanged: (feet) {
-                              HapticFeedback.lightImpact();
-                              // Calculate current inches, ensuring value stays within bounds
-                              double remainingCm = _heightCm -
-                                  ((_heightCm / 30.48).floor() * 30.48);
-                              int currentInches =
-                                  max(0, min(11, (remainingCm / 2.54).round()));
-
-                              setState(() {
-                                _heightCm =
-                                    (feet * 30.48) + (currentInches * 2.54);
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
-                          Text(
-                            'ft',
-                            style: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          NumberPicker(
-                            value: max(0,
-                                min(11, ((_heightCm % 30.48) / 2.54).round())),
-                            minValue: 0,
-                            maxValue: 11,
-                            onChanged: (inches) {
-                              HapticFeedback.lightImpact();
-                              final feet = (_heightCm / 30.48).floor();
-                              setState(() {
-                                _heightCm = (feet * 30.48) + (inches * 2.54);
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
-                          Text(
-                            'in',
-                            style: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Age Picker
-              Row(
-                children: [
-                  Text(
-                    'Age',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildTooltip(
-                      'Your age affects your basal metabolic rate (BMR) calculation'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: customColors?.cardBackground,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    NumberPicker(
-                      value: _age,
-                      minValue: 18,
-                      maxValue: 80,
-                      onChanged: (value) {
-                        HapticFeedback.lightImpact();
-                        setState(() => _age = value);
-                      },
-                      selectedTextStyle: TextStyle(
-                        color: customColors?.textPrimary,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textStyle: TextStyle(
-                        color: customColors?.textSecondary,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'years',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Extra padding to ensure content can scroll enough to hide arrow
-              const SizedBox(height: 60),
+          Text(
+            'Weight',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: customColors?.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildTooltip(
+              'Your current body weight is used to calculate your daily caloric needs'),
             ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+          color: customColors?.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Color.fromRGBO(0, 0, 0, 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+            ),
+            child: Column(
+          children: [
+            // Unit selector
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+            _buildUnitSelector(
+              isMetric: _isMetricWeight,
+              metricUnit: 'kg',
+              imperialUnit: 'lbs',
+              onChanged: (isMetric) {
+                HapticFeedback.heavyImpact();
+                setState(() {
+              _isMetricWeight = isMetric;
+                });
+              },
+            ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Weight pickers
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+            if (_isMetricWeight) ...[
+              // Metric (kg) pickers
+              NumberPicker(
+                value: _weightKg.floor(),
+                minValue: 30,
+                maxValue: 200,
+                onChanged: (value) {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _weightKg =
+                value + (_weightKg - _weightKg.floor());
+              });
+                },
+                selectedTextStyle: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+                ),
+                textStyle: TextStyle(
+              color: customColors?.textSecondary,
+              fontSize: 20,
+                ),
+              ),
+              Text(
+                '.',
+                style: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+                ),
+              ),
+              NumberPicker(
+                value:
+                ((_weightKg - _weightKg.floor()) * 10).round(),
+                minValue: 0,
+                maxValue: 9,
+                onChanged: (value) {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _weightKg = _weightKg.floor() + (value / 10);
+              });
+                },
+                selectedTextStyle: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+                ),
+                textStyle: TextStyle(
+              color: customColors?.textSecondary,
+              fontSize: 20,
+                ),
+              ),
+            ] else ...[
+              // Imperial (lbs) picker
+              NumberPicker(
+                value: (_weightKg * 2.20462).round(),
+                minValue: 66, // 30kg in lbs
+                maxValue: 441, // 200kg in lbs
+                onChanged: (value) {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _weightKg = value / 2.20462;
+              });
+                },
+                selectedTextStyle: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+                ),
+                textStyle: TextStyle(
+              color: customColors?.textSecondary,
+              fontSize: 20,
+                ),
+              ),
+            ],
+              ],
+            ),
+          ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Height Picker
+          Row(
+            children: [
+          Text(
+            'Height',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: customColors?.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildTooltip(
+              'Your height is used to calculate your BMI and base metabolic rate'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+          color: customColors?.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+            ),
+            child: Column(
+          children: [
+            // Unit selector
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+            _buildUnitSelector(
+              isMetric: _isMetricHeight,
+              metricUnit: 'cm',
+              imperialUnit: 'ft',
+              onChanged: (isMetric) {
+                HapticFeedback.heavyImpact();
+                setState(() {
+              _isMetricHeight = isMetric;
+                });
+              },
+            ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Height pickers
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+            if (_isMetricHeight) ...[
+              // Metric (cm) picker
+              NumberPicker(
+                value: _heightCm.round(),
+                minValue: 90,
+                maxValue: 220,
+                onChanged: (value) {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _heightCm = value.toDouble();
+              });
+                },
+                selectedTextStyle: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+                ),
+                textStyle: TextStyle(
+              color: customColors?.textSecondary,
+              fontSize: 20,
+                ),
+              ),
+            ] else ...[
+              // Imperial (ft & in) pickers
+              NumberPicker(
+                value: max(3, min(7, (_heightCm / 30.48).floor())),
+                minValue: 3,
+                maxValue: 7,
+                onChanged: (feet) {
+              HapticFeedback.lightImpact();
+              // Calculate current inches, ensuring value stays within bounds
+              double remainingCm = _heightCm -
+                  ((_heightCm / 30.48).floor() * 30.48);
+              int currentInches =
+                  max(0, min(11, (remainingCm / 2.54).round()));
+
+              setState(() {
+                _heightCm =
+                (feet * 30.48) + (currentInches * 2.54);
+              });
+                },
+                selectedTextStyle: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+                ),
+                textStyle: TextStyle(
+              color: customColors?.textSecondary,
+              fontSize: 20,
+                ),
+              ),
+              Text(
+                'ft',
+                style: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              NumberPicker(
+                value: max(0,
+                min(11, ((_heightCm % 30.48) / 2.54).round())),
+                minValue: 0,
+                maxValue: 11,
+                onChanged: (inches) {
+              HapticFeedback.lightImpact();
+              final feet = (_heightCm / 30.48).floor();
+              setState(() {
+                _heightCm = (feet * 30.48) + (inches * 2.54);
+              });
+                },
+                selectedTextStyle: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+                ),
+                textStyle: TextStyle(
+              color: customColors?.textSecondary,
+              fontSize: 20,
+                ),
+              ),
+              Text(
+                'in',
+                style: TextStyle(
+              color: customColors?.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+              ],
+            ),
+          ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // Age Picker
+          Row(
+            children: [
+          Text(
+            'Age',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: customColors?.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildTooltip(
+              'Your age affects your basal metabolic rate (BMR) calculation'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+          color: customColors?.cardBackground,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+            ),
+            child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            NumberPicker(
+              value: _age,
+              minValue: 18,
+              maxValue: 80,
+              onChanged: (value) {
+            HapticFeedback.lightImpact();
+            setState(() => _age = value);
+              },
+              selectedTextStyle: TextStyle(
+            color: customColors?.textPrimary,
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+              ),
+              textStyle: TextStyle(
+            color: customColors?.textSecondary,
+            fontSize: 20,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'years',
+              style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+            ),
+          ),
+          // Extra padding to ensure content can scroll enough to hide arrow
+          const SizedBox(height: 60),
+        ],
           ),
         ),
 
-        // Scroll indicator arrow
+        // Scroll indicator arrow - positioned on the left side
         Positioned(
           bottom: 16,
-          left: 0,
-          right: 0,
+          left: 24, // Position on the left with some padding
           child: ValueListenableBuilder<bool>(
-            valueListenable: isAtBottom,
-            builder: (context, isAtBottom, child) {
-              return AnimatedOpacity(
-                opacity: isAtBottom ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: customColors!.textPrimary.withOpacity(0.8),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween<double>(begin: 0, end: 4),
-                      duration: const Duration(seconds: 1),
-                      curve: Curves.easeInOut,
-                      builder: (context, value, child) {
-                        return Transform.translate(
-                          offset: Offset(0, sin(value) * 3),
-                          child: Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            size: 24,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
+        valueListenable: isAtBottom,
+        builder: (context, isAtBottom, child) {
+          return AnimatedOpacity(
+            opacity: isAtBottom ? 0.0 : 1.0,
+            duration: const Duration(milliseconds: 300),
+            child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: customColors!.textPrimary.withOpacity(0.8),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 4),
+            duration: const Duration(seconds: 1),
+            curve: Curves.easeInOut,
+            builder: (context, value, child) {
+              return Transform.translate(
+            offset: Offset(0, sin(value) * 3),
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Theme.of(context).colorScheme.onPrimary,
+              size: 24,
+            ),
               );
             },
+          ),
+            ),
+          );
+        },
           ),
         ),
       ],
