@@ -95,38 +95,63 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     final theme = Theme.of(context);
     final customColors = theme.extension<CustomColors>()!;
 
-    return _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        RepaintBoundary(
-                          child: _buildMacroSummaryCard(context, customColors),
-                        ),
-                        const SizedBox(height: 24),
-                        _buildMacroChart(customColors),
-                        const SizedBox(height: 24),
-                        RepaintBoundary(
-                          child: _buildMacroBreakdown(customColors),
-                        ),
-                        const SizedBox(height: 24),
-                        RepaintBoundary(
-                          child: _buildMacroGoals(customColors),
-                        ),
-                        const SizedBox(height: 50),
-                      ],
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: widget.hideAppBar
+          ? null
+          : AppBar(
+              title: Text(
+                'Macro Tracking',
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: customColors.textPrimary,
+                ),
+              ),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              systemOverlayStyle: theme.brightness == Brightness.light
+                  ? SystemUiOverlayStyle.dark
+                  : SystemUiOverlayStyle.light,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back, color: customColors.textPrimary),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          RepaintBoundary(
+                            child:
+                                _buildMacroSummaryCard(context, customColors),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildMacroChart(customColors),
+                          const SizedBox(height: 24),
+                          RepaintBoundary(
+                            child: _buildMacroBreakdown(customColors),
+                          ),
+                          const SizedBox(height: 24),
+                          RepaintBoundary(
+                            child: _buildMacroGoals(customColors),
+                          ),
+                          const SizedBox(height: 50),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
+    );
   }
 
   Widget _buildMacroChart(CustomColors customColors) {

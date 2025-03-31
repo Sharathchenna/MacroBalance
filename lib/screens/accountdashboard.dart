@@ -27,6 +27,7 @@ import 'package:macrotracker/screens/feedback_screen.dart'
     as fb_screen; // Added import for feedback with prefix
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:url_launcher/url_launcher.dart';
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -178,6 +179,9 @@ class _AccountDashboardState extends State<AccountDashboard>
 
   Future<void> _handleLogout() async {
     try {
+      // Add haptic feedback
+      HapticFeedback.mediumImpact();
+
       // Clear user data from SharedPreferences first
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('macro_results');
@@ -571,20 +575,25 @@ class _AccountDashboardState extends State<AccountDashboard>
                                     onPressed: () async {
                                       Navigator.of(context).pop();
                                       // Show toast/snackbar
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
-                                          content: Text('Sending local notification...'),
+                                          content: Text(
+                                              'Sending local notification...'),
                                           duration: Duration(seconds: 1),
                                         ),
                                       );
-                                      
+
                                       try {
-                                        await NotificationService().scheduleTestLocalNotification();
-                                        
+                                        await NotificationService()
+                                            .scheduleTestLocalNotification();
+
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
                                             const SnackBar(
-                                              content: Text('Local notification sent!'),
+                                              content: Text(
+                                                  'Local notification sent!'),
                                               backgroundColor: Colors.green,
                                               duration: Duration(seconds: 2),
                                             ),
@@ -592,9 +601,11 @@ class _AccountDashboardState extends State<AccountDashboard>
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
                                             SnackBar(
-                                              content: Text('Error: ${e.toString()}'),
+                                              content: Text(
+                                                  'Error: ${e.toString()}'),
                                               backgroundColor: Colors.red,
                                               duration: Duration(seconds: 3),
                                             ),
@@ -613,20 +624,25 @@ class _AccountDashboardState extends State<AccountDashboard>
                                     onPressed: () async {
                                       Navigator.of(context).pop();
                                       // Show toast/snackbar
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
-                                          content: Text('Sending FCM/APN notification...'),
+                                          content: Text(
+                                              'Sending FCM/APN notification...'),
                                           duration: Duration(seconds: 1),
                                         ),
                                       );
-                                      
+
                                       try {
-                                        await NotificationService().testFirebaseCloudMessaging();
-                                        
+                                        await NotificationService()
+                                            .testFirebaseCloudMessaging();
+
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
                                             const SnackBar(
-                                              content: Text('FCM/APN notification sent! Check device notifications.'),
+                                              content: Text(
+                                                  'FCM/APN notification sent! Check device notifications.'),
                                               backgroundColor: Colors.green,
                                               duration: Duration(seconds: 3),
                                             ),
@@ -634,9 +650,11 @@ class _AccountDashboardState extends State<AccountDashboard>
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
                                             SnackBar(
-                                              content: Text('Error: ${e.toString()}'),
+                                              content: Text(
+                                                  'Error: ${e.toString()}'),
                                               backgroundColor: Colors.red,
                                               duration: Duration(seconds: 3),
                                             ),
@@ -673,6 +691,35 @@ class _AccountDashboardState extends State<AccountDashboard>
                 ],
               ),
 
+              // Subscription section
+              _buildSection(
+                title: 'Subscription',
+                icon: CupertinoIcons.creditcard_fill,
+                colorScheme: colorScheme,
+                customColors: customColors,
+                children: [
+                  Consumer<SubscriptionProvider>(
+                    builder: (context, subscriptionProvider, _) {
+                      return _buildListTile(
+                        icon: CupertinoIcons.creditcard_fill,
+                        iconColor: Colors.blue,
+                        title: 'Manage Subscription',
+                        subtitle: subscriptionProvider.isProUser
+                            ? 'Manage your Pro subscription'
+                            : 'Subscribe to Pro features',
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          _openAppleSubscriptionSettings();
+                        },
+                        colorScheme: colorScheme,
+                        customColors: customColors,
+                      );
+                    },
+                  ),
+                ],
+              ),
+
               // Logout button and spacing at the bottom
               const SizedBox(height: 24),
               _buildLogoutButton(colorScheme),
@@ -689,8 +736,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                     Consumer<SubscriptionProvider>(
                       builder: (context, subscriptionProvider, _) {
                         return _buildListTile(
-                          icon: subscriptionProvider.isProUser 
-                              ? CupertinoIcons.star_fill 
+                          icon: subscriptionProvider.isProUser
+                              ? CupertinoIcons.star_fill
                               : CupertinoIcons.star_slash,
                           iconColor: subscriptionProvider.isProUser
                               ? Colors.amber
@@ -703,11 +750,15 @@ class _AccountDashboardState extends State<AccountDashboard>
                             onPressed: () async {
                               HapticFeedback.mediumImpact();
                               // Toggle the subscription status (for testing only)
-                              final prefs = await SharedPreferences.getInstance();
-                              final isCurrentlyPro = subscriptionProvider.isProUser;
-                              await prefs.setBool('is_pro_user', !isCurrentlyPro);
-                              await subscriptionProvider.refreshSubscriptionStatus();
-                              
+                              final prefs =
+                                  await SharedPreferences.getInstance();
+                              final isCurrentlyPro =
+                                  subscriptionProvider.isProUser;
+                              await prefs.setBool(
+                                  'is_pro_user', !isCurrentlyPro);
+                              await subscriptionProvider
+                                  .refreshSubscriptionStatus();
+
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(!isCurrentlyPro
@@ -725,7 +776,9 @@ class _AccountDashboardState extends State<AccountDashboard>
                               padding: EdgeInsets.symmetric(horizontal: 12),
                             ),
                             child: Text(
-                              subscriptionProvider.isProUser ? 'Disable Pro' : 'Enable Pro',
+                              subscriptionProvider.isProUser
+                                  ? 'Disable Pro'
+                                  : 'Enable Pro',
                               style: TextStyle(
                                 color: subscriptionProvider.isProUser
                                     ? Colors.red.shade800
@@ -1413,6 +1466,40 @@ class _AccountDashboardState extends State<AccountDashboard>
         );
       },
     );
+  }
+
+  Future<void> _openAppleSubscriptionSettings() async {
+    // For iOS, open the App Store subscriptions page
+    if (Platform.isIOS) {
+      // This URL opens the App Store subscriptions management page
+      const url = 'itms-apps://apps.apple.com/account/subscriptions';
+      try {
+        if (await canLaunch(url)) {
+          await launch(url);
+        } else {
+          // Fallback to settings app if subscription URL can't be opened
+          await launch('App-Prefs:root=STORE');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open subscription settings: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } else if (mounted) {
+      // Show message for non-iOS platforms
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Subscription management is only available on iOS devices'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
   }
 
   @override

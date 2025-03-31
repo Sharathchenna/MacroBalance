@@ -1181,110 +1181,111 @@ class _MealSectionState extends State<MealSection> {
             clipBehavior:
                 Clip.antiAlias, // Important: clip to the border radius
             child: Column(
-                children: [
-                  // Header section
-                  InkWell(
-                    splashColor: Colors.transparent, // Remove splash effect
-                    highlightColor: Colors.transparent, // Remove highlight effect
-                    onTap: () {
-                      setState(() {
-                        expandedState[mealType] = !expandedState[mealType]!;
-                      });
-                      // Add haptic feedback for better interaction
-                      HapticFeedback.lightImpact();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
+              children: [
+                // Header section
+                InkWell(
+                  splashColor: Colors.transparent, // Remove splash effect
+                  highlightColor: Colors.transparent, // Remove highlight effect
+                  onTap: () {
+                    setState(() {
+                      expandedState[mealType] = !expandedState[mealType]!;
+                    });
+                    // Add haptic feedback for better interaction
+                    HapticFeedback.lightImpact();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 14),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: _getMealColor(mealType).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              getMealIcon(),
-                              color: _getMealColor(mealType),
-                              size: 20,
-                            ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color:
+                                _getMealColor(mealType).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  mealType,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context)
-                                      .extension<CustomColors>()
-                                      ?.textPrimary,
-                                  ),
-                                ),
-                                Text(
-                                  '${entries.length} item${entries.length != 1 ? 's' : ''}',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    color: Theme.of(context).brightness ==
-                                        Brightness.light
-                                      ? Colors.grey.shade600
-                                      : Colors.grey.shade400,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          child: Icon(
+                            getMealIcon(),
+                            color: _getMealColor(mealType),
+                            size: 20,
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${totalCalories.toStringAsFixed(0)} kcal',
+                                mealType,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                   color: Theme.of(context)
-                                    .extension<CustomColors>()
-                                    ?.textPrimary,
+                                      .extension<CustomColors>()
+                                      ?.textPrimary,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              TweenAnimationBuilder<double>(
-                                tween: Tween<double>(
-                                  begin: 0,
-                                  end: expandedState[mealType]! ? 1.0 : 0,
-                                ),
-                                duration: const Duration(milliseconds: 350),
-                                curve: Curves.easeInOutCubic,
-                                builder: (context, value, child) {
-                                  return Transform.rotate(
-                                    angle: value * 3.14159,
-                                    child: Icon(
-                                      Icons.expand_more,
-                                      color: Theme.of(context).brightness ==
+                              Text(
+                                '${entries.length} item${entries.length != 1 ? 's' : ''}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Theme.of(context).brightness ==
                                           Brightness.light
-                                        ? Colors.grey.shade700
-                                        : Colors.grey.shade400,
-                                      size: 18,
-                                    ),
-                                  );
-                                },
+                                      ? Colors.grey.shade600
+                                      : Colors.grey.shade400,
+                                ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${totalCalories.toStringAsFixed(0)} kcal',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context)
+                                    .extension<CustomColors>()
+                                    ?.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            TweenAnimationBuilder<double>(
+                              tween: Tween<double>(
+                                begin: 0,
+                                end: expandedState[mealType]! ? 1.0 : 0,
+                              ),
+                              duration: const Duration(milliseconds: 350),
+                              curve: Curves.easeInOutCubic,
+                              builder: (context, value, child) {
+                                return Transform.rotate(
+                                  angle: value * 3.14159,
+                                  child: Icon(
+                                    Icons.expand_more,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.light
+                                        ? Colors.grey.shade700
+                                        : Colors.grey.shade400,
+                                    size: 18,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
+                ),
 
-                  // Expandable content with improved animation
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeOutCubic,
-                    child: expandedState[mealType]!
+                // Expandable content with improved animation
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOutCubic,
+                  child: expandedState[mealType]!
                       ? Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1307,24 +1308,24 @@ class _MealSectionState extends State<MealSection> {
                               AnimatedOpacity(
                                 opacity: 1.0,
                                 duration: Duration(
-                                  milliseconds: 200 + (i * 50).clamp(0, 300)),
+                                    milliseconds: 200 + (i * 50).clamp(0, 300)),
                                 curve: Curves.easeOutCubic,
                                 child: AnimatedPadding(
                                   padding: const EdgeInsets.all(0),
                                   duration: Duration(
-                                    milliseconds:
-                                      200 + (i * 50).clamp(0, 300)),
+                                      milliseconds:
+                                          200 + (i * 50).clamp(0, 300)),
                                   curve: Curves.easeOutCubic,
                                   child: Column(
                                     children: [
-                                      _buildFoodItem(
-                                        context, entries[i], foodEntryProvider),
+                                      _buildFoodItem(context, entries[i],
+                                          foodEntryProvider),
                                       if (i < entries.length - 1)
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 16.0),
+                                              horizontal: 16.0),
                                           child: Divider(
-                                            height: 1, thickness: 0.5),
+                                              height: 1, thickness: 0.5),
                                         ),
                                     ],
                                   ),
@@ -1342,14 +1343,14 @@ class _MealSectionState extends State<MealSection> {
                                     opacity: value,
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0, horizontal: 16.0),
+                                          vertical: 8.0, horizontal: 16.0),
                                       child: TextButton.icon(
                                         icon: Icon(
                                           Icons.add_circle_outline,
                                           size: 18,
                                           color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
+                                              .colorScheme
+                                              .primary,
                                         ),
                                         label: Text(
                                           'Add Food to $mealType',
@@ -1357,23 +1358,23 @@ class _MealSectionState extends State<MealSection> {
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                             color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
+                                                .colorScheme
+                                                .primary,
                                           ),
                                         ),
                                         style: TextButton.styleFrom(
                                           backgroundColor: Theme.of(context)
-                                            .colorScheme
-                                            .primary
-                                            .withOpacity(0.1),
+                                              .colorScheme
+                                              .primary
+                                              .withOpacity(0.1),
                                           padding: const EdgeInsets.symmetric(
-                                            vertical: 10, horizontal: 16),
+                                              vertical: 10, horizontal: 16),
                                           shape: RoundedRectangleBorder(
                                             borderRadius:
-                                              BorderRadius.circular(12),
+                                                BorderRadius.circular(12),
                                           ),
                                           minimumSize:
-                                            Size(double.infinity, 40),
+                                              Size(double.infinity, 40),
                                         ),
                                         onPressed: () {
                                           HapticFeedback.lightImpact();
@@ -1381,8 +1382,8 @@ class _MealSectionState extends State<MealSection> {
                                             context,
                                             CupertinoPageRoute(
                                               builder: (context) =>
-                                                FoodSearchPage(
-                                                  selectedMeal: mealType),
+                                                  FoodSearchPage(
+                                                      selectedMeal: mealType),
                                             ),
                                           );
                                         },
@@ -1395,7 +1396,7 @@ class _MealSectionState extends State<MealSection> {
                           ],
                         )
                       : const SizedBox.shrink(),
-                  ),
+                ),
               ],
             ),
           ),

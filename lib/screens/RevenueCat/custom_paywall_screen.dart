@@ -397,329 +397,455 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
         SafeArea(
           child: Column(
             children: [
-              // Close button if dismissal is allowed
-              if (widget.allowDismissal && _showDismissButton)
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: IconButton(
-                      icon: Icon(Icons.close,
-                          color: textColor.withOpacity(0.6), size: 24),
-                      onPressed: () => _showExitDialog(textColor, accentColor),
+              // Back button in top left
+              Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios,
+                      color: textColor.withOpacity(0.8),
+                      size: 20,
                     ),
-                  ),
-                ),
-
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: 32),
-
-                        // Enhanced hero section with premium branding
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: 0.9, end: 1.0),
-                          duration: const Duration(seconds: 1),
-                          curve: Curves.elasticOut,
-                          builder: (context, value, child) {
-                            return Transform.scale(
-                              scale: value,
-                              child: child,
-                            );
-                          },
-                          child: Column(
-                            children: [
-                              // Premium badge with animation
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: accentColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: accentColor.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.workspace_premium,
-                                        color: accentColor, size: 16),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'PREMIUM',
-                                      style: TextStyle(
-                                        color: accentColor,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              // Main title with gradient
-                              ShaderMask(
-                                shaderCallback: (bounds) => LinearGradient(
-                                  colors: [
-                                    accentColor,
-                                    Color.lerp(accentColor, Colors.blue, 0.4) ??
-                                        accentColor
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ).createShader(bounds),
-                                child: Text(
-                                  'Unlock Your Full\nNutrition Potential',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              // Subtitle
-                              Text(
-                                'Join thousands of users who have transformed their nutrition journey',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: textColor.withOpacity(0.7),
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Enhanced feature carousel
-                        SizedBox(
-                          height: 280,
-                          child: PageView.builder(
-                            controller: _pageController,
-                            itemCount: _features.length,
-                            itemBuilder: (context, index) {
-                              return _buildFeatureCard(
-                                  _features[index], customColors, textColor);
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Enhanced page indicator
-                        Center(
-                          child: SmoothPageIndicator(
-                            controller: _pageController,
-                            count: _features.length,
-                            effect: ExpandingDotsEffect(
-                              activeDotColor: accentColor,
-                              dotColor: accentColor.withOpacity(0.2),
-                              dotHeight: 6,
-                              dotWidth: 6,
-                              expansionFactor: 3,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Subscription options with enhanced visuals
-                        if (_offering != null &&
-                            _offering!.availablePackages.isNotEmpty)
-                          Column(
-                            children:
-                                _buildSubscriptionCards(textColor, accentColor),
-                          ),
-
-                        const SizedBox(height: 24),
-
-                        // Enhanced price comparison with social proof
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: accentColor.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: accentColor.withOpacity(0.1),
-                              width: 1,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                _isTrialMode
-                                    ? "Start with a 7-day free trial"
-                                    : "Join thousands of satisfied users",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: textColor,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Less than a coffee per week for better nutrition insights",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: textColor.withOpacity(0.6),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Enhanced subscribe button with animation and gradient
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: 0.95, end: 1.0),
-                          duration: const Duration(milliseconds: 2000),
-                          curve: Curves.elasticOut,
-                          builder: (context, value, child) {
-                            return Transform.scale(
-                              scale: value,
-                              child: child,
-                            );
-                          },
-                          child: Container(
-                            height: 60,
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: accentColor.withOpacity(0.4),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  accentColor,
-                                  Color.lerp(accentColor, Colors.blue, 0.4) ??
-                                      accentColor,
-                                ],
-                              ),
-                            ),
-                            child: ElevatedButton(
-                              onPressed: _isPurchasing ||
-                                      _selectedPackage == null
-                                  ? null
-                                  : () => _purchasePackage(_selectedPackage!),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                disabledBackgroundColor: Colors.transparent,
-                                disabledForegroundColor:
-                                    Colors.white.withOpacity(0.5),
-                                shadowColor: Colors.transparent,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              child: _isPurchasing
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          _isTrialMode
-                                              ? "Start 7-Day Free Trial"
-                                              : "Subscribe Now",
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        const Icon(
-                                          Icons.arrow_forward_rounded,
-                                          color: Colors.white,
-                                          size: 24,
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Enhanced restore purchases button
-                        Center(
-                          child: TextButton(
-                            onPressed: _isPurchasing ? null : _restorePurchases,
-                            style: TextButton.styleFrom(
-                              foregroundColor: textColor.withOpacity(0.6),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 24, vertical: 12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.restore, size: 16),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  "Restore Purchases",
-                                  style: TextStyle(fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Enhanced terms text
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: textColor.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            "Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage your subscription in your App Store account settings.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: textColor.withOpacity(0.4),
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-                      ],
-                    ),
+                    onPressed: widget.onDismiss,
                   ),
                 ),
               ),
+
+              // Close button if dismissal is allowed
+              if (widget.allowDismissal && _showDismissButton)
+                Expanded(
+                  child: ListView.builder(
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    itemCount: 1,
+                    itemBuilder: (context, index) {
+                      return RepaintBoundary(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const SizedBox(height: 5),
+
+                            // Enhanced hero section with premium branding
+                            RepaintBoundary(
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween<double>(begin: 0.9, end: 1.0),
+                                duration: const Duration(seconds: 1),
+                                curve: Curves.elasticOut,
+                                builder: (context, value, child) {
+                                  return Transform.scale(
+                                    scale: value,
+                                    child: child,
+                                  );
+                                },
+                                child: Column(
+                                  children: [
+                                    // Premium badge with animation
+                                    // Container(
+                                    //   padding: const EdgeInsets.symmetric(
+                                    //       horizontal: 16, vertical: 8),
+                                    //   decoration: BoxDecoration(
+                                    //     color: accentColor.withOpacity(0.1),
+                                    //     borderRadius: BorderRadius.circular(20),
+                                    //     border: Border.all(
+                                    //       color: accentColor.withOpacity(0.3),
+                                    //       width: 1,
+                                    //     ),
+                                    //   ),
+                                    // child: Row(
+                                    //   mainAxisSize: MainAxisSize.min,
+                                    //   children: [
+                                    //     Icon(Icons.workspace_premium,
+                                    //         color: accentColor, size: 16),
+                                    //     const SizedBox(width: 8),
+                                    //     Text(
+                                    //       'PREMIUM',
+                                    //       style: TextStyle(
+                                    //         color: accentColor,
+                                    //         fontSize: 12,
+                                    //         fontWeight: FontWeight.bold,
+                                    //         letterSpacing: 1.2,
+                                    //       ),
+                                    //     ),
+                                    //   ],
+                                    // ),
+                                    // ),
+                                    // const SizedBox(height: 24),
+                                    // Main title with gradient
+                                    ShaderMask(
+                                      shaderCallback: (bounds) =>
+                                          LinearGradient(
+                                        colors: [
+                                          accentColor,
+                                          Color.lerp(accentColor, Colors.blue,
+                                                  0.4) ??
+                                              accentColor
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ).createShader(bounds),
+                                      child: const Text(
+                                        'MacroBalance Premium',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    // Subtitle
+                                    // Text(
+                                    //   'Join thousands of users who have transformed their nutrition journey',
+                                    //   textAlign: TextAlign.center,
+                                    //   style: TextStyle(
+                                    //     fontSize: 14,
+                                    //     color: textColor.withOpacity(0.7),
+                                    //     height: 1.4,
+                                    //   ),
+                                    // ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // const SizedBox(height: 32),
+
+                            // Enhanced feature carousel
+                            RepaintBoundary(
+                              child: SizedBox(
+                                height: 240,
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  itemCount: _features.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildFeatureCard(_features[index],
+                                        customColors, textColor);
+                                  },
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Enhanced page indicator
+                            RepaintBoundary(
+                              child: Center(
+                                child: SmoothPageIndicator(
+                                  controller: _pageController,
+                                  count: _features.length,
+                                  effect: ExpandingDotsEffect(
+                                    activeDotColor: accentColor,
+                                    dotColor: accentColor.withOpacity(0.2),
+                                    dotHeight: 6,
+                                    dotWidth: 6,
+                                    expansionFactor: 3,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            // Subscription options with enhanced visuals
+                            if (_offering != null &&
+                                _offering!.availablePackages.isNotEmpty)
+                              RepaintBoundary(
+                                child: Column(
+                                  children: _buildSubscriptionCards(
+                                      textColor, accentColor),
+                                ),
+                              ),
+
+                            const SizedBox(height: 5),
+
+                            // Enhanced price comparison with social proof
+                            // RepaintBoundary(
+                            //   child: Container(
+                            //     padding: const EdgeInsets.all(16),
+                            //     decoration: BoxDecoration(
+                            //       color: accentColor.withOpacity(0.05),
+                            //       borderRadius: BorderRadius.circular(16),
+                            //       border: Border.all(
+                            //         color: accentColor.withOpacity(0.1),
+                            //         width: 1,
+                            //       ),
+                            //     ),
+                            //     child: Column(
+                            //       children: [
+                            //         Text(
+                            //           _isTrialMode
+                            //               ? "Start with a 14-day free trial"
+                            //               : "Join thousands of satisfied users",
+                            //           textAlign: TextAlign.center,
+                            //           style: TextStyle(
+                            //             fontSize: 18,
+                            //             fontWeight: FontWeight.w600,
+                            //             color: textColor,
+                            //           ),
+                            //         ),
+                            //         const SizedBox(height: 6),
+                            //         Text(
+                            //           "Less than a coffee per week for better nutrition insights",
+                            //           textAlign: TextAlign.center,
+                            //           style: TextStyle(
+                            //             fontSize: 16,
+                            //             color: textColor.withOpacity(0.6),
+                            //           ),
+                            //         ),
+                            //       ],
+                            //     ),
+                            //   ),
+                            // ),
+
+                            // const SizedBox(height: -5),
+
+                            // Enhanced subscribe button with animation and gradient
+                            RepaintBoundary(
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween<double>(begin: 0.95, end: 1.0),
+                                duration: const Duration(milliseconds: 2000),
+                                curve: Curves.elasticOut,
+                                builder: (context, value, child) {
+                                  return Transform.scale(
+                                    scale: value,
+                                    child: child,
+                                  );
+                                },
+                                child: Container(
+                                  height: 60,
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: accentColor.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        accentColor,
+                                        Color.lerp(accentColor, Colors.blue,
+                                                0.4) ??
+                                            accentColor,
+                                      ],
+                                    ),
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed: _isPurchasing ||
+                                            _selectedPackage == null
+                                        ? null
+                                        : () {
+                                            HapticFeedback.mediumImpact();
+                                            _purchasePackage(_selectedPackage!);
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      disabledBackgroundColor:
+                                          Colors.transparent,
+                                      disabledForegroundColor:
+                                          Colors.white.withOpacity(0.5),
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: _isPurchasing
+                                        ? const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                _isTrialMode
+                                                    ? "Start 14-Day Free Trial"
+                                                    : "Subscribe Now",
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              const Icon(
+                                                Icons.arrow_forward_rounded,
+                                                color: Colors.white,
+                                                size: 24,
+                                              ),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Enhanced restore purchases button
+                            RepaintBoundary(
+                              child: Center(
+                                child: TextButton(
+                                  onPressed: _isPurchasing
+                                      ? null
+                                      : () {
+                                          HapticFeedback.mediumImpact();
+                                          _restorePurchases();
+                                        },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: textColor.withOpacity(0.6),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.restore, size: 16),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        "Restore Purchases",
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Enhanced terms text
+                            RepaintBoundary(
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: textColor.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      "Cancel anytime. Subscription automatically renews unless canceled at least 24 hours before the end of the current period.",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: textColor.withOpacity(0.8),
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        TextButton(
+                                          onPressed: () {
+                                            // Add terms of service navigation
+                                            HapticFeedback.lightImpact();
+                                          },
+                                          style: TextButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                          ),
+                                          child: Text(
+                                            "Terms of Service",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: accentColor,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          " • ",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: textColor.withOpacity(0.4),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            // Add privacy policy navigation
+                                            HapticFeedback.lightImpact();
+                                          },
+                                          style: TextButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                          ),
+                                          child: Text(
+                                            "Privacy Policy",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: accentColor,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Manage Subscription Button
+                            // RepaintBoundary(
+                            //   child: Center(
+                            //     child: TextButton(
+                            //       onPressed: () {
+                            //         HapticFeedback.lightImpact();
+                            //         // Add subscription management navigation
+                            //       },
+                            //       style: TextButton.styleFrom(
+                            //         foregroundColor: textColor.withOpacity(0.6),
+                            //         padding: const EdgeInsets.symmetric(
+                            //             horizontal: 24, vertical: 12),
+                            //       ),
+                            //       child: Row(
+                            //         mainAxisSize: MainAxisSize.min,
+                            //         children: [
+                            //           Icon(Icons.settings, size: 16),
+                            //           const SizedBox(width: 8),
+                            //           const Text(
+                            //             "Manage Subscription",
+                            //             style: TextStyle(fontSize: 14),
+                            //           ),
+                            //         ],
+                            //       ),
+                            //     ),
+                            //   ),
+                            // ),
+
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -819,13 +945,13 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       }
     }
 
-    // Sort packages: monthly first, then annual, then others
+    // Sort packages: annual first, then monthly, then others
     List<Package> sortedPackages = List.from(_offering!.availablePackages);
     sortedPackages.sort((a, b) {
-      if (a.packageType == PackageType.monthly) return -1;
-      if (b.packageType == PackageType.monthly) return 1;
       if (a.packageType == PackageType.annual) return -1;
       if (b.packageType == PackageType.annual) return 1;
+      if (a.packageType == PackageType.monthly) return -1;
+      if (b.packageType == PackageType.monthly) return 1;
       return 0;
     });
 
@@ -881,6 +1007,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           },
           child: GestureDetector(
             onTap: () {
+              HapticFeedback.selectionClick();
               setState(() {
                 _selectedPackage = package;
               });
@@ -1087,19 +1214,19 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           feature['title'],
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
             color: textColor,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
             feature['description'],
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 13,
               color: textColor.withOpacity(0.7),
             ),
           ),
@@ -1109,6 +1236,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
   }
 
   void _showExitDialog(Color textColor, Color accentColor) {
+    HapticFeedback.mediumImpact();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1153,11 +1281,22 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            Text(
+              "Cancel anytime. Subscription automatically renews unless canceled at least 24 hours before the end of the current period.",
+              style: TextStyle(
+                fontSize: 12,
+                color: textColor.withOpacity(0.6),
+              ),
+            ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: widget.onDismiss,
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              widget.onDismiss();
+            },
             child: Text(
               "No thanks",
               style: TextStyle(color: textColor.withOpacity(0.6)),
@@ -1169,6 +1308,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
               foregroundColor: Colors.white,
             ),
             onPressed: () {
+              HapticFeedback.mediumImpact();
               Navigator.of(context).pop();
               // Apply special discount logic here if needed
             },
@@ -1201,13 +1341,13 @@ class NutritionBackgroundPainter extends CustomPainter {
       colors: [
         isDark
             ? primaryColor.withOpacity(0.03)
-            : primaryColor.withOpacity(0.02),
+            : primaryColor.withOpacity(0.08),
         isDark
             ? primaryColor.withOpacity(0.05)
-            : primaryColor.withOpacity(0.03),
+            : primaryColor.withOpacity(0.12),
         isDark
             ? primaryColor.withOpacity(0.03)
-            : primaryColor.withOpacity(0.02),
+            : primaryColor.withOpacity(0.08),
       ],
     );
 
@@ -1222,7 +1362,7 @@ class NutritionBackgroundPainter extends CustomPainter {
 
   void _drawPremiumPatterns(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = primaryColor.withOpacity(isDark ? 0.03 : 0.02)
+      ..color = primaryColor.withOpacity(isDark ? 0.03 : 0.08)
       ..style = PaintingStyle.fill;
 
     // Draw floating hexagons
@@ -1339,9 +1479,9 @@ class NutritionBackgroundPainter extends CustomPainter {
 
   void _drawConnectingLines(Canvas canvas, Size size, Paint paint) {
     final linePaint = Paint()
-      ..color = primaryColor.withOpacity(isDark ? 0.02 : 0.01)
+      ..color = primaryColor.withOpacity(isDark ? 0.02 : 0.06)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..strokeWidth = isDark ? 1 : 1.5;
 
     // Draw curved connecting lines between elements
     for (int i = 0; i < 3; i++) {
