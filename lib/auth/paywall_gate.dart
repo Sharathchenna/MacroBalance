@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
-import 'package:macrotracker/screens/RevenueCat/paywall_screen.dart';
+import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// A component that forces users to subscribe before they can access the app
@@ -33,17 +33,19 @@ class PaywallGate extends StatelessWidget {
         }
 
         // If the user doesn't have a subscription, show the paywall
-        return _HardPaywallScreen(
-          onSubscriptionChanged: () async {
+        return CustomPaywallScreen(
+          onDismiss: () async {
             // Check if subscription status changed
-            final hasSubscription = await subscriptionProvider.refreshSubscriptionStatus();
-            
+            final hasSubscription =
+                await subscriptionProvider.refreshSubscriptionStatus();
+
             // If we now have a subscription, force a rebuild of this widget
             // This ensures we immediately show the app content after purchase
             if (hasSubscription) {
               print("Subscription detected - refreshing PaywallGate");
             }
           },
+          allowDismissal: false, // Don't allow dismissal without subscribing
         );
       },
     );
@@ -63,7 +65,8 @@ class _HardPaywallScreen extends StatefulWidget {
   _HardPaywallScreenState createState() => _HardPaywallScreenState();
 }
 
-class _HardPaywallScreenState extends State<_HardPaywallScreen> with WidgetsBindingObserver {
+class _HardPaywallScreenState extends State<_HardPaywallScreen>
+    with WidgetsBindingObserver {
   Offering? _offering;
   bool _isLoading = true;
   bool _isDisposed = false;
@@ -75,18 +78,18 @@ class _HardPaywallScreenState extends State<_HardPaywallScreen> with WidgetsBind
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchOffering();
-    
+
     // Force an immediate check of subscription status on initialization
     _checkSubscriptionStatus();
   }
-  
+
   @override
   void dispose() {
     _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-  
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -96,28 +99,29 @@ class _HardPaywallScreenState extends State<_HardPaywallScreen> with WidgetsBind
       }
     }
   }
-  
+
   // Helper to check if user has Pro access, regardless of entitlement format
   bool _hasProEntitlement(CustomerInfo customerInfo) {
     final entitlements = customerInfo.entitlements.active.keys;
-    
+
     // Check for any entitlement containing 'pro' in a case-insensitive way
-    return entitlements.any((key) => 
-      key.toLowerCase() == 'pro' || 
-      key == 'Pro' || 
-      key.toLowerCase().contains('pro')
-    );
+    return entitlements.any((key) =>
+        key.toLowerCase() == 'pro' ||
+        key == 'Pro' ||
+        key.toLowerCase().contains('pro'));
   }
-  
+
   Future<void> _checkSubscriptionStatus() async {
     if (_isDisposed) return;
-    
+
     try {
       final customerInfo = await Purchases.getCustomerInfo();
-      print("Initial subscription check: ${customerInfo.entitlements.active.keys}");
-      
+      print(
+          "Initial subscription check: ${customerInfo.entitlements.active.keys}");
+
       if (_hasProEntitlement(customerInfo)) {
-        print("Subscription already active on paywall load - notifying PaywallGate");
+        print(
+            "Subscription already active on paywall load - notifying PaywallGate");
         widget.onSubscriptionChanged();
       }
     } catch (e) {
@@ -127,13 +131,13 @@ class _HardPaywallScreenState extends State<_HardPaywallScreen> with WidgetsBind
 
   Future<void> _fetchOffering() async {
     if (_isDisposed) return;
-    
+
     try {
       // Fetch the offering from RevenueCat
       final offerings = await Purchases.getOfferings();
-      
+
       if (_isDisposed) return;
-      
+
       if (offerings.current != null) {
         setState(() {
           _offering = offerings.current;
@@ -148,15 +152,15 @@ class _HardPaywallScreenState extends State<_HardPaywallScreen> with WidgetsBind
       }
     } catch (e) {
       if (_isDisposed) return;
-      
+
       print("Error fetching offerings: $e");
-      
+
       // Implement exponential backoff for retries
       if (_retryCount < _maxRetries) {
         _retryCount++;
         final delay = Duration(seconds: 1 << _retryCount); // 2, 4, 8 seconds
         print("Retry $_retryCount in ${delay.inSeconds} seconds");
-        
+
         Future.delayed(delay, () {
           if (!_isDisposed) {
             _fetchOffering();
@@ -169,98 +173,76 @@ class _HardPaywallScreenState extends State<_HardPaywallScreen> with WidgetsBind
       }
     }
   }
-  
+
   // Separate method to print debug info
   void _printDebugInfo() {
     if (_isDisposed) return;
-    
-    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+
+    final subscriptionProvider =
+        Provider.of<SubscriptionProvider>(context, listen: false);
     // Fire and forget - we don't care about the completion
     subscriptionProvider.debugSubscriptionStatus();
   }
-  
+
   // Helper method to force UI update
   Future<void> _forceSubscriptionRefresh() async {
     if (_isDisposed) return;
-    
-    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-    
+
+    final subscriptionProvider =
+        Provider.of<SubscriptionProvider>(context, listen: false);
+
     // Print debug info in a fire-and-forget way
     _printDebugInfo();
-    
+
     // First try normal refresh
-    final hasSubscription = await subscriptionProvider.refreshSubscriptionStatus();
+    final hasSubscription =
+        await subscriptionProvider.refreshSubscriptionStatus();
     if (hasSubscription) {
       print("Subscription detected - normal refresh successful");
       return;
     }
-    
+
     if (_isDisposed) return;
-    
+
     // If that doesn't work, try a double-check with delay
     await Future.delayed(const Duration(milliseconds: 300));
-    final stillHasSubscription = await subscriptionProvider.refreshSubscriptionStatus();
-    
+    final stillHasSubscription =
+        await subscriptionProvider.refreshSubscriptionStatus();
+
     if (stillHasSubscription) {
       print("Double-confirmed subscription - UI should update");
       return;
     }
-    
+
     if (_isDisposed) return;
-    
+
     // If we still don't have a subscription but logs indicate we should,
     // try the nuclear option - complete reset
     print("Attempting subscription reset as last resort...");
     final resetResult = await subscriptionProvider.resetSubscriptionState();
-    
+
     if (resetResult && mounted) {
       print("Subscription reset successful - subscription is now active");
       // No need to do anything else, the UI should update via the provider
     } else {
-      print("Warning: Reset failed or no subscription found. Manual intervention may be needed.");
+      print(
+          "Warning: Reset failed or no subscription found. Manual intervention may be needed.");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // We wrap PaywallScreen in a repaint boundary to optimize rendering
-    return RepaintBoundary(
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        height: MediaQuery.of(context).size.height,
-        padding: EdgeInsets.zero,
-        margin: EdgeInsets.zero,
-        child: SizedBox.expand(
-          child: PaywallScreen(
-            // When the paywall is dismissed, check if the subscription status changed
-            onDismiss: () async {
-              if (_isDisposed) return;
-              
-              // Call onSubscriptionChanged first (might trigger UI updates)
-              widget.onSubscriptionChanged();
-              
-              // Do additional verification and force UI refresh if needed
-              await _forceSubscriptionRefresh();
-              
-              if (_isDisposed) return;
-              
-              // After checking subscription status, if the user still hasn't subscribed,
-              // show a snackbar informing them that a subscription is required
-              final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-              if (!subscriptionProvider.isProUser && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('A subscription is required to use this app'),
-                    duration: Duration(seconds: 3),
-                    behavior: SnackBarBehavior.fixed,
-                  ),
-                );
-              }
-            },
-            allowDismissal: false, // Don't allow dismissal without subscribing
-          ),
-        ),
-      ),
+    // Show custom paywall
+    return CustomPaywallScreen(
+      onDismiss: _handleDismiss,
+      allowDismissal: false, // Don't allow dismissal for hard paywall
     );
   }
-} 
+
+  // Handle dismissal (this won't be called for hard paywall, but implemented for safety)
+  void _handleDismiss() {
+    if (!_isDisposed) {
+      widget.onSubscriptionChanged();
+    }
+  }
+}

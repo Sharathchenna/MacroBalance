@@ -36,6 +36,9 @@ import 'package:intl/intl.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for date formatting
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
+import 'package:macrotracker/services/subscription_service.dart';
+import 'package:macrotracker/services/paywall_manager.dart';
+
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -52,7 +55,8 @@ DateTime? _lastStatsUpdate;
 Map<String, List<Map<String, dynamic>>>? _statsCache;
 const _minimumUpdateInterval = Duration(minutes: 15); // Increased to 15 minutes
 DateTime? _lastRequestTime;
-const _requestThrottleInterval = Duration(seconds: 2); // Throttle requests to max once every 2 seconds
+const _requestThrottleInterval =
+    Duration(seconds: 2); // Throttle requests to max once every 2 seconds
 
 // Add route name constants at the top level
 class Routes {
@@ -110,20 +114,54 @@ void updateStatusBarForIOS(bool isDarkMode) {
   }
 }
 
-void main() async {
+Future<void> main() async {
+  // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize essential services first to show UI faster
-  _foodEntryProviderInstance = FoodEntryProvider();
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialize Supabase - make sure this completes before accessing Supabase.instance
+  await Supabase.initialize(
+    anonKey:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
+    url: "https://mdivtblabmnftdqlgysv.supabase.co",
+  );
+
+  // Setup Firebase Messaging service
+  await _setupFirebaseMessaging();
+
+  // Initialize RevenueCat
+  await _initializePlatformState();
+
+  // Initialize subscription service
+  await SubscriptionService().initialize();
+
+  // Increment app session count for paywall logic
+  await PaywallManager().incrementAppSession();
+
+  // Register error handlers
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+  };
+
+  // Initialize deep links
+  await _initializeDeepLinks();
+
+  // Setup Stats Channel Handler for widgets
   _setupStatsChannelHandler();
 
-  // Launch the app immediately without waiting for non-critical services
+  // Initialize food entry provider
+  _foodEntryProviderInstance = FoodEntryProvider();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: _foodEntryProviderInstance),
-        ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => MealProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
@@ -131,13 +169,8 @@ void main() async {
     ),
   );
 
-  // Set initial status bar style for iOS
-  if (Platform.isIOS) {
-    updateStatusBarForIOS(false);
-  }
-
-  // Initialize services in the background after UI is shown
-  _initializeServicesInBackground();
+  // Delayed widget refresh to avoid impacting startup time
+  _delayedWidgetRefresh();
 }
 
 // New function to initialize non-essential services in the background
@@ -151,8 +184,8 @@ Future<void> _initializeServicesInBackground() async {
   ]);
 
   // Then initialize services that depend on above initializations
-  ApiService().getAccessToken(); // Don't await this 
-  NotificationService().initialize(); // Don't await this 
+  ApiService().getAccessToken(); // Don't await this
+  NotificationService().initialize(); // Don't await this
   WidgetService.initWidgetService(); // Don't await this
 
   // Delay widget refresh to avoid slowing down initial UI rendering
@@ -209,6 +242,22 @@ Future<void> _initializeDeepLinks() async {
   }
 }
 
+Future<void> _setupFirebaseMessaging() async {
+  try {
+    // Firebase Messaging setup
+    if (Platform.isIOS || Platform.isAndroid) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+
+      // Optional: Add other Firebase Messaging initialization here if needed
+      debugPrint('Firebase Messaging initialized successfully');
+    }
+  } catch (e) {
+    debugPrint('Firebase Messaging initialization error: $e');
+  }
+}
+
 Future<void> _initializePlatformState() async {
   try {
     await Purchases.setLogLevel(LogLevel.debug);
@@ -217,7 +266,8 @@ Future<void> _initializePlatformState() async {
     if (Platform.isAndroid) {
       // Android Implementation
     } else if (Platform.isIOS) {
-      configuration = PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
+      configuration =
+          PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
     }
 
     if (configuration != null) {
@@ -247,13 +297,15 @@ void _setupStatsChannelHandler() {
         try {
           // Implement request throttling
           final now = DateTime.now();
-          if (_lastRequestTime != null && 
+          if (_lastRequestTime != null &&
               now.difference(_lastRequestTime!) < _requestThrottleInterval) {
             // If we have any cached data, return the most recent cache
             if (_statsCache?.isNotEmpty == true) {
-              final mostRecentCache = _statsCache!.entries.reduce((a, b) => 
-                a.key.compareTo(b.key) > 0 ? a : b).value;
-              debugPrint('[Flutter Stats Handler] Throttled request, returning most recent cache');
+              final mostRecentCache = _statsCache!.entries
+                  .reduce((a, b) => a.key.compareTo(b.key) > 0 ? a : b)
+                  .value;
+              debugPrint(
+                  '[Flutter Stats Handler] Throttled request, returning most recent cache');
               return mostRecentCache;
             }
           }
@@ -264,16 +316,17 @@ void _setupStatsChannelHandler() {
           final endDateString = args?['endDate'] as String?;
 
           if (startDateString == null || endDateString == null) {
-            throw PlatformException(code: 'INVALID_ARGS', message: 'Missing date arguments');
+            throw PlatformException(
+                code: 'INVALID_ARGS', message: 'Missing date arguments');
           }
 
           final startDate = DateTime.parse(startDateString).toLocal();
           final endDate = DateTime.parse(endDateString).toLocal();
-          
+
           // Check cache first
           final cacheKey = '${startDateString}_${endDateString}';
-          if (_statsCache?.containsKey(cacheKey) == true && 
-              _lastStatsUpdate != null && 
+          if (_statsCache?.containsKey(cacheKey) == true &&
+              _lastStatsUpdate != null &&
               now.difference(_lastStatsUpdate!) < _minimumUpdateInterval) {
             debugPrint('[Flutter Stats Handler] Returning cached data');
             return _statsCache![cacheKey];
@@ -283,23 +336,32 @@ void _setupStatsChannelHandler() {
           List<Map<String, dynamic>> results = [];
           DateTime currentDate = startDate;
 
-          while (currentDate.isBefore(endDate) || currentDate.isAtSameMomentAs(endDate)) {
-            final entries = _foodEntryProviderInstance.getAllEntriesForDate(currentDate);
-            
+          while (currentDate.isBefore(endDate) ||
+              currentDate.isAtSameMomentAs(endDate)) {
+            final entries =
+                _foodEntryProviderInstance.getAllEntriesForDate(currentDate);
+
             double totalCarbs = 0;
             double totalFat = 0;
             double totalProtein = 0;
 
             for (var entry in entries) {
-              final carbs = entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
+              final carbs =
+                  entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
               final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
               final protein = entry.food.nutrients["Protein"] ?? 0;
 
               double quantityInGrams = entry.quantity;
               switch (entry.unit) {
-                case "oz": quantityInGrams *= 28.35; break;
-                case "kg": quantityInGrams *= 1000; break;
-                case "lbs": quantityInGrams *= 453.59; break;
+                case "oz":
+                  quantityInGrams *= 28.35;
+                  break;
+                case "kg":
+                  quantityInGrams *= 1000;
+                  break;
+                case "lbs":
+                  quantityInGrams *= 453.59;
+                  break;
               }
               final multiplier = quantityInGrams / 100;
               totalCarbs += carbs * multiplier;
@@ -329,7 +391,8 @@ void _setupStatsChannelHandler() {
           _statsCache ??= {};
           _statsCache!['${startDateString}_${endDateString}'] = results;
 
-          debugPrint('[Flutter Stats Handler] Cache updated with ${results.length} entries');
+          debugPrint(
+              '[Flutter Stats Handler] Cache updated with ${results.length} entries');
           return results;
         } catch (e) {
           debugPrint('[Flutter Stats Handler] Error: $e');
@@ -434,11 +497,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           Routes.onboarding: (context) => const OnboardingScreen(),
           Routes.home: (context) => const PaywallGate(child: Dashboard()),
           Routes.dashboard: (context) => const PaywallGate(child: Dashboard()),
-          Routes.goals: (context) => const PaywallGate(child: StepTrackingScreen()),
-          Routes.search: (context) => const PaywallGate(child: FoodSearchPage()),
-          Routes.account: (context) => const PaywallGate(child: AccountDashboard()),
-          Routes.weightTracking: (context) => const PaywallGate(child: WeightTrackingScreen()),
-          Routes.macroTracking: (context) => const PaywallGate(child: MacroTrackingScreen()),
+          Routes.goals: (context) =>
+              const PaywallGate(child: StepTrackingScreen()),
+          Routes.search: (context) =>
+              const PaywallGate(child: FoodSearchPage()),
+          Routes.account: (context) =>
+              const PaywallGate(child: AccountDashboard()),
+          Routes.weightTracking: (context) =>
+              const PaywallGate(child: WeightTrackingScreen()),
+          Routes.macroTracking: (context) =>
+              const PaywallGate(child: MacroTrackingScreen()),
         },
         onGenerateRoute: (settings) {
           // Handle any dynamic routes or routes with parameters here

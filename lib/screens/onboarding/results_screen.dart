@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:macrotracker/screens/RevenueCat/paywall_screen.dart';
+import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:provider/provider.dart';
@@ -76,7 +76,7 @@ class _ResultsScreenState extends State<ResultsScreen>
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (context) => PaywallScreen(
+        builder: (context) => CustomPaywallScreen(
           onDismiss: () async {
             // Use our subscription provider to check subscription status
             final subscriptionProvider =
@@ -110,7 +110,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                 Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
                     fullscreenDialog: true,
-                    builder: (context) => PaywallScreen(
+                    builder: (context) => CustomPaywallScreen(
                       allowDismissal:
                           false, // Don't allow dismissal without subscribing
                       onDismiss: () async {
