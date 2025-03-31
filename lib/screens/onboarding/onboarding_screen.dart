@@ -749,157 +749,169 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       }
     });
 
+    // Function to scroll to the bottom
+    void scrollToBottom() {
+      if (scrollController.hasClients) {
+        HapticFeedback.lightImpact();
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+
     return Stack(
       children: [
         SingleChildScrollView(
           controller: scrollController,
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Your body measurements',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: customColors?.textPrimary,
-                    ),
-              ),
-              const SizedBox(height: 32),
-
-              // Weight Picker
-              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Weight',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    'Your body measurements',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: customColors?.textPrimary,
+                            ),
                   ),
-                  const SizedBox(width: 8),
-                  _buildTooltip(
-                      'Your current body weight is used to calculate your daily caloric needs'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: customColors?.cardBackground,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color.fromRGBO(0, 0, 0, 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Unit selector
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildUnitSelector(
-                          isMetric: _isMetricWeight,
-                          metricUnit: 'kg',
-                          imperialUnit: 'lbs',
-                          onChanged: (isMetric) {
-                            HapticFeedback.heavyImpact();
-                            setState(() {
-                              _isMetricWeight = isMetric;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Weight pickers
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_isMetricWeight) ...[
-                          // Metric (kg) pickers
-                          NumberPicker(
-                            value: _weightKg.floor(),
-                            minValue: 30,
-                            maxValue: 200,
-                            onChanged: (value) {
-                              HapticFeedback.lightImpact();
-                              setState(() {
-                                _weightKg =
-                                    value + (_weightKg - _weightKg.floor());
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
+                  const SizedBox(height: 32),
+
+                  // Weight Picker
+                  Row(
+                    children: [
                           Text(
-                            '.',
-                            style: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            'Weight',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      color: customColors?.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                           ),
-                          NumberPicker(
-                            value:
-                                ((_weightKg - _weightKg.floor()) * 10).round(),
-                            minValue: 0,
-                            maxValue: 9,
-                            onChanged: (value) {
-                              HapticFeedback.lightImpact();
-                              setState(() {
-                                _weightKg = _weightKg.floor() + (value / 10);
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
+                          const SizedBox(width: 8),
+                          _buildTooltip(
+                              'Your current body weight is used to calculate your daily caloric needs'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                          color: customColors?.cardBackground,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color.fromRGBO(0, 0, 0, 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
                             ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
-                        ] else ...[
-                          // Imperial (lbs) picker
-                          NumberPicker(
-                            value: (_weightKg * 2.20462).round(),
-                            minValue: 66, // 30kg in lbs
-                            maxValue: 441, // 200kg in lbs
-                            onChanged: (value) {
-                              HapticFeedback.lightImpact();
-                              setState(() {
-                                _weightKg = value / 2.20462;
-                              });
-                            },
-                            selectedTextStyle: TextStyle(
-                              color: customColors?.textPrimary,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textStyle: TextStyle(
-                              color: customColors?.textSecondary,
-                              fontSize: 20,
-                            ),
-                          ),
-                        ],
-                      ],
+                          ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
+                    child: Column(
+                          children: [
+                            // Unit selector
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                    _buildUnitSelector(
+                                      isMetric: _isMetricWeight,
+                                      metricUnit: 'kg',
+                                      imperialUnit: 'lbs',
+                                      onChanged: (isMetric) {
+                                        HapticFeedback.heavyImpact();
+                                        setState(() {
+                                              _isMetricWeight = isMetric;
+                                        });
+                                      },
+                                    ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Weight pickers
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                    if (_isMetricWeight) ...[
+                                      // Metric (kg) pickers
+                                      NumberPicker(
+                                        value: _weightKg.floor(),
+                                        minValue: 30,
+                                        maxValue: 200,
+                                        onChanged: (value) {
+                                              HapticFeedback.lightImpact();
+                                              setState(() {
+                                                _weightKg =
+                                                        value + (_weightKg - _weightKg.floor());
+                                              });
+                                        },
+                                        selectedTextStyle: TextStyle(
+                                              color: customColors?.textPrimary,
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.bold,
+                                        ),
+                                        textStyle: TextStyle(
+                                              color: customColors?.textSecondary,
+                                              fontSize: 20,
+                                        ),
+                                      ),
+                                      Text(
+                                        '.',
+                                        style: TextStyle(
+                                              color: customColors?.textPrimary,
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      NumberPicker(
+                                        value:
+                                                ((_weightKg - _weightKg.floor()) * 10).round(),
+                                        minValue: 0,
+                                        maxValue: 9,
+                                        onChanged: (value) {
+                                              HapticFeedback.lightImpact();
+                                              setState(() {
+                                                _weightKg = _weightKg.floor() + (value / 10);
+                                              });
+                                        },
+                                        selectedTextStyle: TextStyle(
+                                              color: customColors?.textPrimary,
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.bold,
+                                        ),
+                                        textStyle: TextStyle(
+                                              color: customColors?.textSecondary,
+                                              fontSize: 20,
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      // Imperial (lbs) picker
+                                      NumberPicker(
+                                        value: (_weightKg * 2.20462).round(),
+                                        minValue: 66, // 30kg in lbs
+                                        maxValue: 441, // 200kg in lbs
+                                        onChanged: (value) {
+                                              HapticFeedback.lightImpact();
+                                              setState(() {
+                                                _weightKg = value / 2.20462;
+                                              });
+                                        },
+                                        selectedTextStyle: TextStyle(
+                                              color: customColors?.textPrimary,
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.bold,
+                                        ),
+                                        textStyle: TextStyle(
+                                              color: customColors?.textSecondary,
+                                              fontSize: 20,
+                                        ),
+                                      ),
+                                    ],
+                              ],
+                            ),
+                          ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
 
               // Height Picker
               Row(
@@ -1052,71 +1064,71 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
               const SizedBox(height: 32),
 
-              // Age Picker
-              Row(
-                children: [
-                  Text(
-                    'Age',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  // Age Picker
+                  Row(
+                    children: [
+                          Text(
+                            'Age',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      color: customColors?.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildTooltip(
+                              'Your age affects your basal metabolic rate (BMR) calculation'),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  _buildTooltip(
-                      'Your age affects your basal metabolic rate (BMR) calculation'),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                          color: customColors?.cardBackground,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                    ),
+                    child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            NumberPicker(
+                              value: _age,
+                              minValue: 18,
+                              maxValue: 80,
+                              onChanged: (value) {
+                                    HapticFeedback.lightImpact();
+                                    setState(() => _age = value);
+                              },
+                              selectedTextStyle: TextStyle(
+                                    color: customColors?.textPrimary,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                              ),
+                              textStyle: TextStyle(
+                                    color: customColors?.textSecondary,
+                                    fontSize: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'years',
+                              style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                    ),
+                  ),
+                  // Extra padding to ensure content can scroll enough to hide arrow
+                  const SizedBox(height: 60),
                 ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: customColors?.cardBackground,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    NumberPicker(
-                      value: _age,
-                      minValue: 18,
-                      maxValue: 80,
-                      onChanged: (value) {
-                        HapticFeedback.lightImpact();
-                        setState(() => _age = value);
-                      },
-                      selectedTextStyle: TextStyle(
-                        color: customColors?.textPrimary,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textStyle: TextStyle(
-                        color: customColors?.textSecondary,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'years',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Extra padding to ensure content can scroll enough to hide arrow
-              const SizedBox(height: 60),
-            ],
           ),
         ),
 
@@ -1125,42 +1137,45 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           bottom: 16,
           left: 24, // Position on the left with some padding
           child: ValueListenableBuilder<bool>(
-            valueListenable: isAtBottom,
-            builder: (context, isAtBottom, child) {
-              return AnimatedOpacity(
-                opacity: isAtBottom ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: customColors!.textPrimary.withOpacity(0.8),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                valueListenable: isAtBottom,
+                builder: (context, isAtBottom, child) {
+                  return AnimatedOpacity(
+                    opacity: isAtBottom ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: GestureDetector(
+                  onTap: scrollToBottom,
+                  child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: customColors!.textPrimary.withOpacity(0.8),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: 0, end: 4),
+                              duration: const Duration(seconds: 1),
+                              curve: Curves.easeInOut,
+                              builder: (context, value, child) {
+                                return Transform.translate(
+                                      offset: Offset(0, sin(value) * 3),
+                                      child: Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        color: Theme.of(context).colorScheme.onPrimary,
+                                        size: 24,
+                                      ),
+                                );
+                              },
+                            ),
                   ),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0, end: 4),
-                    duration: const Duration(seconds: 1),
-                    curve: Curves.easeInOut,
-                    builder: (context, value, child) {
-                      return Transform.translate(
-                        offset: Offset(0, sin(value) * 3),
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: Theme.of(context).colorScheme.onPrimary,
-                          size: 24,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              );
-            },
+                    ),
+                  );
+                },
           ),
         ),
       ],
