@@ -4,6 +4,7 @@ import 'package:lottie/lottie.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 import 'dart:async';
 
@@ -244,6 +245,34 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           _isPurchasing = false;
         });
       }
+    }
+  }
+
+  Future<void> _launchPrivacyPolicy() async {
+    final Uri privacyPolicyUrl = Uri.parse('https://macrobalance.app/privacy');
+    try {
+      if (!await launchUrl(privacyPolicyUrl,
+          mode: LaunchMode.externalApplication)) {
+        _showError(
+            'Could not open the privacy policy. Please try again later.');
+      }
+    } catch (e) {
+      _showError('Could not open the privacy policy. Please try again later.');
+      debugPrint('Error launching URL: $e');
+    }
+  }
+
+  Future<void> _launchTermsOfService() async {
+    final Uri tosUrl = Uri.parse('https://macrobalance.app/terms');
+    try {
+      if (!await launchUrl(tosUrl, mode: LaunchMode.externalApplication)) {
+        _showError(
+            'Could not open the terms of service. Please try again later.');
+      }
+    } catch (e) {
+      _showError(
+          'Could not open the terms of service. Please try again later.');
+      debugPrint('Error launching URL: $e');
     }
   }
 
@@ -756,8 +785,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                       children: [
                                         TextButton(
                                           onPressed: () {
-                                            // Add terms of service navigation
                                             HapticFeedback.lightImpact();
+                                            _launchTermsOfService();
                                           },
                                           style: TextButton.styleFrom(
                                             padding: EdgeInsets.zero,
@@ -784,8 +813,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         ),
                                         TextButton(
                                           onPressed: () {
-                                            // Add privacy policy navigation
                                             HapticFeedback.lightImpact();
+                                            _launchPrivacyPolicy();
                                           },
                                           style: TextButton.styleFrom(
                                             padding: EdgeInsets.zero,
@@ -1130,10 +1159,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              accentColor,
-                              goldAccent.withValues(alpha: 0.8)
-                            ],
+                            colors: [accentColor, goldAccent.withOpacity(0.8)],
                           ),
                           borderRadius: const BorderRadius.only(
                             bottomLeft: Radius.circular(8),
