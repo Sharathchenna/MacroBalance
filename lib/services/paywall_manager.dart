@@ -82,7 +82,6 @@ class PaywallManager {
   // Show paywall and record the event
   Future<void> showPaywall(BuildContext context,
       {bool forcedShow = false}) async {
-    // Don't show if user already has premium (unless forced)
     if (!forcedShow && _subscriptionService.hasPremiumAccess()) {
       return;
     }
@@ -104,7 +103,7 @@ class PaywallManager {
         await prefs.setInt(monthlyShowCountKey, monthlyShowCount + 1);
       }
 
-      // Show the paywall
+      // Show the custom paywall
       return showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -114,7 +113,7 @@ class PaywallManager {
         builder: (BuildContext context) {
           return CustomPaywallScreen(
             onDismiss: () => Navigator.of(context).pop(),
-            allowDismissal: true,
+            allowDismissal: forcedShow,
           );
         },
       );

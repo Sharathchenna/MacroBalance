@@ -33,8 +33,8 @@ class PaywallGate extends StatelessWidget {
         }
 
         // If the user doesn't have a subscription, show the paywall
-        return _HardPaywallScreen(
-          onSubscriptionChanged: () async {
+        return CustomPaywallScreen(
+          onDismiss: () async {
             // Check if subscription status changed
             final hasSubscription =
                 await subscriptionProvider.refreshSubscriptionStatus();
@@ -45,6 +45,7 @@ class PaywallGate extends StatelessWidget {
               print("Subscription detected - refreshing PaywallGate");
             }
           },
+          allowDismissal: false, // Don't allow dismissal without subscribing
         );
       },
     );

@@ -40,28 +40,36 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
   // Features for carousel with enhanced descriptions
   final List<Map<String, dynamic>> _features = [
     {
-      'title': 'Unlimited Tracking',
-      'description': 'Track all your meals and nutrition with no daily limits',
+      'title': 'Unlimited Nutrition Tracking',
+      'description':
+          'Track every meal with unlimited entries and detailed macro breakdowns',
       'icon': Icons.analytics_outlined,
       'animation': 'assets/animations/food_tracking.json',
+      'highlight': 'Unlimited',
     },
     {
-      'title': 'Smart Insights',
-      'description': 'Get personalized analysis to optimize your nutrition',
+      'title': 'AI-Powered Insights',
+      'description':
+          'Get personalized nutrition analysis and recommendations powered by advanced AI',
       'icon': Icons.lightbulb_outline,
       'animation': 'assets/animations/insights.json',
+      'highlight': 'AI-Powered',
     },
     {
-      'title': 'AI Meal Planning',
-      'description': 'Let AI create custom meal plans based on your goals',
+      'title': 'Smart Meal Planning',
+      'description':
+          'Let AI create custom meal plans tailored to your goals and preferences',
       'icon': Icons.psychology_outlined,
       'animation': 'assets/animations/meal_planning.json',
+      'highlight': 'Smart',
     },
     {
       'title': 'Premium Experience',
-      'description': 'Enjoy an ad-free experience with exclusive features',
+      'description':
+          'Enjoy an ad-free experience with exclusive features and priority support',
       'icon': Icons.star_outline,
-      'animation': 'assets/animations/premium.json',
+      'animation': 'assets/animations/premium_badge.json',
+      'highlight': 'Premium',
     },
   ];
 
@@ -369,7 +377,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
     return Stack(
       children: [
-        // Background pattern with nutrition elements
+        // Enhanced background pattern with nutrition elements
         Positioned.fill(
           child: AnimatedBuilder(
             animation: _animationController,
@@ -413,7 +421,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                       children: [
                         const SizedBox(height: 32),
 
-                        // Title section with subtle animation
+                        // Enhanced hero section with premium branding
                         TweenAnimationBuilder<double>(
                           tween: Tween<double>(begin: 0.9, end: 1.0),
                           duration: const Duration(seconds: 1),
@@ -424,64 +432,70 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               child: child,
                             );
                           },
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: accentColor.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: accentColor.withOpacity(0.2),
-                                    blurRadius: 10,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.star,
-                                size: 40,
-                                color: accentColor,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Title with animation
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: 0.0, end: 1.0),
-                          duration: const Duration(milliseconds: 800),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, value, child) {
-                            return Opacity(
-                              opacity: value,
-                              child: Transform.translate(
-                                offset: Offset(0, 20 * (1 - value)),
-                                child: child,
-                              ),
-                            );
-                          },
                           child: Column(
                             children: [
-                              Text(
-                                "Unlock Premium",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                  letterSpacing: -0.5,
+                              // Premium badge with animation
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: accentColor.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.workspace_premium,
+                                        color: accentColor, size: 16),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'PREMIUM',
+                                      style: TextStyle(
+                                        color: accentColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 24),
+                              // Main title with gradient
+                              ShaderMask(
+                                shaderCallback: (bounds) => LinearGradient(
+                                  colors: [
+                                    accentColor,
+                                    Color.lerp(accentColor, Colors.blue, 0.4) ??
+                                        accentColor
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ).createShader(bounds),
+                                child: Text(
+                                  'Unlock Your Full\nNutrition Potential',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // Subtitle
                               Text(
-                                "Elevate your nutrition tracking experience",
+                                'Join thousands of users who have transformed their nutrition journey',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: textColor.withOpacity(0.7),
+                                  height: 1.4,
                                 ),
                               ),
                             ],
@@ -490,9 +504,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
                         const SizedBox(height: 32),
 
-                        // Features Carousel with Lottie animations
+                        // Enhanced feature carousel
                         SizedBox(
-                          height: 220,
+                          height: 280,
                           child: PageView.builder(
                             controller: _pageController,
                             itemCount: _features.length,
@@ -505,7 +519,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
                         const SizedBox(height: 16),
 
-                        // Page indicator
+                        // Enhanced page indicator
                         Center(
                           child: SmoothPageIndicator(
                             controller: _pageController,
@@ -520,7 +534,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 32),
 
                         // Subscription options with enhanced visuals
                         if (_offering != null &&
@@ -532,25 +546,46 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
                         const SizedBox(height: 24),
 
-                        // Price comparison
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text(
-                            _isTrialMode
-                                ? "Start with a free trial, then continue with your selected plan"
-                                : "Less than a coffee per week for better nutrition insights",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontStyle: FontStyle.italic,
-                              color: textColor.withOpacity(0.6),
+                        // Enhanced price comparison with social proof
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: accentColor.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: accentColor.withOpacity(0.1),
+                              width: 1,
                             ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                _isTrialMode
+                                    ? "Start with a 7-day free trial"
+                                    : "Join thousands of satisfied users",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Less than a coffee per week for better nutrition insights",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: textColor.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
                         const SizedBox(height: 24),
 
-                        // Subscribe/Start Trial button with animation and gradient
+                        // Enhanced subscribe button with animation and gradient
                         TweenAnimationBuilder<double>(
                           tween: Tween<double>(begin: 0.95, end: 1.0),
                           duration: const Duration(milliseconds: 2000),
@@ -562,7 +597,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                             );
                           },
                           child: Container(
-                            height: 56,
+                            height: 60,
                             margin: const EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
@@ -617,7 +652,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                               ? "Start 7-Day Free Trial"
                                               : "Subscribe Now",
                                           style: const TextStyle(
-                                            fontSize: 18,
+                                            fontSize: 20,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,
                                           ),
@@ -626,7 +661,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         const Icon(
                                           Icons.arrow_forward_rounded,
                                           color: Colors.white,
-                                          size: 20,
+                                          size: 24,
                                         ),
                                       ],
                                     ),
@@ -636,29 +671,46 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
                         const SizedBox(height: 16),
 
-                        // Restore purchases button
+                        // Enhanced restore purchases button
                         Center(
                           child: TextButton(
                             onPressed: _isPurchasing ? null : _restorePurchases,
                             style: TextButton.styleFrom(
                               foregroundColor: textColor.withOpacity(0.6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
                             ),
-                            child: const Text(
-                              "Restore Purchases",
-                              style: TextStyle(fontSize: 14),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.restore, size: 16),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  "Restore Purchases",
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ],
                             ),
                           ),
                         ),
 
                         const SizedBox(height: 16),
 
-                        // Terms text
-                        Text(
-                          "Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage your subscription in your App Store account settings.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: textColor.withOpacity(0.4),
+                        // Enhanced terms text
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: textColor.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            "Subscription automatically renews unless canceled at least 24 hours before the end of the current period. You can manage your subscription in your App Store account settings.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textColor.withOpacity(0.4),
+                              height: 1.4,
+                            ),
                           ),
                         ),
 
@@ -672,7 +724,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           ),
         ),
 
-        // Purchase processing overlay
+        // Enhanced purchase processing overlay
         if (_isPurchasing)
           Positioned.fill(
             child: Container(
@@ -683,21 +735,48 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: 80,
-                      height: 80,
-                      child: CircularProgressIndicator(
-                        color: customColors?.accentPrimary,
-                        strokeWidth: 2,
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.black : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      "Processing your premium upgrade...",
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: CircularProgressIndicator(
+                              color: customColors?.accentPrimary,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            "Processing your premium upgrade...",
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "This will only take a moment",
+                            style: TextStyle(
+                              color: textColor.withOpacity(0.6),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1114,21 +1193,21 @@ class NutritionBackgroundPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = primaryColor.withOpacity(isDark ? 0.04 : 0.05)
-      ..style = PaintingStyle.fill;
-
-    // Draw floating nutrition symbols/shapes that move with animation
-    _drawNutritionSymbols(canvas, size, paint);
-
-    // Draw subtle gradient overlay
+    // Create a more sophisticated gradient background
     final gradientRect = Rect.fromLTWH(0, 0, size.width, size.height);
     final gradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
       colors: [
-        isDark ? Colors.transparent : Colors.white.withOpacity(0.3),
-        isDark ? Colors.black.withOpacity(0.2) : Colors.transparent,
+        isDark
+            ? primaryColor.withOpacity(0.03)
+            : primaryColor.withOpacity(0.02),
+        isDark
+            ? primaryColor.withOpacity(0.05)
+            : primaryColor.withOpacity(0.03),
+        isDark
+            ? primaryColor.withOpacity(0.03)
+            : primaryColor.withOpacity(0.02),
       ],
     );
 
@@ -1136,75 +1215,151 @@ class NutritionBackgroundPainter extends CustomPainter {
       gradientRect,
       Paint()..shader = gradient.createShader(gradientRect),
     );
+
+    // Draw premium patterns
+    _drawPremiumPatterns(canvas, size);
   }
 
-  void _drawNutritionSymbols(Canvas canvas, Size size, Paint paint) {
-    try {
-      // Draw apple shape (simplified)
-      final appleCenter = Offset(
-        size.width * (0.2 + 0.1 * math.sin(progress * math.pi)),
-        size.height * (0.15 + 0.05 * math.cos(progress * math.pi * 0.5)),
-      );
-      canvas.drawCircle(appleCenter, size.width * 0.08, paint);
+  void _drawPremiumPatterns(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = primaryColor.withOpacity(isDark ? 0.03 : 0.02)
+      ..style = PaintingStyle.fill;
 
-      // Draw plate shape
-      final plateCenter = Offset(
-        size.width * (0.8 - 0.05 * math.sin(progress * math.pi * 0.7)),
-        size.height * (0.3 + 0.08 * math.cos(progress * math.pi * 0.3)),
-      );
-      canvas.drawCircle(plateCenter, size.width * 0.15, paint);
+    // Draw floating hexagons
+    _drawFloatingHexagons(canvas, size, paint);
 
-      // Draw water drop
-      final dropCenter = Offset(
-        size.width * (0.3 + 0.08 * math.cos(progress * math.pi * 1.2)),
-        size.height * (0.6 + 0.1 * math.sin(progress * math.pi * 0.9)),
-      );
-      _drawWaterDrop(canvas, dropCenter, size.width * 0.1, paint);
+    // Draw subtle nutrition icons
+    _drawNutritionIcons(canvas, size, paint);
 
-      // Draw carrot shape
-      final carrotCenter = Offset(
-        size.width * (0.7 - 0.07 * math.cos(progress * math.pi * 0.8)),
-        size.height * (0.75 - 0.05 * math.sin(progress * math.pi * 1.1)),
-      );
-      _drawCarrot(canvas, carrotCenter, size.width * 0.12, paint);
-    } catch (e) {
-      // Fallback to simple shapes if there's an error
-      for (int i = 0; i < 3; i++) {
-        final offset = (i * 0.3 + progress) % 1.0;
-        final x = size.width * (0.2 + offset * 0.6);
-        final y = size.height * (0.1 + offset * 0.8);
-        final radius = size.width * 0.1;
-        canvas.drawCircle(Offset(x, y), radius, paint);
+    // Draw connecting lines
+    _drawConnectingLines(canvas, size, paint);
+  }
+
+  void _drawFloatingHexagons(Canvas canvas, Size size, Paint paint) {
+    final hexSize = size.width * 0.08;
+    final spacing = size.width * 0.15;
+
+    for (int i = 0; i < 3; i++) {
+      final offset = (i * 0.3 + progress) % 1.0;
+      final x = size.width * (0.2 + offset * 0.6);
+      final y = size.height * (0.1 + offset * 0.8);
+
+      _drawHexagon(canvas, Offset(x, y), hexSize, paint);
+    }
+  }
+
+  void _drawHexagon(Canvas canvas, Offset center, double size, Paint paint) {
+    final path = Path();
+    for (int i = 0; i < 6; i++) {
+      final angle = (i * math.pi / 3) + (progress * math.pi * 0.5);
+      final x = center.dx + size * math.cos(angle);
+      final y = center.dy + size * math.sin(angle);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
       }
     }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawNutritionIcons(Canvas canvas, Size size, Paint paint) {
+    // Draw apple
+    final appleCenter = Offset(
+      size.width * (0.2 + 0.1 * math.sin(progress * math.pi)),
+      size.height * (0.15 + 0.05 * math.cos(progress * math.pi * 0.5)),
+    );
+    _drawApple(canvas, appleCenter, size.width * 0.08, paint);
+
+    // Draw plate
+    final plateCenter = Offset(
+      size.width * (0.8 - 0.05 * math.sin(progress * math.pi * 0.7)),
+      size.height * (0.3 + 0.08 * math.cos(progress * math.pi * 0.3)),
+    );
+    _drawPlate(canvas, plateCenter, size.width * 0.15, paint);
+
+    // Draw water drop
+    final dropCenter = Offset(
+      size.width * (0.3 + 0.08 * math.cos(progress * math.pi * 1.2)),
+      size.height * (0.6 + 0.1 * math.sin(progress * math.pi * 0.9)),
+    );
+    _drawWaterDrop(canvas, dropCenter, size.width * 0.1, paint);
+  }
+
+  void _drawApple(Canvas canvas, Offset center, double size, Paint paint) {
+    final path = Path();
+    // Draw apple body
+    path.addOval(Rect.fromCircle(center: center, radius: size));
+    // Draw leaf
+    final leafPath = Path();
+    leafPath.moveTo(center.dx, center.dy - size);
+    leafPath.quadraticBezierTo(
+      center.dx + size * 0.5,
+      center.dy - size * 1.2,
+      center.dx,
+      center.dy - size * 1.5,
+    );
+    leafPath.quadraticBezierTo(
+      center.dx - size * 0.5,
+      center.dy - size * 1.2,
+      center.dx,
+      center.dy - size,
+    );
+    canvas.drawPath(path, paint);
+    canvas.drawPath(leafPath, paint);
+  }
+
+  void _drawPlate(Canvas canvas, Offset center, double size, Paint paint) {
+    final path = Path();
+    // Draw plate rim
+    path.addOval(Rect.fromCircle(center: center, radius: size));
+    // Draw plate center
+    path.addOval(Rect.fromCircle(center: center, radius: size * 0.8));
+    canvas.drawPath(path, paint);
   }
 
   void _drawWaterDrop(Canvas canvas, Offset center, double size, Paint paint) {
-    try {
-      final path = Path();
-      path.moveTo(center.dx, center.dy - size);
-      path.quadraticBezierTo(
-          center.dx + size, center.dy, center.dx, center.dy + size);
-      path.quadraticBezierTo(
-          center.dx - size, center.dy, center.dx, center.dy - size);
-      canvas.drawPath(path, paint);
-    } catch (e) {
-      // Fallback to circle if there's an error
-      canvas.drawCircle(center, size, paint);
-    }
+    final path = Path();
+    path.moveTo(center.dx, center.dy - size);
+    path.quadraticBezierTo(
+      center.dx + size,
+      center.dy,
+      center.dx,
+      center.dy + size,
+    );
+    path.quadraticBezierTo(
+      center.dx - size,
+      center.dy,
+      center.dx,
+      center.dy - size,
+    );
+    canvas.drawPath(path, paint);
   }
 
-  void _drawCarrot(Canvas canvas, Offset center, double size, Paint paint) {
-    try {
+  void _drawConnectingLines(Canvas canvas, Size size, Paint paint) {
+    final linePaint = Paint()
+      ..color = primaryColor.withOpacity(isDark ? 0.02 : 0.01)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    // Draw curved connecting lines between elements
+    for (int i = 0; i < 3; i++) {
+      final offset = (i * 0.3 + progress) % 1.0;
+      final startX = size.width * (0.2 + offset * 0.6);
+      final startY = size.height * (0.1 + offset * 0.8);
+      final endX = size.width * (0.8 - offset * 0.6);
+      final endY = size.height * (0.9 - offset * 0.8);
+
       final path = Path();
-      path.moveTo(center.dx, center.dy - size);
-      path.lineTo(center.dx + size * 0.5, center.dy + size);
-      path.lineTo(center.dx - size * 0.5, center.dy + size);
-      path.close();
-      canvas.drawPath(path, paint);
-    } catch (e) {
-      // Fallback to triangle if there's an error
-      canvas.drawCircle(center, size, paint);
+      path.moveTo(startX, startY);
+      path.quadraticBezierTo(
+        (startX + endX) / 2,
+        (startY + endY) / 2 + math.sin(progress * math.pi * 2) * 50,
+        endX,
+        endY,
+      );
+      canvas.drawPath(path, linePaint);
     }
   }
 
