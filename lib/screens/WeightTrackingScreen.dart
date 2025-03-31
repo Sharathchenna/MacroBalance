@@ -83,7 +83,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         setState(() {
           _currentWeight = cached['current_weight'] ?? _currentWeight;
           _targetWeight = cached['target_weight'] ?? _targetWeight;
-          _weightData = List<Map<String, dynamic>>.from(cached['weight_data'] ?? []);
+          _weightData =
+              List<Map<String, dynamic>>.from(cached['weight_data'] ?? []);
         });
       }
 
@@ -94,11 +95,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         if (weightHistory.isNotEmpty) {
           setState(() {
             _weightData = List<Map<String, dynamic>>.from(weightHistory);
-            
+
             // Set current weight to the latest entry
             if (_weightData.isNotEmpty) {
-              final latestEntry = _weightData.reduce((a, b) => 
-                DateTime.parse(a['date'] as String).isAfter(DateTime.parse(b['date'] as String)) ? a : b);
+              final latestEntry = _weightData.reduce((a, b) =>
+                  DateTime.parse(a['date'] as String)
+                          .isAfter(DateTime.parse(b['date'] as String))
+                      ? a
+                      : b);
               _currentWeight = latestEntry['weight'] as double;
             }
           });
@@ -111,7 +115,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         final macroResults = json.decode(macroResultsJson);
         if (macroResults['weight_kg'] != null) {
           _currentWeight = macroResults['weight_kg'].toDouble();
-          
+
           // If we have the current weight but no history, create first entry
           if (_weightData.isEmpty) {
             _weightData.add({
@@ -129,7 +133,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       if (currentUser != null) {
         final response = await Supabase.instance.client
             .from('user_macros')
-            .select('weight, goal_weight_kg')
+            .select('weight') // Removed goal_weight_kg
             .eq('id', currentUser.id)
             .order('updated_at', ascending: false)
             .limit(1)
@@ -139,30 +143,11 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           if (response['weight'] != null) {
             _currentWeight = response['weight'].toDouble();
           }
-          if (response['goal_weight_kg'] != null) {
-            _targetWeight = response['goal_weight_kg'].toDouble();
-          }
+          // Removed check for goal_weight_kg as it's loaded from prefs
         }
 
-        // Try to fetch weight history from Supabase
-        try {
-          final historyResponse = await Supabase.instance.client
-              .from('weight_history')
-              .select()
-              .eq('user_id', currentUser.id)
-              .order('date', ascending: true);
-
-          if (historyResponse != null && historyResponse.isNotEmpty) {
-            setState(() {
-              _weightData = List<Map<String, dynamic>>.from(historyResponse.map((item) => {
-                'date': item['date'],
-                'weight': item['weight'].toDouble(),
-              }).toList());
-            });
-          }
-        } catch (e) {
-          print('Error fetching weight history: $e');
-        }
+        // Removed fetching weight history from Supabase as it's stored locally
+        // try { ... } catch (e) { ... } block removed
       }
 
       // Create sample data only if we have no actual data
@@ -186,10 +171,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
             'weight_data': _weightData,
             'timestamp': DateTime.now().toIso8601String(),
           }));
-          
+
       // Also save to weight_history for persistence
       await prefs.setString('weight_history', json.encode(_weightData));
-      
     } catch (e) {
       print('Error loading weight data: $e');
     } finally {
@@ -640,6 +624,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           child: Opacity(
             opacity: _pageController.value,
             child: Container(
+              width: double.infinity, // Make container full width
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
                 color: customColors.dateNavigatorBackground,
@@ -653,47 +638,51 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                 ],
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: ['Week', 'Month', 'Year'].map((timeFrame) {
                   final isSelected = _selectedTimeFrame == timeFrame;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      child: TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedTimeFrame = timeFrame;
-                          });
-                        },
-                        style: ButtonStyle(
-                          backgroundColor: MaterialStateProperty.all(
-                            isSelected
-                                ? customColors.cardBackground
-                                : Colors.transparent,
-                          ),
-                          shape: MaterialStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                  return Expanded(
+                    // Make each button take equal space
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        child: TextButton(
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            setState(() {
+                              _selectedTimeFrame = timeFrame;
+                            });
+                          },
+                          style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.all(
+                              isSelected
+                                  ? customColors.cardBackground
+                                  : Colors.transparent,
+                            ),
+                            shape: MaterialStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            padding: MaterialStateProperty.all(
+                              const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 10),
+                            ),
+                            overlayColor: MaterialStateProperty.all(
+                              customColors.accentPrimary.withOpacity(0.1),
                             ),
                           ),
-                          padding: MaterialStateProperty.all(
-                            const EdgeInsets.symmetric(
-                                horizontal: 18, vertical: 10),
-                          ),
-                          overlayColor: MaterialStateProperty.all(
-                            customColors.accentPrimary.withOpacity(0.1),
-                          ),
-                        ),
-                        child: Text(
-                          timeFrame,
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w500,
-                            color: isSelected
-                                ? customColors.accentPrimary
-                                : customColors.textPrimary,
+                          child: Text(
+                            timeFrame,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? customColors.accentPrimary
+                                  : customColors.textPrimary,
+                            ),
                           ),
                         ),
                       ),
@@ -712,28 +701,30 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     // Calculate statistics
     double weightChange = 0;
     String timeDescription = '';
-    
+
     if (_weightData.length > 1) {
       // Sort by date to ensure we're comparing oldest with newest
-      _weightData.sort((a, b) => 
-        DateTime.parse(a['date'] as String).compareTo(DateTime.parse(b['date'] as String)));
-      
+      _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
+          .compareTo(DateTime.parse(b['date'] as String)));
+
       // Get first and last entries based on selected time frame
       final firstEntry = _filterWeightDataByTimeFrame(_weightData).first;
       final lastEntry = _filterWeightDataByTimeFrame(_weightData).last;
-      
+
       // Calculate change
       final startWeight = firstEntry['weight'] as double;
       final endWeight = lastEntry['weight'] as double;
       weightChange = endWeight - startWeight;
-      
+
       // Format time description
       final startDate = DateTime.parse(firstEntry['date'] as String);
       final endDate = DateTime.parse(lastEntry['date'] as String);
       final days = endDate.difference(startDate).inDays;
-      
+
       if (days < 7) {
-        timeDescription = days == 0 ? 'today' : 'in the last $days day${days == 1 ? '' : 's'}';
+        timeDescription = days == 0
+            ? 'today'
+            : 'in the last $days day${days == 1 ? '' : 's'}';
       } else if (days < 30) {
         final weeks = (days / 7).floor();
         timeDescription = 'in the last $weeks week${weeks == 1 ? '' : 's'}';
@@ -745,7 +736,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         timeDescription = 'in the last $years year${years == 1 ? '' : 's'}';
       }
     }
-    
+
     return AnimatedBuilder(
       animation: _pageController,
       builder: (context, child) {
@@ -788,11 +779,13 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           ),
                         ),
                         IconButton(
-                          onPressed: () => _showAddWeightDialog(context, customColors),
+                          onPressed: () =>
+                              _showAddWeightDialog(context, customColors),
                           icon: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: customColors.accentPrimary.withOpacity(0.1),
+                              color:
+                                  customColors.accentPrimary.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -807,7 +800,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                         ),
                       ],
                     ),
-                    
+
                     // Weight change information
                     if (_weightData.length > 1)
                       Padding(
@@ -815,17 +808,17 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                         child: Row(
                           children: [
                             Icon(
-                              weightChange > 0 
-                                ? Icons.arrow_upward 
-                                : weightChange < 0
-                                  ? Icons.arrow_downward
-                                  : Icons.remove,
+                              weightChange > 0
+                                  ? Icons.arrow_upward
+                                  : weightChange < 0
+                                      ? Icons.arrow_downward
+                                      : Icons.remove,
                               size: 16,
                               color: weightChange > 0
-                                ? Colors.redAccent
-                                : weightChange < 0
-                                  ? Colors.greenAccent.shade700
-                                  : customColors.textSecondary,
+                                  ? Colors.redAccent
+                                  : weightChange < 0
+                                      ? Colors.greenAccent.shade700
+                                      : customColors.textSecondary,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -834,16 +827,16 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: weightChange > 0
-                                  ? Colors.redAccent
-                                  : weightChange < 0
-                                    ? Colors.greenAccent.shade700
-                                    : customColors.textSecondary,
+                                    ? Colors.redAccent
+                                    : weightChange < 0
+                                        ? Colors.greenAccent.shade700
+                                        : customColors.textSecondary,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    
+
                     // Chart
                     SizedBox(
                       height: 240,
@@ -860,7 +853,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                         timeFrame: _selectedTimeFrame,
                       ),
                     ),
-                    
+
                     // Chart instructions
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -874,7 +867,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Touch to see details • Pinch to zoom',
+                            'Touch to see details',
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: customColors.textSecondary,
@@ -892,20 +885,21 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       },
     );
   }
-  
-  List<Map<String, dynamic>> _filterWeightDataByTimeFrame(List<Map<String, dynamic>> data) {
+
+  List<Map<String, dynamic>> _filterWeightDataByTimeFrame(
+      List<Map<String, dynamic>> data) {
     if (data.isEmpty) return [];
-    
+
     final now = DateTime.now();
     final oneWeekAgo = now.subtract(const Duration(days: 7));
     final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
     final threeMonthsAgo = DateTime(now.year, now.month - 3, now.day);
     final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
     final yearAgo = DateTime(now.year - 1, now.month, now.day);
-    
+
     // Make a copy to avoid modifying the original
     final filteredData = List<Map<String, dynamic>>.from(data);
-    
+
     // Filter based on selected timeframe
     switch (_selectedTimeFrame) {
       case 'Week':
@@ -916,17 +910,20 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       case 'Month':
         return filteredData.where((entry) {
           final date = DateTime.parse(entry['date'] as String);
-          return date.isAfter(oneMonthAgo) || date.isAtSameMomentAs(oneMonthAgo);
+          return date.isAfter(oneMonthAgo) ||
+              date.isAtSameMomentAs(oneMonthAgo);
         }).toList();
       case '3 Months':
         return filteredData.where((entry) {
           final date = DateTime.parse(entry['date'] as String);
-          return date.isAfter(threeMonthsAgo) || date.isAtSameMomentAs(threeMonthsAgo);
+          return date.isAfter(threeMonthsAgo) ||
+              date.isAtSameMomentAs(threeMonthsAgo);
         }).toList();
       case '6 Months':
         return filteredData.where((entry) {
           final date = DateTime.parse(entry['date'] as String);
-          return date.isAfter(sixMonthsAgo) || date.isAtSameMomentAs(sixMonthsAgo);
+          return date.isAfter(sixMonthsAgo) ||
+              date.isAtSameMomentAs(sixMonthsAgo);
         }).toList();
       case 'Year':
         return filteredData.where((entry) {
@@ -1191,30 +1188,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         await Supabase.instance.client.from('user_macros').upsert({
           'id': currentUser.id,
           'weight': _currentWeight,
-          'goal_weight_kg': _targetWeight,
+          // 'goal_weight_kg': _targetWeight, // Removed as it's stored locally
           'updated_at': DateTime.now().toIso8601String(),
         });
-        
-        // Sync the weight history to Supabase if table exists
-        try {
-          // First clear existing entries to avoid duplicates
-          await Supabase.instance.client
-              .from('weight_history')
-              .delete()
-              .eq('user_id', currentUser.id);
-              
-          // Then insert all entries
-          for (var entry in _weightData) {
-            await Supabase.instance.client.from('weight_history').insert({
-              'user_id': currentUser.id,
-              'date': entry['date'],
-              'weight': entry['weight'],
-            });
-          }
-        } catch (e) {
-          print('Weight history sync failed: $e');
-          // This might fail if the table doesn't exist, which is ok
-        }
+
+        // Removed syncing weight history to Supabase as it's stored locally
+        // try { ... } catch (e) { ... } block removed
       }
     } catch (e) {
       print('Error saving weight changes: $e');
@@ -1225,7 +1204,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       BuildContext context, CustomColors customColors) async {
     double newWeight = _currentWeight;
     DateTime selectedDate = DateTime.now(); // Initialize with today's date
-
+    final customColors = Theme.of(context).extension<CustomColors>();
     return showDialog(
       context: context,
       builder: (context) {
@@ -1238,7 +1217,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: customColors.textPrimary,
+                  color: customColors!.textPrimary,
                 ),
               ),
               content: Column(
@@ -1369,26 +1348,33 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                     }
 
                     setState(() {
+                      // Format the selected date to ignore time for comparison
+                      final selectedDay =
+                          DateFormat('yyyy-MM-dd').format(selectedDate);
+
+                      // Remove any existing entry for the selected date
+                      _weightData.removeWhere((entry) {
+                        final entryDate =
+                            DateTime.parse(entry['date'] as String);
+                        return DateFormat('yyyy-MM-dd').format(entryDate) ==
+                            selectedDay;
+                      });
+
                       // Add the new weight entry with the selected date
                       _weightData.add({
-                        'date':
-                            selectedDate.toIso8601String(), // Use selected date
+                        'date': selectedDate
+                            .toIso8601String(), // Use selected date (with time)
                         'weight': newWeight,
                       });
-                      // Sort the data by date after adding
+
+                      // Sort the data by date after adding/replacing
                       _weightData.sort((a, b) =>
                           DateTime.parse(a['date'] as String)
                               .compareTo(DateTime.parse(b['date'] as String)));
 
-                      // Update current weight only if the selected date is the latest
-                      if (_weightData.isNotEmpty &&
-                          selectedDate.isAfter(DateTime.parse(
-                              _weightData[_weightData.length - 2]['date']
-                                  as String))) {
-                        _currentWeight = newWeight;
-                      } else if (_weightData.length == 1) {
-                        // If it's the only entry, it's the current weight
-                        _currentWeight = newWeight;
+                      // Update current weight to the latest entry's weight after sorting
+                      if (_weightData.isNotEmpty) {
+                        _currentWeight = _weightData.last['weight'] as double;
                       }
 
                       // Optional: Limit history size if needed (e.g., keep last 100)
@@ -1404,7 +1390,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: customColors.accentPrimary,
                   ),
-                  child: const Text('Save'),
+                  child: Text(
+                    'Save',
+                    style: TextStyle(
+                      color: customColors.textPrimary,
+                    ),
+                  ),
                 ),
               ],
             );
@@ -1496,11 +1487,11 @@ class CustomWeightChart extends StatefulWidget {
   State<CustomWeightChart> createState() => _CustomWeightChartState();
 }
 
-class _CustomWeightChartState extends State<CustomWeightChart>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
+class _CustomWeightChartState extends State<CustomWeightChart> {
+  // Removed SingleTickerProviderStateMixin
+  // late AnimationController _animationController; // Removed AnimationController
   TouchData? _touchData;
-  final List<Offset> _animatedPoints = [];
+  // final List<Offset> _animatedPoints = []; // This is calculated in paint now
 
   double _zoomLevel = 1.0; // Default zoom level
   double _zoomFactor = 1.0; // Current zoom factor
@@ -1508,30 +1499,13 @@ class _CustomWeightChartState extends State<CustomWeightChart>
   late double _panOffset = 0.0; // Horizontal panning offset
   final double _maxPanOffset = 100.0; // Maximum pan offset
 
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
+  // Removed initState, dispose, and didUpdateWidget related to AnimationController
 
   @override
   void didUpdateWidget(CustomWeightChart oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.weightPoints != widget.weightPoints ||
         oldWidget.timeFrame != widget.timeFrame) {
-      _animationController.reset();
-      _animationController.forward();
       // Reset zoom and pan when data or timeframe changes
       _zoomLevel = 1.0;
       _panOffset = 0.0;
@@ -1652,7 +1626,7 @@ class _CustomWeightChartState extends State<CustomWeightChart>
               weightPoints: _getFilteredData(),
               customColors: widget.customColors,
               targetWeight: widget.targetWeight,
-              animation: _animationController.value,
+              // animation: _animationController.value, // Removed animation parameter
               touchData: _touchData,
               isMetric: widget.isMetric,
               zoomLevel: _zoomLevel,
@@ -1662,7 +1636,7 @@ class _CustomWeightChartState extends State<CustomWeightChart>
             size: Size.infinite,
           ),
         ),
-        
+
         // Zoom indicator
         Positioned(
           right: 10,
@@ -1799,7 +1773,19 @@ class _CustomWeightChartState extends State<CustomWeightChart>
     final visibleRange = _getVisiblePointsIndices(totalPoints);
     final visibleCount = visibleRange.end - visibleRange.start;
 
-    if (visibleCount <= 0) return 30 + (index / (totalPoints - 1)) * chartWidth;
+    if (visibleCount <= 0 || totalPoints <= 1)
+      return 30 + chartWidth / 2; // Center if no range or single point
+    if (totalPoints > 1 && visibleCount == 0 && index == 0)
+      return 30; // Handle edge case for single visible point at start
+    if (totalPoints > 1 && visibleCount == 0 && index == totalPoints - 1)
+      return 30 +
+          chartWidth; // Handle edge case for single visible point at end
+
+    if (visibleCount <= 0)
+      return 30 +
+          (totalPoints > 1
+              ? (index / (totalPoints - 1)) * chartWidth
+              : chartWidth / 2);
 
     // Map index to position within visible range
     final relativeIndex = index - visibleRange.start;
@@ -1819,32 +1805,46 @@ class _WeightChartPainter extends CustomPainter {
   final List<WeightPoint> weightPoints;
   final CustomColors customColors;
   final double targetWeight;
-  final double animation;
+  // final double animation; // Removed animation field
   final TouchData? touchData;
   final bool isMetric;
   final double zoomLevel;
   final double panOffset;
   final String timeFrame;
-  late final Size size;
+  // Removed late final size, minWeight, maxWeight, visibleRange, animatedPoints
+  // Paints and text painters will be initialized directly or within paint
 
-  // Cache for expensive calculations
-  late final double minWeight;
-  late final double maxWeight;
-  late final _VisibleRange visibleRange;
-  late final List<Offset> animatedPoints;
-  late final Paint gridPaint;
-  late final Paint linePaint;
-  late final Paint fillPaint;
-  late final Paint pointPaint;
-  late final Paint pointBorderPaint;
-  late final TextStyle labelStyle;
-  late final TextPainter labelPainter;
+  // Initialize paints that don't depend on size directly
+  final Paint gridPaint = Paint()
+    ..strokeWidth = 1
+    ..strokeCap = StrokeCap.round;
+
+  final Paint linePaint = Paint()
+    ..strokeWidth = 3.0
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..style = PaintingStyle.stroke
+    ..isAntiAlias = true;
+
+  final Paint pointPaint = Paint()
+    ..style = PaintingStyle.fill
+    ..isAntiAlias = true;
+
+  final Paint pointBorderPaint = Paint()
+    ..strokeWidth = 2.5
+    ..style = PaintingStyle.stroke
+    ..isAntiAlias = true;
+
+  final TextPainter labelPainter = TextPainter(
+    textDirection: ui.TextDirection.ltr,
+    textAlign: TextAlign.center,
+  );
 
   _WeightChartPainter({
     required this.weightPoints,
     required this.customColors,
     required this.targetWeight,
-    required this.animation,
+    // required this.animation, // Removed animation parameter
     this.touchData,
     required this.isMetric,
     this.zoomLevel = 1.0,
@@ -1852,85 +1852,7 @@ class _WeightChartPainter extends CustomPainter {
     required this.timeFrame,
   });
 
-  void _initializeValues(Size size) {
-    this.size = size;
-
-    // Initialize cached values
-    final weights = weightPoints.map((p) => p.weight).toList();
-    minWeight = weights.isEmpty ? 0 : weights.reduce(math.min) - 1;
-    maxWeight = weights.isEmpty ? 0 : weights.reduce(math.max) + 1;
-    visibleRange = _getVisiblePointsIndices(weightPoints.length);
-
-    // Initialize paints with improved styling
-    gridPaint = Paint()
-      ..color = customColors.textSecondary.withOpacity(0.12)
-      ..strokeWidth = 1
-      ..strokeCap = StrokeCap.round;
-
-    linePaint = Paint()
-      ..color = customColors.accentPrimary
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke
-      ..isAntiAlias = true;
-
-    fillPaint = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(size.width / 2, 0),
-        Offset(size.width / 2, size.height),
-        [
-          customColors.accentPrimary.withOpacity(0.4),
-          customColors.accentPrimary.withOpacity(0.05),
-        ],
-      )
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-
-    pointPaint = Paint()
-      ..color = customColors.cardBackground
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-
-    pointBorderPaint = Paint()
-      ..color = customColors.accentPrimary
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..isAntiAlias = true;
-
-    labelStyle = TextStyle(
-      color: customColors.textPrimary,
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
-    );
-
-    labelPainter = TextPainter(
-      textDirection: ui.TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
-
-    // Calculate animated points for smooth drawing
-    animatedPoints = [];
-    if (weightPoints.isNotEmpty) {
-      final filteredPoints = _getFilteredData();
-      final chartWidth = size.width - 60;
-      final chartHeight = size.height - 50;
-
-      for (int i = visibleRange.start; i <= visibleRange.end; i++) {
-        if (i < filteredPoints.length) {
-          final point = filteredPoints[i];
-          final pointX = _getXPositionForIndex(
-              i, filteredPoints.length, chartWidth, size);
-          final pointY = size.height -
-              40 -
-              ((point.weight - minWeight) / (maxWeight - minWeight)) *
-                  chartHeight *
-                  animation;
-          animatedPoints.add(Offset(pointX, pointY));
-        }
-      }
-    }
-  }
+  // Removed _initializeValues method
 
   List<WeightPoint> _getFilteredData() {
     // Similar to the method in CustomWeightChart
@@ -1993,12 +1915,16 @@ class _WeightChartPainter extends CustomPainter {
     return timeFrame;
   }
 
-  _VisibleRange _getVisiblePointsIndices(int totalPoints) {
+  // Made this method static as it doesn't depend on instance state anymore
+  static _VisibleRange _getVisiblePointsIndices(
+      int totalPoints, double zoomLevel, double panOffset) {
     if (totalPoints <= 1) return _VisibleRange(0, 0);
 
     // Calculate visible range based on zoom level and pan offset
+    // Note: Using fixed maxPanOffset here, consider passing if needed
     final visiblePortion = 1.0 / zoomLevel;
-    final center = 0.5 + (panOffset / (100.0 * 2));
+    final center =
+        0.5 + (panOffset / (100.0 * 2)); // Assuming maxPanOffset is 100
 
     // Calculate start and end indices
     int start = ((center - visiblePortion / 2) * (totalPoints - 1)).floor();
@@ -2011,12 +1937,26 @@ class _WeightChartPainter extends CustomPainter {
     return _VisibleRange(start, end);
   }
 
-  double _getXPositionForIndex(
-      int index, int totalPoints, double chartWidth, Size size) {
-    final visibleRange = _getVisiblePointsIndices(totalPoints);
+  // Made this method static
+  static double _getXPositionForIndex(int index, int totalPoints,
+      double chartWidth, Size size, double zoomLevel, double panOffset) {
+    final visibleRange =
+        _getVisiblePointsIndices(totalPoints, zoomLevel, panOffset);
     final visibleCount = visibleRange.end - visibleRange.start;
 
-    if (visibleCount <= 0) return 30 + (index / (totalPoints - 1)) * chartWidth;
+    if (visibleCount <= 0 || totalPoints <= 1)
+      return 30 + chartWidth / 2; // Center if no range or single point
+    if (totalPoints > 1 && visibleCount == 0 && index == 0)
+      return 30; // Handle edge case for single visible point at start
+    if (totalPoints > 1 && visibleCount == 0 && index == totalPoints - 1)
+      return 30 +
+          chartWidth; // Handle edge case for single visible point at end
+
+    if (visibleCount <= 0)
+      return 30 +
+          (totalPoints > 1
+              ? (index / (totalPoints - 1)) * chartWidth
+              : chartWidth / 2);
 
     // Map index to position within visible range
     final relativeIndex = index - visibleRange.start;
@@ -2030,34 +1970,89 @@ class _WeightChartPainter extends CustomPainter {
       return;
     }
 
-    _initializeValues(size);
+    // --- Start: Calculations moved from _initializeValues ---
+    final weights = weightPoints.map((p) => p.weight).toList();
+    final double minWeight = weights.isEmpty ? 0 : weights.reduce(math.min) - 1;
+    final double maxWeight = weights.isEmpty ? 0 : weights.reduce(math.max) + 1;
+    final _VisibleRange visibleRange =
+        _getVisiblePointsIndices(weightPoints.length, zoomLevel, panOffset);
 
     final chartWidth = size.width - 60; // Accounting for padding
     final chartHeight = size.height - 50; // Height excluding bottom labels
 
+    final List<Offset> animatedPoints = [];
+    if (weightPoints.isNotEmpty) {
+      final filteredPoints =
+          _getFilteredData(); // Use filtered data based on timeFrame
+      for (int i = visibleRange.start; i <= visibleRange.end; i++) {
+        if (i < filteredPoints.length) {
+          final point = filteredPoints[i];
+          final pointX = _getXPositionForIndex(i, filteredPoints.length,
+              chartWidth, size, zoomLevel, panOffset); // Pass zoom/pan
+          final pointY = size.height -
+              40 -
+              ((point.weight - minWeight) / (maxWeight - minWeight)) *
+                  chartHeight; // Removed * animation
+          animatedPoints.add(Offset(pointX, pointY));
+        }
+      }
+    }
+
+    // Initialize paints that depend on size or customColors
+    final Paint fillPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(size.width / 2, 0),
+        Offset(size.width / 2, size.height),
+        [
+          customColors.accentPrimary.withOpacity(0.4),
+          customColors.accentPrimary.withOpacity(0.05),
+        ],
+      )
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    final TextStyle labelStyle = TextStyle(
+      color: customColors.textPrimary,
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    );
+
+    // Update colors for existing paints
+    gridPaint.color = customColors.textSecondary.withOpacity(0.12);
+    linePaint.color = customColors.accentPrimary;
+    pointPaint.color = customColors.cardBackground;
+    pointBorderPaint.color = customColors.accentPrimary;
+    // --- End: Calculations moved from _initializeValues ---
+
     // Draw grid lines and labels
-    _drawGrid(canvas, size, chartWidth, chartHeight);
+    _drawGrid(canvas, size, chartWidth, chartHeight, minWeight, maxWeight,
+        labelStyle, visibleRange, animatedPoints); // Pass calculated values
 
     // Draw target weight line if in range
     if (targetWeight >= minWeight && targetWeight <= maxWeight) {
-      _drawTargetLine(canvas, size, chartWidth, chartHeight);
+      _drawTargetLine(canvas, size, chartWidth, chartHeight, minWeight,
+          maxWeight, labelStyle); // Pass calculated values
     }
 
     // Draw data points and connecting lines
     if (animatedPoints.length > 1) {
       // Draw area fill first (behind the line)
-      _drawAreaFill(canvas, size, chartWidth, chartHeight);
-      
+      _drawAreaFill(canvas, size, chartWidth, chartHeight, animatedPoints,
+          fillPaint); // Pass calculated values
+
       // Draw connecting line
-      _drawConnectingLine(canvas, size, chartWidth, chartHeight);
+      _drawConnectingLine(canvas, size, chartWidth, chartHeight,
+          animatedPoints); // Pass calculated values
     }
 
     // Draw individual data points
-    _drawDataPoints(canvas, size, chartWidth, chartHeight);
+    _drawDataPoints(canvas, size, chartWidth, chartHeight,
+        animatedPoints); // Pass calculated values
 
     // Draw touch interaction elements
     if (touchData != null) {
-      _drawTouchInteraction(canvas, size, chartWidth, chartHeight);
+      _drawTouchInteraction(canvas, size, chartWidth, chartHeight,
+          labelStyle); // Pass calculated values
     }
   }
 
@@ -2067,7 +2062,7 @@ class _WeightChartPainter extends CustomPainter {
       fontSize: 14,
       fontWeight: FontWeight.w500,
     );
-    
+
     const text = 'No weight data available';
     final textSpan = TextSpan(text: text, style: textStyle);
     final textPainter = TextPainter(
@@ -2075,7 +2070,7 @@ class _WeightChartPainter extends CustomPainter {
       textDirection: ui.TextDirection.ltr,
       textAlign: TextAlign.center,
     );
-    
+
     textPainter.layout(maxWidth: size.width);
     textPainter.paint(
       canvas,
@@ -2083,12 +2078,22 @@ class _WeightChartPainter extends CustomPainter {
     );
   }
 
-  void _drawGrid(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  // Updated to accept calculated values
+  void _drawGrid(
+      Canvas canvas,
+      Size size,
+      double chartWidth,
+      double chartHeight,
+      double minWeight,
+      double maxWeight,
+      TextStyle labelStyle,
+      _VisibleRange visibleRange,
+      List<Offset> animatedPoints) {
     // Draw horizontal grid lines with improved spacing
     final gridLineCount = 5;
     for (int i = 0; i <= gridLineCount; i++) {
       final y = 20 + (i / gridLineCount) * chartHeight;
-      
+
       // Draw grid line
       canvas.drawLine(
         Offset(30, y),
@@ -2098,38 +2103,45 @@ class _WeightChartPainter extends CustomPainter {
 
       // Draw weight labels
       if (i < gridLineCount) {
-        final weight = maxWeight - (i / gridLineCount) * (maxWeight - minWeight);
+        final weight =
+            maxWeight - (i / gridLineCount) * (maxWeight - minWeight);
         final formattedWeight = isMetric
             ? '${weight.toStringAsFixed(1)} kg'
             : '${(weight * 2.20462).toStringAsFixed(1)} lbs';
-            
-        labelPainter
+
+        labelPainter // Use the instance painter
           ..text = TextSpan(
             text: formattedWeight,
-            style: labelStyle,
+            style: labelStyle, // Use the passed labelStyle
           )
           ..layout(minWidth: 0, maxWidth: 60);
-          
+
         labelPainter.paint(
           canvas,
-          Offset(size.width - labelPainter.width - 5, y - labelPainter.height / 2),
+          Offset(
+              size.width - labelPainter.width - 5, y - labelPainter.height / 2),
         );
       }
     }
 
     // Draw date labels at the bottom if we have enough points
     if (animatedPoints.length > 1) {
-      final filteredPoints = _getFilteredData();
-      
+      final filteredPoints =
+          _getFilteredData(); // Still need filtered points for dates
+
       // Show appropriate number of date labels based on available width
       final maxLabels = math.max(3, (chartWidth / 100).floor());
-      final step = math.max(1, (filteredPoints.length / maxLabels).ceil());
-      
+      final step = filteredPoints.isEmpty
+          ? 1
+          : math.max(
+              1, (visibleRange.end - visibleRange.start + 1) ~/ maxLabels);
+
       for (int i = visibleRange.start; i <= visibleRange.end; i += step) {
         if (i < filteredPoints.length) {
           final point = filteredPoints[i];
-          final xPos = _getXPositionForIndex(i, filteredPoints.length, chartWidth, size);
-          
+          final xPos = _getXPositionForIndex(i, filteredPoints.length,
+              chartWidth, size, zoomLevel, panOffset); // Pass zoom/pan
+
           // Format date based on time frame
           String dateLabel;
           final timeFrame = getTimeFrame();
@@ -2140,44 +2152,54 @@ class _WeightChartPainter extends CustomPainter {
           } else {
             dateLabel = DateFormat('MMM d').format(point.date);
           }
-          
-          labelPainter
+
+          labelPainter // Use the instance painter
             ..text = TextSpan(
               text: dateLabel,
               style: labelStyle.copyWith(
+                // Use the passed labelStyle
                 fontSize: 10,
                 color: customColors.textSecondary,
               ),
             )
             ..layout(minWidth: 0, maxWidth: 50);
-            
+
           labelPainter.paint(
             canvas,
-            Offset(xPos - labelPainter.width / 2, size.height - labelPainter.height),
+            Offset(xPos - labelPainter.width / 2,
+                size.height - labelPainter.height),
           );
         }
       }
     }
   }
 
-  void _drawTargetLine(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  // Updated to accept calculated values
+  void _drawTargetLine(
+      Canvas canvas,
+      Size size,
+      double chartWidth,
+      double chartHeight,
+      double minWeight,
+      double maxWeight,
+      TextStyle labelStyle) {
     final targetY = size.height -
         40 -
         ((targetWeight - minWeight) / (maxWeight - minWeight)) * chartHeight;
-        
+
     // Target line
     final targetLinePaint = Paint()
       ..color = customColors.accentPrimary.withOpacity(0.3)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-      
+
     // Draw dashed line
     final dashWidth = 6;
     final dashSpace = 4;
     double startX = 30;
     final endX = size.width - 20;
-    
+
     while (startX < endX) {
       final endDash = math.min(startX + dashWidth, endX);
       canvas.drawLine(
@@ -2187,113 +2209,93 @@ class _WeightChartPainter extends CustomPainter {
       );
       startX = endDash + dashSpace;
     }
-    
+
     // Target label
-    labelPainter
+    labelPainter // Use the instance painter
       ..text = TextSpan(
         text: 'Target',
         style: labelStyle.copyWith(
+          // Use the passed labelStyle
           color: customColors.accentPrimary,
           fontSize: 10,
           fontWeight: FontWeight.w600,
         ),
       )
       ..layout(minWidth: 0, maxWidth: 50);
-      
+
     // Draw small rectangle background
-    final labelRect = Rect.fromLTWH(
-      30, 
-      targetY - labelPainter.height / 2 - 2, 
-      labelPainter.width + 8, 
-      labelPainter.height + 4
-    );
-    
+    final labelRect = Rect.fromLTWH(30, targetY - labelPainter.height / 2 - 2,
+        labelPainter.width + 8, labelPainter.height + 4);
+
     canvas.drawRRect(
       RRect.fromRectAndRadius(labelRect, const Radius.circular(4)),
       Paint()..color = customColors.cardBackground.withOpacity(0.8),
     );
-    
+
     labelPainter.paint(
       canvas,
       Offset(34, targetY - labelPainter.height / 2),
     );
   }
 
-  void _drawAreaFill(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  // Updated to accept calculated values
+  void _drawAreaFill(Canvas canvas, Size size, double chartWidth,
+      double chartHeight, List<Offset> animatedPoints, Paint fillPaint) {
     if (animatedPoints.length < 2) return;
-    
+
     final path = Path();
-    
+
     // Start from bottom left of the first point
     path.moveTo(animatedPoints.first.dx, size.height - 40);
-    
+
     // Go to the first actual point
     path.lineTo(animatedPoints.first.dx, animatedPoints.first.dy);
-    
-    // Add all points
+
+    // Add all points using straight lines
     for (int i = 1; i < animatedPoints.length; i++) {
-      // For a smoother curve, use quadratic bezier curves
-      if (i < animatedPoints.length - 1) {
-        final controlPoint = Offset(
-          (animatedPoints[i].dx + animatedPoints[i+1].dx) / 2,
-          animatedPoints[i].dy
-        );
-        path.quadraticBezierTo(
-          animatedPoints[i].dx,
-          animatedPoints[i].dy,
-          controlPoint.dx,
-          controlPoint.dy
-        );
-      } else {
-        path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
-      }
+      path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
     }
-    
+
     // Close the path by going to the bottom right and then back to start
     path.lineTo(animatedPoints.last.dx, size.height - 40);
     path.lineTo(animatedPoints.first.dx, size.height - 40);
-    
-    canvas.drawPath(path, fillPaint);
+
+    canvas.drawPath(path, fillPaint); // Use the passed fillPaint
   }
 
-  void _drawConnectingLine(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  // Updated to accept calculated values
+  void _drawConnectingLine(Canvas canvas, Size size, double chartWidth,
+      double chartHeight, List<Offset> animatedPoints) {
     if (animatedPoints.length < 2) return;
-    
+
     final path = Path();
     path.moveTo(animatedPoints.first.dx, animatedPoints.first.dy);
-    
-    // For a smoother curve, use quadratic bezier curves between points
-    for (int i = 0; i < animatedPoints.length - 1; i++) {
-      final controlPoint = Offset(
-        (animatedPoints[i].dx + animatedPoints[i+1].dx) / 2,
-        animatedPoints[i].dy
-      );
-      path.quadraticBezierTo(
-        controlPoint.dx,
-        controlPoint.dy,
-        (animatedPoints[i+1].dx + controlPoint.dx) / 2,
-        (animatedPoints[i+1].dy + controlPoint.dy) / 2
-      );
+
+    // Draw straight lines between points
+    for (int i = 1; i < animatedPoints.length; i++) {
+      path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
     }
-    
-    path.lineTo(animatedPoints.last.dx, animatedPoints.last.dy);
-    canvas.drawPath(path, linePaint);
+    canvas.drawPath(path, linePaint); // Use the instance linePaint
   }
 
-  void _drawDataPoints(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  // Updated to accept calculated values
+  void _drawDataPoints(Canvas canvas, Size size, double chartWidth,
+      double chartHeight, List<Offset> animatedPoints) {
     for (final point in animatedPoints) {
       // Draw outer stroke circle
-      canvas.drawCircle(point, 5, pointBorderPaint);
-      
+      canvas.drawCircle(point, 5, pointBorderPaint); // Use instance paint
+
       // Draw inner fill circle
-      canvas.drawCircle(point, 3.5, pointPaint);
+      canvas.drawCircle(point, 3.5, pointPaint); // Use instance paint
     }
   }
 
-  void _drawTouchInteraction(Canvas canvas, Size size, double chartWidth, double chartHeight) {
+  // Updated to accept calculated values
+  void _drawTouchInteraction(Canvas canvas, Size size, double chartWidth,
+      double chartHeight, TextStyle labelStyle) {
     final touchPoint = touchData!.position;
     final weightPoint = touchData!.point;
-    
+
     // Draw highlight circle
     canvas.drawCircle(
       touchPoint,
@@ -2302,7 +2304,7 @@ class _WeightChartPainter extends CustomPainter {
         ..color = customColors.accentPrimary.withOpacity(0.3)
         ..style = PaintingStyle.fill,
     );
-    
+
     canvas.drawCircle(
       touchPoint,
       6,
@@ -2311,18 +2313,19 @@ class _WeightChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
-    
+
     // Draw tooltip background
     final weightText = isMetric
         ? '${weightPoint.weight.toStringAsFixed(1)} kg'
         : '${(weightPoint.weight * 2.20462).toStringAsFixed(1)} lbs';
     final dateText = DateFormat('MMM d, yyyy').format(weightPoint.date);
-    
+
     // Prepare text painters
     final weightPainter = TextPainter(
       text: TextSpan(
         text: weightText,
         style: labelStyle.copyWith(
+          // Use passed labelStyle
           fontWeight: FontWeight.w600,
           fontSize: 14,
           color: customColors.textPrimary,
@@ -2330,41 +2333,41 @@ class _WeightChartPainter extends CustomPainter {
       ),
       textDirection: ui.TextDirection.ltr,
     )..layout();
-    
+
     final datePainter = TextPainter(
       text: TextSpan(
         text: dateText,
         style: labelStyle.copyWith(
+          // Use passed labelStyle
           fontSize: 12,
           color: customColors.textSecondary,
         ),
       ),
       textDirection: ui.TextDirection.ltr,
     )..layout();
-    
+
     // Calculate tooltip dimensions and position
     final tooltipWidth = math.max(weightPainter.width, datePainter.width) + 20;
     final tooltipHeight = weightPainter.height + datePainter.height + 16;
-    
+
     // Position tooltip to avoid going off-screen
     double tooltipX = touchPoint.dx - tooltipWidth / 2;
     if (tooltipX < 10) tooltipX = 10;
     if (tooltipX + tooltipWidth > size.width - 10) {
       tooltipX = size.width - tooltipWidth - 10;
     }
-    
+
     // Position tooltip above or below the point depending on space
     final tooltipAbove = touchPoint.dy > tooltipHeight + 20;
-    final tooltipY = tooltipAbove
-        ? touchPoint.dy - tooltipHeight - 15
-        : touchPoint.dy + 15;
-    
+    final tooltipY =
+        tooltipAbove ? touchPoint.dy - tooltipHeight - 15 : touchPoint.dy + 15;
+
     // Draw tooltip background
     final tooltipRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(tooltipX, tooltipY, tooltipWidth, tooltipHeight),
       const Radius.circular(8),
     );
-    
+
     canvas.drawRRect(
       tooltipRect,
       Paint()
@@ -2372,7 +2375,7 @@ class _WeightChartPainter extends CustomPainter {
         ..style = PaintingStyle.fill
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
     );
-    
+
     canvas.drawRRect(
       tooltipRect,
       Paint()
@@ -2380,13 +2383,13 @@ class _WeightChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
-    
+
     // Draw tooltip text
     weightPainter.paint(
       canvas,
       Offset(tooltipX + (tooltipWidth - weightPainter.width) / 2, tooltipY + 8),
     );
-    
+
     datePainter.paint(
       canvas,
       Offset(
@@ -2394,7 +2397,7 @@ class _WeightChartPainter extends CustomPainter {
         tooltipY + 8 + weightPainter.height + 4,
       ),
     );
-    
+
     // Draw connecting line between tooltip and point
     final path = Path();
     if (tooltipAbove) {
@@ -2404,7 +2407,7 @@ class _WeightChartPainter extends CustomPainter {
       path.moveTo(touchPoint.dx, touchPoint.dy + 8);
       path.lineTo(tooltipX + tooltipWidth / 2, tooltipY);
     }
-    
+
     canvas.drawPath(
       path,
       Paint()
@@ -2417,7 +2420,7 @@ class _WeightChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(_WeightChartPainter oldDelegate) {
     return oldDelegate.weightPoints != weightPoints ||
-        oldDelegate.animation != animation ||
+        // oldDelegate.animation != animation || // Removed animation check
         oldDelegate.touchData != touchData ||
         oldDelegate.zoomLevel != zoomLevel ||
         oldDelegate.panOffset != panOffset ||
