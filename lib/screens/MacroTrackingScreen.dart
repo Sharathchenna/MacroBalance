@@ -459,7 +459,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           gradient: SweepGradient(
                             center: Alignment.center,
                             startAngle: -math.pi / 2,
-                            endAngle: (2 * math.pi * safeValue) - (math.pi / 2),
+                            endAngle: math.max(-math.pi / 2 + 0.01, (2 * math.pi * safeValue) - (math.pi / 2)),
                             colors: [
                               customColors.accentPrimary.withOpacity(0.2),
                               customColors.accentPrimary,

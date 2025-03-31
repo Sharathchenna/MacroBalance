@@ -1917,14 +1917,16 @@ class _BarChartState extends State<CustomBarChart>
                                               width: widget.barWidth,
                                               height: math.max(barHeight, 2.0), // Ensure minimum height for visibility
                                               decoration: BoxDecoration(
-                                                gradient: LinearGradient(
+                                                gradient: barHeight <= 2.0 || widget.barWidth <= 2.0 ? null : LinearGradient(
                                                   begin: Alignment.bottomCenter,
                                                   end: Alignment.topCenter,
                                                   colors: [
                                                     barColor,
                                                     gradientEndColor,
                                                   ],
+                                                  stops: const [0.0, 1.0],
                                                 ),
+                                                color: barHeight <= 2.0 || widget.barWidth <= 2.0 ? barColor : null, // Use solid color for tiny bars
                                                 borderRadius:
                                                     BorderRadius.circular(6),
                                                 boxShadow: isHighlighted || isToday
@@ -1938,6 +1940,10 @@ class _BarChartState extends State<CustomBarChart>
                                                         ),
                                                       ]
                                                     : null,
+                                              ),
+                                              constraints: BoxConstraints(
+                                                minWidth: 2.0,
+                                                minHeight: 2.0,
                                               ),
                                             ),
                                             // Small indicator for today's bar for better identification

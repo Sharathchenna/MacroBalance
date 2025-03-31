@@ -129,7 +129,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       if (currentUser != null) {
         final response = await Supabase.instance.client
             .from('user_macros')
-            .select('weight, goal_weight_kg')
+            .select('weight') // Removed goal_weight_kg
             .eq('id', currentUser.id)
             .order('updated_at', ascending: false)
             .limit(1)
@@ -139,30 +139,11 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           if (response['weight'] != null) {
             _currentWeight = response['weight'].toDouble();
           }
-          if (response['goal_weight_kg'] != null) {
-            _targetWeight = response['goal_weight_kg'].toDouble();
-          }
+          // Removed check for goal_weight_kg as it's loaded from prefs
         }
 
-        // Try to fetch weight history from Supabase
-        try {
-          final historyResponse = await Supabase.instance.client
-              .from('weight_history')
-              .select()
-              .eq('user_id', currentUser.id)
-              .order('date', ascending: true);
-
-          if (historyResponse != null && historyResponse.isNotEmpty) {
-            setState(() {
-              _weightData = List<Map<String, dynamic>>.from(historyResponse.map((item) => {
-                'date': item['date'],
-                'weight': item['weight'].toDouble(),
-              }).toList());
-            });
-          }
-        } catch (e) {
-          print('Error fetching weight history: $e');
-        }
+        // Removed fetching weight history from Supabase as it's stored locally
+        // try { ... } catch (e) { ... } block removed
       }
 
       // Create sample data only if we have no actual data
@@ -1191,30 +1172,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         await Supabase.instance.client.from('user_macros').upsert({
           'id': currentUser.id,
           'weight': _currentWeight,
-          'goal_weight_kg': _targetWeight,
+          // 'goal_weight_kg': _targetWeight, // Removed as it's stored locally
           'updated_at': DateTime.now().toIso8601String(),
         });
         
-        // Sync the weight history to Supabase if table exists
-        try {
-          // First clear existing entries to avoid duplicates
-          await Supabase.instance.client
-              .from('weight_history')
-              .delete()
-              .eq('user_id', currentUser.id);
-              
-          // Then insert all entries
-          for (var entry in _weightData) {
-            await Supabase.instance.client.from('weight_history').insert({
-              'user_id': currentUser.id,
-              'date': entry['date'],
-              'weight': entry['weight'],
-            });
-          }
-        } catch (e) {
-          print('Weight history sync failed: $e');
-          // This might fail if the table doesn't exist, which is ok
-        }
+        // Removed syncing weight history to Supabase as it's stored locally
+        // try { ... } catch (e) { ... } block removed
       }
     } catch (e) {
       print('Error saving weight changes: $e');
