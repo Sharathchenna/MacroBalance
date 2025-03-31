@@ -176,22 +176,22 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       case 'Month':
         // For month view, find which week contains today
         final monthlyData = _getTransformedStepsData();
-        
+
         // If no data, return -1
         if (monthlyData.isEmpty) return -1;
-        
+
         // First, find which week today belongs to
         for (int i = 0; i < monthlyData.length; i++) {
           final weekStart = monthlyData[i]['date'] as DateTime;
           final weekEnd = weekStart.add(const Duration(days: 6));
-          
+
           // Check if today falls within this week
-          if (today.isAfter(weekStart.subtract(const Duration(days: 1))) && 
+          if (today.isAfter(weekStart.subtract(const Duration(days: 1))) &&
               today.isBefore(weekEnd.add(const Duration(days: 1)))) {
             return i;
           }
         }
-        
+
         // If not found in any week, return the most recent week
         return monthlyData.length - 1;
 
@@ -246,10 +246,10 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         final daysCount = data['daysCount'] as int;
         final weekNumber = data['weekNumber'] as int;
         final weekEnd = date.add(const Duration(days: 6));
-        
+
         // Calculate the percentage relative to the goal
         final goalPercentage = ((avgSteps / _stepGoal) * 100).round();
-        
+
         String percentageLabel;
         if (goalPercentage >= 100) {
           percentageLabel = 'Goal achieved! ($goalPercentage%)';
@@ -267,14 +267,14 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         final steps = data['steps'] as int;
         // Calculate the percentage relative to the goal
         final goalPercentage = ((steps / _stepGoal) * 100).round();
-        
+
         String percentageLabel;
         if (goalPercentage >= 100) {
           percentageLabel = 'Goal achieved! ($goalPercentage%)';
         } else {
           percentageLabel = '$goalPercentage% of daily goal';
         }
-        
+
         return '${DateFormat('EEEE, MMM d').format(date)}\n'
             '${NumberFormat.decimalPattern().format(steps)} steps\n'
             '$percentageLabel';
@@ -296,10 +296,11 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
     if (_selectedTimeFrame == 'Month') {
       // For monthly view, group by week for clearer visualization
       final weeklyData = <Map<String, dynamic>>[];
-      
+
       // Sort data chronologically
       final sortedData = List<Map<String, dynamic>>.from(_monthlyStepsData)
-        ..sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+        ..sort(
+            (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
 
       if (sortedData.isEmpty) {
         return [];
@@ -308,29 +309,32 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       // Find the first and last dates in the data
       final firstDate = sortedData.first['date'] as DateTime;
       final lastDate = sortedData.last['date'] as DateTime;
-      
+
       // Get the first day of the month for the first date
       final firstDayOfMonth = DateTime(firstDate.year, firstDate.month, 1);
       // Get last day of the month for visualization
       final lastDayOfMonth = DateTime(lastDate.year, lastDate.month + 1, 0);
-      
+
       // Group steps data by week of month (weeks starting on Monday)
       // First, adjust firstDayOfMonth to the start of the week (Monday)
-      final int firstWeekday = firstDayOfMonth.weekday; // 1 = Monday, 7 = Sunday
-      final startOfFirstWeek = firstDayOfMonth.subtract(Duration(days: firstWeekday - 1));
-      
+      final int firstWeekday =
+          firstDayOfMonth.weekday; // 1 = Monday, 7 = Sunday
+      final startOfFirstWeek =
+          firstDayOfMonth.subtract(Duration(days: firstWeekday - 1));
+
       // Create map to store data per week
       final Map<int, Map<String, dynamic>> weekGroups = {};
-      
+
       // Calculate weeks between start and end
-      final int totalDays = lastDayOfMonth.difference(startOfFirstWeek).inDays + 1;
+      final int totalDays =
+          lastDayOfMonth.difference(startOfFirstWeek).inDays + 1;
       final int totalWeeks = (totalDays / 7).ceil();
-      
+
       // Initialize week groups for the entire month
       for (int i = 0; i < totalWeeks; i++) {
         final weekStart = startOfFirstWeek.add(Duration(days: i * 7));
         final weekNumber = i + 1;
-        
+
         weekGroups[weekNumber] = {
           'date': weekStart,
           'totalSteps': 0,
@@ -340,36 +344,37 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
           'weekNumber': weekNumber,
         };
       }
-      
+
       // Assign data to the corresponding week
       for (final data in sortedData) {
         final date = data['date'] as DateTime;
         final steps = data['steps'] as int;
-        
+
         // Calculate which week this date belongs to
         final int daysSinceStart = date.difference(startOfFirstWeek).inDays;
         final int weekIndex = (daysSinceStart / 7).floor() + 1;
-        
+
         if (weekGroups.containsKey(weekIndex)) {
-          weekGroups[weekIndex]!['totalSteps'] = 
+          weekGroups[weekIndex]!['totalSteps'] =
               (weekGroups[weekIndex]!['totalSteps'] as int) + steps;
-          weekGroups[weekIndex]!['daysCount'] = 
+          weekGroups[weekIndex]!['daysCount'] =
               (weekGroups[weekIndex]!['daysCount'] as int) + 1;
         }
       }
-      
+
       // Process all week groups into the final format
       weekGroups.forEach((weekNum, data) {
         final totalSteps = data['totalSteps'] as int;
         final daysCount = data['daysCount'] as int;
         final weekStart = data['date'] as DateTime;
         final weekOfMonth = data['weekOfMonth'] as int;
-        
+
         // Only include weeks that have data
         if (daysCount > 0) {
           weeklyData.add({
             'date': weekStart,
-            'steps': (totalSteps / daysCount).round(), // Average daily steps for this week
+            'steps': (totalSteps / daysCount)
+                .round(), // Average daily steps for this week
             'weekOfMonth': weekOfMonth,
             'totalSteps': totalSteps,
             'daysCount': daysCount,
@@ -377,10 +382,11 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
           });
         }
       });
-      
+
       // Sort by date
-      weeklyData.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
-      
+      weeklyData.sort(
+          (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+
       return weeklyData;
     }
 
@@ -755,6 +761,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
 
   Widget _buildTimeFrameSelector(CustomColors customColors) {
     return Container(
+      width: double.infinity, // Make container full width
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: customColors.dateNavigatorBackground,
@@ -768,48 +775,51 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: ['Week', 'Month'].map((timeFrame) {
           final isSelected = _selectedTimeFrame == timeFrame;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              child: TextButton(
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _selectedTimeFrame = timeFrame;
-                    _updateCurrentStepsData();
-                  });
-                },
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.all(
-                    isSelected
-                        ? customColors.cardBackground
-                        : Colors.transparent,
-                  ),
-                  shape: MaterialStateProperty.all(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+          return Expanded(
+            // Make each button take equal space
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                child: TextButton(
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _selectedTimeFrame = timeFrame;
+                      _updateCurrentStepsData();
+                    });
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: MaterialStateProperty.all(
+                      isSelected
+                          ? customColors.cardBackground
+                          : Colors.transparent,
+                    ),
+                    shape: MaterialStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    padding: MaterialStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    overlayColor: MaterialStateProperty.all(
+                      customColors.accentPrimary.withOpacity(0.05),
                     ),
                   ),
-                  padding: MaterialStateProperty.all(
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                  overlayColor: MaterialStateProperty.all(
-                    customColors.accentPrimary.withOpacity(0.05),
-                  ),
-                ),
-                child: Text(
-                  timeFrame,
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected
-                        ? customColors.accentPrimary
-                        : customColors.textPrimary,
+                  child: Text(
+                    timeFrame,
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
+                      color: isSelected
+                          ? customColors.accentPrimary
+                          : customColors.textPrimary,
+                    ),
                   ),
                 ),
               ),
@@ -841,7 +851,9 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       builder: (context, constraints) {
         final transformedData = _getTransformedStepsData();
         final barWidth = _calculateBarWidth(context);
-        final spacing = _selectedTimeFrame == 'Month' ? 12.0 : 8.0; // More spacing for month view
+        final spacing = _selectedTimeFrame == 'Month'
+            ? 12.0
+            : 8.0; // More spacing for month view
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -864,7 +876,9 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                 children: [
                   Expanded(
                     child: Text(
-                      _selectedTimeFrame == 'Month' ? 'Weekly Average Steps' : 'Daily Steps',
+                      _selectedTimeFrame == 'Month'
+                          ? 'Weekly Average Steps'
+                          : 'Daily Steps',
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -903,8 +917,15 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   barWidth: barWidth,
                   barSpacing: spacing,
                   onBarTap: (index) {
+                    // Validate that we're accessing the correct index
                     if (index < 0 || index >= transformedData.length) return;
+
+                    // Get data for the tapped index - no adjustment needed
                     final data = transformedData[index];
+                    final date = data['date'] as DateTime;
+                    print(
+                        'Showing data for ${DateFormat('yyyy-MM-dd').format(date)}');
+
                     HapticFeedback.selectionClick();
                     ScaffoldMessenger.of(context).clearSnackBars();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1484,7 +1505,8 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
             TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
               child: Text(
                 'Cancel',
@@ -1510,7 +1532,8 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: customColors.accentPrimary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1614,11 +1637,11 @@ class _BarChartState extends State<CustomBarChart>
       if (widget.todayIndex >= 0) {
         final barWidth = widget.barWidth + widget.barSpacing;
         final maxScroll = _scrollController.position.maxScrollExtent;
-        
+
         // Scroll to position where today is visible, with a few bars before it
         final targetScroll = math.max(
             0.0, math.min(maxScroll, (widget.todayIndex - 1) * barWidth));
-        
+
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
             targetScroll,
@@ -1731,16 +1754,28 @@ class _BarChartState extends State<CustomBarChart>
                         if (tapX >= 0 &&
                             localPosition.dy >= 0 &&
                             localPosition.dy <= chartHeight) {
-                          final barIndex =
-                              (tapX / (widget.barWidth + widget.barSpacing))
-                                  .floor();
+                          // Fix: Calculate the correct bar index
+                          // Each bar takes up barWidth + barSpacing horizontal space
+                          final totalBarWidth =
+                              widget.barWidth + widget.barSpacing;
 
+                          // Calculate which bar was tapped by dividing the x-coordinate by the total width of each bar
+                          final barIndex = (tapX / totalBarWidth).floor();
+
+                          // Debug the tap position
+                          print('Tap x: $tapX, calculated index: $barIndex');
+
+                          // Ensure the index is valid
                           if (barIndex >= 0 && barIndex < widget.data.length) {
                             HapticFeedback.lightImpact();
+
+                            // Set the highlighted index to the tapped bar
                             setState(() {
-                              _highlightedIndex = barIndex;
-                              _showTooltip = true; // Show tooltip immediately on tap
+                              _highlightedIndex = barIndex - 1;
+                              _showTooltip = true;
                             });
+
+                            // Call the onBarTap callback with the correct index
                             widget.onBarTap?.call(barIndex);
 
                             // Hide tooltip after a delay
@@ -1824,39 +1859,50 @@ class _BarChartState extends State<CustomBarChart>
                                       // Define color based on steps compared to goal
                                       Color barColor;
                                       Color gradientEndColor;
-                                      
+
                                       if (widget.enableColorCoding &&
                                           widget.goalValue > 0) {
                                         final percentOfGoal =
                                             safeValue / widget.goalValue;
                                         if (percentOfGoal >= 1.0) {
                                           barColor = Colors.green;
-                                          gradientEndColor = Colors.green.shade700;
+                                          gradientEndColor =
+                                              Colors.green.shade700;
                                         } else if (percentOfGoal >= 0.7) {
                                           barColor = Colors.orange;
-                                          gradientEndColor = Colors.orange.shade800;
+                                          gradientEndColor =
+                                              Colors.orange.shade800;
                                         } else {
                                           barColor = Colors.red.shade400;
-                                          gradientEndColor = Colors.red.shade700;
+                                          gradientEndColor =
+                                              Colors.red.shade700;
                                         }
                                       } else {
                                         barColor = widget.primaryColor;
-                                        gradientEndColor = Color.lerp(widget.primaryColor, Colors.black, 0.3)!;
+                                        gradientEndColor = Color.lerp(
+                                            widget.primaryColor,
+                                            Colors.black,
+                                            0.3)!;
                                       }
 
                                       // Add week number indicator for month view
                                       Widget weekIndicator;
-                                      if (widget.timeFrame == 'Month' && isHighlighted) {
+                                      if (widget.timeFrame == 'Month' &&
+                                          isHighlighted) {
                                         weekIndicator = Container(
-                                          margin: const EdgeInsets.only(bottom: 8),
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          margin:
+                                              const EdgeInsets.only(bottom: 8),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: barColor.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
                                           ),
                                           child: Text(
                                             // Use label directly for cleaner look
-                                            widget.labelExtractor(widget.data[index]),
+                                            widget.labelExtractor(
+                                                widget.data[index]),
                                             style: GoogleFonts.inter(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
@@ -1875,86 +1921,122 @@ class _BarChartState extends State<CustomBarChart>
                                         child: Column(
                                           mainAxisAlignment:
                                               MainAxisAlignment.end,
+                                          mainAxisSize: MainAxisSize
+                                              .min, // Add this to prevent overflow
                                           children: [
                                             // Week indicator for month view (above tooltip)
                                             weekIndicator,
-                                            // Tooltip shown above the bar
+                                            // Tooltip shown above the bar with constrained height
                                             if (isHighlighted && _showTooltip)
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4),
-                                                margin: const EdgeInsets.only(
-                                                    bottom: 5),
-                                                decoration: BoxDecoration(
-                                                    color: barColor,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withOpacity(0.2),
-                                                        blurRadius: 4,
-                                                        offset:
-                                                            const Offset(0, 2),
-                                                      )
-                                                    ]),
-                                                child: Text(
-                                                  _formatYAxisValue(safeValue),
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.white,
+                                              ConstrainedBox(
+                                                constraints: BoxConstraints(
+                                                  maxHeight:
+                                                      28.0, // Limit tooltip height
+                                                ),
+                                                child: Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                                  margin: const EdgeInsets.only(
+                                                      bottom: 5),
+                                                  decoration: BoxDecoration(
+                                                      color: barColor,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.black
+                                                              .withOpacity(0.2),
+                                                          blurRadius: 4,
+                                                          offset: const Offset(
+                                                              0, 2),
+                                                        )
+                                                      ]),
+                                                  child: Text(
+                                                    _formatYAxisValue(
+                                                        safeValue),
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: Colors.white,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                            // The bar itself with gradient
-                                            AnimatedContainer(
-                                              duration: const Duration(
-                                                  milliseconds: 150),
-                                              width: widget.barWidth,
-                                              height: math.max(barHeight, 2.0), // Ensure minimum height for visibility
-                                              decoration: BoxDecoration(
-                                                gradient: barHeight <= 2.0 || widget.barWidth <= 2.0 ? null : LinearGradient(
-                                                  begin: Alignment.bottomCenter,
-                                                  end: Alignment.topCenter,
-                                                  colors: [
-                                                    barColor,
-                                                    gradientEndColor,
-                                                  ],
-                                                  stops: const [0.0, 1.0],
-                                                ),
-                                                color: barHeight <= 2.0 || widget.barWidth <= 2.0 ? barColor : null, // Use solid color for tiny bars
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                boxShadow: isHighlighted || isToday
-                                                    ? [
-                                                        BoxShadow(
-                                                          color: barColor
-                                                              .withOpacity(0.3),
-                                                          blurRadius: 8,
-                                                          offset: const Offset(
-                                                              0, 1),
-                                                        ),
-                                                      ]
-                                                    : null,
-                                              ),
+                                            // The bar itself with gradient & constraints
+                                            ConstrainedBox(
                                               constraints: BoxConstraints(
-                                                minWidth: 2.0,
-                                                minHeight: 2.0,
+                                                maxHeight:
+                                                    chartHeight, // Ensure bar doesn't exceed chart height
+                                              ),
+                                              child: AnimatedContainer(
+                                                duration: const Duration(
+                                                    milliseconds: 150),
+                                                width: widget.barWidth,
+                                                height: math.max(barHeight,
+                                                    2.0), // Ensure minimum height for visibility
+                                                decoration: BoxDecoration(
+                                                  gradient: barHeight <= 2.0 ||
+                                                          widget.barWidth <= 2.0
+                                                      ? null
+                                                      : LinearGradient(
+                                                          begin: Alignment
+                                                              .bottomCenter,
+                                                          end: Alignment
+                                                              .topCenter,
+                                                          colors: [
+                                                            barColor,
+                                                            gradientEndColor,
+                                                          ],
+                                                          stops: const [
+                                                            0.0,
+                                                            1.0
+                                                          ],
+                                                        ),
+                                                  color: barHeight <= 2.0 ||
+                                                          widget.barWidth <= 2.0
+                                                      ? barColor
+                                                      : null, // Use solid color for tiny bars
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  boxShadow:
+                                                      isHighlighted || isToday
+                                                          ? [
+                                                              BoxShadow(
+                                                                color: barColor
+                                                                    .withOpacity(
+                                                                        0.3),
+                                                                blurRadius: 8,
+                                                                offset:
+                                                                    const Offset(
+                                                                        0, 1),
+                                                              ),
+                                                            ]
+                                                          : null,
+                                                ),
+                                                constraints: BoxConstraints(
+                                                  minWidth: 2.0,
+                                                  minHeight: 2.0,
+                                                ),
                                               ),
                                             ),
                                             // Small indicator for today's bar for better identification
-                                            if (isToday) 
-                                              Container(
-                                                margin: const EdgeInsets.only(top: 4),
-                                                width: 6,
-                                                height: 6,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: barColor,
+                                            if (isToday)
+                                              SizedBox(
+                                                height:
+                                                    10, // Fixed height for the indicator container
+                                                child: Container(
+                                                  margin: const EdgeInsets.only(
+                                                      top: 4),
+                                                  width: 6,
+                                                  height: 6,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: barColor,
+                                                  ),
                                                 ),
                                               ),
                                           ],
@@ -1994,7 +2076,8 @@ class _BarChartState extends State<CustomBarChart>
                 padding: EdgeInsets.only(
                     left: yAxisLabelWidth), // Align with chart area
                 child: SingleChildScrollView(
-                  controller: _labelsScrollController, // Use the separate controller
+                  controller:
+                      _labelsScrollController, // Use the separate controller
                   scrollDirection: Axis.horizontal,
                   physics:
                       const NeverScrollableScrollPhysics(), // Disable direct scrolling on labels
@@ -2009,12 +2092,12 @@ class _BarChartState extends State<CustomBarChart>
                         final label = widget.labelExtractor(widget.data[index]);
                         final isToday = index == widget.todayIndex;
                         final isHighlighted = _highlightedIndex == index;
-                        
+
                         // Enhanced label styling for month view
                         if (widget.timeFrame == 'Month') {
                           final date = widget.data[index]['date'] as DateTime;
                           final weekEnd = date.add(const Duration(days: 6));
-                          
+
                           return Container(
                             width: widget.barWidth +
                                 widget.barSpacing, // Width includes spacing
@@ -2044,14 +2127,15 @@ class _BarChartState extends State<CustomBarChart>
                                     fontSize: 10,
                                     color: isHighlighted || isToday
                                         ? widget.textColor.withOpacity(0.8)
-                                        : widget.secondaryTextColor.withOpacity(0.6),
+                                        : widget.secondaryTextColor
+                                            .withOpacity(0.6),
                                   ),
                                 ),
                               ],
                             ),
                           );
                         }
-                        
+
                         // Default label for week view
                         return Container(
                           width: widget.barWidth +
@@ -2066,7 +2150,8 @@ class _BarChartState extends State<CustomBarChart>
                             maxLines: 2,
                             overflow: TextOverflow.visible,
                             style: GoogleFonts.inter(
-                              fontSize: 12, // Slightly larger for better readability
+                              fontSize:
+                                  12, // Slightly larger for better readability
                               fontWeight: isToday || isHighlighted
                                   ? FontWeight.w600
                                   : FontWeight.w500,
@@ -2173,7 +2258,7 @@ class GridPainter extends CustomPainter {
           goalPath.moveTo(math.min(startX, size.width), goalY);
         }
         canvas.drawPath(goalPath, goalPaint);
-        
+
         // Add a small label for the goal line
         final TextPainter textPainter = TextPainter(
           text: TextSpan(
@@ -2186,10 +2271,10 @@ class GridPainter extends CustomPainter {
           ),
           textDirection: ui.TextDirection.ltr,
         );
-        
+
         textPainter.layout(minWidth: 0, maxWidth: 40);
         textPainter.paint(
-          canvas, 
+          canvas,
           Offset(5, goalY - textPainter.height - 2),
         );
       }

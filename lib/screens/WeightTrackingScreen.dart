@@ -624,6 +624,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           child: Opacity(
             opacity: _pageController.value,
             child: Container(
+              width: double.infinity, // Make container full width
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
                 color: customColors.dateNavigatorBackground,
@@ -637,47 +638,51 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                 ],
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: ['Week', 'Month', 'Year'].map((timeFrame) {
                   final isSelected = _selectedTimeFrame == timeFrame;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      child: TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedTimeFrame = timeFrame;
-                          });
-                        },
-                        style: ButtonStyle(
-                          backgroundColor: MaterialStateProperty.all(
-                            isSelected
-                                ? customColors.cardBackground
-                                : Colors.transparent,
-                          ),
-                          shape: MaterialStateProperty.all(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                  return Expanded(
+                    // Make each button take equal space
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        child: TextButton(
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            setState(() {
+                              _selectedTimeFrame = timeFrame;
+                            });
+                          },
+                          style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.all(
+                              isSelected
+                                  ? customColors.cardBackground
+                                  : Colors.transparent,
+                            ),
+                            shape: MaterialStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            padding: MaterialStateProperty.all(
+                              const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 10),
+                            ),
+                            overlayColor: MaterialStateProperty.all(
+                              customColors.accentPrimary.withOpacity(0.1),
                             ),
                           ),
-                          padding: MaterialStateProperty.all(
-                            const EdgeInsets.symmetric(
-                                horizontal: 18, vertical: 10),
-                          ),
-                          overlayColor: MaterialStateProperty.all(
-                            customColors.accentPrimary.withOpacity(0.1),
-                          ),
-                        ),
-                        child: Text(
-                          timeFrame,
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w500,
-                            color: isSelected
-                                ? customColors.accentPrimary
-                                : customColors.textPrimary,
+                          child: Text(
+                            timeFrame,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? customColors.accentPrimary
+                                  : customColors.textPrimary,
+                            ),
                           ),
                         ),
                       ),
@@ -862,7 +867,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Touch to see details • Pinch to zoom',
+                            'Touch to see details',
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: customColors.textSecondary,

@@ -27,24 +27,24 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   bool _isLoading = true;
   String _selectedTimeFrame = 'Week';
   String _selectedChartView = 'Calories';
-  
+
   // Macro targets
   double _targetProtein = 0;
   double _targetCarbs = 0;
   double _targetFat = 0;
-  
+
   // Current macros
   double _currentProtein = 0;
   double _currentCarbs = 0;
   double _currentFat = 0;
-  
+
   // Macro history
   List<Map<String, dynamic>> _macroHistory = [];
 
   // Add caching for computed values
   late final ValueNotifier<double> _currentCalories;
   late final ValueNotifier<Map<String, double>> _macroPercentages;
-  
+
   @override
   void initState() {
     super.initState();
@@ -53,14 +53,14 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
       duration: const Duration(milliseconds: 1000),
     );
     _loadMacroData();
-    
+
     _currentCalories = ValueNotifier(0);
     _macroPercentages = ValueNotifier({
       'protein': 0,
       'carbs': 0,
       'fat': 0,
     });
-    
+
     _animationController.forward();
   }
 
@@ -81,8 +81,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     _currentCalories.value = totalCalories;
 
     final percentages = {
-      'protein': totalCalories > 0 ? (_currentProtein * 4 / totalCalories * 100) : 0,
-      'carbs': totalCalories > 0 ? (_currentCarbs * 4 / totalCalories * 100) : 0,
+      'protein':
+          totalCalories > 0 ? (_currentProtein * 4 / totalCalories * 100) : 0,
+      'carbs':
+          totalCalories > 0 ? (_currentCarbs * 4 / totalCalories * 100) : 0,
       'fat': totalCalories > 0 ? (_currentFat * 9 / totalCalories * 100) : 0,
     };
     _macroPercentages.value = percentages as Map<String, double>;
@@ -107,8 +109,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         RepaintBoundary(
                           child: _buildMacroSummaryCard(context, customColors),
                         ),
-                        const SizedBox(height: 24),
-                        _buildTimeFrameSelector(customColors),
                         const SizedBox(height: 24),
                         _buildMacroChart(customColors),
                         const SizedBox(height: 24),
@@ -173,14 +173,17 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   child: Container(
                     height: 36,
                     decoration: BoxDecoration(
-                      color: customColors.dateNavigatorBackground.withOpacity(0.5),
+                      color:
+                          customColors.dateNavigatorBackground.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildChartViewTab('Calories', _selectedChartView == 'Calories', customColors),
-                        _buildChartViewTab('Grams', _selectedChartView == 'Grams', customColors),
+                        _buildChartViewTab('Calories',
+                            _selectedChartView == 'Calories', customColors),
+                        _buildChartViewTab('Grams',
+                            _selectedChartView == 'Grams', customColors),
                       ],
                     ),
                   ),
@@ -236,20 +239,24 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
         decoration: BoxDecoration(
           color: isSelected ? customColors.cardBackground : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ] : null,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [
             Icon(
               title == 'Calories' ? Icons.local_fire_department : Icons.scale,
               size: 14,
-              color: isSelected ? customColors.accentPrimary : customColors.textSecondary,
+              color: isSelected
+                  ? customColors.accentPrimary
+                  : customColors.textSecondary,
             ),
             const SizedBox(width: 4),
             Text(
@@ -285,15 +292,16 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            customColors.accentPrimary.withOpacity(0.2),
-            customColors.cardBackground,
-          ],
-          stops: const [0.1, 0.9],
-        ),
+        // gradient: LinearGradient(
+        //   begin: Alignment.topLeft,
+        //   end: Alignment.bottomRight,
+        //   colors: [
+        //     customColors.accentPrimary.withOpacity(0.2),
+        //     customColors.accentPrimary.withValues(alpha: 0.1),
+        //   ],
+        //   stops: const [0.1, 0.9],
+        // ),
+        color: customColors.cardBackground,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -320,16 +328,17 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: customColors.accentPrimary.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: customColors.accentPrimary.withOpacity(0.1),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                )
-                              ]
-                            ),
+                                color: customColors.accentPrimary
+                                    .withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: customColors.accentPrimary
+                                        .withOpacity(0.1),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]),
                             child: Icon(
                               Icons.restaurant_menu,
                               size: 20,
@@ -358,12 +367,14 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             Icon(
                               Icons.calendar_today_rounded,
                               size: 14,
-                              color: customColors.accentPrimary.withOpacity(0.8),
+                              color:
+                                  customColors.accentPrimary.withOpacity(0.8),
                             ),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                DateFormat('EEEE, MMM d').format(DateTime.now()),
+                                DateFormat('EEEE, MMM d')
+                                    .format(DateTime.now()),
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
@@ -379,7 +390,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: customColors.cardBackground,
                     borderRadius: BorderRadius.circular(20),
@@ -399,8 +411,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        calorieProgress >= 1.0 
-                            ? Icons.star_rounded 
+                        calorieProgress >= 1.0
+                            ? Icons.star_rounded
                             : Icons.trending_up_rounded,
                         size: 16,
                         color: customColors.accentPrimary,
@@ -419,9 +431,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Content
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -459,7 +471,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           gradient: SweepGradient(
                             center: Alignment.center,
                             startAngle: -math.pi / 2,
-                            endAngle: math.max(-math.pi / 2 + 0.01, (2 * math.pi * safeValue) - (math.pi / 2)),
+                            endAngle: math.max(-math.pi / 2 + 0.01,
+                                (2 * math.pi * safeValue) - (math.pi / 2)),
                             colors: [
                               customColors.accentPrimary.withOpacity(0.2),
                               customColors.accentPrimary,
@@ -469,7 +482,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: customColors.accentPrimary.withOpacity(0.15),
+                              color:
+                                  customColors.accentPrimary.withOpacity(0.15),
                               blurRadius: 15,
                               spreadRadius: 2,
                             ),
@@ -489,9 +503,11 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 height: 120,
                                 child: CircularProgressIndicator(
                                   value: calorieProgress,
-                                  backgroundColor: customColors.dateNavigatorBackground.withOpacity(0.15),
+                                  backgroundColor: customColors
+                                      .dateNavigatorBackground
+                                      .withOpacity(0.15),
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    calorieProgress >= 1.0 
+                                    calorieProgress >= 1.0
                                         ? Colors.green.shade500
                                         : customColors.accentPrimary,
                                   ),
@@ -499,7 +515,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   strokeCap: StrokeCap.round,
                                 ),
                               ),
-                              
+
                               // Inner content
                               Container(
                                 width: 95,
@@ -520,9 +536,11 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   children: [
                                     // Animated calorie count
                                     TweenAnimationBuilder<double>(
-                                      duration: const Duration(milliseconds: 1500),
+                                      duration:
+                                          const Duration(milliseconds: 1500),
                                       curve: Curves.easeOutCubic,
-                                      tween: Tween<double>(begin: 0, end: currentCalories),
+                                      tween: Tween<double>(
+                                          begin: 0, end: currentCalories),
                                       builder: (context, value, _) {
                                         return Text(
                                           value.toInt().toString(),
@@ -536,7 +554,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                         );
                                       },
                                     ),
-                                    
+
                                     // Unit label
                                     Text(
                                       'kcal',
@@ -547,21 +565,22 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                         height: 1.2,
                                       ),
                                     ),
-                                    
+
                                     // Target calories
                                     Text(
                                       'of ${targetCalories.toInt()}',
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
-                                        color: customColors.textSecondary.withOpacity(0.7),
+                                        color: customColors.textSecondary
+                                            .withOpacity(0.7),
                                         height: 1.4,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              
+
                               // Achievement indicator
                               if (calorieProgress >= 1.0)
                                 Positioned(
@@ -578,9 +597,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                       );
                     },
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Macro indicators
                   _buildMacroIndicator(
                     'Protein',
@@ -623,31 +642,30 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   ) {
     final progress = _getProgressPercentage(current, target);
     final percentage = (progress * 100).toInt();
-    
+
     // Create gradient colors based on progress
-    final gradientColors = progress >= 1.0 
-        ? [Colors.green.shade600, Colors.green.shade400] 
+    final gradientColors = progress >= 1.0
+        ? [Colors.green.shade600, Colors.green.shade400]
         : [color.withOpacity(0.9), color];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Determine if we're on a narrow screen
-        final isNarrow = constraints.maxWidth < 220;
-        
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Label with icon
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
+    return LayoutBuilder(builder: (context, constraints) {
+      // Determine if we're on a narrow screen
+      final isNarrow = constraints.maxWidth < 220;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Label with icon
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
                         color: color,
                         borderRadius: BorderRadius.circular(4),
                         boxShadow: [
@@ -656,204 +674,140 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             blurRadius: 2,
                             offset: const Offset(0, 1),
                           )
-                        ]
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      label,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: customColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                
-                // Adaptive spacing
-                SizedBox(width: isNarrow ? 4 : 8),
-                
-                // Values with percentage
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Current value
-                      Text(
-                        '${current.toInt()}',
-                        style: GoogleFonts.inter(
-                          fontSize: isNarrow ? 13 : 14,
-                          fontWeight: FontWeight.w700,
-                          color: customColors.textPrimary,
-                        ),
-                      ),
-                      
-                      // Target value with slash
-                      Text(
-                        '/${target.toInt()}g',
-                        style: GoogleFonts.inter(
-                          fontSize: isNarrow ? 13 : 14,
-                          color: customColors.textSecondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      
-                      SizedBox(width: isNarrow ? 3 : 6),
-                      
-                      // Percentage badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: progress >= 1.0 
-                              ? Colors.green.shade500.withOpacity(0.1) 
-                              : color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: [
-                            BoxShadow(
-                              color: progress >= 1.0 
-                                  ? Colors.green.shade500.withOpacity(0.1)
-                                  : color.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          '$percentage%',
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: progress >= 1.0 ? Colors.green.shade500 : color,
-                          ),
-                        ),
-                      ),
-                    ],
+                        ]),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            
-            // Progress bar with rounded corners and shadow
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: customColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Stack(
+
+              // Adaptive spacing
+              SizedBox(width: isNarrow ? 4 : 8),
+
+              // Values with percentage
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Background
-                    Container(
-                      height: 8,
-                      width: constraints.maxWidth,
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(6),
+                    // Current value
+                    Text(
+                      '${current.toInt()}',
+                      style: GoogleFonts.inter(
+                        fontSize: isNarrow ? 13 : 14,
+                        fontWeight: FontWeight.w700,
+                        color: customColors.textPrimary,
                       ),
                     ),
-                    // Progress with gradient
-                    TweenAnimationBuilder<double>(
-                      duration: const Duration(milliseconds: 800),
-                      curve: Curves.easeOutCubic,
-                      tween: Tween<double>(begin: 0, end: progress),
-                      builder: (context, animatedProgress, _) {
-                        // Ensure animatedProgress is within valid range to prevent rendering errors
-                        final safeProgress = animatedProgress.clamp(0.0, 1.0);
-                        return Container(
-                          height: 8,
-                          width: safeProgress * constraints.maxWidth,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                              colors: gradientColors,
-                            ),
-                            borderRadius: BorderRadius.circular(6),
+
+                    // Target value with slash
+                    Text(
+                      '/${target.toInt()}g',
+                      style: GoogleFonts.inter(
+                        fontSize: isNarrow ? 13 : 14,
+                        color: customColors.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    SizedBox(width: isNarrow ? 3 : 6),
+
+                    // Percentage badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: progress >= 1.0
+                            ? Colors.green.shade500.withOpacity(0.1)
+                            : color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: progress >= 1.0
+                                ? Colors.green.shade500.withOpacity(0.1)
+                                : color.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
                           ),
-                        );
-                      },
+                        ],
+                      ),
+                      child: Text(
+                        '$percentage%',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              progress >= 1.0 ? Colors.green.shade500 : color,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-        );
-      }
-    );
-  }
-
-  Widget _buildTimeFrameSelector(CustomColors customColors) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      decoration: BoxDecoration(
-        color: customColors.dateNavigatorBackground.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: ['Week', 'Month', 'Year'].map((timeFrame) {
-          final isSelected = _selectedTimeFrame == timeFrame;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  setState(() {
-                    _selectedTimeFrame = timeFrame;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? customColors.cardBackground : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: customColors.accentPrimary.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    timeFrame,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected
-                          ? customColors.accentPrimary
-                          : customColors.textPrimary.withOpacity(0.7),
+          const SizedBox(height: 6),
+
+          // Progress bar with rounded corners and shadow
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Stack(
+                children: [
+                  // Background
+                  Container(
+                    height: 8,
+                    width: constraints.maxWidth,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
-                ),
+                  // Progress with gradient
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeOutCubic,
+                    tween: Tween<double>(begin: 0, end: progress),
+                    builder: (context, animatedProgress, _) {
+                      // Ensure animatedProgress is within valid range to prevent rendering errors
+                      final safeProgress = animatedProgress.clamp(0.0, 1.0);
+                      return Container(
+                        height: 8,
+                        width: safeProgress * constraints.maxWidth,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: gradientColors,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
-          );
-        }).toList(),
-      ),
-    );
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildMacroBreakdown(CustomColors customColors) {
@@ -905,7 +859,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             ),
           ),
           const SizedBox(height: 24),
-          
+
           // Macro distribution bar
           Container(
             height: 14,
@@ -942,7 +896,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         gradient: LinearGradient(
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
-                          colors: [Colors.orange.shade700, Colors.orange.shade500],
+                          colors: [
+                            Colors.orange.shade700,
+                            Colors.orange.shade500
+                          ],
                         ),
                       ),
                     ),
@@ -963,18 +920,21 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               ),
             ),
           ),
-          
+
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildMacroPercentageIndicator('Protein', proteinPercentage, Colors.blue.shade600, customColors),
-              _buildMacroPercentageIndicator('Carbs', carbsPercentage, Colors.orange.shade600, customColors),
-              _buildMacroPercentageIndicator('Fat', fatPercentage, Colors.red.shade500, customColors),
+              _buildMacroPercentageIndicator('Protein', proteinPercentage,
+                  Colors.blue.shade600, customColors),
+              _buildMacroPercentageIndicator('Carbs', carbsPercentage,
+                  Colors.orange.shade600, customColors),
+              _buildMacroPercentageIndicator(
+                  'Fat', fatPercentage, Colors.red.shade500, customColors),
             ],
           ),
           const SizedBox(height: 24),
-          
+
           _buildMacroBreakdownItem(
             'Protein',
             _currentProtein,
@@ -1002,8 +962,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
       ),
     );
   }
-  
-  Widget _buildMacroPercentageIndicator(String label, int percentage, Color color, CustomColors customColors) {
+
+  Widget _buildMacroPercentageIndicator(
+      String label, int percentage, Color color, CustomColors customColors) {
     return Column(
       children: [
         Text(
@@ -1195,24 +1156,27 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildGoalItem('Protein', _targetProtein, Colors.blue.shade600, customColors),
+                _buildGoalItem('Protein', _targetProtein, Colors.blue.shade600,
+                    customColors),
                 Container(
                   height: 40,
                   width: 1,
                   color: customColors.dateNavigatorBackground,
                 ),
-                _buildGoalItem('Carbs', _targetCarbs, Colors.orange.shade600, customColors),
+                _buildGoalItem('Carbs', _targetCarbs, Colors.orange.shade600,
+                    customColors),
                 Container(
                   height: 40,
                   width: 1,
                   color: customColors.dateNavigatorBackground,
                 ),
-                _buildGoalItem('Fat', _targetFat, Colors.red.shade500, customColors),
+                _buildGoalItem(
+                    'Fat', _targetFat, Colors.red.shade500, customColors),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          
+
           // Total calorie goal card
           Container(
             padding: const EdgeInsets.all(20),
@@ -1261,7 +1225,11 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _calculateTotalCalories(_targetProtein, _targetCarbs, _targetFat).toInt().toString() + ' calories',
+                        _calculateTotalCalories(
+                                    _targetProtein, _targetCarbs, _targetFat)
+                                .toInt()
+                                .toString() +
+                            ' calories',
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -1326,8 +1294,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     double protein = 0;
     double carbs = 0;
     double fat = 0;
-    final proteinController = TextEditingController(text: protein.toInt().toString());
-    final carbsController = TextEditingController(text: carbs.toInt().toString());
+    final proteinController =
+        TextEditingController(text: protein.toInt().toString());
+    final carbsController =
+        TextEditingController(text: carbs.toInt().toString());
     final fatController = TextEditingController(text: fat.toInt().toString());
 
     // Calculate total calories from macros
@@ -1404,14 +1374,15 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                               ],
                             ),
                             IconButton(
-                              icon: Icon(Icons.close, color: customColors.textSecondary),
+                              icon: Icon(Icons.close,
+                                  color: customColors.textSecondary),
                               onPressed: () => Navigator.pop(context),
                             ),
                           ],
                         ),
-                        
+
                         SizedBox(height: 16),
-                        
+
                         // Calorie counter display
                         Container(
                           width: double.infinity,
@@ -1466,9 +1437,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             ],
                           ),
                         ),
-                        
+
                         SizedBox(height: 24),
-                        
+
                         // Protein input
                         _buildMacroInputField(
                           'Protein',
@@ -1482,9 +1453,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             }
                           },
                         ),
-                        
+
                         SizedBox(height: 16),
-                        
+
                         // Carbs input
                         _buildMacroInputField(
                           'Carbs',
@@ -1498,9 +1469,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             }
                           },
                         ),
-                        
+
                         SizedBox(height: 16),
-                        
+
                         // Fat input
                         _buildMacroInputField(
                           'Fat',
@@ -1514,9 +1485,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             }
                           },
                         ),
-                        
+
                         SizedBox(height: 32),
-                        
+
                         // Action buttons
                         Row(
                           children: [
@@ -1555,7 +1526,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                     _currentProtein += protein;
                                     _currentCarbs += carbs;
                                     _currentFat += fat;
-                                    
+
                                     // Update the macro history for today
                                     if (_macroHistory.isNotEmpty) {
                                       final today = _macroHistory.last;
@@ -1565,7 +1536,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                     }
                                   });
                                   Navigator.pop(context);
-                                  
+
                                   // Show success message
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -1600,16 +1571,17 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     );
   }
 
-  Future<void> _showEditGoalsDialog(
-      BuildContext context) async {
+  Future<void> _showEditGoalsDialog(BuildContext context) async {
     final customColors = Theme.of(context).extension<CustomColors>()!;
-    
+
     // Variables to hold user input
     double protein = _targetProtein;
     double carbs = _targetCarbs;
     double fat = _targetFat;
-    final proteinController = TextEditingController(text: protein.toInt().toString());
-    final carbsController = TextEditingController(text: carbs.toInt().toString());
+    final proteinController =
+        TextEditingController(text: protein.toInt().toString());
+    final carbsController =
+        TextEditingController(text: carbs.toInt().toString());
     final fatController = TextEditingController(text: fat.toInt().toString());
 
     // Calculate total calories from macros
@@ -1686,14 +1658,15 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                               ],
                             ),
                             IconButton(
-                              icon: Icon(Icons.close, color: customColors.textSecondary),
+                              icon: Icon(Icons.close,
+                                  color: customColors.textSecondary),
                               onPressed: () => Navigator.pop(context),
                             ),
                           ],
                         ),
-                        
+
                         SizedBox(height: 16),
-                        
+
                         // Calorie counter display
                         Container(
                           width: double.infinity,
@@ -1748,9 +1721,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             ],
                           ),
                         ),
-                        
+
                         SizedBox(height: 24),
-                        
+
                         // Protein input
                         _buildMacroInputField(
                           'Protein',
@@ -1764,9 +1737,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             }
                           },
                         ),
-                        
+
                         SizedBox(height: 16),
-                        
+
                         // Carbs input
                         _buildMacroInputField(
                           'Carbs',
@@ -1780,9 +1753,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             }
                           },
                         ),
-                        
+
                         SizedBox(height: 16),
-                        
+
                         // Fat input
                         _buildMacroInputField(
                           'Fat',
@@ -1796,10 +1769,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             }
                           },
                         ),
-                        
-                        
+
                         SizedBox(height: 32),
-                        
+
                         // Action buttons
                         Row(
                           children: [
@@ -1841,23 +1813,28 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                       _targetCarbs = carbs;
                                       _targetFat = fat;
                                     });
-                                    
+
                                     // Update in FoodEntryProvider
-                                    final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
-                                    foodEntryProvider.proteinGoal = _targetProtein;
+                                    final foodEntryProvider =
+                                        Provider.of<FoodEntryProvider>(context,
+                                            listen: false);
+                                    foodEntryProvider.proteinGoal =
+                                        _targetProtein;
                                     foodEntryProvider.carbsGoal = _targetCarbs;
                                     foodEntryProvider.fatGoal = _targetFat;
-                                    
+
                                     Navigator.pop(context);
-                                    
+
                                     // Show success message
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Goals updated successfully!'),
+                                        content:
+                                            Text('Goals updated successfully!'),
                                         backgroundColor: Colors.green,
                                         behavior: SnackBarBehavior.floating,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                       ),
                                     );
@@ -1865,11 +1842,13 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                     // Handle error
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Failed to update goals: ${e.toString()}'),
+                                        content: Text(
+                                            'Failed to update goals: ${e.toString()}'),
                                         backgroundColor: Colors.red,
                                         behavior: SnackBarBehavior.floating,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                         ),
                                       ),
                                     );
@@ -2017,8 +1996,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
 
     try {
       // Get the FoodEntryProvider
-      final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
-      
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
+
       // Get protein, carbs, and fat goals from provider
       _targetProtein = foodEntryProvider.proteinGoal;
       _targetCarbs = foodEntryProvider.carbsGoal;
@@ -2028,13 +2008,14 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
       _macroHistory = List<Map<String, dynamic>>.empty(growable: true);
       for (int i = 29; i >= 0; i--) {
         final date = DateTime.now().subtract(Duration(days: i));
-        
+
         // Get food entries for this date
-        List<FoodEntry> entriesForDate = foodEntryProvider.getEntriesForDate(date);
-        
+        List<FoodEntry> entriesForDate =
+            foodEntryProvider.getEntriesForDate(date);
+
         // Calculate macros from food entries
         double protein = 0, carbs = 0, fat = 0;
-        
+
         for (var entry in entriesForDate) {
           // Calculate multiplier based on quantity and unit
           double multiplier = entry.quantity;
@@ -2050,13 +2031,14 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               break;
           }
           multiplier /= 100; // Since nutrients are per 100g
-          
+
           // Add protein, carbs and fat
           protein += (entry.food.nutrients['Protein'] ?? 0) * multiplier;
-          carbs += (entry.food.nutrients['Carbohydrate, by difference'] ?? 0) * multiplier;
+          carbs += (entry.food.nutrients['Carbohydrate, by difference'] ?? 0) *
+              multiplier;
           fat += (entry.food.nutrients['Total lipid (fat)'] ?? 0) * multiplier;
         }
-        
+
         _macroHistory.add({
           'date': date,
           'protein': protein,
@@ -2075,7 +2057,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     } catch (e) {
       // Handle potential errors including PostgreSQL errors
       debugPrint('Error loading macro data: $e');
-      
+
       // Initialize with default values if there's an error
       if (_macroHistory.isEmpty) {
         for (int i = 29; i >= 0; i--) {
@@ -2109,53 +2091,18 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     final DateTime now = DateTime.now();
     List<Map<String, dynamic>> filtered = [];
 
-    switch (_selectedTimeFrame) {
-      case 'Week':
-        // Get the last 7 days
-        final weekAgo = now.subtract(const Duration(days: 7));
-        filtered = _macroHistory
-            .where((entry) =>
-                (entry['date'] as DateTime).isAfter(weekAgo) ||
-                DateFormat('yyyy-MM-dd').format(entry['date'] as DateTime) ==
-                    DateFormat('yyyy-MM-dd').format(weekAgo))
-            .toList();
-        break;
-      case 'Month':
-        // Get the last 30 days
-        final monthAgo = DateTime(now.year, now.month - 1, now.day);
-        filtered = _macroHistory
-            .where((entry) =>
-                (entry['date'] as DateTime).isAfter(monthAgo) ||
-                DateFormat('yyyy-MM-dd').format(entry['date'] as DateTime) ==
-                    DateFormat('yyyy-MM-dd').format(monthAgo))
-            .toList();
-        break;
-      case 'Year':
-        // Get the last 12 months
-        filtered = _macroHistory;
-        break;
-      default:
-        filtered = _macroHistory;
-    }
+    // Get the last 7 days only
+    final weekAgo = now.subtract(const Duration(days: 7));
+    filtered = _macroHistory
+        .where((entry) =>
+            (entry['date'] as DateTime).isAfter(weekAgo) ||
+            DateFormat('yyyy-MM-dd').format(entry['date'] as DateTime) ==
+                DateFormat('yyyy-MM-dd').format(weekAgo))
+        .toList();
 
-    // Ensure we have at most 7 entries for week view by taking the most recent
-    if (_selectedTimeFrame == 'Week' && filtered.length > 7) {
+    // Ensure we have at most 7 entries by taking the most recent
+    if (filtered.length > 7) {
       filtered = filtered.sublist(filtered.length - 7);
-    }
-
-    // For month view, aggregate by week
-    if (_selectedTimeFrame == 'Month' && filtered.length > 7) {
-      // Aggregate data by weeks (for simplicity just take every ~4th entry)
-      final int step = (filtered.length / 7).ceil();
-      List<Map<String, dynamic>> aggregated = [];
-
-      for (int i = filtered.length - 1; i >= 0; i -= step) {
-        if (aggregated.length < 7) {
-          aggregated.add(filtered[i]);
-        }
-      }
-
-      filtered = aggregated.reversed.toList();
     }
 
     return filtered;
@@ -2272,12 +2219,14 @@ class _MacroBarChartPainter extends CustomPainter {
     return macroData.map((data) {
       final date = data['date'] as DateTime;
       final isToday = DateFormat('yyyy-MM-dd').format(date) ==
-                      DateFormat('yyyy-MM-dd').format(DateTime.now());
+          DateFormat('yyyy-MM-dd').format(DateTime.now());
       return TextPainter(
         text: TextSpan(
           text: daysOfWeek[date.weekday % 7],
           style: TextStyle(
-            color: isToday ? customColors.accentPrimary : customColors.textSecondary,
+            color: isToday
+                ? customColors.accentPrimary
+                : customColors.textSecondary,
             fontSize: 12,
             fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
           ),
@@ -2292,12 +2241,14 @@ class _MacroBarChartPainter extends CustomPainter {
     return macroData.map((data) {
       final date = data['date'] as DateTime;
       final isToday = DateFormat('yyyy-MM-dd').format(date) ==
-                      DateFormat('yyyy-MM-dd').format(DateTime.now());
+          DateFormat('yyyy-MM-dd').format(DateTime.now());
       return TextPainter(
         text: TextSpan(
           text: DateFormat('d').format(date),
           style: TextStyle(
-            color: isToday ? customColors.accentPrimary : customColors.textSecondary,
+            color: isToday
+                ? customColors.accentPrimary
+                : customColors.textSecondary,
             fontSize: 10,
             fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
           ),
@@ -2332,7 +2283,7 @@ class _MacroBarChartPainter extends CustomPainter {
       final data = macroData[i];
       final x = chartArea.left + (i * 2 + 1) * barWidth;
       _drawBar(canvas, data, x, barWidth, cornerRadius, chartArea);
-      
+
       // Draw labels
       _dayLabels[i].paint(
         canvas,
@@ -2345,7 +2296,8 @@ class _MacroBarChartPainter extends CustomPainter {
     }
   }
 
-  void _drawBar(Canvas canvas, Map<String, dynamic> data, double x, double barWidth, double cornerRadius, Rect chartArea) {
+  void _drawBar(Canvas canvas, Map<String, dynamic> data, double x,
+      double barWidth, double cornerRadius, Rect chartArea) {
     final double protein = (data['protein'] as num).toDouble();
     final double carbs = (data['carbs'] as num).toDouble();
     final double fat = (data['fat'] as num).toDouble();
@@ -2445,7 +2397,7 @@ class _MacroBarChartPainter extends CustomPainter {
         final label = showCalories
             ? '${(value / 100).round() * 100}'
             : '${(value / 10).round() * 10}g';
-        
+
         final textPainter = TextPainter(
           text: TextSpan(
             text: label,
@@ -2459,7 +2411,8 @@ class _MacroBarChartPainter extends CustomPainter {
 
         textPainter.paint(
           canvas,
-          Offset(chartArea.left - textPainter.width - 8, y - textPainter.height / 2),
+          Offset(chartArea.left - textPainter.width - 8,
+              y - textPainter.height / 2),
         );
       }
     }
@@ -2467,8 +2420,12 @@ class _MacroBarChartPainter extends CustomPainter {
 
   void _drawTargetLine(Canvas canvas, Rect chartArea) {
     final targetValue = showCalories
-        ? (targetProtein * 4 + targetCarbs * 4 + targetFat * 9) / _maxYValue * chartArea.height
-        : (targetProtein + targetCarbs + targetFat) / _maxYValue * chartArea.height;
+        ? (targetProtein * 4 + targetCarbs * 4 + targetFat * 9) /
+            _maxYValue *
+            chartArea.height
+        : (targetProtein + targetCarbs + targetFat) /
+            _maxYValue *
+            chartArea.height;
 
     final y = chartArea.bottom - targetValue;
 
@@ -2492,7 +2449,7 @@ class _MacroBarChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MacroBarChartPainter oldDelegate) {
     return oldDelegate.animation != animation ||
-           oldDelegate.showCalories != showCalories;
+        oldDelegate.showCalories != showCalories;
   }
 }
 
