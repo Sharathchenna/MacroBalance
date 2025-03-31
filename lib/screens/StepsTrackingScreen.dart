@@ -852,7 +852,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         final transformedData = _getTransformedStepsData();
         final barWidth = _calculateBarWidth(context);
         final spacing = _selectedTimeFrame == 'Month'
-            ? 12.0
+            ? 10.0
             : 8.0; // More spacing for month view
 
         return Container(
@@ -898,7 +898,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               ),
               const SizedBox(height: 24),
               SizedBox(
-                height: 230,
+                height: 300,
                 child: CustomBarChart(
                   data: transformedData,
                   primaryColor: customColors.accentPrimary,
