@@ -9,6 +9,8 @@ import 'dart:ui' as ui;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'package:provider/provider.dart'; // Import Provider
+import '../providers/foodEntryProvider.dart'; // Import FoodEntryProvider
 
 // Weight data point model
 class WeightPoint {
@@ -56,7 +58,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _loadWeightData();
+      // Use addPostFrameCallback to access provider safely
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadWeightData();
+      });
   }
 
   @override
@@ -74,121 +79,94 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     });
 
     try {
+      // --- Load Goals from Provider ---
+      final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+      _currentWeight = foodEntryProvider.currentWeightKg;
+      _targetWeight = foodEntryProvider.goalWeightKg;
+
+      // --- Load Weight History from SharedPreferences ---
       final prefs = await SharedPreferences.getInstance();
-
-      // Load cached data first for instant display
-      final String? cachedData = prefs.getString('weight_data_cache');
-      if (cachedData != null) {
-        final cached = json.decode(cachedData);
-        setState(() {
-          _currentWeight = cached['current_weight'] ?? _currentWeight;
-          _targetWeight = cached['target_weight'] ?? _targetWeight;
-          _weightData =
-              List<Map<String, dynamic>>.from(cached['weight_data'] ?? []);
-        });
-      }
-
-      // Get stored weight history
       final String? weightHistoryJson = prefs.getString('weight_history');
       if (weightHistoryJson != null && weightHistoryJson.isNotEmpty) {
-        final List<dynamic> weightHistory = json.decode(weightHistoryJson);
-        if (weightHistory.isNotEmpty) {
-          setState(() {
+        try {
+          final List<dynamic> weightHistory = json.decode(weightHistoryJson);
+          if (weightHistory.isNotEmpty) {
             _weightData = List<Map<String, dynamic>>.from(weightHistory);
-
-            // Set current weight to the latest entry
-            if (_weightData.isNotEmpty) {
-              final latestEntry = _weightData.reduce((a, b) =>
-                  DateTime.parse(a['date'] as String)
-                          .isAfter(DateTime.parse(b['date'] as String))
-                      ? a
-                      : b);
-              _currentWeight = latestEntry['weight'] as double;
-            }
-          });
-        }
-      }
-
-      // Try to get the current weight from macro_results
-      final String? macroResultsJson = prefs.getString('macro_results');
-      if (macroResultsJson != null) {
-        final macroResults = json.decode(macroResultsJson);
-        if (macroResults['weight_kg'] != null) {
-          _currentWeight = macroResults['weight_kg'].toDouble();
-
-          // If we have the current weight but no history, create first entry
-          if (_weightData.isEmpty) {
-            _weightData.add({
-              'date': DateTime.now().toIso8601String(),
-              'weight': _currentWeight,
-            });
+            // Ensure current weight reflects the latest history entry if available
+             if (_weightData.isNotEmpty) {
+               _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
+                   .compareTo(DateTime.parse(b['date'] as String)));
+               _currentWeight = _weightData.last['weight'] as double;
+               // Update provider if history's latest differs from provider's initial load
+               if (foodEntryProvider.currentWeightKg != _currentWeight) {
+                 foodEntryProvider.currentWeightKg = _currentWeight;
+               }
+             }
           }
+        } catch (e) {
+           print('Error decoding weight history: $e');
+           _weightData = []; // Reset if decoding fails
         }
+      } else {
+         _weightData = []; // Initialize if no history found
       }
 
-      _targetWeight = prefs.getDouble('goal_weight_kg') ?? _currentWeight;
 
-      // If user is authenticated, fetch from Supabase
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser != null) {
-        final response = await Supabase.instance.client
-            .from('user_macros')
-            .select('weight') // Removed goal_weight_kg
-            .eq('id', currentUser.id)
-            .order('updated_at', ascending: false)
-            .limit(1)
-            .maybeSingle();
-
-        if (response != null) {
-          if (response['weight'] != null) {
-            _currentWeight = response['weight'].toDouble();
-          }
-          // Removed check for goal_weight_kg as it's loaded from prefs
-        }
-
-        // Removed fetching weight history from Supabase as it's stored locally
-        // try { ... } catch (e) { ... } block removed
-      }
-
-      // Create sample data only if we have no actual data
-      if (_weightData.isEmpty) {
-        _weightData = List.generate(30, (index) {
-          final date = DateTime.now().subtract(Duration(days: 29 - index));
-          final randomFluctuation = (math.Random().nextDouble() - 0.5);
-          return {
-            'date': date.toIso8601String(),
-            'weight': _currentWeight + randomFluctuation,
-          };
+      // If history is empty, create the first entry using the provider's current weight
+      if (_weightData.isEmpty && _currentWeight > 0) {
+        _weightData.add({
+          'date': DateTime.now().toIso8601String(),
+          'weight': _currentWeight,
         });
+        // Save this initial history entry
+        await prefs.setString('weight_history', json.encode(_weightData));
       }
 
-      // Cache the new data
-      await prefs.setString(
-          'weight_data_cache',
-          json.encode({
-            'current_weight': _currentWeight,
-            'target_weight': _targetWeight,
-            'weight_data': _weightData,
-            'timestamp': DateTime.now().toIso8601String(),
-          }));
+      // No need to load from cache or Supabase directly for goals anymore
+      // No need to create sample data here, handle empty state in UI
 
-      // Also save to weight_history for persistence
-      await prefs.setString('weight_history', json.encode(_weightData));
     } catch (e) {
       print('Error loading weight data: $e');
+      // Ensure weightData is initialized even on error
+      if (_weightData == null) {
+         _weightData = [];
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
-      _pageController.forward();
+      // Ensure state update happens even if provider access fails initially
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _pageController.forward();
+      }
     }
   }
 
   double _getProgressPercentage() {
+    if (_targetWeight <= 0) return 0.0; // Avoid division by zero or negative target
     if (_currentWeight == _targetWeight) return 1.0;
-    final totalChange = (_currentWeight - _targetWeight).abs();
-    final remainingChange = (_currentWeight - _targetWeight).abs();
-    return 1 - (remainingChange / totalChange);
+
+    // Assuming the initial weight is the first entry in history or current weight if no history
+    double initialWeight = _currentWeight;
+    if (_weightData.isNotEmpty) {
+       _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
+           .compareTo(DateTime.parse(b['date'] as String)));
+       initialWeight = _weightData.first['weight'] as double;
+    }
+
+    final totalTargetChange = (initialWeight - _targetWeight).abs();
+    if (totalTargetChange == 0) return 1.0; // Already at target
+
+    final progressMade = initialWeight - _currentWeight;
+    final targetDirection = initialWeight - _targetWeight;
+
+    // If moving towards the target
+    if ((progressMade >= 0 && targetDirection >= 0) || (progressMade <= 0 && targetDirection <= 0)) {
+       return (progressMade.abs() / totalTargetChange).clamp(0.0, 1.0);
+    } else {
+       // Moving away from the target
+       return 0.0;
+    }
   }
 
   String _formatWeight(double weight) {
@@ -1161,42 +1139,31 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       await prefs.setDouble('goal_weight_kg', _targetWeight);
 
       // Save the full weight history
+      // --- Update Provider ---
+      final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+      foodEntryProvider.currentWeightKg = _currentWeight;
+      foodEntryProvider.goalWeightKg = _targetWeight;
+      // Provider setters will handle SharedPreferences ('nutrition_goals') and Supabase sync
+
+      // --- Save History Locally ---
+      // final prefs = await SharedPreferences.getInstance(); // Already declared above
       await prefs.setString('weight_history', json.encode(_weightData));
 
-      // Update macro_results with new current weight
-      final String? macroResultsJson = prefs.getString('macro_results');
-      if (macroResultsJson != null) {
-        final macroResults = json.decode(macroResultsJson);
-        macroResults['weight_kg'] = _currentWeight;
-        await prefs.setString('macro_results', json.encode(macroResults));
-      }
+      // Remove direct Supabase calls and individual SharedPreferences saves for weights
 
-      // Cache the data for quicker loading
-      await prefs.setString(
-          'weight_data_cache',
-          json.encode({
-            'current_weight': _currentWeight,
-            'target_weight': _targetWeight,
-            'weight_data': _weightData,
-            'timestamp': DateTime.now().toIso8601String(),
-          }));
+      print('Weight changes saved via Provider and history saved locally.');
 
-      // If user is authenticated, sync to Supabase
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser != null) {
-        // Update current weight and goal
-        await Supabase.instance.client.from('user_macros').upsert({
-          'id': currentUser.id,
-          'weight': _currentWeight,
-          // 'goal_weight_kg': _targetWeight, // Removed as it's stored locally
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-
-        // Removed syncing weight history to Supabase as it's stored locally
-        // try { ... } catch (e) { ... } block removed
-      }
     } catch (e) {
       print('Error saving weight changes: $e');
+      // Optionally show an error message to the user
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: Text('Error saving weight: ${e.toString()}'),
+             backgroundColor: Colors.redAccent,
+           ),
+         );
+      }
     }
   }
 

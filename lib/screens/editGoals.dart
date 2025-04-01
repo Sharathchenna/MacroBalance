@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'dart:ui';
 import 'package:macrotracker/Health/Health.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditGoalsScreen extends StatefulWidget {
   const EditGoalsScreen({super.key});
@@ -49,9 +50,14 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         proteinGoal = foodEntryProvider.proteinGoal.toInt();
         carbGoal = foodEntryProvider.carbsGoal.toInt();
         fatGoal = foodEntryProvider.fatGoal.toInt();
+
+        // Load additional goals from the enhanced provider
+        stepsGoal = foodEntryProvider.stepsGoal;
+        bmr = foodEntryProvider.bmr.toInt();
+        tdee = foodEntryProvider.tdee.toInt();
       });
 
-      // Keep existing SharedPreferences logic for backward compatibility
+      // Still check SharedPreferences for backward compatibility
       final prefs = await SharedPreferences.getInstance();
       final String? resultsString = prefs.getString('macro_results');
 
@@ -59,12 +65,68 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         final Map<String, dynamic> results = jsonDecode(resultsString);
         if (mounted) {
           setState(() {
-            // Only load step goals, BMR and TDEE from SharedPreferences
-            // as these aren't in the FoodEntryProvider
-            stepsGoal = results['recommended_steps'] ?? stepsGoal;
-            bmr = results['bmr'] ?? bmr;
-            tdee = results['tdee'] ?? tdee;
+            // If any values are still default, try to get from macro_results
+            if (stepsGoal == 9000) {
+              stepsGoal = results['recommended_steps'] ?? stepsGoal;
+            }
+            if (bmr == 1500) {
+              bmr = results['bmr'] ?? bmr;
+            }
+            if (tdee == 2000) {
+              tdee = results['tdee'] ?? tdee;
+            }
           });
+        }
+      }
+
+      // Also check nutrition_goals for more structured data
+      final String? nutritionGoalsString = prefs.getString('nutrition_goals');
+      if (nutritionGoalsString != null && nutritionGoalsString.isNotEmpty) {
+        try {
+          final Map<String, dynamic> nutritionGoals =
+              jsonDecode(nutritionGoalsString);
+          if (mounted) {
+            setState(() {
+              // Load data if available
+              if (nutritionGoals['steps_goal'] != null) {
+                stepsGoal = nutritionGoals['steps_goal'];
+              }
+              if (nutritionGoals['bmr'] != null) {
+                bmr = nutritionGoals['bmr'] is int
+                    ? nutritionGoals['bmr']
+                    : (nutritionGoals['bmr'] as num).toInt();
+              }
+              if (nutritionGoals['tdee'] != null) {
+                tdee = nutritionGoals['tdee'] is int
+                    ? nutritionGoals['tdee']
+                    : (nutritionGoals['tdee'] as num).toInt();
+              }
+
+              // If calorie/macro goals weren't properly loaded, set them here
+              if (nutritionGoals['calories_goal'] != null) {
+                calorieGoal = nutritionGoals['calories_goal'] is int
+                    ? nutritionGoals['calories_goal']
+                    : (nutritionGoals['calories_goal'] as num).toInt();
+              }
+              if (nutritionGoals['protein_goal'] != null) {
+                proteinGoal = nutritionGoals['protein_goal'] is int
+                    ? nutritionGoals['protein_goal']
+                    : (nutritionGoals['protein_goal'] as num).toInt();
+              }
+              if (nutritionGoals['carbs_goal'] != null) {
+                carbGoal = nutritionGoals['carbs_goal'] is int
+                    ? nutritionGoals['carbs_goal']
+                    : (nutritionGoals['carbs_goal'] as num).toInt();
+              }
+              if (nutritionGoals['fat_goal'] != null) {
+                fatGoal = nutritionGoals['fat_goal'] is int
+                    ? nutritionGoals['fat_goal']
+                    : (nutritionGoals['fat_goal'] as num).toInt();
+              }
+            });
+          }
+        } catch (e) {
+          debugPrint('Error parsing nutrition_goals JSON: $e');
         }
       }
     } catch (e) {
@@ -169,10 +231,15 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       // Update goals in FoodEntryProvider to ensure proper sync with Supabase
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
+
+      // Set all goals in the provider
       foodEntryProvider.caloriesGoal = calorieGoal.toDouble();
       foodEntryProvider.proteinGoal = proteinGoal.toDouble();
       foodEntryProvider.carbsGoal = carbGoal.toDouble();
       foodEntryProvider.fatGoal = fatGoal.toDouble();
+      foodEntryProvider.stepsGoal = stepsGoal;
+      foodEntryProvider.bmr = bmr.toDouble();
+      foodEntryProvider.tdee = tdee.toDouble();
 
       // Also update SharedPreferences for backward compatibility
       final prefs = await SharedPreferences.getInstance();
@@ -186,6 +253,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'tdee': tdee,
       };
       await prefs.setString('macro_results', jsonEncode(results));
+
+      // The provider will handle syncing with Supabase automatically
 
       // Show success message
       if (mounted) {
@@ -414,7 +483,12 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
 
   Widget _buildGoalCard(Map<String, dynamic> data) {
     final bool showProgress = data['currentValue'] != null;
-    final progress = showProgress ? data['currentValue'] / data['value'] : 0.0;
+    // Add null/zero checks for progress calculation
+    double progress = 0.0;
+    if (showProgress && data['value'] != null && data['value'] > 0) {
+      progress = (data['currentValue'] / data['value']).clamp(0.0, 1.0);
+    }
+
     final customColors = Theme.of(context).extension<CustomColors>();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -513,7 +587,10 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                '${(progress * 100).toInt()}%',
+                                // Add null check for percentage calculation
+                                progress.isFinite
+                                    ? '${(progress * 100).toInt()}%'
+                                    : '0%',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
