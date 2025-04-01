@@ -30,10 +30,12 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
   bool _isPurchasing = false;
   bool _isTrialMode = true; // Default to trial mode
   bool _showDismissButton = false; // Initially hide dismiss button
+  bool _showScrollIndicator = true; // Control scroll indicator visibility
 
   // UI Controllers
   final PageController _pageController = PageController();
   late AnimationController _animationController;
+  final ScrollController _scrollController = ScrollController();
   Timer? _carouselTimer;
   Timer? _dismissButtonTimer;
   int _currentPage = 0;
@@ -90,6 +92,10 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
         _resetCarouselTimer();
       }
     });
+    
+    // Add scroll controller listener to show/hide indicator
+    _scrollController.addListener(_handleScroll);
+    
     // Set system UI overlay style for better immersion
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -109,10 +115,22 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     });
   }
 
+  void _handleScroll() {
+    // Show indicator only when scroll position is at the top
+    final isAtTop = _scrollController.offset <= 20;
+    if (isAtTop != _showScrollIndicator) {
+      setState(() {
+        _showScrollIndicator = isAtTop;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
     _animationController.dispose();
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
     _carouselTimer?.cancel();
     _dismissButtonTimer?.cancel();
     super.dispose();
@@ -491,364 +509,400 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
               // Close button if dismissal is allowed
               if (widget.allowDismissal && _showDismissButton)
                 Expanded(
-                  child: ListView.builder(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    itemCount: 1,
-                    itemBuilder: (context, index) {
-                      return RepaintBoundary(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const SizedBox(height: 5),
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (ScrollNotification notification) {
+                      // We'll handle visibility in the scroll controller listener instead
+                      return true;
+                    },
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      physics: const ClampingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      itemCount: 1,
+                      itemBuilder: (context, index) {
+                        return RepaintBoundary(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: 5),
 
-                            // Enhanced hero section with premium branding and gradient title
-                            RepaintBoundary(
-                              child: TweenAnimationBuilder<double>(
-                                tween: Tween<double>(begin: 0.9, end: 1.0),
-                                duration: const Duration(seconds: 1),
-                                curve: Curves.elasticOut,
-                                builder: (context, value, child) {
-                                  return Transform.scale(
-                                    scale: value,
-                                    child: child,
-                                  );
-                                },
-                                child: Column(
-                                  children: [
-                                    // Title with gradient
-                                    ShaderMask(
-                                      shaderCallback: (bounds) =>
-                                          LinearGradient(
-                                        colors: [
-                                          colors.accent,
-                                          colors.accentSecondary,
-                                          colors.gold,
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ).createShader(bounds),
-                                      child: const Text(
-                                        'Track Smarter, Eat Better, Live Healthier',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors
-                                              .white, // This will be replaced by the gradient
-                                          height: 1.2,
-                                        ),
-                                      ),
-                                    ),
-                                    // const SizedBox(height: 8),
-                                    // Subtitle
-                                    // Text(
-                                    //   'Unlock your full nutrition potential',
-                                    //   textAlign: TextAlign.center,
-                                    //   style: TextStyle(
-                                    //     fontSize: 14,
-                                    //     color: const Color(0xFFBBCCFF)
-                                    //         .withOpacity(0.9),
-                                    //     height: 1.4,
-                                    //   ),
-                                    // ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // const SizedBox(height: 32),
-
-                            // Enhanced feature carousel
-                            RepaintBoundary(
-                              child: SizedBox(
-                                height: 240,
-                                child: PageView.builder(
-                                  controller: _pageController,
-                                  itemCount: _features.length,
-                                  itemBuilder: (context, index) {
-                                    return _buildFeatureCard(
-                                      _features[index],
-                                      customColors,
-                                      textColor,
-                                      premiumColors: colors,
+                              // Enhanced hero section with premium branding and gradient title
+                              RepaintBoundary(
+                                child: TweenAnimationBuilder<double>(
+                                  tween: Tween<double>(begin: 0.9, end: 1.0),
+                                  duration: const Duration(seconds: 1),
+                                  curve: Curves.elasticOut,
+                                  builder: (context, value, child) {
+                                    return Transform.scale(
+                                      scale: value,
+                                      child: child,
                                     );
                                   },
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 0),
-
-                            // Enhanced page indicator
-                            RepaintBoundary(
-                              child: Center(
-                                child: SmoothPageIndicator(
-                                  controller: _pageController,
-                                  count: _features.length,
-                                  effect: ExpandingDotsEffect(
-                                    activeDotColor: accentColor,
-                                    dotColor: accentColor.withOpacity(0.2),
-                                    dotHeight: 6,
-                                    dotWidth: 6,
-                                    expansionFactor: 3,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // Subscription options with enhanced visuals
-                            if (_offering != null &&
-                                _offering!.availablePackages.isNotEmpty)
-                              RepaintBoundary(
-                                child: Column(
-                                  children: _buildSubscriptionCards(
-                                    textColor,
-                                    accentColor,
-                                    goldAccent: colors.gold,
-                                    highlightColor: colors.highlight,
-                                  ),
-                                ),
-                              ),
-
-                            const SizedBox(height: 5),
-
-                            // Enhanced subscribe button with animation and gradient
-                            RepaintBoundary(
-                              child: TweenAnimationBuilder<double>(
-                                tween: Tween<double>(begin: 0.95, end: 1.0),
-                                duration: const Duration(milliseconds: 2000),
-                                curve: Curves.elasticOut,
-                                builder: (context, value, child) {
-                                  return Transform.scale(
-                                    scale: value,
-                                    child: child,
-                                  );
-                                },
-                                child: Container(
-                                  height: 60,
-                                  margin:
-                                      const EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: accentColor.withOpacity(0.4),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
+                                  child: Column(
+                                    children: [
+                                      // Title with gradient
+                                      ShaderMask(
+                                        shaderCallback: (bounds) =>
+                                            LinearGradient(
+                                          colors: [
+                                            colors.accent,
+                                            colors.accentSecondary,
+                                            colors.gold,
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ).createShader(bounds),
+                                        child: const Text(
+                                          'Track Smarter, Eat Better, Live Healthier',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors
+                                                .white, // This will be replaced by the gradient
+                                            height: 1.2,
+                                          ),
+                                        ),
                                       ),
+                                      // const SizedBox(height: 8),
+                                      // Subtitle
+                                      // Text(
+                                      //   'Unlock your full nutrition potential',
+                                      //   textAlign: TextAlign.center,
+                                      //   style: TextStyle(
+                                      //     fontSize: 14,
+                                      //     color: const Color(0xFFBBCCFF)
+                                      //         .withOpacity(0.9),
+                                      //     height: 1.4,
+                                      //   ),
+                                      // ),
                                     ],
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        accentColor,
-                                        Color.lerp(accentColor, Colors.blue,
-                                                0.4) ??
-                                            accentColor,
-                                      ],
+                                  ),
+                                ),
+                              ),
+
+                              // const SizedBox(height: 32),
+
+                              // Enhanced feature carousel
+                              RepaintBoundary(
+                                child: SizedBox(
+                                  height: 240,
+                                  child: PageView.builder(
+                                    controller: _pageController,
+                                    itemCount: _features.length,
+                                    itemBuilder: (context, index) {
+                                      return _buildFeatureCard(
+                                        _features[index],
+                                        customColors,
+                                        textColor,
+                                        premiumColors: colors,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 0),
+
+                              // Enhanced page indicator
+                              RepaintBoundary(
+                                child: Center(
+                                  child: SmoothPageIndicator(
+                                    controller: _pageController,
+                                    count: _features.length,
+                                    effect: ExpandingDotsEffect(
+                                      activeDotColor: accentColor,
+                                      dotColor: accentColor.withOpacity(0.2),
+                                      dotHeight: 6,
+                                      dotWidth: 6,
+                                      expansionFactor: 3,
                                     ),
                                   ),
-                                  child: ElevatedButton(
-                                    onPressed: _isPurchasing ||
-                                            _selectedPackage == null
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              // Subscription options with enhanced visuals
+                              if (_offering != null &&
+                                  _offering!.availablePackages.isNotEmpty)
+                                RepaintBoundary(
+                                  child: Column(
+                                    children: _buildSubscriptionCards(
+                                      textColor,
+                                      accentColor,
+                                      goldAccent: colors.gold,
+                                      highlightColor: colors.highlight,
+                                    ),
+                                  ),
+                                ),
+
+                              const SizedBox(height: 5),
+
+                              // Enhanced subscribe button with animation and gradient
+                              RepaintBoundary(
+                                child: TweenAnimationBuilder<double>(
+                                  tween: Tween<double>(begin: 0.95, end: 1.0),
+                                  duration: const Duration(milliseconds: 2000),
+                                  curve: Curves.elasticOut,
+                                  builder: (context, value, child) {
+                                    return Transform.scale(
+                                      scale: value,
+                                      child: child,
+                                    );
+                                  },
+                                  child: Container(
+                                    height: 60,
+                                    margin:
+                                        const EdgeInsets.symmetric(horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: accentColor.withOpacity(0.4),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          accentColor,
+                                          Color.lerp(accentColor, Colors.blue,
+                                                  0.4) ??
+                                              accentColor,
+                                        ],
+                                      ),
+                                    ),
+                                    child: ElevatedButton(
+                                      onPressed: _isPurchasing ||
+                                              _selectedPackage == null
+                                          ? null
+                                          : () {
+                                              HapticFeedback.mediumImpact();
+                                              _purchasePackage(_selectedPackage!);
+                                            },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.transparent,
+                                        disabledBackgroundColor:
+                                            Colors.transparent,
+                                        disabledForegroundColor:
+                                            Colors.white.withOpacity(0.5),
+                                        shadowColor: Colors.transparent,
+                                        elevation: 0,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                      ),
+                                      child: _isPurchasing
+                                          ? const SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  _isTrialMode
+                                                      ? "Start 14-Day Free Trial"
+                                                      : "Subscribe Now",
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                const Icon(
+                                                  Icons.arrow_forward_rounded,
+                                                  color: Colors.white,
+                                                  size: 24,
+                                                ),
+                                              ],
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // Enhanced restore purchases button
+                              RepaintBoundary(
+                                child: Center(
+                                  child: TextButton(
+                                    onPressed: _isPurchasing
                                         ? null
                                         : () {
                                             HapticFeedback.mediumImpact();
-                                            _purchasePackage(_selectedPackage!);
+                                            _restorePurchases();
                                           },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.transparent,
-                                      disabledBackgroundColor:
-                                          Colors.transparent,
-                                      disabledForegroundColor:
-                                          Colors.white.withOpacity(0.5),
-                                      shadowColor: Colors.transparent,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: textColor.withOpacity(0.6),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 24, vertical: 12),
                                     ),
-                                    child: _isPurchasing
-                                        ? const SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                _isTrialMode
-                                                    ? "Start 14-Day Free Trial"
-                                                    : "Subscribe Now",
-                                                style: const TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Icon(
-                                                Icons.arrow_forward_rounded,
-                                                color: Colors.white,
-                                                size: 24,
-                                              ),
-                                            ],
-                                          ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.restore, size: 16),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          "Restore Purchases",
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
 
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                            // Enhanced restore purchases button
-                            RepaintBoundary(
-                              child: Center(
-                                child: TextButton(
-                                  onPressed: _isPurchasing
-                                      ? null
-                                      : () {
-                                          HapticFeedback.mediumImpact();
-                                          _restorePurchases();
-                                        },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: textColor.withOpacity(0.6),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 24, vertical: 12),
+                              // Enhanced terms text
+                              RepaintBoundary(
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: textColor.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  child: Column(
                                     children: [
-                                      Icon(Icons.restore, size: 16),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        "Restore Purchases",
-                                        style: TextStyle(fontSize: 14),
+                                      Text(
+                                        _isTrialMode
+                                            ? _selectedPackage?.packageType ==
+                                                    PackageType.lifetime
+                                                ? "After your 14-day free trial, you'll be charged ${_selectedPackage?.storeProduct.priceString ?? 'the one-time fee'} once with no recurring payments."
+                                                : "After your 14-day free trial, your subscription will automatically renew at ${_selectedPackage?.storeProduct.priceString ?? 'the selected price'} per ${_selectedPackage?.packageType == PackageType.annual ? 'year' : 'month'} until canceled."
+                                            : _selectedPackage?.packageType ==
+                                                    PackageType.lifetime
+                                                ? "One-time payment with lifetime access. No recurring charges."
+                                                : "Subscription automatically renews unless canceled at least 24 hours before the end of the current period.",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: textColor.withOpacity(0.8),
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        "To cancel, go to Settings → Apple ID → Subscriptions and select this subscription.",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: textColor.withOpacity(0.7),
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          TextButton(
+                                            onPressed: () {
+                                              HapticFeedback.lightImpact();
+                                              _launchTermsOfService();
+                                            },
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize
+                                                  .shrinkWrap,
+                                            ),
+                                            child: Text(
+                                              "Terms of Service",
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: accentColor,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            " • ",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: textColor.withOpacity(0.4),
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              HapticFeedback.lightImpact();
+                                              _launchPrivacyPolicy();
+                                            },
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize
+                                                  .shrinkWrap,
+                                            ),
+                                            child: Text(
+                                              "Privacy Policy",
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: accentColor,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
-                            ),
 
-                            const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                            // Enhanced terms text
-                            RepaintBoundary(
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: textColor.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      _isTrialMode
-                                          ? _selectedPackage?.packageType ==
-                                                  PackageType.lifetime
-                                              ? "After your 14-day free trial, you'll be charged ${_selectedPackage?.storeProduct.priceString ?? 'the one-time fee'} once with no recurring payments."
-                                              : "After your 14-day free trial, your subscription will automatically renew at ${_selectedPackage?.storeProduct.priceString ?? 'the selected price'} per ${_selectedPackage?.packageType == PackageType.annual ? 'year' : 'month'} until canceled."
-                                          : _selectedPackage?.packageType ==
-                                                  PackageType.lifetime
-                                              ? "One-time payment with lifetime access. No recurring charges."
-                                              : "Subscription automatically renews unless canceled at least 24 hours before the end of the current period.",
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: textColor.withOpacity(0.8),
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      "To cancel, go to Settings → Apple ID → Subscriptions and select this subscription.",
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: textColor.withOpacity(0.7),
-                                        height: 1.3,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        TextButton(
-                                          onPressed: () {
-                                            HapticFeedback.lightImpact();
-                                            _launchTermsOfService();
-                                          },
-                                          style: TextButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                            minimumSize: Size.zero,
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
-                                          ),
-                                          child: Text(
-                                            "Terms of Service",
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: accentColor,
-                                              decoration:
-                                                  TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ),
-                                        Text(
-                                          " • ",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: textColor.withOpacity(0.4),
-                                          ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            HapticFeedback.lightImpact();
-                                            _launchPrivacyPolicy();
-                                          },
-                                          style: TextButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                            minimumSize: Size.zero,
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
-                                          ),
-                                          child: Text(
-                                            "Privacy Policy",
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: accentColor,
-                                              decoration:
-                                                  TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            const SizedBox(height: 24),
-                          ],
-                        ),
-                      );
-                    },
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
             ],
+          ),
+        ),
+
+        // Add scroll indicator with animated visibility
+        Positioned(
+          bottom: 16,
+          left: 0,
+          right: 0,
+          child: AnimatedOpacity(
+            opacity: _showScrollIndicator ? 0.7 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: textColor.withOpacity(0.6),
+                  size: 20,
+                ),
+                Text(
+                  "Scroll for more",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: textColor.withOpacity(0.5),
+                  ),
+                ),
+                SizedBox(height: 4),
+              ],
+            ),
           ),
         ),
 
