@@ -210,6 +210,56 @@ class _AccountDashboardState extends State<AccountDashboard>
     }
   }
 
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message,
+            style: TextStyle(
+              color: Colors.white,
+            )),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.red.shade800,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchPrivacyPolicy() async {
+    final Uri privacyPolicyUrl = Uri.parse('https://macrobalance.app/privacy');
+    try {
+      if (!await launchUrl(privacyPolicyUrl,
+          mode: LaunchMode.externalApplication)) {
+        _showError(
+            'Could not open the privacy policy. Please try again later.');
+      }
+    } catch (e) {
+      _showError('Could not open the privacy policy. Please try again later.');
+      debugPrint('Error launching URL: $e');
+    }
+  }
+
+  Future<void> _launchTermsOfService() async {
+    final Uri tosUrl = Uri.parse('https://macrobalance.app/terms');
+    try {
+      if (!await launchUrl(tosUrl, mode: LaunchMode.externalApplication)) {
+        _showError(
+            'Could not open the terms of service. Please try again later.');
+      }
+    } catch (e) {
+      _showError(
+          'Could not open the terms of service. Please try again later.');
+      debugPrint('Error launching URL: $e');
+    }
+  }
+
   Future<void> _saveNotificationPreferences() async {
     await NotificationService().updateNotificationPreferences(
       _notificationSettings['mealReminders'] ?? false,
@@ -457,12 +507,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                     trailing: const Icon(Icons.chevron_right), // Changed icon
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (context) => const PrivacyPolicyScreen(),
-                        ),
-                      );
+                      _launchPrivacyPolicy();
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
@@ -476,12 +521,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       HapticFeedback.lightImpact();
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (context) => const TermsScreen(),
-                        ),
-                      );
+                      _launchTermsOfService();
+                      
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
