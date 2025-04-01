@@ -92,10 +92,10 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
         _resetCarouselTimer();
       }
     });
-    
+
     // Add scroll controller listener to show/hide indicator
     _scrollController.addListener(_handleScroll);
-    
+
     // Set system UI overlay style for better immersion
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -653,8 +653,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                   },
                                   child: Container(
                                     height: 60,
-                                    margin:
-                                        const EdgeInsets.symmetric(horizontal: 8),
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 8),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
@@ -681,7 +681,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                           ? null
                                           : () {
                                               HapticFeedback.mediumImpact();
-                                              _purchasePackage(_selectedPackage!);
+                                              _purchasePackage(
+                                                  _selectedPackage!);
                                             },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.transparent,
@@ -692,7 +693,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         shadowColor: Colors.transparent,
                                         elevation: 0,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius:
+                                              BorderRadius.circular(16),
                                         ),
                                       ),
                                       child: _isPurchasing
@@ -744,7 +746,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                             _restorePurchases();
                                           },
                                     style: TextButton.styleFrom(
-                                      foregroundColor: textColor.withOpacity(0.6),
+                                      foregroundColor:
+                                          textColor.withOpacity(0.6),
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 24, vertical: 12),
                                     ),
@@ -815,8 +818,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                             style: TextButton.styleFrom(
                                               padding: EdgeInsets.zero,
                                               minimumSize: Size.zero,
-                                              tapTargetSize: MaterialTapTargetSize
-                                                  .shrinkWrap,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
                                             ),
                                             child: Text(
                                               "Terms of Service",
@@ -843,8 +847,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                             style: TextButton.styleFrom(
                                               padding: EdgeInsets.zero,
                                               minimumSize: Size.zero,
-                                              tapTargetSize: MaterialTapTargetSize
-                                                  .shrinkWrap,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
                                             ),
                                             child: Text(
                                               "Privacy Policy",
