@@ -51,7 +51,7 @@ class _AccountDashboardState extends State<AccountDashboard>
   };
   final Map<String, bool> _notificationSettings = {
     'mealReminders': true,
-    'weeklyReports': true,
+    // 'weeklyReports': true, // Commented out weekly reports
   };
 
   @override
@@ -161,14 +161,15 @@ class _AccountDashboardState extends State<AccountDashboard>
           setState(() {
             _notificationSettings['mealReminders'] =
                 response['meal_reminders'] ?? true;
-            _notificationSettings['weeklyReports'] =
-                response['weekly_reports'] ?? true;
+            // _notificationSettings['weeklyReports'] =
+            //     response['weekly_reports'] ?? true; // Commented out weekly reports
           });
         } else {
           // Create default preferences if none exist
           await NotificationService().updateNotificationPreferences(
             _notificationSettings['mealReminders'] ?? true,
-            _notificationSettings['weeklyReports'] ?? true,
+            // _notificationSettings['weeklyReports'] ?? true, // Commented out weekly reports
+            false, // Pass default false for weekly reports now
           );
         }
       }
@@ -263,7 +264,8 @@ class _AccountDashboardState extends State<AccountDashboard>
   Future<void> _saveNotificationPreferences() async {
     await NotificationService().updateNotificationPreferences(
       _notificationSettings['mealReminders'] ?? false,
-      _notificationSettings['weeklyReports'] ?? false,
+      // _notificationSettings['weeklyReports'] ?? false, // Commented out weekly reports
+      false, // Pass false for weekly reports now
     );
   }
 
@@ -454,7 +456,11 @@ class _AccountDashboardState extends State<AccountDashboard>
                 icon: CupertinoIcons.bell_fill,
                 colorScheme: colorScheme,
                 customColors: customColors,
-                children: _notificationSettings.entries.map((entry) {
+                children: _notificationSettings.entries
+                    .where((entry) =>
+                        entry.key !=
+                        'weeklyReports') // Filter out weekly reports
+                    .map((entry) {
                   return _buildSwitchTile(
                     icon: _getNotificationIcon(entry.key),
                     iconColor: _getNotificationColor(entry.key),
@@ -522,7 +528,6 @@ class _AccountDashboardState extends State<AccountDashboard>
                     onTap: () {
                       HapticFeedback.lightImpact();
                       _launchTermsOfService();
-                      
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
@@ -1232,8 +1237,8 @@ class _AccountDashboardState extends State<AccountDashboard>
         return CupertinoIcons.clock_fill;
       // case 'hydrationTracking':
       //   return CupertinoIcons.drop_fill;
-      case 'weeklyReports':
-        return CupertinoIcons.chart_bar_alt_fill;
+      // case 'weeklyReports': // Commented out
+      //   return CupertinoIcons.chart_bar_alt_fill;
       // case 'achievementAlerts':
       //   return CupertinoIcons.star_fill;
       default:
@@ -1247,8 +1252,8 @@ class _AccountDashboardState extends State<AccountDashboard>
         return Colors.orange;
       // case 'hydrationTracking':
       //   return Colors.blue;
-      case 'weeklyReports':
-        return Colors.green;
+      // case 'weeklyReports': // Commented out
+      //   return Colors.green;
       // case 'achievementAlerts':
       //   return Colors.amber;
       default:
@@ -1262,8 +1267,8 @@ class _AccountDashboardState extends State<AccountDashboard>
         return 'Meal Reminders';
       // case 'hydrationTracking':
       //   return 'Hydration Tracking';
-      case 'weeklyReports':
-        return 'Weekly Reports';
+      // case 'weeklyReports': // Commented out
+      //   return 'Weekly Reports';
       // case 'achievementAlerts':
       //   return 'Achievement Alerts';
       default:
@@ -1495,7 +1500,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                           '${newTime.hour.toString().padLeft(2, '0')}:${newTime.minute.toString().padLeft(2, '0')}:00';
                       NotificationService().updateNotificationPreferences(
                         _notificationSettings['mealReminders'] ?? false,
-                        _notificationSettings['weeklyReports'] ?? false,
+                        // _notificationSettings['weeklyReports'] ?? false, // Commented out weekly reports
+                        false, // Pass false for weekly reports
                         mealReminderTime: formattedTime,
                       );
                     },

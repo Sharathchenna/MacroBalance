@@ -58,10 +58,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-      // Use addPostFrameCallback to access provider safely
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadWeightData();
-      });
+    // Use addPostFrameCallback to access provider safely
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadWeightData();
+    });
   }
 
   @override
@@ -80,7 +80,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
     try {
       // --- Load Goals from Provider ---
-      final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
       _currentWeight = foodEntryProvider.currentWeightKg;
       _targetWeight = foodEntryProvider.goalWeightKg;
 
@@ -93,24 +94,23 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           if (weightHistory.isNotEmpty) {
             _weightData = List<Map<String, dynamic>>.from(weightHistory);
             // Ensure current weight reflects the latest history entry if available
-             if (_weightData.isNotEmpty) {
-               _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
-                   .compareTo(DateTime.parse(b['date'] as String)));
-               _currentWeight = _weightData.last['weight'] as double;
-               // Update provider if history's latest differs from provider's initial load
-               if (foodEntryProvider.currentWeightKg != _currentWeight) {
-                 foodEntryProvider.currentWeightKg = _currentWeight;
-               }
-             }
+            if (_weightData.isNotEmpty) {
+              _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
+                  .compareTo(DateTime.parse(b['date'] as String)));
+              _currentWeight = _weightData.last['weight'] as double;
+              // Update provider if history's latest differs from provider's initial load
+              if (foodEntryProvider.currentWeightKg != _currentWeight) {
+                foodEntryProvider.currentWeightKg = _currentWeight;
+              }
+            }
           }
         } catch (e) {
-           print('Error decoding weight history: $e');
-           _weightData = []; // Reset if decoding fails
+          print('Error decoding weight history: $e');
+          _weightData = []; // Reset if decoding fails
         }
       } else {
-         _weightData = []; // Initialize if no history found
+        _weightData = []; // Initialize if no history found
       }
-
 
       // If history is empty, create the first entry using the provider's current weight
       if (_weightData.isEmpty && _currentWeight > 0) {
@@ -124,12 +124,11 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
       // No need to load from cache or Supabase directly for goals anymore
       // No need to create sample data here, handle empty state in UI
-
     } catch (e) {
       print('Error loading weight data: $e');
       // Ensure weightData is initialized even on error
       if (_weightData == null) {
-         _weightData = [];
+        _weightData = [];
       }
     } finally {
       // Ensure state update happens even if provider access fails initially
@@ -143,15 +142,16 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
   }
 
   double _getProgressPercentage() {
-    if (_targetWeight <= 0) return 0.0; // Avoid division by zero or negative target
+    if (_targetWeight <= 0)
+      return 0.0; // Avoid division by zero or negative target
     if (_currentWeight == _targetWeight) return 1.0;
 
     // Assuming the initial weight is the first entry in history or current weight if no history
     double initialWeight = _currentWeight;
     if (_weightData.isNotEmpty) {
-       _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
-           .compareTo(DateTime.parse(b['date'] as String)));
-       initialWeight = _weightData.first['weight'] as double;
+      _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
+          .compareTo(DateTime.parse(b['date'] as String)));
+      initialWeight = _weightData.first['weight'] as double;
     }
 
     final totalTargetChange = (initialWeight - _targetWeight).abs();
@@ -161,11 +161,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     final targetDirection = initialWeight - _targetWeight;
 
     // If moving towards the target
-    if ((progressMade >= 0 && targetDirection >= 0) || (progressMade <= 0 && targetDirection <= 0)) {
-       return (progressMade.abs() / totalTargetChange).clamp(0.0, 1.0);
+    if ((progressMade >= 0 && targetDirection >= 0) ||
+        (progressMade <= 0 && targetDirection <= 0)) {
+      return (progressMade.abs() / totalTargetChange).clamp(0.0, 1.0);
     } else {
-       // Moving away from the target
-       return 0.0;
+      // Moving away from the target
+      return 0.0;
     }
   }
 
@@ -386,49 +387,49 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                               ),
 
                               // Animated progress indicator
-                              TweenAnimationBuilder<double>(
-                                tween: Tween(begin: 0, end: progress),
-                                duration: const Duration(milliseconds: 1500),
-                                curve: Curves.easeOutCubic,
-                                builder: (context, value, child) {
-                                  return Stack(
-                                    children: [
-                                      CircularProgressIndicator(
-                                        value: value,
-                                        backgroundColor:
-                                            Theme.of(context).brightness ==
-                                                    Brightness.light
-                                                ? Colors.grey.shade200
-                                                    .withOpacity(0.5)
-                                                : customColors
-                                                    .dateNavigatorBackground
-                                                    .withOpacity(0.3),
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          value >= 1.0
-                                              ? Colors.green.withOpacity(0.8)
-                                              : customColors.accentPrimary
-                                                  .withOpacity(0.8),
-                                        ),
-                                        strokeWidth: 12,
-                                        strokeCap: StrokeCap.round,
-                                      ),
-                                      CircularProgressIndicator(
-                                        value: value,
-                                        backgroundColor: Colors.transparent,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          value >= 1.0
-                                              ? Colors.green
-                                              : customColors.accentPrimary,
-                                        ),
-                                        strokeWidth: 8,
-                                        strokeCap: StrokeCap.round,
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
+                              // TweenAnimationBuilder<double>(
+                              // tween: Tween(begin: 0, end: progress),
+                              // duration: const Duration(milliseconds: 1500),
+                              // curve: Curves.easeOutCubic,
+                              // builder: (context, value, child) {
+                              //   return Stack(
+                              //   children: [
+                              //     CircularProgressIndicator(
+                              //     value: value,
+                              //     backgroundColor:
+                              //       Theme.of(context).brightness ==
+                              //           Brightness.light
+                              //         ? Colors.grey.shade200
+                              //           .withOpacity(0.5)
+                              //         : customColors
+                              //           .dateNavigatorBackground
+                              //           .withOpacity(0.3),
+                              //     valueColor:
+                              //       AlwaysStoppedAnimation<Color>(
+                              //       value >= 1.0
+                              //         ? Colors.green.withOpacity(0.8)
+                              //         : customColors.accentPrimary
+                              //           .withOpacity(0.8),
+                              //     ),
+                              //     strokeWidth: 12,
+                              //     strokeCap: StrokeCap.round,
+                              //     ),
+                              //     CircularProgressIndicator(
+                              //     value: value,
+                              //     backgroundColor: Colors.transparent,
+                              //     valueColor:
+                              //       AlwaysStoppedAnimation<Color>(
+                              //       value >= 1.0
+                              //         ? Colors.green
+                              //         : customColors.accentPrimary,
+                              //     ),
+                              //     strokeWidth: 8,
+                              //     strokeCap: StrokeCap.round,
+                              //     ),
+                              //   ],
+                              //   );
+                              // },
+                              // ),
 
                               // Animated weight display
                               TweenAnimationBuilder<double>(
@@ -441,15 +442,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                     decoration: BoxDecoration(
                                       color: Colors.transparent,
                                       shape: BoxShape.circle,
-                                      // boxShadow: [
-                                      //   BoxShadow(
-                                      //     color: customColors.accentPrimary
-                                      //         .withOpacity(0.1),
-                                      //     blurRadius: 8,
-                                      //     spreadRadius: 2,
-                                      //     offset: const Offset(0, 2),
-                                      //   ),
-                                      // ],
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -484,15 +476,19 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                               Icons.flag_rounded,
                               customColors,
                             ),
-                            const SizedBox(height: 20),
-                            _buildProgressItem(
-                              context,
-                              'To Go',
-                              _formatWeight(
-                                  (_currentWeight - _targetWeight).abs()),
-                              Icons.trending_down,
-                              customColors,
-                            ),
+                            if ((_currentWeight - _targetWeight).abs() > 0) ...[
+                              const SizedBox(height: 20),
+                              _buildProgressItem(
+                                context,
+                                'To Go',
+                                _formatWeight(
+                                    (_currentWeight - _targetWeight).abs()),
+                                _targetWeight > _currentWeight
+                                    ? Icons.trending_up
+                                    : Icons.trending_down,
+                                customColors,
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -1140,7 +1136,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
       // Save the full weight history
       // --- Update Provider ---
-      final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
       foodEntryProvider.currentWeightKg = _currentWeight;
       foodEntryProvider.goalWeightKg = _targetWeight;
       // Provider setters will handle SharedPreferences ('nutrition_goals') and Supabase sync
@@ -1152,17 +1149,16 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       // Remove direct Supabase calls and individual SharedPreferences saves for weights
 
       print('Weight changes saved via Provider and history saved locally.');
-
     } catch (e) {
       print('Error saving weight changes: $e');
       // Optionally show an error message to the user
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(
-             content: Text('Error saving weight: ${e.toString()}'),
-             backgroundColor: Colors.redAccent,
-           ),
-         );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving weight: ${e.toString()}'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
     }
   }

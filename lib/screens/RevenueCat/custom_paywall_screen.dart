@@ -9,12 +9,14 @@ import 'dart:math' as math;
 import 'dart:async';
 
 class CustomPaywallScreen extends StatefulWidget {
-  final VoidCallback onDismiss;
+  final VoidCallback onDismiss; // Called on successful purchase/restore or explicit dismissal action
+  final VoidCallback? onBackPressedOverride; // Optional override for the back button press
   final bool allowDismissal;
 
   const CustomPaywallScreen({
     Key? key,
     required this.onDismiss,
+    this.onBackPressedOverride, // Add to constructor
     this.allowDismissal = true,
   }) : super(key: key);
 
@@ -501,16 +503,22 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                       color: textColor.withOpacity(0.8),
                       size: 20,
                     ),
-                    onPressed: widget.onDismiss,
+                    // Back button logic:
+                    // 1. If dismissal is allowed:
+                    //    - Use override if provided
+                    //    - Otherwise, use the standard onDismiss
+                    // 2. If dismissal is not allowed, disable the button
+                    onPressed: widget.allowDismissal
+                        ? (widget.onBackPressedOverride ?? widget.onDismiss)
+                        : null,
                   ),
                 ),
               ),
 
-              // Close button if dismissal is allowed
-              if (widget.allowDismissal && _showDismissButton)
-                Expanded(
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (ScrollNotification notification) {
+              // Always build the main content, dismissal logic is handled elsewhere
+              Expanded(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (ScrollNotification notification) {
                       // We'll handle visibility in the scroll controller listener instead
                       return true;
                     },
@@ -765,6 +773,45 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                   ),
                                 ),
                               ),
+
+                              const SizedBox(height: 8), // Reduced spacing
+
+                              // Redeem Code Button
+                              RepaintBoundary(
+                                child: Center(
+                                  child: TextButton(
+                                    onPressed: _isPurchasing
+                                        ? null
+                                        : () async {
+                                            HapticFeedback.mediumImpact();
+                                            try {
+                                              await Purchases.presentCodeRedemptionSheet();
+                                              // No explicit success callback, but CustomerInfo listener/onDismiss should handle updates
+                                            } catch (e) {
+                                              // Handle potential errors (e.g., API key not configured for offers)
+                                              debugPrint("Error presenting code redemption sheet: $e");
+                                              _showError("Could not open the redeem code screen. Please try again later.");
+                                            }
+                                          },
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: textColor.withOpacity(0.6),
+                                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.card_giftcard, size: 16), // Gift card icon
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          "Redeem Code",
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+
 
                               const SizedBox(height: 16),
 
@@ -1158,9 +1205,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                     Text(
                                       perMonthPrice,
                                       style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: accentColor,
+                                        fontSize: 12, // Smaller font size
+                                        fontWeight: FontWeight.normal, // Less emphasis
+                                        color: textColor.withOpacity(0.7), // Less prominent color
                                       ),
                                     ),
                                   ],
@@ -1186,18 +1233,18 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           children: [
                             const SizedBox(height: 8),
                             Text(
-                              price,
+                              price, // Total Billed Amount
                               style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 20, // Larger font size
+                                fontWeight: FontWeight.bold, // Bolder
                                 color: textColor,
                               ),
                             ),
                             Text(
-                              billingInfo,
+                              billingInfo, // e.g., "Billed annually"
                               style: TextStyle(
-                                fontSize: 11,
-                                color: textColor.withOpacity(0.6),
+                                fontSize: 12, // Slightly larger for clarity
+                                color: textColor.withOpacity(0.7), // Consistent secondary color
                               ),
                             ),
                           ],

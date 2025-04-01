@@ -130,6 +130,12 @@ class _ResultsScreenState extends State<ResultsScreen>
               }
             }
           },
+          // When back button is pressed on paywall shown from results, just pop back to results
+          onBackPressedOverride: () {
+            if (mounted) {
+              Navigator.of(context).pop();
+            }
+          },
           // Start with a soft paywall to give users a chance to subscribe willingly
           allowDismissal: true,
         ),
