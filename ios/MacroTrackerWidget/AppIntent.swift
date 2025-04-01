@@ -36,7 +36,7 @@ struct OpenURLIntent: AppIntent {
     }
     
     init() {
-        self.url = URL(string: "nutrino:///dashboard")!
+        self.url = URL(string: "macrobalance:///dashboard")!
     }
     
     func perform() async throws -> some IntentResult {
@@ -65,9 +65,9 @@ struct OpenAppIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         let urlString: String
         if let route = route, !route.isEmpty {
-            urlString = "nutrino://\(route)"
+            urlString = "macrobalance://\(route)"
         } else {
-            urlString = "nutrino:///dashboard" // Default route
+            urlString = "macrobalance:///dashboard" // Default route
         }
         
         // Ensure the URL is valid; if not, throw an error.

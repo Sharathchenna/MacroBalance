@@ -142,6 +142,9 @@ Future<void> main() async {
   // Increment app session count for paywall logic
   await PaywallManager().incrementAppSession();
 
+  // Initialize widget service
+  await WidgetService.initWidgetService();
+
   // Register error handlers
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -283,6 +286,8 @@ Future<void> _delayedWidgetRefresh() async {
   // Delay widget refresh to avoid slowing startup
   await Future.delayed(const Duration(seconds: 3));
   try {
+    // Double-check that widget service is initialized
+    await WidgetService.initWidgetService();
     await WidgetService.forceWidgetRefresh();
   } catch (e) {
     debugPrint('Delayed widget refresh failed: $e');
@@ -469,6 +474,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangePlatformBrightness() {
+    super.didChangePlatformBrightness();
+    // Notify theme provider when system brightness changes
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    if (themeProvider.useSystemTheme) {
+      themeProvider.notifyListeners();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(builder: (context, themeProvider, child) {
       // Update iOS status bar style based on theme
@@ -489,7 +504,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         title: 'MacroTracker',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+        themeMode: themeProvider.useSystemTheme
+            ? ThemeMode.system
+            : themeProvider.isDarkMode
+                ? ThemeMode.dark
+                : ThemeMode.light,
         initialRoute: Routes.initial,
         navigatorObservers: [MyRouteObserver()],
         routes: {

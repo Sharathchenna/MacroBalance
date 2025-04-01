@@ -80,6 +80,8 @@
 	<true/>
 	<key>com.posthog.posthog.POSTHOG_HOST</key>
 	<string>https://us.i.posthog.com</string>
+	<key>HomeWidgetAppGroupId</key>
+	<string>group.app.macrobalance.com</string>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
 </dict>

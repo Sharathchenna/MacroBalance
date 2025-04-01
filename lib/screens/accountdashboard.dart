@@ -416,34 +416,59 @@ class _AccountDashboardState extends State<AccountDashboard>
                 customColors: customColors,
                 children: [
                   _buildSwitchTile(
+                    icon: CupertinoIcons.device_phone_portrait,
+                    iconColor: Colors.teal,
+                    title: 'Use System Theme',
+                    subtitle: 'Follow your device theme settings',
+                    value: themeProvider.useSystemTheme,
+                    onChanged: (value) {
+                      themeProvider.setUseSystemTheme(value);
+                      HapticFeedback.lightImpact();
+
+                      // Update status bar when system theme setting changes
+                      if (Platform.isIOS) {
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          updateStatusBarForIOS(themeProvider.isDarkMode);
+                        });
+                      }
+                    },
+                    colorScheme: colorScheme,
+                    customColors: customColors,
+                  ),
+                  _buildSwitchTile(
                     icon: isDarkMode
                         ? CupertinoIcons.moon_fill
                         : CupertinoIcons.sun_max_fill,
                     iconColor: isDarkMode ? Colors.indigo : Colors.amber,
                     title: 'Dark Mode',
-                    subtitle: isDarkMode
-                        ? 'Switch to light theme'
-                        : 'Switch to dark theme',
+                    subtitle: themeProvider.useSystemTheme
+                        ? 'Controlled by system settings'
+                        : (isDarkMode
+                            ? 'Switch to light theme'
+                            : 'Switch to dark theme'),
                     value: isDarkMode,
                     onChanged: (value) {
-                      themeProvider.toggleTheme();
-                      HapticFeedback.lightImpact();
+                      if (!themeProvider.useSystemTheme) {
+                        themeProvider.toggleTheme();
+                        HapticFeedback.lightImpact();
 
-                      // Update status bar when theme changes
-                      if (Platform.isIOS) {
-                        // Use a small delay to let theme change apply first
-                        Future.delayed(const Duration(milliseconds: 100), () {
-                          SystemChrome.setSystemUIOverlayStyle(
-                              SystemUiOverlayStyle(
-                            statusBarBrightness:
-                                value ? Brightness.dark : Brightness.light,
-                            statusBarIconBrightness:
-                                value ? Brightness.light : Brightness.dark,
-                            statusBarColor: Colors.transparent,
-                          ));
-                        });
+                        // Update status bar when theme changes
+                        if (Platform.isIOS) {
+                          // Use a small delay to let theme change apply first
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            SystemChrome.setSystemUIOverlayStyle(
+                                SystemUiOverlayStyle(
+                              statusBarBrightness:
+                                  value ? Brightness.dark : Brightness.light,
+                              statusBarIconBrightness:
+                                  value ? Brightness.light : Brightness.dark,
+                              statusBarColor: Colors.transparent,
+                            ));
+                          });
+                        }
                       }
                     },
+                    enabled: !themeProvider.useSystemTheme,
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
@@ -1167,6 +1192,7 @@ class _AccountDashboardState extends State<AccountDashboard>
     required ValueChanged<bool> onChanged,
     required ColorScheme colorScheme,
     required CustomColors? customColors,
+    bool enabled = true,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1186,19 +1212,24 @@ class _AccountDashboardState extends State<AccountDashboard>
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.w500,
             fontSize: 15,
+            color: enabled
+                ? colorScheme.onSurface
+                : colorScheme.onSurface.withOpacity(0.5),
           ),
         ),
         subtitle: Text(
           subtitle,
           style: GoogleFonts.poppins(
             fontSize: 13,
-            color: colorScheme.onSurface.withValues(alpha: 0.6),
+            color: enabled
+                ? colorScheme.onSurface.withValues(alpha: 0.6)
+                : colorScheme.onSurface.withValues(alpha: 0.4),
           ),
         ),
         trailing: CupertinoSwitch(
           value: value,
           activeTrackColor: colorScheme.primary,
-          onChanged: onChanged,
+          onChanged: enabled ? onChanged : null,
         ),
       ),
     );

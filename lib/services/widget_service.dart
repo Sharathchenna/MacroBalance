@@ -13,7 +13,7 @@ const String DAILY_MEALS_KEY = 'daily_meals';
 
 class WidgetService {
   static const String WIDGET_UPDATE_ACTION =
-      "com.sharathchenna88.nutrino.WIDGET_UPDATE";
+      "app.macrobalance.com.WIDGET_UPDATE";
 
   /// Initialize the widget service
   static Future<void> initWidgetService() async {
@@ -73,14 +73,9 @@ class WidgetService {
 
       final jsonData = jsonEncode(data);
 
-      // Save data using both methods to ensure compatibility
-      // 1. Using HomeWidget plugin (primary method)
-      bool primarySuccess = await _saveWithHomeWidget(MACRO_DATA_KEY, jsonData);
-
-      // 2. Using UserDefaults directly with App Group (backup method)
-      if (!primarySuccess) {
-        await _saveToUserDefaults(MACRO_DATA_KEY, jsonData);
-      }
+      // Save data using HomeWidget plugin
+      await _saveWithHomeWidget(MACRO_DATA_KEY, jsonData);
+      // Backup save method removed as it used the wrong container
 
       debugPrint(
           'Widget macro data updated: ${jsonData.substring(0, min(50, jsonData.length))}...');
@@ -113,13 +108,9 @@ class WidgetService {
 
       final jsonData = jsonEncode(meals);
 
-      // Save using both methods to ensure compatibility
-      bool primarySuccess =
-          await _saveWithHomeWidget(DAILY_MEALS_KEY, jsonData);
-
-      if (!primarySuccess) {
-        await _saveToUserDefaults(DAILY_MEALS_KEY, jsonData);
-      }
+      // Save using HomeWidget plugin
+      await _saveWithHomeWidget(DAILY_MEALS_KEY, jsonData);
+      // Backup save method removed as it used the wrong container
 
       debugPrint('Widget meal data updated with ${meals.length} meals');
 
@@ -141,52 +132,14 @@ class WidgetService {
     }
   }
 
-  /// Save directly to SharedPreferences
-  static Future<void> _saveToUserDefaults(String key, String value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(key, value);
-      debugPrint('Saved widget data using SharedPreferences: $key');
-    } catch (e) {
-      debugPrint('Error with SharedPreferences save: $e');
-    }
-  }
+  // Removed _saveToUserDefaults as it saved to the wrong container for iOS widgets
 
   /// Trigger a widget update
   static Future<void> _updateWidgets() async {
     try {
-      // Try each update method to ensure widget refreshes
-
-      // Method 1: With all parameters
-      try {
-        await HomeWidget.updateWidget(
-          androidName: 'MacroTrackerWidgetProvider',
-          iOSName: 'MacroTrackerWidget',
-          qualifiedAndroidName:
-              'com.sharathchenna88.nutrino.MacroTrackerWidgetProvider',
-        );
-        debugPrint('Widget update method 1 success');
-      } catch (e) {
-        debugPrint('Widget update method 1 failed: $e');
-
-        // Method 2: iOS only
-        try {
-          await HomeWidget.updateWidget(
-            iOSName: 'MacroTrackerWidget',
-          );
-          debugPrint('Widget update method 2 success');
-        } catch (e2) {
-          debugPrint('Widget update method 2 failed: $e2');
-
-          // Method 3: Basic update
-          try {
-            await HomeWidget.updateWidget();
-            debugPrint('Widget update method 3 success');
-          } catch (e3) {
-            debugPrint('All widget update methods failed');
-          }
-        }
-      }
+      // Update the iOS widget specifically
+      await HomeWidget.updateWidget(iOSName: 'MacroTrackerWidget');
+      debugPrint('Widget update triggered for iOSName: MacroTrackerWidget');
     } catch (e) {
       debugPrint('Critical error updating widgets: $e');
     }

@@ -90,7 +90,7 @@ struct Provider: TimelineProvider {
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<MacroWidgetEntry>) -> Void) {
         let currentDate = Date()
-        logger.log("🔄 Nutrino Widget: Starting timeline refresh")
+        logger.log("🔄 MacroBalance Widget: Starting timeline refresh")
         
         // Set minimum refresh interval to 15 minutes
         let minimumRefreshInterval: TimeInterval = 15 * 60 // 15 minutes in seconds
@@ -259,14 +259,16 @@ struct ModernSmallWidget: View {
     var body: some View {
         VStack(spacing: 12) {
             // Modern header with icon
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(DesignSystem.gradients.primary)
                 
-                Text("Nutrino")
-                    .font(.system(size: 14, weight: .bold))
+                Text("MacroBalance")
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(DesignSystem.gradients.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 
                 Spacer()
             }
@@ -352,14 +354,16 @@ struct ModernMediumWidget: View {
             // Left section with calories
             VStack(alignment: .leading, spacing: 12) {
                 // Header
-                HStack {
+                HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(DesignSystem.gradients.primary)
                     
-                    Text("Nutrino")
-                        .font(.system(size: 16, weight: .bold))
+                    Text("MacroBalance")
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(DesignSystem.gradients.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     
                     Spacer()
                 }
@@ -446,16 +450,18 @@ struct ModernLargeWidget: View {
         GeometryReader { geometry in
             VStack(alignment: .leading, spacing: 12) {
                 // Header
-                HStack(spacing: 8) {
+                HStack(spacing: 4) {
                     // App branding
-                    HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(DesignSystem.gradients.primary)
                         
-                        Text("Nutrino")
-                            .font(.system(size: 16, weight: .bold))
+                        Text("MacroBalance")
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(DesignSystem.gradients.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
                     
                     Spacer()
@@ -1083,7 +1089,7 @@ struct MacroTrackerWidget: Widget {
         ) { entry in
             MacroWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Nutrino")
+        .configurationDisplayName("MacroBalance")
         .description("Track your daily nutrition at a glance.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()

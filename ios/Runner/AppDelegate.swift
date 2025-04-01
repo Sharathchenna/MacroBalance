@@ -14,6 +14,7 @@ import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
 import AVFoundation  // Added for camera functionality
+import home_widget // Import home_widget
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, MessagingDelegate, NativeCameraViewControllerDelegate {
@@ -61,7 +62,9 @@ import AVFoundation  // Added for camera functionality
         // Explicitly configure Firebase here BEFORE registering plugins
         FirebaseApp.configure()
         print("[AppDelegate] Firebase configured via FirebaseApp.configure()")
-        
+
+        // App Group Id for home_widget should be set in Info.plist
+
         GeneratedPluginRegistrant.register(with: self)
         
         // Keep Firebase messaging setup
