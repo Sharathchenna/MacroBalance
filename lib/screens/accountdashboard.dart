@@ -28,6 +28,7 @@ import 'package:macrotracker/screens/feedback_screen.dart'
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -557,7 +558,27 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  // Add the reset onboarding button here
+                  // Remove reset onboarding button from here
+                  _buildListTile(
+                    icon: CupertinoIcons.delete,
+                    iconColor: Colors.red,
+                    title: 'Delete Account',
+                    subtitle: 'Permanently delete your account and data',
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _confirmDeleteAccount,
+                    colorScheme: colorScheme,
+                    customColors: customColors,
+                  ),
+                ],
+              ),
+
+              // Add new Data Management section
+              _buildSection(
+                title: 'Data Management',
+                icon: CupertinoIcons.arrow_counterclockwise,
+                colorScheme: colorScheme,
+                customColors: customColors,
+                children: [
                   _buildListTile(
                     icon: CupertinoIcons.refresh,
                     iconColor: Colors.purple,
@@ -1578,6 +1599,19 @@ class _AccountDashboardState extends State<AccountDashboard>
         ),
       );
     }
+  }
+
+  // Add this function to handle account deletion
+  Future<void> _confirmDeleteAccount() async {
+    HapticFeedback.mediumImpact();
+
+    // Navigate to a dedicated screen for account deletion confirmation
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => const DeleteAccountScreen(),
+      ),
+    );
   }
 
   @override

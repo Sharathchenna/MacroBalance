@@ -1,0 +1,16 @@
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Supabase
+.branches
+.temp
+.DS_Store
+
+# Node.js dependencies
+node_modules/
+dist/ 
