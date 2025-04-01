@@ -4,6 +4,7 @@ import 'package:lottie/lottie.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 import 'dart:async';
 
@@ -42,7 +43,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     {
       'title': 'Unlimited Nutrition Tracking',
       'description':
-          'Track every meal with unlimited entries and detailed macro breakdowns',
+          'Track unlimited meals and foods with detailed macronutrient breakdowns, calorie counts, and personalized nutrition insights',
       'icon': Icons.analytics_outlined,
       'animation': 'assets/animations/nutrition.json',
       'highlight': 'Unlimited',
@@ -50,7 +51,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     {
       'title': 'AI-Powered',
       'description':
-          'Track your meals with AI assistance for accurate and quick logging',
+          'Our advanced AI accurately identifies foods, estimates portions, and provides detailed nutritional analysis from photos or text descriptions',
       'icon': Icons.auto_awesome_mosaic_outlined,
       'animation': 'assets/animations/AI_powered.json',
       'highlight': 'AI-Powered',
@@ -58,15 +59,15 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     {
       'title': 'Easy Meal Logging',
       'description':
-          'Log meals effortlessly with our intuitive interface and smart suggestions',
+          'Save time with our intuitive interface, quick entry templates, meal history, and smart suggestions based on your eating habits',
       'icon': Icons.psychology_outlined,
       'animation': 'assets/animations/meal_logging.json',
-      'highlight': 'Smart',
+      'highlight': 'Easy',
     },
     {
       'title': 'Premium Experience',
       'description':
-          'Enjoy an ad-free experience with exclusive features and priority support',
+          'Enjoy an ad-free interface, priority customer support, and exclusive premium features including detailed nutrition reports and trends',
       'icon': Icons.star_outline,
       'animation': 'assets/animations/premium_badge.json',
       'highlight': 'Premium',
@@ -152,6 +153,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
         setState(() {
           _isLoading = false;
         });
+        // Log the error but don't show to user - UI will display an error state
+        debugPrint('Failed to fetch offerings: ${e.toString()}');
       }
     }
   }
@@ -166,15 +169,39 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       if (customerInfo.entitlements.active.isNotEmpty) {
         widget.onDismiss();
       } else {
-        _showError('Purchase completed but subscription not activated');
+        _showError(
+            'Purchase completed but your subscription could not be activated. Please contact support.');
       }
     } catch (e) {
       if (e is PurchasesErrorCode) {
-        if (e != PurchasesErrorCode.purchaseCancelledError) {
-          _showError(e.toString());
+        // Handle specific RevenueCat error codes with user-friendly messages
+        if (e == PurchasesErrorCode.purchaseCancelledError) {
+          // Don't show error for user cancellation
+          return;
+        } else if (e == PurchasesErrorCode.networkError) {
+          _showError(
+              'Network connection error. Please check your internet connection and try again.');
+        } else if (e == PurchasesErrorCode.storeProblemError) {
+          _showError(
+              'There was a problem with the App Store. Please try again later.');
+        } else if (e == PurchasesErrorCode.purchaseNotAllowedError) {
+          _showError(
+              'Purchase not allowed. Please check your device settings or parental controls.');
+        } else if (e == PurchasesErrorCode.purchaseInvalidError) {
+          _showError(
+              'The purchase was invalid. Please try again or contact support.');
+        } else if (e == PurchasesErrorCode.productAlreadyPurchasedError) {
+          _showError(
+              'You already own this subscription. Please restore your purchases.');
+        } else {
+          _showError(
+              'There was an error processing your purchase. Please try again later.');
         }
       } else {
-        _showError(e.toString());
+        // Generic error message for unexpected errors
+        _showError('An unexpected error occurred. Please try again later.');
+        // Log the actual error for debugging
+        debugPrint('Purchase error: ${e.toString()}');
       }
     } finally {
       if (mounted) {
@@ -203,7 +230,15 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
         );
       }
     } catch (e) {
-      _showError(e.toString());
+      // User-friendly message for restore errors
+      if (e is PurchasesErrorCode && e == PurchasesErrorCode.networkError) {
+        _showError(
+            'Network connection error. Please check your internet connection and try again.');
+      } else {
+        _showError('Could not restore purchases. Please try again later.');
+        // Log the actual error for debugging
+        debugPrint('Restore error: ${e.toString()}');
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -213,13 +248,52 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     }
   }
 
+  Future<void> _launchPrivacyPolicy() async {
+    final Uri privacyPolicyUrl = Uri.parse('https://macrobalance.app/privacy');
+    try {
+      if (!await launchUrl(privacyPolicyUrl,
+          mode: LaunchMode.externalApplication)) {
+        _showError(
+            'Could not open the privacy policy. Please try again later.');
+      }
+    } catch (e) {
+      _showError('Could not open the privacy policy. Please try again later.');
+      debugPrint('Error launching URL: $e');
+    }
+  }
+
+  Future<void> _launchTermsOfService() async {
+    final Uri tosUrl = Uri.parse('https://macrobalance.app/terms');
+    try {
+      if (!await launchUrl(tosUrl, mode: LaunchMode.externalApplication)) {
+        _showError(
+            'Could not open the terms of service. Please try again later.');
+      }
+    } catch (e) {
+      _showError(
+          'Could not open the terms of service. Please try again later.');
+      debugPrint('Error launching URL: $e');
+    }
+  }
+
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Error: $message'),
+        content: Text(message,
+            style: TextStyle(
+              color: Colors.white,
+            )),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.red.shade800,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
       ),
     );
   }
@@ -678,12 +752,30 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                 child: Column(
                                   children: [
                                     Text(
-                                      "Cancel anytime. Subscription automatically renews unless canceled at least 24 hours before the end of the current period.",
+                                      _isTrialMode
+                                          ? _selectedPackage?.packageType ==
+                                                  PackageType.lifetime
+                                              ? "After your 14-day free trial, you'll be charged ${_selectedPackage?.storeProduct.priceString ?? 'the one-time fee'} once with no recurring payments."
+                                              : "After your 14-day free trial, your subscription will automatically renew at ${_selectedPackage?.storeProduct.priceString ?? 'the selected price'} per ${_selectedPackage?.packageType == PackageType.annual ? 'year' : 'month'} until canceled."
+                                          : _selectedPackage?.packageType ==
+                                                  PackageType.lifetime
+                                              ? "One-time payment with lifetime access. No recurring charges."
+                                              : "Subscription automatically renews unless canceled at least 24 hours before the end of the current period.",
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: textColor.withOpacity(0.8),
                                         height: 1.4,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      "To cancel, go to Settings → Apple ID → Subscriptions and select this subscription.",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: textColor.withOpacity(0.7),
+                                        height: 1.3,
                                       ),
                                     ),
                                     const SizedBox(height: 12),
@@ -693,8 +785,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                       children: [
                                         TextButton(
                                           onPressed: () {
-                                            // Add terms of service navigation
                                             HapticFeedback.lightImpact();
+                                            _launchTermsOfService();
                                           },
                                           style: TextButton.styleFrom(
                                             padding: EdgeInsets.zero,
@@ -721,8 +813,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         ),
                                         TextButton(
                                           onPressed: () {
-                                            // Add privacy policy navigation
                                             HapticFeedback.lightImpact();
+                                            _launchPrivacyPolicy();
                                           },
                                           style: TextButton.styleFrom(
                                             padding: EdgeInsets.zero,
@@ -880,18 +972,22 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       // Skip packages we don't want to show
       if (!isMonthly && !isAnnual && !isLifetime) continue;
 
-      String title, description;
+      String title;
+      String? description;
+      String billingInfo;
       String? perMonthPrice;
       bool isBestValue = isAnnual && savingsText != null;
 
       switch (package.packageType) {
         case PackageType.monthly:
           title = "Monthly";
-          description = "Full access, billed monthly";
+          description = "14 day Free trial";
+          billingInfo = "Billed monthly";
           break;
         case PackageType.annual:
           title = "Annual";
-          description = "Best value annual plan";
+          description = "14 day Free trial";
+          billingInfo = "Billed annually";
           // Calculate per-month price
           if (package.storeProduct.price > 0) {
             double monthlyEquivalent = package.storeProduct.price / 12;
@@ -901,11 +997,13 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           break;
         case PackageType.lifetime:
           title = "Lifetime";
-          description = "One-time payment, forever access";
+          description = "forever access";
+          billingInfo = "One-time payment";
           break;
         default:
           title = package.packageType.name;
           description = "Premium subscription";
+          billingInfo = "";
       }
 
       cards.add(
@@ -1009,26 +1107,41 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                   ],
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                description,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: textColor.withOpacity(0.6),
+                              if (description != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  description,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: textColor.withOpacity(0.6),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
 
-                        // Price
-                        Text(
-                          price,
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
-                          ),
+                        // Price and billing info column
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const SizedBox(height: 8),
+                            Text(
+                              price,
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                color: textColor,
+                              ),
+                            ),
+                            Text(
+                              billingInfo,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textColor.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1046,7 +1159,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [accentColor, goldAccent],
+                            colors: [accentColor, goldAccent.withOpacity(0.8)],
                           ),
                           borderRadius: const BorderRadius.only(
                             bottomLeft: Radius.circular(8),
@@ -1073,7 +1186,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               "SAVE $savingsText",
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 12,
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1134,14 +1247,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           textAlign: TextAlign.center,
           text: TextSpan(
             children: [
-              TextSpan(
-                text: feature['title'].replaceAll(highlight, ''),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                ),
-              ),
               if (highlight.isNotEmpty)
                 TextSpan(
                   text: highlight,
@@ -1151,6 +1256,14 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                     color: premiumColors.gold,
                   ),
                 ),
+              TextSpan(
+                text: feature['title'].replaceAll(highlight, ''),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
             ],
           ),
         ),
@@ -1163,6 +1276,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
             style: TextStyle(
               fontSize: 13,
               color: textColor.withOpacity(0.7),
+              height: 1.3,
             ),
           ),
         ),
