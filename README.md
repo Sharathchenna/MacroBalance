@@ -1,4 +1,4 @@
-# Nutrino - Macro Tracking App
+# MacroBalance - Macro Tracking App
 
 A modern, feature-rich macro and nutrition tracking application built with Flutter.
 
