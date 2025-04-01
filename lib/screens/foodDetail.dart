@@ -1431,7 +1431,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                     ],
                   ),
                   child: ElevatedButton(
-                    onPressed: _addFoodEntry,
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      _addFoodEntry();
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       foregroundColor: customColors.textPrimary,

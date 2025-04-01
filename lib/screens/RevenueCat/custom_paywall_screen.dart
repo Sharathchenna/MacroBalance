@@ -7,6 +7,7 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 import 'dart:async';
+import 'package:macrotracker/Routes/route_constants.dart'; // Added import
 
 class CustomPaywallScreen extends StatefulWidget {
   final VoidCallback onDismiss; // Called on successful purchase/restore or explicit dismissal action
@@ -187,7 +188,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     try {
       final customerInfo = await Purchases.purchasePackage(package);
       if (customerInfo.entitlements.active.isNotEmpty) {
-        widget.onDismiss();
+        // Navigate to Dashboard and clear the stack
+        Navigator.pushNamedAndRemoveUntil(
+            context, RouteNames.dashboard, (Route<dynamic> route) => false); // Corrected class name and route name
       } else {
         _showError(
             'Purchase completed but your subscription could not be activated. Please contact support.');
@@ -240,7 +243,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     try {
       final customerInfo = await Purchases.restorePurchases();
       if (customerInfo.entitlements.active.isNotEmpty) {
-        widget.onDismiss();
+        // Navigate to Dashboard and clear the stack
+        Navigator.pushNamedAndRemoveUntil(
+            context, RouteNames.dashboard, (Route<dynamic> route) => false); // Corrected class name and route name
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
