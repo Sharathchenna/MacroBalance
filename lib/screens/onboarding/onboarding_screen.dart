@@ -184,7 +184,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     await saveMacroResults(results);
 
     // Navigate to results screen with a transition
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
             ResultsScreen(results: results),

@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/auth/paywall_gate.dart';
+import 'package:macrotracker/screens/onboarding/onboarding_screen.dart'; // Add this import
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -143,6 +144,11 @@ class _ResultsScreenState extends State<ResultsScreen>
     );
   }
 
+  void _navigateBack() {
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).pop(); // Navigate back to previous screen
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -155,8 +161,13 @@ class _ResultsScreenState extends State<ResultsScreen>
     final customColors = Theme.of(context).extension<CustomColors>()!;
 
     return Scaffold(
-      backgroundColor: customColors.cardBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded, color: customColors.textPrimary),
+          onPressed: _navigateBack,
+          tooltip: 'Back to previous step',
+        ),
         title: Text(
           'Your Nutrition Plan',
           style: GoogleFonts.poppins(
@@ -167,13 +178,6 @@ class _ResultsScreenState extends State<ResultsScreen>
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // actions: [
-        //   IconButton(
-        //     onPressed: _shareResults,
-        //     icon: Icon(Icons.share_rounded, color: customColors.textPrimary),
-        //     tooltip: 'Share your results',
-        //   ),
-        // ],
       ),
       body: AnimatedBuilder(
         animation: _fadeInAnimation,
@@ -1135,13 +1139,13 @@ class _ResultsScreenState extends State<ResultsScreen>
       child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: Offset(0, -2),
-            ),
-          ],
+          // boxShadow: [
+          //   BoxShadow(
+          //     color: Colors.black.withOpacity(0.05),
+          //     blurRadius: 10,
+          //     offset: Offset(0, -2),
+          //   ),
+          // ],
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Center(
