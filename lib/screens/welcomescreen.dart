@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/screens/signup.dart';
 import 'package:flutter/services.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/main.dart'; // Import to access the helper function
 
@@ -74,11 +75,11 @@ class _WelcomescreenState extends State<Welcomescreen>
   Widget build(BuildContext context) {
     // No need to set SystemChrome.setSystemUIOverlayStyle here anymore
     // The helper function in main.dart handles it properly
-
+    final customColors = Theme.of(context).extension<CustomColors>();
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -97,7 +98,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                           height: 80,
                           width: 80,
                           decoration: BoxDecoration(
-                            color: theme.primaryColor,
+                            color: customColors!.cardBackground,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
@@ -107,19 +108,19 @@ class _WelcomescreenState extends State<Welcomescreen>
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.restaurant_menu,
-                            color: Colors.white,
-                            size: 40,
-                          ),
+                          child: Image(
+                              image: AssetImage(Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? 'assets/icons/icon_black.png'
+                                  : 'assets/icons/icon_white.png')),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'MacroBalance',
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: customColors!.textPrimary,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -132,7 +133,7 @@ class _WelcomescreenState extends State<Welcomescreen>
               // Tagline
               FadeTransition(
                 opacity: _fadeAnimation,
-                child: const Center(
+                child: Center(
                   child: Padding(
                     padding: EdgeInsets.only(top: 12.0),
                     child: Text(
@@ -141,7 +142,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: Colors.black54,
+                        color: customColors.textSecondary,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -153,13 +154,13 @@ class _WelcomescreenState extends State<Welcomescreen>
 
               FadeTransition(
                 opacity: _fadeAnimation,
-                child: const Center(
+                child: Center(
                   child: Text(
                     'Track, Analyze, Achieve',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.black45,
+                      color: customColors.textSecondary,
                     ),
                   ),
                 ),
@@ -177,12 +178,19 @@ class _WelcomescreenState extends State<Welcomescreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 24),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      color: customColors.cardBackground,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.grey[200]!,
-                        width: 1,
-                      ),
+                      // border: Border.all(
+                      //   color: Colors.grey[200]!,
+                      //   width: 1,
+                      // ),
                     ),
                     child: Column(
                       children: [
@@ -223,23 +231,22 @@ class _WelcomescreenState extends State<Welcomescreen>
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primaryColor,
-                      foregroundColor:
-                          Colors.white, // Explicitly set text color to white
+                      backgroundColor: customColors.textPrimary,
+                      foregroundColor: theme.colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Sign In',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
-                        color:
-                            Colors.white, // Explicitly set text color to white
+                        color: theme.colorScheme
+                            .onPrimary, // Explicitly set text color to white
                       ),
                     ),
                   ),
@@ -264,7 +271,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                     },
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
-                        color: theme.primaryColor, // Removed opacity
+                        color: customColors.textPrimary, // Removed opacity
                         width: 1,
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -275,7 +282,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                     child: Text(
                       'Create Account',
                       style: TextStyle(
-                        color: theme.primaryColor, // Removed opacity
+                        color: customColors.textPrimary, // Removed opacity
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
@@ -294,17 +301,19 @@ class _WelcomescreenState extends State<Welcomescreen>
   }
 
   Widget _buildFeatureItem({required IconData icon, required String text}) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    // final ThemeData theme = Theme.of(context);
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: customColors!.dateNavigatorBackground,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
             icon,
-            color: Theme.of(context).primaryColor,
+            color: customColors.textPrimary,
             size: 24,
           ),
         ),
@@ -312,8 +321,8 @@ class _WelcomescreenState extends State<Welcomescreen>
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              color: Colors.black87,
+            style: TextStyle(
+              color: customColors.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),

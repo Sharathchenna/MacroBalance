@@ -211,31 +211,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> saveMacroResults(Map<String, dynamic> macroResults) async {
-    // Save locally
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('macro_results', json.encode(macroResults));
+    try {
+      // Save locally first
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('macro_results', json.encode(macroResults));
 
-    // Save the initial weight in kg (regardless of display unit)
-    final weightInKg = _weightKg;
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    // Create initial weight history entry
-    final List<Map<String, dynamic>> weightHistory = [
-      {
-        'date': today,
-        'weight': weightInKg,
-      }
-    ];
-    await prefs.setString('weight_history', jsonEncode(weightHistory));
-
-    // Save weight unit preference locally only
-    await prefs.setString('weight_unit', _isMetricWeight ? 'kg' : 'lbs');
-
-    // Save to Supabase if user is authenticated
-    final currentUser = Supabase.instance.client.auth.currentUser;
-    if (currentUser != null) {
-      try {
-        // Ensure all numeric values are doubles for Supabase
+      // Save to Supabase if user is authenticated
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser != null) {
+        // Prepare data with proper type conversion
         final Map<String, dynamic> supabaseData = {
           'id': currentUser.id,
           'email': currentUser.email ?? '',
@@ -247,57 +231,111 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'carbs_goal': macroResults['carbs']?.toDouble(),
           'fat_goal': macroResults['fat']?.toDouble(),
           'gender': _gender,
-          'weight': _weightKg,
-          'height': _heightCm,
+          'weight': _weightKg.toDouble(),
+          'height': _heightCm.toDouble(),
           'age': _age,
           'activity_level': _activityLevel,
           'goal_type': _goal,
           'deficit_surplus': _deficit,
-          'protein_ratio': _proteinRatio,
-          'fat_ratio': _fatRatio,
-          'goal_weight_kg': _goalWeightKg,
-          'bmr_formula': 'Auto-selected based on your profile',
-          'body_fat_percentage': _showBodyFatInput ? _bodyFatPercentage : null,
+          'protein_ratio': _proteinRatio.toDouble(),
+          'fat_ratio': _fatRatio.toDouble(),
+          'goal_weight_kg': _goalWeightKg.toDouble(),
+          'current_weight_kg': _weightKg.toDouble(),
+          'bmr': macroResults['bmr']?.toDouble(),
+          'tdee': macroResults['tdee']?.toDouble(),
+          'steps_goal': macroResults['recommended_steps'] ?? 10000,
+          'body_fat_percentage':
+              _showBodyFatInput ? _bodyFatPercentage.toDouble() : null,
           'updated_at': DateTime.now().toIso8601String(),
+          'macro_targets': {
+            'calories': (macroResults['calories'] ??
+                    macroResults['calorie_target'] ??
+                    0)
+                .toDouble(),
+            'protein': (macroResults['protein'] ?? 0).toDouble(),
+            'carbs': (macroResults['carbs'] ?? 0).toDouble(),
+            'fat': (macroResults['fat'] ?? 0).toDouble(),
+          },
         };
 
-        await Supabase.instance.client.from('user_macros').upsert(supabaseData);
+        // Remove any NaN or infinite values
+        supabaseData.removeWhere(
+            (_, value) => value is double && (value.isNaN || value.isInfinite));
 
-        // Save user preferences without the weight_unit column
-        await Supabase.instance.client.from('user_preferences').upsert({
-          'user_id': currentUser.id,
-          'measurement_system': _isMetricWeight ? 'metric' : 'imperial',
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-
-        // Save these values to SharedPreferences for local access
-        prefs.setDouble(
-            'calories_goal',
-            (macroResults['calories'] ?? macroResults['calorie_target'] ?? 0)
-                .toDouble());
-        prefs.setDouble(
-            'protein_goal', (macroResults['protein'] ?? 0).toDouble());
-        prefs.setDouble('carbs_goal', (macroResults['carbs'] ?? 0).toDouble());
-        prefs.setDouble('fat_goal', (macroResults['fat'] ?? 0).toDouble());
-
-        // Save goal weight if applicable
-        if (_goal != MacroCalculatorService.GOAL_MAINTAIN) {
-          prefs.setDouble('goal_weight_kg', _goalWeightKg);
+        // Validate and clean nested maps
+        if (supabaseData['macro_targets'] != null) {
+          (supabaseData['macro_targets'] as Map<String, dynamic>).removeWhere(
+              (_, value) =>
+                  value is double && (value.isNaN || value.isInfinite));
         }
-      } catch (e) {
-        print('Error saving macro results to Supabase: $e');
-        // Show error message to user
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error saving data: $e'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+
+        // Try to update first, if it fails then insert
+        try {
+          await Supabase.instance.client
+              .from('user_macros')
+              .upsert(supabaseData);
+
+          debugPrint('Successfully saved macro results to Supabase');
+
+          // Verify the sync
+          final verification = await Supabase.instance.client
+              .from('user_macros')
+              .select()
+              .eq('id', currentUser.id)
+              .single();
+
+          if (verification != null) {
+            debugPrint('Sync verification successful');
+            debugPrint('Calories goal: ${verification['calories_goal']}');
+            debugPrint('Weight: ${verification['weight']}');
+          }
+        } catch (e) {
+          debugPrint('Error in Supabase upsert: $e');
+          // If upsert fails, try insert
+          await Supabase.instance.client
+              .from('user_macros')
+              .insert(supabaseData);
         }
       }
+
+      // Always save to local storage for offline access
+      await _saveLocalGoals(macroResults);
+    } catch (e) {
+      debugPrint('Error saving macro results: $e');
+      if (e is PostgrestException) {
+        debugPrint('Supabase error: ${e.message}');
+      }
+      rethrow; // Re-throw to handle in UI
     }
+  }
+
+  Future<void> _saveLocalGoals(Map<String, dynamic> macroResults) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Save comprehensive nutrition goals
+    final nutritionGoals = {
+      'macro_targets': {
+        'calories':
+            (macroResults['calories'] ?? macroResults['calorie_target'] ?? 0)
+                .toDouble(),
+        'protein': (macroResults['protein'] ?? 0).toDouble(),
+        'carbs': (macroResults['carbs'] ?? 0).toDouble(),
+        'fat': (macroResults['fat'] ?? 0).toDouble(),
+      },
+      'goal_weight_kg': _goalWeightKg,
+      'current_weight_kg': _weightKg,
+      'goal_type': _goal,
+      'deficit_surplus': _deficit,
+      'protein_ratio': _proteinRatio,
+      'fat_ratio': _fatRatio,
+      'steps_goal': macroResults['recommended_steps'] ?? 10000,
+      'bmr': macroResults['bmr']?.toDouble(),
+      'tdee': macroResults['tdee']?.toDouble(),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    await prefs.setString('nutrition_goals', json.encode(nutritionGoals));
+    debugPrint('Successfully saved nutrition goals locally');
   }
 
   @override
