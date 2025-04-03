@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'dart:convert'; // Ensure dart:convert is imported
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:macrotracker/main.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 
@@ -150,16 +151,14 @@ class WidgetService {
     try {
       debugPrint('Forcing widget refresh...');
 
-      // First try to clear any cached data
+      // Get current data from StorageService (synchronous)
       try {
-        final prefs = await SharedPreferences.getInstance();
         final keysToRefresh = [MACRO_DATA_KEY, DAILY_MEALS_KEY];
-
-        // Get current data before clearing
         final currentData = <String, String>{};
         for (final key in keysToRefresh) {
-          final value = prefs.getString(key);
-          if (value != null) {
+          // Use StorageService().get - it returns dynamic, cast if needed or handle null
+          final dynamic value = StorageService().get(key);
+          if (value != null && value is String) { // Ensure it's a non-null string
             currentData[key] = value;
           }
         }

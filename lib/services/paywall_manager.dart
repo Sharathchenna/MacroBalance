@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart';
 import 'package:macrotracker/services/subscription_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 
 /// Class to manage paywall presentation throughout the app
 class PaywallManager {
@@ -21,29 +21,29 @@ class PaywallManager {
   static const Duration _minTimeBetweenPaywalls = Duration(days: 3);
   static const int _maxPaywallShowPerMonth = 5;
 
-  // Increment app session count
-  Future<void> incrementAppSession() async {
+  // Increment app session count (now synchronous)
+  void incrementAppSession() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final currentCount = prefs.getInt(_appSessionCountKey) ?? 0;
-      await prefs.setInt(_appSessionCountKey, currentCount + 1);
+      // Assuming StorageService is initialized
+      final currentCount = StorageService().get(_appSessionCountKey, defaultValue: 0);
+      StorageService().put(_appSessionCountKey, currentCount + 1);
     } catch (e) {
       debugPrint('Error incrementing app session count: $e');
     }
   }
 
-  // Check if it's appropriate to show the paywall
-  Future<bool> shouldShowPaywall() async {
+  // Check if it's appropriate to show the paywall (now synchronous)
+  bool shouldShowPaywall() {
     // Don't show paywall if user already has premium
     if (_subscriptionService.hasPremiumAccess()) {
       return false;
     }
 
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // Assuming StorageService is initialized
 
       // Get last shown timestamp
-      final lastShownTimestamp = prefs.getInt(_lastPaywallShownKey);
+      final lastShownTimestamp = StorageService().get(_lastPaywallShownKey);
       final now = DateTime.now().millisecondsSinceEpoch;
 
       // Check if minimum time has passed since last shown
@@ -60,14 +60,14 @@ class PaywallManager {
       // Check monthly show count
       final currentMonthYear = '${DateTime.now().month}-${DateTime.now().year}';
       final monthlyShowCountKey = '${_paywallShowCountKey}_$currentMonthYear';
-      final monthlyShowCount = prefs.getInt(monthlyShowCountKey) ?? 0;
+      final monthlyShowCount = StorageService().get(monthlyShowCountKey, defaultValue: 0);
 
       if (monthlyShowCount >= _maxPaywallShowPerMonth) {
         return false;
       }
 
       // Check app session count for showing on specific sessions
-      final sessionCount = prefs.getInt(_appSessionCountKey) ?? 0;
+      final sessionCount = StorageService().get(_appSessionCountKey, defaultValue: 0);
 
       // Show on 3rd session, 7th session, and every 5th session thereafter
       return sessionCount == 3 ||
@@ -87,20 +87,20 @@ class PaywallManager {
     }
 
     try {
-      // Update paywall shown timestamp and count
+      // Update paywall shown timestamp and count (now synchronous)
       if (!forcedShow) {
-        final prefs = await SharedPreferences.getInstance();
+        // Assuming StorageService is initialized
 
         // Update last shown timestamp
         final now = DateTime.now().millisecondsSinceEpoch;
-        await prefs.setInt(_lastPaywallShownKey, now);
+        StorageService().put(_lastPaywallShownKey, now);
 
         // Update monthly show count
         final currentMonthYear =
             '${DateTime.now().month}-${DateTime.now().year}';
         final monthlyShowCountKey = '${_paywallShowCountKey}_$currentMonthYear';
-        final monthlyShowCount = prefs.getInt(monthlyShowCountKey) ?? 0;
-        await prefs.setInt(monthlyShowCountKey, monthlyShowCount + 1);
+        final monthlyShowCount = StorageService().get(monthlyShowCountKey, defaultValue: 0);
+        StorageService().put(monthlyShowCountKey, monthlyShowCount + 1);
       }
 
       // Show the custom paywall

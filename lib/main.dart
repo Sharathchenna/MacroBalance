@@ -30,7 +30,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart'; // Replaced uni_links with app_links
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
@@ -38,9 +38,14 @@ import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for d
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/services/subscription_service.dart';
 import 'package:macrotracker/services/paywall_manager.dart';
+import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
+import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Instance for app_links
+final _appLinks = AppLinks();
 
 // Define the channel for stats communication (presentation AND data)
 const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
@@ -118,6 +123,9 @@ Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Hive (must be done before opening boxes)
+  await Hive.initFlutter();
+
   // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -130,6 +138,9 @@ Future<void> main() async {
     url: "https://mdivtblabmnftdqlgysv.supabase.co",
   );
 
+  // Initialize Storage Service (opens Hive box, handles migration)
+  await StorageService().initialize();
+
   // Setup Firebase Messaging service
   await _setupFirebaseMessaging();
 
@@ -139,8 +150,8 @@ Future<void> main() async {
   // Initialize subscription service
   await SubscriptionService().initialize();
 
-  // Increment app session count for paywall logic
-  await PaywallManager().incrementAppSession();
+  // Increment app session count for paywall logic (now synchronous)
+  PaywallManager().incrementAppSession();
 
   // Initialize widget service
   await WidgetService.initWidgetService();
@@ -223,15 +234,16 @@ Future<void> _initializeSupabase() async {
 
 Future<void> _initializeDeepLinks() async {
   try {
-    final initialUri = await getInitialUri();
+    // Use app_links to get the initial link
+    final initialUri = await _appLinks.getInitialLink(); // Trying getInitialLink
     if (initialUri != null) {
       debugPrint('Initial URI: $initialUri');
       _handleDeepLink(initialUri);
     }
     _initialUriHandled = true;
 
-    // Handle links when app is already running
-    uriLinkStream.listen((Uri? uri) {
+    // Handle links when app is already running using app_links stream
+    _appLinks.uriLinkStream.listen((Uri? uri) {
       if (!_initialUriHandled) return;
       if (uri != null) {
         debugPrint('URI link received: $uri');

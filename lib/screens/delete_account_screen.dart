@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
@@ -55,6 +55,13 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       final bool isOAuthUser =
           currentUser.appMetadata.containsKey('provider') &&
               currentUser.appMetadata['provider'] != 'email';
+
+      // Check if user is signed in with Apple and revoke token if so
+      if (isOAuthUser &&
+          currentUser.appMetadata.containsKey('provider') &&
+          currentUser.appMetadata['provider'] == 'apple') {
+        await _revokeAppleToken(currentUser.id);
+      }
 
       if (!isOAuthUser && _passwordController.text.isNotEmpty) {
         // Email/password user - verify password
@@ -132,13 +139,13 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           statusMessage = 'Your account data has been deleted.';
         }
 
-        // 4. Clear local data
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.clear();
+        // 4. Clear local data using StorageService
+        await StorageService().clearAllPreferences(); // Clear Hive data
 
+        // Clear local provider data (now synchronous)
         final foodEntryProvider =
             Provider.of<FoodEntryProvider>(context, listen: false);
-        await foodEntryProvider.clearEntries();
+        foodEntryProvider.clearEntries();
 
         // Sign out regardless of outcome
         await _supabase.auth.signOut();
@@ -212,6 +219,47 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     } catch (e) {
       debugPrint('Error deleting user data: ${e.toString()}');
       rethrow; // Rethrow to handle in the calling function
+    }
+  }
+
+  // Add new method for revoking Apple tokens
+  Future<void> _revokeAppleToken(String userId) async {
+    try {
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) return;
+
+      // Check if the user signed in with Apple
+      final isAppleUser = currentUser.appMetadata.containsKey('provider') &&
+          currentUser.appMetadata['provider'] == 'apple';
+
+      if (!isAppleUser) return;
+
+      // Call the revoke-apple-token Supabase Edge Function
+      debugPrint('Attempting to revoke Apple token for user: $userId');
+
+      final Session? session = _supabase.auth.currentSession;
+      if (session == null) {
+        debugPrint('No session found, cannot revoke Apple token');
+        return;
+      }
+
+      // Call the function to revoke the token
+      final response = await _supabase.functions.invoke(
+        'revoke-apple-token',
+        body: {'user_id': userId},
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+        },
+      );
+
+      if (response.status == 200) {
+        debugPrint('Successfully revoked Apple token');
+      } else {
+        debugPrint('Failed to revoke Apple token: ${response.data}');
+      }
+    } catch (e) {
+      debugPrint('Error revoking Apple token: ${e.toString()}');
+      // Don't rethrow - we don't want this to block account deletion
     }
   }
 

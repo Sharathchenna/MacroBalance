@@ -1,6 +1,6 @@
 import '../utils/json_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'dart:io'; // Import dart:io for File operations
 import 'package:image_picker/image_picker.dart'; // Import image_picker for XFile
@@ -56,8 +56,8 @@ class SupabaseService {
 
   Future<void> syncNutritionGoals(String userId) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final localGoalsJson = prefs.getString('nutrition_goals');
+      // Get local goals from StorageService (synchronous)
+      final localGoalsJson = StorageService().get('nutrition_goals');
 
       // Fetch current Supabase goals using supabaseClient
       final supabaseGoals = await supabaseClient
@@ -67,11 +67,11 @@ class SupabaseService {
           .maybeSingle(); // Use maybeSingle to handle null case gracefully
 
       if (localGoalsJson == null || localGoalsJson.isEmpty) {
-        // If no local goals, save Supabase goals locally
-        if (supabaseGoals != null) {
-          await prefs.setString('nutrition_goals', json.encode(supabaseGoals));
-        }
-        return;
+      // If no local goals, save Supabase goals locally (synchronous)
+      if (supabaseGoals != null) {
+        StorageService().put('nutrition_goals', json.encode(supabaseGoals));
+      }
+      return;
       }
 
       final localGoals = json.decode(localGoalsJson);
@@ -88,8 +88,8 @@ class SupabaseService {
           .eq('user_id', userId)
           .single(); // Assuming goals should exist after upsert
 
-      await prefs.setString('nutrition_goals', json.encode(updatedGoals));
-
+      // Save updated goals locally (synchronous)
+      StorageService().put('nutrition_goals', json.encode(updatedGoals));
     } catch (e) {
       print('Error syncing nutrition goals: $e');
       rethrow;
@@ -108,7 +108,7 @@ class SupabaseService {
 
       if (foodEntries.isEmpty) {
         print('No local food entries, updating from Supabase');
-        await _updateLocalFoodEntries(supabaseEntries);
+        _updateLocalFoodEntries(supabaseEntries); // Now synchronous
         return;
       }
 
@@ -121,7 +121,8 @@ class SupabaseService {
       // Update remote entries that don't exist in Supabase using supabaseClient
       for (var localEntry in localEntries) {
         // Ensure 'id' exists and is not null before comparing
-        if (localEntry['id'] != null && !remoteEntries.any((remote) => remote['id'] == localEntry['id'])) {
+        if (localEntry['id'] != null &&
+            !remoteEntries.any((remote) => remote['id'] == localEntry['id'])) {
           await supabaseClient.from('food_entries').upsert([
             {...localEntry, 'user_id': userId}
           ]);
@@ -133,17 +134,18 @@ class SupabaseService {
           .from('food_entries')
           .select()
           .eq('user_id', userId);
-      await _updateLocalFoodEntries(updatedEntries);
+      _updateLocalFoodEntries(updatedEntries); // Now synchronous
     } catch (e) {
       print('Error syncing food entries: $e');
       rethrow;
     }
   }
 
-  Future<List<dynamic>> _getFoodEntriesFromLocal() async {
-    final prefs = await SharedPreferences.getInstance();
-    final entriesJson = prefs.getString('food_entries');
-    if (entriesJson == null || entriesJson.isEmpty) {
+  // Now synchronous
+  List<dynamic> _getFoodEntriesFromLocal() {
+    // Assuming StorageService is initialized
+    final entriesJson = StorageService().get('food_entries');
+    if (entriesJson == null || entriesJson.isEmpty || entriesJson is! String) {
       return [];
     }
     // Use safe parsing
@@ -151,18 +153,19 @@ class SupabaseService {
       return json.decode(entriesJson) as List<dynamic>;
     } catch (e) {
       print("Error decoding local food entries: $e");
-      await prefs.remove('food_entries'); // Clear corrupted data
+      StorageService().delete('food_entries'); // Clear corrupted data
       return [];
     }
   }
 
-  Future<void> _updateLocalFoodEntries(List<dynamic> supabaseEntries) async {
-    final prefs = await SharedPreferences.getInstance();
+  // Now synchronous
+  void _updateLocalFoodEntries(List<dynamic> supabaseEntries) {
+    // Assuming StorageService is initialized
     // Ensure entries are not null before encoding
     if (supabaseEntries != null) {
-       await prefs.setString('food_entries', json.encode(supabaseEntries));
+       StorageService().put('food_entries', json.encode(supabaseEntries));
     } else {
-       await prefs.remove('food_entries'); // Clear if null
+       StorageService().delete('food_entries'); // Clear if null
     }
   }
 
@@ -186,15 +189,15 @@ class SupabaseService {
       if (nutritionGoalsResponse != null && nutritionGoalsResponse.isNotEmpty) {
         final goalData = nutritionGoalsResponse[0];
         if (goalData != null && goalData['macro_targets'] != null) {
-           final macroData = goalData['macro_targets'];
-           // Assuming JsonHelper.safelyParseJson exists and works correctly
-           final macroTargets = JsonHelper.safelyParseJson(macroData);
-           print('Parsed macro targets: $macroTargets');
+          final macroData = goalData['macro_targets'];
+          // Assuming JsonHelper.safelyParseJson exists and works correctly
+          final macroTargets = JsonHelper.safelyParseJson(macroData);
+          print('Parsed macro targets: $macroTargets');
         } else {
-           print('Macro targets data is null or missing.');
+          print('Macro targets data is null or missing.');
         }
       } else {
-         print('Nutrition goals response is null or empty.');
+        print('Nutrition goals response is null or empty.');
       }
 
       int totalFoodEntries = foodEntryResponse?.length ?? 0;
@@ -224,9 +227,11 @@ class SupabaseService {
   Future<String?> uploadScreenshot(XFile imageFile) async {
     try {
       final file = File(imageFile.path);
-      final fileExt = p.extension(file.path); // Get file extension using path package
+      final fileExt =
+          p.extension(file.path); // Get file extension using path package
       final fileName = '${DateTime.now().millisecondsSinceEpoch}$fileExt';
-      final filePath = 'public/$fileName'; // Store in a 'public' folder within the bucket
+      final filePath =
+          'public/$fileName'; // Store in a 'public' folder within the bucket
 
       // Upload file to 'feedback-screenshots' bucket (hyphenated name)
       await supabaseClient.storage
@@ -247,5 +252,4 @@ class SupabaseService {
   }
 
   // Add other Supabase related methods here (if any were missed or corrupted)
-
 } // End of SupabaseService class

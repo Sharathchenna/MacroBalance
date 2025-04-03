@@ -2,7 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import '../models/foodEntry.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'dart:math'; // Added for min function
 import '../services/widget_service.dart';
@@ -38,9 +38,27 @@ class FoodEntryProvider with ChangeNotifier {
   final Map<String, DateTime> _dateCacheTimestamp = {};
   static const Duration _cacheDuration = Duration(minutes: 15);
 
+  // Flag to prevent multiple initial loads
+  bool _initialLoadComplete = false;
+
   FoodEntryProvider() {
-    _loadEntries();
-    _loadNutritionGoals();
+    // Load data asynchronously without blocking constructor
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    if (_initialLoadComplete) return;
+    await _loadEntries();
+    await loadNutritionGoals(); // Use the public method
+    _initialLoadComplete = true;
+    debugPrint("FoodEntryProvider initialized.");
+  }
+
+  /// Ensures the provider is initialized, loading data if needed.
+  Future<void> ensureInitialized() async {
+    if (!_initialLoadComplete) {
+      await _initialize();
+    }
   }
 
   List<FoodEntry> get entries => _entries;
@@ -171,11 +189,35 @@ class FoodEntryProvider with ChangeNotifier {
     _syncNutritionGoalsToSupabase();
   }
 
+  // New method to update all goals at once
+  Future<void> updateNutritionGoals({
+    required double calories,
+    required double protein,
+    required double carbs,
+    required double fat,
+    required int steps,
+    required double bmr,
+    required double tdee,
+    // Add other goals if needed (e.g., weight)
+  }) async {
+    _caloriesGoal = calories;
+    _proteinGoal = protein;
+    _carbsGoal = carbs;
+    _fatGoal = fat;
+    _stepsGoal = steps;
+    _bmr = bmr;
+    _tdee = tdee;
+
+    _saveNutritionGoals(); // Save locally
+    notifyListeners(); // Notify UI
+    _updateWidgets(); // Update widgets (if applicable)
+    _syncNutritionGoalsToSupabase(); // Sync to Supabase
+  }
+
   Future<void> _loadEntries() async {
     try {
-      // First try to load from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      final String? entriesJson = prefs.getString(_storageKey);
+      // First try to load from StorageService (Hive)
+      final String? entriesJson = StorageService().get(_storageKey);
 
       // Check if user is authenticated
       final currentUser = Supabase.instance.client.auth.currentUser;
@@ -211,8 +253,8 @@ class FoodEntryProvider with ChangeNotifier {
               // For now, just use Supabase data
               _loadEntriesFromJson(processedJson);
 
-              // Save the Supabase data locally
-              await prefs.setString(_storageKey, processedJson);
+              // Save the Supabase data locally (now synchronous)
+              StorageService().put(_storageKey, processedJson);
             } else if (processedJson.isNotEmpty) {
               _loadEntriesFromJson(processedJson);
             }
@@ -272,17 +314,22 @@ class FoodEntryProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _loadNutritionGoals() async {
+  /// Loads nutrition goals from local storage (Hive) and syncs with Supabase if necessary.
+  /// Prioritizes 'nutrition_goals' key, then falls back to individual keys and 'macro_results'.
+  Future<void> loadNutritionGoals() async {
+    debugPrint("Loading nutrition goals..."); // Add debug print
     try {
-      // First load the basic goals from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      _caloriesGoal = prefs.getDouble('calories_goal') ?? 2000.0;
-      _proteinGoal = prefs.getDouble('protein_goal') ?? 150.0;
-      _carbsGoal = prefs.getDouble('carbs_goal') ?? 225.0;
-      _fatGoal = prefs.getDouble('fat_goal') ?? 65.0; // Fallback
+      // First load the basic goals from StorageService (Hive)
+      _caloriesGoal =
+          StorageService().get('calories_goal', defaultValue: 2000.0);
+      _proteinGoal = StorageService().get('protein_goal', defaultValue: 150.0);
+      _carbsGoal = StorageService().get('carbs_goal', defaultValue: 225.0);
+      _fatGoal =
+          StorageService().get('fat_goal', defaultValue: 65.0); // Fallback
 
       // --- Prioritize loading from 'nutrition_goals' ---
-      final String? nutritionGoalsJson = prefs.getString('nutrition_goals');
+      final String? nutritionGoalsJson =
+          StorageService().get('nutrition_goals');
       bool loadedFromNutritionGoals = false;
       if (nutritionGoalsJson != null && nutritionGoalsJson.isNotEmpty) {
         try {
@@ -297,7 +344,8 @@ class FoodEntryProvider with ChangeNotifier {
             _fatGoal = (targets['fat'] ?? _fatGoal).toDouble();
           } else {
             // Fallback to top-level goals if macro_targets is missing
-            _caloriesGoal = (goals['calories_goal'] ?? _caloriesGoal).toDouble();
+            _caloriesGoal =
+                (goals['calories_goal'] ?? _caloriesGoal).toDouble();
             _proteinGoal = (goals['protein_goal'] ?? _proteinGoal).toDouble();
             _carbsGoal = (goals['carbs_goal'] ?? _carbsGoal).toDouble();
             _fatGoal = (goals['fat_goal'] ?? _fatGoal).toDouble();
@@ -305,7 +353,8 @@ class FoodEntryProvider with ChangeNotifier {
 
           // Load other goals
           _goalWeightKg = (goals['goal_weight_kg'] ?? _goalWeightKg).toDouble();
-          _currentWeightKg = (goals['current_weight_kg'] ?? _currentWeightKg).toDouble();
+          _currentWeightKg =
+              (goals['current_weight_kg'] ?? _currentWeightKg).toDouble();
           _goalType = goals['goal_type'] ?? _goalType;
           _deficitSurplus = goals['deficit_surplus'] ?? _deficitSurplus;
           _stepsGoal = goals['steps_goal'] ?? _stepsGoal;
@@ -314,7 +363,6 @@ class FoodEntryProvider with ChangeNotifier {
 
           loadedFromNutritionGoals = true;
           debugPrint('Successfully loaded goals from "nutrition_goals"');
-
         } catch (e) {
           debugPrint('Error parsing nutrition_goals JSON: $e');
         }
@@ -322,23 +370,41 @@ class FoodEntryProvider with ChangeNotifier {
 
       // --- Fallback to individual keys and 'macro_results' if 'nutrition_goals' failed or was missing ---
       if (!loadedFromNutritionGoals) {
-        debugPrint('Falling back to loading goals from individual keys / macro_results');
+        debugPrint(
+            'Falling back to loading goals from individual keys / macro_results');
         // Load individual keys (already done above for basic goals)
-        _goalWeightKg = prefs.getDouble('goal_weight_kg') ?? _goalWeightKg;
-        _currentWeightKg = prefs.getDouble('current_weight') ?? _currentWeightKg;
+        _goalWeightKg =
+            StorageService().get('goal_weight_kg', defaultValue: _goalWeightKg);
+        _currentWeightKg = StorageService()
+            .get('current_weight', defaultValue: _currentWeightKg);
 
         // Check macro_results for more comprehensive goal data
-        final String? macroResultsJson = prefs.getString('macro_results');
+        final String? macroResultsJson = StorageService().get('macro_results');
         if (macroResultsJson != null && macroResultsJson.isNotEmpty) {
           try {
-            final Map<String, dynamic> macroResults = jsonDecode(macroResultsJson);
+            final Map<String, dynamic> macroResults =
+                jsonDecode(macroResultsJson);
 
             // Only update if not already set by nutrition_goals (which failed)
-            _caloriesGoal = (macroResults['calories'] ?? macroResults['calorie_target'] ?? _caloriesGoal).toDouble();
-            _proteinGoal = (macroResults['protein'] ?? _proteinGoal).toDouble();
-            _carbsGoal = (macroResults['carbs'] ?? _carbsGoal).toDouble();
-            _fatGoal = (macroResults['fat'] ?? _fatGoal).toDouble();
-            _stepsGoal = macroResults['recommended_steps'] ?? _stepsGoal;
+            // Use the keys found in the saved JSON: target_calories, protein_g, carb_g, fat_g
+            _caloriesGoal = (macroResults['target_calories'] ??
+                    macroResults['calories'] ??
+                    macroResults['calorie_target'] ??
+                    _caloriesGoal)
+                .toDouble();
+            _proteinGoal = (macroResults['protein_g'] ??
+                    macroResults['protein'] ??
+                    _proteinGoal)
+                .toDouble();
+            _carbsGoal =
+                (macroResults['carb_g'] ?? macroResults['carbs'] ?? _carbsGoal)
+                    .toDouble();
+            _fatGoal =
+                (macroResults['fat_g'] ?? macroResults['fat'] ?? _fatGoal)
+                    .toDouble();
+            _stepsGoal = (macroResults['recommended_steps'] ??
+                macroResults['steps_goal'] ??
+                _stepsGoal); // Check both keys
             _bmr = (macroResults['bmr'] ?? _bmr).toDouble();
             _tdee = (macroResults['tdee'] ?? _tdee).toDouble();
 
@@ -347,10 +413,17 @@ class FoodEntryProvider with ChangeNotifier {
               final goalTypeValue = macroResults['goal_type'];
               if (goalTypeValue is int) {
                 switch (goalTypeValue) {
-                  case 1: _goalType = "maintain"; break;
-                  case 2: _goalType = "lose"; break;
-                  case 3: _goalType = "gain"; break;
-                  default: _goalType = "maintain";
+                  case 1:
+                    _goalType = "maintain";
+                    break;
+                  case 2:
+                    _goalType = "lose";
+                    break;
+                  case 3:
+                    _goalType = "gain";
+                    break;
+                  default:
+                    _goalType = "maintain";
                 }
               } else if (goalTypeValue is String) {
                 _goalType = goalTypeValue;
@@ -360,18 +433,47 @@ class FoodEntryProvider with ChangeNotifier {
             if (macroResults['deficit_surplus'] != null) {
               _deficitSurplus = macroResults['deficit_surplus'] is int
                   ? macroResults['deficit_surplus']
-                  : int.tryParse(macroResults['deficit_surplus'].toString()) ?? _deficitSurplus;
+                  : int.tryParse(macroResults['deficit_surplus'].toString()) ??
+                      _deficitSurplus;
             }
           } catch (e) {
             debugPrint('Error parsing macro_results JSON during fallback: $e');
           }
+        } else {
+          // If macro_results was empty or parsing failed, set loadedFromNutritionGoals to false
+          // This ensures we still attempt Supabase sync if primary load failed.
+          loadedFromNutritionGoals = false;
         }
       }
 
-      // --- Sync with Supabase (always attempt after loading local data) ---
+      // --- Sync with Supabase (only if we didn't just load from macro_results fallback) ---
       final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser != null) {
+      // Check if we successfully loaded from 'nutrition_goals' OR if the fallback from 'macro_results' was NOT used.
+      // The flag 'loadedFromNutritionGoals' is slightly misnamed now, it indicates if we loaded from *any* primary local source successfully.
+      // Let's rename the flag for clarity.
+      bool loadedFromLocalSource =
+          loadedFromNutritionGoals; // Rename for clarity
+
+      if (currentUser != null && !loadedFromLocalSource) {
+        debugPrint(
+            'Attempting to sync nutrition goals from Supabase as local load was incomplete or skipped.');
         await _syncNutritionGoalsFromSupabase();
+      } else if (currentUser != null && loadedFromLocalSource) {
+        // Only sync to Supabase if we have valid non-default values
+        if (_caloriesGoal != 2000.0 ||
+            _proteinGoal != 150.0 ||
+            _carbsGoal != 225.0 ||
+            _fatGoal != 65.0) {
+          debugPrint(
+              'Fresh local data found. Syncing this data to Supabase...');
+          // Since we have fresh local data, sync it to Supabase
+          await _syncNutritionGoalsToSupabase();
+        } else {
+          // The local values are still default values, so try to load from Supabase first
+          debugPrint(
+              'Local values are default values. Checking Supabase for saved values...');
+          await _syncNutritionGoalsFromSupabase();
+        }
       }
 
       // Notify listeners about the updated values
@@ -387,12 +489,18 @@ class FoodEntryProvider with ChangeNotifier {
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) return;
 
+      debugPrint('Starting sync FROM Supabase, current values:');
+      debugPrint('Current local calories: $_caloriesGoal');
+      debugPrint('Current local protein: $_proteinGoal');
+      debugPrint('Current local carbs: $_carbsGoal');
+      debugPrint('Current local fat: $_fatGoal');
+
       // Fetch the user_macros row, specifically selecting the macro_results column
       final response = await Supabase.instance.client
           .from('user_macros')
           .select('macro_results') // Select only the relevant column
           .eq('id', currentUser.id)
-          .maybeSingle(); // Use maybeSingle to handle null case gracefully
+          .maybeSingle();
 
       bool loadedFromSupabase = false;
       if (response != null && response['macro_results'] != null) {
@@ -401,46 +509,82 @@ class FoodEntryProvider with ChangeNotifier {
           if (macroResults is Map) {
             debugPrint('Loading goals from Supabase macro_results column...');
 
+            // Store original values for comparison
+            final originalCalories = _caloriesGoal;
+            final originalProtein = _proteinGoal;
+            final originalCarbs = _carbsGoal;
+            final originalFat = _fatGoal;
+
             // Extract goals using keys confirmed from user feedback
-            _caloriesGoal = (macroResults['target_calories'] ?? macroResults['calories'] ?? _caloriesGoal).toDouble();
-            _proteinGoal = (macroResults['protein_g'] ?? macroResults['protein'] ?? _proteinGoal).toDouble();
-            _carbsGoal = (macroResults['carb_g'] ?? macroResults['carbs'] ?? _carbsGoal).toDouble();
-            _fatGoal = (macroResults['fat_g'] ?? macroResults['fat'] ?? _fatGoal).toDouble();
-            _stepsGoal = (macroResults['recommended_steps'] ?? macroResults['steps_goal'] ?? _stepsGoal).toInt();
+            _caloriesGoal = (macroResults['target_calories'] ??
+                    macroResults['calories'] ??
+                    _caloriesGoal)
+                .toDouble();
+            _proteinGoal = (macroResults['protein_g'] ??
+                    macroResults['protein'] ??
+                    _proteinGoal)
+                .toDouble();
+            _carbsGoal =
+                (macroResults['carb_g'] ?? macroResults['carbs'] ?? _carbsGoal)
+                    .toDouble();
+            _fatGoal =
+                (macroResults['fat_g'] ?? macroResults['fat'] ?? _fatGoal)
+                    .toDouble();
+            _stepsGoal = (macroResults['recommended_steps'] ??
+                    macroResults['steps_goal'] ??
+                    _stepsGoal)
+                .toInt();
             _bmr = (macroResults['bmr'] ?? _bmr).toDouble();
             _tdee = (macroResults['tdee'] ?? _tdee).toDouble();
 
             // Handle weight goals (check nested structure if needed)
-             if (macroResults['weight_stats'] != null && macroResults['weight_stats'] is Map) {
-               final weightStats = macroResults['weight_stats'] as Map<String, dynamic>;
-               _goalWeightKg = (weightStats['goal_weight'] ?? _goalWeightKg).toDouble();
-               _currentWeightKg = (weightStats['current_weight'] ?? _currentWeightKg).toDouble();
-             } else {
-               // Fallback to top-level keys if weight_stats is missing
-               _goalWeightKg = (macroResults['goal_weight_kg'] ?? macroResults['goal_weight'] ?? _goalWeightKg).toDouble();
-               _currentWeightKg = (macroResults['current_weight_kg'] ?? macroResults['current_weight'] ?? _currentWeightKg).toDouble();
-             }
-
+            if (macroResults['weight_stats'] != null &&
+                macroResults['weight_stats'] is Map) {
+              final weightStats =
+                  macroResults['weight_stats'] as Map<String, dynamic>;
+              _goalWeightKg =
+                  (weightStats['goal_weight'] ?? _goalWeightKg).toDouble();
+              _currentWeightKg =
+                  (weightStats['current_weight'] ?? _currentWeightKg)
+                      .toDouble();
+            } else {
+              // Fallback to top-level keys if weight_stats is missing
+              _goalWeightKg = (macroResults['goal_weight_kg'] ??
+                      macroResults['goal_weight'] ??
+                      _goalWeightKg)
+                  .toDouble();
+              _currentWeightKg = (macroResults['current_weight_kg'] ??
+                      macroResults['current_weight'] ??
+                      _currentWeightKg)
+                  .toDouble();
+            }
 
             // Handle goal type and deficit (ensure correct types)
             _goalType = macroResults['goal_type']?.toString() ?? _goalType;
-            _deficitSurplus = (macroResults['deficit_surplus'] ?? _deficitSurplus).toInt();
+            _deficitSurplus =
+                (macroResults['deficit_surplus'] ?? _deficitSurplus).toInt();
 
             loadedFromSupabase = true;
             debugPrint('Successfully loaded goals from Supabase macro_results');
+            debugPrint('Values updated from Supabase:');
+            debugPrint('Calories: $originalCalories -> $_caloriesGoal');
+            debugPrint('Protein: $originalProtein -> $_proteinGoal');
+            debugPrint('Carbs: $originalCarbs -> $_carbsGoal');
+            debugPrint('Fat: $originalFat -> $_fatGoal');
           } else {
-             debugPrint('Supabase macro_results column is not a valid Map.');
+            debugPrint('Supabase macro_results column is not a valid Map.');
           }
         } catch (e) {
           debugPrint('Error parsing Supabase macro_results: $e');
         }
       } else {
-         debugPrint('No macro_results found in Supabase for user ${currentUser.id}');
+        debugPrint(
+            'No macro_results found in Supabase for user ${currentUser.id}');
       }
 
       // If data was loaded from Supabase, save it locally and notify
       if (loadedFromSupabase) {
-        await _saveNutritionGoals(); // Save the updated goals locally
+        _saveNutritionGoals(); // Save the updated goals locally (now synchronous)
         notifyListeners();
         _updateWidgets();
 
@@ -459,64 +603,42 @@ class FoodEntryProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _saveNutritionGoals() async {
+  // Now synchronous as StorageService.put is sync
+  /// Saves the current nutrition goals state to local storage (Hive) under the 'nutrition_goals' key.
+  void _saveNutritionGoals() {
+    debugPrint("Saving nutrition goals locally..."); // Add debug print
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Save basic nutrition goals
-      await prefs.setDouble('calories_goal', _caloriesGoal);
-      await prefs.setDouble('protein_goal', _proteinGoal);
-      await prefs.setDouble('carbs_goal', _carbsGoal);
-      await prefs.setDouble('fat_goal', _fatGoal);
-
-      // Save additional goals
-      await prefs.setDouble('goal_weight_kg', _goalWeightKg);
-      await prefs.setDouble('current_weight', _currentWeightKg);
-
-      // Save to macro_results for backward compatibility
-      final String? macroResultsJson = prefs.getString('macro_results');
-      Map<String, dynamic> macroResults = {};
-
-      if (macroResultsJson != null && macroResultsJson.isNotEmpty) {
-        try {
-          macroResults = jsonDecode(macroResultsJson);
-        } catch (e) {
-          debugPrint('Error parsing existing macro_results: $e');
-        }
-      }
-
-      // Update with current values
-      macroResults['calorie_target'] = _caloriesGoal;
-      macroResults['protein'] = _proteinGoal;
-      macroResults['carbs'] = _carbsGoal;
-      macroResults['fat'] = _fatGoal;
-      macroResults['recommended_steps'] = _stepsGoal;
-      macroResults['bmr'] = _bmr;
-      macroResults['tdee'] = _tdee;
-      macroResults['goal_weight_kg'] = _goalWeightKg;
-      macroResults['current_weight_kg'] = _currentWeightKg;
-      macroResults['goal_type'] = _goalType; // Saving as string now
-      macroResults['deficit_surplus'] = _deficitSurplus;
-
-      await prefs.setString('macro_results', jsonEncode(macroResults));
-
-      // Also save to nutrition_goals for more structured data
+      // Consolidate all goals into a single structured map
       final Map<String, dynamic> nutritionGoals = {
-        'calories_goal': _caloriesGoal,
-        'protein_goal': _proteinGoal,
-        'carbs_goal': _carbsGoal,
-        'fat_goal': _fatGoal,
-        'goal_weight_kg': _goalWeightKg,
-        'current_weight_kg': _currentWeightKg,
+        // Use a nested map for macro targets for clarity
+        'macro_targets': {
+          'calories': _caloriesGoal.isFinite ? _caloriesGoal : 0.0,
+          'protein': _proteinGoal.isFinite ? _proteinGoal : 0.0,
+          'carbs': _carbsGoal.isFinite ? _carbsGoal : 0.0,
+          'fat': _fatGoal.isFinite ? _fatGoal : 0.0,
+        },
+        'goal_weight_kg': _goalWeightKg.isFinite ? _goalWeightKg : 0.0,
+        'current_weight_kg': _currentWeightKg.isFinite ? _currentWeightKg : 0.0,
         'goal_type': _goalType, // Saving as string
         'deficit_surplus': _deficitSurplus,
         'steps_goal': _stepsGoal,
-        'bmr': _bmr,
-        'tdee': _tdee,
+        'bmr': _bmr.isFinite ? _bmr : 0.0,
+        'tdee': _tdee.isFinite ? _tdee : 0.0,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      await prefs.setString('nutrition_goals', jsonEncode(nutritionGoals));
+      // Save the consolidated map to the 'nutrition_goals' key
+      StorageService().put('nutrition_goals', jsonEncode(nutritionGoals));
+      debugPrint("Successfully saved goals to 'nutrition_goals' key.");
+
+      // Remove saving to individual keys and the separate 'macro_results' key locally
+      // StorageService().delete('calories_goal'); // Optional: Clean up old keys
+      // StorageService().delete('protein_goal');
+      // StorageService().delete('carbs_goal');
+      // StorageService().delete('fat_goal');
+      // StorageService().delete('goal_weight_kg');
+      // StorageService().delete('current_weight');
+      // StorageService().delete('macro_results'); // Remove local macro_results saving
     } catch (e) {
       debugPrint('Error saving nutrition goals: $e');
     }
@@ -527,16 +649,58 @@ class FoodEntryProvider with ChangeNotifier {
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) return;
 
+      // Check if we have default values - don't sync defaults to Supabase
+      if (_caloriesGoal == 2000.0 &&
+          _proteinGoal == 150.0 &&
+          _carbsGoal == 225.0 &&
+          _fatGoal == 65.0) {
+        debugPrint(
+            'Skipping sync TO Supabase - these appear to be default values');
+        // Instead, try to get values from Supabase
+        await _syncNutritionGoalsFromSupabase();
+        return;
+      }
+
+      // First check if Supabase has newer data
+      final existingData = await Supabase.instance.client
+          .from('user_macros')
+          .select('updated_at, macro_results')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+
+      if (existingData != null && existingData['updated_at'] != null) {
+        try {
+          // Parse the timestamp from Supabase
+          final remoteTimestamp = DateTime.parse(existingData['updated_at']);
+          // Get our current local time
+          final localTimestamp = DateTime.now();
+          // If the remote data is newer than 1 minute ago, fetch it instead of overwriting
+          if (localTimestamp.difference(remoteTimestamp).inMinutes < 1) {
+            debugPrint(
+                'Remote data is recent (${remoteTimestamp.toIso8601String()}). Fetching remote data instead of overwriting.');
+            await _syncNutritionGoalsFromSupabase();
+            return;
+          }
+        } catch (e) {
+          debugPrint('Error parsing timestamp: $e');
+        }
+      }
+
       // Construct the comprehensive macro_results JSON object
       final Map<String, dynamic> macroResultsData = {
         // Use 'calorie_target' for consistency with onboarding if needed, or just 'calories'
         'calories': _caloriesGoal.isFinite ? _caloriesGoal : null,
-        'calorie_target': _caloriesGoal.isFinite ? _caloriesGoal : null, // Include both for compatibility?
+        'calorie_target': _caloriesGoal.isFinite
+            ? _caloriesGoal
+            : null, // Include both for compatibility?
         'protein': _proteinGoal.isFinite ? _proteinGoal : null,
         'carbs': _carbsGoal.isFinite ? _carbsGoal : null,
         'fat': _fatGoal.isFinite ? _fatGoal : null,
-        'goal_weight_kg': _goalWeightKg > 0 && _goalWeightKg.isFinite ? _goalWeightKg : null,
-        'current_weight_kg': _currentWeightKg > 0 && _currentWeightKg.isFinite ? _currentWeightKg : null,
+        'goal_weight_kg':
+            _goalWeightKg > 0 && _goalWeightKg.isFinite ? _goalWeightKg : null,
+        'current_weight_kg': _currentWeightKg > 0 && _currentWeightKg.isFinite
+            ? _currentWeightKg
+            : null,
         'goal_type': _goalType,
         'deficit_surplus': _deficitSurplus,
         'recommended_steps': _stepsGoal, // Match key from onboarding
@@ -552,34 +716,29 @@ class FoodEntryProvider with ChangeNotifier {
         // 'protein_ratio': ...,
         // 'fat_ratio': ...,
         // 'body_fat_percentage': ...,
-        'updated_at': DateTime.now().toIso8601String(), // Add timestamp within JSON
+        'updated_at':
+            DateTime.now().toIso8601String(), // Add timestamp within JSON
       };
 
       // Remove null values to keep the JSON clean
       macroResultsData.removeWhere((key, value) => value == null);
 
-      // Prepare the data for upsert, targeting the 'macro_results' column
+      // Prepare the data for upsert, targeting ONLY the 'macro_results' column
       final Map<String, dynamic> upsertData = {
-        'id': currentUser.id,
-        'macro_results': macroResultsData, // The JSON object goes here
-        'updated_at': DateTime.now().toIso8601String(), // Also update the row timestamp
-         // Add other essential columns if they exist and are needed, e.g., email
-        'email': currentUser.email,
-        // Ensure other columns expected by the table are included or have defaults
-        // Example: if 'calories_goal' column still exists and is required:
-        // 'calories_goal': _caloriesGoal.isFinite ? _caloriesGoal : null,
+        'id': currentUser.id, // Primary key
+        'macro_results': macroResultsData, // The consolidated JSON object
+        'updated_at': DateTime.now().toIso8601String(), // Row update timestamp
+        // 'email': currentUser.email, // Keep email if it's part of the table structure and needed
       };
-
-       // Clean the main upsert data too, except for id and updated_at
-      upsertData.removeWhere((key, value) => value == null && key != 'id' && key != 'updated_at');
-
+      // No need to remove nulls here as we are only sending essential fields.
+      // Ensure the 'user_macros' table allows nulls for other columns or has defaults.
 
       // Upsert the data into the 'user_macros' table
-      await Supabase.instance.client
-          .from('user_macros')
-          .upsert(upsertData);
+      // This will update the 'macro_results' and 'updated_at' columns for the user's row.
+      await Supabase.instance.client.from('user_macros').upsert(upsertData);
 
-      debugPrint('Nutrition goals synced to Supabase (macro_results column) successfully');
+      debugPrint(
+          'Nutrition goals synced to Supabase (macro_results column) successfully');
 
       // Optional: Verify the sync by fetching the macro_results column
       final verification = await Supabase.instance.client
@@ -589,13 +748,14 @@ class FoodEntryProvider with ChangeNotifier {
           .single();
 
       if (verification != null && verification['macro_results'] != null) {
-         debugPrint('Sync verification successful. Synced macro_results: ${jsonEncode(verification['macro_results']).substring(0, min(100, jsonEncode(verification['macro_results']).length))}...'); // Log truncated JSON
+        debugPrint(
+            'Sync verification successful. Synced macro_results: ${jsonEncode(verification['macro_results']).substring(0, min(100, jsonEncode(verification['macro_results']).length))}...'); // Log truncated JSON
       } else {
-         debugPrint('Sync verification failed or no macro_results found.');
+        debugPrint('Sync verification failed or no macro_results found.');
       }
-
     } catch (e) {
-      debugPrint('Error syncing nutrition goals (macro_results) to Supabase: $e');
+      debugPrint(
+          'Error syncing nutrition goals (macro_results) to Supabase: $e');
       if (e is PostgrestException) {
         debugPrint('Supabase error code: ${e.code}');
         debugPrint('Supabase error message: ${e.message}');
@@ -619,9 +779,8 @@ class FoodEntryProvider with ChangeNotifier {
         _entries.map((entry) => entry.toJson()).toList(),
       );
 
-      // Save locally
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_storageKey, entriesJson);
+      // Save locally (now synchronous)
+      StorageService().put(_storageKey, entriesJson);
 
       // Sync to Supabase if user is authenticated
       await _syncEntriesToSupabase(entriesJson);
@@ -748,13 +907,13 @@ class FoodEntryProvider with ChangeNotifier {
     _notifyNativeStatsChanged();
   }
 
-  Future<void> clearEntries() async {
+  // Now synchronous
+  void clearEntries() {
     _entries.clear();
     notifyListeners();
 
     // Only clear from local storage, not from Supabase
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_storageKey);
+    StorageService().delete(_storageKey);
 
     // Remove the code that deletes from Supabase
     debugPrint('Entries cleared from local storage only');
@@ -1174,9 +1333,8 @@ class FoodEntryProvider with ChangeNotifier {
               .map((entryData) => FoodEntry.fromJson(entryData))
               .toList();
 
-          // Save to local storage
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(_storageKey, entriesJson);
+          // Save to local storage (now synchronous)
+          StorageService().put(_storageKey, entriesJson);
 
           notifyListeners();
           _updateWidgets();
@@ -1194,5 +1352,27 @@ class FoodEntryProvider with ChangeNotifier {
   Future<void> _clearDateCache() async {
     _dateEntriesCache.clear();
     _dateCacheTimestamp.clear();
+  }
+
+  /// Resets internal goal variables to default values and notifies listeners.
+  /// Does NOT clear storage - that should be done separately.
+  void resetGoalsToDefault() {
+    _caloriesGoal = 2000.0;
+    _proteinGoal = 150.0;
+    _carbsGoal = 225.0;
+    _fatGoal = 65.0;
+    _stepsGoal = 10000;
+    _bmr = 1500.0;
+    _tdee = 2000.0;
+    _goalWeightKg = 0.0;
+    _currentWeightKg = 0.0;
+    _goalType = "maintain";
+    _deficitSurplus = 500;
+
+    debugPrint('FoodEntryProvider goals reset to default values.');
+    _saveNutritionGoals(); // Ensure values are saved locally
+    notifyListeners();
+    _updateWidgets(); // Update widgets with default goals
+    _syncNutritionGoalsToSupabase(); // Sync default values to Supabase
   }
 }

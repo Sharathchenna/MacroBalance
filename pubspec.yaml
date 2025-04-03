@@ -29,47 +29,59 @@ dependencies:
     sdk: flutter
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
-  package_info_plus: ^8.3.0 # Updated for feedback screen (dependency resolution)
-  device_info_plus: ^9.1.2 # Added for feedback screen
-  font_awesome_flutter: ^10.8.0
-  supabase_flutter: ^2.8.3
-  google_sign_in: ^6.2.2
-  sign_in_with_apple: ^6.1.0
-  supabase_auth_ui: ^0.5.4
-  flutter_svg: ^2.0.17
-  flutter_native_splash: ^2.4.4
-  http: ^1.3.0
-  google_generative_ai: ^0.4.6
-  google_fonts: ^6.2.1
-  camera: ^0.11.1
-  health: ^12.0.1
-  image_picker: ^1.1.2 # Already present, ensure it's up-to-date if needed
-  fl_chart: ^0.70.2
-  syncfusion_flutter_charts: ^28.2.6
-  camerawesome: ^2.1.0
-  open_file: ^3.5.10
-  permission_handler: ^11.3.1
-  google_mlkit_barcode_scanning: ^0.13.0
-  numberpicker: ^2.1.2
   app_settings: ^5.1.1
-  oauth2: ^2.0.3
-  crypto: ^3.0.6
-  provider: ^6.1.2
-  uuid: ^4.5.1
-  shared_preferences: ^2.5.2
-  posthog_flutter: ^4.0.0 
-  smooth_page_indicator: ^1.1.0
-  lottie: ^2.7.0
-  local_auth: ^2.3.0
-  settings_ui: ^2.0.2
   cached_network_image: ^3.4.1
-  home_widget: ^0.7.0+1
-  uni_links: ^0.5.1
-  http_parser: ^4.0.2
+  camera: ^0.11.1
+  camerawesome: ^2.1.0
+  crypto: ^3.0.6
+  cupertino_icons: ^1.0.8
+  device_info_plus: ^9.1.2 # Added for feedback screen
   firebase_core: ^3.12.1
   firebase_messaging: ^15.2.4
+  firebase_vertexai: ^1.4.0
+  fl_chart: ^0.70.2
+  flutter_image_compress: ^2.4.0
+  flutter_lints: ^5.0.0
   flutter_local_notifications: ^19.0.0
+  flutter_native_splash: ^2.4.4
+  flutter_svg: ^2.0.17
+  font_awesome_flutter: ^10.8.0
+  google_fonts: ^6.2.1
+  google_generative_ai: ^0.4.6
+  google_mlkit_barcode_scanning: ^0.13.0
+  google_sign_in: ^6.2.2
+  health: ^12.0.1
+  hive: ^2.2.3 # Added for local database
+  hive_flutter: ^1.1.0 # Added for Flutter integration
+  home_widget: ^0.7.0+1
+  http: ^1.3.0
+  http_parser: ^4.0.2
+  image_picker: ^1.1.2 # Already present, ensure it's up-to-date if needed
+  local_auth: ^2.3.0
+  lottie: ^2.7.0
+  numberpicker: ^2.1.2
+  oauth2: ^2.0.3
+  open_file: ^3.5.10
+  package_info_plus: ^8.3.0 # Updated for feedback screen (dependency resolution)
+  path_provider: ^2.1.3 # Added for Hive initialization
+  permission_handler: ^11.3.1
+  posthog_flutter: ^4.0.0
+  provider: ^6.1.2
+  purchases_flutter: ^8.6.1
+  purchases_ui_flutter: ^8.6.1
+  rename_app: ^1.6.2
+  settings_ui: ^2.0.2
+  sign_in_with_apple: ^6.1.0
+  smooth_page_indicator: ^1.1.0
+  supabase_auth_ui: ^0.5.4
+  supabase_flutter: ^2.8.3
+  syncfusion_flutter_charts: ^28.2.6
+  app_links: ^6.4.0 # Replaced uni_links with app_links
+  url_launcher: ^6.3.1 # Added for contact support email
+  uuid: ^4.5.1
+  visibility_detector: ^0.4.0+2
+  webview_flutter: ^4.10.0
+
 
   flutter_test:
     sdk: flutter
@@ -78,15 +90,7 @@ dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
-  purchases_flutter: ^8.6.1
-  purchases_ui_flutter: ^8.6.1
-  visibility_detector: ^0.4.0+2
-  rename_app: ^1.6.2
-  webview_flutter: ^4.10.0
-  url_launcher: ^6.3.1 # Added for contact support email
-  firebase_vertexai: ^1.4.0
-  flutter_image_compress: ^2.4.0
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 # The following section is specific to Flutter packages.

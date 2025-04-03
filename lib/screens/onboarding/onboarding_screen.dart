@@ -4,7 +4,7 @@ import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
 import 'package:macrotracker/theme/app_theme.dart'; // Import theme
 import 'package:numberpicker/numberpicker.dart'; // Add this import
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'dart:math'; // Import dart:math for min/max functions
@@ -212,9 +212,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   Future<void> saveMacroResults(Map<String, dynamic> macroResults) async {
     try {
-      // Save locally first
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('macro_results', json.encode(macroResults));
+      // Save locally first (now synchronous)
+      StorageService().put('macro_results', json.encode(macroResults));
 
       // Save to Supabase if user is authenticated
       final currentUser = Supabase.instance.client.auth.currentUser;
@@ -298,8 +297,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         }
       }
 
-      // Always save to local storage for offline access
-      await _saveLocalGoals(macroResults);
+      // Always save to local storage for offline access (now synchronous call)
+      _saveLocalGoals(macroResults);
     } catch (e) {
       debugPrint('Error saving macro results: $e');
       if (e is PostgrestException) {
@@ -309,18 +308,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     }
   }
 
-  Future<void> _saveLocalGoals(Map<String, dynamic> macroResults) async {
-    final prefs = await SharedPreferences.getInstance();
+  // Now synchronous
+  void _saveLocalGoals(Map<String, dynamic> macroResults) {
+    // Assuming StorageService is initialized
+    debugPrint("Saving local goals. Received results: ${macroResults.toString()}"); // Add debug print
 
-    // Save comprehensive nutrition goals
+    // Save comprehensive nutrition goals using the correct keys from macroResults
     final nutritionGoals = {
       'macro_targets': {
-        'calories':
-            (macroResults['calories'] ?? macroResults['calorie_target'] ?? 0)
-                .toDouble(),
-        'protein': (macroResults['protein'] ?? 0).toDouble(),
-        'carbs': (macroResults['carbs'] ?? 0).toDouble(),
-        'fat': (macroResults['fat'] ?? 0).toDouble(),
+        // Use the keys returned by MacroCalculatorService.calculateAll
+        'calories': (macroResults['target_calories'] ?? 0).toDouble(),
+        'protein': (macroResults['protein_g'] ?? 0).toDouble(),
+        'carbs': (macroResults['carb_g'] ?? 0).toDouble(),
+        'fat': (macroResults['fat_g'] ?? 0).toDouble(),
       },
       'goal_weight_kg': _goalWeightKg,
       'current_weight_kg': _weightKg,
@@ -334,7 +334,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'updated_at': DateTime.now().toIso8601String(),
     };
 
-    await prefs.setString('nutrition_goals', json.encode(nutritionGoals));
+    StorageService().put('nutrition_goals', json.encode(nutritionGoals));
     debugPrint('Successfully saved nutrition goals locally');
   }
 

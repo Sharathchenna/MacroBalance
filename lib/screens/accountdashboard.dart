@@ -21,6 +21,7 @@ import 'package:macrotracker/screens/setting_screens/health_integration_screen.d
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:macrotracker/screens/privacy_policy_screen.dart'; // Added import
 import 'package:macrotracker/screens/terms_screen.dart'; // Added import
 import 'package:macrotracker/screens/feedback_screen.dart'
@@ -187,10 +188,10 @@ class _AccountDashboardState extends State<AccountDashboard>
       // Clear user data from SharedPreferences first
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('macro_results');
-      // Clear food entries
+      // Clear food entries (now synchronous)
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
-      await foodEntryProvider.clearEntries();
+      foodEntryProvider.clearEntries();
       // Other user-related data can be removed here as well
 
       // Then sign out from Supabase
@@ -380,15 +381,35 @@ class _AccountDashboardState extends State<AccountDashboard>
                     title: 'Macro Goals',
                     subtitle: 'Set your daily macro targets',
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
+                    onTap: () async {
+                      // Make onTap async
                       HapticFeedback.lightImpact();
-                      // Use the static show method instead of trying to navigate to it as a widget
-                      Navigator.push(
+                      // Await the result from EditGoalsScreen
+                      final result = await Navigator.push<bool>(
                         context,
                         CupertinoPageRoute(
-                          builder: (context) => EditGoalsScreen(),
+                          builder: (context) => const EditGoalsScreen(),
                         ),
                       );
+
+                      // If goals were saved (result is true), refresh provider data
+                      if (result == true && context.mounted) {
+                        debugPrint(
+                            "Goals saved, refreshing FoodEntryProvider state...");
+                        // Access the provider and trigger a reload of goals from storage
+                        // Note: _loadNutritionGoals is private, but we can call notifyListeners
+                        // or create a public refresh method. Let's try notifyListeners first.
+                        // Alternatively, re-calling _loadNutritionGoals ensures latest data.
+                        // Making _loadNutritionGoals public or creating a public wrapper is cleaner.
+                        // For now, let's just call notifyListeners as the provider state *should*
+                        // already be updated by the EditGoalsScreen save.
+                        // Explicitly reload goals from storage to update the provider's state
+                        await Provider.of<FoodEntryProvider>(context,
+                                listen: false)
+                            .loadNutritionGoals();
+                        debugPrint(
+                            "FoodEntryProvider goals reloaded after EditGoalsScreen.");
+                      }
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
@@ -1454,43 +1475,114 @@ class _AccountDashboardState extends State<AccountDashboard>
 
   Future<void> _resetOnboarding() async {
     try {
+      // First get the provider to ensure access to it even if there's an error later
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
+
       // Clear macro data from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('macro_results');
 
-      // Reset any other onboarding-related data
-      // For example, you might want to reset weight history but keep the account
-      // If using Supabase, you can update the user's record to clear specific fields
+      // Clear relevant goal keys from Hive (StorageService)
+      StorageService().delete('nutrition_goals');
+      StorageService().delete('calories_goal');
+      StorageService().delete('protein_goal');
+      StorageService().delete('carbs_goal');
+      StorageService().delete('fat_goal');
+      StorageService().delete('goal_weight_kg');
+      StorageService().delete('current_weight');
+      // Add any other specific goal keys stored in Hive if necessary
 
+      // Reset provider data and goals locally first - this sets defaults
+      foodEntryProvider.clearEntries(); // Clear food logs
+      foodEntryProvider.resetGoalsToDefault(); // Reset goals in provider state
+
+      // Now sync the default values to Supabase
       final currentUser = _supabase.auth.currentUser;
       if (currentUser != null) {
         try {
-          // Reset macro values in the database but keep the user account
+          debugPrint('Starting Supabase sync with default values...');
+          debugPrint(
+              'Default calories goal: ${foodEntryProvider.caloriesGoal}');
+          debugPrint('Default protein goal: ${foodEntryProvider.proteinGoal}');
+
+          // Instead of setting null values, use the default values from the provider
           await _supabase.from('user_macros').update({
-            'calories_goal': null,
-            'protein_goal': null,
-            'carbs_goal': null,
-            'fat_goal': null,
+            'calories_goal': foodEntryProvider.caloriesGoal,
+            'protein_goal': foodEntryProvider.proteinGoal,
+            'carbs_goal': foodEntryProvider.carbsGoal,
+            'fat_goal': foodEntryProvider.fatGoal,
+            'goal_type': foodEntryProvider.goalType,
+            'deficit_surplus': foodEntryProvider.deficitSurplus,
+            'steps_goal': foodEntryProvider.stepsGoal,
+            'bmr': foodEntryProvider.bmr,
+            'tdee': foodEntryProvider.tdee,
+            'goal_weight_kg': foodEntryProvider.goalWeightKg,
+            'current_weight_kg': foodEntryProvider.currentWeightKg,
+            'updated_at': DateTime.now().toIso8601String(),
+            // Add macro_results field with default values
+            'macro_results': {
+              'bmr': foodEntryProvider.bmr,
+              'tdee': foodEntryProvider.tdee,
+              'target_calories': foodEntryProvider.caloriesGoal,
+              'protein_g': foodEntryProvider.proteinGoal,
+              'fat_g': foodEntryProvider.fatGoal,
+              'carb_g': foodEntryProvider.carbsGoal,
+              'protein_calories': foodEntryProvider.proteinGoal * 4,
+              'fat_calories': foodEntryProvider.fatGoal * 9,
+              'carb_calories': foodEntryProvider.carbsGoal * 4,
+              'protein_percent': 20,
+              'fat_percent': 25,
+              'carb_percent': 55,
+              'weekly_weight_change': 0.0,
+              'formula_used': "Mifflin-St Jeor",
+              'formula_code': 1,
+              'updated_at': DateTime.now().toIso8601String()
+            },
+            // Set other fields to null as they should be re-entered during onboarding
             'gender': null,
             'weight': null,
             'height': null,
             'age': null,
             'activity_level': null,
-            'goal_type': null,
-            'deficit_surplus': null,
             'protein_ratio': null,
             'fat_ratio': null,
-            'updated_at': DateTime.now().toIso8601String(),
           }).eq('id', currentUser.id);
+
+          // Verify the sync by fetching the updated record
+          final verification = await _supabase
+              .from('user_macros')
+              .select('calories_goal, protein_goal, macro_results')
+              .eq('id', currentUser.id)
+              .single();
+
+          if (verification != null) {
+            debugPrint('Sync verification successful');
+            debugPrint(
+                'Verified calories goal: ${verification['calories_goal']}');
+            debugPrint(
+                'Verified protein goal: ${verification['protein_goal']}');
+            if (verification['macro_results'] != null) {
+              debugPrint('Verified macro_results exists in Supabase');
+            } else {
+              debugPrint('Warning: macro_results field is null in Supabase');
+            }
+          } else {
+            debugPrint('Warning: Could not verify sync - no record returned');
+          }
+
+          debugPrint(
+              'Successfully reset and synced default values to Supabase');
         } catch (e) {
-          print('Error resetting Supabase data: $e');
+          // Show error to the user if Supabase update fails
+          if (mounted) {
+            _showError(
+                'Error resetting your data on the server: ${e.toString()}');
+          }
+          // Optionally re-throw or return early if the error is critical
+          return; // Stop execution if Supabase update failed
         }
       }
-
-      // Clear local provider data
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
-      await foodEntryProvider.clearEntries();
 
       // Navigate to onboarding screen with replacement
       if (mounted) {

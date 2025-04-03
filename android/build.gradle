@@ -1,3 +1,5 @@
+// android/build.gradle
+
 buildscript {
     repositories {
         google()
@@ -5,9 +7,12 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.2.1'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion" // Use kotlinVersion from properties
         classpath 'com.google.gms:google-services:4.4.1'
     }
 }
+
+// Removed ext.kotlin_version definition
 
 allprojects {
     repositories {
@@ -25,12 +30,6 @@ subprojects {
 }
 
 apply plugin: 'com.google.gms.google-services'
-
-dependencies {
-    implementation platform('com.google.firebase:firebase-bom:32.8.0')
-    implementation 'com.google.firebase:firebase-messaging'
-    implementation 'com.google.firebase:firebase-analytics'
-}
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir

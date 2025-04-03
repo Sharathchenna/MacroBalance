@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 
 /// A provider class that manages subscription status throughout the app
 class SubscriptionProvider extends ChangeNotifier {
@@ -53,35 +53,35 @@ class SubscriptionProvider extends ChangeNotifier {
       }
     });
   }
-  
-  // Load the cached subscription status
-  Future<void> _loadFromPrefs() async {
+
+  // Load the cached subscription status (now synchronous)
+  void _loadFromPrefs() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _isProUser = prefs.getBool('is_pro_user') ?? false;
-      final lastCheckedMillis = prefs.getInt('subscription_last_checked');
-      if (lastCheckedMillis != null) {
+      // Assuming StorageService is initialized
+      _isProUser = StorageService().get('is_pro_user', defaultValue: false);
+      final lastCheckedMillis = StorageService().get('subscription_last_checked');
+      if (lastCheckedMillis != null && lastCheckedMillis is int) {
         _lastChecked = DateTime.fromMillisecondsSinceEpoch(lastCheckedMillis);
       }
       _isInitialized = true;
-      notifyListeners();
+      // notifyListeners(); // Might not be needed here if called elsewhere after init
     } catch (e) {
-      print('Error loading subscription status: $e');
-      _isInitialized = true; // Still mark as initialized to avoid infinite loading
-      notifyListeners();
+      print('Error loading subscription status from StorageService: $e');
+      _isInitialized = true; // Still mark as initialized
+      // notifyListeners();
     }
   }
-  
-  // Save the subscription status to prefs
-  Future<void> _saveToPrefs() async {
+
+  // Save the subscription status to StorageService (now synchronous)
+  void _saveToPrefs() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_pro_user', _isProUser);
+      // Assuming StorageService is initialized
+      StorageService().put('is_pro_user', _isProUser);
       if (_lastChecked != null) {
-        await prefs.setInt('subscription_last_checked', _lastChecked!.millisecondsSinceEpoch);
+        StorageService().put('subscription_last_checked', _lastChecked!.millisecondsSinceEpoch);
       }
     } catch (e) {
-      print('Error saving subscription status: $e');
+      print('Error saving subscription status to StorageService: $e');
     }
   }
   
@@ -103,10 +103,10 @@ class SubscriptionProvider extends ChangeNotifier {
         print("Subscription status changed: $_isProUser");
         notifyListeners();
       }
-      
-      // Save the updated status
-      await _saveToPrefs();
-      
+
+      // Save the updated status (now synchronous)
+      _saveToPrefs();
+
       return _isProUser;
     } catch (e) {
       print('Error checking subscription status: $e');
@@ -186,9 +186,9 @@ class SubscriptionProvider extends ChangeNotifier {
     print("==== PERFORMING COMPLETE SUBSCRIPTION RESET ====");
     
     try {
-      // 1. Clear local cache
-      await _clearLocalCache();
-      
+      // 1. Clear local cache (now synchronous)
+      _clearLocalCache();
+
       // 2. Invalidate RevenueCat cache
       await Purchases.invalidateCustomerInfoCache();
       
@@ -201,10 +201,10 @@ class SubscriptionProvider extends ChangeNotifier {
       // 5. Set the pro user status based on the fresh info
       _isProUser = _hasProEntitlement(customerInfo);
       _lastChecked = DateTime.now();
-      
-      // 6. Save the updated status
-      await _saveToPrefs();
-      
+
+      // 6. Save the updated status (now synchronous)
+      _saveToPrefs();
+
       // 7. Notify listeners
       notifyListeners();
       
@@ -218,14 +218,14 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
   
-  // Helper to clear the local cached subscription status
-  Future<void> _clearLocalCache() async {
+  // Helper to clear the local cached subscription status (now synchronous)
+  void _clearLocalCache() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('is_pro_user');
-      await prefs.remove('subscription_last_checked');
+      // Assuming StorageService is initialized
+      StorageService().delete('is_pro_user');
+      StorageService().delete('subscription_last_checked');
     } catch (e) {
-      print('Error clearing subscription cache: $e');
+      print('Error clearing subscription cache from StorageService: $e');
     }
   }
   
@@ -241,4 +241,4 @@ class SubscriptionProvider extends ChangeNotifier {
     }
     super.dispose();
   }
-} 
+}

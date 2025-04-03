@@ -3,12 +3,13 @@ import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// Removed shared_preferences import
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/auth/paywall_gate.dart'; // Import the PaywallGate
 import 'dart:convert'; // Add for JSON parsing
+import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -18,18 +19,22 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  bool _isLoading = true;
-  bool _hasUserData = false;
+  // Remove _isLoading and _hasUserData
+  // bool _isLoading = true;
+  // bool _hasUserData = false;
+  late Future<bool> _userDataCheckFuture; // Future to track data check
 
   @override
   void initState() {
     super.initState();
-    _checkUserData();
+    // Initialize the future in initState
+    _userDataCheckFuture = _checkUserData();
   }
 
-  Future<void> _checkUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? macroResults = prefs.getString('macro_results');
+  // Modify _checkUserData to return Future<bool> and remove setState
+  Future<bool> _checkUserData() async {
+    // Use StorageService (synchronous after init)
+    String? macroResults = StorageService().get('macro_results');
 
     // If the user is authenticated, check Supabase for their data
     final currentUser = Supabase.instance.client.auth.currentUser;
@@ -59,31 +64,31 @@ class _AuthGateState extends State<AuthGate> {
               // Try to ensure it's valid JSON before saving
               try {
                 jsonDecode(macroResults);
-                await prefs.setString('macro_results', macroResults);
+                StorageService().put('macro_results', macroResults); // Use StorageService
               } catch (e) {
                 print('Error parsing macro results JSON: $e');
                 // Try to fix the format if it's not valid JSON
                 macroResults = _fixJsonFormat(macroResults);
-                await prefs.setString('macro_results', macroResults);
+                StorageService().put('macro_results', macroResults); // Use StorageService
               }
             }
           }
 
-          // Also sync nutrition goals
+          // Also sync nutrition goals using StorageService
           if (response['calories_goal'] != null) {
-            await prefs.setDouble(
+            StorageService().put(
                 'calories_goal', response['calories_goal'].toDouble());
           }
           if (response['protein_goal'] != null) {
-            await prefs.setDouble(
+            StorageService().put(
                 'protein_goal', response['protein_goal'].toDouble());
           }
           if (response['carbs_goal'] != null) {
-            await prefs.setDouble(
+            StorageService().put(
                 'carbs_goal', response['carbs_goal'].toDouble());
           }
           if (response['fat_goal'] != null) {
-            await prefs.setDouble('fat_goal', response['fat_goal'].toDouble());
+            StorageService().put('fat_goal', response['fat_goal'].toDouble());
           }
         }
         // If data exists locally but not in Supabase, upload it to Supabase
@@ -102,8 +107,8 @@ class _AuthGateState extends State<AuthGate> {
 
         if (foodEntriesResponse != null &&
             foodEntriesResponse['entries_json'] != null) {
-          // Save food entries locally
-          await prefs.setString(
+          // Save food entries locally using StorageService
+          StorageService().put(
               'food_entries', foodEntriesResponse['entries_json']);
         }
       } catch (e) {
@@ -115,10 +120,8 @@ class _AuthGateState extends State<AuthGate> {
       }
     }
 
-    setState(() {
-      _hasUserData = macroResults != null && macroResults.isNotEmpty;
-      _isLoading = false;
-    });
+    // Return true if data exists, false otherwise
+    return macroResults != null && macroResults.isNotEmpty;
   }
 
   // Helper method to fix incorrectly formatted JSON
@@ -167,11 +170,11 @@ class _AuthGateState extends State<AuthGate> {
         parsedMacroResults = jsonDecode(fixedJson);
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      final caloriesGoal = prefs.getDouble('calories_goal') ?? 2000.0;
-      final proteinGoal = prefs.getDouble('protein_goal') ?? 150.0;
-      final carbsGoal = prefs.getDouble('carbs_goal') ?? 225.0;
-      final fatGoal = prefs.getDouble('fat_goal') ?? 65.0;
+      // Get goals from StorageService
+      final caloriesGoal = StorageService().get('calories_goal', defaultValue: 2000.0);
+      final proteinGoal = StorageService().get('protein_goal', defaultValue: 150.0);
+      final carbsGoal = StorageService().get('carbs_goal', defaultValue: 225.0);
+      final fatGoal = StorageService().get('fat_goal', defaultValue: 65.0);
 
       // Use upsert with an ON CONFLICT strategy - check if a record with this ID already exists
       final existingRecord = await Supabase.instance.client
@@ -227,39 +230,68 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: Supabase.instance.client.auth.onAuthStateChange,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting || _isLoading) {
+    // Wrap StreamBuilder with FutureBuilder
+    return FutureBuilder<bool>(
+      future: _userDataCheckFuture,
+      builder: (context, futureSnapshot) {
+        // Show loading while checking local data
+        if (futureSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        final session = snapshot.data?.session;
-        if (session == null) {
+        // Handle potential error during data check (optional but recommended)
+        if (futureSnapshot.hasError) {
+          print("Error checking user data: ${futureSnapshot.error}");
+          // Decide what to show on error, maybe login screen or an error message
+          return const Welcomescreen(); // Fallback to welcome/login
+        }
+
+        // Data check complete, get the result
+        final bool hasLocalData = futureSnapshot.data ?? false;
+
+        // Now proceed with the authentication check using StreamBuilder
+        return StreamBuilder<AuthState>(
+          stream: Supabase.instance.client.auth.onAuthStateChange,
+          builder: (context, authSnapshot) {
+            // Show loading while checking auth state
+            if (authSnapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final session = authSnapshot.data?.session;
+            if (session == null) {
           return const Welcomescreen();
-        }
+              return const Welcomescreen();
+            }
 
-        // If this is the first time authenticating, sync data to Supabase
-        if (snapshot.hasData &&
-            snapshot.data!.event == AuthChangeEvent.signedIn) {
-          // Schedule the sync for after the build is complete
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _syncAllDataToSupabase();
-          });
-        }
+            // If this is the first time authenticating, sync data to Supabase
+            if (authSnapshot.hasData &&
+                authSnapshot.data!.event == AuthChangeEvent.signedIn) {
+              // Schedule the sync for after the build is complete
+              WidgetsBinding.instance.addPostFrameCallback((_) async { // Make callback async
+                // Sync preferences from Supabase first
+                // await StorageService().syncFromServer(); // Commented out - handled by FoodEntryProvider sync
+                // Then sync other data like food entries
+                await _syncAllDataToSupabase();
+              });
+            }
 
-        // If user is authenticated but doesn't have macro data,
-        // redirect to the onboarding screen
-        if (!_hasUserData) {
-          return const OnboardingScreen();
-        }
+            // If user is authenticated but doesn't have macro data (based on FutureBuilder result),
+            // redirect to the onboarding screen
+            if (!hasLocalData) {
+              return const OnboardingScreen();
+            }
 
-        // User is authenticated and has macro data
-        // Wrap the Dashboard with the PaywallGate
-        return PaywallGate(
-          child: const Dashboard(),
+            // User is authenticated and has macro data
+            // Wrap the Dashboard with the PaywallGate
+            return PaywallGate(
+              child: const Dashboard(),
+            );
+          },
         );
       },
     );

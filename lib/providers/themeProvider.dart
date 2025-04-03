@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 
 class ThemeProvider with ChangeNotifier {
   bool _isDarkMode = false;
@@ -31,16 +31,18 @@ class ThemeProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _loadThemeFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    _isDarkMode = prefs.getBool(_themeKey) ?? false;
-    _useSystemTheme = prefs.getBool(_systemThemeKey) ?? true;
-    notifyListeners();
+  // No longer async as StorageService is synchronous after initialization
+  void _loadThemeFromPrefs() {
+    // Assuming StorageService is initialized in main.dart
+    _isDarkMode = StorageService().get(_themeKey, defaultValue: false);
+    _useSystemTheme = StorageService().get(_systemThemeKey, defaultValue: true); // Load system theme preference
+    // notifyListeners(); // Consider if needed immediately or handled by toggle methods
   }
 
-  Future<void> _saveThemeToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_themeKey, _isDarkMode);
-    await prefs.setBool(_systemThemeKey, _useSystemTheme);
+  // No longer async
+  void _saveThemeToPrefs() {
+    // Assuming StorageService is initialized in main.dart
+    StorageService().put(_themeKey, _isDarkMode);
+    StorageService().put(_systemThemeKey, _useSystemTheme); // Save system theme preference
   }
 }

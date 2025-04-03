@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart'; // Import Provider
@@ -85,9 +85,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       _currentWeight = foodEntryProvider.currentWeightKg;
       _targetWeight = foodEntryProvider.goalWeightKg;
 
-      // --- Load Weight History from SharedPreferences ---
-      final prefs = await SharedPreferences.getInstance();
-      final String? weightHistoryJson = prefs.getString('weight_history');
+      // --- Load Weight History from StorageService (Hive) ---
+      final String? weightHistoryJson = StorageService().get('weight_history');
       if (weightHistoryJson != null && weightHistoryJson.isNotEmpty) {
         try {
           final List<dynamic> weightHistory = json.decode(weightHistoryJson);
@@ -118,8 +117,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           'date': DateTime.now().toIso8601String(),
           'weight': _currentWeight,
         });
-        // Save this initial history entry
-        await prefs.setString('weight_history', json.encode(_weightData));
+        // Save this initial history entry (now synchronous)
+        StorageService().put('weight_history', json.encode(_weightData));
       }
 
       // No need to load from cache or Supabase directly for goals anymore
@@ -1126,27 +1125,21 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     );
   }
 
-  Future<void> _saveWeightChanges() async {
+  // Now synchronous for local saves, but provider setters might still be async if they sync
+  Future<void> _saveWeightChanges() async { // Keep async for provider calls
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // Save current and target weights
-      await prefs.setDouble('current_weight', _currentWeight);
-      await prefs.setDouble('goal_weight_kg', _targetWeight);
-
-      // Save the full weight history
+      // Save current and target weights via Provider
       // --- Update Provider ---
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
       foodEntryProvider.currentWeightKg = _currentWeight;
       foodEntryProvider.goalWeightKg = _targetWeight;
-      // Provider setters will handle SharedPreferences ('nutrition_goals') and Supabase sync
+      // Provider setters will handle StorageService ('nutrition_goals') and Supabase sync
 
-      // --- Save History Locally ---
-      // final prefs = await SharedPreferences.getInstance(); // Already declared above
-      await prefs.setString('weight_history', json.encode(_weightData));
+      // --- Save History Locally (now synchronous) ---
+      StorageService().put('weight_history', json.encode(_weightData));
 
-      // Remove direct Supabase calls and individual SharedPreferences saves for weights
+      // Remove direct Supabase calls and individual StorageService saves for weights
 
       print('Weight changes saved via Provider and history saved locally.');
     } catch (e) {

@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:116498755817:android:df411ae69473290d6fc078",
+        "mobilesdk_app_id": "1:116498755817:android:4cb2737524e3b5526fc078",
         "android_client_info": {
-          "package_name": "com.sharathchenna88.nutrino"
+          "package_name": "android.macrobalance.app"
         }
       },
       "oauth_client": [],

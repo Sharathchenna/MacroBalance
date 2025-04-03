@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
@@ -57,9 +57,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         tdee = foodEntryProvider.tdee.toInt();
       });
 
-      // Still check SharedPreferences for backward compatibility
-      final prefs = await SharedPreferences.getInstance();
-      final String? resultsString = prefs.getString('macro_results');
+      // Still check StorageService (Hive) for backward compatibility
+      final String? resultsString = StorageService().get('macro_results');
 
       if (resultsString != null && resultsString.isNotEmpty) {
         final Map<String, dynamic> results = jsonDecode(resultsString);
@@ -80,7 +79,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       }
 
       // Also check nutrition_goals for more structured data
-      final String? nutritionGoalsString = prefs.getString('nutrition_goals');
+      final String? nutritionGoalsString = StorageService().get('nutrition_goals');
       if (nutritionGoalsString != null && nutritionGoalsString.isNotEmpty) {
         try {
           final Map<String, dynamic> nutritionGoals =
@@ -135,7 +134,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   }
 
   // Load current daily values from food entry provider or stored progress
-  Future<void> _loadCurrentValues() async {
+  Future<void> _loadCurrentValues() async { // Keep async for HealthService
     try {
       // Fetch steps data from HealthService
       final healthService = HealthService();
@@ -147,8 +146,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         });
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      final String? dailyProgress = prefs.getString('daily_progress');
+      // Load daily progress from StorageService (synchronous)
+      final String? dailyProgress = StorageService().get('daily_progress');
 
       if (dailyProgress != null && dailyProgress.isNotEmpty) {
         final Map<String, dynamic> progress = jsonDecode(dailyProgress);
@@ -226,23 +225,26 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     }
   }
 
+  // Keep async because FoodEntryProvider setters might be async (due to Supabase sync)
   Future<void> _saveGoals() async {
     try {
       // Update goals in FoodEntryProvider to ensure proper sync with Supabase
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
 
-      // Set all goals in the provider
-      foodEntryProvider.caloriesGoal = calorieGoal.toDouble();
-      foodEntryProvider.proteinGoal = proteinGoal.toDouble();
-      foodEntryProvider.carbsGoal = carbGoal.toDouble();
-      foodEntryProvider.fatGoal = fatGoal.toDouble();
-      foodEntryProvider.stepsGoal = stepsGoal;
-      foodEntryProvider.bmr = bmr.toDouble();
-      foodEntryProvider.tdee = tdee.toDouble();
+      // Call the new method to update all goals at once
+      await foodEntryProvider.updateNutritionGoals(
+        calories: calorieGoal.toDouble(),
+        protein: proteinGoal.toDouble(),
+        carbs: carbGoal.toDouble(),
+        fat: fatGoal.toDouble(),
+        steps: stepsGoal,
+        bmr: bmr.toDouble(),
+        tdee: tdee.toDouble(),
+      );
 
-      // Also update SharedPreferences for backward compatibility
-      final prefs = await SharedPreferences.getInstance();
+      // The updateNutritionGoals method handles saving, notifying, and syncing.
+      // We still save to 'macro_results' locally for backward compatibility if needed.
       final Map<String, dynamic> results = {
         'calorie_target': calorieGoal,
         'protein': proteinGoal,
@@ -252,7 +254,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'bmr': bmr,
         'tdee': tdee,
       };
-      await prefs.setString('macro_results', jsonEncode(results));
+      StorageService().put('macro_results', jsonEncode(results));
 
       // The provider will handle syncing with Supabase automatically
 
@@ -433,12 +435,42 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     const SizedBox(width: 8),
                     // Save button
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async { // Make onPressed async
                         final newValue = int.tryParse(controller.text);
                         if (newValue != null && newValue > 0) {
-                          onSave(newValue);
-                          _saveGoals();
-                          Navigator.pop(context);
+                          onSave(newValue); // Update local state for the dialog (used by the card itself)
+                          await _saveGoals(); // Await the async save operation
+
+                          // --- Diagnostic Print ---
+                          // Check if the provider instance here reflects the change immediately
+                          if (context.mounted) {
+                             final provider = Provider.of<FoodEntryProvider>(context, listen: false);
+                             // Find which goal was being edited based on the title
+                             String goalKey = "unknown";
+                             if (title.contains("Calorie")) goalKey = "calories";
+                             else if (title.contains("Protein")) goalKey = "protein";
+                             else if (title.contains("Carb")) goalKey = "carbs";
+                             else if (title.contains("Fat")) goalKey = "fat";
+                             else if (title.contains("Steps")) goalKey = "steps";
+
+                             dynamic providerValue;
+                             switch(goalKey) {
+                               case "calories": providerValue = provider.caloriesGoal; break;
+                               case "protein": providerValue = provider.proteinGoal; break;
+                               case "carbs": providerValue = provider.carbsGoal; break;
+                               case "fat": providerValue = provider.fatGoal; break;
+                               case "steps": providerValue = provider.stepsGoal; break;
+                             }
+                             debugPrint("--- DIALOG SAVE ($title) ---");
+                             debugPrint("New value entered: $newValue");
+                             debugPrint("Provider $goalKey goal after save: $providerValue");
+                             debugPrint("--- END DIALOG SAVE ---");
+                          }
+                          // --- End Diagnostic Print ---
+
+                          if (context.mounted) { // Check if context is still valid
+                             Navigator.pop(context, true); // Pop with result TRUE indicating save
+                          }
                         }
                       },
                       style: ElevatedButton.styleFrom(
