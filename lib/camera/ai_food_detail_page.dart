@@ -878,7 +878,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                 color: Theme.of(context).colorScheme.onPrimary),
             SizedBox(width: 8),
             Text(
-              'Added ${widget.food.name} to $selectedMeal',
+              'Added to $selectedMeal',
               style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
             ),
           ],
