@@ -29,6 +29,8 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
   bool _canSend = false;
   List<AIFoodItem> _foodItems = [];
   bool _hasSearched = false;
+  final FocusNode _mealFocusNode = FocusNode(); // Add FocusNode
+  // Removed _isTextFieldReadOnly state
 
   @override
   void initState() {
@@ -249,73 +251,101 @@ Meal to analyze: ${_mealController.text}
     );
   }
 
+  // Reverted to non-async
   void _quickAddFood(AIFoodItem food, String meal) {
-    // Unfocus any active text field to prevent keyboard from showing
-    FocusScope.of(context).unfocus();
+    // Pop the bottom sheet FIRST
+    Navigator.pop(context);
 
-    final dateProvider = Provider.of<DateProvider>(context, listen: false);
-    final foodEntryProvider =
-        Provider.of<FoodEntryProvider>(context, listen: false);
+    // Add a small delay AFTER popping before proceeding
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (!mounted) return; // Check if still mounted after delay
 
-    // Default quantity is 1.0 for quick add
-    final double quantity = 1.0;
+      final dateProvider = Provider.of<DateProvider>(context, listen: false);
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
 
-    // Adjust nutrients to be per 100g instead of per serving
-    final calories = food.calories[0] / quantity * 100;
-    final protein = food.protein[0] / quantity * 100;
-    final carbs = food.carbohydrates[0] / quantity * 100;
-    final fat = food.fat[0] / quantity * 100;
-    final fiber = food.fiber[0] / quantity * 100;
+      // Default quantity is 1.0 for quick add
+      final double quantity = 1.0;
 
-    // Create food entry using the first serving size
-    final entry = FoodEntry(
-      id: const Uuid().v4(),
-      food: FoodEntry.createFood(
-        fdcId: food.name.hashCode.toString(),
-        name: food.name,
-        brandName: 'AI Analyzed',
-        calories: calories,
-        nutrients: {
-          'Protein': protein,
-          'Carbohydrate, by difference': carbs,
-          'Total lipid (fat)': fat,
-          'Fiber': fiber,
-        },
-        mealType: meal,
-      ),
-      meal: meal,
-      quantity: quantity,
-      unit: food.servingSizes[0],
-      date: dateProvider.selectedDate,
-    );
+      // Adjust nutrients to be per 100g instead of per serving
+      final calories = food.calories[0] / quantity * 100;
+      final protein = food.protein[0] / quantity * 100;
+      final carbs = food.carbohydrates[0] / quantity * 100;
+      final fat = food.fat[0] / quantity * 100;
+      final fiber = food.fiber[0] / quantity * 100;
 
-    foodEntryProvider.addEntry(entry);
-    Navigator.pop(context); // Close bottom sheet
-
-    // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_outline,
-                color: Theme.of(context).colorScheme.onPrimary),
-            SizedBox(width: 8),
-            Text(
-              'Added to $meal',
-              style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-            ),
-          ],
+      // Create food entry using the first serving size
+      final entry = FoodEntry(
+        id: const Uuid().v4(),
+        food: FoodEntry.createFood(
+          fdcId: food.name.hashCode.toString(),
+          name: food.name,
+          brandName: 'AI Analyzed',
+          calories: calories,
+          nutrients: {
+            'Protein': protein,
+            'Carbohydrate, by difference': carbs,
+            'Total lipid (fat)': fat,
+            'Fiber': fiber,
+          },
+          mealType: meal,
         ),
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: EdgeInsets.all(8),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+        meal: meal,
+        quantity: quantity,
+        unit: food.servingSizes[0],
+        date: dateProvider.selectedDate,
+      );
 
-    // Removed navigation to dashboard to allow user to continue adding foods
+      foodEntryProvider.addEntry(entry);
+      // Navigator.pop(context); // Already popped above
+
+      // Set readOnly before showing snackbar - REMOVED
+      // setState(() {
+      //   _isTextFieldReadOnly = true;
+      // });
+
+      // Show confirmation and wait for it to close - REVERTED
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle_outline,
+                  color: Theme.of(context).colorScheme.onPrimary),
+              SizedBox(width: 8),
+              Text(
+                'Added to $meal',
+                style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+              ),
+            ],
+          ),
+          backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: EdgeInsets.all(8),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Wait for snackbar to close - REMOVED
+      // await snackbarResult.closed;
+
+      // Unfocus and reset readOnly after snackbar closes, checking if mounted - REMOVED
+      // if (mounted) {
+      //   // Try unfocusing first
+      //   FocusManager.instance.primaryFocus?.unfocus();
+      //   // Then reset the readOnly state
+      //   setState(() {
+      //     _isTextFieldReadOnly = false;
+      //   });
+      // }
+
+      // Removed navigation to dashboard to allow user to continue adding foods
+
+      // Ensure FocusManager unfocus is also called after delay, if needed
+      FocusManager.instance.primaryFocus?.unfocus();
+    }); // End of Future.delayed
   }
+
 
   Widget _buildFoodCard(BuildContext context, AIFoodItem food, int index) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -485,6 +515,9 @@ Meal to analyze: ${_mealController.text}
   }
 
   void _showQuickAddOptions(BuildContext context, AIFoodItem food) {
+    // Unfocus before showing the sheet
+    _mealFocusNode.unfocus();
+
     final customColors = Theme.of(context).extension<CustomColors>();
     showModalBottomSheet(
       context: context,
@@ -528,10 +561,7 @@ Meal to analyze: ${_mealController.text}
           ],
         ),
       ),
-    ).then((_) {
-      // When the bottom sheet is closed (by any means), remove focus
-      FocusScope.of(context).unfocus();
-    });
+    ); // Removed the .then() block that called FocusScope.unfocus()
   }
 
   Widget _buildMealOption(BuildContext context, AIFoodItem food, String meal) {
@@ -610,11 +640,16 @@ Meal to analyze: ${_mealController.text}
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: CupertinoTextField(
+                  focusNode: _mealFocusNode, // Assign FocusNode
                   controller: _mealController,
+                  // Removed readOnly binding
                   maxLines: null,
                   textAlignVertical: TextAlignVertical.top,
                   style: GoogleFonts.roboto(
-                    color: Theme.of(context).primaryColor,
+                    // Reverted style
+                    color: Theme.of(context)
+                        .extension<CustomColors>()!
+                        .textPrimary,
                   ),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -699,7 +734,7 @@ Meal to analyze: ${_mealController.text}
                                     padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
                                       color: customColors.cardBackground
-                                          ?.withOpacity(0.7),
+                                          .withOpacity(0.7),
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
@@ -800,8 +835,9 @@ Meal to analyze: ${_mealController.text}
 
   @override
   void dispose() {
-    // Dispose controllers first
+    // Dispose controllers and focus nodes first
     _mealController.dispose();
+    _mealFocusNode.dispose(); // Dispose the FocusNode
     // Call super.dispose() last
     super.dispose();
 
