@@ -33,7 +33,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
   Package? _selectedPackage;
   bool _isLoading = true;
   bool _isPurchasing = false;
-  bool _isTrialMode = true; // Default to trial mode
+  // bool _isTrialMode = true; // No longer needed, rely on introductoryPrice
   bool _isReturningUser = false; // Flag to identify returning users
   bool _showDismissButton = false; // Initially hide dismiss button
   bool _showScrollIndicator = true; // Control scroll indicator visibility
@@ -110,7 +110,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       ),
     );
 
-    // Check if user has previously used the app (simplified check - in a real app, you'd use a more robust method)
+    // Check if user has previously used the app
     _checkIfReturningUser();
 
     _fetchOfferings();
@@ -319,7 +319,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message,
-            style: TextStyle(
+            style: const TextStyle( // Added const
               color: Colors.white,
             )),
         behavior: SnackBarBehavior.floating,
@@ -355,53 +355,44 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     _startCarouselTimer();
   }
 
-  // Simple method to check if the user is returning
-  // Using proper RevenueCat methods to determine this
+  // Check if the user is returning based on RevenueCat data
   Future<void> _checkIfReturningUser() async {
     try {
       final customerInfo = await Purchases.getCustomerInfo();
 
-      // The proper way to check for returning users in RevenueCat:
-      // 1. Check for any past purchases (subscriptions or one-time)
+      // Check for any past purchases (subscriptions or one-time)
       final bool hasPreviousPurchases =
           customerInfo.nonSubscriptionTransactions.isNotEmpty;
 
-      // 2. Check for any previous subscription history
-      final bool hasPreviousSubscriptions = customerInfo.entitlements.all.values
-          .any((entitlement) => entitlement.latestPurchaseDate != null);
+      // Check for any previous subscription history (active or expired)
+      final bool hasEntitlementHistory = customerInfo.entitlements.all.values
+          .any((entitlement) => entitlement.originalPurchaseDate != null);
 
-      // 3. Check if they had any past subscription periods
+      // Check if they had any past subscription periods (more comprehensive)
       final bool hasSubscriptionHistory =
           customerInfo.allPurchaseDates.isNotEmpty;
-
-      // 4. For additional certainty, check if there are any active or expired entitlements
-      final bool hasEntitlementHistory = customerInfo
-              .entitlements.active.isNotEmpty ||
-          customerInfo.entitlements.all.values.any((entitlement) =>
-              entitlement.isActive == false && entitlement.willRenew == false);
 
       setState(() {
         // If they meet any of the criteria, consider them a returning user
         _isReturningUser = hasPreviousPurchases ||
-            hasPreviousSubscriptions ||
-            hasSubscriptionHistory ||
-            hasEntitlementHistory;
+            hasEntitlementHistory ||
+            hasSubscriptionHistory;
 
-        // If they're returning, don't show trial mode
         if (_isReturningUser) {
-          _isTrialMode = false;
           debugPrint(
-              'User identified as returning customer - disabling trial mode');
+              'User identified as returning customer - trial eligibility depends on introductoryPrice');
         } else {
-          debugPrint('User identified as new customer - trial mode enabled');
+          debugPrint('User identified as new customer - trial eligible if introductoryPrice exists');
         }
       });
     } catch (e) {
-      // If we can't determine, default to new user
+      // If we can't determine, default to new user (safer for offering trials)
       debugPrint('Error identifying user type: $e - defaulting to new user');
-      setState(() {
-        _isReturningUser = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isReturningUser = false;
+        });
+      }
     }
   }
 
@@ -536,6 +527,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     final textColor = colors.textColor;
     final accentColor = colors.accent;
 
+    // Determine if the selected package has a trial available for this user
+    final bool isTrialAvailable = _selectedPackage?.storeProduct.introductoryPrice != null && !_isReturningUser;
+
     return Stack(
       children: [
         // Enhanced background pattern with nutrition elements
@@ -571,11 +565,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                       color: textColor.withOpacity(0.8),
                       size: 20,
                     ),
-                    // Back button logic:
-                    // 1. If dismissal is allowed:
-                    //    - Use override if provided
-                    //    - Otherwise, use the standard onDismiss
-                    // 2. If dismissal is not allowed, disable the button
                     onPressed: widget.allowDismissal
                         ? (widget.onBackPressedOverride ?? widget.onDismiss)
                         : null,
@@ -583,11 +572,10 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                 ),
               ),
 
-              // Always build the main content, dismissal logic is handled elsewhere
+              // Main scrollable content
               Expanded(
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (ScrollNotification notification) {
-                    // We'll handle visibility in the scroll controller listener instead
                     return true;
                   },
                   child: ListView.builder(
@@ -602,7 +590,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           children: [
                             const SizedBox(height: 5),
 
-                            // Enhanced hero section with premium branding and gradient title
+                            // Hero section
                             RepaintBoundary(
                               child: TweenAnimationBuilder<double>(
                                 tween: Tween<double>(begin: 0.9, end: 1.0),
@@ -616,7 +604,6 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                 },
                                 child: Column(
                                   children: [
-                                    // Title with gradient
                                     ShaderMask(
                                       shaderCallback: (bounds) =>
                                           LinearGradient(
@@ -632,11 +619,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         'Track Smarter, Eat Better, Live Healthier',
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
-                                          fontSize:
-                                              24, // Slightly smaller to ensure fit on smaller screens
+                                          fontSize: 24,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors
-                                              .white, // This will be replaced by the gradient
+                                          color: Colors.white,
                                           height: 1.2,
                                         ),
                                       ),
@@ -646,13 +631,12 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               ),
                             ),
 
-                            // Ensure we have enough space for the main features on small screens
                             const SizedBox(height: 8),
 
-                            // Enhanced feature carousel
+                            // Feature carousel
                             RepaintBoundary(
                               child: SizedBox(
-                                height: 200, // Further reduced height
+                                height: 200,
                                 child: PageView.builder(
                                   controller: _pageController,
                                   itemCount: _features.length,
@@ -668,9 +652,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               ),
                             ),
 
-                            // const SizedBox(height: 8),
-
-                            // Subscription options with enhanced visuals
+                            // Subscription options
                             if (_offering != null &&
                                 _offering!.availablePackages.isNotEmpty)
                               RepaintBoundary(
@@ -686,7 +668,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
                             const SizedBox(height: 10),
 
-                            // Enhanced subscribe button with animation and gradient
+                            // Subscribe button
                             RepaintBoundary(
                               child: TweenAnimationBuilder<double>(
                                 tween: Tween<double>(begin: 0.95, end: 1.0),
@@ -756,25 +738,19 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                                 MainAxisAlignment.center,
                                             children: [
                                               Text(
-                                                _isReturningUser ||
-                                                        (_selectedPackage
-                                                                ?.packageType ==
-                                                            PackageType
-                                                                .lifetime)
-                                                    ? "Subscribe Now"
-                                                    : "Start Free Trial",
+                                                // Show "Start Free Trial" only if trial is available
+                                                isTrialAvailable
+                                                    ? "Start Free Trial"
+                                                    : "Subscribe Now",
                                                 style: const TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.bold,
                                                   color: Colors.white,
                                                 ),
                                               ),
-                                              if (_isTrialMode &&
-                                                  !_isReturningUser &&
-                                                  _selectedPackage != null &&
-                                                  _selectedPackage
-                                                          ?.packageType !=
-                                                      PackageType.lifetime)
+                                              // Show "Then..." text only if trial is available and not lifetime
+                                              if (isTrialAvailable &&
+                                                  _selectedPackage?.packageType != PackageType.lifetime)
                                                 Text(
                                                   "Then ${_selectedPackage?.storeProduct.priceString}/${_selectedPackage?.packageType == PackageType.annual ? 'year' : 'month'}",
                                                   style: const TextStyle(
@@ -789,13 +765,10 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               ),
                             ),
 
-                            // const SizedBox(height: 10),
-
-                            // Place Restore and Redeem buttons side by side
+                            // Restore/Redeem buttons
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                // Restore Purchases button
                                 Expanded(
                                   child: Center(
                                     child: TextButton(
@@ -811,12 +784,12 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 12, vertical: 8),
                                       ),
-                                      child: Row(
+                                      child: const Row( // Added const
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.restore, size: 14),
-                                          const SizedBox(width: 6),
-                                          const Text(
+                                          SizedBox(width: 6),
+                                          Text(
                                             "Restore",
                                             style: TextStyle(fontSize: 13),
                                           ),
@@ -825,15 +798,11 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                     ),
                                   ),
                                 ),
-
-                                // Divider
                                 Container(
                                   height: 16,
                                   width: 1,
                                   color: textColor.withOpacity(0.2),
                                 ),
-
-                                // Redeem Code Button
                                 Expanded(
                                   child: Center(
                                     child: TextButton(
@@ -857,12 +826,12 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 12, vertical: 8),
                                       ),
-                                      child: Row(
+                                      child: const Row( // Added const
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.card_giftcard, size: 14),
-                                          const SizedBox(width: 6),
-                                          const Text(
+                                          SizedBox(width: 6),
+                                          Text(
                                             "Redeem",
                                             style: TextStyle(fontSize: 13),
                                           ),
@@ -874,9 +843,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               ],
                             ),
 
-                            // const SizedBox(height: 7),
-
-                            // Terms and Privacy links below Restore/Redeem buttons
+                            // Terms/Privacy links
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -940,7 +907,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           ),
         ),
 
-        // Enhanced purchase processing overlay
+        // Purchase processing overlay
         if (_isPurchasing)
           Positioned.fill(
             child: Container(
@@ -1065,22 +1032,23 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       String billingInfo;
       String? perMonthPrice;
       bool isBestValue = isAnnual && savingsText != null;
+      // Determine if a trial is available for this specific package and user
+      final bool isTrialAvailableForPackage = package.storeProduct.introductoryPrice != null && !_isReturningUser;
 
       switch (package.packageType) {
         case PackageType.monthly:
           title = "Monthly";
-          description = _isTrialMode && !_isReturningUser
-              ? "14-day free trial"
+          description = isTrialAvailableForPackage
+              ? "Free Trial Available" // Static text if trial exists
               : "Auto-renewing plan";
           billingInfo = "Billed monthly";
           break;
         case PackageType.annual:
           title = "Annual";
-          description = _isTrialMode && !_isReturningUser
-              ? "14-day free trial"
+          description = isTrialAvailableForPackage
+              ? "Free Trial Available" // Static text if trial exists
               : "Auto-renewing plan";
           billingInfo = "Billed yearly";
-          // Calculate per-month price
           if (package.storeProduct.price > 0) {
             double monthlyEquivalent = package.storeProduct.price / 12;
             perMonthPrice =
@@ -1211,12 +1179,10 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (_isTrialMode &&
-                                        !_isReturningUser &&
-                                        (package.packageType ==
-                                                PackageType.monthly ||
-                                            package.packageType ==
-                                                PackageType.annual))
+                                    // Show trial badge only if intro price exists AND user is not returning
+                                    if (isTrialAvailableForPackage &&
+                                        (package.packageType == PackageType.monthly ||
+                                            package.packageType == PackageType.annual))
                                       Flexible(
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
@@ -1228,7 +1194,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                                 BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            "14-DAY FREE TRIAL",
+                                            // Static text for trial badge
+                                            "FREE TRIAL",
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
@@ -1241,7 +1208,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                     else
                                       Flexible(
                                         child: Text(
-                                          description,
+                                          description, // Show regular description if no trial
                                           style: TextStyle(
                                             fontSize: 13,
                                             color: textColor.withOpacity(0.6),
@@ -1500,7 +1467,7 @@ class NutritionBackgroundPainter extends CustomPainter {
 
   void _drawFloatingHexagons(Canvas canvas, Size size, Paint paint) {
     final hexSize = size.width * 0.08;
-    final spacing = size.width * 0.15;
+    // final spacing = size.width * 0.15; // spacing not used
 
     for (int i = 0; i < 3; i++) {
       final offset = (i * 0.3 + progress) % 1.0;
