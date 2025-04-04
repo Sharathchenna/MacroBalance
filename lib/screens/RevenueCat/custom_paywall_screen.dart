@@ -319,7 +319,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message,
-            style: const TextStyle( // Added const
+            style: const TextStyle(
+              // Added const
               color: Colors.white,
             )),
         behavior: SnackBarBehavior.floating,
@@ -382,7 +383,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           debugPrint(
               'User identified as returning customer - trial eligibility depends on introductoryPrice');
         } else {
-          debugPrint('User identified as new customer - trial eligible if introductoryPrice exists');
+          debugPrint(
+              'User identified as new customer - trial eligible if introductoryPrice exists');
         }
       });
     } catch (e) {
@@ -528,7 +530,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     final accentColor = colors.accent;
 
     // Determine if the selected package has a trial available for this user
-    final bool isTrialAvailable = _selectedPackage?.storeProduct.introductoryPrice != null && !_isReturningUser;
+    final bool isTrialAvailable =
+        _selectedPackage?.storeProduct.introductoryPrice != null &&
+            !_isReturningUser;
 
     return Stack(
       children: [
@@ -750,7 +754,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                               ),
                                               // Show "Then..." text only if trial is available and not lifetime
                                               if (isTrialAvailable &&
-                                                  _selectedPackage?.packageType != PackageType.lifetime)
+                                                  _selectedPackage
+                                                          ?.packageType !=
+                                                      PackageType.lifetime)
                                                 Text(
                                                   "Then ${_selectedPackage?.storeProduct.priceString}/${_selectedPackage?.packageType == PackageType.annual ? 'year' : 'month'}",
                                                   style: const TextStyle(
@@ -784,7 +790,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 12, vertical: 8),
                                       ),
-                                      child: const Row( // Added const
+                                      child: const Row(
+                                        // Added const
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.restore, size: 14),
@@ -809,15 +816,52 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                       onPressed: _isPurchasing
                                           ? null
                                           : () async {
+                                              if (_isPurchasing)
+                                                return; // Prevent double taps
                                               HapticFeedback.mediumImpact();
+                                              setState(() {
+                                                _isPurchasing = true;
+                                              });
                                               try {
                                                 await Purchases
                                                     .presentCodeRedemptionSheet();
+
+                                                // After the sheet is dismissed, check if redemption was successful
+                                                final customerInfo =
+                                                    await Purchases
+                                                        .getCustomerInfo();
+                                                // Use the entitlement ID defined in SubscriptionService
+                                                const String
+                                                    premiumEntitlementId =
+                                                    'pro';
+                                                if (customerInfo
+                                                    .entitlements.active
+                                                    .containsKey(
+                                                        premiumEntitlementId)) {
+                                                  // Redemption successful, navigate to dashboard
+                                                  Navigator
+                                                      .pushNamedAndRemoveUntil(
+                                                          context,
+                                                          RouteNames.dashboard,
+                                                          (Route<dynamic>
+                                                                  route) =>
+                                                              false);
+                                                } else {
+                                                  // Optional: Show a message if redemption didn't grant access
+                                                  debugPrint(
+                                                      "Redemption sheet closed, but no active premium entitlement found.");
+                                                }
                                               } catch (e) {
                                                 debugPrint(
-                                                    "Error presenting code redemption sheet: $e");
+                                                    "Error presenting code redemption sheet or checking info: $e");
                                                 _showError(
                                                     "Could not open the redeem code screen. Please try again later.");
+                                              } finally {
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _isPurchasing = false;
+                                                  });
+                                                }
                                               }
                                             },
                                       style: TextButton.styleFrom(
@@ -826,7 +870,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 12, vertical: 8),
                                       ),
-                                      child: const Row( // Added const
+                                      child: const Row(
+                                        // Added const
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.card_giftcard, size: 14),
@@ -1033,7 +1078,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       String? perMonthPrice;
       bool isBestValue = isAnnual && savingsText != null;
       // Determine if a trial is available for this specific package and user
-      final bool isTrialAvailableForPackage = package.storeProduct.introductoryPrice != null && !_isReturningUser;
+      final bool isTrialAvailableForPackage =
+          package.storeProduct.introductoryPrice != null && !_isReturningUser;
 
       switch (package.packageType) {
         case PackageType.monthly:
@@ -1181,8 +1227,10 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                   children: [
                                     // Show trial badge only if intro price exists AND user is not returning
                                     if (isTrialAvailableForPackage &&
-                                        (package.packageType == PackageType.monthly ||
-                                            package.packageType == PackageType.annual))
+                                        (package.packageType ==
+                                                PackageType.monthly ||
+                                            package.packageType ==
+                                                PackageType.annual))
                                       Flexible(
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
