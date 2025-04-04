@@ -1,8 +1,18 @@
+import 'dart:convert';
+import 'dart:io'; // For Platform check and File operations
+import 'dart:typed_data'; // For Uint8List
+import 'dart:ui'; // Used for ImageFilter
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:macrotracker/camera/camera.dart';
+import 'package:lottie/lottie.dart'; // Import Lottie package
+import 'package:macrotracker/camera/barcode_results.dart'; // Import for navigation
+import 'package:macrotracker/camera/results_page.dart'; // Import for navigation
+import 'package:macrotracker/models/ai_food_item.dart'; // Import for type casting
+import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart'; // Added import
 import 'package:macrotracker/screens/NativeStatsScreen.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart'; // Added import
@@ -10,16 +20,16 @@ import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/screens/searchPage.dart';
-import 'package:macrotracker/camera/barcode_results.dart'; // Import for navigation
-import 'package:macrotracker/camera/results_page.dart'; // Import for navigation
-import 'package:macrotracker/models/ai_food_item.dart'; // Import for type casting
+import 'package:macrotracker/theme/app_theme.dart';
+import 'package:path_provider/path_provider.dart'; // For temp directory
 import 'package:permission_handler/permission_handler.dart'; // Import needed for openAppSettings
 import 'package:provider/provider.dart';
+
+import '../AI/gemini.dart'; // Import Gemini processing
 import '../Health/Health.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
-import '../providers/dateProvider.dart';
-import 'package:macrotracker/theme/app_theme.dart';
-import 'dart:ui'; // Used for ImageFilter
+
+// Define the expected result structure at the top level
+typedef CameraResult = Map<String, dynamic>;
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -29,6 +39,240 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
+  // Method Channel for the native camera view (moved from CameraScreen)
+  static const MethodChannel _nativeCameraViewChannel =
+      MethodChannel('com.macrotracker/native_camera_view');
+
+  @override
+  void initState() {
+    super.initState();
+    _setupNativeCameraHandler(); // Set up the handler when the dashboard initializes
+  }
+
+  // --- Native Camera Handling (Moved from CameraScreen) ---
+
+  void _setupNativeCameraHandler() {
+    _nativeCameraViewChannel.setMethodCallHandler((call) async {
+      print('[Flutter Dashboard] Received method call: ${call.method}');
+      switch (call.method) {
+        case 'cameraResult':
+          // Use addPostFrameCallback to ensure state is stable before navigating or showing dialogs
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              print(
+                  '[Flutter Dashboard] Post-frame callback: Widget is unmounted. Ignoring result.');
+              return;
+            }
+
+            final Map<dynamic, dynamic> result = call.arguments as Map;
+            final String type = result['type'] as String;
+            final currentContext = context; // Capture context safely
+
+            if (type == 'barcode') {
+              final String barcode = result['value'] as String;
+              print('[Flutter Dashboard] Post-frame: Handling barcode: $barcode');
+              _handleBarcodeResult(currentContext, barcode);
+            } else if (type == 'photo') {
+              final Uint8List photoData = result['value'] as Uint8List;
+              print(
+                  '[Flutter Dashboard] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
+              // Don't await, let it process in the background
+              _handlePhotoResult(currentContext, photoData);
+            } else if (type == 'cancel') {
+              print('[Flutter Dashboard] Post-frame: Handling cancel.');
+              // No action needed on cancel in Dashboard, just log.
+            } else {
+              print(
+                  '[Flutter Dashboard] Post-frame: Unknown camera result type: $type');
+              if (mounted) {
+                _showErrorSnackbar('Received unknown result from camera.');
+              }
+            }
+          });
+          break;
+        default:
+          print(
+              '[Flutter Dashboard] Unknown method call from native: ${call.method}');
+      }
+    });
+  }
+
+  Future<void> _showNativeCamera() async {
+    if (!Platform.isIOS) {
+      print('[Flutter Dashboard] Native camera view only supported on iOS.');
+      if (mounted) {
+        _showErrorSnackbar('Camera feature is only available on iOS.');
+      }
+      return;
+    }
+
+    try {
+      print('[Flutter Dashboard] Invoking showNativeCamera...');
+      await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
+      print('[Flutter Dashboard] showNativeCamera invoked successfully.');
+      // No navigation or state change needed here, handler will receive result
+    } on PlatformException catch (e) {
+      print('[Flutter Dashboard] Error showing native camera: ${e.message}');
+      if (mounted) {
+        _showErrorSnackbar('Failed to open camera: ${e.message}');
+      }
+    }
+  }
+
+  // --- Result Handling (Adapted from CameraScreen) ---
+
+  void _handleBarcodeResult(BuildContext safeContext, String barcode) {
+    print('[Flutter Dashboard] Navigating to BarcodeResults');
+    if (!mounted) return;
+    Navigator.push(
+      safeContext,
+      MaterialPageRoute(builder: (context) => BarcodeResults(barcode: barcode)),
+    );
+  }
+
+  Future<void> _handlePhotoResult(
+      BuildContext safeContext, Uint8List photoData) async {
+    if (!mounted) return;
+
+    _showLoadingDialog('Analyzing Image...'); // Show loading for Gemini
+
+    try {
+      // --- Gemini Processing ---
+      final Directory tempDir = await getTemporaryDirectory();
+      final String tempPath =
+          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final File tempFile = File(tempPath);
+      await tempFile.writeAsBytes(photoData);
+      print('[Flutter Dashboard] Photo saved to temporary file: $tempPath');
+      String jsonResponse = await processImageWithGemini(tempFile.path);
+      print('[Flutter Dashboard] Gemini response received.');
+      // try { await tempFile.delete(); } catch (e) { print('[Flutter Dashboard] Warn: Could not delete temp file: $e'); }
+      jsonResponse =
+          jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
+      dynamic decodedJson = json.decode(jsonResponse);
+      List<dynamic> mealData;
+      if (decodedJson is Map<String, dynamic> &&
+          decodedJson.containsKey('meal') &&
+          decodedJson['meal'] is List) {
+        mealData = decodedJson['meal'] as List;
+      } else if (decodedJson is List) {
+        mealData = decodedJson;
+      } else if (decodedJson is Map<String, dynamic>) {
+        mealData = [decodedJson];
+      } else {
+        throw Exception('Unexpected JSON structure from Gemini');
+      }
+      final List<AIFoodItem> foods = mealData
+          .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
+          .toList();
+      // --- End Gemini Processing ---
+
+      // Dismiss loading dialog *before* navigating or showing snackbar
+      if (mounted) {
+        try {
+          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
+            Navigator.of(safeContext, rootNavigator: true).pop(); // Dismiss dialog
+          }
+        } catch (e) {
+          print("[Flutter Dashboard] Error dismissing loading dialog: $e");
+        }
+      }
+      if (!mounted) return; // Check again after async gap
+
+      // Check if Gemini identified any food
+      if (foods.isEmpty) {
+        print('[Flutter Dashboard] Gemini returned an empty food list.');
+        _showErrorSnackbar('Unable to identify food, try again');
+      } else {
+        // Navigate to results page
+        print('[Flutter Dashboard] Navigating to ResultsPage');
+        Navigator.push(
+          safeContext,
+          CupertinoPageRoute(builder: (context) => ResultsPage(foods: foods)),
+        );
+      }
+    } catch (e) {
+      print('[Flutter Dashboard] Error processing photo result: ${e.toString()}');
+      if (mounted) {
+        // Dismiss loading dialog in case of error
+        try {
+          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
+            Navigator.of(safeContext, rootNavigator: true).pop(); // Dismiss dialog
+          }
+        } catch (e) {
+          print("[Flutter Dashboard] Error dismissing loading dialog in catch: $e");
+        }
+
+        // Show generic error message
+        _showErrorSnackbar('Something went wrong, try again');
+      }
+    }
+    // No finally block needed here as dialog dismissal is handled within try/catch
+  }
+
+  // --- UI Helper Methods (Moved from CameraScreen) ---
+
+  void _showErrorSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showLoadingDialog(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      // Use a slightly transparent barrier
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (BuildContext dialogContext) {
+        // Improved Loading Dialog Layout
+        return Dialog(
+          backgroundColor: Theme.of(context).brightness == Brightness.light
+              ? Colors.white
+              : Colors.grey[850], // Dark mode background
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                vertical: 30, horizontal: 24), // More padding
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+              children: [
+                // Lottie animation
+                Lottie.asset(
+                  'assets/animations/food_loading.json', // Ensure this path is correct
+                  width: 150, // Adjusted size
+                  height: 150,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 20), // Adjusted spacing
+                Text(
+                  message,
+                  style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.black87
+                          : Colors.white, // Adjust text color for theme
+                      fontSize: 17),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- Build Method ---
   @override
   Widget build(BuildContext context) {
     // Calculate dynamic sizes based on screen dimensions.
@@ -55,9 +299,9 @@ class _DashboardState extends State<Dashboard> {
                 // Scrollable Content
                 Expanded(
                   child: SingleChildScrollView(
-                    child: Column( // <-- Removed const here
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.start,
-                      children: [ // <-- Removed const here
+                      children: const [ // <-- Added const back here
                         SizedBox(height: 8), // Add some space after date bar
                         CalorieTracker(),
                         MealSection(),
@@ -132,55 +376,11 @@ class _DashboardState extends State<Dashboard> {
               _buildNavItemCompact(
                 context: context,
                 icon: CupertinoIcons.camera,
-                onTap: () async {
-                  // Make async
+                onTap: () {
                   HapticFeedback.lightImpact();
-                  // Await the result from CameraScreen
-                  final CameraResult? result =
-                      await Navigator.push<CameraResult?>(
-                    context,
-                    CupertinoPageRoute(
-                        builder: (context) => const CameraScreen()),
-                  );
-
-                  // Handle the result after CameraScreen pops
-                  if (result != null && context.mounted) {
-                    // Check context.mounted
-                    final String type = result['type'] as String;
-                    final dynamic value = result['value'];
-
-                    if (type == 'barcode') {
-                      final String barcode = value as String;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) =>
-                                BarcodeResults(barcode: barcode)),
-                      );
-                    } else if (type == 'photo') {
-                      final List<AIFoodItem> foods = value as List<AIFoodItem>;
-                      if (foods.isNotEmpty) {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                              builder: (context) => ResultsPage(foods: foods)),
-                        );
-                      } else {
-                        // Show snackbar if no food identified
-                        ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content:
-                                Text('No food items identified in the image.'),
-                            backgroundColor: Colors.orangeAccent,
-                          ),
-                        );
-                      }
-                    }
-                  } else if (result == null) {
-                    print("[Dashboard] Camera cancelled or error occurred.");
-                    // Optionally show a message if needed
-                  }
+                  // Directly invoke the native camera view
+                  _showNativeCamera();
+                  // Result handling is now done in _setupNativeCameraHandler
                 },
               ),
               _buildNavItemCompact(
@@ -230,7 +430,7 @@ Widget _buildNavItemCompact({
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFFFFC107).withValues(alpha: 0.2)
+              ? const Color(0xFFFFC107).withOpacity(0.2) // Use withOpacity
               : Colors.transparent,
           shape: BoxShape.circle,
         ),
@@ -244,7 +444,7 @@ Widget _buildNavItemCompact({
   );
 }
 
-// First, update the DateNavigatorbar class to be stateful
+// --- DateNavigatorbar Widget ---
 class DateNavigatorbar extends StatefulWidget {
   const DateNavigatorbar({super.key});
 
@@ -263,8 +463,8 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
-    final yesterday = now.subtract(Duration(days: 1));
-    final tomorrow = now.add(Duration(days: 1));
+    final yesterday = now.subtract(const Duration(days: 1));
+    final tomorrow = now.add(const Duration(days: 1));
 
     if (date.year == now.year &&
         date.month == now.month &&
@@ -427,11 +627,11 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     CupertinoButton(
-                      child: Text('Cancel'),
+                      child: const Text('Cancel'),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                     CupertinoButton(
-                      child: Text(
+                      child: const Text(
                         'Done',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -462,6 +662,7 @@ class _DateNavigatorbarState extends State<DateNavigatorbar> {
   }
 }
 
+// --- CalorieTracker Widget ---
 class CalorieTracker extends StatefulWidget {
   const CalorieTracker({super.key});
 
@@ -549,16 +750,16 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     showCupertinoDialog(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: Text('Health Data Access Required'),
-        content: Text(
+        title: const Text('Health Data Access Required'),
+        content: const Text(
             'This app needs access to your health data to track calories and steps.'),
         actions: [
           CupertinoDialogAction(
-            child: Text('Cancel'),
+            child: const Text('Cancel'),
             onPressed: () => Navigator.pop(context),
           ),
           CupertinoDialogAction(
-            child: Text('Open Settings'),
+            child: const Text('Open Settings'),
             onPressed: () {
               Navigator.pop(context);
               // Open app settings using permission_handler
@@ -625,7 +826,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     }
   }
 
-  // Helper method to get appropriate icons for macros (moved inside the State class)
+  // Helper method to get appropriate icons for macros
   IconData _getMacroIcon(String label) {
     switch (label) {
       case 'Carbs':
@@ -641,7 +842,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     }
   }
 
-  // Helper method to build macro progress indicators (moved inside the State class)
+  // Helper method to build macro progress indicators
   Widget _buildMacroProgressEnhanced(BuildContext context, String label,
       int value, int goal, Color color, String unit) {
     final progress = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
@@ -671,7 +872,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           );
         }
       },
-      child: Container(
+      child: SizedBox( // Changed Container to SizedBox
         // Adjusted height to accommodate text below
         height: 125, // Slightly increased height for better spacing
         width: 75, // Slightly increased width for better spacing
@@ -722,7 +923,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
             const SizedBox(height: 2), // Space between label and value
             // Value + Unit Text (e.g., 88g)
             Text(
-              '$value${unit}',
+              '$value$unit',
               style: GoogleFonts.poppins(
                 fontSize: 12, // Increased size slightly
                 fontWeight: FontWeight.w600, // Bolder weight
@@ -751,7 +952,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     );
   }
 
-  // Helper method to build calorie info cards (moved inside the State class)
+  // Helper method to build calorie info cards
   Widget _buildCalorieInfoCard(BuildContext context, String label, int value, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -810,13 +1011,13 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           // Show a loading indicator while the provider initializes
           // Make the loading indicator fill the space
-          return Container(
+          return const SizedBox( // Changed Container to SizedBox
             height: 300, // Give it a reasonable height
             child: Center(child: CupertinoActivityIndicator()),
           );
         } else if (snapshot.hasError) {
           // Handle initialization error
-          return Container(
+          return SizedBox( // Changed Container to SizedBox
              height: 300,
              child: Center(child: Text('Error initializing data: ${snapshot.error}'))
           );
@@ -938,7 +1139,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                                 Navigator.push(
                                   context,
                                   CupertinoPageRoute(
-                                    builder: (context) => MacroTrackingScreen(),
+                                    builder: (context) => const MacroTrackingScreen(),
                                   ),
                                 );
                               },
@@ -949,14 +1150,14 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                                   color: Theme.of(context).brightness ==
                                           Brightness.light
                                       ? Colors.white
-                                      : Colors.grey.shade900.withValues(alpha: 0.3),
+                                      : Colors.grey.shade900.withOpacity(0.3), // Use withOpacity
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
                                       color: Theme.of(context).brightness ==
                                               Brightness.light
-                                          ? Colors.grey.withValues(alpha: 0.1)
-                                          : Colors.black.withValues(alpha: 0.2),
+                                          ? Colors.grey.withOpacity(0.1) // Use withOpacity
+                                          : Colors.black.withOpacity(0.2), // Use withOpacity
                                       blurRadius: 10,
                                       spreadRadius: 1,
                                       offset: const Offset(0, 3),
@@ -1117,8 +1318,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 }
 
-
-// Add this class after your existing code
+// --- MealSection Widget ---
 class MealSection extends StatefulWidget {
   const MealSection({super.key});
 
@@ -1237,7 +1437,7 @@ class _MealSectionState extends State<MealSection> {
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color:
-                                _getMealColor(mealType).withValues(alpha: 0.1),
+                                _getMealColor(mealType).withOpacity(0.1), // Use withOpacity
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
@@ -1356,8 +1556,8 @@ class _MealSectionState extends State<MealSection> {
                                       _buildFoodItem(context, entries[i],
                                           foodEntryProvider),
                                       if (i < entries.length - 1)
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
+                                        const Padding( // Added const
+                                          padding: EdgeInsets.symmetric(
                                               horizontal: 16.0),
                                           child: Divider(
                                               height: 1, thickness: 0.5),
@@ -1409,7 +1609,7 @@ class _MealSectionState extends State<MealSection> {
                                                 BorderRadius.circular(12),
                                           ),
                                           minimumSize:
-                                              Size(double.infinity, 40),
+                                              const Size(double.infinity, 40), // Added const
                                         ),
                                         onPressed: () {
                                           HapticFeedback.lightImpact();
@@ -1441,7 +1641,7 @@ class _MealSectionState extends State<MealSection> {
   }
 }
 
-// Add this helper method for meal color
+// Helper method for meal color
 Color _getMealColor(String mealType) {
   switch (mealType) {
     case 'Breakfast':
@@ -1457,7 +1657,7 @@ Color _getMealColor(String mealType) {
   }
 }
 
-// Add this helper method for food items
+// Helper method for food items
 Widget _buildFoodItem(
     BuildContext context, dynamic entry, FoodEntryProvider provider) {
   // Calculate calories with proper unit conversion

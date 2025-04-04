@@ -325,13 +325,9 @@ class _CameraScreenState extends State<CameraScreen> {
           Container(); // Empty container, native view/dialog takes precedence
     }
 
-    return Scaffold(
-      // Keep background white for consistency during transitions
-      backgroundColor: Colors.white,
-      body: Center(child: bodyContent),
-      // Prevent accidental back navigation while native view is potentially active
-      // WillPopScope might be needed if native view presentation isn't fully modal
-      // onWillPop: () async => !_isLoading, // Prevent back if loading/native view active
-    );
+    // Return the body content directly, wrapped in a Center if needed,
+    // but without the Scaffold to avoid the white flash.
+    // Error messages will still be displayed as they are part of bodyContent.
+    return Center(child: bodyContent);
   }
 }

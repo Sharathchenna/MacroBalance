@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
-import 'package:macrotracker/camera/camera.dart';
+// import 'package:macrotracker/camera/camera.dart'; // Removed import
 import 'package:macrotracker/screens/askAI.dart';
 
 class SearchHeader extends StatefulWidget {
@@ -11,6 +11,7 @@ class SearchHeader extends StatefulWidget {
   final Function(String) onSearch;
   final Function(String) onChanged;
   final VoidCallback onBack;
+  final VoidCallback onCameraTap; // Added camera tap callback
 
   const SearchHeader({
     Key? key,
@@ -18,6 +19,7 @@ class SearchHeader extends StatefulWidget {
     required this.onSearch,
     required this.onChanged,
     required this.onBack,
+    required this.onCameraTap, // Make it required
   }) : super(key: key);
 
   @override
@@ -39,14 +41,7 @@ class _SearchHeaderState extends State<SearchHeader> {
     super.dispose();
   }
 
-  void _navigateToCameraScreen(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CameraScreen(),
-      ),
-    );
-  }
+  // Removed _navigateToCameraScreen method
 
   void _navigateToAskAI(BuildContext context) {
     Navigator.push(
@@ -102,7 +97,7 @@ class _SearchHeaderState extends State<SearchHeader> {
                   borderRadius: BorderRadius.circular(40),
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    _navigateToCameraScreen(context);
+                    widget.onCameraTap(); // Call the passed callback
                   },
                   child: Container(
                     padding: const EdgeInsets.all(8),
