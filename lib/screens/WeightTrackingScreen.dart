@@ -952,80 +952,65 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              // Show detailed view or edit options
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: customColors.dateNavigatorBackground,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color:
-                                          customColors.dateNavigatorBackground,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          DateFormat('d').format(date),
-                                          style: GoogleFonts.inter(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: customColors.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          DateFormat('MMM').format(date),
-                                          style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            color: customColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
+                                  Text(
+                                    DateFormat('d').format(date),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: customColors.textPrimary,
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          DateFormat('EEEE').format(date),
-                                          style: GoogleFonts.inter(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                            color: customColors.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          _formatWeight(weight),
-                                          style: GoogleFonts.inter(
-                                            fontSize: 14,
-                                            color: customColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
+                                  Text(
+                                    DateFormat('MMM').format(date),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: customColors.textSecondary,
                                     ),
-                                  ),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    color: customColors.textSecondary,
-                                    size: 20,
                                   ),
                                 ],
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    DateFormat('EEEE').format(date),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: customColors.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatWeight(weight),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: customColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Icon(
+                            //   Icons.chevron_right,
+                            //   color: customColors.textSecondary,
+                            //   size: 20,
+                            // ),
+                          ],
                         ),
                       );
                     },
@@ -1126,7 +1111,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
   }
 
   // Now synchronous for local saves, but provider setters might still be async if they sync
-  Future<void> _saveWeightChanges() async { // Keep async for provider calls
+  Future<void> _saveWeightChanges() async {
+    // Keep async for provider calls
     try {
       // Save current and target weights via Provider
       // --- Update Provider ---

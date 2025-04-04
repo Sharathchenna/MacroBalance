@@ -354,9 +354,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     final customColors = Theme.of(context).extension<CustomColors>();
     final food = widget.food;
     var macroPercentages = getMacroPercentages();
-    final convertedQty = getConvertedQuantity();
-    final caloriesPer100 = widget.food.calories;
-    final calculatedCalories = caloriesPer100 * (convertedQty / 100);
+    // final convertedQty = getConvertedQuantity(); // No longer needed here
+    // final caloriesPer100 = widget.food.calories; // No longer needed here
+    // final calculatedCalories = caloriesPer100 * (convertedQty / 100); // Replaced by getNutrientValue
     var additionalNutrients = getAdditionalNutrients();
     final primaryColor = Theme.of(context).primaryColor;
 
@@ -537,8 +537,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                           child: MacroInfoBox(
                                             icon: "🔥",
                                             iconColor: Colors.black,
-                                            value: calculatedCalories
-                                                .toStringAsFixed(0),
+                                            // Use getNutrientValue for consistency
+                                            value: double.tryParse(
+                                                        getNutrientValue(
+                                                            "calories"))
+                                                    ?.toStringAsFixed(0) ??
+                                                "0",
                                             label: "Calories",
                                           ),
                                         ),
@@ -1550,6 +1554,37 @@ class _FoodDetailPageState extends State<FoodDetailPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildNutrientItem(
+      String label, String value, Color accentColor, IconData icon) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    final serving = selectedServing ?? widget.food.servings.firstOrNull;
+    final servingText =
+        serving != null ? '${serving.description}' : '100g serving';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          // ...existing code...
+          ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+              // ...existing code...
+              ),
+          const SizedBox(height: 4),
+          Text(
+            'Per $servingText',
+            style: AppTypography.caption.copyWith(
+              color: customColors?.textSecondary,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -314,13 +314,15 @@ Meal to analyze: ${_mealController.text}
               SizedBox(width: 8),
               Text(
                 'Added to $meal',
-                style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                style:
+                    TextStyle(color: Theme.of(context).colorScheme.onPrimary),
               ),
             ],
           ),
           backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           margin: EdgeInsets.all(8),
           duration: const Duration(seconds: 2),
         ),
@@ -346,6 +348,13 @@ Meal to analyze: ${_mealController.text}
     }); // End of Future.delayed
   }
 
+  // Add this method to handle text field submissions
+  void _handleSubmitted(String value) {
+    if (_canSend) {
+      FocusScope.of(context).unfocus();
+      _analyzeNutrition();
+    }
+  }
 
   Widget _buildFoodCard(BuildContext context, AIFoodItem food, int index) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -645,6 +654,7 @@ Meal to analyze: ${_mealController.text}
                   // Removed readOnly binding
                   maxLines: null,
                   textAlignVertical: TextAlignVertical.top,
+                  onSubmitted: _handleSubmitted, // Add this line
                   style: GoogleFonts.roboto(
                     // Reverted style
                     color: Theme.of(context)

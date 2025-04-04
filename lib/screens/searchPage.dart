@@ -15,6 +15,7 @@ import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/widgets/search_header.dart';
 import 'dart:async';
 import 'package:lottie/lottie.dart';
+import 'package:macrotracker/camera/camera.dart'; // Added missing import
 
 class FoodSearchPage extends StatefulWidget {
   final String? selectedMeal;
@@ -136,18 +137,19 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
         if (suggestionsData is Map && suggestionsData['suggestion'] is List) {
           // Handles { "suggestions": { "suggestion": [...] } }
-           print('Parsing suggestions from Map structure...'); // Add log
+          print('Parsing suggestions from Map structure...'); // Add log
           // Ensure items are strings before adding
           suggestionsList = List<String>.from(
               suggestionsData['suggestion'].map((item) => item.toString()));
         } else if (suggestionsData is List) {
           // Handles { "suggestions": [...] }
-           print('Parsing suggestions from List structure...'); // Add log
+          print('Parsing suggestions from List structure...'); // Add log
           // Ensure items are strings before adding
           suggestionsList =
               List<String>.from(suggestionsData.map((item) => item.toString()));
         } else {
-          print('Autocomplete response format not recognized or empty. suggestionsData type: ${suggestionsData?.runtimeType}'); // Add log
+          print(
+              'Autocomplete response format not recognized or empty. suggestionsData type: ${suggestionsData?.runtimeType}'); // Add log
         }
       } catch (e) {
         print('Error parsing autocomplete suggestions: $e');
@@ -268,82 +270,118 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   ),
                   Expanded(
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400),
-                      switchInCurve: Curves.easeOutCirc,
-                      switchOutCurve: Curves.easeInCirc,
+                      duration: const Duration(milliseconds: 500),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
                       transitionBuilder:
                           (Widget child, Animation<double> animation) {
+                        final offsetAnimation = Tween<Offset>(
+                          begin: const Offset(0, 0.05),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        ));
+
                         return FadeTransition(
                           opacity: animation,
                           child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.05),
-                              end: Offset.zero,
-                            ).animate(animation),
+                            position: offsetAnimation,
                             child: child,
                           ),
                         );
                       },
-                      child: _buildContent(), // Apply KeyedSubtree here
+                      layoutBuilder: (currentChild, previousChildren) {
+                        return Stack(
+                          alignment: Alignment.topCenter,
+                          children: <Widget>[
+                            ...previousChildren,
+                            if (currentChild != null) currentChild,
+                          ],
+                        );
+                      },
+                      child: _buildContent(),
                     ),
                   ),
-                  SizedBox(height: 50)
                 ],
               ),
             ),
           ),
+          // Add a floating action button to scroll to top that appears when scrolled down
+          floatingActionButton: _searchResults.isNotEmpty &&
+                  _scrollController.hasClients &&
+                  _scrollController.offset > 200
+              ? FloatingActionButton.small(
+                  onPressed: () {
+                    _scrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.easeOutCubic,
+                    );
+                    // Add haptic feedback for a nice touch
+                    HapticFeedback.lightImpact();
+                  },
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.arrow_upward_rounded),
+                )
+              : null,
         ));
   }
 
   Widget _buildContent() {
-    // Add ValueKeys using KeyedSubtree to help AnimatedSwitcher differentiate states
+    // Use simple ValueKey for better performance instead of KeyedSubtree
     if (_isLoading) {
-      return KeyedSubtree(key: const ValueKey<String>('loading'), child: _buildLoadingState());
+      return _buildLoadingState();
     }
     if (_autoCompleteResults.isNotEmpty) {
-      return KeyedSubtree(key: const ValueKey<String>('suggestions'), child: _buildSuggestions());
+      return _buildSuggestions();
     }
     if (_searchResults.isNotEmpty) {
-      return KeyedSubtree(key: const ValueKey<String>('results'), child: _buildSearchResults());
+      return _buildSearchResults();
     }
     if (_searchResults.isEmpty && _searchController.text.isNotEmpty) {
-      return KeyedSubtree(key: const ValueKey<String>('no_results'), child: NoResultsFoundWidget());
+      return const NoResultsFoundWidget();
     }
-    return KeyedSubtree(key: const ValueKey<String>('empty'), child: _buildEmptyState());
+    return _buildEmptyState();
   }
-
 
   Widget _buildLoadingState() {
     final customColors = Theme.of(context).extension<CustomColors>();
 
+    // Simplify loading state to reduce heaviness
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            height: 150,
-            width: 150,
+            height: 120,
+            width: 120,
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
-              // borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Colors.black.withOpacity(0.05),
                   blurRadius: 10,
-                  spreadRadius: 2,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Lottie.asset(
               'assets/animations/potato_walking.json',
               fit: BoxFit.contain,
+              // Keep loading animation simple
+              errorBuilder: (context, error, stackTrace) =>
+                  CircularProgressIndicator(
+                color: Theme.of(context).primaryColor,
+              ),
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            'Finding delicious foods...',
-            style: AppTypography.caption.copyWith(
+            'Looking for food...',
+            style: AppTypography.body1.copyWith(
               color: customColors!.textPrimary,
               fontWeight: FontWeight.w500,
             ),
@@ -356,32 +394,32 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   Widget _buildSearchResults() {
     return RefreshIndicator(
       onRefresh: () => _searchFood(_searchController.text),
+      color: Theme.of(context).primaryColor,
+      backgroundColor: Theme.of(context).cardColor,
+      displacement: 20,
+      edgeOffset: 20,
       child: _searchResults.isEmpty
           ? const NoResultsFoundWidget()
           : ListView.builder(
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               itemCount: _searchResults.length,
-              itemBuilder: (context, index) =>
-                  _buildFoodCard(_searchResults[index]),
+              itemBuilder: (context, index) {
+                // Simplify animation to improve performance
+                return AnimatedOpacity(
+                  duration: const Duration(milliseconds: 250),
+                  opacity: 1.0,
+                  child: _buildFoodCard(_searchResults[index]),
+                );
+              },
             ),
     );
   }
 
   void _navigateToFoodDetail(FoodItem food) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FoodDetailPage(
-          food: food,
-          selectedMeal: widget.selectedMeal,
-        ),
-      ),
-    );
-  }
+    HapticFeedback.mediumImpact();
 
-  void _onFoodItemTap(FoodItem food) {
     Navigator.push(
       context,
       CupertinoPageRoute(
@@ -393,18 +431,28 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
+  void _onFoodItemTap(FoodItem food) {
+    _navigateToFoodDetail(food);
+  }
+
   Widget _buildFoodCard(FoodItem food) {
+    // Get the default serving (first serving)
+    final defaultServing =
+        food.servings.isNotEmpty ? food.servings.first : null;
+    final customColors = Theme.of(context).extension<CustomColors>();
+
+    // Simplify card structure to reduce complexity
     return Container(
-      margin:
-          const EdgeInsets.symmetric(vertical: 6), // Remove horizontal margin
+      margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.04),
             offset: const Offset(0, 2),
             blurRadius: 8,
+            spreadRadius: 0,
           ),
         ],
       ),
@@ -413,15 +461,75 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _navigateToFoodDetail(food),
+          onTap: () => _onFoodItemTap(food),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFoodHeader(food),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Food icon/avatar - simplified with static colors
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _categoryColor(food.name).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          _categoryIcon(food.name),
+                          color: _categoryColor(food.name),
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Food name and brand
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            food.name,
+                            style: AppTypography.body1.copyWith(
+                              color: customColors?.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (food.brandName.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              food.brandName,
+                              style: AppTypography.caption.copyWith(
+                                color: customColors?.textSecondary,
+                              ),
+                            ),
+                          ],
+                          if (defaultServing != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Per ${defaultServing.description}',
+                                style: AppTypography.caption.copyWith(
+                                  color: customColors?.textSecondary,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
-                _buildNutrientRow(food),
+                // Simplified nutrition row
+                _buildSimplifiedNutritionRow(food, defaultServing),
               ],
             ),
           ),
@@ -430,96 +538,65 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  Widget _buildFoodHeader(FoodItem food) {
-    final customColors = Theme.of(context).extension<CustomColors>();
+  Widget _buildSimplifiedNutritionRow(FoodItem food, Serving? serving) {
+    // Use serving values if available, otherwise fallback to per 100g values
+    final calories = serving?.calories ?? food.calories;
+    final protein =
+        serving?.nutrients['Protein'] ?? food.nutrients['Protein'] ?? 0.0;
+    final carbs = serving?.nutrients['Carbohydrate, by difference'] ??
+        food.nutrients['Carbohydrate, by difference'] ??
+        0.0;
+    final fat = serving?.nutrients['Total lipid (fat)'] ??
+        food.nutrients['Total lipid (fat)'] ??
+        0.0;
 
     return Row(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                food.name,
-                style: AppTypography.body1.copyWith(
-                  color: customColors?.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (food.brandName.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  food.brandName,
-                  style: AppTypography.caption.copyWith(
-                    color: customColors?.textSecondary,
-                  ),
-                ),
-              ],
-            ],
-          ),
+        _buildNutrientChip(
+          '${calories.toStringAsFixed(0)} cal',
+          Icons.local_fire_department_rounded,
+          Colors.orange,
         ),
-        Icon(
-          Icons.arrow_forward_ios_rounded,
-          color: customColors?.textSecondary,
-          size: 16,
+        const SizedBox(width: 8),
+        _buildNutrientChip(
+          '${protein.toStringAsFixed(1)}g P',
+          Icons.fitness_center_rounded,
+          Colors.blue,
+        ),
+        const SizedBox(width: 8),
+        _buildNutrientChip(
+          '${carbs.toStringAsFixed(1)}g C',
+          Icons.grain_rounded,
+          Colors.green,
+        ),
+        const SizedBox(width: 8),
+        _buildNutrientChip(
+          '${fat.toStringAsFixed(1)}g F',
+          Icons.circle_outlined,
+          Colors.red,
         ),
       ],
     );
   }
 
-  Widget _buildNutrientRow(FoodItem food) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildNutrientChip(
-            '${food.calories.round()} cal',
-            Icons.local_fire_department_rounded,
-            Colors.orange,
-          ),
-          const SizedBox(width: 8),
-          _buildNutrientChip(
-            '${food.nutrients['Protein']?.round() ?? 0}g protein',
-            Icons.fitness_center_rounded,
-            Colors.blue,
-          ),
-          const SizedBox(width: 8),
-          _buildNutrientChip(
-            '${food.nutrients['Carbohydrate, by difference']?.round() ?? 0}g carbs',
-            Icons.grain_rounded,
-            Colors.green,
-          ),
-          const SizedBox(width: 8),
-          _buildNutrientChip(
-            '${food.nutrients['Total lipid (fat)']?.round() ?? 0}g fat',
-            Icons.circle_outlined,
-            Colors.red,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildNutrientChip(String text, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
           Text(
             text,
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w500,
-              fontSize: 13,
+              fontSize: 12,
             ),
           ),
         ],
@@ -527,133 +604,105 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  Widget _buildNutrientItem(
-      String label, String value, Color accentColor, IconData icon) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            size: 12,
-            color: accentColor,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-                color: customColors?.textPrimary,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: customColors?.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildEmptyState() {
     final customColors = Theme.of(context).extension<CustomColors>();
 
+    // Simplified empty state
     return SingleChildScrollView(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // The illustration container
-              Container(
-                width: 160, // Slightly smaller
-                height: 160, // Slightly smaller
-                decoration: BoxDecoration(
-                  color: customColors!.cardBackground,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? customColors.textPrimary.withOpacity(0.05)
-                          : customColors.textPrimary.withOpacity(0),
-                      blurRadius: 15,
-                      spreadRadius: 5,
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.restaurant_menu_rounded,
-                  size: 72,
-                  color: customColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Find your favorite foods',
-                style: AppTypography.h2.copyWith(
-                  color: customColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Search for any food to see detailed nutrition information and track your meals.',
-                style: AppTypography.body1.copyWith(
-                  color: customColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              // Add a hint button
-              Material(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(18),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () {
-                    _searchController.text = "chicken";
-                    _searchFood("chicken");
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search_rounded,
-                          size: 18,
-                          color: customColors.textPrimary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Try searching "chicken"',
-                          style: AppTypography.button.copyWith(
-                            color: customColors.textPrimary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 40),
+            // Simple illustration
+            Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                color: customColors!.cardBackground,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 15,
+                    spreadRadius: 0,
                   ),
+                ],
+              ),
+              child: Icon(
+                Icons.restaurant_menu_rounded,
+                size: 64,
+                color: customColors.textPrimary.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Find Foods',
+              style: AppTypography.h2.copyWith(
+                color: customColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Search for any food to see nutrition information and track your macros.',
+              style: AppTypography.body1.copyWith(
+                color: customColors.textSecondary,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            // Quick search chips
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                _buildQuickSearchChip('Chicken', Icons.egg_alt),
+                _buildQuickSearchChip('Rice', Icons.grain),
+                _buildQuickSearchChip('Broccoli', Icons.eco),
+                _buildQuickSearchChip('Apple', Icons.apple),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickSearchChip(String text, IconData icon) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _searchController.text = text;
+          _searchFood(text);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: _categoryColor(text).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: _categoryColor(text),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                text,
+                style: TextStyle(
+                  color: _categoryColor(text),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -666,6 +715,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   Widget _buildSuggestions() {
     final customColors = Theme.of(context).extension<CustomColors>();
 
+    // Simplified suggestions UI
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
@@ -677,96 +727,185 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
             child: Text(
               'Suggestions',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              style: AppTypography.body1.copyWith(
                 color: customColors?.textPrimary,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: _autoCompleteResults.length,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemBuilder: (context, index) {
-                // --- Add check to prevent RangeError ---
-                if (index < 0 || index >= _autoCompleteResults.length) {
-                  print('Warning: Invalid index $index for _autoCompleteResults length ${_autoCompleteResults.length}');
-                  return const SizedBox.shrink(); // Return empty widget if index is out of bounds
-                }
-                // --- End check ---
-                final suggestion = _autoCompleteResults[index];
-                // Generate a unique but consistent color for each suggestion
-                final Color suggestionColor =
-                    Color(suggestion.hashCode).withOpacity(1.0);
-                final hsl = HSLColor.fromColor(suggestionColor);
-                final accentColor = hsl
-                    .withLightness(
-                        Theme.of(context).brightness == Brightness.dark
-                            ? 0.7
-                            : 0.4)
-                    .toColor();
+            child: _autoCompleteResults.isEmpty
+                ? _buildSuggestionsEmptyState()
+                : ListView.builder(
+                    itemCount: _autoCompleteResults.length,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemBuilder: (context, index) {
+                      if (index < 0 || index >= _autoCompleteResults.length) {
+                        return const SizedBox.shrink();
+                      }
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.black12
-                            : Colors.black.withOpacity(0.05),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        FocusScope.of(context).unfocus();
-                        _searchController.text = suggestion;
-                        _searchFood(suggestion);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 16, horizontal: 20),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: accentColor.withOpacity(0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.search_rounded,
-                                color: accentColor,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                suggestion,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: customColors?.textPrimary,
-                                ),
-                              ),
+                      final suggestion = _autoCompleteResults[index];
+                      final Color accentColor = _categoryColor(suggestion);
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                      ),
-                    ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              FocusScope.of(context).unfocus();
+                              _searchController.text = suggestion;
+                              _searchFood(suggestion);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 16),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: accentColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      _categoryIcon(suggestion),
+                                      color: accentColor,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      suggestion,
+                                      style: AppTypography.body2.copyWith(
+                                        color: customColors?.textPrimary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Simplified helper methods for colors and icons based on categories
+  Color _categoryColor(String text) {
+    final text_lc = text.toLowerCase();
+    if (text_lc.contains('chicken') ||
+        text_lc.contains('meat') ||
+        text_lc.contains('beef')) {
+      return Colors.redAccent;
+    } else if (text_lc.contains('vegetable') ||
+        text_lc.contains('broccoli') ||
+        text_lc.contains('spinach')) {
+      return Colors.green;
+    } else if (text_lc.contains('rice') ||
+        text_lc.contains('bread') ||
+        text_lc.contains('pasta')) {
+      return Colors.amber;
+    } else if (text_lc.contains('fruit') ||
+        text_lc.contains('apple') ||
+        text_lc.contains('banana')) {
+      return Colors.orange;
+    } else if (text_lc.contains('fish') || text_lc.contains('seafood')) {
+      return Colors.lightBlue;
+    } else if (text_lc.contains('dairy') ||
+        text_lc.contains('milk') ||
+        text_lc.contains('cheese')) {
+      return Colors.purple;
+    } else {
+      // Simple hash-based color that's consistent for the same text
+      return Color.fromARGB(
+        255,
+        150 + (text.hashCode % 90),
+        150 + ((text.hashCode >> 3) % 90),
+        150 + ((text.hashCode >> 6) % 90),
+      );
+    }
+  }
+
+  IconData _categoryIcon(String text) {
+    final text_lc = text.toLowerCase();
+    if (text_lc.contains('chicken') ||
+        text_lc.contains('meat') ||
+        text_lc.contains('beef')) {
+      return Icons.restaurant;
+    } else if (text_lc.contains('vegetable') ||
+        text_lc.contains('broccoli') ||
+        text_lc.contains('spinach')) {
+      return Icons.eco;
+    } else if (text_lc.contains('rice') ||
+        text_lc.contains('bread') ||
+        text_lc.contains('pasta')) {
+      return Icons.grain;
+    } else if (text_lc.contains('fruit') ||
+        text_lc.contains('apple') ||
+        text_lc.contains('banana')) {
+      return Icons.apple;
+    } else if (text_lc.contains('fish') || text_lc.contains('seafood')) {
+      return Icons.water;
+    } else if (text_lc.contains('dairy') ||
+        text_lc.contains('milk') ||
+        text_lc.contains('cheese')) {
+      return Icons.coffee;
+    } else {
+      return Icons.fastfood;
+    }
+  }
+
+  Widget _buildSuggestionsEmptyState() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 64,
+            color: customColors?.textSecondary.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No suggestions found',
+            style: AppTypography.body1.copyWith(
+              color: customColors?.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'Try typing a different search term',
+              style: AppTypography.caption.copyWith(
+                color: customColors?.textSecondary,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -915,14 +1054,37 @@ class FoodItem {
 
     if (defaultServing != null) {
       calories = double.tryParse(defaultServing['calories'] ?? '0') ?? 0.0;
-      // Extract standard macros
+      // Extract ALL available nutrients from the default serving
       nutrients = {
         'Protein': double.tryParse(defaultServing['protein'] ?? '0') ?? 0.0,
         'Total lipid (fat)':
             double.tryParse(defaultServing['fat'] ?? '0') ?? 0.0,
         'Carbohydrate, by difference':
             double.tryParse(defaultServing['carbohydrate'] ?? '0') ?? 0.0,
+        'Saturated fat':
+            double.tryParse(defaultServing['saturated_fat'] ?? '0') ?? 0.0,
+        'Polyunsaturated fat':
+            double.tryParse(defaultServing['polyunsaturated_fat'] ?? '0') ??
+                0.0,
+        'Monounsaturated fat':
+            double.tryParse(defaultServing['monounsaturated_fat'] ?? '0') ??
+                0.0,
+        'Cholesterol':
+            double.tryParse(defaultServing['cholesterol'] ?? '0') ?? 0.0,
+        'Sodium': double.tryParse(defaultServing['sodium'] ?? '0') ?? 0.0,
+        'Potassium': double.tryParse(defaultServing['potassium'] ?? '0') ?? 0.0,
+        'Fiber': double.tryParse(defaultServing['fiber'] ?? '0') ?? 0.0,
+        'Sugar': double.tryParse(defaultServing['sugar'] ?? '0') ?? 0.0,
+        'Vitamin A': double.tryParse(defaultServing['vitamin_a'] ?? '0') ?? 0.0,
+        'Vitamin C': double.tryParse(defaultServing['vitamin_c'] ?? '0') ?? 0.0,
+        'Calcium': double.tryParse(defaultServing['calcium'] ?? '0') ?? 0.0,
+        'Iron': double.tryParse(defaultServing['iron'] ?? '0') ?? 0.0,
       };
+      // Remove nutrients with value 0 to keep the map cleaner, unless it's a primary macro
+      nutrients.removeWhere((key, value) =>
+          value == 0.0 &&
+          !['Protein', 'Total lipid (fat)', 'Carbohydrate, by difference']
+              .contains(key));
 
       // Try to parse serving size
       servingSize =
@@ -1031,57 +1193,60 @@ class NoResultsFoundWidget extends StatelessWidget {
     final customColors = Theme.of(context).extension<CustomColors>();
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 64,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No results found',
-            style: TextStyle(
-              color: customColors?.textPrimary,
-              fontSize: 16,
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Simple icon instead of animation
+            Icon(
+              Icons.search_off_rounded,
+              size: 64,
+              color: Colors.grey[400],
             ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              "Can't find your food in the database? Try asking AI",
-              style: TextStyle(
-                color: customColors?.textSecondary,
-                fontSize: 14,
+            const SizedBox(height: 24),
+            Text(
+              'No results found',
+              style: AppTypography.h3.copyWith(
+                color: customColors?.textPrimary,
+                fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const Askai(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.smart_toy_rounded),
-            label: const Text('Ask AI'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
+            const SizedBox(height: 12),
+            Text(
+              "Try a different search term or ask AI for help",
+              style: AppTypography.body2.copyWith(
+                color: customColors?.textSecondary,
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // Simple button for AI help
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const Askai(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.smart_toy_rounded),
+              label: const Text('Ask AI for Help'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
