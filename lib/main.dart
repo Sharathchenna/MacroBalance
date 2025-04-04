@@ -198,7 +198,7 @@ Future<void> _initializeServicesInBackground() async {
   ]);
 
   // Then initialize services that depend on above initializations
-  ApiService().getAccessToken(); // Don't await this
+  // ApiService().getAccessToken(); // Removed - Token fetched by Edge Function now
   NotificationService().initialize(); // Don't await this
   WidgetService.initWidgetService(); // Don't await this
 

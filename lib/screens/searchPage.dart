@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:macrotracker/screens/askAI.dart';
 import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:flutter/cupertino.dart';
@@ -30,8 +31,13 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   List<FoodItem> _searchResults = [];
   List<String> _autoCompleteResults = [];
   bool _isLoading = false;
-  final ApiService _apiService = ApiService();
+  // final ApiService _apiService = ApiService(); // Remove ApiService instance
   Timer? _debouncer;
+
+  // Supabase Edge Function URL
+  final String _fatSecretProxyUrl =
+      'https://mdivtblabmnftdqlgysv.supabase.co/functions/v1/fatsecret-proxy';
+  final _supabase = Supabase.instance.client; // Get Supabase client instance
 
   late AnimationController _loadingController;
   final _scrollController = ScrollController();
@@ -39,7 +45,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   @override
   void initState() {
     super.initState();
-    _initializeApi();
+    // _initializeApi(); // Remove API initialization
     _loadingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -55,65 +61,114 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     super.dispose();
   }
 
-  Future<void> _initializeApi() async {
-    await _apiService.getAccessToken();
-  }
+  // Removed _initializeApi and _getAccessToken
 
-  Future<void> _getAccessToken() async {
-    await _apiService.getAccessToken();
+  // --- New Function to Call Supabase Edge Function ---
+  Future<Map<String, dynamic>?> _callFatSecretProxy({
+    required String endpoint,
+    required dynamic
+        query, // Can be string for search/autocomplete, ID for get, etc.
+  }) async {
+    final session = _supabase.auth.currentSession;
+    if (session == null) {
+      print('Error: User not authenticated.');
+      _showError('Authentication required. Please log in again.');
+      return null;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(_fatSecretProxyUrl),
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+          'Content-Type': 'application/json',
+          // 'apikey': _supabase.anonKey, // Removed - Edge function has env access
+        },
+        body: jsonEncode({
+          'endpoint': endpoint,
+          'query': query,
+          // Add any other parameters needed by your Edge Function here
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print(
+            'Proxy Function Error (${response.statusCode}): ${response.body}');
+        _showError(
+            'Failed to fetch data (${response.statusCode}). Please try again.');
+        return null;
+      }
+    } catch (e) {
+      print('Error calling proxy function: $e');
+      _showError('Network error. Please check your connection.');
+      return null;
+    }
   }
+  // --- End New Function ---
 
   Future<void> _getAutocompleteSuggestions(String query) async {
-    if (query.isEmpty || _apiService.accessToken == null) {
+    if (query.isEmpty) {
+      // Removed token check
       setState(() => _autoCompleteResults = []);
       return;
     }
 
-    try {
-      final response = await http.get(
-        Uri.parse('https://platform.fatsecret.com/rest/food/autocomplete/v2')
-            .replace(
-          queryParameters: {
-            'expression': query,
-            'max_results': '5',
-            'format': 'json' // Added format parameter
-          },
-        ),
-        headers: {
-          'Authorization': 'Bearer ${_apiService.accessToken}',
-          'Accept': 'application/json', // Added Accept header
-          'Content-Type': 'application/json',
-        },
-      );
+    // Call the proxy function
+    final proxyResponse = await _callFatSecretProxy(
+      endpoint: 'autocomplete',
+      query: query,
+    );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // Print the autocomplete API response
-        print('Autocomplete API Response:');
-        print(const JsonEncoder.withIndent('  ').convert(data));
+    if (proxyResponse != null) {
+      // Assuming the Edge Function returns the same structure FatSecret did
+      // Adjust parsing based on your Edge Function's actual response format
+      print('Autocomplete Proxy Response:');
+      print(const JsonEncoder.withIndent('  ').convert(proxyResponse));
 
-        if (data['suggestions'] != null &&
-            data['suggestions']['suggestion'] != null) {
-          final suggestions = data['suggestions']['suggestion'] as List;
-          setState(() {
-            _autoCompleteResults = suggestions.cast<String>();
-          });
+      // --- Refined Autocomplete Parsing ---
+      List<String> suggestionsList = []; // Initialize empty list
+      try {
+        final suggestionsData =
+            proxyResponse['suggestions']; // Could be Map or List
+        print('Raw suggestionsData: $suggestionsData'); // Add detailed log
+
+        if (suggestionsData is Map && suggestionsData['suggestion'] is List) {
+          // Handles { "suggestions": { "suggestion": [...] } }
+           print('Parsing suggestions from Map structure...'); // Add log
+          // Ensure items are strings before adding
+          suggestionsList = List<String>.from(
+              suggestionsData['suggestion'].map((item) => item.toString()));
+        } else if (suggestionsData is List) {
+          // Handles { "suggestions": [...] }
+           print('Parsing suggestions from List structure...'); // Add log
+          // Ensure items are strings before adding
+          suggestionsList =
+              List<String>.from(suggestionsData.map((item) => item.toString()));
         } else {
-          setState(() => _autoCompleteResults = []);
+          print('Autocomplete response format not recognized or empty. suggestionsData type: ${suggestionsData?.runtimeType}'); // Add log
         }
-      } else if (response.statusCode == 401) {
-        await _getAccessToken();
-        if (_apiService.accessToken != null) {
-          await _getAutocompleteSuggestions(query);
-        }
-      } else {
-        print('Error status code: ${response.statusCode}');
-        print('Error response: ${response.body}');
+      } catch (e) {
+        print('Error parsing autocomplete suggestions: $e');
+        suggestionsList = []; // Ensure list is empty on error
+      }
+
+      print('Parsed suggestions: $suggestionsList');
+
+      if (mounted) {
+        // Add mounted check before setState
+        setState(() {
+          _autoCompleteResults = suggestionsList;
+        });
+      }
+      // --- End Refined Parsing ---
+    } else {
+      // Error handled in _callFatSecretProxy
+      if (mounted) {
+        // Add mounted check
         setState(() => _autoCompleteResults = []);
       }
-    } catch (e) {
-      print('Autocomplete error: $e');
-      setState(() => _autoCompleteResults = []);
     }
   }
 
@@ -125,64 +180,48 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Future<void> _searchFood(String query) async {
-    if (query.isEmpty || _apiService.accessToken == null) return;
+    if (query.isEmpty) return; // Removed token check
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _autoCompleteResults = []; // Clear suggestions when searching
+    });
 
-    try {
-      final response = await http.get(
-        Uri.parse(
-                'https://platform.fatsecret.com/rest/foods/search/v3?flag_default_serving=true')
-            .replace(
-          queryParameters: {
-            'method': 'foods.search',
-            'format': 'json',
-            'search_expression': query,
-            'max_results': '10',
-            'page_number': '0',
-          },
-        ),
-        headers: {
-          'Authorization': 'Bearer ${_apiService.accessToken}',
-          'Accept': 'application/json', // Added Accept header
-          'Content-Type': 'application/json',
-        },
-      );
+    // Call the proxy function
+    final proxyResponse = await _callFatSecretProxy(
+      endpoint: 'search',
+      query: query,
+    );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // Print the food search API response
-        print('Food Search API Response:');
-        print(const JsonEncoder.withIndent('  ').convert(data));
+    if (proxyResponse != null) {
+      // Assuming the Edge Function returns the same structure FatSecret did
+      // Adjust parsing based on your Edge Function's actual response format
+      print('Food Search Proxy Response:');
+      print(const JsonEncoder.withIndent('  ').convert(proxyResponse));
 
-        if (data['foods_search'] != null &&
-            data['foods_search']['results'] != null &&
-            data['foods_search']['results']['food'] != null) {
-          final foods = data['foods_search']['results']['food'] as List;
-          setState(() {
-            _searchResults =
-                foods.map((food) => FoodItem.fromFatSecretJson(food)).toList();
-          });
-        } else {
-          setState(() => _searchResults = []);
-        }
-      } else if (response.statusCode == 401) {
-        await _getAccessToken();
-        if (_apiService.accessToken != null) {
-          await _searchFood(query);
-        }
+      // Example parsing (adjust based on actual response)
+      final searchData = proxyResponse['foods_search'];
+      if (searchData != null &&
+          searchData['results'] != null &&
+          searchData['results']['food'] != null) {
+        final foods = searchData['results']['food'] as List;
+        setState(() {
+          _searchResults =
+              foods.map((food) => FoodItem.fromFatSecretJson(food)).toList();
+        });
       } else {
-        // Print error response for debugging
-        print('Error status code: ${response.statusCode}');
-        print('Error response: ${response.body}');
+        setState(() => _searchResults = []);
       }
-    } catch (e) {
-      _showError('Failed to search foods. Please try again.');
-      print('Search food error: $e');
-    } finally {
+    } else {
+      // Error handled in _callFatSecretProxy
+      setState(() => _searchResults = []);
+    }
+
+    // Ensure loading state is turned off regardless of success/failure
+    if (mounted) {
+      // Check if the widget is still in the tree
       setState(() {
         _isLoading = false;
-        _autoCompleteResults = [];
       });
     }
   }
@@ -245,7 +284,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                           ),
                         );
                       },
-                      child: _buildContent(),
+                      child: _buildContent(), // Apply KeyedSubtree here
                     ),
                   ),
                   SizedBox(height: 50)
@@ -257,20 +296,22 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildContent() {
+    // Add ValueKeys using KeyedSubtree to help AnimatedSwitcher differentiate states
     if (_isLoading) {
-      return _buildLoadingState();
+      return KeyedSubtree(key: const ValueKey<String>('loading'), child: _buildLoadingState());
     }
     if (_autoCompleteResults.isNotEmpty) {
-      return _buildSuggestions();
+      return KeyedSubtree(key: const ValueKey<String>('suggestions'), child: _buildSuggestions());
     }
     if (_searchResults.isNotEmpty) {
-      return _buildSearchResults();
+      return KeyedSubtree(key: const ValueKey<String>('results'), child: _buildSearchResults());
     }
     if (_searchResults.isEmpty && _searchController.text.isNotEmpty) {
-      return NoResultsFoundWidget();
+      return KeyedSubtree(key: const ValueKey<String>('no_results'), child: NoResultsFoundWidget());
     }
-    return _buildEmptyState();
+    return KeyedSubtree(key: const ValueKey<String>('empty'), child: _buildEmptyState());
   }
+
 
   Widget _buildLoadingState() {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -648,6 +689,12 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               itemCount: _autoCompleteResults.length,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemBuilder: (context, index) {
+                // --- Add check to prevent RangeError ---
+                if (index < 0 || index >= _autoCompleteResults.length) {
+                  print('Warning: Invalid index $index for _autoCompleteResults length ${_autoCompleteResults.length}');
+                  return const SizedBox.shrink(); // Return empty widget if index is out of bounds
+                }
+                // --- End check ---
                 final suggestion = _autoCompleteResults[index];
                 // Generate a unique but consistent color for each suggestion
                 final Color suggestionColor =
@@ -868,7 +915,6 @@ class FoodItem {
 
     if (defaultServing != null) {
       calories = double.tryParse(defaultServing['calories'] ?? '0') ?? 0.0;
-
       // Extract standard macros
       nutrients = {
         'Protein': double.tryParse(defaultServing['protein'] ?? '0') ?? 0.0,

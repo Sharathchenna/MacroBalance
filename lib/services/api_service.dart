@@ -6,42 +6,10 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  final String _clientId = '5c66a0001059406b8989bd179ab8897d';
-  final String _clientSecret = '5de5f12d25e4418b8c78e6b80e78d9f7';
-  String? _accessToken;
-  DateTime? _tokenExpiry;
+  // Removed FatSecret credentials and token logic.
+  // API calls will now be proxied through the Supabase Edge Function.
 
-  String? get accessToken => _accessToken;
-
-  Future<String?> getAccessToken() async {
-    // Return existing token if it's still valid
-    if (_accessToken != null && _tokenExpiry != null && DateTime.now().isBefore(_tokenExpiry!)) {
-      return _accessToken;
-    }
-
-    try {
-      final response = await http.post(
-        Uri.parse('https://oauth.fatsecret.com/connect/token'),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': 'Basic ${base64Encode(utf8.encode('$_clientId:$_clientSecret'))}',
-        },
-        body: {
-          'grant_type': 'client_credentials',
-          'scope': 'premier',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        _accessToken = data['access_token'];
-        // Set token expiry to slightly less than the actual expiry time
-        _tokenExpiry = DateTime.now().add(Duration(seconds: (data['expires_in'] as int) - 60));
-        return _accessToken;
-      }
-    } catch (e) {
-      print('Error getting access token: $e');
-    }
-    return null;
-  }
+  // TODO: This service might become redundant or need significant refactoring
+  // depending on how the calling code (e.g., searchPage.dart) is updated
+  // to use the Supabase Edge Function directly.
 }
