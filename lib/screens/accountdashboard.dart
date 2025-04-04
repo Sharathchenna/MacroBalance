@@ -30,6 +30,7 @@ import 'package:macrotracker/screens/contact_support_screen.dart'; // Added impo
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
+import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart'; // Import Paywall Screen
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -907,6 +908,27 @@ class _AccountDashboardState extends State<AccountDashboard>
                           customColors: customColors,
                         );
                       },
+                    ),
+                    // Add Show Paywall Button for Debug
+                    _buildListTile(
+                      icon: CupertinoIcons.money_dollar_circle_fill,
+                      iconColor: Colors.purple,
+                      title: 'Show Paywall (Debug)',
+                      subtitle: 'Navigate to the paywall screen',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder: (context) => CustomPaywallScreen(
+                              onDismiss: () {}, // Add required onDismiss
+                            ),
+                          ),
+                        );
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
                     ),
                   ],
                 ),
