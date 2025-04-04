@@ -1,11 +1,19 @@
 // food_search_page.dart
 // ignore_for_file: unused_import, file_names, library_private_types_in_public_api, avoid_print, use_build_context_synchronously
 
+import 'dart:convert';
+import 'dart:io'; // For Platform check and File operations
+import 'dart:typed_data'; // For Uint8List
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:macrotracker/camera/barcode_results.dart';
+import 'package:macrotracker/camera/results_page.dart';
+import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/screens/askAI.dart';
-import 'dart:convert';
+import 'package:path_provider/path_provider.dart'; // For temp directory
+import '../AI/gemini.dart'; // Import Gemini processing
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
@@ -15,7 +23,10 @@ import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/widgets/search_header.dart';
 import 'dart:async';
 import 'package:lottie/lottie.dart';
-import 'package:macrotracker/camera/camera.dart'; // Added missing import
+// import 'package:macrotracker/camera/camera.dart'; // No longer needed
+
+// Define the expected result structure at the top level
+typedef CameraResult = Map<String, dynamic>;
 
 class FoodSearchPage extends StatefulWidget {
   final String? selectedMeal;
@@ -28,6 +39,10 @@ class FoodSearchPage extends StatefulWidget {
 
 class _FoodSearchPageState extends State<FoodSearchPage>
     with SingleTickerProviderStateMixin {
+  // Method Channel for the native camera view
+  static const MethodChannel _nativeCameraViewChannel =
+      MethodChannel('com.macrotracker/native_camera_view');
+
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
   List<String> _autoCompleteResults = [];
@@ -46,6 +61,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   @override
   void initState() {
     super.initState();
+    _setupNativeCameraHandler(); // Set up the handler
     // _initializeApi(); // Remove API initialization
     _loadingController = AnimationController(
       vsync: this,
@@ -250,6 +266,188 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
+
+  // --- Native Camera Handling (Adapted from Dashboard) ---
+
+  void _setupNativeCameraHandler() {
+    _nativeCameraViewChannel.setMethodCallHandler((call) async {
+      print('[Flutter SearchPage] Received method call: ${call.method}');
+      switch (call.method) {
+        case 'cameraResult':
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              print(
+                  '[Flutter SearchPage] Post-frame callback: Widget is unmounted. Ignoring result.');
+              return;
+            }
+            final Map<dynamic, dynamic> result = call.arguments as Map;
+            final String type = result['type'] as String;
+            final currentContext = context;
+
+            if (type == 'barcode') {
+              final String barcode = result['value'] as String;
+              print('[Flutter SearchPage] Post-frame: Handling barcode: $barcode');
+              _handleBarcodeResult(currentContext, barcode);
+            } else if (type == 'photo') {
+              final Uint8List photoData = result['value'] as Uint8List;
+              print(
+                  '[Flutter SearchPage] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
+              _handlePhotoResult(currentContext, photoData);
+            } else if (type == 'cancel') {
+              print('[Flutter SearchPage] Post-frame: Handling cancel.');
+            } else {
+              print(
+                  '[Flutter SearchPage] Post-frame: Unknown camera result type: $type');
+              if (mounted) {
+                _showErrorSnackbar('Received unknown result from camera.');
+              }
+            }
+          });
+          break;
+        default:
+          print(
+              '[Flutter SearchPage] Unknown method call from native: ${call.method}');
+      }
+    });
+  }
+
+  Future<void> _showNativeCamera() async {
+    FocusScope.of(context).unfocus(); // Hide keyboard before opening camera
+    if (!Platform.isIOS) {
+      print('[Flutter SearchPage] Native camera view only supported on iOS.');
+      if (mounted) {
+        _showErrorSnackbar('Camera feature is only available on iOS.');
+      }
+      return;
+    }
+    try {
+      print('[Flutter SearchPage] Invoking showNativeCamera...');
+      await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
+      print('[Flutter SearchPage] showNativeCamera invoked successfully.');
+    } on PlatformException catch (e) {
+      print('[Flutter SearchPage] Error showing native camera: ${e.message}');
+      if (mounted) {
+        _showErrorSnackbar('Failed to open camera: ${e.message}');
+      }
+    }
+  }
+
+  // --- Result Handling (Adapted from Dashboard) ---
+
+  void _handleBarcodeResult(BuildContext safeContext, String barcode) {
+    print('[Flutter SearchPage] Navigating to BarcodeResults');
+    if (!mounted) return;
+    Navigator.push(
+      safeContext,
+      MaterialPageRoute(builder: (context) => BarcodeResults(barcode: barcode)),
+    );
+  }
+
+  Future<void> _handlePhotoResult(
+      BuildContext safeContext, Uint8List photoData) async {
+    if (!mounted) return;
+    _showLoadingDialog('Analyzing Image...');
+    try {
+      final Directory tempDir = await getTemporaryDirectory();
+      final String tempPath = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final File tempFile = File(tempPath);
+      await tempFile.writeAsBytes(photoData);
+      print('[Flutter SearchPage] Photo saved to temporary file: $tempPath');
+      String jsonResponse = await processImageWithGemini(tempFile.path);
+      print('[Flutter SearchPage] Gemini response received.');
+      jsonResponse = jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
+      dynamic decodedJson = json.decode(jsonResponse);
+      List<dynamic> mealData;
+      if (decodedJson is Map<String, dynamic> && decodedJson.containsKey('meal') && decodedJson['meal'] is List) {
+        mealData = decodedJson['meal'] as List;
+      } else if (decodedJson is List) {
+        mealData = decodedJson;
+      } else if (decodedJson is Map<String, dynamic>) {
+        mealData = [decodedJson];
+      } else {
+        throw Exception('Unexpected JSON structure from Gemini');
+      }
+      final List<AIFoodItem> foods = mealData.map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>)).toList();
+
+      if (mounted) {
+        try { if (Navigator.of(safeContext, rootNavigator: true).canPop()) Navigator.of(safeContext, rootNavigator: true).pop(); }
+        catch (e) { print("[Flutter SearchPage] Error dismissing loading dialog: $e"); }
+      }
+      if (!mounted) return;
+
+      if (foods.isEmpty) {
+        print('[Flutter SearchPage] Gemini returned an empty food list.');
+        _showErrorSnackbar('Unable to identify food, try again');
+      } else {
+        print('[Flutter SearchPage] Navigating to ResultsPage');
+        Navigator.push(
+          safeContext,
+          CupertinoPageRoute(builder: (context) => ResultsPage(foods: foods)),
+        );
+      }
+    } catch (e) {
+      print('[Flutter SearchPage] Error processing photo result: ${e.toString()}');
+      if (mounted) {
+        try { if (Navigator.of(safeContext, rootNavigator: true).canPop()) Navigator.of(safeContext, rootNavigator: true).pop(); }
+        catch (e) { print("[Flutter SearchPage] Error dismissing loading dialog in catch: $e"); }
+        _showErrorSnackbar('Something went wrong, try again');
+      }
+    }
+  }
+
+  // --- UI Helper Methods (Adapted from Dashboard) ---
+
+  void _showErrorSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.redAccent,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+   void _showLoadingDialog(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Theme.of(context).brightness == Brightness.light ? Colors.white : Colors.grey[850],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Lottie.asset(
+                  'assets/animations/food_loading.json',
+                  width: 150, height: 150, fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  message,
+                  style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.light ? Colors.black87 : Colors.white,
+                      fontSize: 17),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- Original Methods ---
+
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -267,6 +465,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                     onSearch: _searchFood,
                     onChanged: _onSearchChanged,
                     onBack: () => Navigator.pop(context),
+                    onCameraTap: _showNativeCamera, // Pass the method here
                   ),
                   Expanded(
                     child: AnimatedSwitcher(
