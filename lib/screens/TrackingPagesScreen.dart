@@ -3,6 +3,8 @@ import 'package:flutter/cupertino.dart'; // Added for CupertinoIcons, HapticFeed
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import '../theme/app_theme.dart';
 import 'WeightTrackingScreen.dart';
@@ -87,21 +89,23 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
         ),
         actions: [
           if (_currentPage == 1) // Weight screen unit toggle
-            TextButton.icon(
-              onPressed: () {
-                // We'll need to implement this by lifting the state up
-                // or using a state management solution
-              },
-              icon: Icon(
-                Icons.scale,
-                color: customColors.textPrimary,
-                size: 20,
-              ),
-              label: Text(
-                'kg',
-                style: TextStyle(
+            Consumer<WeightUnitProvider>(
+              builder: (context, unitProvider, _) => TextButton.icon(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  unitProvider.toggleUnit();
+                },
+                icon: Icon(
+                  Icons.scale,
                   color: customColors.textPrimary,
-                  fontWeight: FontWeight.w600,
+                  size: 20,
+                ),
+                label: Text(
+                  unitProvider.unitLabel,
+                  style: TextStyle(
+                    color: customColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
