@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -799,6 +800,52 @@ class _AccountDashboardState extends State<AccountDashboard>
                       onTap: () {
                         // Button handles the action
                       },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                  // Add a button in debug mode for copying the FCM token
+                  if (kDebugMode)
+                    _buildListTile(
+                      icon: CupertinoIcons.doc_on_clipboard_fill,
+                      iconColor: Colors.blue,
+                      title: 'Copy FCM Token',
+                      subtitle: 'Copy the device FCM token to clipboard',
+                      trailing: ElevatedButton(
+                        child: const Text('Copy'),
+                        onPressed: () async {
+                          try {
+                            final fcmToken =
+                                await NotificationService1().getFcmToken();
+                            if (fcmToken != null) {
+                              await Clipboard.setData(
+                                  ClipboardData(text: fcmToken));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('FCM token copied to clipboard!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Failed to retrieve FCM token.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      onTap: () {}, // No additional action on tap
                       colorScheme: colorScheme,
                       customColors: customColors,
                     ),
@@ -1732,5 +1779,18 @@ class _AccountDashboardState extends State<AccountDashboard>
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+}
+
+class NotificationService1 {
+  Future<String?> getFcmToken() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      final token = await messaging.getToken();
+      return token;
+    } catch (e) {
+      debugPrint('Error getting FCM token: $e');
+      return null;
+    }
   }
 }
