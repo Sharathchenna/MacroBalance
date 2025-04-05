@@ -192,7 +192,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   void _onSearchChanged(String query) {
     if (_debouncer?.isActive ?? false) _debouncer!.cancel();
-    _debouncer = Timer(const Duration(milliseconds: 50), () {
+    _debouncer = Timer(const Duration(milliseconds: 20), () {
       _getAutocompleteSuggestions(query);
     });
   }
@@ -749,32 +749,36 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         food.nutrients['Total lipid (fat)'] ??
         0.0;
 
-    return Row(
-      children: [
-        _buildNutrientChip(
-          '${calories.toStringAsFixed(0)} cal',
-          Icons.local_fire_department_rounded,
-          Colors.orange,
-        ),
-        const SizedBox(width: 8),
-        _buildNutrientChip(
-          '${protein.toStringAsFixed(1)}g P',
-          Icons.fitness_center_rounded,
-          Colors.blue,
-        ),
-        const SizedBox(width: 8),
-        _buildNutrientChip(
-          '${carbs.toStringAsFixed(1)}g C',
-          Icons.grain_rounded,
-          Colors.green,
-        ),
-        const SizedBox(width: 8),
-        _buildNutrientChip(
-          '${fat.toStringAsFixed(1)}g F',
-          Icons.circle_outlined,
-          Colors.red,
-        ),
-      ],
+    return SingleChildScrollView(
+      // Wrap with SingleChildScrollView
+      scrollDirection: Axis.horizontal, // Set scroll direction to horizontal
+      child: Row(
+        children: [
+          _buildNutrientChip(
+            '${calories.toStringAsFixed(0)} cal',
+            Icons.local_fire_department_rounded,
+            Colors.orange,
+          ),
+          const SizedBox(width: 8),
+          _buildNutrientChip(
+            '${protein.toStringAsFixed(1)}g P',
+            Icons.fitness_center_rounded,
+            Colors.blue,
+          ),
+          const SizedBox(width: 8),
+          _buildNutrientChip(
+            '${carbs.toStringAsFixed(1)}g C',
+            Icons.grain_rounded,
+            Colors.green,
+          ),
+          const SizedBox(width: 8),
+          _buildNutrientChip(
+            '${fat.toStringAsFixed(1)}g F',
+            Icons.circle_outlined,
+            Colors.red,
+          ),
+        ],
+      ),
     );
   }
 
