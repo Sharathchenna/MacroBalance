@@ -37,10 +37,12 @@ import 'package:intl/intl.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for date formatting
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
+import 'package:macrotracker/screens/expenditure_screen.dart'; // Added ExpenditureScreen
 import 'package:macrotracker/services/subscription_service.dart';
 import 'package:macrotracker/services/paywall_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
+import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -76,6 +78,7 @@ class Routes {
   static const String account = '/account';
   static const String weightTracking = '/weightTracking';
   static const String macroTracking = '/macroTracking';
+  static const String expenditure = '/expenditure'; // Added expenditure route
 }
 
 // Add route observer
@@ -179,6 +182,8 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => MealProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        // Pass FoodEntryProvider instance to ExpenditureProvider
+        ChangeNotifierProvider(create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
         ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
       ],
       child: const MyApp(),
@@ -471,6 +476,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Removed provider linking logic
+    // Trigger initial expenditure calculation after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+       Provider.of<ExpenditureProvider>(context, listen: false).updateExpenditure();
+    });
   }
 
   @override
@@ -540,6 +550,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               const PaywallGate(child: WeightTrackingScreen()),
           Routes.macroTracking: (context) =>
               const PaywallGate(child: MacroTrackingScreen()),
+          Routes.expenditure: (context) =>
+              const PaywallGate(child: ExpenditureScreen()), // Added expenditure route mapping
         },
         onGenerateRoute: (settings) {
           // Handle any dynamic routes or routes with parameters here

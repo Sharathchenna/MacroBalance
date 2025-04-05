@@ -362,6 +362,70 @@ class HealthService {
     }
   }
 
+  // Method to get weight data for a specific date range
+  Future<List<Map<String, dynamic>>> getWeightDataForDateRange(
+      DateTime startDate, DateTime endDate) async {
+    final List<Map<String, dynamic>> weightEntries = [];
+    try {
+      final hasPermissions =
+          await health.hasPermissions([HealthDataType.WEIGHT]);
+
+      if (hasPermissions == null || !hasPermissions) {
+        final granted = await requestPermissions(); // Ensure permissions are requested if needed
+        if (!granted) {
+          throw Exception('Health data access not authorized for Weight');
+        }
+      }
+
+      List<HealthDataPoint> healthData = await health.getHealthDataFromTypes(
+        startTime: startDate,
+        endTime: endDate,
+        types: [HealthDataType.WEIGHT],
+      );
+
+      // Remove duplicates, keeping the latest entry for each day
+      final Map<DateTime, HealthDataPoint> latestDataPerDay = {};
+      for (var dataPoint in healthData) {
+        final day = DateTime(dataPoint.dateFrom.year, dataPoint.dateFrom.month, dataPoint.dateFrom.day);
+        if (!latestDataPerDay.containsKey(day) || dataPoint.dateFrom.isAfter(latestDataPerDay[day]!.dateFrom)) {
+           latestDataPerDay[day] = dataPoint;
+        }
+      }
+
+      // Convert to the desired map format
+      for (var dataPoint in latestDataPerDay.values) {
+         if (dataPoint.value is NumericHealthValue) {
+           weightEntries.add({
+             'date': dataPoint.dateFrom, // Use the actual timestamp
+             'weight': (dataPoint.value as NumericHealthValue).numericValue.toDouble(),
+           });
+         }
+         // Add handling for other potential value types if necessary (e.g., double, int)
+         else if (dataPoint.value is double) {
+            weightEntries.add({
+             'date': dataPoint.dateFrom,
+             'weight': dataPoint.value as double,
+           });
+         } else if (dataPoint.value is int) {
+            weightEntries.add({
+             'date': dataPoint.dateFrom,
+             'weight': (dataPoint.value as int).toDouble(),
+           });
+         }
+      }
+
+      // Sort entries by date
+      weightEntries.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+
+      return weightEntries;
+
+    } catch (error) {
+      print('Error fetching weight data for date range: $error');
+      return []; // Return empty list on error
+    }
+  }
+
+
   // Method to get steps for the last year (12 months)
   Future<List<Map<String, dynamic>>> getStepsForLastYear() async {
     final List<Map<String, dynamic>> result = [];
