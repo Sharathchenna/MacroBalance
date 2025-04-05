@@ -182,6 +182,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => MealProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
         // Pass FoodEntryProvider instance to ExpenditureProvider
         ChangeNotifierProvider(create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
         ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
