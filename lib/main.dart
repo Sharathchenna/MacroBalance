@@ -12,6 +12,7 @@ import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPa
 import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
 import 'package:macrotracker/AI/gemini.dart';
+import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/services/api_service.dart';
@@ -178,6 +179,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => DateProvider()),
         ChangeNotifierProvider(create: (_) => MealProvider()),
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
       ],
       child: const MyApp(),
     ),

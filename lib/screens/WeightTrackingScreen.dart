@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart'; // Import Provider
 import '../providers/foodEntryProvider.dart'; // Import FoodEntryProvider
+import '../providers/weight_unit_provider.dart';
 
 // Weight data point model
 class WeightPoint {
@@ -47,7 +48,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
   double _targetWeight = 65.0;
   String _selectedTimeFrame = 'Month';
   List<Map<String, dynamic>> _weightData = [];
-  bool _isMetric = true;
   late AnimationController _pageController;
   final _scrollController = ScrollController();
 
@@ -170,9 +170,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
   }
 
   String _formatWeight(double weight) {
-    return _isMetric
-        ? '${weight.toStringAsFixed(1)} kg'
-        : '${(weight * 2.20462).toStringAsFixed(1)} lbs';
+    final unitProvider =
+        Provider.of<WeightUnitProvider>(context, listen: false);
+    final converted = unitProvider.convertFromKg(weight);
+    return '${converted.toStringAsFixed(1)} ${unitProvider.unitLabel}';
   }
 
   @override
@@ -254,27 +255,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
             icon: Icon(Icons.arrow_back, color: customColors.textPrimary),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          actions: [
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _isMetric = !_isMetric;
-                });
-              },
-              icon: Icon(
-                Icons.scale,
-                color: customColors.textPrimary,
-                size: 20,
-              ),
-              label: Text(
-                _isMetric ? 'kg' : 'lbs',
-                style: TextStyle(
-                  color: customColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
         ),
         body: body,
       );
@@ -349,15 +329,15 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                       Hero(
                         tag: 'weight_progress',
                         child: SizedBox(
-                          width: 120,
-                          height: 120,
+                          width: 140,
+                          height: 140,
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
                               // Background circle
                               Container(
-                                width: 120,
-                                height: 120,
+                                width: 140,
+                                height: 140,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topLeft,
@@ -710,6 +690,11 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       }
     }
 
+    final unitProvider = Provider.of<WeightUnitProvider>(context, listen: true);
+
+    // Convert difference to display unit
+    final convertedChange = unitProvider.convertFromKg(weightChange);
+
     return AnimatedBuilder(
       animation: _pageController,
       builder: (context, child) {
@@ -795,7 +780,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${weightChange.abs().toStringAsFixed(1)} ${_isMetric ? 'kg' : 'lbs'} ${weightChange > 0 ? 'gained' : weightChange < 0 ? 'lost' : 'maintained'} $timeDescription',
+                              '${convertedChange.abs().toStringAsFixed(1)} ${unitProvider.unitLabel} ${weightChange > 0 ? 'gained' : weightChange < 0 ? 'lost' : 'maintained'} $timeDescription',
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
@@ -820,7 +805,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                   weight: data['weight'] as double,
                                 ))
                             .toList(),
-                        isMetric: _isMetric,
+                        isMetric: unitProvider.isKg,
                         customColors: customColors,
                         targetWeight: _targetWeight,
                         timeFrame: _selectedTimeFrame,
@@ -1170,15 +1155,17 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                         TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       hintText: 'Enter your weight',
-                      suffix: Text(_isMetric ? 'kg' : 'lbs'),
+                      suffix: Text(Provider.of<WeightUnitProvider>(context,
+                              listen: false)
+                          .unitLabel),
                     ),
                     onChanged: (value) {
                       if (value.isNotEmpty) {
                         try {
-                          newWeight = double.parse(value);
-                          if (!_isMetric) {
-                            newWeight = newWeight / 2.20462; // Convert to kg
-                          }
+                          final input = double.parse(value);
+                          newWeight = Provider.of<WeightUnitProvider>(context,
+                                  listen: false)
+                              .convertToKg(input);
                         } catch (e) {
                           // Handle invalid input
                           print('Invalid weight input: $e');
@@ -1335,7 +1322,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                   child: Text(
                     'Save',
                     style: TextStyle(
-                      color: customColors.textPrimary,
+                      color: Theme.of(context).colorScheme.onPrimary,
                     ),
                   ),
                 ),
@@ -1366,15 +1353,16 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           keyboardType: TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             hintText: 'Enter target weight',
-            suffix: Text(_isMetric ? 'kg' : 'lbs'),
+            suffix: Text(Provider.of<WeightUnitProvider>(context, listen: false)
+                .unitLabel),
           ),
           onChanged: (value) {
             if (value.isNotEmpty) {
               try {
-                newTarget = double.parse(value);
-                if (!_isMetric) {
-                  newTarget = newTarget / 2.20462; // Convert to kg
-                }
+                final input = double.parse(value);
+                newTarget =
+                    Provider.of<WeightUnitProvider>(context, listen: false)
+                        .convertToKg(input);
               } catch (e) {
                 // Handle invalid input
               }
@@ -1401,7 +1389,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: customColors.accentPrimary,
             ),
-            child: const Text('Save'),
+            child: Text(
+              'Save',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
+            ),
           ),
         ],
       ),
