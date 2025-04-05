@@ -36,7 +36,8 @@ class FoodEntryProvider with ChangeNotifier {
   // Other goals and parameters
   int _stepsGoal = 10000;
   double _bmr = 1500.0;
-  double _tdee = 2000.0; // Can be calculated by ExpenditureService or MacroCalculatorService
+  double _tdee =
+      2000.0; // Can be calculated by ExpenditureService or MacroCalculatorService
   double _goalWeightKg = 0.0;
   double _currentWeightKg = 0.0;
   String _goalType = MacroCalculatorService.GOAL_MAINTAIN;
@@ -86,10 +87,14 @@ class FoodEntryProvider with ChangeNotifier {
 
   int get goalTypeAsInt {
     switch (_goalType) {
-      case MacroCalculatorService.GOAL_MAINTAIN: return 1;
-      case MacroCalculatorService.GOAL_LOSE: return 2;
-      case MacroCalculatorService.GOAL_GAIN: return 3;
-      default: return 1;
+      case MacroCalculatorService.GOAL_MAINTAIN:
+        return 1;
+      case MacroCalculatorService.GOAL_LOSE:
+        return 2;
+      case MacroCalculatorService.GOAL_GAIN:
+        return 3;
+      default:
+        return 1;
     }
   }
 
@@ -142,18 +147,18 @@ class FoodEntryProvider with ChangeNotifier {
 
   // Restore setter for current weight
   set currentWeightKg(double value) {
-     if (_currentWeightKg != value) {
-        _currentWeightKg = value;
-        _saveNutritionGoals();
-        notifyListeners();
-        _syncNutritionGoalsToSupabase();
-        // TODO: Consider triggering TDEE recalculation here via ExpenditureProvider if needed
-     }
+    if (_currentWeightKg != value) {
+      _currentWeightKg = value;
+      _saveNutritionGoals();
+      notifyListeners();
+      _syncNutritionGoalsToSupabase();
+      // TODO: Consider triggering TDEE recalculation here via ExpenditureProvider if needed
+    }
   }
 
   // Method to update current weight (alternative to setter)
   Future<void> updateCurrentWeight(double newWeightKg) async {
-     currentWeightKg = newWeightKg; // Use the setter
+    currentWeightKg = newWeightKg; // Use the setter
   }
 
   set goalType(String value) {
@@ -169,24 +174,31 @@ class FoodEntryProvider with ChangeNotifier {
   set goalTypeAsInt(int value) {
     String newGoalType;
     switch (value) {
-      case 1: newGoalType = MacroCalculatorService.GOAL_MAINTAIN; break;
-      case 2: newGoalType = MacroCalculatorService.GOAL_LOSE; break;
-      case 3: newGoalType = MacroCalculatorService.GOAL_GAIN; break;
-      default: newGoalType = MacroCalculatorService.GOAL_MAINTAIN;
+      case 1:
+        newGoalType = MacroCalculatorService.GOAL_MAINTAIN;
+        break;
+      case 2:
+        newGoalType = MacroCalculatorService.GOAL_LOSE;
+        break;
+      case 3:
+        newGoalType = MacroCalculatorService.GOAL_GAIN;
+        break;
+      default:
+        newGoalType = MacroCalculatorService.GOAL_MAINTAIN;
     }
     if (_goalType != newGoalType) {
-       goalType = newGoalType;
+      goalType = newGoalType;
     }
   }
 
   set deficitSurplus(int value) {
-     if (_deficitSurplus != value) {
-        _deficitSurplus = value;
-        _saveNutritionGoals();
-        notifyListeners();
-        _syncNutritionGoalsToSupabase();
-        recalculateMacroGoals(_tdee); // Recalculate when deficit changes
-     }
+    if (_deficitSurplus != value) {
+      _deficitSurplus = value;
+      _saveNutritionGoals();
+      notifyListeners();
+      _syncNutritionGoalsToSupabase();
+      recalculateMacroGoals(_tdee); // Recalculate when deficit changes
+    }
   }
 
   // Restore updateNutritionGoals method (used by editGoals screen)
@@ -216,7 +228,8 @@ class FoodEntryProvider with ChangeNotifier {
 
   // --- Dynamic Goal Recalculation ---
   Future<void> recalculateMacroGoals(double calculatedTDEE) async {
-    debugPrint("Recalculating macro goals with TDEE: ${calculatedTDEE.round()}");
+    debugPrint(
+        "Recalculating macro goals with TDEE: ${calculatedTDEE.round()}");
     _tdee = calculatedTDEE; // Store the dynamically calculated TDEE
 
     // Calculate target calories based on goal and TDEE
@@ -233,9 +246,9 @@ class FoodEntryProvider with ChangeNotifier {
 
     // Ensure currentWeightKg is loaded before calling this
     if (_currentWeightKg <= 0) {
-       debugPrint("Cannot recalculate goals: Current weight is not set.");
-       // TODO: Optionally load weight here if needed or use a default/fallback
-       return;
+      debugPrint("Cannot recalculate goals: Current weight is not set.");
+      // TODO: Optionally load weight here if needed or use a default/fallback
+      return;
     }
 
     // Use the static helper method from MacroCalculatorService
@@ -254,7 +267,8 @@ class FoodEntryProvider with ChangeNotifier {
     _carbsGoal = macros['carb_g']!.roundToDouble();
     _fatGoal = macros['fat_g']!.roundToDouble();
 
-    debugPrint("Calculated Goals: Cals=$_caloriesGoal, P=$_proteinGoal, C=$_carbsGoal, F=$_fatGoal");
+    debugPrint(
+        "Calculated Goals: Cals=$_caloriesGoal, P=$_proteinGoal, C=$_carbsGoal, F=$_fatGoal");
 
     _saveNutritionGoals();
     notifyListeners();
@@ -272,44 +286,100 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   Future<void> loadNutritionGoals() async {
-    // ... (existing implementation) ...
+    try {
+      final String? nutritionGoalsString =
+          StorageService().get('nutrition_goals');
+      if (nutritionGoalsString != null && nutritionGoalsString.isNotEmpty) {
+        final Map<String, dynamic> nutritionGoals =
+            jsonDecode(nutritionGoalsString);
+
+        // Load macro targets
+        if (nutritionGoals['macro_targets'] != null) {
+          final macroTargets = nutritionGoals['macro_targets'];
+          _caloriesGoal = (macroTargets['calories'] as num).toDouble();
+          _proteinGoal = (macroTargets['protein'] as num).toDouble();
+          _carbsGoal = (macroTargets['carbs'] as num).toDouble();
+          _fatGoal = (macroTargets['fat'] as num).toDouble();
+        }
+
+        // Load other goals
+        _stepsGoal = nutritionGoals['steps_goal'] ?? _stepsGoal;
+        _bmr = (nutritionGoals['bmr'] as num?)?.toDouble() ?? _bmr;
+        _tdee = (nutritionGoals['tdee'] as num?)?.toDouble() ?? _tdee;
+        _goalWeightKg =
+            (nutritionGoals['goal_weight_kg'] as num?)?.toDouble() ??
+                _goalWeightKg;
+        _currentWeightKg =
+            (nutritionGoals['current_weight_kg'] as num?)?.toDouble() ??
+                _currentWeightKg;
+
+        debugPrint(
+            'Loaded nutrition goals from storage: calories=${_caloriesGoal}, protein=${_proteinGoal}, carbs=${_carbsGoal}, fat=${_fatGoal}');
+      } else {
+        debugPrint('No nutrition goals found in storage');
+      }
+    } catch (e) {
+      debugPrint('Error loading nutrition goals: $e');
+    }
+    notifyListeners();
   }
 
   Future<void> _syncNutritionGoalsFromSupabase() async {
-     // ... (existing implementation) ...
+    // ... (existing implementation) ...
   }
 
   void _saveNutritionGoals() {
-     // ... (existing implementation) ...
+    final Map<String, dynamic> goals = {
+      'macro_targets': {
+        'calories': _caloriesGoal,
+        'protein': _proteinGoal,
+        'carbs': _carbsGoal,
+        'fat': _fatGoal,
+      },
+      'steps_goal': _stepsGoal,
+      'bmr': _bmr,
+      'tdee': _tdee,
+      'goal_weight_kg': _goalWeightKg,
+      'current_weight_kg': _currentWeightKg,
+      'goal_type': _goalType,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    StorageService().put('nutrition_goals', jsonEncode(goals));
+    debugPrint('Saved nutrition goals to storage: ${jsonEncode(goals)}');
   }
 
   Future<void> _syncNutritionGoalsToSupabase() async {
-     // ... (existing implementation) ...
+    // ... (existing implementation) ...
   }
 
   Future<void> _saveEntries() async {
-     // ... (existing implementation) ...
+    // ... (existing implementation) ...
   }
 
   Future<void> _syncEntriesToSupabase(String entriesJson) async {
-     // ... (existing implementation) ...
+    // ... (existing implementation) ...
   }
 
   List<FoodEntry> getEntriesForDate(DateTime date) {
-     // ... (existing implementation) ...
-      return _entries.where((entry) =>
-          entry.date.year == date.year &&
-          entry.date.month == date.month &&
-          entry.date.day == date.day).toList();
+    // ... (existing implementation) ...
+    return _entries
+        .where((entry) =>
+            entry.date.year == date.year &&
+            entry.date.month == date.month &&
+            entry.date.day == date.day)
+        .toList();
   }
 
   List<FoodEntry> getEntriesForMeal(String meal, DateTime date) {
-     // ... (existing implementation) ...
-      return _entries.where((entry) =>
-          entry.meal == meal &&
-          entry.date.year == date.year &&
-          entry.date.month == date.month &&
-          entry.date.day == date.day).toList();
+    // ... (existing implementation) ...
+    return _entries
+        .where((entry) =>
+            entry.meal == meal &&
+            entry.date.year == date.year &&
+            entry.date.month == date.month &&
+            entry.date.day == date.day)
+        .toList();
   }
 
   Future<void> addEntry(FoodEntry entry) async {
@@ -341,7 +411,8 @@ class FoodEntryProvider with ChangeNotifier {
     return entriesForDate.fold(0.0, (sum, entry) {
       double quantity = entry.quantity;
       String unit = entry.unit.toLowerCase();
-      double caloriesPerBaseUnit = entry.food.calories; // Assume per 100g default
+      double caloriesPerBaseUnit =
+          entry.food.calories; // Assume per 100g default
       double baseUnitSize = 100.0; // Assume 100g default
       double quantityInGrams = quantity; // Default assumption
 
@@ -349,78 +420,90 @@ class FoodEntryProvider with ChangeNotifier {
       // This requires FoodItem model to store detailed serving options
 
       // Unit Conversion to Grams (Simplified)
-      if (unit == "oz") { quantityInGrams = quantity * 28.35; }
-      else if (unit == "kg") { quantityInGrams = quantity * 1000; }
-      else if (unit == "lbs") { quantityInGrams = quantity * 453.59; }
-      else if (unit == "g" || unit == "gram" || unit == "grams") { quantityInGrams = quantity; }
-      else {
-          // If unit is not a standard weight (e.g., 'serving', 'cup'),
-          // we ideally need conversion factor from FoodItem data.
-          // Fallback: Assume calories are per serving and quantity is # of servings.
-          // This is inaccurate if calories are per 100g.
-          // Using a risky fallback: assume 1 serving = 100g if unit unknown
-          // quantityInGrams = quantity * 100;
-          // Safer fallback: Assume calories are per serving if unit unknown
-          if (baseUnitSize > 0) {
-             // If we assume calories are per serving
-             // return sum + (caloriesPerBaseUnit * quantity);
-             // If we assume calories are per 100g and 1 serving = 100g (BAD ASSUMPTION)
-             // return sum + (caloriesPerBaseUnit * (quantity * 100 / baseUnitSize));
-             // Let's stick to the per 100g calculation for now, even if unit is weird
-             // This means non-gram units might be calculated incorrectly without better data
-             quantityInGrams = quantity * 100; // Revert to risky assumption for now
-          } else {
-             return sum;
-          }
+      if (unit == "oz") {
+        quantityInGrams = quantity * 28.35;
+      } else if (unit == "kg") {
+        quantityInGrams = quantity * 1000;
+      } else if (unit == "lbs") {
+        quantityInGrams = quantity * 453.59;
+      } else if (unit == "g" || unit == "gram" || unit == "grams") {
+        quantityInGrams = quantity;
+      } else {
+        // If unit is not a standard weight (e.g., 'serving', 'cup'),
+        // we ideally need conversion factor from FoodItem data.
+        // Fallback: Assume calories are per serving and quantity is # of servings.
+        // This is inaccurate if calories are per 100g.
+        // Using a risky fallback: assume 1 serving = 100g if unit unknown
+        // quantityInGrams = quantity * 100;
+        // Safer fallback: Assume calories are per serving if unit unknown
+        if (baseUnitSize > 0) {
+          // If we assume calories are per serving
+          // return sum + (caloriesPerBaseUnit * quantity);
+          // If we assume calories are per 100g and 1 serving = 100g (BAD ASSUMPTION)
+          // return sum + (caloriesPerBaseUnit * (quantity * 100 / baseUnitSize));
+          // Let's stick to the per 100g calculation for now, even if unit is weird
+          // This means non-gram units might be calculated incorrectly without better data
+          quantityInGrams =
+              quantity * 100; // Revert to risky assumption for now
+        } else {
+          return sum;
+        }
       }
 
       // Calculate calories based on grams and calories per 100g
       if (caloriesPerBaseUnit > 0 && baseUnitSize > 0) {
-         return sum + (caloriesPerBaseUnit * (quantityInGrams / baseUnitSize));
+        return sum + (caloriesPerBaseUnit * (quantityInGrams / baseUnitSize));
       } else {
-         return sum;
+        return sum;
       }
     });
   }
 
-
   List<FoodEntry> getAllEntriesForDate(DateTime date) {
-     // ... (existing implementation) ...
-      final localDate = date.toLocal();
-      final startOfDay = DateTime(localDate.year, localDate.month, localDate.day);
-      final endOfDay = DateTime(localDate.year, localDate.month, localDate.day, 23, 59, 59, 999);
-      final cacheKey = '${startOfDay.year}-${startOfDay.month.toString().padLeft(2, '0')}-${startOfDay.day.toString().padLeft(2, '0')}';
-      if (_dateEntriesCache.containsKey(cacheKey)) {
-        final cacheTimestamp = _dateCacheTimestamp[cacheKey];
-        if (cacheTimestamp != null && DateTime.now().difference(cacheTimestamp) < _cacheDuration) {
-          return _dateEntriesCache[cacheKey]!;
-        }
+    // ... (existing implementation) ...
+    final localDate = date.toLocal();
+    final startOfDay = DateTime(localDate.year, localDate.month, localDate.day);
+    final endOfDay = DateTime(
+        localDate.year, localDate.month, localDate.day, 23, 59, 59, 999);
+    final cacheKey =
+        '${startOfDay.year}-${startOfDay.month.toString().padLeft(2, '0')}-${startOfDay.day.toString().padLeft(2, '0')}';
+    if (_dateEntriesCache.containsKey(cacheKey)) {
+      final cacheTimestamp = _dateCacheTimestamp[cacheKey];
+      if (cacheTimestamp != null &&
+          DateTime.now().difference(cacheTimestamp) < _cacheDuration) {
+        return _dateEntriesCache[cacheKey]!;
       }
-      final filteredEntries = _entries.where((entry) {
-        final entryDate = entry.date.toLocal();
-        return !entryDate.isBefore(startOfDay) && !entryDate.isAfter(endOfDay);
-      }).toList();
-      _dateEntriesCache[cacheKey] = filteredEntries;
-      _dateCacheTimestamp[cacheKey] = DateTime.now();
-      return filteredEntries;
+    }
+    final filteredEntries = _entries.where((entry) {
+      final entryDate = entry.date.toLocal();
+      return !entryDate.isBefore(startOfDay) && !entryDate.isAfter(endOfDay);
+    }).toList();
+    _dateEntriesCache[cacheKey] = filteredEntries;
+    _dateCacheTimestamp[cacheKey] = DateTime.now();
+    return filteredEntries;
   }
 
   Future<void> _updateWidgets() async {
-     // ... (existing implementation) ...
+    // ... (existing implementation) ...
   }
 
   Future<void> syncAllDataWithSupabase() async {
-     // ... (existing implementation) ...
+    // ... (existing implementation) ...
   }
 
   Future<Map<String, dynamic>> checkSupabaseConnection() async {
-     // ... (existing implementation) ...
-      try { /* ... */ } catch (e) { return {'connected': false, 'errorMessage': 'Connection error: ${e.toString()}'}; }
-      return {}; // Placeholder, ensure return
+    // ... (existing implementation) ...
+    try {/* ... */} catch (e) {
+      return {
+        'connected': false,
+        'errorMessage': 'Connection error: ${e.toString()}'
+      };
+    }
+    return {}; // Placeholder, ensure return
   }
 
   Future<void> _notifyNativeStatsChanged() async {
-     // ... (existing implementation) ...
+    // ... (existing implementation) ...
   }
 
   Future<Map<String, dynamic>> forceSyncAndDiagnose() async {
@@ -432,22 +515,24 @@ class FoodEntryProvider with ChangeNotifier {
       'warnings': <String>[],
       'success': false
     };
-     // ... (rest of existing implementation) ...
-      try { /* ... */ } catch (e) { diagnosticInfo['errors'].add('General error: ${e.toString()}'); }
-      return diagnosticInfo;
+    // ... (rest of existing implementation) ...
+    try {/* ... */} catch (e) {
+      diagnosticInfo['errors'].add('General error: ${e.toString()}');
+    }
+    return diagnosticInfo;
   }
 
   Future<void> loadEntriesFromSupabase() async {
-     // ... (existing implementation) ...
+    // ... (existing implementation) ...
   }
 
   Future<void> _clearDateCache() async {
-     _dateEntriesCache.clear();
-     _dateCacheTimestamp.clear();
+    _dateEntriesCache.clear();
+    _dateCacheTimestamp.clear();
   }
 
   void resetGoalsToDefault() {
     // ... (existing implementation) ...
-     recalculateMacroGoals(_tdee); // Use the last known TDEE or default
+    recalculateMacroGoals(_tdee); // Use the last known TDEE or default
   }
 }
