@@ -989,11 +989,13 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   Widget _buildCalorieInfoCard(BuildContext context, String label, int value,
       Color color, IconData icon) {
     return Container(
-      height: 60, // Fixed height for each card
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      // height: 60, // Fixed height for each card
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).extension<CustomColors>()?.cardBackground,
-        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).brightness == Brightness.light
+            ? color.withOpacity(0.1) // Slightly more opacity
+            : color.withOpacity(0.2), // Slightly more opacity
+        borderRadius: BorderRadius.circular(12), // More rounded corners
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -1006,19 +1008,18 @@ class _CalorieTrackerState extends State<CalorieTracker> {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 10),
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15), // Use withOpacity
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 16,
+              )),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1027,7 +1028,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                 Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: Theme.of(context).brightness == Brightness.light
                         ? Colors.grey.shade700
@@ -1534,7 +1535,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                         ),
 
                         const SizedBox(
-                            height: 30), // Increased space before macro rings
+                            height: 15), // Increased space before macro rings
 
                         // Macro circles - Enhanced with circular progress
                         Padding(
