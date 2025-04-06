@@ -1367,28 +1367,50 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                     // Add a header
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(children: [
-                        Icon(
-                          Icons.pie_chart_outline,
-                          size: 20,
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? Colors.grey.shade700
-                                  : Colors.grey.shade400,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Today's Nutrition and Activity",
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade400,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.pie_chart_outline,
+                                size: 20,
+                                color:
+                                    Theme.of(context).brightness == Brightness.light
+                                        ? Colors.grey.shade700
+                                        : Colors.grey.shade400,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                "Today's Nutrition and Activity",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      Theme.of(context).brightness == Brightness.light
+                                          ? Colors.grey.shade700
+                                          : Colors.grey.shade400,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ]),
+                          IconButton(
+                            icon: const Icon(Icons.open_in_new),
+                            iconSize: 20,
+                            color: Theme.of(context).brightness == Brightness.light
+                                ? Colors.grey.shade700
+                                : Colors.grey.shade400,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                CupertinoPageRoute(
+                                  builder: (context) => const TdeeDashboardScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
 
                     // Main content column
