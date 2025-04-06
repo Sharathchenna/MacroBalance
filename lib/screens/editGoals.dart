@@ -25,6 +25,11 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   int stepsGoal = 9000;
   int bmr = 1500;
   int tdee = 2000;
+  // New fields based on recommendations
+  bool tdeeManuallySet = false; // Default to false
+  String bmrFormula = 'Unknown'; // Default
+  double estimatedWeeklyChange = 0.0; // Default
+  String estimatedGoalDate = 'N/A'; // Default
 
   // Current values (for progress demonstration)
   int caloriesConsumed = 0;
@@ -68,12 +73,24 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
             if (stepsGoal == 9000) {
               stepsGoal = results['recommended_steps'] ?? stepsGoal;
             }
+            // Load BMR/TDEE from macro_results if not loaded from provider
             if (bmr == 1500) {
               bmr = results['bmr'] ?? bmr;
             }
             if (tdee == 2000) {
               tdee = results['tdee'] ?? tdee;
             }
+            // Load new fields from macro_results
+            tdeeManuallySet = results['tdee_manually_set'] ?? tdeeManuallySet;
+            bmrFormula = results['bmr_formula'] ?? bmrFormula;
+            estimatedWeeklyChange = results['estimated_weekly_change'] ?? estimatedWeeklyChange;
+            // Ensure estimated_goal_date is loaded as a string
+            if (results['estimated_goal_date'] != null) {
+              estimatedGoalDate = results['estimated_goal_date'].toString();
+            } else {
+              estimatedGoalDate = 'N/A';
+            }
+
           });
         }
       }
@@ -121,6 +138,18 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                 fatGoal = nutritionGoals['fat_goal'] is int
                     ? nutritionGoals['fat_goal']
                     : (nutritionGoals['fat_goal'] as num).toInt();
+              }
+
+              // Also try loading new fields from nutrition_goals if not found in macro_results
+              if (!tdeeManuallySet) { // Only update if not already set true by macro_results
+                tdeeManuallySet = nutritionGoals['tdee_manually_set'] ?? tdeeManuallySet;
+              }
+              if (bmrFormula == 'Unknown') {
+                bmrFormula = nutritionGoals['bmr_formula'] ?? bmrFormula;
+              }
+              // Note: Weekly change and goal date are less likely here, primarily from calculator results
+              if (estimatedWeeklyChange == 0.0) {
+                 estimatedWeeklyChange = nutritionGoals['estimated_weekly_change'] ?? estimatedWeeklyChange;
               }
             });
           }
@@ -516,6 +545,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   Widget _buildGoalCard(Map<String, dynamic> data) {
     final bool showProgress = data['currentValue'] != null;
     // Add null/zero checks for progress calculation
+    final bool isEditable = data['onEdit'] != null; // Check if editable
     double progress = 0.0;
     if (showProgress && data['value'] != null && data['value'] > 0) {
       progress = (data['currentValue'] / data['value']).clamp(0.0, 1.0);
@@ -543,7 +573,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           color: Colors.transparent,
           child: InkWell(
             onTap: data['onEdit'],
-            splashColor: data['color'].withOpacity(0.1),
+            splashColor: isEditable ? data['color'].withOpacity(0.1) : Colors.transparent, // No splash if not editable
             highlightColor: Colors.transparent,
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -581,18 +611,16 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                             color: customColors!.textPrimary),
                       ),
                       const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: data['color'].withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                      // Only show edit icon if editable
+                      if (isEditable)
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: data['color'].withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.edit_rounded, size: 16, color: data['color']),
                         ),
-                        child: Icon(
-                          Icons.edit_rounded,
-                          size: 16,
-                          color: data['color'],
-                        ),
-                      ),
                     ],
                   ),
                   const Spacer(),
@@ -756,6 +784,27 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
               (value) => setState(() => stepsGoal = value),
             ),
       },
+      // Add BMR (non-editable for now)
+      {
+        'title': 'Basal Metabolic Rate (BMR)',
+        'value': bmr,
+        'currentValue': null, // No progress for BMR
+        'unit': 'kcal',
+        'icon': Icons.bedtime_rounded,
+        'color': Colors.lightBlue,
+        'onEdit': null, // Not editable directly
+      },
+      // Add TDEE (non-editable for now)
+      {
+        'title': 'Total Daily Energy Expenditure (TDEE)',
+        'value': tdee,
+        'currentValue': null, // No progress for TDEE
+        'unit': 'kcal',
+        'icon': Icons.directions_run_rounded,
+        'color': Colors.green,
+        'onEdit': null, // Not editable directly
+      },
+
     ];
   }
 
@@ -763,25 +812,135 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Macro Goals'),
+        title: const Text('Nutrition Goals & Details'), // Updated Title
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: SafeArea(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            itemCount: _getGoalsData().length,
-            itemBuilder: (context, index) {
-              return _buildGoalCard(_getGoalsData()[index]);
-            },
-          ),
+      body: SafeArea(
+        child: Column( // Wrap ListView in a Column
+          children: [
+            // Widget for Macro Percentages
+            _buildMacroPercentageCard(),
+            const SizedBox(height: 10), // Spacing
+
+            // Existing ListView for Goal Cards
+            Expanded( // Make ListView take remaining space
+              child: ListView.builder(
+                padding: const EdgeInsets.only(bottom: 16), // Add bottom padding
+                itemCount: _getGoalsData().length,
+                itemBuilder: (context, index) {
+                  final goalData = _getGoalsData()[index];
+                  // Conditionally add extra info below BMR/TDEE cards
+                  if (goalData['title'].contains('BMR')) {
+                    return Column(
+                      children: [
+                        _buildGoalCard(goalData),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                          child: Text('Formula Used: $bmrFormula', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
+                        ),
+                      ],
+                    );
+                  } else if (goalData['title'].contains('TDEE')) {
+                    return Column(
+                      children: [
+                        _buildGoalCard(goalData),
+                        if (tdeeManuallySet)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange),
+                                SizedBox(width: 4),
+                                Text('Manually Set', style: TextStyle(color: Colors.orange, fontStyle: FontStyle.italic)),
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
+                  }
+                  return _buildGoalCard(goalData);
+                },
+              ),
+            ),
+
+            // Placeholder Section for Weight Change Info & Edit Links
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Text('Estimated Weekly Change: ${estimatedWeeklyChange.toStringAsFixed(1)} kg/lbs'), // Placeholder
+                  Text('Estimated Goal Date: $estimatedGoalDate'), // Placeholder
+                  const SizedBox(height: 16),
+                  ElevatedButton(onPressed: () {}, child: const Text('Adjust Activity Level (Placeholder)')),
+                  ElevatedButton(onPressed: () {}, child: const Text('Adjust Weight Goal (Placeholder)')),
+                  // Potentially add a toggle/button for TDEE override here later
+                ],
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  // Add this new method somewhere within the _EditGoalsScreenState class
+
+  Widget _buildMacroPercentageCard() {
+    final theme = Theme.of(context);
+    final customColors = theme.extension<CustomColors>()!;
+
+    // Calculate total grams for percentage calculation
+    final totalGrams = proteinGoal + carbGoal + fatGoal;
+    double proteinPercent = totalGrams > 0 ? (proteinGoal / totalGrams * 100) : 0;
+    double carbPercent = totalGrams > 0 ? (carbGoal / totalGrams * 100) : 0;
+    double fatPercent = totalGrams > 0 ? (fatGoal / totalGrams * 100) : 0;
+
+    // Ensure percentages sum roughly to 100, handle potential rounding issues if needed
+    // For simplicity, we'll just display the calculated values for now.
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Target Macro Ratio (by Grams)',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildPercentItem('Protein', proteinPercent, Colors.purple),
+                _buildPercentItem('Carbs', carbPercent, Colors.blue),
+                _buildPercentItem('Fat', fatPercent, Colors.amber),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPercentItem(String label, double percent, Color color) {
+    return Column(
+      children: [
+        Text(
+          '${percent.toStringAsFixed(0)}%',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }

@@ -8,6 +8,8 @@ import 'dart:ui' as ui;
 import 'package:provider/provider.dart';
 import '../providers/foodEntryProvider.dart';
 import '../models/foodEntry.dart';
+import '../providers/expenditure_provider.dart';
+import 'tdee_dashboard.dart';
 
 class MacroTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -134,6 +136,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 _buildMacroSummaryCard(context, customColors),
                           ),
                           const SizedBox(height: 24),
+                          RepaintBoundary(
+                            child: _buildTdeeSummaryCard(context, customColors),
+                          ),
+                          const SizedBox(height: 24),
                           _buildMacroChart(customColors),
                           const SizedBox(height: 24),
                           RepaintBoundary(
@@ -237,11 +243,11 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               alignment: WrapAlignment.center,
               children: [
                 _buildLegendItem('Protein (${_targetProtein.toInt()}g)',
-                    Colors.amber.shade300, customColors),
+                    Colors.blue.shade600, customColors), // Protein: Blue
                 _buildLegendItem('Carbs (${_targetCarbs.toInt()}g)',
-                    Colors.teal.shade300, customColors),
+                    Colors.red.shade600, customColors), // Carbs: Red
                 _buildLegendItem('Fat (${_targetFat.toInt()}g)',
-                    Colors.purple.shade400, customColors),
+                    Colors.amber.shade600, customColors), // Fat: Yellow/Amber
               ],
             ),
           ],
@@ -638,7 +644,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     'Carbs',
                     _currentCarbs,
                     _targetCarbs,
-                    Colors.orange.shade600,
+                    Colors.red.shade600, // Carbs: Red
                     customColors,
                   ),
                   const SizedBox(height: 14),
@@ -646,7 +652,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     'Fat',
                     _currentFat,
                     _targetFat,
-                    Colors.red.shade500,
+                    Colors.amber.shade600, // Fat: Yellow/Amber
                     customColors,
                   ),
                 ],
@@ -909,7 +915,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         gradient: LinearGradient(
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
-                          colors: [Colors.blue.shade700, Colors.blue.shade500],
+                          colors: [
+                            Colors.blue.shade700,
+                            Colors.blue.shade500
+                          ], // Protein: Blue
                         ),
                       ),
                     ),
@@ -922,8 +931,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            Colors.orange.shade700,
-                            Colors.orange.shade500
+                            // Carbs: Red
+                            Colors.red.shade700,
+                            Colors.red.shade500
                           ],
                         ),
                       ),
@@ -936,7 +946,11 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         gradient: LinearGradient(
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
-                          colors: [Colors.red.shade700, Colors.red.shade500],
+                          colors: [
+                            // Fat: Yellow/Amber
+                            Colors.amber.shade700,
+                            Colors.amber.shade500
+                          ],
                         ),
                       ),
                     ),
@@ -953,9 +967,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               _buildMacroPercentageIndicator('Protein', proteinPercentage,
                   Colors.blue.shade600, customColors),
               _buildMacroPercentageIndicator('Carbs', carbsPercentage,
-                  Colors.orange.shade600, customColors),
-              _buildMacroPercentageIndicator(
-                  'Fat', fatPercentage, Colors.red.shade500, customColors),
+                  Colors.red.shade600, customColors), // Carbs: Red
+              _buildMacroPercentageIndicator('Fat', fatPercentage,
+                  Colors.amber.shade600, customColors), // Fat: Yellow/Amber
             ],
           ),
           const SizedBox(height: 24),
@@ -972,7 +986,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             'Carbs',
             _currentCarbs,
             carbsPercentage,
-            Colors.orange.shade600,
+            Colors.red.shade600, // Carbs: Red
             customColors,
           ),
           const SizedBox(height: 16),
@@ -980,7 +994,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             'Fat',
             _currentFat,
             fatPercentage,
-            Colors.red.shade500,
+            Colors.amber.shade600, // Fat: Yellow/Amber
             customColors,
           ),
         ],
@@ -1188,15 +1202,18 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   width: 1,
                   color: customColors.dateNavigatorBackground,
                 ),
-                _buildGoalItem('Carbs', _targetCarbs, Colors.orange.shade600,
+                _buildGoalItem(
+                    'Carbs',
+                    _targetCarbs,
+                    Colors.red.shade600, // Carbs: Red
                     customColors),
                 Container(
                   height: 40,
                   width: 1,
                   color: customColors.dateNavigatorBackground,
                 ),
-                _buildGoalItem(
-                    'Fat', _targetFat, Colors.red.shade500, customColors),
+                _buildGoalItem('Fat', _targetFat, Colors.amber.shade600,
+                    customColors), // Fat: Yellow/Amber
               ],
             ),
           ),
@@ -1469,7 +1486,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Protein',
                           proteinController,
-                          Colors.red,
+                          Colors.blue
+                              .shade600, // Protein: Blue (Fixing inconsistency)
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1485,7 +1503,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Carbs',
                           carbsController,
-                          Colors.green,
+                          Colors.red
+                              .shade600, // Carbs: Red (Fixing inconsistency)
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1501,7 +1520,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Fat',
                           fatController,
-                          Colors.blue,
+                          Colors.amber
+                              .shade600, // Fat: Yellow/Amber (Fixing inconsistency)
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1753,7 +1773,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Protein',
                           proteinController,
-                          Colors.red,
+                          Colors.blue
+                              .shade600, // Protein: Blue (Fixing inconsistency)
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1769,7 +1790,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Carbs',
                           carbsController,
-                          Colors.green,
+                          Colors.red
+                              .shade600, // Carbs: Red (Fixing inconsistency)
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1785,7 +1807,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Fat',
                           fatController,
-                          Colors.blue,
+                          Colors.amber
+                              .shade600, // Fat: Yellow/Amber (Fixing inconsistency)
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -2132,6 +2155,252 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
 
     return filtered;
   }
+
+  Widget _buildTdeeSummaryCard(
+      BuildContext context, CustomColors customColors) {
+    return Consumer<ExpenditureProvider>(
+      builder: (context, expenditureProvider, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+          decoration: BoxDecoration(
+            color: customColors.cardBackground,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TDEE',
+                        style: GoogleFonts.inter(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: customColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total Daily Energy Expenditure',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: customColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.dashboard_customize,
+                      color: customColors.textPrimary,
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const TdeeDashboardScreen(),
+                        ),
+                      );
+                    },
+                    tooltip: 'View TDEE Dashboard',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: customColors.dateNavigatorBackground.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (expenditureProvider.isLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else if (expenditureProvider.currentExpenditure != null)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                '${expenditureProvider.currentExpenditure!.toStringAsFixed(0)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade600,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'kcal',
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  color: customColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Your daily energy needs',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: customColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No Data Available',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: customColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Log daily to calculate your TDEE',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: customColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: customColors.cardBackground,
+                        borderRadius: BorderRadius.circular(50),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: GestureDetector(
+                        onTap: () {
+                          if (!expenditureProvider.isLoading) {
+                            expenditureProvider.updateExpenditure();
+                          }
+                        },
+                        child: Icon(
+                          Icons.refresh,
+                          color: expenditureProvider.isLoading
+                              ? customColors.textSecondary
+                              : customColors.accentPrimary,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Additional information row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildTdeeInfoItem(
+                    icon: Icons.trending_down,
+                    title: 'Calorie Deficit',
+                    value: _calculateCalorieDeficit(
+                      expenditureProvider.currentExpenditure,
+                      _currentCalories.value,
+                    ),
+                    customColors: customColors,
+                  ),
+                  _buildTdeeInfoItem(
+                    icon: Icons.trending_up,
+                    title: 'Calorie Surplus',
+                    value: _calculateCalorieSurplus(
+                      expenditureProvider.currentExpenditure,
+                      _currentCalories.value,
+                    ),
+                    customColors: customColors,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTdeeInfoItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required CustomColors customColors,
+  }) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: customColors.textSecondary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              title,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: customColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: customColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _calculateCalorieDeficit(double? tdee, double currentCalories) {
+    if (tdee == null) return '0 kcal';
+    if (currentCalories < tdee) {
+      return '-${(tdee - currentCalories).toStringAsFixed(0)} kcal';
+    }
+    return '0 kcal';
+  }
+
+  String _calculateCalorieSurplus(double? tdee, double currentCalories) {
+    if (tdee == null) return '0 kcal';
+    if (currentCalories > tdee) {
+      return '+${(currentCalories - tdee).toStringAsFixed(0)} kcal';
+    }
+    return '0 kcal';
+  }
 }
 
 class MacroBarChart extends StatelessWidget {
@@ -2364,7 +2633,7 @@ class _MacroBarChartPainter extends CustomPainter {
           topLeft: Radius.circular(cornerRadius),
           topRight: Radius.circular(cornerRadius),
         ),
-        Paint()..color = Colors.amber.shade300,
+        Paint()..color = Colors.blue.shade600, // Protein: Blue
       );
     }
 
@@ -2378,7 +2647,7 @@ class _MacroBarChartPainter extends CustomPainter {
       );
       canvas.drawRect(
         carbsRect,
-        Paint()..color = Colors.teal.shade300,
+        Paint()..color = Colors.red.shade600, // Carbs: Red
       );
     }
 
@@ -2396,7 +2665,7 @@ class _MacroBarChartPainter extends CustomPainter {
           topLeft: Radius.circular(cornerRadius),
           topRight: Radius.circular(cornerRadius),
         ),
-        Paint()..color = Colors.purple.shade400,
+        Paint()..color = Colors.amber.shade600, // Fat: Yellow/Amber
       );
     }
   }
