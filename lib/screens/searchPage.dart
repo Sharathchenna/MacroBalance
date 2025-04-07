@@ -1357,32 +1357,46 @@ class Serving {
   factory Serving.fromJson(Map<String, dynamic> json) {
     // Extract all nutrients
     Map<String, double> nutrients = {
-      'Protein': double.tryParse(json['protein'] ?? '0') ?? 0.0,
-      'Total lipid (fat)': double.tryParse(json['fat'] ?? '0') ?? 0.0,
+      'Protein': double.tryParse(json['protein']?.toString() ?? '0') ?? 0.0, // Added .toString() for safety
+      'Total lipid (fat)': double.tryParse(json['fat']?.toString() ?? '0') ?? 0.0, // Added .toString()
       'Carbohydrate, by difference':
-          double.tryParse(json['carbohydrate'] ?? '0') ?? 0.0,
-      'Saturated fat': double.tryParse(json['saturated_fat'] ?? '0') ?? 0.0,
+          double.tryParse(json['carbohydrate']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Saturated fat': double.tryParse(json['saturated_fat']?.toString() ?? '0') ?? 0.0, // Added .toString()
       'Polyunsaturated fat':
-          double.tryParse(json['polyunsaturated_fat'] ?? '0') ?? 0.0,
+          double.tryParse(json['polyunsaturated_fat']?.toString() ?? '0') ?? 0.0, // Added .toString()
       'Monounsaturated fat':
-          double.tryParse(json['monounsaturated_fat'] ?? '0') ?? 0.0,
-      'Cholesterol': double.tryParse(json['cholesterol'] ?? '0') ?? 0.0,
-      'Sodium': double.tryParse(json['sodium'] ?? '0') ?? 0.0,
-      'Potassium': double.tryParse(json['potassium'] ?? '0') ?? 0.0,
-      'Fiber': double.tryParse(json['fiber'] ?? '0') ?? 0.0,
-      'Sugar': double.tryParse(json['sugar'] ?? '0') ?? 0.0,
-      'Vitamin A': double.tryParse(json['vitamin_a'] ?? '0') ?? 0.0,
-      'Vitamin C': double.tryParse(json['vitamin_c'] ?? '0') ?? 0.0,
-      'Calcium': double.tryParse(json['calcium'] ?? '0') ?? 0.0,
-      'Iron': double.tryParse(json['iron'] ?? '0') ?? 0.0,
+          double.tryParse(json['monounsaturated_fat']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Cholesterol': double.tryParse(json['cholesterol']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Sodium': double.tryParse(json['sodium']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Potassium': double.tryParse(json['potassium']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Fiber': double.tryParse(json['fiber']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Sugar': double.tryParse(json['sugar']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Vitamin A': double.tryParse(json['vitamin_a']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Vitamin C': double.tryParse(json['vitamin_c']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Calcium': double.tryParse(json['calcium']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Iron': double.tryParse(json['iron']?.toString() ?? '0') ?? 0.0, // Added .toString()
     };
+
+    // --- Logic to handle different serving amount/unit fields ---
+    double metricAmount = 0.0;
+    String metricUnit = 'unit'; // Default to 'unit' if no weight is found
+
+    if (json['metric_serving_amount'] != null) {
+      metricAmount = double.tryParse(json['metric_serving_amount'].toString()) ?? 0.0;
+      metricUnit = json['metric_serving_unit']?.toString() ?? 'g'; // Default to 'g' if amount exists but unit doesn't
+    } else if (json['number_of_units'] != null) {
+      metricAmount = double.tryParse(json['number_of_units'].toString()) ?? 0.0;
+      // Use measurement_description if available, otherwise keep 'unit'
+      metricUnit = json['measurement_description']?.toString() ?? metricUnit;
+    }
+    // --- End Logic ---
+
 
     return Serving(
       description: json['serving_description'] ?? 'Default serving',
-      metricAmount:
-          double.tryParse(json['metric_serving_amount'] ?? '0') ?? 0.0,
-      metricUnit: json['metric_serving_unit'] ?? 'g',
-      calories: double.tryParse(json['calories'] ?? '0') ?? 0.0,
+      metricAmount: metricAmount, // Use calculated amount
+      metricUnit: metricUnit, // Use calculated unit
+      calories: double.tryParse(json['calories']?.toString() ?? '0') ?? 0.0, // Added .toString()
       nutrients: nutrients,
     );
   }
