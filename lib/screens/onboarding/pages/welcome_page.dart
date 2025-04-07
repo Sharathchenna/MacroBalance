@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/widgets/onboarding/feature_item.dart'; // Will create this next
 
 class WelcomePage extends StatelessWidget {
@@ -33,7 +34,9 @@ class WelcomePage extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          customColors?.dateNavigatorBackground.withOpacity(0.8) ?? theme.colorScheme.primaryContainer,
+                          customColors?.dateNavigatorBackground
+                                  .withOpacity(0.8) ??
+                              theme.colorScheme.primaryContainer,
                           theme.colorScheme.onSecondary.withOpacity(0.8),
                         ],
                       ),
@@ -66,9 +69,19 @@ class WelcomePage extends StatelessWidget {
           // Animated title
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
-            duration: const Duration(milliseconds: 800), curve: Curves.easeOutCubic,
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
             builder: (context, value, child) {
-              return Opacity(opacity: value, child: Transform.translate(offset: Offset(0, 20 * (1 - value)), child: Text('Welcome to MacroBalance', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: customColors?.textPrimary ?? theme.textTheme.headlineSmall?.color, fontSize: 24), textAlign: TextAlign.center)));
+              return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                      offset: Offset(0, 20 * (1 - value)),
+                      child: Text('Welcome to MacroBalance',
+                          style: AppTypography.onboardingTitle.copyWith(
+                            color: customColors?.textPrimary ??
+                                theme.colorScheme.onBackground,
+                          ),
+                          textAlign: TextAlign.center)));
             },
           ),
           const SizedBox(height: 16),
@@ -76,9 +89,20 @@ class WelcomePage extends StatelessWidget {
           // Animated description
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
-            duration: const Duration(milliseconds: 800), curve: Curves.easeOutCubic,
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
             builder: (context, value, child) {
-              return Opacity(opacity: value, child: Transform.translate(offset: Offset(0, 20 * (1 - value)), child: Text('Let\'s personalize your experience by calculating your optimal macronutrients intake.', style: theme.textTheme.bodyLarge?.copyWith(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, height: 1.5), textAlign: TextAlign.center)));
+              return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                      offset: Offset(0, 20 * (1 - value)),
+                      child: Text(
+                          'Let\'s personalize your experience by calculating your optimal macronutrients intake.',
+                          style: AppTypography.onboardingBody.copyWith(
+                            color: customColors?.textPrimary ??
+                                theme.colorScheme.onBackground,
+                          ),
+                          textAlign: TextAlign.center)));
             },
           ),
 
@@ -87,9 +111,26 @@ class WelcomePage extends StatelessWidget {
           // Feature highlights
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
-            duration: const Duration(milliseconds: 800), curve: Curves.easeOutCubic,
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
             builder: (context, value, child) {
-              return Opacity(opacity: value, child: Transform.translate(offset: Offset(0, 20 * (1 - value)), child: const Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [FeatureItem(icon: Icons.calculate_outlined, label: 'Calculate'), FeatureItem(icon: Icons.track_changes_outlined, label: 'Track'), FeatureItem(icon: Icons.trending_up_outlined, label: 'Progress')])));
+              return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                      offset: Offset(0, 20 * (1 - value)),
+                      child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            FeatureItem(
+                                icon: Icons.calculate_outlined,
+                                label: 'Calculate'),
+                            FeatureItem(
+                                icon: Icons.track_changes_outlined,
+                                label: 'Track'),
+                            FeatureItem(
+                                icon: Icons.trending_up_outlined,
+                                label: 'Progress')
+                          ])));
             },
           ),
         ],

@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:math'; // For min/max
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:flutter/foundation.dart'; // For debugPrint
+import 'package:macrotracker/theme/typography.dart';
 
 // Import Page Widgets
 import 'pages/welcome_page.dart';
@@ -21,6 +22,7 @@ import 'pages/goal_page.dart';
 import 'pages/set_new_goal_page.dart'; // Import the new goal details page
 // Removed TargetSummaryPage import
 import 'pages/advanced_settings_page.dart';
+import 'pages/apple_health_page.dart'; // Import the new Apple Health page
 import 'pages/summary_page.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -34,9 +36,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  // Total pages remains 10, comment updated for SetNewGoalPage
+  // Total pages is now 11, adding Apple Health page
   final int _totalPages =
-      10; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+Advanced(8)+Summary(9)
+      11; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+Advanced(8)+AppleHealth(9)+Summary(10)
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
@@ -379,238 +381,73 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // --- Build Method ---
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
+    // Get theme and colors
     final theme = Theme.of(context);
+    final customColors = Theme.of(context).extension<CustomColors>();
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
-            // Progress indicator
+            // Progress indicator at top
             Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  AnimatedBuilder(
-                    animation: _animationController,
-                    builder: (context, child) {
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                              height: 12,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                  color: Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(6))),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: _progressAnimation.value,
-                              child: Container(
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(colors: [
-                                    theme.colorScheme.primary,
-                                    theme.colorScheme.secondary
-                                  ]),
-                                  borderRadius: BorderRadius.circular(6),
-                                  boxShadow: [
-                                    BoxShadow(
-                                        color: theme.colorScheme.primary
-                                            .withOpacity(0.3),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2))
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Step ${_currentPage + 1} of $_totalPages',
-                      style: TextStyle(
-                          color: customColors?.textSecondary ??
-                              theme.textTheme.bodySmall?.color,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14)),
-                ],
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  return LinearProgressIndicator(
+                    value: _progressAnimation.value,
+                    backgroundColor: (customColors?.dateNavigatorBackground ??
+                            theme.colorScheme.surface)
+                        .withOpacity(0.3),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        customColors?.textPrimary ?? theme.colorScheme.primary),
+                    minHeight: 4,
+                    borderRadius: BorderRadius.circular(2),
+                  );
+                },
               ),
             ),
-            // Page content using new Page Widgets
+
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
+                physics: NeverScrollableScrollPhysics(),
                 onPageChanged: (index) {
-                  // Update state only if needed, _goToPage handles animation state
-                  if (_currentPage != index) {
-                    setState(() {
-                      _currentPage = index;
-                      _updateProgressAnimation(); // Update animation target
-                    });
-                  }
+                  setState(() {
+                    _currentPage = index;
+                    _updateProgressAnimation();
+                    _animationController.forward(from: 0.0);
+                  });
                 },
-                children: [
-                  const WelcomePage(),
-                  GenderPage(
-                    currentGender: _gender,
-                    onGenderSelected: (newGender) =>
-                        setState(() => _gender = newGender),
-                  ),
-                  WeightPage(
-                    currentWeightKg: _weightKg,
-                    isMetric: _isMetricWeight,
-                    onWeightChanged: (newWeight) =>
-                        setState(() => _weightKg = newWeight),
-                    onUnitChanged: (isMetric) =>
-                        setState(() => _isMetricWeight = isMetric),
-                  ),
-                  HeightPage(
-                    currentHeightCm: _heightCm,
-                    isMetric: _isMetricHeight,
-                    onHeightChanged: (newHeight) =>
-                        setState(() => _heightCm = newHeight),
-                    onUnitChanged: (isMetric) =>
-                        setState(() => _isMetricHeight = isMetric),
-                  ),
-                  AgePage(
-                    currentAge: _age,
-                    onAgeChanged: (newAge) => setState(() => _age = newAge),
-                  ),
-                  ActivityLevelPage(
-                    currentActivityLevel: _activityLevel,
-                    onActivityLevelChanged: (newLevel) =>
-                        setState(() => _activityLevel = newLevel),
-                  ),
-                  GoalPage(
-                    // Removed parameters: currentWeightKg, goalWeightKg, deficit, isMetricWeight, projectedDate, onGoalWeightChanged, onDeficitChanged, onWeightUnitChanged
-                    currentGoal: _goal,
-                    onGoalChanged: (newGoal) => setState(() {
-                      _goal = newGoal;
-                      // Logic to reset goal weight/deficit when goal changes remains here
-                      if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
-                        _goalWeightKg = _weightKg;
-                        _deficit = 0;
-                      } else {
-                        _deficit = 500;
-                        _goalWeightKg =
-                            _goal == MacroCalculatorService.GOAL_LOSE
-                                ? max(40.0, _weightKg * 0.9)
-                                : min(150.0, _weightKg * 1.1);
-                        _validateRanges(); // Keep validation logic here
-                      }
-                    }),
-                    // Removed onGoalWeightChanged, onDeficitChanged, onWeightUnitChanged callbacks
-                  ),
-                  // Replace TargetSummaryPage with SetNewGoalPage (index 7)
-                  SetNewGoalPage(
-                    currentGoal: _goal,
-                    currentWeightKg: _weightKg,
-                    goalWeightKg: _goalWeightKg,
-                    deficit: _deficit,
-                    isMetricWeight: _isMetricWeight,
-                    projectedDate: _calculateProjectedDate(),
-                    targetCalories: _calculateTargetCalories(),
-                    onGoalWeightChanged: (newWeight) => setState(() {
-                      _goalWeightKg = newWeight;
-                      _validateRanges();
-                    }),
-                    onDeficitChanged: (newDeficit) =>
-                        setState(() => _deficit = newDeficit),
-                    onWeightUnitChanged: (isMetric) =>
-                        setState(() => _isMetricWeight = isMetric),
-                  ),
-                  AdvancedSettingsPage(
-                    // Now at index 8
-                    isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
-                    bodyFatPercentage: _bodyFatPercentage,
-                    proteinRatio: _proteinRatio, fatRatio: _fatRatio,
-                    gender: _gender,
-                    onAthleteChanged: (isAthlete) =>
-                        setState(() => _isAthlete = isAthlete),
-                    onShowBodyFatChanged: (show) =>
-                        setState(() => _showBodyFatInput = show),
-                    onBodyFatChanged: (bfp) =>
-                        setState(() => _bodyFatPercentage = bfp),
-                    onProteinRatioChanged: (ratio) =>
-                        setState(() => _proteinRatio = ratio),
-                    onFatRatioChanged: (ratio) =>
-                        setState(() => _fatRatio = ratio),
-                  ),
-                  SummaryPage(
-                    // Now at index 9
-                    gender: _gender, weightKg: _weightKg, heightCm: _heightCm,
-                    age: _age,
-                    activityLevel: _activityLevel, goal: _goal,
-                    deficit: _deficit,
-                    proteinRatio: _proteinRatio, fatRatio: _fatRatio,
-                    goalWeightKg: _goalWeightKg,
-                    isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
-                    bodyFatPercentage: _bodyFatPercentage,
-                    onEdit: _goToPage, // _goToPage handles indices correctly
-                  ),
-                ],
+                children: _buildPages(),
               ),
             ),
-            // Navigation buttons
-            Padding(
-              padding: const EdgeInsets.all(6.0),
+
+            // Bottom navigation
+            Container(
+              padding: const EdgeInsets.all(24.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Back button
                   _currentPage > 0
-                      ? TextButton.icon(
-                          onPressed: () {
-                            HapticFeedback.mediumImpact();
-                            _previousPage();
-                          },
-                          icon: Icon(Icons.arrow_back_rounded,
-                              size: 16,
-                              color: customColors?.textPrimary ??
-                                  theme.colorScheme.primary),
-                          label: Text('Back',
-                              style: TextStyle(
-                                  color: customColors?.textPrimary ??
-                                      theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w600)),
-                          style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20))),
+                      ? TextButton(
+                          onPressed: _previousPage,
+                          child: Text(
+                            'Back',
+                            style: AppTypography.onboardingButton.copyWith(
+                              color: customColors?.textSecondary ??
+                                  theme.colorScheme.secondary,
+                              fontSize: 16,
+                            ),
+                          ),
                         )
-                      : const SizedBox(width: 80), // Placeholder for alignment
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      _nextPage();
-                    },
-                    icon: Icon(
-                        _currentPage == _totalPages - 1
-                            ? Icons.check_circle_outline_rounded
-                            : Icons.arrow_forward_rounded,
-                        size: 16,
-                        color: theme.colorScheme.onPrimary),
-                    label: Text(
-                        _currentPage == _totalPages - 1 ? 'Calculate' : 'Next',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
-                      elevation: 2,
-                      shadowColor: theme.colorScheme.primary.withOpacity(0.3),
-                      backgroundColor: customColors?.textPrimary ??
-                          theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.onPrimary,
-                      surfaceTintColor: Colors.transparent,
-                    ),
-                  ),
+                      : SizedBox(width: 80), // Empty space for alignment
+
+                  // Next button or Done
+                  _buildNextButton(theme, customColors),
                 ],
               ),
             ),
@@ -618,5 +455,122 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         ),
       ),
     );
+  }
+
+  Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
+    return ElevatedButton(
+      onPressed: _nextPage,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: theme.colorScheme.primary,
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        elevation: 0,
+      ),
+      child: Text(
+        _currentPage == _totalPages - 1 ? 'Calculate' : 'Next',
+        style: AppTypography.onboardingButton.copyWith(
+          color: theme.colorScheme.onPrimary,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildPages() {
+    return [
+      const WelcomePage(),
+      GenderPage(
+        currentGender: _gender,
+        onGenderSelected: (newGender) => setState(() => _gender = newGender),
+      ),
+      WeightPage(
+        currentWeightKg: _weightKg,
+        isMetric: _isMetricWeight,
+        onWeightChanged: (newWeight) => setState(() => _weightKg = newWeight),
+        onUnitChanged: (isMetric) => setState(() => _isMetricWeight = isMetric),
+      ),
+      HeightPage(
+        currentHeightCm: _heightCm,
+        isMetric: _isMetricHeight,
+        onHeightChanged: (newHeight) => setState(() => _heightCm = newHeight),
+        onUnitChanged: (isMetric) => setState(() => _isMetricHeight = isMetric),
+      ),
+      AgePage(
+        currentAge: _age,
+        onAgeChanged: (newAge) => setState(() => _age = newAge),
+      ),
+      ActivityLevelPage(
+        currentActivityLevel: _activityLevel,
+        onActivityLevelChanged: (newLevel) =>
+            setState(() => _activityLevel = newLevel),
+      ),
+      GoalPage(
+        // Removed parameters: currentWeightKg, goalWeightKg, deficit, isMetricWeight, projectedDate, onGoalWeightChanged, onDeficitChanged, onWeightUnitChanged
+        currentGoal: _goal,
+        onGoalChanged: (newGoal) => setState(() {
+          _goal = newGoal;
+          // Logic to reset goal weight/deficit when goal changes remains here
+          if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
+            _goalWeightKg = _weightKg;
+            _deficit = 0;
+          } else {
+            _deficit = 500;
+            _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
+                ? max(40.0, _weightKg * 0.9)
+                : min(150.0, _weightKg * 1.1);
+            _validateRanges(); // Keep validation logic here
+          }
+        }),
+        // Removed onGoalWeightChanged, onDeficitChanged, onWeightUnitChanged callbacks
+      ),
+      // Replace TargetSummaryPage with SetNewGoalPage (index 7)
+      SetNewGoalPage(
+        currentGoal: _goal,
+        currentWeightKg: _weightKg,
+        goalWeightKg: _goalWeightKg,
+        deficit: _deficit,
+        isMetricWeight: _isMetricWeight,
+        projectedDate: _calculateProjectedDate(),
+        targetCalories: _calculateTargetCalories(),
+        onGoalWeightChanged: (newWeight) => setState(() {
+          _goalWeightKg = newWeight;
+          _validateRanges();
+        }),
+        onDeficitChanged: (newDeficit) => setState(() => _deficit = newDeficit),
+        onWeightUnitChanged: (isMetric) =>
+            setState(() => _isMetricWeight = isMetric),
+      ),
+      AdvancedSettingsPage(
+        // Now at index 8
+        isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
+        bodyFatPercentage: _bodyFatPercentage,
+        proteinRatio: _proteinRatio, fatRatio: _fatRatio,
+        gender: _gender,
+        onAthleteChanged: (isAthlete) => setState(() => _isAthlete = isAthlete),
+        onShowBodyFatChanged: (show) =>
+            setState(() => _showBodyFatInput = show),
+        onBodyFatChanged: (bfp) => setState(() => _bodyFatPercentage = bfp),
+        onProteinRatioChanged: (ratio) => setState(() => _proteinRatio = ratio),
+        onFatRatioChanged: (ratio) => setState(() => _fatRatio = ratio),
+      ),
+      // Add Apple Health integration page (index 9)
+      AppleHealthPage(
+        onNext: _nextPage,
+        onSkip: _nextPage,
+      ),
+      SummaryPage(
+        // Now at index 10
+        gender: _gender, weightKg: _weightKg, heightCm: _heightCm,
+        age: _age,
+        activityLevel: _activityLevel, goal: _goal,
+        deficit: _deficit,
+        proteinRatio: _proteinRatio, fatRatio: _fatRatio,
+        goalWeightKg: _goalWeightKg,
+        isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
+        bodyFatPercentage: _bodyFatPercentage,
+        onEdit: _goToPage, // _goToPage handles indices correctly
+      ),
+    ];
   }
 }

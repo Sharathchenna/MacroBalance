@@ -747,17 +747,31 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 
   Future<void> _initializeHealthData() async {
-    await _checkAndRequestPermissions();
-    // Initial fetch if permissions are granted
-    if (_hasHealthPermissions) {
-      await _fetchHealthData();
+    // Check if permission is already granted, but don't automatically request
+    try {
+      final hasPermissions = await _healthService.isHealthDataAvailable();
+      if (!mounted) return;
+      setState(() {
+        _hasHealthPermissions = hasPermissions;
+      });
+
+      // Only fetch health data if permissions are already granted
+      if (_hasHealthPermissions) {
+        await _fetchHealthData();
+      }
+    } catch (e) {
+      print('Error checking health permissions: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingHealthData = false;
+        });
+      }
     }
   }
 
-  Future<void> _checkAndRequestPermissions() async {
-    // Don't check if already checked and granted
-    if (_hasHealthPermissions) return;
-
+  // This method is now only for manual permission requests, not automatic
+  Future<void> _requestHealthPermissions() async {
     try {
       final granted = await _healthService.requestPermissions();
       if (!mounted) return;
@@ -767,12 +781,11 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
       if (!_hasHealthPermissions) {
         _showPermissionDialog();
+      } else {
+        await _fetchHealthData();
       }
     } catch (e) {
-      print('Error checking permissions: $e');
-      if (mounted) {
-        // Optionally show an error message to the user
-      }
+      print('Error requesting permissions: $e');
     }
   }
 
@@ -1338,9 +1351,15 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                   caloriesGoal > 0 ? caloriesFromFood / caloriesGoal : 0.0;
               progress = progress.clamp(0.0, 1.0);
 
+              // Check if health permissions are available
+              Widget? healthPermissionWidget;
+              if (!_hasHealthPermissions) {
+                healthPermissionWidget = _buildHealthPermissionCard(context);
+              }
+
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(16), // Reduced from 20
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Theme.of(context)
                       .extension<CustomColors>()
@@ -1416,6 +1435,12 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                     // Main content column
                     Column(
                       children: [
+                        // Add the health permissions widget if needed
+                        if (healthPermissionWidget != null) ...[
+                          healthPermissionWidget,
+                          const SizedBox(height: 16),
+                        ],
+
                         // Calories Section
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1609,6 +1634,89 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           );
         }
       },
+    );
+  }
+
+  // New method to build a card for requesting health permissions
+  Widget _buildHealthPermissionCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.light
+            ? Colors.blue.shade50
+            : Colors.blue.shade900.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.light
+              ? Colors.blue.shade200
+              : Colors.blue.shade700,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.favorite,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.blue.shade700
+                    : Colors.blue.shade300,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Connect to Apple Health',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.blue.shade700
+                        : Colors.blue.shade300,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sync your daily activity data to track steps and calories more accurately.',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.blue.shade800
+                  : Colors.blue.shade200,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _requestHealthPermissions,
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    Theme.of(context).brightness == Brightness.light
+                        ? Colors.blue.shade600
+                        : Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Connect Now',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
