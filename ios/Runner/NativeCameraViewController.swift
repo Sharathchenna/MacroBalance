@@ -3,10 +3,17 @@ import AVFoundation
 import Vision
 import PhotosUI // For PHPickerViewController
 
+// Mirror the Flutter enum
+enum CameraMode: String {
+    case barcode = "barcode"
+    case camera = "camera"
+    case label = "label"
+}
+
 // Delegate protocol to send results back to AppDelegate
 protocol NativeCameraViewControllerDelegate: AnyObject {
-    func nativeCameraDidFinish(withBarcode barcode: String)
-    func nativeCameraDidFinish(withPhotoData photoData: Data)
+    func nativeCameraDidFinish(withBarcode barcode: String, mode: CameraMode) // Add mode
+    func nativeCameraDidFinish(withPhotoData photoData: Data, mode: CameraMode) // Add mode
     func nativeCameraDidCancel()
     // Add other necessary delegate methods (e.g., errors)
 }
@@ -14,6 +21,7 @@ protocol NativeCameraViewControllerDelegate: AnyObject {
 class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePhotoCaptureDelegate, PHPickerViewControllerDelegate, ManualBarcodeEntryDelegate {
 
     weak var delegate: NativeCameraViewControllerDelegate?
+    var initialMode: CameraMode = .camera // Default, will be set externally
 
     // Camera Session Components
     private var captureSession: AVCaptureSession?
@@ -25,7 +33,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
 
     // State Management
     private let sessionQueue = DispatchQueue(label: "nativeCameraSessionQueue", qos: .userInitiated)
-    private let videoDataOutputQueue = DispatchQueue(label: "nativeVideoDataOutputQueue", qos: .userInitiated)
+    private let videoDataOutputQueue = DispatchQueue(label: "nativeVideoDataOutputQueue") // Removed qos for potential main thread interaction later if needed for UI updates from barcode handler
     private var isContinuousBarcodeScanningEnabled = true // Default to true, reset in viewWillAppear
     private var isProcessingFrame = false
     private var hasSentResult = false // Flag to prevent sending multiple results
@@ -34,6 +42,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     private var maxZoomFactor: CGFloat = 1.0
     private var currentFlashMode: AVCaptureDevice.FlashMode = .off // For photo capture flash
     private var isSessionSetupComplete = false // Flag to prevent race condition
+    private var currentMode: CameraMode = .camera // Initialize with default
 
     // Vision Request for Barcodes
     private var barcodeRequest: VNDetectBarcodesRequest?
@@ -45,11 +54,22 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     private let flashButton = UIButton(type: .system)
     private let galleryButton = UIButton(type: .system)
     private let manualEntryButton = UIButton(type: .system)
-    private let barcodeOverlayView = UIView() // Keep the view instance for constraints
+    // private let barcodeOverlayView = UIView() // Keep the view instance for constraints - REMOVED, using specific guides now
     private let topBar = UIView()
     private let bottomBar = UIView()
     private let infoButton = UIButton(type: .system) // Info button
     private let instructionLabel = UILabel() // Instruction label
+    // Initialize segmented control with icons
+    private let modeSegmentedControl = UISegmentedControl(items: [
+        UIImage(systemName: "barcode.viewfinder") ?? "Barcode", // Fallback text
+        UIImage(systemName: "camera.fill") ?? "Camera",       // Fallback text
+        UIImage(systemName: "text.viewfinder") ?? "Label"        // Fallback text
+    ])
+    private let barcodeScanGuideView = UIView() // Visual guide for barcode scanning
+    private let labelScanGuideView = UIView() // Visual guide for label scanning
+
+    // Haptic Feedback Generator
+    private let hapticGenerator = UIImpactFeedbackGenerator(style: .medium) // Prepare generator
 
     // MARK: - Lifecycle
 
@@ -57,6 +77,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         super.viewDidLoad()
         self.view.backgroundColor = .black
         setupUI()
+        currentMode = initialMode // Set current mode from initial value
         setupVision()
         checkCameraPermissions()
     }
@@ -65,10 +86,11 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         super.viewWillAppear(animated)
         // Reset state when the view is about to appear
         hasSentResult = false
-        isContinuousBarcodeScanningEnabled = true // Ensure scanning is enabled on appear
+        // isContinuousBarcodeScanningEnabled = true // REMOVED: Set based on mode now
         // Only start if setup is fully complete to avoid race condition
         if isSessionSetupComplete {
              startSessionIfNeeded()
+             updateUIForCurrentMode() // Ensure UI matches mode on appear
         }
     }
 
@@ -127,12 +149,26 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         topBar.addSubview(infoButton) // Add to topBar
 
         // Instruction Label
+        // Instruction Label (Below Segmented Control)
         instructionLabel.translatesAutoresizingMaskIntoConstraints = false
-        instructionLabel.text = "Scan a barcode or take a photo"
+        // instructionLabel.text = "Initializing..." // REMOVED: Text will be set by updateUIForCurrentMode
         instructionLabel.textColor = .white
         instructionLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
         instructionLabel.textAlignment = .center
+        instructionLabel.numberOfLines = 0 // Allow wrapping if needed
         topBar.addSubview(instructionLabel) // Add to topBar
+
+        // Mode Segmented Control (Added to main view now)
+        modeSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
+        modeSegmentedControl.selectedSegmentIndex = modeToIndex(initialMode) // Set initial selection
+        modeSegmentedControl.addTarget(self, action: #selector(modeChanged(_:)), for: .valueChanged)
+        modeSegmentedControl.backgroundColor = UIColor.black.withAlphaComponent(0.5) // Slightly darker background
+        modeSegmentedControl.selectedSegmentTintColor = .systemYellow // Yellow highlight
+        // Set text color for normal state (optional, e.g., white)
+        modeSegmentedControl.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .normal)
+        // Set text color for selected state (optional, e.g., black)
+        modeSegmentedControl.setTitleTextAttributes([.foregroundColor: UIColor.black], for: .selected)
+        view.addSubview(modeSegmentedControl) // Add to main view
 
         // Shutter Button (for AI Photo)
         shutterButton.translatesAutoresizingMaskIntoConstraints = false
@@ -157,12 +193,24 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         manualEntryButton.addTarget(self, action: #selector(manualEntryButtonTapped), for: .touchUpInside)
         bottomBar.addSubview(manualEntryButton) // Add to bottomBar
 
-        // Barcode Overlay - Keep instance, make invisible
-        barcodeOverlayView.translatesAutoresizingMaskIntoConstraints = false
-        barcodeOverlayView.backgroundColor = .clear // Invisible
-        // barcodeOverlayView.layer.borderColor = UIColor.red.cgColor // For debugging layout if needed
-        // barcodeOverlayView.layer.borderWidth = 1 // For debugging layout if needed
-        view.addSubview(barcodeOverlayView) // Add back to view hierarchy
+        // Barcode Scan Guide View
+        barcodeScanGuideView.translatesAutoresizingMaskIntoConstraints = false
+        barcodeScanGuideView.backgroundColor = .clear
+        barcodeScanGuideView.layer.borderColor = UIColor.white.cgColor // White border
+        barcodeScanGuideView.layer.borderWidth = 2
+        barcodeScanGuideView.layer.cornerRadius = 10 // Rounded corners
+        barcodeScanGuideView.isHidden = true // Initially hidden
+        view.addSubview(barcodeScanGuideView) // Add to main view, above preview but below controls
+
+        // Label Scan Guide View
+        labelScanGuideView.translatesAutoresizingMaskIntoConstraints = false
+        labelScanGuideView.backgroundColor = .clear
+        labelScanGuideView.layer.borderColor = UIColor.white.cgColor // White border
+        labelScanGuideView.layer.borderWidth = 2
+        labelScanGuideView.layer.cornerRadius = 10 // Rounded corners
+        labelScanGuideView.isHidden = true // Initially hidden
+        view.addSubview(labelScanGuideView) // Add to main view, above preview but below controls
+        // view.addSubview(barcodeOverlayView) // REMOVED: This view is no longer used
 
         // --- Layout Constraints ---
         NSLayoutConstraint.activate([
@@ -176,7 +224,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             topBar.topAnchor.constraint(equalTo: view.topAnchor),
             topBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             topBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            topBar.heightAnchor.constraint(equalToConstant: 140), // Increased height slightly
+            // topBar.heightAnchor.constraint(equalToConstant: 140), // Height determined by content now
 
             // Bottom Bar
             bottomBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -202,11 +250,12 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             flashButton.widthAnchor.constraint(equalToConstant: 44),
             flashButton.heightAnchor.constraint(equalToConstant: 44),
 
-            // Instruction Label (Near bottom of topBar, centered)
-            instructionLabel.bottomAnchor.constraint(equalTo: topBar.safeAreaLayoutGuide.bottomAnchor, constant: -10), // Position near bottom of topBar safe area
+            // Instruction Label (Centered in Top Bar)
+            instructionLabel.topAnchor.constraint(equalTo: closeButton.bottomAnchor, constant: 15), // Below buttons
             instructionLabel.centerXAnchor.constraint(equalTo: topBar.centerXAnchor),
-            instructionLabel.leadingAnchor.constraint(greaterThanOrEqualTo: topBar.leadingAnchor, constant: 20), // Prevent overlap
-            instructionLabel.trailingAnchor.constraint(lessThanOrEqualTo: topBar.trailingAnchor, constant: -20), // Prevent overlap
+            instructionLabel.leadingAnchor.constraint(greaterThanOrEqualTo: topBar.leadingAnchor, constant: 20),
+            instructionLabel.trailingAnchor.constraint(lessThanOrEqualTo: topBar.trailingAnchor, constant: -20),
+            instructionLabel.bottomAnchor.constraint(equalTo: topBar.bottomAnchor, constant: -15), // Bottom padding
 
             // Shutter Button (within Bottom Bar Safe Area)
             shutterButton.centerXAnchor.constraint(equalTo: bottomBar.centerXAnchor),
@@ -226,11 +275,27 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             manualEntryButton.widthAnchor.constraint(equalToConstant: 44),
             manualEntryButton.heightAnchor.constraint(equalToConstant: 44),
 
-            // Barcode Overlay Constraints (Full width between bars)
-            barcodeOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            barcodeOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            barcodeOverlayView.topAnchor.constraint(equalTo: topBar.bottomAnchor),
-            barcodeOverlayView.bottomAnchor.constraint(equalTo: bottomBar.topAnchor)
+            // Mode Segmented Control (Above Bottom Bar)
+            modeSegmentedControl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            modeSegmentedControl.bottomAnchor.constraint(equalTo: bottomBar.topAnchor, constant: -15), // 15 points above bottom bar
+            modeSegmentedControl.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 40),
+            modeSegmentedControl.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -40),
+
+            // Barcode Scan Guide Constraints (Small rectangle in center)
+            barcodeScanGuideView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            barcodeScanGuideView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            barcodeScanGuideView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.7), // 70% of width
+            barcodeScanGuideView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.15), // 15% of height
+
+            // Label Scan Guide Constraints (Larger rectangle in center)
+            labelScanGuideView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            labelScanGuideView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            labelScanGuideView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.85), // 85% of width
+            labelScanGuideView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.4) // 40% of height
+
+            // Bring guides to front (alternative to adding last)
+            // view.bringSubviewToFront(barcodeScanGuideView)
+            // view.bringSubviewToFront(labelScanGuideView)
         ])
     }
 
@@ -337,7 +402,8 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                 self.minZoomFactor = camera.minAvailableVideoZoomFactor
                 self.maxZoomFactor = camera.maxAvailableVideoZoomFactor
 
-                // Now that preview is ready, start the session on its queue
+                // Now that preview is ready, update UI for initial mode and start the session
+                self.updateUIForCurrentMode() // Update UI based on initialMode
                 self.sessionQueue.async {
                     self.startSessionIfNeeded()
                 }
@@ -375,6 +441,60 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             if self.captureSession?.isRunning ?? false {
                 self.captureSession?.stopRunning()
                 print("Native Camera Session Stopped")
+            }
+        }
+    }
+
+    // MARK: - Mode Handling
+
+    @objc private func modeChanged(_ sender: UISegmentedControl) {
+        let selectedMode: CameraMode
+        switch sender.selectedSegmentIndex {
+        case 0: selectedMode = .barcode
+        case 1: selectedMode = .camera
+        case 2: selectedMode = .label
+        default: selectedMode = .camera // Fallback
+        }
+
+        if selectedMode != currentMode {
+            currentMode = selectedMode
+            updateUIForCurrentMode()
+            // Trigger light haptic feedback for mode change
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+    }
+
+    private func updateUIForCurrentMode() {
+        DispatchQueue.main.async { [weak self] in // Ensure UI updates on main thread
+            guard let self = self else { return }
+
+            switch self.currentMode {
+            case .barcode:
+                self.instructionLabel.text = "Place the barcode in the box" // Updated text
+                self.shutterButton.isHidden = true // Hide shutter in barcode mode
+                self.galleryButton.isHidden = true // Hide gallery in barcode mode
+                self.manualEntryButton.isHidden = false // Show manual entry
+                self.barcodeScanGuideView.isHidden = false
+                self.labelScanGuideView.isHidden = true
+                self.isContinuousBarcodeScanningEnabled = true // Enable scanning
+
+            case .camera:
+                self.instructionLabel.text = "Capture the food item" // Updated text
+                self.shutterButton.isHidden = false
+                self.galleryButton.isHidden = false
+                self.manualEntryButton.isHidden = true // Hide manual entry
+                self.barcodeScanGuideView.isHidden = true
+                self.labelScanGuideView.isHidden = true
+                self.isContinuousBarcodeScanningEnabled = false // Disable scanning
+
+            case .label:
+                self.instructionLabel.text = "Place the nutrition label in the box" // Updated text
+                self.shutterButton.isHidden = false
+                self.galleryButton.isHidden = false // Allow gallery for labels too? Yes.
+                self.manualEntryButton.isHidden = true // Hide manual entry
+                self.barcodeScanGuideView.isHidden = true
+                self.labelScanGuideView.isHidden = false
+                self.isContinuousBarcodeScanningEnabled = false // Disable scanning
             }
         }
     }
@@ -448,7 +568,14 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
 
     @objc private func shutterButtonTapped() {
         print("Shutter tapped - Capturing photo for AI...")
-        capturePhoto()
+        // Only capture if in camera or label mode
+        guard currentMode == .camera || currentMode == .label else {
+            print("Shutter tapped but not in photo mode.")
+            return
+        }
+        // Trigger medium haptic feedback for shutter press
+        hapticGenerator.impactOccurred()
+        capturePhoto(forMode: currentMode) // Pass the mode
     }
 
     @objc private func galleryButtonTapped() {
@@ -473,7 +600,11 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     // MARK: - Barcode Scanning (Vision)
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard isContinuousBarcodeScanningEnabled, !isProcessingFrame else { return }
+        // Only process if in barcode mode and continuous scanning is enabled for that mode
+        guard currentMode == .barcode, isContinuousBarcodeScanningEnabled, !isProcessingFrame else {
+            // If not in barcode mode, or scanning disabled, or already processing, just return.
+            return
+        }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
@@ -492,33 +623,54 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     private func handleBarcodes(request: VNRequest, error: Error?) {
         defer { isProcessingFrame = false }
 
-        guard let results = request.results as? [VNBarcodeObservation], error == nil,
-              let barcode = results.first?.payloadStringValue else {
-            // No barcode found in this frame, continue scanning
+        guard let results = request.results as? [VNBarcodeObservation], error == nil else {
+            // Vision error or no results
             return
         }
 
-        // Barcode found! Check if we already sent a result for this presentation
+        // Get the guide box frame in view coordinates
+        let guideRectInView = barcodeScanGuideView.frame
+
+        // Convert guide box rect to normalized metadata coordinates
+        guard let previewLayer = self.previewLayer else { return }
+        let guideRectInMetadata = previewLayer.metadataOutputRectConverted(fromLayerRect: guideRectInView)
+
+        // Find the first barcode *inside* the guide box
+        var foundBarcodeValue: String? = nil
+        for barcodeObservation in results {
+            // barcodeObservation.boundingBox is already normalized (0-1, origin top-left)
+            if guideRectInMetadata.contains(barcodeObservation.boundingBox) {
+                foundBarcodeValue = barcodeObservation.payloadStringValue
+                break // Found one inside, stop searching
+            }
+        }
+
+        guard let barcode = foundBarcodeValue else {
+            // No barcode found *inside* the guide box in this frame
+            return
+        }
+
+        // Barcode found inside guide! Check if we already sent a result.
         guard !hasSentResult else {
-            print("Native Vision Detected Barcode (\(barcode)), but result already sent.")
+            print("Native Vision Detected Barcode (\(barcode)) inside guide, but result already sent.")
             return
         }
         hasSentResult = true // Mark result as sent
-        print("Native Vision Detected Barcode: \(barcode)")
+        print("Native Vision Detected Barcode (\(currentMode.rawValue) mode) inside guide: \(barcode)")
         isContinuousBarcodeScanningEnabled = false // Stop scanning after finding one
         AudioServicesPlaySystemSound(SystemSoundID(kSystemSoundID_Vibrate)) // Vibrate feedback
 
         // Send result back via delegate (on main thread)
         DispatchQueue.main.async { [weak self] in
              self?.dismiss(animated: true) {
-                 self?.delegate?.nativeCameraDidFinish(withBarcode: barcode)
+                 self?.delegate?.nativeCameraDidFinish(withBarcode: barcode, mode: self?.currentMode ?? .barcode) // Pass mode
              }
         }
     }
 
     // MARK: - Photo Capture
 
-    private func capturePhoto() {
+    private func capturePhoto(forMode mode: CameraMode) {
         // Check if we already sent a result for this presentation
         guard !hasSentResult else {
             print("Capture photo requested, but result already sent.")
@@ -529,6 +681,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             return
         }
 
+        print("Capturing photo in \(mode.rawValue) mode...")
         sessionQueue.async {
             var format: [String: Any] = [AVVideoCodecKey: AVVideoCodecType.jpeg]
             if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
@@ -563,14 +716,38 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             return
         }
 
+        var finalPhotoData = photoData
+        let finalMode = self.currentMode // Capture current mode
+
+        // --- Crop if in Label Mode ---
+        if finalMode == .label, let image = UIImage(data: photoData) {
+            print("Attempting to crop image for label mode...")
+            // Ensure previewView has bounds and previewLayer exists
+            // Directly use self.previewView since it's not optional
+            if self.previewView.bounds != .zero {
+                 if let croppedImage = self.cropImage(image, toRect: self.labelScanGuideView.frame, previewBounds: self.previewView.bounds) {
+                     print("Cropping successful.")
+                     // Re-encode cropped image as JPEG data
+                     finalPhotoData = croppedImage.jpegData(compressionQuality: 0.85) ?? photoData // Fallback to original if encoding fails
+                 } else {
+                     print("Cropping failed, sending original image.")
+                 }
+            } else {
+                 print("Preview bounds not available for cropping, sending original image.")
+            }
+        }
+        // --- End Crop ---
+
+
         // Mark result as sent before dismissing and calling delegate
         hasSentResult = true
-        print("Native Photo captured successfully.")
+        print("Native Photo captured successfully (\(finalMode.rawValue) mode). Data size: \(finalPhotoData.count)") // Log mode and size
 
         // Send photo data back via delegate
         DispatchQueue.main.async { [weak self] in
              self?.dismiss(animated: true) {
-                 self?.delegate?.nativeCameraDidFinish(withPhotoData: photoData)
+                 // Use the captured finalMode and finalPhotoData
+                 self?.delegate?.nativeCameraDidFinish(withPhotoData: finalPhotoData, mode: finalMode)
              }
         }
     }
@@ -595,12 +772,12 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                 }
 
                 self.hasSentResult = true // Mark result as sent
-                print("Native Image selected from gallery.")
+                print("Native Image selected from gallery (\(self.currentMode.rawValue) mode).") // Log mode
 
                 // Send photo data back via delegate
                 DispatchQueue.main.async {
                      self.dismiss(animated: true) { // Dismiss camera VC as well
-                         self.delegate?.nativeCameraDidFinish(withPhotoData: photoData)
+                         self.delegate?.nativeCameraDidFinish(withPhotoData: photoData, mode: self.currentMode) // Pass mode
                      }
                 }
             }
@@ -624,7 +801,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
 
          // Dismiss the NativeCameraViewController (self) which also dismisses the presented ManualBarcodeEntryViewController
          dismiss(animated: true) { [weak self] in
-             self?.delegate?.nativeCameraDidFinish(withBarcode: barcode)
+             self?.delegate?.nativeCameraDidFinish(withBarcode: barcode, mode: .barcode) // Manual entry is always barcode mode
          }
      }
 
@@ -662,5 +839,80 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         print("Native Camera Error: \(message)")
         // Optionally show an alert or send error back via delegate
         // For now, just print
+    }
+
+    // MARK: - Helpers
+
+    private func modeToIndex(_ mode: CameraMode) -> Int {
+        switch mode {
+        case .barcode: return 0
+        case .camera: return 1
+        case .label: return 2
+        }
+    }
+
+    private func indexToMode(_ index: Int) -> CameraMode {
+        switch index {
+        case 0: return .barcode
+        case 1: return .camera
+        case 2: return .label
+        default: return .camera // Default fallback
+        }
+    }
+}
+
+// Helper function to crop UIImage (add this within NativeCameraViewController class)
+extension NativeCameraViewController {
+    func cropImage(_ image: UIImage, toRect viewCropRect: CGRect, previewBounds: CGRect) -> UIImage? {
+        guard let cgImage = image.cgImage else { return nil }
+
+        // --- Calculate Crop Rectangle in Image Coordinates ---
+        // 1. Normalize the viewCropRect relative to the previewBounds
+        let normalizedCropRect = CGRect(
+            x: viewCropRect.origin.x / previewBounds.width,
+            y: viewCropRect.origin.y / previewBounds.height,
+            width: viewCropRect.width / previewBounds.width,
+            height: viewCropRect.height / previewBounds.height
+        )
+
+        // 2. Convert normalized rect to image coordinates (pixels)
+        //    Need to account for potential aspect ratio differences and orientation
+        //    Assuming image orientation is upright for simplicity here, might need adjustment
+        //    if camera orientation handling is complex. Also assumes preview gravity is .resizeAspectFill
+        let imageWidth = CGFloat(cgImage.width)
+        let imageHeight = CGFloat(cgImage.height)
+        let imageAspectRatio = imageWidth / imageHeight
+        let previewAspectRatio = previewBounds.width / previewBounds.height
+
+        var imageCropRect = CGRect.zero
+
+        if imageAspectRatio > previewAspectRatio { // Image wider than preview (letterboxed top/bottom)
+            let scaledHeight = imageWidth / previewAspectRatio
+            let yOffset = (imageHeight - scaledHeight) / 2.0
+            imageCropRect = CGRect(
+                x: normalizedCropRect.origin.x * imageWidth,
+                y: (normalizedCropRect.origin.y * scaledHeight) + yOffset,
+                width: normalizedCropRect.width * imageWidth,
+                height: normalizedCropRect.height * scaledHeight
+            )
+        } else { // Image taller than preview (letterboxed left/right)
+            let scaledWidth = imageHeight * previewAspectRatio
+            let xOffset = (imageWidth - scaledWidth) / 2.0
+            imageCropRect = CGRect(
+                x: (normalizedCropRect.origin.x * scaledWidth) + xOffset,
+                y: normalizedCropRect.origin.y * imageHeight,
+                width: normalizedCropRect.width * scaledWidth,
+                height: normalizedCropRect.height * imageHeight
+            )
+        }
+
+        // 3. Crop the CGImage
+        guard let croppedCGImage = cgImage.cropping(to: imageCropRect) else {
+            print("Error: Failed to crop CGImage.")
+            return nil
+        }
+
+        // 4. Create a new UIImage from the cropped CGImage
+        return UIImage(cgImage: croppedCGImage, scale: image.scale, orientation: image.imageOrientation)
     }
 }
