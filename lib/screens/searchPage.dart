@@ -48,6 +48,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   List<FoodItem> _searchResults = [];
   List<String> _autoCompleteResults = [];
   bool _isLoading = false;
+  // Track if the search was triggered by the search button
+  bool _searchButtonClicked = false;
   // final ApiService _apiService = ApiService(); // Remove ApiService instance
   Timer? _debouncer;
 
@@ -77,6 +79,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           _searchResults = [];
           _autoCompleteResults = [];
           _isLoading = false;
+          _searchButtonClicked = false;
         });
       }
     });
@@ -221,19 +224,21 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     }
   }
 
-  Future<void> _searchFood(String query) async {
+  Future<void> _searchFood(String query, {bool fromSearchButton = false}) async {
     // If query is empty, just clear results without loading indicator
     if (query.isEmpty) {
       setState(() {
         _searchResults = [];
         _autoCompleteResults = [];
         _isLoading = false;
+        _searchButtonClicked = false;
       });
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _searchButtonClicked = fromSearchButton; // Set flag based on how search was triggered
       _autoCompleteResults = []; // Clear suggestions when searching starts
     });
 
@@ -282,6 +287,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       // Check if the widget is still in the tree
       setState(() {
         _isLoading = false;
+        // Don't reset _searchButtonClicked here to keep animation state consistent
       });
     }
   }
@@ -527,7 +533,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 children: [
                   SearchHeader(
                     controller: _searchController,
-                    onSearch: _searchFood,
+                    onSearch: (query) => _searchFood(query, fromSearchButton: true),
                     onChanged: _onSearchChanged,
                     onBack: () => Navigator.pop(context),
                     onCameraTap: _showNativeCamera, // Pass the method here
@@ -594,9 +600,13 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildContent() {
-    // Use simple ValueKey for better performance instead of KeyedSubtree
-    if (_isLoading) {
+    // Show Lottie animation only when search button is clicked
+    if (_isLoading && _searchButtonClicked) {
       return _buildLoadingState();
+    }
+    // Show placeholder cards during debounced loading (typing)
+    if (_isLoading && !_searchButtonClicked) {
+      return _buildPlaceholderCards();
     }
     // Important: Show search results with priority over suggestions
     if (_searchResults.isNotEmpty) {
@@ -1369,6 +1379,129 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderCards() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      itemCount: 5, // Show 5 placeholder cards
+      itemBuilder: (context, index) {
+        return _buildPlaceholderCard();
+      },
+    );
+  }
+
+  Widget _buildPlaceholderCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            offset: const Offset(0, 3),
+            blurRadius: 10,
+            spreadRadius: 0,
+          ),
+        ],
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey.withOpacity(0.1)
+              : Colors.grey.withOpacity(0.08),
+          width: 0.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Placeholder icon
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Placeholder text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 16,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 12,
+                        width: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 10,
+                        width: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Placeholder nutrition chips
+            Row(
+              children: [
+                Container(
+                  height: 22,
+                  width: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  height: 22,
+                  width: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  height: 22,
+                  width: 65,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }
