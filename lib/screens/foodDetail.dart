@@ -120,60 +120,88 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     return qty; // Already in grams
   }
 
+  // Helper function to calculate the correct multiplier
+  double _calculateMultiplier() {
+    if (selectedServing == null) {
+      // Fallback for items with no specific servings (calculate based on 100g)
+      // Ensure we don't divide by zero if servingSize is somehow 0
+      double multiplier = getConvertedQuantity() /
+          (widget.food.servingSize > 0 ? widget.food.servingSize : 100.0);
+      return multiplier;
+    }
+
+    double baseAmount = selectedServing!.metricAmount;
+    // Prevent division by zero or using a zero/negative base amount
+    if (baseAmount <= 0) {
+      print(
+          "Warning: Selected serving base amount is invalid ($baseAmount), defaulting to 1.");
+      baseAmount = 1.0;
+    }
+
+    String unit = selectedServing!.metricUnit.toLowerCase();
+    bool isWeightBased = (unit == 'g' || unit == 'oz');
+
+    if (isWeightBased) {
+      // Use weight-based calculation (quantity converted to grams)
+      double convertedQtyGrams =
+          getConvertedQuantity(); // Already handles oz -> g
+      double multiplier = convertedQtyGrams / baseAmount;
+      return multiplier;
+    } else {
+      // Use unit-based calculation (e.g., "1 burger", "1 slice")
+      // Use the raw number entered in the text field
+      double quantityEntered = double.tryParse(quantityController.text) ?? 1.0;
+      // Ensure quantity entered is not negative
+      if (quantityEntered < 0) quantityEntered = 0;
+      double multiplier = quantityEntered / baseAmount;
+      return multiplier;
+    }
+  }
+
   String getNutrientValue(String nutrient) {
-    final convertedQty = getConvertedQuantity(); // This will always be in grams
+    // final convertedQty = getConvertedQuantity(); // No longer needed directly here
+    final double multiplier = _calculateMultiplier(); // Use the helper function
 
     if (selectedServing != null) {
-      double multiplier = selectedMultiplier;
-
-      // If custom quantity entered, calculate actual multiplier
-      if (selectedMultiplier == 0) {
-        multiplier = convertedQty / selectedServing!.metricAmount;
-      }
-
-      double? value;
+      // Calculate based on selected serving's base nutrients
+      double? baseValue;
       switch (nutrient.toLowerCase()) {
         case "calories":
-          value = selectedServing!.calories * multiplier;
+          baseValue = selectedServing!.calories;
           break;
         case "protein":
-          value = (selectedServing!.nutrients['Protein'] ?? 0.0) * multiplier;
+          baseValue = selectedServing!.nutrients['Protein'];
           break;
         case "carbohydrate":
-          value = (selectedServing!.nutrients['Carbohydrate, by difference'] ??
-                  0.0) *
-              multiplier;
+          baseValue = selectedServing!.nutrients['Carbohydrate, by difference'];
           break;
         case "fat":
-          value = (selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) *
-              multiplier;
+          baseValue = selectedServing!.nutrients['Total lipid (fat)'];
           break;
       }
-
-      if (value == null) return "0.0";
+      // Ensure baseValue is not null before multiplying
+      double value = (baseValue ?? 0.0) * multiplier;
       return value.toStringAsFixed(1);
     } else {
-      double? value;
+      // Fallback: Calculate based on the food's default per-100g values
+      // Note: multiplier here is already calculated based on 100g in _calculateMultiplier
+      double? baseValue;
       switch (nutrient.toLowerCase()) {
         case "calories":
-          value = widget.food.calories * (convertedQty / 100);
+          baseValue = widget.food.calories;
           break;
         case "protein":
-          value =
-              (widget.food.nutrients['Protein'] ?? 0.0) * (convertedQty / 100);
+          baseValue = widget.food.nutrients['Protein'];
           break;
         case "carbohydrate":
-          value =
-              (widget.food.nutrients['Carbohydrate, by difference'] ?? 0.0) *
-                  (convertedQty / 100);
+          baseValue = widget.food.nutrients['Carbohydrate, by difference'];
           break;
         case "fat":
-          value = (widget.food.nutrients['Total lipid (fat)'] ?? 0.0) *
-              (convertedQty / 100);
+          baseValue = widget.food.nutrients['Total lipid (fat)'];
           break;
       }
-
-      if (value == null) return "0.0";
+      // Ensure baseValue is not null before multiplying
+      double value = (baseValue ?? 0.0) * multiplier;
       return value.toStringAsFixed(1);
     }
   }
@@ -197,14 +225,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 
   Map<String, String> getAdditionalNutrients() {
     Map<String, String> result = {};
-    final convertedQty =
-        getConvertedQuantity(); // This already accounts for unit conversion
+    // final convertedQty = getConvertedQuantity(); // No longer needed directly here
+    final double multiplier = _calculateMultiplier(); // Use the helper function
 
     if (selectedServing != null) {
-      // Calculate multiplier based on the converted quantity (always in grams)
-      double multiplier = convertedQty / selectedServing!.metricAmount;
-
-      // Add main macros first
+      // Calculate based on selected serving
+      // Add main macros first using the serving's base values
       result['Calories'] =
           '${(selectedServing!.calories * multiplier).toStringAsFixed(1)} kcal';
       result['Protein'] =
@@ -214,13 +240,13 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       result['Fat'] =
           '${((selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
 
-      // Add all other available nutrients
-      selectedServing!.nutrients.forEach((key, value) {
-        if (key != 'Protein' &&
-            key != 'Carbohydrate, by difference' &&
-            key != 'Total lipid (fat)') {
-          String unit = 'g';
-          // Keep your existing unit assignments
+      // Add all other available nutrients from the serving
+      selectedServing!.nutrients.forEach((key, baseValue) {
+        // Skip macros already added
+        if (!['Protein', 'Carbohydrate, by difference', 'Total lipid (fat)']
+            .contains(key)) {
+          String unit = 'g'; // Default unit
+          // Assign units based on nutrient key
           if (key == 'Saturated fat' ||
               key == 'Polyunsaturated fat' ||
               key == 'Monounsaturated fat') {
@@ -234,31 +260,34 @@ class _FoodDetailPageState extends State<FoodDetailPage>
           } else if (key == 'Fiber' || key == 'Sugar') {
             unit = 'g';
           } else if (key == 'Vitamin A') {
-            unit = 'mcg';
+            unit = 'mcg'; // Micrograms for Vitamin A
           }
+          // Add more unit rules if needed
 
-          result[key] = '${(value * multiplier).toStringAsFixed(1)}$unit';
+          // Calculate the final value and format
+          double calculatedValue = baseValue * multiplier;
+          result[key] = '${calculatedValue.toStringAsFixed(1)}$unit';
         }
       });
     } else {
-      // For foods without specific serving info
-      // Calculate based on per 100g values and the convertedQty
+      // Fallback: Calculate based on the food's default per-100g values
+      // Note: multiplier here is already calculated based on 100g in _calculateMultiplier
       result['Calories'] =
-          '${(widget.food.calories * (convertedQty / 100)).toStringAsFixed(1)} kcal';
+          '${(widget.food.calories * multiplier).toStringAsFixed(1)} kcal';
       result['Protein'] =
-          '${((widget.food.nutrients['Protein'] ?? 0.0) * (convertedQty / 100)).toStringAsFixed(1)}g';
+          '${((widget.food.nutrients['Protein'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
       result['Carbohydrates'] =
-          '${((widget.food.nutrients['Carbohydrate, by difference'] ?? 0.0) * (convertedQty / 100)).toStringAsFixed(1)}g';
+          '${((widget.food.nutrients['Carbohydrate, by difference'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
       result['Fat'] =
-          '${((widget.food.nutrients['Total lipid (fat)'] ?? 0.0) * (convertedQty / 100)).toStringAsFixed(1)}g';
+          '${((widget.food.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
 
-      // Add all other available nutrients
-      widget.food.nutrients.forEach((key, value) {
-        if (key != 'Protein' &&
-            key != 'Carbohydrate, by difference' &&
-            key != 'Total lipid (fat)') {
-          String unit = 'g';
-          // Keep your existing unit assignments
+      // Add all other available nutrients from the base food item
+      widget.food.nutrients.forEach((key, baseValue) {
+        // Skip macros already added
+        if (!['Protein', 'Carbohydrate, by difference', 'Total lipid (fat)']
+            .contains(key)) {
+          String unit = 'g'; // Default unit
+          // Assign units based on nutrient key (consistent with above)
           if (key == 'Saturated fat' ||
               key == 'Polyunsaturated fat' ||
               key == 'Monounsaturated fat') {
@@ -271,13 +300,13 @@ class _FoodDetailPageState extends State<FoodDetailPage>
               key == 'Vitamin C' ||
               key == 'Calcium' ||
               key == 'Iron') {
-            unit = '%';
-          } else if (key == 'Fiber' || key == 'Sugar') {
-            unit = 'g';
+            unit = 'mcg';
           }
+          // Add more unit rules if needed
 
-          result[key] =
-              '${(value * (convertedQty / 100)).toStringAsFixed(1)}$unit';
+          // Calculate the final value and format
+          double calculatedValue = baseValue * multiplier;
+          result[key] = '${calculatedValue.toStringAsFixed(1)}$unit';
         }
       });
     }
@@ -1033,6 +1062,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               children: [
                                 // Quantity and unit inputs
                                 Row(
+                                  crossAxisAlignment: CrossAxisAlignment
+                                      .start, // Align items to the top
                                   children: [
                                     Expanded(
                                       flex: 3,
@@ -1100,81 +1131,97 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: customColors
-                                                .dateNavigatorBackground,
-                                          ),
-                                        ),
-                                        child: DropdownButtonFormField<String>(
-                                          value: selectedUnit,
-                                          items: unitOptions
-                                              .map((unit) => DropdownMenuItem(
-                                                    value: unit,
-                                                    child: Text(unit),
-                                                  ))
-                                              .toList(),
-                                          onChanged: (val) {
-                                            if (val == selectedUnit) return;
-
-                                            double currentQty = double.tryParse(
-                                                    quantityController.text) ??
-                                                0.0;
-
-                                            setState(() {
-                                              if (val == "oz" &&
-                                                  selectedUnit == "g") {
-                                                // Convert g to oz (1 oz = 28.35g)
-                                                quantityController.text =
-                                                    (currentQty / 28.35)
-                                                        .toStringAsFixed(1);
-                                              } else if (val == "g" &&
-                                                  selectedUnit == "oz") {
-                                                // Convert oz to g
-                                                quantityController.text =
-                                                    (currentQty * 28.35)
-                                                        .toStringAsFixed(0);
-                                              }
-
-                                              selectedUnit = val!;
-                                              selectedMultiplier = 0;
-
-                                              // No need to manually update nutrients here as they'll be recalculated
-                                              // when getConvertedQuantity() is called
-                                            });
-                                          },
-                                          decoration: InputDecoration(
-                                            labelText: "Unit",
-                                            labelStyle: TextStyle(
-                                              color: customColors.textSecondary,
-                                            ),
-                                            border: InputBorder.none,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 14,
+                                    // --- Conditionally show Unit Dropdown ---
+                                    if (selectedServing != null &&
+                                        ['g', 'oz'].contains(selectedServing!
+                                            .metricUnit
+                                            .toLowerCase())) ...[
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: customColors
+                                                  .dateNavigatorBackground,
                                             ),
                                           ),
-                                          style: AppTypography.body1.copyWith(
-                                            color: customColors.textPrimary,
-                                            fontWeight: FontWeight.w500,
+                                          child:
+                                              DropdownButtonFormField<String>(
+                                            value: selectedUnit,
+                                            items: unitOptions
+                                                .map((unit) => DropdownMenuItem(
+                                                      value: unit,
+                                                      child: Text(unit),
+                                                    ))
+                                                .toList(),
+                                            onChanged: (val) {
+                                              if (val == selectedUnit) return;
+
+                                              double currentQty =
+                                                  double.tryParse(
+                                                          quantityController
+                                                              .text) ??
+                                                      0.0;
+
+                                              setState(() {
+                                                if (val == "oz" &&
+                                                    selectedUnit == "g") {
+                                                  // Convert g to oz (1 oz = 28.35g)
+                                                  quantityController.text =
+                                                      (currentQty / 28.35)
+                                                          .toStringAsFixed(1);
+                                                } else if (val == "g" &&
+                                                    selectedUnit == "oz") {
+                                                  // Convert oz to g
+                                                  quantityController.text =
+                                                      (currentQty * 28.35)
+                                                          .toStringAsFixed(0);
+                                                }
+
+                                                selectedUnit = val!;
+                                                selectedMultiplier = 0;
+
+                                                // No need to manually update nutrients here as they'll be recalculated
+                                                // when getConvertedQuantity() is called
+                                              });
+                                            },
+                                            decoration: InputDecoration(
+                                              labelText: "Unit",
+                                              labelStyle: TextStyle(
+                                                color:
+                                                    customColors.textSecondary,
+                                              ),
+                                              border: InputBorder.none,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 14,
+                                              ),
+                                            ),
+                                            style: AppTypography.body1.copyWith(
+                                              color: customColors.textPrimary,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            icon: Icon(
+                                              Icons.arrow_drop_down_rounded,
+                                              color: customColors.textPrimary,
+                                            ),
+                                            dropdownColor:
+                                                customColors.cardBackground,
+                                            isExpanded: true,
                                           ),
-                                          icon: Icon(
-                                            Icons.arrow_drop_down_rounded,
-                                            color: customColors.textPrimary,
-                                          ),
-                                          dropdownColor:
-                                              customColors.cardBackground,
-                                          isExpanded: true,
                                         ),
                                       ),
-                                    ),
+                                    ] else ...[
+                                      // Optionally add some space or leave empty if the dropdown is hidden
+                                      const SizedBox(width: 12),
+                                      // Placeholder or empty space if needed, maintaining flex balance
+                                      const Spacer(flex: 2),
+                                    ],
+                                    // --- End Conditional Unit Dropdown ---
                                   ],
                                 ),
                                 const SizedBox(height: 20),

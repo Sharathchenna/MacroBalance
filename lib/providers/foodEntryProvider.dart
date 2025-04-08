@@ -2,6 +2,8 @@
 
 import 'package:flutter/foundation.dart';
 import '../models/foodEntry.dart';
+import '../screens/searchPage.dart'; // Import Serving class definition
+import '../screens/searchPage.dart'; // Import Serving class definition
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'dart:math'; // Added for min function
@@ -406,57 +408,125 @@ class FoodEntryProvider with ChangeNotifier {
     debugPrint('Entries cleared from local storage only');
   }
 
-  double getTotalCaloriesForDate(DateTime date) {
-    final entriesForDate = getEntriesForDate(date);
-    return entriesForDate.fold(0.0, (sum, entry) {
-      double quantity = entry.quantity;
-      String unit = entry.unit.toLowerCase();
-      double caloriesPerBaseUnit =
-          entry.food.calories; // Assume per 100g default
-      double baseUnitSize = 100.0; // Assume 100g default
-      double quantityInGrams = quantity; // Default assumption
+  // --- Corrected Calculation Methods ---
 
-      // TODO: Enhance this with actual serving size info from FoodItem if available
-      // This requires FoodItem model to store detailed serving options
+  // Helper to calculate nutrient value for a single entry
+  double _calculateNutrientForEntry(FoodEntry entry, String nutrientKey) {
+    Serving? serving;
+    // Try to find the exact serving description saved with the entry
+    if (entry.servingDescription != null && entry.food.servings.isNotEmpty) {
+      try {
+        // Find the serving that matches the description stored in the entry
+        serving = entry.food.servings.firstWhere((s) => s.description == entry.servingDescription);
+      } catch (e) {
+        print("Warning: Serving description '${entry.servingDescription}' not found for ${entry.food.name}. Falling back.");
+        serving = null; // Ensure serving is null if not found
+      }
+    }
 
-      // Unit Conversion to Grams (Simplified)
-      if (unit == "oz") {
-        quantityInGrams = quantity * 28.35;
-      } else if (unit == "kg") {
-        quantityInGrams = quantity * 1000;
-      } else if (unit == "lbs") {
-        quantityInGrams = quantity * 453.59;
-      } else if (unit == "g" || unit == "gram" || unit == "grams") {
-        quantityInGrams = quantity;
-      } else {
-        // If unit is not a standard weight (e.g., 'serving', 'cup'),
-        // we ideally need conversion factor from FoodItem data.
-        // Fallback: Assume calories are per serving and quantity is # of servings.
-        // This is inaccurate if calories are per 100g.
-        // Using a risky fallback: assume 1 serving = 100g if unit unknown
-        // quantityInGrams = quantity * 100;
-        // Safer fallback: Assume calories are per serving if unit unknown
-        if (baseUnitSize > 0) {
-          // If we assume calories are per serving
-          // return sum + (caloriesPerBaseUnit * quantity);
-          // If we assume calories are per 100g and 1 serving = 100g (BAD ASSUMPTION)
-          // return sum + (caloriesPerBaseUnit * (quantity * 100 / baseUnitSize));
-          // Let's stick to the per 100g calculation for now, even if unit is weird
-          // This means non-gram units might be calculated incorrectly without better data
-          quantityInGrams =
-              quantity * 100; // Revert to risky assumption for now
-        } else {
-          return sum;
+    double multiplier = 1.0;
+    double baseValue = 0.0;
+
+    if (serving != null) {
+      // --- Calculation based on the specific serving ---
+      double baseAmount = serving.metricAmount;
+      if (baseAmount <= 0) {
+        print("Warning: Serving base amount is invalid (${baseAmount}) for ${serving.description}, defaulting to 1.");
+        baseAmount = 1.0; // Prevent division by zero
+      }
+
+      String servingUnit = serving.metricUnit.toLowerCase();
+      // Check if the *serving's* unit indicates weight
+      bool isWeightBasedServing = (servingUnit == 'g' || servingUnit == 'oz');
+
+      if (isWeightBasedServing) {
+        // If the serving is weight-based, convert the *entry's* quantity to grams
+        double quantityGrams = entry.quantity;
+        if (entry.unit.toLowerCase() == 'oz') {
+          quantityGrams *= 28.35;
+        } else if (entry.unit.toLowerCase() == 'lbs') {
+           quantityGrams *= 453.59;
+        } else if (entry.unit.toLowerCase() == 'kg') {
+           quantityGrams *= 1000;
         }
+        // else assume entry.unit is 'g' or compatible
+        multiplier = quantityGrams / baseAmount;
+      } else {
+        // If the serving is unit-based (e.g., "1 burger"), use the entry's quantity directly
+        multiplier = entry.quantity / baseAmount; // Assumes baseAmount is 1 for "1 unit" servings
       }
 
-      // Calculate calories based on grams and calories per 100g
-      if (caloriesPerBaseUnit > 0 && baseUnitSize > 0) {
-        return sum + (caloriesPerBaseUnit * (quantityInGrams / baseUnitSize));
+      // Get the nutrient value from the *serving's* data
+      if (nutrientKey == 'calories') {
+        baseValue = serving.calories;
       } else {
-        return sum;
+        baseValue = serving.nutrients[nutrientKey] ?? 0.0;
       }
-    });
+
+    } else {
+      // --- Fallback: Calculation based on food's default (usually 100g) values ---
+      // This happens if no servingDescription was saved or if it didn't match any serving
+      print("Info: Using fallback 100g calculation for ${entry.food.name}");
+
+      // Convert entry quantity to grams based on entry.unit
+      double quantityGrams = entry.quantity;
+       if (entry.unit.toLowerCase() == 'oz') {
+          quantityGrams *= 28.35;
+       } else if (entry.unit.toLowerCase() == 'lbs') {
+           quantityGrams *= 453.59;
+       } else if (entry.unit.toLowerCase() == 'kg') {
+           quantityGrams *= 1000;
+       } else if (entry.unit.toLowerCase() != 'g') {
+         // If the unit isn't a known weight unit, we cannot reliably convert to grams.
+         // Log a warning and potentially return 0 for this entry's contribution.
+         print("Warning: Cannot reliably calculate nutrient for ${entry.food.name} with unit '${entry.unit}' in fallback mode.");
+         return 0.0; // Return 0 for this entry if unit conversion is impossible in fallback
+       }
+       // If unit is 'g', quantityInGrams remains entry.quantity
+
+      double foodServingSize = entry.food.servingSize; // This is typically 100g
+      if (foodServingSize <= 0) {
+        print("Warning: Food default serving size is invalid (${foodServingSize}) for ${entry.food.name}, defaulting to 100g.");
+        foodServingSize = 100.0;
+      }
+      multiplier = quantityGrams / foodServingSize;
+
+      // Get the nutrient value from the food item's base nutrients (per 100g)
+      if (nutrientKey == 'calories') {
+        baseValue = entry.food.calories;
+      } else {
+        baseValue = entry.food.nutrients[nutrientKey] ?? 0.0;
+      }
+    }
+
+    // Ensure multiplier is not negative
+    if (multiplier < 0) multiplier = 0;
+
+    // Final calculation
+    double calculatedValue = baseValue * multiplier;
+    // print("[DEBUG Provider] Entry: ${entry.food.name}, Nutrient: $nutrientKey, BaseValue: $baseValue, Multiplier: $multiplier, Result: $calculatedValue");
+    return calculatedValue;
+  }
+
+
+  double getTotalCaloriesForDate(DateTime date) {
+    final entriesForDate = getAllEntriesForDate(date);
+    return entriesForDate.fold(0.0, (sum, entry) => sum + _calculateNutrientForEntry(entry, 'calories'));
+  }
+
+  double getTotalProteinForDate(DateTime date) {
+    final entriesForDate = getAllEntriesForDate(date);
+    return entriesForDate.fold(0.0, (sum, entry) => sum + _calculateNutrientForEntry(entry, 'Protein'));
+  }
+
+   double getTotalCarbsForDate(DateTime date) {
+     final entriesForDate = getAllEntriesForDate(date);
+    return entriesForDate.fold(0.0, (sum, entry) => sum + _calculateNutrientForEntry(entry, 'Carbohydrate, by difference'));
+  }
+
+   double getTotalFatForDate(DateTime date) {
+     final entriesForDate = getAllEntriesForDate(date);
+    return entriesForDate.fold(0.0, (sum, entry) => sum + _calculateNutrientForEntry(entry, 'Total lipid (fat)'));
   }
 
   List<FoodEntry> getAllEntriesForDate(DateTime date) {

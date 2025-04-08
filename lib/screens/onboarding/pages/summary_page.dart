@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/theme/typography.dart';
 
 class SummaryPage extends StatelessWidget {
   final String gender;
@@ -38,21 +39,31 @@ class SummaryPage extends StatelessWidget {
 
   String _getActivityLevelText() {
     switch (activityLevel) {
-      case MacroCalculatorService.SEDENTARY: return 'Sedentary';
-      case MacroCalculatorService.LIGHTLY_ACTIVE: return 'Lightly Active';
-      case MacroCalculatorService.MODERATELY_ACTIVE: return 'Moderately Active';
-      case MacroCalculatorService.VERY_ACTIVE: return 'Very Active';
-      case MacroCalculatorService.EXTRA_ACTIVE: return 'Extra Active';
-      default: return 'Unknown';
+      case MacroCalculatorService.SEDENTARY:
+        return 'Sedentary';
+      case MacroCalculatorService.LIGHTLY_ACTIVE:
+        return 'Lightly Active';
+      case MacroCalculatorService.MODERATELY_ACTIVE:
+        return 'Moderately Active';
+      case MacroCalculatorService.VERY_ACTIVE:
+        return 'Very Active';
+      case MacroCalculatorService.EXTRA_ACTIVE:
+        return 'Extra Active';
+      default:
+        return 'Unknown';
     }
   }
 
   String _getGoalText() {
     switch (goal) {
-      case MacroCalculatorService.GOAL_LOSE: return 'Lose Weight';
-      case MacroCalculatorService.GOAL_MAINTAIN: return 'Maintain Weight';
-      case MacroCalculatorService.GOAL_GAIN: return 'Gain Weight';
-      default: return 'Unknown';
+      case MacroCalculatorService.GOAL_LOSE:
+        return 'Lose Weight';
+      case MacroCalculatorService.GOAL_MAINTAIN:
+        return 'Maintain Weight';
+      case MacroCalculatorService.GOAL_GAIN:
+        return 'Gain Weight';
+      default:
+        return 'Unknown';
     }
   }
 
@@ -70,29 +81,75 @@ class SummaryPage extends StatelessWidget {
     const int goalPageIndex = 6;
     const int advancedSettingsPageIndex = 7;
 
-
     final personalInfoItems = [
-      {'label': 'Gender', 'value': gender == MacroCalculatorService.MALE ? 'Male' : 'Female', 'page': genderPageIndex},
-      {'label': 'Weight', 'value': '${weightKg.toStringAsFixed(1)} kg', 'page': weightPageIndex},
-      {'label': 'Height', 'value': '${heightCm.round()} cm', 'page': heightPageIndex},
+      {
+        'label': 'Gender',
+        'value': gender == MacroCalculatorService.MALE ? 'Male' : 'Female',
+        'page': genderPageIndex
+      },
+      {
+        'label': 'Weight',
+        'value': '${weightKg.toStringAsFixed(1)} kg',
+        'page': weightPageIndex
+      },
+      {
+        'label': 'Height',
+        'value': '${heightCm.round()} cm',
+        'page': heightPageIndex
+      },
       {'label': 'Age', 'value': '$age years', 'page': agePageIndex},
-      {'label': 'Athletic Status', 'value': isAthlete ? 'Athlete' : 'Non-Athlete', 'page': advancedSettingsPageIndex},
-      if (showBodyFatInput) {'label': 'Body Fat %', 'value': '${bodyFatPercentage.round()}%', 'page': advancedSettingsPageIndex},
+      {
+        'label': 'Athletic Status',
+        'value': isAthlete ? 'Athlete' : 'Non-Athlete',
+        'page': advancedSettingsPageIndex
+      },
+      if (showBodyFatInput)
+        {
+          'label': 'Body Fat %',
+          'value': '${bodyFatPercentage.round()}%',
+          'page': advancedSettingsPageIndex
+        },
     ];
 
     final List<Map<String, dynamic>> activityGoalsItems = [
-      {'label': 'Activity Level', 'value': _getActivityLevelText(), 'page': activityLevelPageIndex},
+      {
+        'label': 'Activity Level',
+        'value': _getActivityLevelText(),
+        'page': activityLevelPageIndex
+      },
       {'label': 'Goal', 'value': _getGoalText(), 'page': goalPageIndex},
     ];
     if (goal != MacroCalculatorService.GOAL_MAINTAIN) {
-      activityGoalsItems.add({'label': goal == MacroCalculatorService.GOAL_LOSE ? 'Calorie Deficit' : 'Calorie Surplus', 'value': '$deficit calories/day', 'page': goalPageIndex});
-      activityGoalsItems.add({'label': 'Target Weight', 'value': '${goalWeightKg.toStringAsFixed(1)} kg', 'page': goalPageIndex});
+      activityGoalsItems.add({
+        'label': goal == MacroCalculatorService.GOAL_LOSE
+            ? 'Calorie Deficit'
+            : 'Calorie Surplus',
+        'value': '$deficit calories/day',
+        'page': goalPageIndex
+      });
+      activityGoalsItems.add({
+        'label': 'Target Weight',
+        'value': '${goalWeightKg.toStringAsFixed(1)} kg',
+        'page': goalPageIndex
+      });
     }
 
     final List<Map<String, dynamic>> macroSettingsItems = [
-      {'label': 'Protein Ratio', 'value': '${proteinRatio.toStringAsFixed(1)} g/kg', 'page': advancedSettingsPageIndex},
-      {'label': 'Fat Ratio', 'value': '${(fatRatio * 100).round()}% of calories', 'page': advancedSettingsPageIndex},
-      {'label': 'Carbs', 'value': 'Calculated', 'page': advancedSettingsPageIndex}, // Indicate carbs are calculated
+      {
+        'label': 'Protein Ratio',
+        'value': '${proteinRatio.toStringAsFixed(1)} g/kg',
+        'page': advancedSettingsPageIndex
+      },
+      {
+        'label': 'Fat Ratio',
+        'value': '${(fatRatio * 100).round()}% of calories',
+        'page': advancedSettingsPageIndex
+      },
+      {
+        'label': 'Carbs',
+        'value': 'Calculated',
+        'page': advancedSettingsPageIndex
+      }, // Indicate carbs are calculated
     ];
 
     return SingleChildScrollView(
@@ -102,53 +159,115 @@ class SummaryPage extends StatelessWidget {
         children: [
           Text(
             'Summary',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: customColors?.textPrimary ?? theme.textTheme.headlineSmall?.color,
+            style: AppTypography.onboardingSubtitle.copyWith(
+              color:
+                  customColors?.textPrimary ?? theme.colorScheme.onBackground,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Review your information before calculating.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: customColors?.textPrimary ?? theme.textTheme.bodyMedium?.color,
+            style: AppTypography.onboardingBody.copyWith(
+              color: customColors?.textSecondary ??
+                  theme.colorScheme.onBackground.withOpacity(0.7),
             ),
           ),
           const SizedBox(height: 32),
-          _buildSummarySection(context, title: 'Personal Information', icon: Icons.person, items: personalInfoItems),
+          _buildSummarySection(context,
+              title: 'Personal Information',
+              icon: Icons.person,
+              items: personalInfoItems),
           const SizedBox(height: 24),
-          _buildSummarySection(context, title: 'Activity & Goals', icon: Icons.fitness_center, items: activityGoalsItems),
+          _buildSummarySection(context,
+              title: 'Activity & Goals',
+              icon: Icons.fitness_center,
+              items: activityGoalsItems),
           const SizedBox(height: 24),
-          _buildSummarySection(context, title: 'Macro Settings', icon: Icons.science, items: macroSettingsItems),
+          _buildSummarySection(context,
+              title: 'Macro Settings',
+              icon: Icons.science,
+              items: macroSettingsItems),
         ],
       ),
     );
   }
 
-  Widget _buildSummarySection(BuildContext context, { required String title, required IconData icon, required List<Map<String, dynamic>> items }) {
+  Widget _buildSummarySection(BuildContext context,
+      {required String title,
+      required IconData icon,
+      required List<Map<String, dynamic>> items}) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
     return Container(
-      decoration: BoxDecoration(color: customColors?.cardBackground ?? theme.cardColor, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, spreadRadius: 0, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(
+          color: customColors?.cardBackground ?? theme.cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                spreadRadius: 0,
+                offset: const Offset(0, 2))
+          ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(padding: const EdgeInsets.all(16.0), child: Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: theme.colorScheme.primary, size: 20)), const SizedBox(width: 12), Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: customColors?.textPrimary ?? theme.textTheme.titleLarge?.color))])),
+          Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(children: [
+                Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8)),
+                    child:
+                        Icon(icon, color: theme.colorScheme.primary, size: 20)),
+                const SizedBox(width: 12),
+                Text(title,
+                    style: AppTypography.h3.copyWith(
+                      color: customColors?.textPrimary ??
+                          theme.colorScheme.onBackground,
+                    ))
+              ])),
           Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.1)),
-          ...items.where((item) => item.containsKey('value')).map((item) => _buildSummaryItem(context, label: item['label'], value: item['value'].toString(), page: item['page'])), // Filter out items without value (like conditional body fat)
+          ...items.where((item) => item.containsKey('value')).map((item) =>
+              _buildSummaryItem(context,
+                  label: item['label'],
+                  value: item['value'].toString(),
+                  page: item['page'])),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryItem(BuildContext context, { required String label, required String value, required int page }) {
+  Widget _buildSummaryItem(BuildContext context,
+      {required String label, required String value, required int page}) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
     return InkWell(
-      onTap: () => onEdit(page), // Use the callback
+      onTap: () => onEdit(page),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        child: Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: customColors?.textSecondary ?? theme.textTheme.bodySmall?.color)), const SizedBox(height: 4), Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color))])), Icon(Icons.edit, size: 16, color: theme.colorScheme.primary)]),
+        child: Row(children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(label,
+                    style: AppTypography.caption.copyWith(
+                      color: customColors?.textSecondary ??
+                          theme.colorScheme.onBackground.withOpacity(0.7),
+                    )),
+                const SizedBox(height: 4),
+                Text(value,
+                    style: AppTypography.body1.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: customColors?.textPrimary ??
+                          theme.colorScheme.onBackground,
+                    ))
+              ])),
+          Icon(Icons.edit, size: 16, color: theme.colorScheme.primary)
+        ]),
       ),
     );
   }

@@ -24,12 +24,6 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   int fatGoal = 80;
   int stepsGoal = 9000;
   int bmr = 1500;
-  int tdee = 2000;
-  // New fields based on recommendations
-  bool tdeeManuallySet = false; // Default to false
-  String bmrFormula = 'Unknown'; // Default
-  double estimatedWeeklyChange = 0.0; // Default
-  String estimatedGoalDate = 'N/A'; // Default
 
   // Current values (for progress demonstration)
   int caloriesConsumed = 0;
@@ -43,127 +37,107 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     super.initState();
     _loadGoals();
     _loadCurrentValues();
+    // Setup listener for provider changes
+    Future.microtask(() {
+      if (mounted) {
+        Provider.of<FoodEntryProvider>(context, listen: false)
+            .addListener(_refreshGoalsFromProvider);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // Remove listener
+    try {
+      Provider.of<FoodEntryProvider>(context, listen: false)
+          .removeListener(_refreshGoalsFromProvider);
+    } catch (e) {
+      // Handle any dispose errors quietly
+    }
+    super.dispose();
+  }
+
+  void _refreshGoalsFromProvider() {
+    if (!mounted) return;
+
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+    setState(() {
+      calorieGoal = foodEntryProvider.caloriesGoal.round();
+      proteinGoal = foodEntryProvider.proteinGoal.round();
+      carbGoal = foodEntryProvider.carbsGoal.round();
+      fatGoal = foodEntryProvider.fatGoal.round();
+      stepsGoal = foodEntryProvider.stepsGoal;
+      bmr = foodEntryProvider.bmr.round();
+    });
+
+    debugPrint(
+        'Goals refreshed from provider: calories=$calorieGoal, protein=$proteinGoal');
   }
 
   Future<void> _loadGoals() async {
-    try {
-      // Load goals from FoodEntryProvider first
+    // First, load from the provider
+    if (mounted) {
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
-      setState(() {
-        calorieGoal = foodEntryProvider.caloriesGoal.toInt();
-        proteinGoal = foodEntryProvider.proteinGoal.toInt();
-        carbGoal = foodEntryProvider.carbsGoal.toInt();
-        fatGoal = foodEntryProvider.fatGoal.toInt();
 
-        // Load additional goals from the enhanced provider
+      // Wait for provider to initialize if needed
+      await foodEntryProvider.ensureInitialized();
+
+      setState(() {
+        calorieGoal = foodEntryProvider.caloriesGoal.round();
+        proteinGoal = foodEntryProvider.proteinGoal.round();
+        carbGoal = foodEntryProvider.carbsGoal.round();
+        fatGoal = foodEntryProvider.fatGoal.round();
         stepsGoal = foodEntryProvider.stepsGoal;
-        bmr = foodEntryProvider.bmr.toInt();
-        tdee = foodEntryProvider.tdee.toInt();
+        bmr = foodEntryProvider.bmr.round();
       });
 
-      // Still check StorageService (Hive) for backward compatibility
-      final String? resultsString = StorageService().get('macro_results');
+      debugPrint(
+          'Loaded goals from provider: calories=$calorieGoal, protein=$proteinGoal, carbs=$carbGoal, fat=$fatGoal');
+    }
 
-      if (resultsString != null && resultsString.isNotEmpty) {
-        final Map<String, dynamic> results = jsonDecode(resultsString);
-        if (mounted) {
-          setState(() {
-            // If any values are still default, try to get from macro_results
-            if (stepsGoal == 9000) {
-              stepsGoal = results['recommended_steps'] ?? stepsGoal;
-            }
-            // Load BMR/TDEE from macro_results if not loaded from provider
-            if (bmr == 1500) {
-              bmr = results['bmr'] ?? bmr;
-            }
-            if (tdee == 2000) {
-              tdee = results['tdee'] ?? tdee;
-            }
-            // Load new fields from macro_results
-            tdeeManuallySet = results['tdee_manually_set'] ?? tdeeManuallySet;
-            bmrFormula = results['bmr_formula'] ?? bmrFormula;
-            estimatedWeeklyChange = results['estimated_weekly_change'] ?? estimatedWeeklyChange;
-            // Ensure estimated_goal_date is loaded as a string
-            if (results['estimated_goal_date'] != null) {
-              estimatedGoalDate = results['estimated_goal_date'].toString();
-            } else {
-              estimatedGoalDate = 'N/A';
-            }
-
-          });
-        }
-      }
-
-      // Also check nutrition_goals for more structured data
-      final String? nutritionGoalsString = StorageService().get('nutrition_goals');
-      if (nutritionGoalsString != null && nutritionGoalsString.isNotEmpty) {
-        try {
-          final Map<String, dynamic> nutritionGoals =
-              jsonDecode(nutritionGoalsString);
-          if (mounted) {
-            setState(() {
-              // Load data if available
-              if (nutritionGoals['steps_goal'] != null) {
-                stepsGoal = nutritionGoals['steps_goal'];
-              }
-              if (nutritionGoals['bmr'] != null) {
-                bmr = nutritionGoals['bmr'] is int
-                    ? nutritionGoals['bmr']
-                    : (nutritionGoals['bmr'] as num).toInt();
-              }
-              if (nutritionGoals['tdee'] != null) {
-                tdee = nutritionGoals['tdee'] is int
-                    ? nutritionGoals['tdee']
-                    : (nutritionGoals['tdee'] as num).toInt();
-              }
-
-              // If calorie/macro goals weren't properly loaded, set them here
-              if (nutritionGoals['calories_goal'] != null) {
-                calorieGoal = nutritionGoals['calories_goal'] is int
-                    ? nutritionGoals['calories_goal']
-                    : (nutritionGoals['calories_goal'] as num).toInt();
-              }
-              if (nutritionGoals['protein_goal'] != null) {
-                proteinGoal = nutritionGoals['protein_goal'] is int
-                    ? nutritionGoals['protein_goal']
-                    : (nutritionGoals['protein_goal'] as num).toInt();
-              }
-              if (nutritionGoals['carbs_goal'] != null) {
-                carbGoal = nutritionGoals['carbs_goal'] is int
-                    ? nutritionGoals['carbs_goal']
-                    : (nutritionGoals['carbs_goal'] as num).toInt();
-              }
-              if (nutritionGoals['fat_goal'] != null) {
-                fatGoal = nutritionGoals['fat_goal'] is int
-                    ? nutritionGoals['fat_goal']
-                    : (nutritionGoals['fat_goal'] as num).toInt();
-              }
-
-              // Also try loading new fields from nutrition_goals if not found in macro_results
-              if (!tdeeManuallySet) { // Only update if not already set true by macro_results
-                tdeeManuallySet = nutritionGoals['tdee_manually_set'] ?? tdeeManuallySet;
-              }
-              if (bmrFormula == 'Unknown') {
-                bmrFormula = nutritionGoals['bmr_formula'] ?? bmrFormula;
-              }
-              // Note: Weekly change and goal date are less likely here, primarily from calculator results
-              if (estimatedWeeklyChange == 0.0) {
-                 estimatedWeeklyChange = nutritionGoals['estimated_weekly_change'] ?? estimatedWeeklyChange;
-              }
-            });
+    // Load from storage as fallback
+    final String? resultsString = StorageService().get('macro_results');
+    if (resultsString != null && resultsString.isNotEmpty) {
+      final Map<String, dynamic> results = jsonDecode(resultsString);
+      if (mounted) {
+        setState(() {
+          // If any values are still default, try to get from macro_results
+          if (stepsGoal == 9000) {
+            stepsGoal = results['recommended_steps'] ?? stepsGoal;
           }
-        } catch (e) {
-          debugPrint('Error parsing nutrition_goals JSON: $e');
-        }
+          // Load BMR from macro_results if not loaded from provider
+          if (bmr == 1500) {
+            bmr = results['bmr'] ?? bmr;
+          }
+        });
       }
-    } catch (e) {
-      debugPrint('Error loading nutrition goals: $e');
+    }
+
+    // Also check nutrition_goals for more structured data
+    final String? nutritionGoalsString =
+        StorageService().get('nutrition_goals');
+    if (nutritionGoalsString != null && nutritionGoalsString.isNotEmpty) {
+      final Map<String, dynamic> goals = jsonDecode(nutritionGoalsString);
+      if (mounted) {
+        setState(() {
+          // Only use storage values if provider values were not loaded
+          if (calorieGoal == 2000)
+            calorieGoal = goals['calories'] ?? calorieGoal;
+          if (proteinGoal == 150) proteinGoal = goals['protein'] ?? proteinGoal;
+          if (carbGoal == 75) carbGoal = goals['carbs'] ?? carbGoal;
+          if (fatGoal == 80) fatGoal = goals['fat'] ?? fatGoal;
+          if (stepsGoal == 9000) stepsGoal = goals['steps'] ?? stepsGoal;
+        });
+      }
     }
   }
 
   // Load current daily values from food entry provider or stored progress
-  Future<void> _loadCurrentValues() async { // Keep async for HealthService
+  Future<void> _loadCurrentValues() async {
+    // Keep async for HealthService
     try {
       // Fetch steps data from HealthService
       final healthService = HealthService();
@@ -257,11 +231,13 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   // Keep async because FoodEntryProvider setters might be async (due to Supabase sync)
   Future<void> _saveGoals() async {
     try {
-      // Update goals in FoodEntryProvider to ensure proper sync with Supabase
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
 
-      // Call the new method to update all goals at once
+      // Ensure provider is initialized
+      await foodEntryProvider.ensureInitialized();
+
+      // Update goals in provider (this triggers save to storage and Supabase sync)
       await foodEntryProvider.updateNutritionGoals(
         calories: calorieGoal.toDouble(),
         protein: proteinGoal.toDouble(),
@@ -269,44 +245,47 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         fat: fatGoal.toDouble(),
         steps: stepsGoal,
         bmr: bmr.toDouble(),
-        tdee: tdee.toDouble(),
+        tdee: foodEntryProvider.tdee, // Keep existing TDEE
       );
 
-      // The updateNutritionGoals method handles saving, notifying, and syncing.
-      // We still save to 'macro_results' locally for backward compatibility if needed.
+      // Log diagnostic info
+      debugPrint(
+          'Goals saved to provider: calories=$calorieGoal, protein=$proteinGoal, carbs=$carbGoal, fat=$fatGoal');
+      debugPrint(
+          'Provider goals after update: calories=${foodEntryProvider.caloriesGoal}, protein=${foodEntryProvider.proteinGoal}');
+
+      // Save to storage for backup
       final Map<String, dynamic> results = {
-        'calorie_target': calorieGoal,
+        'calories': calorieGoal,
         'protein': proteinGoal,
         'carbs': carbGoal,
         'fat': fatGoal,
         'recommended_steps': stepsGoal,
         'bmr': bmr,
-        'tdee': tdee,
       };
       StorageService().put('macro_results', jsonEncode(results));
 
-      // The provider will handle syncing with Supabase automatically
+      // Also save to nutrition_goals for more structured data
+      final Map<String, dynamic> nutritionGoals = {
+        'calories': calorieGoal,
+        'protein': proteinGoal,
+        'carbs': carbGoal,
+        'fat': fatGoal,
+        'steps': stepsGoal,
+        'bmr': bmr,
+      };
+      StorageService().put('nutrition_goals', jsonEncode(nutritionGoals));
 
-      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Goals saved successfully'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('Goals updated successfully')),
         );
       }
     } catch (e) {
-      debugPrint('Error saving nutrition goals: $e');
-      // Show error message
+      debugPrint('Error saving goals: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save goals: $e'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('Error saving goals')),
         );
       }
     }
@@ -464,42 +443,30 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     const SizedBox(width: 8),
                     // Save button
                     ElevatedButton(
-                      onPressed: () async { // Make onPressed async
+                      onPressed: () async {
                         final newValue = int.tryParse(controller.text);
                         if (newValue != null && newValue > 0) {
-                          onSave(newValue); // Update local state for the dialog (used by the card itself)
-                          await _saveGoals(); // Await the async save operation
+                          // First, update local state
+                          setState(() {
+                            onSave(newValue);
+                          });
 
-                          // --- Diagnostic Print ---
-                          // Check if the provider instance here reflects the change immediately
+                          // Save to provider and storage
+                          await _saveGoals();
+
+                          // Debug info
+                          debugPrint("Goal '$title' updated to: $newValue");
+
                           if (context.mounted) {
-                             final provider = Provider.of<FoodEntryProvider>(context, listen: false);
-                             // Find which goal was being edited based on the title
-                             String goalKey = "unknown";
-                             if (title.contains("Calorie")) goalKey = "calories";
-                             else if (title.contains("Protein")) goalKey = "protein";
-                             else if (title.contains("Carb")) goalKey = "carbs";
-                             else if (title.contains("Fat")) goalKey = "fat";
-                             else if (title.contains("Steps")) goalKey = "steps";
-
-                             dynamic providerValue;
-                             switch(goalKey) {
-                               case "calories": providerValue = provider.caloriesGoal; break;
-                               case "protein": providerValue = provider.proteinGoal; break;
-                               case "carbs": providerValue = provider.carbsGoal; break;
-                               case "fat": providerValue = provider.fatGoal; break;
-                               case "steps": providerValue = provider.stepsGoal; break;
-                             }
-                             debugPrint("--- DIALOG SAVE ($title) ---");
-                             debugPrint("New value entered: $newValue");
-                             debugPrint("Provider $goalKey goal after save: $providerValue");
-                             debugPrint("--- END DIALOG SAVE ---");
+                            Navigator.pop(context, true);
                           }
-                          // --- End Diagnostic Print ---
-
-                          if (context.mounted) { // Check if context is still valid
-                             Navigator.pop(context, true); // Pop with result TRUE indicating save
-                          }
+                        } else {
+                          // Show error for invalid input
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Please enter a valid positive number')),
+                          );
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -573,7 +540,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           color: Colors.transparent,
           child: InkWell(
             onTap: data['onEdit'],
-            splashColor: isEditable ? data['color'].withOpacity(0.1) : Colors.transparent, // No splash if not editable
+            splashColor: isEditable
+                ? data['color'].withOpacity(0.1)
+                : Colors.transparent, // No splash if not editable
             highlightColor: Colors.transparent,
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -619,7 +588,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                             color: data['color'].withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Icon(Icons.edit_rounded, size: 16, color: data['color']),
+                          child: Icon(Icons.edit_rounded,
+                              size: 16, color: data['color']),
                         ),
                     ],
                   ),
@@ -794,17 +764,6 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'color': Colors.lightBlue,
         'onEdit': null, // Not editable directly
       },
-      // Add TDEE (non-editable for now)
-      {
-        'title': 'Total Daily Energy Expenditure (TDEE)',
-        'value': tdee,
-        'currentValue': null, // No progress for TDEE
-        'unit': 'kcal',
-        'icon': Icons.directions_run_rounded,
-        'color': Colors.green,
-        'onEdit': null, // Not editable directly
-      },
-
     ];
   }
 
@@ -820,66 +779,24 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column( // Wrap ListView in a Column
+        child: Column(
+          // Wrap ListView in a Column
           children: [
             // Widget for Macro Percentages
             _buildMacroPercentageCard(),
             const SizedBox(height: 10), // Spacing
 
             // Existing ListView for Goal Cards
-            Expanded( // Make ListView take remaining space
+            Expanded(
+              // Make ListView take remaining space
               child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 16), // Add bottom padding
+                padding:
+                    const EdgeInsets.only(bottom: 16), // Add bottom padding
                 itemCount: _getGoalsData().length,
                 itemBuilder: (context, index) {
                   final goalData = _getGoalsData()[index];
-                  // Conditionally add extra info below BMR/TDEE cards
-                  if (goalData['title'].contains('BMR')) {
-                    return Column(
-                      children: [
-                        _buildGoalCard(goalData),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                          child: Text('Formula Used: $bmrFormula', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
-                        ),
-                      ],
-                    );
-                  } else if (goalData['title'].contains('TDEE')) {
-                    return Column(
-                      children: [
-                        _buildGoalCard(goalData),
-                        if (tdeeManuallySet)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange),
-                                SizedBox(width: 4),
-                                Text('Manually Set', style: TextStyle(color: Colors.orange, fontStyle: FontStyle.italic)),
-                              ],
-                            ),
-                          ),
-                      ],
-                    );
-                  }
                   return _buildGoalCard(goalData);
                 },
-              ),
-            ),
-
-            // Placeholder Section for Weight Change Info & Edit Links
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  Text('Estimated Weekly Change: ${estimatedWeeklyChange.toStringAsFixed(1)} kg/lbs'), // Placeholder
-                  Text('Estimated Goal Date: $estimatedGoalDate'), // Placeholder
-                  const SizedBox(height: 16),
-                  ElevatedButton(onPressed: () {}, child: const Text('Adjust Activity Level (Placeholder)')),
-                  ElevatedButton(onPressed: () {}, child: const Text('Adjust Weight Goal (Placeholder)')),
-                  // Potentially add a toggle/button for TDEE override here later
-                ],
               ),
             ),
           ],
@@ -896,7 +813,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
 
     // Calculate total grams for percentage calculation
     final totalGrams = proteinGoal + carbGoal + fatGoal;
-    double proteinPercent = totalGrams > 0 ? (proteinGoal / totalGrams * 100) : 0;
+    double proteinPercent =
+        totalGrams > 0 ? (proteinGoal / totalGrams * 100) : 0;
     double carbPercent = totalGrams > 0 ? (carbGoal / totalGrams * 100) : 0;
     double fatPercent = totalGrams > 0 ? (fatGoal / totalGrams * 100) : 0;
 
@@ -914,7 +832,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           children: [
             Text(
               'Target Macro Ratio (by Grams)',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             Row(
@@ -936,7 +855,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       children: [
         Text(
           '${percent.toStringAsFixed(0)}%',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: color),
         ),
         const SizedBox(height: 4),
         Text(label, style: Theme.of(context).textTheme.bodySmall),

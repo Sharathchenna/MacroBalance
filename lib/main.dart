@@ -184,7 +184,8 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
         ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
         // Pass FoodEntryProvider instance to ExpenditureProvider
-        ChangeNotifierProvider(create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
+        // ChangeNotifierProvider(
+        //     create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
         ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
       ],
       child: const MyApp(),
@@ -243,7 +244,8 @@ Future<void> _initializeSupabase() async {
 Future<void> _initializeDeepLinks() async {
   try {
     // Use app_links to get the initial link
-    final initialUri = await _appLinks.getInitialLink(); // Trying getInitialLink
+    final initialUri =
+        await _appLinks.getInitialLink(); // Trying getInitialLink
     if (initialUri != null) {
       debugPrint('Initial URI: $initialUri');
       _handleDeepLink(initialUri);
@@ -480,7 +482,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Removed provider linking logic
     // Trigger initial expenditure calculation after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-       Provider.of<ExpenditureProvider>(context, listen: false).updateExpenditure();
+      // Provider.of<ExpenditureProvider>(context, listen: false)
+      //     .updateExpenditure();
     });
   }
 
@@ -551,8 +554,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               const PaywallGate(child: WeightTrackingScreen()),
           Routes.macroTracking: (context) =>
               const PaywallGate(child: MacroTrackingScreen()),
-          Routes.expenditure: (context) =>
-              const PaywallGate(child: ExpenditureScreen()), // Added expenditure route mapping
+          // Routes.expenditure: (context) => const PaywallGate(
+          //     child: ExpenditureScreen()), // Added expenditure route mapping
         },
         onGenerateRoute: (settings) {
           // Handle any dynamic routes or routes with parameters here

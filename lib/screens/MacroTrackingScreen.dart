@@ -8,8 +8,6 @@ import 'dart:ui' as ui;
 import 'package:provider/provider.dart';
 import '../providers/foodEntryProvider.dart';
 import '../models/foodEntry.dart';
-import '../providers/expenditure_provider.dart';
-import 'tdee_dashboard.dart';
 
 class MacroTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -95,7 +93,11 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final customColors = theme.extension<CustomColors>()!;
+    final customColors = Theme.of(context).extension<CustomColors>();
+
+    if (customColors == null) {
+      return const Center(child: Text('Error: Theme extension not found'));
+    }
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -105,20 +107,14 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               title: Text(
                 'Macro Tracking',
                 style: GoogleFonts.inter(
-                  fontSize: 24,
+                  fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: customColors.textPrimary,
                 ),
               ),
-              backgroundColor: Colors.transparent,
+              backgroundColor: theme.scaffoldBackgroundColor,
               elevation: 0,
-              systemOverlayStyle: theme.brightness == Brightness.light
-                  ? SystemUiOverlayStyle.dark
-                  : SystemUiOverlayStyle.light,
-              leading: IconButton(
-                icon: Icon(Icons.arrow_back, color: customColors.textPrimary),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
+              systemOverlayStyle: SystemUiOverlayStyle.dark,
             ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -134,10 +130,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           RepaintBoundary(
                             child:
                                 _buildMacroSummaryCard(context, customColors),
-                          ),
-                          const SizedBox(height: 24),
-                          RepaintBoundary(
-                            child: _buildTdeeSummaryCard(context, customColors),
                           ),
                           const SizedBox(height: 24),
                           _buildMacroChart(customColors),
@@ -571,7 +563,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                           const Duration(milliseconds: 1500),
                                       curve: Curves.easeOutCubic,
                                       tween: Tween<double>(
-                                          begin: 0, end: currentCalories),
+                                          begin: 0,
+                                          end: _currentCalories.value),
                                       builder: (context, value, _) {
                                         return Text(
                                           value.toInt().toString(),
@@ -2154,252 +2147,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     }
 
     return filtered;
-  }
-
-  Widget _buildTdeeSummaryCard(
-      BuildContext context, CustomColors customColors) {
-    return Consumer<ExpenditureProvider>(
-      builder: (context, expenditureProvider, child) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-          decoration: BoxDecoration(
-            color: customColors.cardBackground,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'TDEE',
-                        style: GoogleFonts.inter(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: customColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Total Daily Energy Expenditure',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: customColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.dashboard_customize,
-                      color: customColors.textPrimary,
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const TdeeDashboardScreen(),
-                        ),
-                      );
-                    },
-                    tooltip: 'View TDEE Dashboard',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: customColors.dateNavigatorBackground.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    if (expenditureProvider.isLoading)
-                      const Center(child: CircularProgressIndicator())
-                    else if (expenditureProvider.currentExpenditure != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                '${expenditureProvider.currentExpenditure!.toStringAsFixed(0)}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green.shade600,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'kcal',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  color: customColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Your daily energy needs',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: customColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'No Data Available',
-                            style: GoogleFonts.inter(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: customColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Log daily to calculate your TDEE',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: customColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: customColors.cardBackground,
-                        borderRadius: BorderRadius.circular(50),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: GestureDetector(
-                        onTap: () {
-                          if (!expenditureProvider.isLoading) {
-                            expenditureProvider.updateExpenditure();
-                          }
-                        },
-                        child: Icon(
-                          Icons.refresh,
-                          color: expenditureProvider.isLoading
-                              ? customColors.textSecondary
-                              : customColors.accentPrimary,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Additional information row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildTdeeInfoItem(
-                    icon: Icons.trending_down,
-                    title: 'Calorie Deficit',
-                    value: _calculateCalorieDeficit(
-                      expenditureProvider.currentExpenditure,
-                      _currentCalories.value,
-                    ),
-                    customColors: customColors,
-                  ),
-                  _buildTdeeInfoItem(
-                    icon: Icons.trending_up,
-                    title: 'Calorie Surplus',
-                    value: _calculateCalorieSurplus(
-                      expenditureProvider.currentExpenditure,
-                      _currentCalories.value,
-                    ),
-                    customColors: customColors,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTdeeInfoItem({
-    required IconData icon,
-    required String title,
-    required String value,
-    required CustomColors customColors,
-  }) {
-    return Column(
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: customColors.textSecondary,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: customColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: customColors.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _calculateCalorieDeficit(double? tdee, double currentCalories) {
-    if (tdee == null) return '0 kcal';
-    if (currentCalories < tdee) {
-      return '-${(tdee - currentCalories).toStringAsFixed(0)} kcal';
-    }
-    return '0 kcal';
-  }
-
-  String _calculateCalorieSurplus(double? tdee, double currentCalories) {
-    if (tdee == null) return '0 kcal';
-    if (currentCalories > tdee) {
-      return '+${(currentCalories - tdee).toStringAsFixed(0)} kcal';
-    }
-    return '0 kcal';
   }
 }
 

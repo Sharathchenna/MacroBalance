@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/theme/app_theme.dart'; // Assuming theme is needed
+import 'package:macrotracker/theme/typography.dart';
 
 class FeatureItem extends StatelessWidget {
   final IconData icon;
@@ -28,7 +29,8 @@ class FeatureItem extends StatelessWidget {
           child: Center(
             child: Icon(
               icon,
-              color: (customColors?.textPrimary ?? theme.colorScheme.primary).withOpacity(0.8),
+              color: (customColors?.textPrimary ?? theme.colorScheme.primary)
+                  .withOpacity(0.8),
               size: 28,
             ),
           ),
@@ -36,10 +38,9 @@ class FeatureItem extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: customColors?.textPrimary ?? theme.textTheme.bodyMedium?.color,
+          style: AppTypography.caption.copyWith(
+            color: customColors?.textPrimary ?? theme.colorScheme.onBackground,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

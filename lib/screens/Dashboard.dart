@@ -1,33 +1,29 @@
 import 'dart:convert';
-import 'dart:io'; // For Platform check and File operations
-import 'dart:typed_data'; // For Uint8List
-import 'dart:ui'; // Used for ImageFilter
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lottie/lottie.dart'; // Import Lottie package
-import 'package:macrotracker/camera/barcode_results.dart'; // Import for navigation
-import 'package:macrotracker/camera/results_page.dart'; // Import for navigation
-import 'package:macrotracker/models/ai_food_item.dart'; // Import for type casting
+import 'package:lottie/lottie.dart';
+import 'package:macrotracker/camera/barcode_results.dart' hide Serving;
+import 'package:macrotracker/camera/results_page.dart';
+import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
-import 'package:macrotracker/providers/expenditure_provider.dart'; // Added for TDEE
 import 'package:macrotracker/providers/foodEntryProvider.dart';
-import 'package:macrotracker/screens/MacroTrackingScreen.dart'; // Added import
-import 'package:macrotracker/screens/NativeStatsScreen.dart';
-import 'package:macrotracker/screens/StepsTrackingScreen.dart'; // Added import
+import 'package:macrotracker/screens/MacroTrackingScreen.dart';
+import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
-import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/screens/searchPage.dart';
-import 'package:macrotracker/screens/tdee_dashboard.dart'; // Added import for TDEE dashboard
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:path_provider/path_provider.dart'; // For temp directory
-import 'package:permission_handler/permission_handler.dart'; // Import needed for openAppSettings
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
-import '../AI/gemini.dart'; // Import Gemini processing
+import '../AI/gemini.dart';
 import '../Health/Health.dart';
 
 // Define the expected result structure at the top level
@@ -49,17 +45,6 @@ class _DashboardState extends State<Dashboard> {
   void initState() {
     super.initState();
     _setupNativeCameraHandler(); // Set up the handler when the dashboard initializes
-
-    // Ensure TDEE calculation is triggered on app start
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final expenditureProvider =
-          Provider.of<ExpenditureProvider>(context, listen: false);
-      // Only update if not already loading and if no current value
-      if (!expenditureProvider.isLoading &&
-          expenditureProvider.currentExpenditure == null) {
-        expenditureProvider.updateExpenditure();
-      }
-    });
   }
 
   // --- Native Camera Handling (Moved from CameraScreen) ---
@@ -323,7 +308,6 @@ class _DashboardState extends State<Dashboard> {
                         // <-- Added const back here
                         SizedBox(height: 8), // Add some space after date bar
                         CalorieTracker(),
-                        TdeeWidget(), // Added TDEE widget
                         MealSection(),
                         // Add padding at the bottom to ensure content isn't hidden
                         // behind the floating navigation bar. Adjust height as needed.
@@ -443,25 +427,24 @@ Widget _buildNavItemCompact({
   bool isActive = false,
 }) {
   return Expanded(
-    child: InkWell(
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFFFFC107).withOpacity(0.2) // Use withOpacity
-              : Colors.transparent,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          color: const Color(0xFFFFC107),
-          size: 24,
-        ),
+      child: InkWell(
+    onTap: onTap,
+    customBorder: const CircleBorder(),
+    child: Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: isActive
+            ? const Color(0xFFFFC107).withOpacity(0.2)
+            : Colors.transparent,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        icon,
+        color: const Color(0xFFFFC107),
+        size: 24,
       ),
     ),
-  );
+  ));
 }
 
 // --- DateNavigatorbar Widget ---
@@ -692,39 +675,29 @@ class CalorieTracker extends StatefulWidget {
 
 class _CalorieTrackerState extends State<CalorieTracker> {
   final HealthService _healthService = HealthService();
-  bool _hasHealthPermissions = false;
-  bool _isLoadingHealthData = true;
   int _steps = 0;
-  int _stepsGoal = 10000; // Default goal
   double _caloriesBurned = 0;
+  bool _hasHealthPermissions = false;
+  bool _isLoadingHealthData = false;
   DateTime? _lastFetchedDate;
   late DateProvider _dateProvider;
+
+  // Default goal, consider making this configurable or fetched
+  final int _stepsGoal = 9000;
 
   @override
   void initState() {
     super.initState();
-
+    // Use addPostFrameCallback to ensure context is available for Provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Initialize and fetch health data
-      if (mounted) {
-        _dateProvider = Provider.of<DateProvider>(context, listen: false);
-        _dateProvider.addListener(_onDateChanged);
-        _initializeHealthData();
-      }
-
-      // Trigger TDEE calculation if needed
-      final expenditureProvider =
-          Provider.of<ExpenditureProvider>(context, listen: false);
-      if (!expenditureProvider.isLoading &&
-          expenditureProvider.currentExpenditure == null) {
-        expenditureProvider.updateExpenditure();
-      }
+      _dateProvider = Provider.of<DateProvider>(context, listen: false);
+      _initializeHealthData();
+      _dateProvider.addListener(_onDateChanged);
     });
   }
 
   @override
   void dispose() {
-    // Remove listener when widget is disposed
     _dateProvider.removeListener(_onDateChanged);
     super.dispose();
   }
@@ -989,46 +962,30 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   Widget _buildCalorieInfoCard(BuildContext context, String label, int value,
       Color color, IconData icon) {
     return Container(
-      // height: 60, // Fixed height for each card
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+          horizontal: 12, vertical: 8), // Slightly increased padding
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.light
             ? color.withOpacity(0.1) // Slightly more opacity
             : color.withOpacity(0.2), // Slightly more opacity
         borderRadius: BorderRadius.circular(12), // More rounded corners
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            spreadRadius: 0,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Row(
         children: [
-          Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15), // Use withOpacity
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 16,
-              )),
-          const SizedBox(width: 12),
+          Icon(
+            icon,
+            color: color,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w500,
                     color: Theme.of(context).brightness == Brightness.light
                         ? Colors.grey.shade700
@@ -1038,8 +995,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                 Text(
                   '$value',
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                     color: Theme.of(context)
                         .extension<CustomColors>()
                         ?.textPrimary,
@@ -1050,209 +1007,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           ),
         ],
       ),
-    );
-  }
-
-  // TDEE information card
-  Widget _buildTdeeCard(BuildContext context) {
-    return Consumer<ExpenditureProvider>(
-      builder: (context, expenditureProvider, child) {
-        // Show loading if TDEE is calculating
-        if (expenditureProvider.isLoading) {
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color:
-                  Theme.of(context).extension<CustomColors>()?.cardBackground,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  spreadRadius: 0,
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CupertinoActivityIndicator(),
-                SizedBox(width: 12),
-                Text('Calculating your TDEE...'),
-              ],
-            ),
-          );
-        }
-
-        // If TDEE is available, show the card with the value
-        if (expenditureProvider.currentExpenditure != null) {
-          final tdee = expenditureProvider.currentExpenditure!.toInt();
-          return GestureDetector(
-            onTap: () {
-              // Navigate to detailed TDEE dashboard
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                    builder: (context) => const TdeeDashboardScreen()),
-              );
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color:
-                    Theme.of(context).extension<CustomColors>()?.cardBackground,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    spreadRadius: 0,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.bolt,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Your TDEE',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context)
-                                .extension<CustomColors>()
-                                ?.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          'Total Daily Energy Expenditure',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? Colors.grey.shade600
-                                    : Colors.grey.shade400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    '$tdee',
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  Text(
-                    ' kcal',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.grey.shade600
-                          : Colors.grey.shade400,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right,
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade600
-                        : Colors.grey.shade400,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // If TDEE could not be calculated, show a card with an explanation
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).extension<CustomColors>()?.cardBackground,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                spreadRadius: 0,
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.bolt,
-                  color: Colors.grey,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TDEE Unavailable',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context)
-                            .extension<CustomColors>()
-                            ?.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      'Log daily weight and food to calculate your TDEE',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade600
-                            : Colors.grey.shade400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -1367,50 +1121,28 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                     // Add a header
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.pie_chart_outline,
-                                size: 20,
-                                color:
-                                    Theme.of(context).brightness == Brightness.light
-                                        ? Colors.grey.shade700
-                                        : Colors.grey.shade400,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                "Today's Nutrition and Activity",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color:
-                                      Theme.of(context).brightness == Brightness.light
-                                          ? Colors.grey.shade700
-                                          : Colors.grey.shade400,
-                                ),
-                              ),
-                            ],
+                      child: Row(children: [
+                        Icon(
+                          Icons.pie_chart_outline,
+                          size: 20,
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade400,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "Today's Nutrition and Activity",
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.grey.shade700
+                                    : Colors.grey.shade400,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.open_in_new),
-                            iconSize: 20,
-                            color: Theme.of(context).brightness == Brightness.light
-                                ? Colors.grey.shade700
-                                : Colors.grey.shade400,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                  builder: (context) => const TdeeDashboardScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                        ),
+                      ]),
                     ),
 
                     // Main content column
@@ -1557,7 +1289,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                         ),
 
                         const SizedBox(
-                            height: 15), // Increased space before macro rings
+                            height: 30), // Increased space before macro rings
 
                         // Macro circles - Enhanced with circular progress
                         Padding(
@@ -1650,23 +1382,66 @@ class _MealSectionState extends State<MealSection> {
       builder: (context, foodEntryProvider, dateProvider, child) {
         final entries = foodEntryProvider.getEntriesForMeal(
             mealType, dateProvider.selectedDate);
-        // Calculate calories with proper unit conversion
-        double totalCalories = entries.fold(0, (sum, entry) {
-          double multiplier = entry.quantity;
-          // Convert to grams if needed
-          switch (entry.unit) {
-            case "oz":
-              multiplier *= 28.35;
-              break;
-            case "kg":
-              multiplier *= 1000;
-              break;
-            case "lbs":
-              multiplier *= 453.59;
-              break;
+
+        // Calculate calories using improved serving logic
+        double totalCalories = entries.fold(0.0, (sum, entry) {
+          Serving? serving;
+          // Try to find the exact serving description saved with the entry
+          if (entry.servingDescription != null &&
+              entry.food.servings.isNotEmpty) {
+            try {
+              serving = entry.food.servings
+                  .firstWhere((s) => s.description == entry.servingDescription);
+            } catch (e) {
+              serving = null;
+            }
           }
-          multiplier /= 100; // Since calories are per 100g
-          return sum + (entry.food.calories * multiplier);
+
+          double multiplier = 1.0;
+          double baseCalories = 0.0;
+
+          if (serving != null) {
+            // --- Calculation based on the specific serving ---
+            if (serving.metricAmount > 0 &&
+                serving.metricUnit.toLowerCase() == 'g') {
+              // If serving has valid metric data, use it for calculation
+              double baseAmount = serving.metricAmount;
+              double quantityGrams = entry.quantity;
+
+              // Convert to grams if needed
+              if (entry.unit.toLowerCase() == 'oz') {
+                quantityGrams *= 28.35;
+              } else if (entry.unit.toLowerCase() == 'lbs') {
+                quantityGrams *= 453.59;
+              } else if (entry.unit.toLowerCase() == 'kg') {
+                quantityGrams *= 1000;
+              }
+
+              multiplier = quantityGrams / baseAmount;
+            } else {
+              // For non-metric servings (like "1 burger"), use direct multiplication
+              multiplier = entry.quantity; // Direct multiplication by quantity
+            }
+            baseCalories = serving.calories;
+          } else {
+            // --- Fallback: Calculate based on 100g if no serving info ---
+            if (entry.unit.toLowerCase() == 'g') {
+              multiplier = entry.quantity / 100.0;
+            } else if (entry.unit.toLowerCase() == 'oz') {
+              multiplier = (entry.quantity * 28.35) / 100.0;
+            } else if (entry.unit.toLowerCase() == 'lbs') {
+              multiplier = (entry.quantity * 453.59) / 100.0;
+            } else if (entry.unit.toLowerCase() == 'kg') {
+              multiplier = (entry.quantity * 1000) / 100.0;
+            } else {
+              // For unknown units, use direct multiplication
+              multiplier = entry.quantity;
+            }
+            baseCalories = entry.food.calories;
+          }
+
+          if (multiplier < 0) multiplier = 0;
+          return sum + (baseCalories * multiplier);
         });
 
         // Meal type icon mapping
@@ -1957,9 +1732,140 @@ Color _getMealColor(String mealType) {
 // Helper method for food items
 Widget _buildFoodItem(
     BuildContext context, dynamic entry, FoodEntryProvider provider) {
-  // Calculate calories with proper unit conversion
+  // Calculate calories with proper serving size handling
+  double calories = 0;
+  String displayUnit = entry.unit; // Default to the stored unit
+
+  // First try to use the specific serving if available
+  if (entry.servingDescription != null && entry.food.servings.isNotEmpty) {
+    try {
+      final serving = entry.food.servings
+          .firstWhere((s) => s.description == entry.servingDescription);
+      // Update display unit to use the serving description
+      displayUnit =
+          serving.description.replaceAll(RegExp(r'^\d+\s*'), '').trim();
+
+      // For servings with metric measurements
+      if (serving.metricAmount > 0 && serving.metricUnit.toLowerCase() == 'g') {
+        double quantityInGrams = entry.quantity;
+        // Convert to grams if needed
+        switch (entry.unit.toLowerCase()) {
+          case "oz":
+            quantityInGrams *= 28.35;
+            break;
+          case "kg":
+            quantityInGrams *= 1000;
+            break;
+          case "lbs":
+            quantityInGrams *= 453.59;
+            break;
+        }
+        calories = serving.calories * (quantityInGrams / serving.metricAmount);
+      } else {
+        // For non-metric servings (like "1 burger"), use direct multiplication
+        calories = serving.calories * entry.quantity;
+      }
+    } catch (e) {
+      // If serving not found, fall back to per 100g calculation
+      calories = _calculateCaloriesPer100g(entry);
+    }
+  } else {
+    // If no serving info, fall back to per 100g calculation
+    calories = _calculateCaloriesPer100g(entry);
+  }
+
+  return Dismissible(
+      key: Key(entry.id),
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      direction: DismissDirection.endToStart,
+      onDismissed: (direction) {
+        provider.removeEntry(entry.id);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 36, // Reduced from 40
+              height: 36, // Reduced from 40
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade100
+                    : Colors.grey.shade800,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.restaurant,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade600
+                    : Colors.grey.shade400,
+                size: 18, // Reduced size
+              ),
+            ),
+            const SizedBox(width: 12), // Reduced from 16
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.food.name,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14, // Reduced from 16
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context)
+                          .extension<CustomColors>()
+                          ?.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    '${entry.quantity} $displayUnit',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11, // Reduced from 13
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.grey.shade600
+                          : Colors.grey.shade400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '${calories.toStringAsFixed(0)} kcal',
+              style: GoogleFonts.poppins(
+                fontSize: 13, // Reduced from 15
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                size: 20, // Reduced size
+              ),
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.red.shade400
+                  : Colors.red.shade300,
+              onPressed: () {
+                provider.removeEntry(entry.id);
+              },
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+      ));
+}
+
+// Helper method for calculating calories per 100g
+double _calculateCaloriesPer100g(dynamic entry) {
   double quantityInGrams = entry.quantity;
-  switch (entry.unit) {
+  switch (entry.unit.toLowerCase()) {
     case "oz":
       quantityInGrams *= 28.35;
       break;
@@ -1970,302 +1876,5 @@ Widget _buildFoodItem(
       quantityInGrams *= 453.59;
       break;
   }
-  final caloriesForQuantity = entry.food.calories * (quantityInGrams / 100);
-
-  return Dismissible(
-    key: Key(entry.id),
-    background: Container(
-      color: Colors.red,
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.only(right: 20),
-      child: const Icon(Icons.delete_outline, color: Colors.white),
-    ),
-    direction: DismissDirection.endToStart,
-    onDismissed: (direction) {
-      provider.removeEntry(entry.id);
-    },
-    child: Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 16, vertical: 10), // Reduced padding
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 36, // Reduced from 40
-            height: 36, // Reduced from 40
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.grey.shade100
-                  : Colors.grey.shade800,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.restaurant,
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.grey.shade600
-                  : Colors.grey.shade400,
-              size: 18, // Reduced size
-            ),
-          ),
-          const SizedBox(width: 12), // Reduced from 16
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.food.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14, // Reduced from 16
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context)
-                        .extension<CustomColors>()
-                        ?.textPrimary,
-                  ),
-                ),
-                Text(
-                  '${entry.quantity}${entry.unit}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11, // Reduced from 13
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade600
-                        : Colors.grey.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '${caloriesForQuantity.toStringAsFixed(0)} kcal',
-            style: GoogleFonts.poppins(
-              fontSize: 13, // Reduced from 15
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.delete_outline,
-              size: 20, // Reduced size
-            ),
-            color: Theme.of(context).brightness == Brightness.light
-                ? Colors.red.shade400
-                : Colors.red.shade300,
-            onPressed: () {
-              provider.removeEntry(entry.id);
-            },
-            padding: const EdgeInsets.all(8), // Smaller padding for icon button
-            constraints: const BoxConstraints(), // Remove constraints
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-// --- TdeeWidget ---
-class TdeeWidget extends StatelessWidget {
-  const TdeeWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<ExpenditureProvider>(
-      builder: (context, expenditureProvider, child) {
-        // Show loading if TDEE is calculating
-        if (expenditureProvider.isLoading) {
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color:
-                  Theme.of(context).extension<CustomColors>()?.cardBackground,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  spreadRadius: 0,
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CupertinoActivityIndicator(),
-                SizedBox(width: 12),
-                Text('Calculating your TDEE...'),
-              ],
-            ),
-          );
-        }
-
-        // If TDEE is available, show the card with the value
-        if (expenditureProvider.currentExpenditure != null) {
-          final tdee = expenditureProvider.currentExpenditure!.toInt();
-          return GestureDetector(
-            onTap: () {
-              // Navigate to detailed TDEE dashboard
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                    builder: (context) => const TdeeDashboardScreen()),
-              );
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color:
-                    Theme.of(context).extension<CustomColors>()?.cardBackground,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    spreadRadius: 0,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.bolt,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Your TDEE',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context)
-                                .extension<CustomColors>()
-                                ?.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          'Total Daily Energy Expenditure',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? Colors.grey.shade600
-                                    : Colors.grey.shade400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    '$tdee',
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  Text(
-                    ' kcal',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.grey.shade600
-                          : Colors.grey.shade400,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right,
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade600
-                        : Colors.grey.shade400,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // If TDEE could not be calculated, show a card with an explanation
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).extension<CustomColors>()?.cardBackground,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                spreadRadius: 0,
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.bolt,
-                  color: Colors.grey,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TDEE Unavailable',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context)
-                            .extension<CustomColors>()
-                            ?.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      'Log daily weight and food to calculate your TDEE',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade600
-                            : Colors.grey.shade400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  return entry.food.calories * (quantityInGrams / 100);
 }
