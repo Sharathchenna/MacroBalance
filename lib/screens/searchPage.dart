@@ -68,6 +68,18 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
+
+    // Add listener to the search controller to detect when it's cleared
+    _searchController.addListener(() {
+      // Check if the search text is empty and clear results
+      if (_searchController.text.isEmpty) {
+        setState(() {
+          _searchResults = [];
+          _autoCompleteResults = [];
+          _isLoading = false;
+        });
+      }
+    });
   }
 
   @override
@@ -126,6 +138,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
   // --- End New Function ---
 
+  /*
   Future<void> _getAutocompleteSuggestions(String query) async {
     if (query.isEmpty || _isLoading) {
       // Don't show suggestions while loading search results
@@ -190,13 +203,20 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       }
     }
   }
+  */
 
   void _onSearchChanged(String query) {
     if (_debouncer?.isActive ?? false) _debouncer!.cancel();
-    // Only trigger autocomplete if we're not already loading search results
-    if (!_isLoading) {
-      _debouncer = Timer(const Duration(milliseconds: 20), () {
-        _getAutocompleteSuggestions(query);
+    // Only trigger search if we're not already loading search results and query isn't empty
+    if (!_isLoading && query.isNotEmpty) {
+      _debouncer = Timer(const Duration(milliseconds: 300), () {
+        _searchFood(query);
+      });
+    } else if (query.isEmpty) {
+      // Clear results if query is empty
+      setState(() {
+        _searchResults = [];
+        _autoCompleteResults = [];
       });
     }
   }
@@ -651,6 +671,11 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               itemCount: _searchResults.length,
               itemBuilder: (context, index) {
+                // Safety check to avoid index out of range errors
+                if (index < 0 || index >= _searchResults.length) {
+                  return const SizedBox.shrink();
+                }
+
                 // Simplify animation to improve performance
                 return AnimatedOpacity(
                   duration: const Duration(milliseconds: 250),
