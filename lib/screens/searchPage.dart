@@ -202,7 +202,15 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Future<void> _searchFood(String query) async {
-    if (query.isEmpty) return; // Removed token check
+    // If query is empty, just clear results without loading indicator
+    if (query.isEmpty) {
+      setState(() {
+        _searchResults = [];
+        _autoCompleteResults = [];
+        _isLoading = false;
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -677,85 +685,125 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     final defaultServing =
         food.servings.isNotEmpty ? food.servings.first : null;
     final customColors = Theme.of(context).extension<CustomColors>();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = _categoryColor(food.name);
 
-    // Simplify card structure to reduce complexity
+    // Enhanced premium card design
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.06),
+            offset: const Offset(0, 3),
+            blurRadius: 10,
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: accentColor.withOpacity(0.025),
+            offset: const Offset(0, 1),
             blurRadius: 8,
             spreadRadius: 0,
           ),
         ],
+        border: Border.all(
+          color: isDarkMode
+              ? Colors.grey.withOpacity(0.1)
+              : Colors.grey.withOpacity(0.08),
+          width: 0.5,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onTap: () => _onFoodItemTap(food),
+          splashColor: accentColor.withOpacity(0.1),
+          highlightColor: accentColor.withOpacity(0.05),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Food icon/avatar - simplified with static colors
+                    // Enhanced food icon with gradient
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 54,
+                      height: 54,
                       decoration: BoxDecoration(
-                        color: _categoryColor(food.name).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            accentColor.withOpacity(0.15),
+                            accentColor.withOpacity(0.05),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: accentColor.withOpacity(0.15),
+                            offset: const Offset(0, 2),
+                            blurRadius: 6,
+                            spreadRadius: -2,
+                          ),
+                        ],
                       ),
                       child: Center(
                         child: Icon(
                           _categoryIcon(food.name),
-                          color: _categoryColor(food.name),
-                          size: 20,
+                          color: accentColor,
+                          size: 24,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // Food name and brand
+                    const SizedBox(width: 16),
+                    // Food name and brand with improved typography
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             food.name,
-                            style: AppTypography.body1.copyWith(
+                            style: GoogleFonts.onest(
+                              fontSize: 16,
                               color: customColors?.textPrimary,
                               fontWeight: FontWeight.w600,
+                              height: 1.3,
+                              letterSpacing: -0.1,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                           if (food.brandName.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 5),
                             Text(
                               food.brandName,
-                              style: AppTypography.caption.copyWith(
-                                color: customColors?.textSecondary,
+                              style: GoogleFonts.onest(
+                                fontSize: 13,
+                                color: customColors?.textSecondary
+                                    ?.withOpacity(0.9),
+                                letterSpacing: 0.1,
                               ),
                             ),
                           ],
                           if (defaultServing != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 4),
+                              padding: const EdgeInsets.only(top: 6),
                               child: Text(
                                 'Per ${defaultServing.description}',
-                                style: AppTypography.caption.copyWith(
-                                  color: customColors?.textSecondary,
+                                style: GoogleFonts.onest(
+                                  color: Theme.of(context)
+                                      .primaryColor
+                                      .withOpacity(0.8),
                                   fontSize: 12,
-                                  fontStyle: FontStyle.italic,
+                                  // fontStyle: FontStyle.italic,
+                                  letterSpacing: 0.1,
                                 ),
                               ),
                             ),
@@ -764,8 +812,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                // Simplified nutrition row
+                const SizedBox(height: 16),
+                // Enhanced nutrition row
                 _buildSimplifiedNutritionRow(food, defaultServing),
               ],
             ),
