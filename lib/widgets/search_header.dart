@@ -91,24 +91,24 @@ class _SearchHeaderState extends State<SearchHeader> {
                 ),
               ),
               // Camera button
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(40),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    widget.onCameraTap(); // Call the passed callback
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      CupertinoIcons.camera,
-                      size: 25,
-                      color: const Color(0xFFFFC107),
-                    ),
-                  ),
-                ),
-              ),
+              // Material(
+              //   color: Colors.transparent,
+              //   child: InkWell(
+              //     borderRadius: BorderRadius.circular(40),
+              //     onTap: () {
+              //       HapticFeedback.lightImpact();
+              //       widget.onCameraTap(); // Call the passed callback
+              //     },
+              //     child: Container(
+              //       padding: const EdgeInsets.all(8),
+              //       child: Icon(
+              //         CupertinoIcons.camera,
+              //         size: 25,
+              //         color: const Color(0xFFFFC107),
+              //       ),
+              //     ),
+              //   ),
+              // ),
               const SizedBox(width: 8),
               // AI button
               Material(
@@ -170,7 +170,12 @@ class _SearchHeaderState extends State<SearchHeader> {
                             color: customColors.textPrimary.withOpacity(0.7)),
                         onPressed: () {
                           widget.controller.clear();
+                          // Use the search function with empty string to clear results
+                          widget.onSearch('');
+                          // Also trigger the onChanged to update suggestions
                           widget.onChanged('');
+                          // Clear focus
+                          _focusNode.unfocus();
                         },
                       )
                     : null,

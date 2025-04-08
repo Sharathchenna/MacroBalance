@@ -99,8 +99,14 @@ import home_widget // Import home_widget
 
          // Handle specific methods
          if call.method == "showNativeCamera" {
+             // Extract initialMode argument from Flutter call
+             let args = call.arguments as? [String: Any]
+             let initialModeString = args?["initialMode"] as? String ?? "camera" // Default to camera if not provided
+             let initialMode = CameraMode(rawValue: initialModeString) ?? .camera // Convert string to enum
+
              let nativeCameraVC = NativeCameraViewController()
              nativeCameraVC.delegate = self
+             nativeCameraVC.initialMode = initialMode // Set the initial mode
              nativeCameraVC.modalPresentationStyle = .fullScreen
              controller.present(nativeCameraVC, animated: true, completion: nil)
              result(nil) // Acknowledge successful presentation
@@ -127,16 +133,44 @@ import home_widget // Import home_widget
 
      // MARK: - NativeCameraViewControllerDelegate Methods -
 
-     func nativeCameraDidFinish(withBarcode barcode: String) {
-         print("[AppDelegate] Native Camera Finished with Barcode: \(barcode)")
-         // Send result back to Flutter via the channel
-         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: ["type": "barcode", "value": barcode])
+     func nativeCameraDidFinish(withBarcode barcode: String, mode: CameraMode) { // Updated signature
+         print("DEBUG: [AppDelegate] Native Camera Finished with Barcode: \(barcode) in mode: \(mode.rawValue)")
+         
+         // Send result back to Flutter via the channel, including mode
+         print("DEBUG: [AppDelegate] Invoking 'cameraResult' method on nativeCameraViewChannel")
+         print("DEBUG: [AppDelegate] Channel exists? \(nativeCameraViewChannel != nil)")
+         
+         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: [
+             "type": "barcode",
+             "value": barcode,
+             "mode": mode.rawValue // Include mode string
+         ]) { (result) in
+             if let error = result as? FlutterError {
+                 print("DEBUG: [AppDelegate] Error invoking method: \(error.message ?? "unknown error")")
+             } else {
+                 print("DEBUG: [AppDelegate] Successfully sent barcode result to Flutter")
+             }
+         }
      }
 
-     func nativeCameraDidFinish(withPhotoData photoData: Data) {
-         print("[AppDelegate] Native Camera Finished with Photo Data: \(photoData.count) bytes")
-         // Send result back to Flutter
-         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: ["type": "photo", "value": FlutterStandardTypedData(bytes: photoData)])
+     func nativeCameraDidFinish(withPhotoData photoData: Data, mode: CameraMode) { // Updated signature
+         print("DEBUG: [AppDelegate] Native Camera Finished with Photo Data: \(photoData.count) bytes in mode: \(mode.rawValue)")
+         
+         // Send result back to Flutter, including mode
+         print("DEBUG: [AppDelegate] Invoking 'cameraResult' method on nativeCameraViewChannel for photo")
+         print("DEBUG: [AppDelegate] Channel exists? \(nativeCameraViewChannel != nil)")
+         
+         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: [
+             "type": "photo",
+             "value": FlutterStandardTypedData(bytes: photoData),
+             "mode": mode.rawValue // Include mode string
+         ]) { (result) in
+             if let error = result as? FlutterError {
+                 print("DEBUG: [AppDelegate] Error invoking method for photo: \(error.message ?? "unknown error")")
+             } else {
+                 print("DEBUG: [AppDelegate] Successfully sent photo result to Flutter")
+             }
+         }
      }
 
      func nativeCameraDidCancel() {

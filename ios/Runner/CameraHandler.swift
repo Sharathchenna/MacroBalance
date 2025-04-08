@@ -2,6 +2,7 @@ import AVFoundation
 import Vision
 import UIKit
 import Flutter
+import CoreGraphics
 
 // Protocol to send results back to AppDelegate/MethodChannel handler
 protocol CameraHandlerDelegate: AnyObject {
