@@ -18,6 +18,13 @@ import '../AI/gemini.dart'; // Keep Gemini processing
 // Define the expected result structure
 typedef CameraResult = Map<String, dynamic>;
 
+// Enum to represent the different camera modes
+enum CameraMode {
+  barcode,
+  camera,
+  label,
+}
+
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
@@ -32,6 +39,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
   bool _isLoading = true; // Show loading initially
   String? _error;
+  CameraMode _currentMode = CameraMode.camera; // Default mode
 
   @override
   void initState() {
@@ -60,13 +68,13 @@ class _CameraScreenState extends State<CameraScreen> {
             if (type == 'barcode') {
               final String barcode = result['value'] as String;
               print('[Flutter Camera] Post-frame: Handling barcode: $barcode');
-              _handleBarcodeResult(currentContext, barcode);
+              _handleBarcodeResult(currentContext, barcode, CameraMode.barcode); // Pass mode
             } else if (type == 'photo') {
               final Uint8List photoData = result['value'] as Uint8List;
               print(
                   '[Flutter Camera] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-              // Don't await, let it pop when done
-              _handlePhotoResult(currentContext, photoData);
+              // Pass the mode that was active when the photo was taken
+              _handlePhotoResult(currentContext, photoData, _currentMode); // Pass mode
             } else if (type == 'cancel') {
               print('[Flutter Camera] Post-frame: Handling cancel.');
               // Pop with null result to indicate cancellation
@@ -105,8 +113,11 @@ class _CameraScreenState extends State<CameraScreen> {
 
     try {
       print('[Flutter Camera] Invoking showNativeCamera...');
-      // Re-enable native camera implementation
-      await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
+      // Pass the initial mode to the native side
+      await _nativeCameraViewChannel.invokeMethod(
+        'showNativeCamera',
+        {'initialMode': _currentMode.name}, // Pass mode name as string
+      );
       if (mounted) {
         // Keep loading true while native view is presented
       }
@@ -129,16 +140,20 @@ class _CameraScreenState extends State<CameraScreen> {
   // --- Result Handling ---
 
   // Pops with barcode result
-  void _handleBarcodeResult(BuildContext safeContext, String barcode) {
+  void _handleBarcodeResult(
+      BuildContext safeContext, String barcode, CameraMode mode) {
     print('[Flutter Camera] Popping CameraScreen with barcode result');
     if (!mounted) return;
-    Navigator.pop(safeContext, {'type': 'barcode', 'value': barcode});
+    Navigator.pop(safeContext,
+        {'type': 'barcode', 'value': barcode, 'mode': mode.name}); // Include mode
   }
 
   // Processes photo, then pops with photo result (list of foods)
   Future<void> _handlePhotoResult(
-      BuildContext safeContext, Uint8List photoData) async {
+      BuildContext safeContext, Uint8List photoData, CameraMode mode) async {
     if (!mounted) return;
+
+    _currentMode = mode; // Update mode based on what native side used for photo
 
     _showLoadingDialog('Analyzing Image...'); // Show loading for Gemini
 
@@ -184,7 +199,11 @@ class _CameraScreenState extends State<CameraScreen> {
         popResult = null; // Treat empty result as an error case for popping
       } else {
         // Prepare result only if foods list is not empty
-        popResult = {'type': 'photo', 'value': foods};
+        popResult = {
+          'type': 'photo',
+          'value': foods,
+          'mode': mode.name
+        }; // Include mode
       }
     } catch (e) {
       print('[Flutter Camera] Error processing photo result: ${e.toString()}');
