@@ -91,12 +91,27 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
           password: _passwordController.text,
           data: {'username': _nameController.text});
 
-      if (response.user != null) {
+      if (response.user != null && response.session == null) {
+        // User signed up but needs email confirmation
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Signup successful! Please check your email to confirm your account.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // Optionally, clear fields or navigate to a specific "check email" screen
+        // For now, we just show the message and stay on the signup screen.
+      } else if (response.user != null && response.session != null) {
+        // This case might happen if email confirmation is disabled or if the user somehow confirms immediately.
+        // Navigate to AuthGate as before.
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AuthGate()),
           (route) => false,
         );
       }
+      // If response.user is null, the catch block will handle the error.
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
