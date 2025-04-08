@@ -7,6 +7,7 @@ import 'dart:typed_data'; // For Uint8List
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:macrotracker/camera/barcode_results.dart';
 import 'package:macrotracker/camera/results_page.dart';
@@ -126,8 +127,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   // --- End New Function ---
 
   Future<void> _getAutocompleteSuggestions(String query) async {
-    if (query.isEmpty) {
-      // Removed token check
+    if (query.isEmpty || _isLoading) {
+      // Don't show suggestions while loading search results
       setState(() => _autoCompleteResults = []);
       return;
     }
@@ -192,9 +193,12 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   void _onSearchChanged(String query) {
     if (_debouncer?.isActive ?? false) _debouncer!.cancel();
-    _debouncer = Timer(const Duration(milliseconds: 20), () {
-      _getAutocompleteSuggestions(query);
-    });
+    // Only trigger autocomplete if we're not already loading search results
+    if (!_isLoading) {
+      _debouncer = Timer(const Duration(milliseconds: 20), () {
+        _getAutocompleteSuggestions(query);
+      });
+    }
   }
 
   Future<void> _searchFood(String query) async {
@@ -202,7 +206,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
     setState(() {
       _isLoading = true;
-      _autoCompleteResults = []; // Clear suggestions when searching
+      _autoCompleteResults = []; // Clear suggestions when searching starts
     });
 
     // Call the proxy function
@@ -226,13 +230,23 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         setState(() {
           _searchResults =
               foods.map((food) => FoodItem.fromFatSecretJson(food)).toList();
+          // Make sure autocomplete results remain empty when showing search results
+          _autoCompleteResults = [];
         });
       } else {
-        setState(() => _searchResults = []);
+        setState(() {
+          _searchResults = [];
+          // Make sure autocomplete results remain empty when showing search results
+          _autoCompleteResults = [];
+        });
       }
     } else {
       // Error handled in _callFatSecretProxy
-      setState(() => _searchResults = []);
+      setState(() {
+        _searchResults = [];
+        // Make sure autocomplete results remain empty when showing search results
+        _autoCompleteResults = [];
+      });
     }
 
     // Ensure loading state is turned off regardless of success/failure
@@ -556,11 +570,12 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     if (_isLoading) {
       return _buildLoadingState();
     }
-    if (_autoCompleteResults.isNotEmpty) {
-      return _buildSuggestions();
-    }
+    // Important: Show search results with priority over suggestions
     if (_searchResults.isNotEmpty) {
       return _buildSearchResults();
+    }
+    if (_autoCompleteResults.isNotEmpty) {
+      return _buildSuggestions();
     }
     if (_searchResults.isEmpty && _searchController.text.isNotEmpty) {
       return const NoResultsFoundWidget();
@@ -1007,97 +1022,176 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   Widget _buildSuggestions() {
     final customColors = Theme.of(context).extension<CustomColors>();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    // Simplified suggestions UI
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
+        // Gradient removed
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-            child: Text(
-              'Suggestions',
-              style: AppTypography.body1.copyWith(
-                color: customColors?.textPrimary,
-                fontWeight: FontWeight.w600,
+          // Premium header with subtle divider
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: customColors!.cardBackground!.withOpacity(0.1),
+                  width: 1,
+                ),
               ),
             ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lightbulb_outline,
+                  size: 18,
+                  color: Theme.of(context).primaryColor.withOpacity(0.8),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Suggestions',
+                  style: GoogleFonts.onest(
+                    color: customColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
           ),
+
+          // Suggestions list with improved styling
           Expanded(
             child: _autoCompleteResults.isEmpty
                 ? _buildSuggestionsEmptyState()
-                : ListView.builder(
-                    itemCount: _autoCompleteResults.length,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemBuilder: (context, index) {
-                      if (index < 0 || index >= _autoCompleteResults.length) {
-                        return const SizedBox.shrink();
-                      }
+                : Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    child: ListView.builder(
+                      itemCount: _autoCompleteResults.length,
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      physics: const BouncingScrollPhysics(),
+                      itemBuilder: (context, index) {
+                        if (index < 0 || index >= _autoCompleteResults.length) {
+                          return const SizedBox.shrink();
+                        }
 
-                      final suggestion = _autoCompleteResults[index];
-                      final Color accentColor = _categoryColor(suggestion);
+                        final suggestion = _autoCompleteResults[index];
+                        final Color accentColor = _categoryColor(suggestion);
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                        // Animate items with staggered effect
+                        return AnimatedOpacity(
+                          opacity: 1.0,
+                          duration: Duration(milliseconds: 300 + (index * 30)),
+                          curve: Curves.easeOutQuart,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? Theme.of(context).cardColor.withOpacity(0.9)
+                                  : Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                  spreadRadius: 0,
+                                ),
+                              ],
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .dividerColor
+                                    .withOpacity(0.08),
+                                width: 1,
+                              ),
                             ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              FocusScope.of(context).unfocus();
-                              _searchController.text = suggestion;
-                              _searchFood(suggestion);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 16),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: accentColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(
-                                      _categoryIcon(suggestion),
-                                      color: accentColor,
-                                      size: 16,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  splashColor: accentColor.withOpacity(0.1),
+                                  highlightColor: accentColor.withOpacity(0.05),
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    FocusScope.of(context).unfocus();
+                                    _searchController.text = suggestion;
+                                    _searchFood(suggestion);
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14, horizontal: 16),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                accentColor.withOpacity(0.12),
+                                                accentColor.withOpacity(0.05),
+                                              ],
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Icon(
+                                            _categoryIcon(suggestion),
+                                            color: accentColor,
+                                            size: 18,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                suggestion,
+                                                style: AppTypography.body2
+                                                    .copyWith(
+                                                  color:
+                                                      customColors.textPrimary,
+                                                  fontWeight: FontWeight.w500,
+                                                  height: 1.3,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Tap to search',
+                                                style: AppTypography.caption
+                                                    .copyWith(
+                                                  color: customColors
+                                                      .textSecondary
+                                                      ?.withOpacity(0.7),
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.chevron_right_rounded,
+                                          color: customColors.textSecondary
+                                              ?.withOpacity(0.4),
+                                          size: 20,
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      suggestion,
-                                      style: AppTypography.body2.copyWith(
-                                        color: customColors?.textPrimary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
           ),
         ],
