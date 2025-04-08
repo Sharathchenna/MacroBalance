@@ -70,7 +70,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     // Initialize animation with default values before first build
     _progressAnimation = Tween<double>(begin: 0, end: 1 / _totalPages).animate(
         CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
-    _updateProgressAnimation(); // Set correct initial animation state
+    // _updateProgressAnimation(); // Removed redundant call
     _animationController.forward();
     _goalWeightKg = _weightKg; // Initialize goal weight
   }
@@ -205,39 +205,51 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _goToPage(int page) {
-    // Adjust target page if skipping SetNewGoalPage (index 7) for Maintain goal
     int targetPage = page;
+    bool isSkippingForwardMaintain = false; // Flag for the specific skip
+
+    // Adjust target page if skipping SetNewGoalPage (index 7) for Maintain goal
+    // This handles cases where _goToPage might be called with 7 directly
     if (targetPage == 7 && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      // If trying to go to page 7 and goal is maintain, redirect based on direction
       if (_currentPage < 7) {
+        // Moving forward from a page before 7
         targetPage = 8; // Skip forward to Advanced
+        isSkippingForwardMaintain = true; // Mark this specific skip
       } else {
+        // Moving backward from a page after 7
         targetPage = 6; // Skip backward to Goal
       }
+    }
+    // Also handle the specific case triggered by _nextPage when on page 6 and goal is Maintain
+    else if (targetPage == 8 &&
+        _currentPage == 6 &&
+        _goal == MacroCalculatorService.GOAL_MAINTAIN) {
+      isSkippingForwardMaintain = true; // Mark this specific skip
     }
 
     if (targetPage >= 0 &&
         targetPage < _totalPages &&
         targetPage != _currentPage) {
       // Validate if jumping past SetNewGoal page (index 7)
+      // This validation might still be relevant even with jumpToPage
       if (_currentPage < 7 && targetPage > 7) _validateRanges();
 
-      int oldPage = _currentPage;
-      setState(() {
-        // Update _currentPage to the actual target page index
-        _currentPage = targetPage;
-        // Update animation based on the jump to the target page
-        _progressAnimation = Tween<double>(
-          begin: oldPage / _totalPages,
-          end: (targetPage + 1) /
-              _totalPages, // Animate towards the end of the target page
-        ).animate(CurvedAnimation(
-            parent: _animationController, curve: Curves.easeInOut));
-      });
-
-      _pageController.animateToPage(targetPage,
-          duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-      _animationController.forward(from: 0);
+      if (isSkippingForwardMaintain) {
+        // Use jumpToPage for instantaneous transition when skipping forward for Maintain goal
+        _pageController.jumpToPage(targetPage);
+        // Manually update state and animation since onPageChanged might not fire reliably with jumpToPage
+        setState(() {
+          _currentPage = targetPage;
+          _updateProgressAnimation();
+          _animationController.forward(from: 0.0);
+        });
+      } else {
+        // Use animateToPage for all other transitions
+        _pageController.animateToPage(targetPage,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut);
+        // Let onPageChanged handle state/animation updates for animated transitions
+      }
     }
   }
   // --- End Navigation ---
@@ -413,12 +425,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics: NeverScrollableScrollPhysics(),
+                physics: const NeverScrollableScrollPhysics(), // Keep physics
                 onPageChanged: (index) {
+                  // This will now correctly fire after animateToPage completes
                   setState(() {
                     _currentPage = index;
-                    _updateProgressAnimation();
-                    _animationController.forward(from: 0.0);
+                    _updateProgressAnimation(); // Update animation bounds for the new page
+                    _animationController.forward(
+                        from: 0.0); // Restart animation for the new segment
                   });
                 },
                 children: _buildPages(),
@@ -458,6 +472,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
+    // Hide the button on the Apple Health page (index 9)
+    if (_currentPage == 9) {
+      // Return an empty SizedBox to maintain layout spacing if needed,
+      // or just an empty Container if no space is required.
+      // Match the width of the back button for alignment.
+      return const SizedBox(width: 80);
+    }
+
     return ElevatedButton(
       onPressed: _nextPage,
       style: ElevatedButton.styleFrom(
@@ -514,6 +536,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
             _goalWeightKg = _weightKg;
             _deficit = 0;
+            // // Navigate immediately if Maintain is selected
+            // // Need WidgetsBinding.instance.addPostFrameCallback to avoid calling
+            // // _goToPage during build/setState.
+            // WidgetsBinding.instance.addPostFrameCallback((_) {
+            //   // Check mounted again inside the callback for safety
+            //   if (mounted && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
+            //     _goToPage(8); // Go directly to Advanced Settings (index 8)
+            //   }
+            // });
           } else {
             _deficit = 500;
             _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
