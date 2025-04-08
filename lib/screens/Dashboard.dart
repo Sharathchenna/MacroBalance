@@ -22,9 +22,11 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart'; // Import Hive
 
 import '../AI/gemini.dart';
 import '../Health/Health.dart';
+import '../services/storage_service.dart'; // Import StorageService
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -697,9 +699,12 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   bool _isLoadingHealthData = false;
   DateTime? _lastFetchedDate;
   late DateProvider _dateProvider;
+  final StorageService _storageService = StorageService(); // Instance of StorageService
 
   // Default goal, consider making this configurable or fetched
   final int _stepsGoal = 9000;
+
+  VoidCallback? _storageListener; // To hold the listener reference
 
   @override
   void initState() {
@@ -707,14 +712,51 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     // Use addPostFrameCallback to ensure context is available for Provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _dateProvider = Provider.of<DateProvider>(context, listen: false);
-      _initializeHealthData();
+      _initializeHealthData(); // Reads initial status and fetches if needed
       _dateProvider.addListener(_onDateChanged);
+
+      // Set up listener for StorageService changes
+      _storageListener = () {
+        final currentStatus = _storageService.get('healthConnected', defaultValue: false);
+        // Check if the status has changed and is now true
+        if (currentStatus && !_hasHealthPermissions) {
+          if (mounted) {
+            setState(() {
+              _hasHealthPermissions = true;
+            });
+            print("Health connection status changed to true, fetching data...");
+            _fetchHealthData(); // Fetch data immediately on status change
+          }
+        } else if (!currentStatus && _hasHealthPermissions) {
+           // Optional: Handle disconnection if needed
+           if (mounted) {
+             setState(() {
+               _hasHealthPermissions = false;
+               _steps = 0; // Reset data on disconnect
+               _caloriesBurned = 0;
+             });
+             print("Health connection status changed to false.");
+           }
+        }
+      };
+      _storageService.listenForChanges(_storageListener!);
     });
   }
 
   @override
   void dispose() {
     _dateProvider.removeListener(_onDateChanged);
+    // Remove the listener when the widget is disposed
+    if (_storageListener != null) {
+      // Access the Hive box directly to remove the listener
+      // This is a workaround as StorageService doesn't expose removeListener
+      try {
+         Hive.box('user_preferences').listenable().removeListener(_storageListener!);
+         print("Storage listener removed.");
+      } catch (e) {
+         print("Error removing storage listener: $e");
+      }
+    }
     super.dispose();
   }
 
@@ -736,12 +778,23 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 
   Future<void> _initializeHealthData() async {
-    // await _checkAndRequestPermissions();
-    // Initial fetch if permissions are granted
+    // Read initial status from storage
+    final initialStatus = _storageService.get('healthConnected', defaultValue: false);
+    if (mounted) {
+      setState(() {
+        _hasHealthPermissions = initialStatus;
+      });
+    }
+
+    // Initial fetch if permissions are already granted according to storage
     if (_hasHealthPermissions) {
+      print("Initial health status is connected, fetching data...");
       await _fetchHealthData();
+    } else {
+      print("Initial health status is not connected.");
     }
   }
+
 
   // Future<void> _checkAndRequestPermissions() async {
   //   // Don't check if already checked and granted
@@ -791,7 +844,12 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   // }
 
   Future<void> _fetchHealthData() async {
-    if (!_hasHealthPermissions || _isLoadingHealthData) return;
+    // Ensure permissions are granted before fetching
+    if (!_hasHealthPermissions) {
+      print("Skipping health data fetch: Permissions not granted.");
+      return;
+    }
+    if (_isLoadingHealthData) return; // Avoid concurrent fetches
 
     if (mounted) {
       setState(() {
@@ -1060,44 +1118,13 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               final carbGoal = foodEntryProvider.carbsGoal.toInt();
               final fatGoal = foodEntryProvider.fatGoal.toInt();
 
-              // Calculate total macros from all food entries for the selected date
-              final entries = foodEntryProvider
-                  .getAllEntriesForDate(dateProvider.selectedDate);
+              // Get nutrient totals using the new centralized method
+              final nutrientTotals = foodEntryProvider.getNutrientTotalsForDate(dateProvider.selectedDate);
+              final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
+              final totalProtein = nutrientTotals['protein'] ?? 0.0;
+              final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
+              final totalFat = nutrientTotals['fat'] ?? 0.0;
 
-              double totalCarbs = 0;
-              double totalFat = 0;
-              double totalProtein = 0;
-
-              for (var entry in entries) {
-                final carbs =
-                    entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-                final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-                final protein = entry.food.nutrients["Protein"] ?? 0;
-
-                // Convert quantity to grams
-                double quantityInGrams = entry.quantity;
-                switch (entry.unit) {
-                  case "oz":
-                    quantityInGrams *= 28.35;
-                    break;
-                  case "kg":
-                    quantityInGrams *= 1000;
-                    break;
-                  case "lbs":
-                    quantityInGrams *= 453.59;
-                    break;
-                }
-
-                // Since nutrients are per 100g, divide by 100 to get per gram
-                final multiplier = quantityInGrams / 100;
-                totalCarbs += carbs * multiplier;
-                totalFat += fat * multiplier;
-                totalProtein += protein * multiplier;
-              }
-
-              // Calculate calories from food entries
-              final caloriesFromFood = foodEntryProvider
-                  .getTotalCaloriesForDate(dateProvider.selectedDate);
 
               // Calculate remaining calories (updated logic)
               // Handle potential division by zero if caloriesGoal is 0

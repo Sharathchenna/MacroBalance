@@ -578,6 +578,32 @@ class FoodEntryProvider with ChangeNotifier {
             sum + _calculateNutrientForEntry(entry, 'Total lipid (fat)'));
   }
 
+  // --- NEW Centralized Calculation Method ---
+
+  Map<String, double> getNutrientTotalsForDate(DateTime date) {
+    final entriesForDate = getAllEntriesForDate(date);
+    double totalCalories = 0.0;
+    double totalProtein = 0.0;
+    double totalCarbs = 0.0;
+    double totalFat = 0.0;
+
+    for (final entry in entriesForDate) {
+      totalCalories += _calculateNutrientForEntry(entry, 'calories');
+      totalProtein += _calculateNutrientForEntry(entry, 'Protein');
+      totalCarbs += _calculateNutrientForEntry(entry, 'Carbohydrate, by difference');
+      totalFat += _calculateNutrientForEntry(entry, 'Total lipid (fat)');
+    }
+
+    return {
+      'calories': totalCalories,
+      'protein': totalProtein,
+      'carbs': totalCarbs,
+      'fat': totalFat,
+    };
+  }
+
+  // --- End NEW Method ---
+
   List<FoodEntry> getAllEntriesForDate(DateTime date) {
     // ... (existing implementation) ...
     final localDate = date.toLocal();
