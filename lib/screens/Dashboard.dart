@@ -1,32 +1,29 @@
 import 'dart:convert';
-import 'dart:io'; // For Platform check and File operations
-import 'dart:typed_data'; // For Uint8List
-import 'dart:ui'; // Used for ImageFilter
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lottie/lottie.dart'; // Import Lottie package
-import 'package:macrotracker/camera/barcode_results.dart'
-    hide Serving; // Hide Serving from this import
-import 'package:macrotracker/camera/results_page.dart'; // Import for navigation
-import 'package:macrotracker/models/ai_food_item.dart'; // Import for type casting
+import 'package:lottie/lottie.dart';
+import 'package:macrotracker/camera/barcode_results.dart' hide Serving;
+import 'package:macrotracker/camera/results_page.dart';
+import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
-import 'package:macrotracker/screens/MacroTrackingScreen.dart'; // Added import
-import 'package:macrotracker/screens/NativeStatsScreen.dart';
-import 'package:macrotracker/screens/StepsTrackingScreen.dart'; // Added import
+import 'package:macrotracker/screens/MacroTrackingScreen.dart';
+import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
-import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:path_provider/path_provider.dart'; // For temp directory
-import 'package:permission_handler/permission_handler.dart'; // Import needed for openAppSettings
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
-import '../AI/gemini.dart'; // Import Gemini processing
+import '../AI/gemini.dart';
 import '../Health/Health.dart';
 
 // Define the expected result structure at the top level
@@ -430,25 +427,24 @@ Widget _buildNavItemCompact({
   bool isActive = false,
 }) {
   return Expanded(
-    child: InkWell(
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFFFFC107).withOpacity(0.2) // Use withOpacity
-              : Colors.transparent,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          color: const Color(0xFFFFC107),
-          size: 24,
-        ),
+      child: InkWell(
+    onTap: onTap,
+    customBorder: const CircleBorder(),
+    child: Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: isActive
+            ? const Color(0xFFFFC107).withOpacity(0.2)
+            : Colors.transparent,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        icon,
+        color: const Color(0xFFFFC107),
+        size: 24,
       ),
     ),
-  );
+  ));
 }
 
 // --- DateNavigatorbar Widget ---
@@ -1386,7 +1382,8 @@ class _MealSectionState extends State<MealSection> {
       builder: (context, foodEntryProvider, dateProvider, child) {
         final entries = foodEntryProvider.getEntriesForMeal(
             mealType, dateProvider.selectedDate);
-        // Calculate calories using the corrected logic, mirroring _calculateNutrientForEntry
+
+        // Calculate calories using improved serving logic
         double totalCalories = entries.fold(0.0, (sum, entry) {
           Serving? serving;
           // Try to find the exact serving description saved with the entry
@@ -1405,15 +1402,13 @@ class _MealSectionState extends State<MealSection> {
 
           if (serving != null) {
             // --- Calculation based on the specific serving ---
-            double baseAmount = serving.metricAmount;
-            if (baseAmount <= 0) baseAmount = 1.0; // Prevent division by zero
-
-            String servingUnit = serving.metricUnit.toLowerCase();
-            bool isWeightBasedServing =
-                (servingUnit == 'g' || servingUnit == 'oz');
-
-            if (isWeightBasedServing) {
+            if (serving.metricAmount > 0 &&
+                serving.metricUnit.toLowerCase() == 'g') {
+              // If serving has valid metric data, use it for calculation
+              double baseAmount = serving.metricAmount;
               double quantityGrams = entry.quantity;
+
+              // Convert to grams if needed
               if (entry.unit.toLowerCase() == 'oz') {
                 quantityGrams *= 28.35;
               } else if (entry.unit.toLowerCase() == 'lbs') {
@@ -1421,30 +1416,27 @@ class _MealSectionState extends State<MealSection> {
               } else if (entry.unit.toLowerCase() == 'kg') {
                 quantityGrams *= 1000;
               }
+
               multiplier = quantityGrams / baseAmount;
             } else {
-              multiplier = entry.quantity / baseAmount;
+              // For non-metric servings (like "1 burger"), use direct multiplication
+              multiplier = entry.quantity; // Direct multiplication by quantity
             }
             baseCalories = serving.calories;
           } else {
-            // --- Fallback: Calculation based on food's default (usually 100g) values ---
-            double quantityGrams = entry.quantity;
-            if (entry.unit.toLowerCase() == 'oz') {
-              quantityGrams *= 28.35;
+            // --- Fallback: Calculate based on 100g if no serving info ---
+            if (entry.unit.toLowerCase() == 'g') {
+              multiplier = entry.quantity / 100.0;
+            } else if (entry.unit.toLowerCase() == 'oz') {
+              multiplier = (entry.quantity * 28.35) / 100.0;
             } else if (entry.unit.toLowerCase() == 'lbs') {
-              quantityGrams *= 453.59;
+              multiplier = (entry.quantity * 453.59) / 100.0;
             } else if (entry.unit.toLowerCase() == 'kg') {
-              quantityGrams *= 1000;
-            } else if (entry.unit.toLowerCase() != 'g') {
-              // Cannot reliably convert, return 0 for this entry's calorie contribution in fallback
-              print(
-                  "Warning: Cannot reliably calculate calories for ${entry.food.name} with unit '${entry.unit}' in fallback mode within _buildMealCard.");
-              return sum + 0.0;
+              multiplier = (entry.quantity * 1000) / 100.0;
+            } else {
+              // For unknown units, use direct multiplication
+              multiplier = entry.quantity;
             }
-
-            double foodServingSize = entry.food.servingSize;
-            if (foodServingSize <= 0) foodServingSize = 100.0;
-            multiplier = quantityGrams / foodServingSize;
             baseCalories = entry.food.calories;
           }
 
@@ -1740,9 +1732,140 @@ Color _getMealColor(String mealType) {
 // Helper method for food items
 Widget _buildFoodItem(
     BuildContext context, dynamic entry, FoodEntryProvider provider) {
-  // Calculate calories with proper unit conversion
+  // Calculate calories with proper serving size handling
+  double calories = 0;
+  String displayUnit = entry.unit; // Default to the stored unit
+
+  // First try to use the specific serving if available
+  if (entry.servingDescription != null && entry.food.servings.isNotEmpty) {
+    try {
+      final serving = entry.food.servings
+          .firstWhere((s) => s.description == entry.servingDescription);
+      // Update display unit to use the serving description
+      displayUnit =
+          serving.description.replaceAll(RegExp(r'^\d+\s*'), '').trim();
+
+      // For servings with metric measurements
+      if (serving.metricAmount > 0 && serving.metricUnit.toLowerCase() == 'g') {
+        double quantityInGrams = entry.quantity;
+        // Convert to grams if needed
+        switch (entry.unit.toLowerCase()) {
+          case "oz":
+            quantityInGrams *= 28.35;
+            break;
+          case "kg":
+            quantityInGrams *= 1000;
+            break;
+          case "lbs":
+            quantityInGrams *= 453.59;
+            break;
+        }
+        calories = serving.calories * (quantityInGrams / serving.metricAmount);
+      } else {
+        // For non-metric servings (like "1 burger"), use direct multiplication
+        calories = serving.calories * entry.quantity;
+      }
+    } catch (e) {
+      // If serving not found, fall back to per 100g calculation
+      calories = _calculateCaloriesPer100g(entry);
+    }
+  } else {
+    // If no serving info, fall back to per 100g calculation
+    calories = _calculateCaloriesPer100g(entry);
+  }
+
+  return Dismissible(
+      key: Key(entry.id),
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      direction: DismissDirection.endToStart,
+      onDismissed: (direction) {
+        provider.removeEntry(entry.id);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 36, // Reduced from 40
+              height: 36, // Reduced from 40
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade100
+                    : Colors.grey.shade800,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.restaurant,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade600
+                    : Colors.grey.shade400,
+                size: 18, // Reduced size
+              ),
+            ),
+            const SizedBox(width: 12), // Reduced from 16
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.food.name,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14, // Reduced from 16
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context)
+                          .extension<CustomColors>()
+                          ?.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    '${entry.quantity} $displayUnit',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11, // Reduced from 13
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.grey.shade600
+                          : Colors.grey.shade400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '${calories.toStringAsFixed(0)} kcal',
+              style: GoogleFonts.poppins(
+                fontSize: 13, // Reduced from 15
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                size: 20, // Reduced size
+              ),
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.red.shade400
+                  : Colors.red.shade300,
+              onPressed: () {
+                provider.removeEntry(entry.id);
+              },
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+      ));
+}
+
+// Helper method for calculating calories per 100g
+double _calculateCaloriesPer100g(dynamic entry) {
   double quantityInGrams = entry.quantity;
-  switch (entry.unit) {
+  switch (entry.unit.toLowerCase()) {
     case "oz":
       quantityInGrams *= 28.35;
       break;
@@ -1753,94 +1876,5 @@ Widget _buildFoodItem(
       quantityInGrams *= 453.59;
       break;
   }
-  final caloriesForQuantity = entry.food.calories * (quantityInGrams / 100);
-
-  return Dismissible(
-    key: Key(entry.id),
-    background: Container(
-      color: Colors.red,
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.only(right: 20),
-      child: const Icon(Icons.delete_outline, color: Colors.white),
-    ),
-    direction: DismissDirection.endToStart,
-    onDismissed: (direction) {
-      provider.removeEntry(entry.id);
-    },
-    child: Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 16, vertical: 10), // Reduced padding
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 36, // Reduced from 40
-            height: 36, // Reduced from 40
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.grey.shade100
-                  : Colors.grey.shade800,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.restaurant,
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.grey.shade600
-                  : Colors.grey.shade400,
-              size: 18, // Reduced size
-            ),
-          ),
-          const SizedBox(width: 12), // Reduced from 16
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.food.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14, // Reduced from 16
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context)
-                        .extension<CustomColors>()
-                        ?.textPrimary,
-                  ),
-                ),
-                Text(
-                  '${entry.quantity}${entry.unit}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11, // Reduced from 13
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade600
-                        : Colors.grey.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '${caloriesForQuantity.toStringAsFixed(0)} kcal',
-            style: GoogleFonts.poppins(
-              fontSize: 13, // Reduced from 15
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.delete_outline,
-              size: 20, // Reduced size
-            ),
-            color: Theme.of(context).brightness == Brightness.light
-                ? Colors.red.shade400
-                : Colors.red.shade300,
-            onPressed: () {
-              provider.removeEntry(entry.id);
-            },
-            padding: const EdgeInsets.all(8), // Smaller padding for icon button
-            constraints: const BoxConstraints(), // Remove constraints
-          ),
-        ],
-      ),
-    ),
-  );
+  return entry.food.calories * (quantityInGrams / 100);
 }
