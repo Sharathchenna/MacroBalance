@@ -266,7 +266,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-
   // --- Native Camera Handling (Adapted from Dashboard) ---
 
   void _setupNativeCameraHandler() {
@@ -286,7 +285,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
             if (type == 'barcode') {
               final String barcode = result['value'] as String;
-              print('[Flutter SearchPage] Post-frame: Handling barcode: $barcode');
+              print(
+                  '[Flutter SearchPage] Post-frame: Handling barcode: $barcode');
               _handleBarcodeResult(currentContext, barcode);
             } else if (type == 'photo') {
               final Uint8List photoData = result['value'] as Uint8List;
@@ -349,16 +349,20 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     _showLoadingDialog('Analyzing Image...');
     try {
       final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String tempPath =
+          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
       final File tempFile = File(tempPath);
       await tempFile.writeAsBytes(photoData);
       print('[Flutter SearchPage] Photo saved to temporary file: $tempPath');
       String jsonResponse = await processImageWithGemini(tempFile.path);
       print('[Flutter SearchPage] Gemini response received.');
-      jsonResponse = jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
+      jsonResponse =
+          jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
       dynamic decodedJson = json.decode(jsonResponse);
       List<dynamic> mealData;
-      if (decodedJson is Map<String, dynamic> && decodedJson.containsKey('meal') && decodedJson['meal'] is List) {
+      if (decodedJson is Map<String, dynamic> &&
+          decodedJson.containsKey('meal') &&
+          decodedJson['meal'] is List) {
         mealData = decodedJson['meal'] as List;
       } else if (decodedJson is List) {
         mealData = decodedJson;
@@ -367,11 +371,17 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       } else {
         throw Exception('Unexpected JSON structure from Gemini');
       }
-      final List<AIFoodItem> foods = mealData.map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>)).toList();
+      final List<AIFoodItem> foods = mealData
+          .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
+          .toList();
 
       if (mounted) {
-        try { if (Navigator.of(safeContext, rootNavigator: true).canPop()) Navigator.of(safeContext, rootNavigator: true).pop(); }
-        catch (e) { print("[Flutter SearchPage] Error dismissing loading dialog: $e"); }
+        try {
+          if (Navigator.of(safeContext, rootNavigator: true).canPop())
+            Navigator.of(safeContext, rootNavigator: true).pop();
+        } catch (e) {
+          print("[Flutter SearchPage] Error dismissing loading dialog: $e");
+        }
       }
       if (!mounted) return;
 
@@ -386,10 +396,16 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         );
       }
     } catch (e) {
-      print('[Flutter SearchPage] Error processing photo result: ${e.toString()}');
+      print(
+          '[Flutter SearchPage] Error processing photo result: ${e.toString()}');
       if (mounted) {
-        try { if (Navigator.of(safeContext, rootNavigator: true).canPop()) Navigator.of(safeContext, rootNavigator: true).pop(); }
-        catch (e) { print("[Flutter SearchPage] Error dismissing loading dialog in catch: $e"); }
+        try {
+          if (Navigator.of(safeContext, rootNavigator: true).canPop())
+            Navigator.of(safeContext, rootNavigator: true).pop();
+        } catch (e) {
+          print(
+              "[Flutter SearchPage] Error dismissing loading dialog in catch: $e");
+        }
         _showErrorSnackbar('Something went wrong, try again');
       }
     }
@@ -410,7 +426,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-   void _showLoadingDialog(String message) {
+  void _showLoadingDialog(String message) {
     if (!mounted) return;
     showDialog(
       context: context,
@@ -418,8 +434,11 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       barrierColor: Colors.black.withOpacity(0.3),
       builder: (BuildContext dialogContext) {
         return Dialog(
-          backgroundColor: Theme.of(context).brightness == Brightness.light ? Colors.white : Colors.grey[850],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          backgroundColor: Theme.of(context).brightness == Brightness.light
+              ? Colors.white
+              : Colors.grey[850],
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 24),
             child: Column(
@@ -428,13 +447,17 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               children: [
                 Lottie.asset(
                   'assets/animations/food_loading.json',
-                  width: 150, height: 150, fit: BoxFit.contain,
+                  width: 150,
+                  height: 150,
+                  fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 20),
                 Text(
                   message,
                   style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light ? Colors.black87 : Colors.white,
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.black87
+                          : Colors.white,
                       fontSize: 17),
                   textAlign: TextAlign.center,
                 ),
@@ -810,66 +833,117 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   Widget _buildEmptyState() {
     final customColors = Theme.of(context).extension<CustomColors>();
 
-    // Simplified empty state
+    // Enhanced premium empty state
     return SingleChildScrollView(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 40),
-            // Simple illustration
+            // Premium visual element - layered containers with gradient
             Container(
-              width: 160,
-              height: 160,
+              width: 180,
+              height: 180,
               decoration: BoxDecoration(
-                color: customColors!.cardBackground,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Theme.of(context).primaryColor.withOpacity(0.1),
+                    Theme.of(context).primaryColor.withOpacity(0.05),
+                  ],
+                ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 15,
+                    color: Theme.of(context).primaryColor.withOpacity(0.15),
+                    blurRadius: 30,
                     spreadRadius: 0,
                   ),
                 ],
               ),
-              child: Icon(
-                Icons.restaurant_menu_rounded,
-                size: 64,
-                color: customColors.textPrimary.withOpacity(0.5),
+              child: Center(
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                      colors: [
+                        Theme.of(context).primaryColor.withOpacity(0.2),
+                        Theme.of(context).primaryColor.withOpacity(0.1),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        blurRadius: 20,
+                        spreadRadius: 0,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 15,
+                            spreadRadius: 0,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.search_rounded,
+                          size: 40,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 32),
             Text(
-              'Find Foods',
+              'Discover Foods',
               style: AppTypography.h2.copyWith(
-                color: customColors.textPrimary,
+                color: customColors?.textPrimary,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             Text(
-              'Search for any food to see nutrition information and track your macros.',
+              'Search for any food to see detailed nutrition information and track your daily macros.',
               style: AppTypography.body1.copyWith(
-                color: customColors.textSecondary,
+                color: customColors?.textSecondary,
                 height: 1.5,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
-            // Quick search chips
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.center,
-              children: [
-                _buildQuickSearchChip('Chicken', Icons.egg_alt),
-                _buildQuickSearchChip('Rice', Icons.grain),
-                _buildQuickSearchChip('Broccoli', Icons.eco),
-                _buildQuickSearchChip('Apple', Icons.apple),
-              ],
-            ),
+            // const SizedBox(height: 32),
+            // Enhanced quick search chips
+            // Wrap(
+            //   spacing: 12,
+            //   runSpacing: 12,
+            //   alignment: WrapAlignment.center,
+            //   children: [
+            //     _buildQuickSearchChip('Chicken', Icons.egg_alt),
+            //     _buildQuickSearchChip('Rice', Icons.grain),
+            //     _buildQuickSearchChip('Broccoli', Icons.eco),
+            //     _buildQuickSearchChip('Apple', Icons.apple),
+            //   ],
+            // ),
           ],
         ),
       ),
@@ -884,28 +958,44 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           _searchController.text = text;
           _searchFood(text);
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
-            color: _categoryColor(text).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 14,
-                color: _categoryColor(text),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: _categoryColor(text).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: _categoryColor(text),
+                ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
               Text(
                 text,
                 style: TextStyle(
-                  color: _categoryColor(text),
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.black87
+                      : Colors.white70,
                   fontWeight: FontWeight.w500,
-                  fontSize: 13,
+                  fontSize: 14,
                 ),
               ),
             ],
@@ -1357,24 +1447,40 @@ class Serving {
   factory Serving.fromJson(Map<String, dynamic> json) {
     // Extract all nutrients
     Map<String, double> nutrients = {
-      'Protein': double.tryParse(json['protein']?.toString() ?? '0') ?? 0.0, // Added .toString() for safety
-      'Total lipid (fat)': double.tryParse(json['fat']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      'Protein': double.tryParse(json['protein']?.toString() ?? '0') ??
+          0.0, // Added .toString() for safety
+      'Total lipid (fat)': double.tryParse(json['fat']?.toString() ?? '0') ??
+          0.0, // Added .toString()
       'Carbohydrate, by difference':
-          double.tryParse(json['carbohydrate']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Saturated fat': double.tryParse(json['saturated_fat']?.toString() ?? '0') ?? 0.0, // Added .toString()
+          double.tryParse(json['carbohydrate']?.toString() ?? '0') ??
+              0.0, // Added .toString()
+      'Saturated fat':
+          double.tryParse(json['saturated_fat']?.toString() ?? '0') ??
+              0.0, // Added .toString()
       'Polyunsaturated fat':
-          double.tryParse(json['polyunsaturated_fat']?.toString() ?? '0') ?? 0.0, // Added .toString()
+          double.tryParse(json['polyunsaturated_fat']?.toString() ?? '0') ??
+              0.0, // Added .toString()
       'Monounsaturated fat':
-          double.tryParse(json['monounsaturated_fat']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Cholesterol': double.tryParse(json['cholesterol']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Sodium': double.tryParse(json['sodium']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Potassium': double.tryParse(json['potassium']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Fiber': double.tryParse(json['fiber']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Sugar': double.tryParse(json['sugar']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Vitamin A': double.tryParse(json['vitamin_a']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Vitamin C': double.tryParse(json['vitamin_c']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Calcium': double.tryParse(json['calcium']?.toString() ?? '0') ?? 0.0, // Added .toString()
-      'Iron': double.tryParse(json['iron']?.toString() ?? '0') ?? 0.0, // Added .toString()
+          double.tryParse(json['monounsaturated_fat']?.toString() ?? '0') ??
+              0.0, // Added .toString()
+      'Cholesterol': double.tryParse(json['cholesterol']?.toString() ?? '0') ??
+          0.0, // Added .toString()
+      'Sodium': double.tryParse(json['sodium']?.toString() ?? '0') ??
+          0.0, // Added .toString()
+      'Potassium': double.tryParse(json['potassium']?.toString() ?? '0') ??
+          0.0, // Added .toString()
+      'Fiber': double.tryParse(json['fiber']?.toString() ?? '0') ??
+          0.0, // Added .toString()
+      'Sugar': double.tryParse(json['sugar']?.toString() ?? '0') ??
+          0.0, // Added .toString()
+      'Vitamin A': double.tryParse(json['vitamin_a']?.toString() ?? '0') ??
+          0.0, // Added .toString()
+      'Vitamin C': double.tryParse(json['vitamin_c']?.toString() ?? '0') ??
+          0.0, // Added .toString()
+      'Calcium': double.tryParse(json['calcium']?.toString() ?? '0') ??
+          0.0, // Added .toString()
+      'Iron': double.tryParse(json['iron']?.toString() ?? '0') ??
+          0.0, // Added .toString()
     };
 
     // --- Logic to handle different serving amount/unit fields ---
@@ -1382,8 +1488,10 @@ class Serving {
     String metricUnit = 'unit'; // Default to 'unit' if no weight is found
 
     if (json['metric_serving_amount'] != null) {
-      metricAmount = double.tryParse(json['metric_serving_amount'].toString()) ?? 0.0;
-      metricUnit = json['metric_serving_unit']?.toString() ?? 'g'; // Default to 'g' if amount exists but unit doesn't
+      metricAmount =
+          double.tryParse(json['metric_serving_amount'].toString()) ?? 0.0;
+      metricUnit = json['metric_serving_unit']?.toString() ??
+          'g'; // Default to 'g' if amount exists but unit doesn't
     } else if (json['number_of_units'] != null) {
       metricAmount = double.tryParse(json['number_of_units'].toString()) ?? 0.0;
       // Use measurement_description if available, otherwise keep 'unit'
@@ -1391,12 +1499,12 @@ class Serving {
     }
     // --- End Logic ---
 
-
     return Serving(
       description: json['serving_description'] ?? 'Default serving',
       metricAmount: metricAmount, // Use calculated amount
       metricUnit: metricUnit, // Use calculated unit
-      calories: double.tryParse(json['calories']?.toString() ?? '0') ?? 0.0, // Added .toString()
+      calories: double.tryParse(json['calories']?.toString() ?? '0') ??
+          0.0, // Added .toString()
       nutrients: nutrients,
     );
   }
