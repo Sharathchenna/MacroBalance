@@ -170,7 +170,12 @@ class _SearchHeaderState extends State<SearchHeader> {
                             color: customColors.textPrimary.withOpacity(0.7)),
                         onPressed: () {
                           widget.controller.clear();
+                          // Use the search function with empty string to clear results
+                          widget.onSearch('');
+                          // Also trigger the onChanged to update suggestions
                           widget.onChanged('');
+                          // Clear focus
+                          _focusNode.unfocus();
                         },
                       )
                     : null,
