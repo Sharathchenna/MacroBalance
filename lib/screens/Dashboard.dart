@@ -45,6 +45,22 @@ class _DashboardState extends State<Dashboard> {
   void initState() {
     super.initState();
     _setupNativeCameraHandler(); // Set up the handler when the dashboard initializes
+
+    // Force refresh of the FoodEntryProvider to ensure we have the latest data from Hive
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final foodEntryProvider =
+            Provider.of<FoodEntryProvider>(context, listen: false);
+        foodEntryProvider.forceSyncAndDiagnose().then((_) {
+          print(
+              'Dashboard: FoodEntryProvider refreshed, calories_goal=${foodEntryProvider.caloriesGoal}');
+          // Force a rebuild after the refresh
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      }
+    });
   }
 
   // --- Native Camera Handling (Moved from CameraScreen) ---
@@ -720,59 +736,59 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 
   Future<void> _initializeHealthData() async {
-    await _checkAndRequestPermissions();
+    // await _checkAndRequestPermissions();
     // Initial fetch if permissions are granted
     if (_hasHealthPermissions) {
       await _fetchHealthData();
     }
   }
 
-  Future<void> _checkAndRequestPermissions() async {
-    // Don't check if already checked and granted
-    if (_hasHealthPermissions) return;
+  // Future<void> _checkAndRequestPermissions() async {
+  //   // Don't check if already checked and granted
+  //   if (_hasHealthPermissions) return;
 
-    try {
-      final granted = await _healthService.requestPermissions();
-      if (!mounted) return;
-      setState(() {
-        _hasHealthPermissions = granted;
-      });
+  //   try {
+  //     final granted = await _healthService.requestPermissions();
+  //     if (!mounted) return;
+  //     setState(() {
+  //       _hasHealthPermissions = granted;
+  //     });
 
-      if (!_hasHealthPermissions) {
-        _showPermissionDialog();
-      }
-    } catch (e) {
-      print('Error checking permissions: $e');
-      if (mounted) {
-        // Optionally show an error message to the user
-      }
-    }
-  }
+  //     if (!_hasHealthPermissions) {
+  //       _showPermissionDialog();
+  //     }
+  //   } catch (e) {
+  //     print('Error checking permissions: $e');
+  //     if (mounted) {
+  //       // Optionally show an error message to the user
+  //     }
+  //   }
+  // }
 
-  void _showPermissionDialog() {
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Health Data Access Required'),
-        content: const Text(
-            'This app needs access to your health data to track calories and steps.'),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('Cancel'),
-            onPressed: () => Navigator.pop(context),
-          ),
-          CupertinoDialogAction(
-            child: const Text('Open Settings'),
-            onPressed: () {
-              Navigator.pop(context);
-              // Open app settings using permission_handler
-              openAppSettings(); // Call the imported function
-            },
-          ),
-        ],
-      ),
-    );
-  }
+  // void _showPermissionDialog() {
+  //   showCupertinoDialog(
+  //     context: context,
+  //     builder: (context) => CupertinoAlertDialog(
+  //       title: const Text('Health Data Access Required'),
+  //       content: const Text(
+  //           'This app needs access to your health data to track calories and steps.'),
+  //       actions: [
+  //         CupertinoDialogAction(
+  //           child: const Text('Cancel'),
+  //           onPressed: () => Navigator.pop(context),
+  //         ),
+  //         CupertinoDialogAction(
+  //           child: const Text('Open Settings'),
+  //           onPressed: () {
+  //             Navigator.pop(context);
+  //             // Open app settings using permission_handler
+  //             openAppSettings(); // Call the imported function
+  //           },
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Future<void> _fetchHealthData() async {
     if (!_hasHealthPermissions || _isLoadingHealthData) return;

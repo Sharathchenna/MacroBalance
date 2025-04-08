@@ -289,6 +289,42 @@ class FoodEntryProvider with ChangeNotifier {
 
   Future<void> loadNutritionGoals() async {
     try {
+      // First check for individual keys (these are saved by auth flow)
+      final caloriesGoalFromHive = StorageService().get('calories_goal');
+      final proteinGoalFromHive = StorageService().get('protein_goal');
+      final carbsGoalFromHive = StorageService().get('carbs_goal');
+      final fatGoalFromHive = StorageService().get('fat_goal');
+
+      debugPrint("loadNutritionGoals: Checking individual keys first");
+      debugPrint(
+          "Individual keys from Hive: calories_goal=$caloriesGoalFromHive, protein_goal=$proteinGoalFromHive, carbs_goal=$carbsGoalFromHive, fat_goal=$fatGoalFromHive");
+
+      // Update provider state if values are found in Hive
+      bool updatedFromHive = false;
+      if (caloriesGoalFromHive != null) {
+        _caloriesGoal = (caloriesGoalFromHive as num).toDouble();
+        updatedFromHive = true;
+      }
+      if (proteinGoalFromHive != null) {
+        _proteinGoal = (proteinGoalFromHive as num).toDouble();
+        updatedFromHive = true;
+      }
+      if (carbsGoalFromHive != null) {
+        _carbsGoal = (carbsGoalFromHive as num).toDouble();
+        updatedFromHive = true;
+      }
+      if (fatGoalFromHive != null) {
+        _fatGoal = (fatGoalFromHive as num).toDouble();
+        updatedFromHive = true;
+      }
+
+      if (updatedFromHive) {
+        debugPrint("loadNutritionGoals: Updated from individual Hive keys");
+        notifyListeners();
+        return;
+      }
+
+      // Fall back to nutrition_goals JSON if individual keys not found
       final String? nutritionGoalsString =
           StorageService().get('nutrition_goals');
       if (nutritionGoalsString != null && nutritionGoalsString.isNotEmpty) {
@@ -316,7 +352,7 @@ class FoodEntryProvider with ChangeNotifier {
                 _currentWeightKg;
 
         debugPrint(
-            'Loaded nutrition goals from storage: calories=${_caloriesGoal}, protein=${_proteinGoal}, carbs=${_carbsGoal}, fat=${_fatGoal}');
+            'Loaded nutrition goals from nutrition_goals JSON: calories=${_caloriesGoal}, protein=${_proteinGoal}, carbs=${_carbsGoal}, fat=${_fatGoal}');
       } else {
         debugPrint('No nutrition goals found in storage');
       }
@@ -417,9 +453,11 @@ class FoodEntryProvider with ChangeNotifier {
     if (entry.servingDescription != null && entry.food.servings.isNotEmpty) {
       try {
         // Find the serving that matches the description stored in the entry
-        serving = entry.food.servings.firstWhere((s) => s.description == entry.servingDescription);
+        serving = entry.food.servings
+            .firstWhere((s) => s.description == entry.servingDescription);
       } catch (e) {
-        print("Warning: Serving description '${entry.servingDescription}' not found for ${entry.food.name}. Falling back.");
+        print(
+            "Warning: Serving description '${entry.servingDescription}' not found for ${entry.food.name}. Falling back.");
         serving = null; // Ensure serving is null if not found
       }
     }
@@ -431,7 +469,8 @@ class FoodEntryProvider with ChangeNotifier {
       // --- Calculation based on the specific serving ---
       double baseAmount = serving.metricAmount;
       if (baseAmount <= 0) {
-        print("Warning: Serving base amount is invalid (${baseAmount}) for ${serving.description}, defaulting to 1.");
+        print(
+            "Warning: Serving base amount is invalid (${baseAmount}) for ${serving.description}, defaulting to 1.");
         baseAmount = 1.0; // Prevent division by zero
       }
 
@@ -445,15 +484,16 @@ class FoodEntryProvider with ChangeNotifier {
         if (entry.unit.toLowerCase() == 'oz') {
           quantityGrams *= 28.35;
         } else if (entry.unit.toLowerCase() == 'lbs') {
-           quantityGrams *= 453.59;
+          quantityGrams *= 453.59;
         } else if (entry.unit.toLowerCase() == 'kg') {
-           quantityGrams *= 1000;
+          quantityGrams *= 1000;
         }
         // else assume entry.unit is 'g' or compatible
         multiplier = quantityGrams / baseAmount;
       } else {
         // If the serving is unit-based (e.g., "1 burger"), use the entry's quantity directly
-        multiplier = entry.quantity / baseAmount; // Assumes baseAmount is 1 for "1 unit" servings
+        multiplier = entry.quantity /
+            baseAmount; // Assumes baseAmount is 1 for "1 unit" servings
       }
 
       // Get the nutrient value from the *serving's* data
@@ -462,7 +502,6 @@ class FoodEntryProvider with ChangeNotifier {
       } else {
         baseValue = serving.nutrients[nutrientKey] ?? 0.0;
       }
-
     } else {
       // --- Fallback: Calculation based on food's default (usually 100g) values ---
       // This happens if no servingDescription was saved or if it didn't match any serving
@@ -470,23 +509,25 @@ class FoodEntryProvider with ChangeNotifier {
 
       // Convert entry quantity to grams based on entry.unit
       double quantityGrams = entry.quantity;
-       if (entry.unit.toLowerCase() == 'oz') {
-          quantityGrams *= 28.35;
-       } else if (entry.unit.toLowerCase() == 'lbs') {
-           quantityGrams *= 453.59;
-       } else if (entry.unit.toLowerCase() == 'kg') {
-           quantityGrams *= 1000;
-       } else if (entry.unit.toLowerCase() != 'g') {
-         // If the unit isn't a known weight unit, we cannot reliably convert to grams.
-         // Log a warning and potentially return 0 for this entry's contribution.
-         print("Warning: Cannot reliably calculate nutrient for ${entry.food.name} with unit '${entry.unit}' in fallback mode.");
-         return 0.0; // Return 0 for this entry if unit conversion is impossible in fallback
-       }
-       // If unit is 'g', quantityInGrams remains entry.quantity
+      if (entry.unit.toLowerCase() == 'oz') {
+        quantityGrams *= 28.35;
+      } else if (entry.unit.toLowerCase() == 'lbs') {
+        quantityGrams *= 453.59;
+      } else if (entry.unit.toLowerCase() == 'kg') {
+        quantityGrams *= 1000;
+      } else if (entry.unit.toLowerCase() != 'g') {
+        // If the unit isn't a known weight unit, we cannot reliably convert to grams.
+        // Log a warning and potentially return 0 for this entry's contribution.
+        print(
+            "Warning: Cannot reliably calculate nutrient for ${entry.food.name} with unit '${entry.unit}' in fallback mode.");
+        return 0.0; // Return 0 for this entry if unit conversion is impossible in fallback
+      }
+      // If unit is 'g', quantityInGrams remains entry.quantity
 
       double foodServingSize = entry.food.servingSize; // This is typically 100g
       if (foodServingSize <= 0) {
-        print("Warning: Food default serving size is invalid (${foodServingSize}) for ${entry.food.name}, defaulting to 100g.");
+        print(
+            "Warning: Food default serving size is invalid (${foodServingSize}) for ${entry.food.name}, defaulting to 100g.");
         foodServingSize = 100.0;
       }
       multiplier = quantityGrams / foodServingSize;
@@ -508,25 +549,33 @@ class FoodEntryProvider with ChangeNotifier {
     return calculatedValue;
   }
 
-
   double getTotalCaloriesForDate(DateTime date) {
     final entriesForDate = getAllEntriesForDate(date);
-    return entriesForDate.fold(0.0, (sum, entry) => sum + _calculateNutrientForEntry(entry, 'calories'));
+    return entriesForDate.fold(0.0,
+        (sum, entry) => sum + _calculateNutrientForEntry(entry, 'calories'));
   }
 
   double getTotalProteinForDate(DateTime date) {
     final entriesForDate = getAllEntriesForDate(date);
-    return entriesForDate.fold(0.0, (sum, entry) => sum + _calculateNutrientForEntry(entry, 'Protein'));
+    return entriesForDate.fold(0.0,
+        (sum, entry) => sum + _calculateNutrientForEntry(entry, 'Protein'));
   }
 
-   double getTotalCarbsForDate(DateTime date) {
-     final entriesForDate = getAllEntriesForDate(date);
-    return entriesForDate.fold(0.0, (sum, entry) => sum + _calculateNutrientForEntry(entry, 'Carbohydrate, by difference'));
+  double getTotalCarbsForDate(DateTime date) {
+    final entriesForDate = getAllEntriesForDate(date);
+    return entriesForDate.fold(
+        0.0,
+        (sum, entry) =>
+            sum +
+            _calculateNutrientForEntry(entry, 'Carbohydrate, by difference'));
   }
 
-   double getTotalFatForDate(DateTime date) {
-     final entriesForDate = getAllEntriesForDate(date);
-    return entriesForDate.fold(0.0, (sum, entry) => sum + _calculateNutrientForEntry(entry, 'Total lipid (fat)'));
+  double getTotalFatForDate(DateTime date) {
+    final entriesForDate = getAllEntriesForDate(date);
+    return entriesForDate.fold(
+        0.0,
+        (sum, entry) =>
+            sum + _calculateNutrientForEntry(entry, 'Total lipid (fat)'));
   }
 
   List<FoodEntry> getAllEntriesForDate(DateTime date) {
@@ -585,10 +634,55 @@ class FoodEntryProvider with ChangeNotifier {
       'warnings': <String>[],
       'success': false
     };
-    // ... (rest of existing implementation) ...
-    try {/* ... */} catch (e) {
+
+    try {
+      // First check for individual keys (these are saved by auth flow)
+      final caloriesGoalFromHive = StorageService().get('calories_goal');
+      final proteinGoalFromHive = StorageService().get('protein_goal');
+      final carbsGoalFromHive = StorageService().get('carbs_goal');
+      final fatGoalFromHive = StorageService().get('fat_goal');
+
+      debugPrint(
+          "FoodEntryProvider Values from Hive: calories_goal=$caloriesGoalFromHive, protein_goal=$proteinGoalFromHive, carbs_goal=$carbsGoalFromHive, fat_goal=$fatGoalFromHive");
+
+      // Update provider state if values are found in Hive
+      bool updatedFromHive = false;
+      if (caloriesGoalFromHive != null) {
+        _caloriesGoal = (caloriesGoalFromHive as num).toDouble();
+        updatedFromHive = true;
+      }
+      if (proteinGoalFromHive != null) {
+        _proteinGoal = (proteinGoalFromHive as num).toDouble();
+        updatedFromHive = true;
+      }
+      if (carbsGoalFromHive != null) {
+        _carbsGoal = (carbsGoalFromHive as num).toDouble();
+        updatedFromHive = true;
+      }
+      if (fatGoalFromHive != null) {
+        _fatGoal = (fatGoalFromHive as num).toDouble();
+        updatedFromHive = true;
+      }
+
+      if (updatedFromHive) {
+        debugPrint(
+            "FoodEntryProvider: Updated values from individual Hive keys");
+        debugPrint(
+            "FoodEntryProvider updated values: calories=${_caloriesGoal}, protein=${_proteinGoal}, carbs=${_carbsGoal}, fat=${_fatGoal}");
+        notifyListeners();
+        diagnosticInfo['updatedFromIndividualKeys'] = true;
+      } else {
+        // If individual keys don't exist, fall back to nutrition_goals
+        await loadNutritionGoals();
+        diagnosticInfo['loadedFromNutritionGoals'] = true;
+      }
+
+      diagnosticInfo['success'] = true;
+    } catch (e) {
       diagnosticInfo['errors'].add('General error: ${e.toString()}');
+      debugPrint("FoodEntryProvider forceSyncAndDiagnose error: $e");
     }
+
     return diagnosticInfo;
   }
 

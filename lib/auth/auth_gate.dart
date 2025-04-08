@@ -33,9 +33,6 @@ class _AuthGateState extends State<AuthGate> {
 
   // Modify _checkUserData to return Future<bool> and remove setState
   Future<bool> _checkUserData() async {
-    // Use StorageService (synchronous after init)
-    String? macroResults = StorageService().get('macro_results');
-
     // If the user is authenticated, check Supabase for their data
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser != null) {
@@ -49,79 +46,24 @@ class _AuthGateState extends State<AuthGate> {
             .limit(1) // Limit to one row
             .maybeSingle();
 
-        // If data exists in Supabase but not locally, save it locally
         if (response != null) {
-          if (macroResults == null || macroResults.isEmpty) {
-            // If the response has macro_results field as a JSON object or string
-            if (response['macro_results'] != null) {
-              // Make sure we have a proper JSON string
-              if (response['macro_results'] is Map) {
-                macroResults = jsonEncode(response['macro_results']);
-              } else {
-                macroResults = response['macro_results'].toString();
-              }
-
-              // Try to ensure it's valid JSON before saving
-              try {
-                jsonDecode(macroResults);
-                StorageService().put('macro_results', macroResults); // Use StorageService
-              } catch (e) {
-                print('Error parsing macro results JSON: $e');
-                // Try to fix the format if it's not valid JSON
-                macroResults = _fixJsonFormat(macroResults);
-                StorageService().put('macro_results', macroResults); // Use StorageService
-              }
-            }
-          }
-
-          // Also sync nutrition goals using StorageService
-          if (response['calories_goal'] != null) {
-            StorageService().put(
-                'calories_goal', response['calories_goal'].toDouble());
-          }
-          if (response['protein_goal'] != null) {
-            StorageService().put(
-                'protein_goal', response['protein_goal'].toDouble());
-          }
-          if (response['carbs_goal'] != null) {
-            StorageService().put(
-                'carbs_goal', response['carbs_goal'].toDouble());
-          }
-          if (response['fat_goal'] != null) {
-            StorageService().put('fat_goal', response['fat_goal'].toDouble());
-          }
-        }
-        // If data exists locally but not in Supabase, upload it to Supabase
-        else if (macroResults != null && macroResults.isNotEmpty) {
-          await _syncMacroResultsToSupabase(macroResults, currentUser);
-        }
-
-        // Fetch food entries data if available - use .limit(1) here as well
-        final foodEntriesResponse = await Supabase.instance.client
-            .from('user_food_entries')
-            .select('entries_json')
-            .eq('user_id', currentUser.id)
-            .order('updated_at', ascending: false)
-            .limit(1)
-            .maybeSingle();
-
-        if (foodEntriesResponse != null &&
-            foodEntriesResponse['entries_json'] != null) {
-          // Save food entries locally using StorageService
-          StorageService().put(
-              'food_entries', foodEntriesResponse['entries_json']);
+          // If we have data in Supabase, ensure it's synced to Hive
+          await StorageService().put('macro_results', jsonEncode(response));
+          await StorageService()
+              .put('calories_goal', response['calories_goal']);
+          await StorageService().put('protein_goal', response['protein_goal']);
+          await StorageService().put('carbs_goal', response['carbs_goal']);
+          await StorageService().put('fat_goal', response['fat_goal']);
+          return true;
         }
       } catch (e) {
-        print('Error checking Supabase for user data: $e');
-        // If error but we have local data, try to upload it
-        if (macroResults != null && macroResults.isNotEmpty) {
-          await _syncMacroResultsToSupabase(macroResults, currentUser);
-        }
+        debugPrint('Error checking Supabase data: $e');
       }
     }
 
-    // Return true if data exists, false otherwise
-    return macroResults != null && macroResults.isNotEmpty;
+    // If no Supabase data, check Hive as fallback
+    String? macroResults = StorageService().get('macro_results');
+    return macroResults != null;
   }
 
   // Helper method to fix incorrectly formatted JSON
@@ -171,8 +113,10 @@ class _AuthGateState extends State<AuthGate> {
       }
 
       // Get goals from StorageService
-      final caloriesGoal = StorageService().get('calories_goal', defaultValue: 2000.0);
-      final proteinGoal = StorageService().get('protein_goal', defaultValue: 150.0);
+      final caloriesGoal =
+          StorageService().get('calories_goal', defaultValue: 2000.0);
+      final proteinGoal =
+          StorageService().get('protein_goal', defaultValue: 150.0);
       final carbsGoal = StorageService().get('carbs_goal', defaultValue: 225.0);
       final fatGoal = StorageService().get('fat_goal', defaultValue: 65.0);
 
@@ -264,7 +208,7 @@ class _AuthGateState extends State<AuthGate> {
 
             final session = authSnapshot.data?.session;
             if (session == null) {
-          return const Welcomescreen();
+              return const Welcomescreen();
               return const Welcomescreen();
             }
 
@@ -272,7 +216,8 @@ class _AuthGateState extends State<AuthGate> {
             if (authSnapshot.hasData &&
                 authSnapshot.data!.event == AuthChangeEvent.signedIn) {
               // Schedule the sync for after the build is complete
-              WidgetsBinding.instance.addPostFrameCallback((_) async { // Make callback async
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                // Make callback async
                 // Sync preferences from Supabase first
                 // await StorageService().syncFromServer(); // Commented out - handled by FoodEntryProvider sync
                 // Then sync other data like food entries

@@ -13,12 +13,34 @@ class HealthService {
     HealthDataType.BASAL_ENERGY_BURNED,
     HealthDataType.HEIGHT,
     HealthDataType.WEIGHT,
+    // Nutrition types
+    HealthDataType.DIETARY_ENERGY_CONSUMED,
+    HealthDataType.DIETARY_CARBS_CONSUMED,
+    HealthDataType.DIETARY_FATS_CONSUMED,
+    HealthDataType.DIETARY_PROTEIN_CONSUMED,
   ];
+
+  // Specify write permissions for nutrition data types
+  static final _permissions = _healthTypes.map((type) {
+    // Check if the type is one of the nutrition types that need write access.
+    if ([
+      HealthDataType.DIETARY_ENERGY_CONSUMED,
+      HealthDataType.DIETARY_CARBS_CONSUMED,
+      HealthDataType.DIETARY_FATS_CONSUMED,
+      HealthDataType.DIETARY_PROTEIN_CONSUMED
+    ].contains(type)) {
+      return HealthDataAccess.READ_WRITE;
+    } else {
+      return HealthDataAccess.READ; // Default to READ for others
+    }
+  }).toList();
 
   // New method to request permissions
   Future<bool> requestPermissions() async {
     try {
-      final granted = await health.requestAuthorization(_healthTypes);
+      // Use _permissions which includes write access for nutrition
+      final granted = await health.requestAuthorization(_healthTypes,
+          permissions: _permissions);
       return granted;
     } catch (e) {
       print('Error requesting health permissions: $e');
@@ -371,7 +393,8 @@ class HealthService {
           await health.hasPermissions([HealthDataType.WEIGHT]);
 
       if (hasPermissions == null || !hasPermissions) {
-        final granted = await requestPermissions(); // Ensure permissions are requested if needed
+        final granted =
+            await requestPermissions(); // Ensure permissions are requested if needed
         if (!granted) {
           throw Exception('Health data access not authorized for Weight');
         }
@@ -386,45 +409,47 @@ class HealthService {
       // Remove duplicates, keeping the latest entry for each day
       final Map<DateTime, HealthDataPoint> latestDataPerDay = {};
       for (var dataPoint in healthData) {
-        final day = DateTime(dataPoint.dateFrom.year, dataPoint.dateFrom.month, dataPoint.dateFrom.day);
-        if (!latestDataPerDay.containsKey(day) || dataPoint.dateFrom.isAfter(latestDataPerDay[day]!.dateFrom)) {
-           latestDataPerDay[day] = dataPoint;
+        final day = DateTime(dataPoint.dateFrom.year, dataPoint.dateFrom.month,
+            dataPoint.dateFrom.day);
+        if (!latestDataPerDay.containsKey(day) ||
+            dataPoint.dateFrom.isAfter(latestDataPerDay[day]!.dateFrom)) {
+          latestDataPerDay[day] = dataPoint;
         }
       }
 
       // Convert to the desired map format
       for (var dataPoint in latestDataPerDay.values) {
-         if (dataPoint.value is NumericHealthValue) {
-           weightEntries.add({
-             'date': dataPoint.dateFrom, // Use the actual timestamp
-             'weight': (dataPoint.value as NumericHealthValue).numericValue.toDouble(),
-           });
-         }
-         // Add handling for other potential value types if necessary (e.g., double, int)
-         else if (dataPoint.value is double) {
-            weightEntries.add({
-             'date': dataPoint.dateFrom,
-             'weight': dataPoint.value as double,
-           });
-         } else if (dataPoint.value is int) {
-            weightEntries.add({
-             'date': dataPoint.dateFrom,
-             'weight': (dataPoint.value as int).toDouble(),
-           });
-         }
+        if (dataPoint.value is NumericHealthValue) {
+          weightEntries.add({
+            'date': dataPoint.dateFrom, // Use the actual timestamp
+            'weight':
+                (dataPoint.value as NumericHealthValue).numericValue.toDouble(),
+          });
+        }
+        // Add handling for other potential value types if necessary (e.g., double, int)
+        else if (dataPoint.value is double) {
+          weightEntries.add({
+            'date': dataPoint.dateFrom,
+            'weight': dataPoint.value as double,
+          });
+        } else if (dataPoint.value is int) {
+          weightEntries.add({
+            'date': dataPoint.dateFrom,
+            'weight': (dataPoint.value as int).toDouble(),
+          });
+        }
       }
 
       // Sort entries by date
-      weightEntries.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
+      weightEntries.sort(
+          (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
 
       return weightEntries;
-
     } catch (error) {
       print('Error fetching weight data for date range: $error');
       return []; // Return empty list on error
     }
   }
-
 
   // Method to get steps for the last year (12 months)
   Future<List<Map<String, dynamic>>> getStepsForLastYear() async {
@@ -481,6 +506,102 @@ class HealthService {
     } catch (error) {
       print('Error fetching steps for the year: $error');
       return [];
+    }
+  }
+
+  // Method to write nutrition data to Apple Health
+  Future<bool> writeNutritionData({
+    required double calories, // in kcal
+    required double carbs, // in grams
+    required double fat, // in grams
+    required double protein, // in grams
+    required DateTime startTime,
+    required DateTime endTime,
+  }) async {
+    try {
+      // Define the types we want to write
+      final typesToWrite = [
+        HealthDataType.DIETARY_ENERGY_CONSUMED,
+        HealthDataType.DIETARY_CARBS_CONSUMED, // Corrected
+        HealthDataType.DIETARY_FATS_CONSUMED, // Corrected
+        HealthDataType.DIETARY_PROTEIN_CONSUMED, // Corrected
+      ];
+
+      // Define the specific permissions needed for writing these types
+      final writePermissions =
+          typesToWrite.map((_) => HealthDataAccess.READ_WRITE).toList();
+
+      // Check if we have write permissions for these specific types
+      final hasPermissions = await health.hasPermissions(typesToWrite,
+          permissions: writePermissions);
+
+      // Request permissions if not granted
+      if (hasPermissions == null || !hasPermissions) {
+        // Request permissions specifically for the types we need to write to
+        final granted = await health.requestAuthorization(typesToWrite,
+            permissions: writePermissions);
+        if (!granted) {
+          print('Write permissions not granted for nutrition data.');
+          return false;
+        }
+      }
+
+      // Write the data points directly using health.writeHealthData
+      bool success = true;
+
+      // Write Calories
+      if (!await health.writeHealthData(
+          value: calories,
+          type: HealthDataType.DIETARY_ENERGY_CONSUMED,
+          startTime: startTime,
+          endTime: endTime,
+          unit: HealthDataUnit.KILOCALORIE)) {
+        print('Failed to write DIETARY_ENERGY_CONSUMED');
+        success = false;
+      }
+
+      // Write Carbs
+      if (!await health.writeHealthData(
+          value: carbs,
+          type: HealthDataType.DIETARY_CARBS_CONSUMED, // Corrected
+          startTime: startTime,
+          endTime: endTime,
+          unit: HealthDataUnit.GRAM)) {
+        print('Failed to write DIETARY_CARBS_CONSUMED');
+        success = false;
+      }
+
+      // Write Fat
+      if (!await health.writeHealthData(
+          value: fat,
+          type: HealthDataType.DIETARY_FATS_CONSUMED, // Corrected
+          startTime: startTime,
+          endTime: endTime,
+          unit: HealthDataUnit.GRAM)) {
+        print('Failed to write DIETARY_FATS_CONSUMED');
+        success = false;
+      }
+
+      // Write Protein
+      if (!await health.writeHealthData(
+          value: protein,
+          type: HealthDataType.DIETARY_PROTEIN_CONSUMED, // Corrected
+          startTime: startTime,
+          endTime: endTime,
+          unit: HealthDataUnit.GRAM)) {
+        print('Failed to write DIETARY_PROTEIN_CONSUMED');
+        success = false;
+      }
+
+      if (success) {
+        print('Nutrition data written successfully.');
+      } else {
+        print('Some nutrition data failed to write.');
+      }
+      return success;
+    } catch (error) {
+      print('Error writing nutrition data: $error');
+      return false;
     }
   }
 }
