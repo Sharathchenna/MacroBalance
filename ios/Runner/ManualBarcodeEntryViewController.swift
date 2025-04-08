@@ -18,7 +18,7 @@ class ManualBarcodeEntryViewController: UIViewController, UITextFieldDelegate {
     private let barcodeIconView = UIImageView() // Added for visual enhancement
     
     // Premium UI Colors
-    private let accentColor = UIColor(red: 0.28, green: 0.72, blue: 0.82, alpha: 1.0) // Sky blue accent
+    private let accentColor = UIColor(red: 0.93, green: 0.79, blue: 0.33, alpha: 1.0) // rich gold color
     private let darkOverlayColor = UIColor.black.withAlphaComponent(0.4) // Translucent overlay
 
     override func viewDidLoad() {

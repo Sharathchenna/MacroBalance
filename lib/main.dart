@@ -532,7 +532,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         themeMode: themeProvider.useSystemTheme
             ? ThemeMode.system
             : themeProvider.isDarkMode
-                ? ThemeMode.dark
+                ? ThemeMode.dark    
                 : ThemeMode.light,
         initialRoute: Routes.initial,
         navigatorObservers: [MyRouteObserver()],
