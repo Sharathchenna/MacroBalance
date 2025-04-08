@@ -184,8 +184,8 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
         ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
         // Pass FoodEntryProvider instance to ExpenditureProvider
-        ChangeNotifierProvider(
-            create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
+        // ChangeNotifierProvider(
+        //     create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
         ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
       ],
       child: const MyApp(),
@@ -482,8 +482,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Removed provider linking logic
     // Trigger initial expenditure calculation after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ExpenditureProvider>(context, listen: false)
-          .updateExpenditure();
+      // Provider.of<ExpenditureProvider>(context, listen: false)
+      //     .updateExpenditure();
     });
   }
 
@@ -554,8 +554,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               const PaywallGate(child: WeightTrackingScreen()),
           Routes.macroTracking: (context) =>
               const PaywallGate(child: MacroTrackingScreen()),
-          Routes.expenditure: (context) => const PaywallGate(
-              child: ExpenditureScreen()), // Added expenditure route mapping
+          // Routes.expenditure: (context) => const PaywallGate(
+          //     child: ExpenditureScreen()), // Added expenditure route mapping
         },
         onGenerateRoute: (settings) {
           // Handle any dynamic routes or routes with parameters here

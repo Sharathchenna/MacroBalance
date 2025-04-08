@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
-import 'package:macrotracker/screens/expenditure_screen.dart'; // Added ExpenditureScreen
 import '../theme/app_theme.dart';
 import 'WeightTrackingScreen.dart';
 import 'MacroTrackingScreen.dart';
@@ -22,8 +21,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with AutomaticKeepAliveClientMixin {
   late PageController _pageController;
   int _currentPage = 0;
-  // Added 'Expenditure' to titles
-  final List<String> _titles = ['Steps', 'Weight', 'Macros', 'Expenditure'];
+  final List<String> _titles = ['Steps', 'Weight', 'Macros'];
   bool _showSwipeHint = true;
   bool _isInitialLoad = true;
 
@@ -139,7 +137,6 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
               KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
-              const KeepAlivePage(child: ExpenditureScreen()), // Added ExpenditureScreen
             ],
           ),
 
@@ -290,12 +287,10 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
 
   // This function builds the floating bar content
   Widget _buildPageIndicator(ThemeData theme, CustomColors customColors) {
-    // Added Expenditure icon
     final List<IconData> icons = [
       Icons.directions_walk, // Steps
       Icons.monitor_weight_outlined, // Weight
       Icons.pie_chart_outline_rounded, // Macros
-      Icons.local_fire_department_outlined, // Expenditure (TDEE)
     ];
 
     return ClipRRect(
