@@ -158,17 +158,23 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
-  Future<void> _syncAllDataToSupabase() async {
+  // Renamed function to load data after login, calling the correct provider method
+  Future<void> _loadUserDataAfterLogin() async {
+    // Renamed from _syncAllDataToSupabase
     try {
-      // Access the FoodEntryProvider to sync all data
+      // Access the FoodEntryProvider
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
-      await foodEntryProvider.syncAllDataWithSupabase();
 
-      // Add this line to explicitly load entries from Supabase
-      await foodEntryProvider.loadEntriesFromSupabase();
+      // Call the method designed to clear and load fresh data for the current user
+      await foodEntryProvider.loadEntriesForCurrentUser();
+      print("[AuthGate] User data loaded after login.");
+
+      // Optionally sync other provider data if needed here
+      // e.g., await Provider.of<OtherProvider>(context, listen: false).loadData();
+
     } catch (e) {
-      print('Error syncing all data to Supabase: $e');
+      print('Error loading user data after login: $e');
     }
   }
 
@@ -206,22 +212,46 @@ class _AuthGateState extends State<AuthGate> {
               );
             }
 
+            final authEvent = authSnapshot.data?.event;
             final session = authSnapshot.data?.session;
-            if (session == null) {
+
+            // --- Handle Logout: Clear Provider Data and Navigate ---
+            if (authEvent == AuthChangeEvent.signedOut) {
+              // Use addPostFrameCallback to schedule the clear after the build phase,
+              // and ensure it's awaited before potential navigation/rebuild.
+              WidgetsBinding.instance.addPostFrameCallback((_) async { // Make async
+                // Check if mounted before accessing provider
+                if (mounted) {
+                  try {
+                    print("[AuthGate] User signed out. Clearing FoodEntryProvider...");
+                    // Await the clearing process
+                    await Provider.of<FoodEntryProvider>(context, listen: false)
+                        .clearEntries();
+                    print("[AuthGate] FoodEntryProvider cleared on logout.");
+                    // Optionally clear other providers if needed
+                  } catch (e) {
+                    print("Error clearing provider data on logout: $e");
+                  }
+                }
+              });
+              // Return Welcomescreen immediately. The clearing happens async but is awaited.
               return const Welcomescreen();
+            }
+            // --- End Handle Logout ---
+
+            // If session is null (and not specifically a signedOut event handled above), show welcome
+            if (session == null) {
               return const Welcomescreen();
             }
 
             // If this is the first time authenticating, sync data to Supabase
             if (authSnapshot.hasData &&
                 authSnapshot.data!.event == AuthChangeEvent.signedIn) {
-              // Schedule the sync for after the build is complete
+              // Schedule the *load* for after the build is complete
               WidgetsBinding.instance.addPostFrameCallback((_) async {
                 // Make callback async
-                // Sync preferences from Supabase first
-                // await StorageService().syncFromServer(); // Commented out - handled by FoodEntryProvider sync
-                // Then sync other data like food entries
-                await _syncAllDataToSupabase();
+                // Call the renamed function to load user data
+                await _loadUserDataAfterLogin();
               });
             }
 
