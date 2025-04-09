@@ -1128,20 +1128,18 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             guard let self = self,
                   let image = reading as? UIImage,
                   let imageData = image.jpegData(compressionQuality: 0.8) else {
-                print("Failed to load selected image: \(error?.localizedDescription ?? "unknown error")")
+                print("Failed to get image data")
                 return
             }
             
-            // Check if we already sent a result for this presentation
+            // Mark as sent to prevent duplicate results
+            self.hasSentResult = true
+            
             DispatchQueue.main.async {
-                guard !self.hasSentResult else {
-                    print("Gallery image selected, but result already sent.")
-                    return
+                // Dismiss the camera view and send result back
+                self.dismiss(animated: true) {
+                    self.delegate?.nativeCameraDidFinish(withPhotoData: imageData, mode: self.currentMode)
                 }
-                self.hasSentResult = true
-                
-                // Send the image data back to delegate
-                self.delegate?.nativeCameraDidFinish(withPhotoData: imageData, mode: self.currentMode)
             }
         }
     }
