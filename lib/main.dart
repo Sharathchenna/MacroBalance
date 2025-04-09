@@ -53,10 +53,8 @@ final _appLinks = AppLinks();
 // Define the channel for stats communication (presentation AND data)
 const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
 
-// Global instance of FoodEntryProvider (consider a better DI approach later)
-// This is needed because the method handler is outside the widget tree.
-// Ensure it's initialized after Supabase and before runApp.
-late FoodEntryProvider _foodEntryProviderInstance;
+// REMOVED Global instance of FoodEntryProvider
+// late FoodEntryProvider _foodEntryProviderInstance;
 
 // Add these variables at the top of the file, after imports
 DateTime? _lastStatsUpdate;
@@ -169,26 +167,68 @@ Future<void> main() async {
   await _initializeDeepLinks();
 
   // Setup Stats Channel Handler for widgets
+  // Setup Stats Channel Handler for widgets - Needs access to context now or a lookup mechanism
+  // We will fetch the provider inside the handler for now.
+  // Setup Stats Channel Handler for widgets - Needs access to context now or a lookup mechanism
+  // We will fetch the provider inside the handler for now.
   _setupStatsChannelHandler();
 
-  // Initialize food entry provider
-  _foodEntryProviderInstance = FoodEntryProvider();
+  // REMOVED global provider initialization
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: _foodEntryProviderInstance),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => DateProvider()),
-        ChangeNotifierProvider(create: (_) => MealProvider()),
-        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
-        ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
-        // Pass FoodEntryProvider instance to ExpenditureProvider
-        // ChangeNotifierProvider(
-        //     create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
-        ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
-      ],
-      child: const MyApp(),
+    // Wrap MultiProvider with a StreamProvider for AuthState
+    StreamProvider<User?>.value(
+      value: Supabase.instance.client.auth.onAuthStateChange
+          .map((data) => data.session?.user), // Provide the User? object
+      initialData: Supabase.instance.client.auth.currentUser,
+      child: MultiProvider(
+        providers: [
+          // Use ChangeNotifierProxyProvider linked to the User? stream
+          ChangeNotifierProxyProvider<User?, FoodEntryProvider>(
+            create: (_) => FoodEntryProvider(), // Initial empty provider
+            update: (context, user, previousProvider) {
+              // This update function runs whenever the User? changes
+              if (user == null) {
+                // User logged out, return a NEW empty provider
+                debugPrint(
+                    "[ProxyProvider] User is null. Creating new empty FoodEntryProvider.");
+                // Ensure previous provider data is cleared if necessary (though disposal should handle it)
+                // previousProvider?.clearEntries(); // Optional: Explicit clear before returning new one
+                return FoodEntryProvider();
+              } else {
+                // User logged in
+                if (previousProvider == null ||
+                    previousProvider.entries.isEmpty) {
+                  // If previous was null or empty (likely just logged in or first load)
+                  // Create a new provider instance and trigger loading
+                  debugPrint(
+                      "[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.");
+                  final newProvider = FoodEntryProvider();
+                  // Don't await here, let it load in background
+                  newProvider.loadEntriesForCurrentUser();
+                  return newProvider;
+                } else {
+                  // User is the same, reuse the existing provider
+                  debugPrint(
+                      "[ProxyProvider] User (${user.id}) remains. Reusing existing FoodEntryProvider.");
+                  return previousProvider;
+                }
+              }
+            },
+          ), // Added comma here
+          ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider(create: (_) => DateProvider()),
+          ChangeNotifierProvider(create: (_) => MealProvider()),
+          ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+          ChangeNotifierProvider(
+              create: (_) => WeightUnitProvider()), // Keep this instance
+          // Pass FoodEntryProvider instance to ExpenditureProvider
+          // ChangeNotifierProvider(
+          //     create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
+          // Removed duplicate WeightUnitProvider entry if it existed
+        ],
+        child: const MyApp(),
+      ),
     ),
   );
 
@@ -317,8 +357,22 @@ Future<void> _delayedWidgetRefresh() async {
 }
 
 // Function to setup the method channel handler
+// Note: Accessing provider here is tricky as it's outside the widget tree.
+// We'll use the navigatorKey's context if available, otherwise log an error.
 void _setupStatsChannelHandler() {
   _statsChannel.setMethodCallHandler((MethodCall call) async {
+    // Get the context from the navigatorKey if possible
+    final context = navigatorKey.currentContext;
+    if (context == null) {
+      debugPrint(
+          "[Stats Handler] Error: Cannot get context to access FoodEntryProvider.");
+      // Return an empty list or throw an error, depending on desired behavior
+      return []; // Return empty list to avoid crashing the widget
+    }
+    // Fetch the provider instance using the context
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+
     switch (call.method) {
       case 'getMacroData':
         try {
@@ -365,8 +419,8 @@ void _setupStatsChannelHandler() {
 
           while (currentDate.isBefore(endDate) ||
               currentDate.isAtSameMomentAs(endDate)) {
-            final entries =
-                _foodEntryProviderInstance.getAllEntriesForDate(currentDate);
+            // Use the fetched provider instance
+            final entries = foodEntryProvider.getAllEntriesForDate(currentDate);
 
             double totalCarbs = 0;
             double totalFat = 0;
@@ -396,9 +450,10 @@ void _setupStatsChannelHandler() {
               totalProtein += protein * multiplier;
             }
 
-            final proteinGoal = _foodEntryProviderInstance.proteinGoal;
-            final carbGoal = _foodEntryProviderInstance.carbsGoal;
-            final fatGoal = _foodEntryProviderInstance.fatGoal;
+            // Use the fetched provider instance
+            final proteinGoal = foodEntryProvider.proteinGoal;
+            final carbGoal = foodEntryProvider.carbsGoal;
+            final fatGoal = foodEntryProvider.fatGoal;
 
             results.add({
               'date': dateFormatter.format(currentDate.toUtc()),
@@ -535,7 +590,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         themeMode: themeProvider.useSystemTheme
             ? ThemeMode.system
             : themeProvider.isDarkMode
-                ? ThemeMode.dark    
+                ? ThemeMode.dark
                 : ThemeMode.light,
         initialRoute: Routes.initial,
         navigatorObservers: [MyRouteObserver()],

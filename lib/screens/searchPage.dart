@@ -1744,6 +1744,31 @@ class Serving {
     required this.nutrients,
   });
 
+  // Method to serialize Serving object to JSON
+  Map<String, dynamic> toJson() => {
+        'serving_description': description,
+        'metric_serving_amount': metricAmount,
+        'metric_serving_unit': metricUnit,
+        'calories': calories,
+        // Serialize all nutrients
+        'protein': nutrients['Protein'],
+        'fat': nutrients['Total lipid (fat)'],
+        'carbohydrate': nutrients['Carbohydrate, by difference'],
+        'saturated_fat': nutrients['Saturated fat'],
+        'polyunsaturated_fat': nutrients['Polyunsaturated fat'],
+        'monounsaturated_fat': nutrients['Monounsaturated fat'],
+        'cholesterol': nutrients['Cholesterol'],
+        'sodium': nutrients['Sodium'],
+        'potassium': nutrients['Potassium'],
+        'fiber': nutrients['Fiber'],
+        'sugar': nutrients['Sugar'],
+        'vitamin_a': nutrients['Vitamin A'],
+        'vitamin_c': nutrients['Vitamin C'],
+        'calcium': nutrients['Calcium'],
+        'iron': nutrients['Iron'],
+        // Add any other nutrients stored in the map if necessary
+      };
+
   factory Serving.fromJson(Map<String, dynamic> json) {
     // Extract all nutrients
     Map<String, double> nutrients = {

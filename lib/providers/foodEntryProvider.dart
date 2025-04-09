@@ -10,6 +10,8 @@ import 'dart:math'; // Added for min function
 import '../services/widget_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart'; // Import for MethodChannel
+import 'package:http/http.dart' as http; // Import for HTTP requests
+import 'package:macrotracker/screens/searchPage.dart'; // Import FoodItem and Serving
 // Removed ExpenditureProvider import, interaction handled differently
 import 'package:macrotracker/services/macro_calculator_service.dart'; // Import MacroCalculatorService
 
@@ -58,12 +60,17 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   Future<void> _initialize() async {
+    // Initialize basic state, but DO NOT load user-specific entries here.
     if (_initialLoadComplete) return;
-    // TODO: Load user profile data (_gender, _age, _heightCm, _activityLevel, _proteinRatio, _fatRatio) from storage
-    await _loadEntries();
-    await loadNutritionGoals(); // Load initial/saved goals and profile data
-    _initialLoadComplete = true;
-    debugPrint("FoodEntryProvider initialized.");
+    debugPrint("[Provider Init] Initializing provider structure...");
+    // Clear any potential leftover state from previous sessions (belt-and-suspenders)
+    _entries.clear();
+    await _clearDateCache();
+    // Load non-user-specific data or defaults if necessary
+    await loadNutritionGoals(); // Load goals (might be user-specific, ensure cleared on logout too)
+    _initialLoadComplete = true; // Mark basic structure as initialized
+    debugPrint("[Provider Init] Provider structure initialized.");
+    // User-specific entries will be loaded via loadEntriesForCurrentUser
   }
 
   Future<void> ensureInitialized() async {
@@ -280,11 +287,34 @@ class FoodEntryProvider with ChangeNotifier {
 
   // --- Load/Save/Sync Methods ---
   Future<void> _loadEntries() async {
-    // ... (existing implementation) ...
+    try {
+      final String? entriesJson = StorageService().get(_storageKey);
+      if (entriesJson != null && entriesJson.isNotEmpty) {
+        _loadEntriesFromJson(entriesJson);
+        debugPrint('Loaded ${_entries.length} entries from local storage.');
+      } else {
+        debugPrint('No entries found in local storage.');
+        _entries =
+            []; // Ensure entries list is initialized if nothing is loaded
+      }
+    } catch (e) {
+      debugPrint('Error loading entries from local storage: $e');
+      _entries = []; // Initialize to empty list on error
+    }
+    // No need to notifyListeners here as it's part of initialization
   }
 
   void _loadEntriesFromJson(String entriesJson) {
-    // ... (existing implementation) ...
+    try {
+      final List<dynamic> decodedList = jsonDecode(entriesJson);
+      _entries = decodedList
+          .map((jsonItem) =>
+              FoodEntry.fromJson(jsonItem as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('Error decoding entries JSON: $e');
+      _entries = []; // Reset entries on decoding error
+    }
   }
 
   Future<void> loadNutritionGoals() async {
@@ -392,11 +422,80 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   Future<void> _saveEntries() async {
-    // ... (existing implementation) ...
+    try {
+      final String entriesJson =
+          jsonEncode(_entries.map((e) => e.toJson()).toList());
+      await StorageService().put(_storageKey, entriesJson);
+      debugPrint('Saved ${_entries.length} entries to local storage.');
+      // No longer syncing the entire JSON blob here
+    } catch (e) {
+      debugPrint('Error saving entries to local storage: $e');
+    }
   }
 
-  Future<void> _syncEntriesToSupabase(String entriesJson) async {
-    // ... (existing implementation) ...
+  // Syncs a single entry TO Supabase (Upsert)
+  Future<void> _syncSingleEntryToSupabase(FoodEntry entry) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint('Cannot sync entry ${entry.id}: User not logged in.');
+      return;
+    }
+
+    try {
+      // Calculate nutrients for this specific entry instance
+      final calories = _calculateNutrientForEntry(entry, 'calories');
+      final protein = _calculateNutrientForEntry(entry, 'Protein');
+      final carbs =
+          _calculateNutrientForEntry(entry, 'Carbohydrate, by difference');
+      final fat = _calculateNutrientForEntry(entry, 'Total lipid (fat)');
+
+      final Map<String, dynamic> entryData = {
+        'entry_id': entry.id, // Use the existing UUID
+        'user_id': userId,
+        'fdc_id': entry.food.fdcId,
+        'food_name': entry.food.name,
+        'brand_name': entry.food.brandName,
+        'meal': entry.meal,
+        'quantity': entry.quantity,
+        'unit': entry.unit,
+        'entry_date': entry.date.toUtc().toIso8601String(), // Store in UTC
+        'serving_description': entry.servingDescription,
+        'calories_per_entry': calories,
+        'protein_per_entry': protein,
+        'carbs_per_entry': carbs,
+        'fat_per_entry': fat,
+        // created_at is handled by default value
+        // updated_at is handled by trigger or default value
+      };
+
+      await Supabase.instance.client.from('food_log').upsert(entryData);
+      debugPrint('Synced entry ${entry.id} to Supabase food_log.');
+    } catch (e) {
+      debugPrint('Error syncing entry ${entry.id} to Supabase food_log: $e');
+      // TODO: Implement retry logic or error queuing if needed
+    }
+  }
+
+  // Deletes a single entry FROM Supabase
+  Future<void> _deleteEntryFromSupabase(String entryId) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint(
+          'Cannot delete entry $entryId from Supabase: User not logged in.');
+      return;
+    }
+
+    try {
+      await Supabase.instance.client.from('food_log').delete().match({
+        'entry_id': entryId,
+        'user_id': userId
+      }); // Match both entry and user ID
+      debugPrint('Synced deletion of entry $entryId from Supabase food_log.');
+    } catch (e) {
+      debugPrint(
+          'Error syncing deletion of entry $entryId from Supabase food_log: $e');
+      // TODO: Implement retry logic or error queuing if needed
+    }
   }
 
   List<FoodEntry> getEntriesForDate(DateTime date) {
@@ -424,7 +523,8 @@ class FoodEntryProvider with ChangeNotifier {
     _entries.add(entry);
     await _clearDateCache();
     notifyListeners();
-    await _saveEntries();
+    await _saveEntries(); // Save locally first
+    await _syncSingleEntryToSupabase(entry); // Then sync to Supabase
     _notifyNativeStatsChanged();
   }
 
@@ -432,7 +532,8 @@ class FoodEntryProvider with ChangeNotifier {
     _entries.removeWhere((entry) => entry.id == id);
     await _clearDateCache();
     notifyListeners();
-    await _saveEntries();
+    await _saveEntries(); // Save locally first
+    await _deleteEntryFromSupabase(id); // Then sync deletion to Supabase
     _notifyNativeStatsChanged();
   }
 
@@ -440,8 +541,11 @@ class FoodEntryProvider with ChangeNotifier {
     _entries.clear();
     await _clearDateCache();
     notifyListeners();
-    StorageService().delete(_storageKey);
-    debugPrint('Entries cleared from local storage only');
+    // Also clear from storage when clearing in memory
+    await StorageService().delete(_storageKey);
+    debugPrint('Entries cleared from memory and local storage.');
+    // Optionally trigger Supabase sync for clearing in the future
+    _notifyNativeStatsChanged(); // Keep this if needed for widgets
   }
 
   // --- Corrected Calculation Methods ---
@@ -590,7 +694,8 @@ class FoodEntryProvider with ChangeNotifier {
     for (final entry in entriesForDate) {
       totalCalories += _calculateNutrientForEntry(entry, 'calories');
       totalProtein += _calculateNutrientForEntry(entry, 'Protein');
-      totalCarbs += _calculateNutrientForEntry(entry, 'Carbohydrate, by difference');
+      totalCarbs +=
+          _calculateNutrientForEntry(entry, 'Carbohydrate, by difference');
       totalFat += _calculateNutrientForEntry(entry, 'Total lipid (fat)');
     }
 
@@ -712,8 +817,164 @@ class FoodEntryProvider with ChangeNotifier {
     return diagnosticInfo;
   }
 
+  // --- Helper to fetch full food details via Supabase Edge Function ---
+  Future<FoodItem?> _fetchFullFoodDetails(String foodId) async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      debugPrint('Error fetching food details: User not authenticated.');
+      return null;
+    }
+    // Ensure foodId is not empty
+    if (foodId.isEmpty) {
+      debugPrint('Error fetching food details: foodId is empty.');
+      return null;
+    }
+
+    // URL for the Supabase Edge Function (should match searchPage.dart)
+    const String fatSecretProxyUrl =
+        'https://mdivtblabmnftdqlgysv.supabase.co/functions/v1/fatsecret-proxy';
+
+    try {
+      final response = await http.post(
+        Uri.parse(fatSecretProxyUrl),
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'endpoint': 'get', // Assuming 'get' is the endpoint for food details
+          'query': foodId, // Pass the food ID as the query
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        // FatSecret 'food.get' returns the food details directly under a 'food' key
+        if (responseBody != null && responseBody['food'] != null) {
+          // Use the existing factory from searchPage.dart to parse the detailed food data
+          return FoodItem.fromFatSecretJson(
+              responseBody['food'] as Map<String, dynamic>);
+        } else {
+          debugPrint(
+              'Error parsing food details response for ID $foodId: "food" key not found or null.');
+          return null;
+        }
+      } else {
+        debugPrint(
+            'Proxy Function Error fetching food details for ID $foodId (${response.statusCode}): ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error calling proxy function for food details ID $foodId: $e');
+      return null;
+    }
+  }
+  // --- End Helper ---
+
   Future<void> loadEntriesFromSupabase() async {
-    // ... (existing implementation) ...
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint('Cannot load entries from Supabase: User not logged in.');
+      return;
+    }
+
+    debugPrint('Loading entries from Supabase food_log...');
+    try {
+      final response = await Supabase.instance.client
+          .from('food_log')
+          .select() // Select all columns needed to reconstruct FoodEntry
+          .eq('user_id', userId);
+
+      if (response is List) {
+        // final Set<String> localEntryIds = _entries.map((e) => e.id).toSet(); // REMOVED - _entries is cleared before this now
+        int processedCount = 0; // Count processed records
+        List<FoodEntry> fetchedEntries = []; // Temp list to hold successfully fetched entries
+
+        // Use Future.forEach for async operations inside the loop
+        await Future.forEach(response, (record) async {
+          if (record is Map<String, dynamic>) {
+            try {
+              final String foodId = record['fdc_id']?.toString() ?? '';
+              if (foodId.isEmpty) {
+                debugPrint(
+                    'Skipping record due to missing fdc_id: ${record['entry_id']}');
+                return; // Skip this record if foodId is missing
+              }
+
+              // Fetch the full food details using the helper function
+              final FoodItem? fullFoodItem = await _fetchFullFoodDetails(foodId);
+
+              if (fullFoodItem != null) {
+                // Successfully fetched full details, create the FoodEntry
+                final entry = FoodEntry(
+                  id: record['entry_id'],
+                  food: fullFoodItem, // Use the fully detailed food item
+                  meal: record['meal'] ?? 'Unknown',
+                  quantity: (record['quantity'] as num?)?.toDouble() ?? 0.0,
+                  unit: record['unit'] ?? '',
+                  date: DateTime.parse(record['entry_date'])
+                      .toLocal(), // Convert back to local
+                  servingDescription: record['serving_description'],
+                );
+
+                // Add successfully created entry to the temporary list
+                fetchedEntries.add(entry);
+                processedCount++;
+              } else {
+                // Failed to fetch full details, log a warning
+                debugPrint(
+                    'Warning: Could not fetch full details for food ID $foodId (Entry ID: ${record['entry_id']}). Skipping this entry during load.');
+                // Optionally create a placeholder entry if needed, but skipping is safer
+              }
+            } catch (e) {
+              debugPrint(
+                  'Error processing Supabase entry record: $record. Error: $e');
+            }
+          }
+        });
+
+        // After processing all records, replace the main list and save
+        // Since _entries was cleared by loadEntriesForCurrentUser, we just assign the fetched list
+        _entries = fetchedEntries;
+        int finalEntryCount = _entries.length;
+
+        debugPrint(
+            'Loaded from Supabase. Processed ${processedCount} records. Final entry count: ${finalEntryCount}.');
+
+        // Always notify and save if entries were loaded, even if count is 0 (to reflect cleared state)
+        await _clearDateCache(); // Clear cache
+        notifyListeners(); // Notify UI about changes
+        await _saveEntries(); // Save the (potentially empty) list locally
+      } else {
+        debugPrint('Load from Supabase failed: Unexpected response format.');
+      }
+    } catch (e) {
+      debugPrint('Error loading entries from Supabase food_log: $e');
+    }
+  }
+
+  // New method to explicitly load entries for the current user
+  Future<void> loadEntriesForCurrentUser() async {
+    debugPrint("[Provider Load] Starting loadEntriesForCurrentUser...");
+    // 1. Ensure provider is initialized structurally
+    await ensureInitialized();
+
+    // 2. Clear any existing entries in memory and cache (important!)
+    _entries.clear();
+    await _clearDateCache();
+    debugPrint("[Provider Load] Cleared existing in-memory entries and cache.");
+
+    // 3. Explicitly delete local storage entry data before loading from Supabase
+    await StorageService().delete(_storageKey);
+    debugPrint("[Provider Load] Deleted local storage entries ('$_storageKey').");
+
+    // 4. Load fresh entries directly from Supabase for the current user
+    await loadEntriesFromSupabase(); // This method now handles fetching and merging/replacing
+    debugPrint("[Provider Load] Finished loading/merging from Supabase.");
+
+    // 5. Notify listeners after all loading is complete
+    notifyListeners();
+    debugPrint("[Provider Load] loadEntriesForCurrentUser complete. Notified listeners.");
   }
 
   Future<void> _clearDateCache() async {

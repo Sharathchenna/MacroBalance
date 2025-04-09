@@ -31,6 +31,8 @@ class FoodEntry {
           'nutrients': food.nutrients,
           'mealType': food.mealType,
           'servingSize': food.servingSize,
+          // Serialize the servings list
+          'servings': food.servings.map((s) => s.toJson()).toList(),
         },
         'meal': meal,
         'quantity': quantity,
@@ -49,7 +51,10 @@ class FoodEntry {
           nutrients: Map<String, double>.from(json['food']['nutrients']),
           mealType: json['food']['mealType'],
           servingSize: json['food']['servingSize'],
-          servings: [],
+          // Deserialize the servings list
+          servings: (json['food']['servings'] as List<dynamic>? ?? [])
+              .map((s) => Serving.fromJson(s as Map<String, dynamic>))
+              .toList(),
         ),
         meal: json['meal'],
         quantity: json['quantity'],
