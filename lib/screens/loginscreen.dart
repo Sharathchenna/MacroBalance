@@ -70,12 +70,12 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      await _authService.signIn(
-        _emailController.text.trim(), // Trim whitespace from email
-        _passwordController.text,
+      final response = await _supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
 
-      if (mounted) {
+      if (response.user != null) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AuthGate()),
           (route) => false,
