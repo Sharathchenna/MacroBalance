@@ -102,7 +102,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       final response = await _supabase.auth.signUp(
           email: email, // Use trimmed email
           password: _passwordController.text,
-          emailRedirectTo: 'app.macrobalance.com://login-callback/',
+          emailRedirectTo: 'https://macrobalance.app/login-callback/', // Use Universal Link
           data: {'username': _nameController.text});
 
       if (response.user != null && response.session == null) {

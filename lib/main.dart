@@ -31,7 +31,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:uni_links/uni_links.dart'; // Replaced app_links with uni_links
+import 'package:app_links/app_links.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
@@ -121,9 +121,6 @@ Future<void> main() async {
     FlutterError.presentError(details);
   };
 
-  // Initialize deep links
-  await _initializeDeepLinks();
-
   // Setup Stats Channel Handler for widgets
   // Setup Stats Channel Handler for widgets - Needs access to context now or a lookup mechanism
   // We will fetch the provider inside the handler for now.
@@ -200,7 +197,6 @@ Future<void> _initializeServicesInBackground() async {
   await Future.wait([
     _initializeFirebase(),
     _initializeSupabase(),
-    _initializeDeepLinks(),
     _initializePlatformState(),
   ]);
 
@@ -236,31 +232,6 @@ Future<void> _initializeSupabase() async {
     );
   } catch (e) {
     debugPrint("Supabase initialization error: $e");
-  }
-}
-
-Future<void> _initializeDeepLinks() async {
-  try {
-    // Handle incoming links when the app is running
-    uriLinkStream.listen((Uri? uri) {
-      if (uri != null) {
-        _handleDeepLink(uri);
-      }
-    }, onError: (err) {
-      debugPrint('Error handling deep links: $err');
-    });
-
-    // Handle the case where the app was launched via a deep link
-    try {
-      final initialUri = await getInitialUri();
-      if (initialUri != null) {
-        _handleDeepLink(initialUri);
-      }
-    } on PlatformException {
-      debugPrint('Failed to get initial uri.');
-    }
-  } catch (e) {
-    debugPrint('Deep links initialization error: $e');
   }
 }
 
@@ -479,7 +450,7 @@ void _handleDeepLink(Uri uri) {
   }
 
   // Handle email verification callback
-  if (uri.host == 'login-callback') {
+  if (uri.path.startsWith('/login-callback')) { // <-- Change this line
     WidgetsBinding.instance.addPostFrameCallback((_) {
       navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -543,7 +514,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initDeepLinks();
+    _initDeepLinks(); // Keep initialization here within the state
     // Removed provider linking logic
     // Trigger initial expenditure calculation after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -554,16 +525,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _linkSubscription?.cancel();
+    _linkSubscription?.cancel(); // Ensure cancellation on dispose
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
+  // This function now handles all deep link initialization logic
   Future<void> _initDeepLinks() async {
+    final appLinks = AppLinks();
     try {
       // Handle incoming links when the app is running
-      _linkSubscription = uriLinkStream.listen((Uri? uri) {
-        if (uri != null) {
+      _linkSubscription = appLinks.uriLinkStream.listen((Uri? uri) {
+        if (uri != null && mounted) {
+          // Check if mounted before handling
           _handleDeepLink(uri);
         }
       }, onError: (err) {
@@ -571,14 +545,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       });
 
       // Handle the case where the app was launched via a deep link
-      try {
-        final initialUri = await getInitialUri();
-        if (initialUri != null) {
-          _handleDeepLink(initialUri);
+      // Needs to be done carefully as context might not be fully ready
+      // Use addPostFrameCallback to ensure navigatorKey is available
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          // Get the initial link directly as Uri?
+          final initialUriFromLink = await appLinks.getInitialLink();
+          // Check if the Uri is not null and the widget is still mounted
+          if (initialUriFromLink != null && mounted) {
+            // No parsing needed, pass the Uri object directly
+            _handleDeepLink(initialUriFromLink);
+          }
+        } on PlatformException {
+          debugPrint('Failed to get initial app link.');
+        } catch (e) {
+          debugPrint('Error processing initial deep link: $e');
         }
-      } on PlatformException {
-        debugPrint('Failed to get initial uri.');
-      }
+      });
     } catch (e) {
       debugPrint('Deep link initialization error: $e');
     }
