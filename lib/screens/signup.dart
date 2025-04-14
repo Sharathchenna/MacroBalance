@@ -57,6 +57,9 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _signUp() async {
+    // Unfocus the keyboard
+    FocusScope.of(context).unfocus();
+
     if (_nameController.text.isEmpty ||
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty) {
@@ -102,7 +105,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       final response = await _supabase.auth.signUp(
           email: email, // Use trimmed email
           password: _passwordController.text,
-          emailRedirectTo: 'https://macrobalance.app/login-callback/', // Use Universal Link
+          emailRedirectTo:
+              'https://macrobalance.app/login-callback/', // Use Universal Link
           data: {'username': _nameController.text});
 
       if (response.user != null && response.session == null) {

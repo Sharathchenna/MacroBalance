@@ -486,7 +486,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return ElevatedButton(
       onPressed: _nextPage,
       style: ElevatedButton.styleFrom(
-        backgroundColor: theme.colorScheme.primary,
+        backgroundColor:
+            customColors?.textPrimary ?? theme.colorScheme.onBackground,
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
