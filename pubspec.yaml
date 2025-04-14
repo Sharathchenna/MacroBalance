@@ -104,9 +104,10 @@ flutter:
     - assets/icons/
     - assets/splash_screen/
     - assets/images/
-    - assets/animations/ # Added Lottie animations folder
-    - assets/privacy_policy.html # Added privacy policy
-    - assets/terms.html # Added terms and conditions
+    - assets/animations/
+    - assets/privacy_policy.html
+    - assets/terms.html
+    - shorebird.yaml # Added terms and conditions
     # - images/a_dot_ham.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
