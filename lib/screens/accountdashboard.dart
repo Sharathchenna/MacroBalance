@@ -81,6 +81,14 @@ class _AccountDashboardState extends State<AccountDashboard>
   }
 
   // Make sure the status bar stays correct during hot reload and when returning to this screen
+  void updateStatusBarForIOS(bool isDarkMode) {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+      statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      statusBarColor: Colors.transparent,
+    ));
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();

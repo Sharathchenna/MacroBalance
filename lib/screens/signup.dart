@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
+import 'package:macrotracker/theme/typography.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
@@ -101,6 +102,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       final response = await _supabase.auth.signUp(
           email: email, // Use trimmed email
           password: _passwordController.text,
+          emailRedirectTo: 'app.macrobalance.com://login-callback/',
           data: {'username': _nameController.text});
 
       if (response.user != null && response.session == null) {
@@ -113,8 +115,10 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        // Optionally, clear fields or navigate to a specific "check email" screen
-        // For now, we just show the message and stay on the signup screen.
+        // Navigate to login screen after showing the message
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
       } else if (response.user != null && response.session != null) {
         // This case might happen if email confirmation is disabled or if the user somehow confirms immediately.
         // Navigate to AuthGate as before.
@@ -264,7 +268,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 24), // Reduced from 40
                     Text(
                       'Create Account',
                       textAlign: TextAlign.center,
@@ -273,7 +277,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         color: customColors!.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4), // Reduced from 8
                     Text(
                       'Start your fitness journey today',
                       textAlign: TextAlign.center,
@@ -281,22 +285,22 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         color: customColors!.textPrimary.withOpacity(0.7),
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 24), // Reduced from 40
 
                     // Name field
                     _buildInputLabel('Name'),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4), // Reduced from 8
                     _buildTextField(
                       controller: _nameController,
                       hintText: 'Enter your name',
                       prefixIcon: Icons.person_outline,
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16), // Reduced from 20
 
                     // Email field
                     _buildInputLabel('Email'),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4), // Reduced from 8
                     _buildTextField(
                       controller: _emailController,
                       hintText: 'Enter your email',
@@ -304,11 +308,11 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       prefixIcon: Icons.email_outlined,
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16), // Reduced from 20
 
                     // Password field
                     _buildInputLabel('Password'),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4), // Reduced from 8
                     _buildTextField(
                       controller: _passwordController,
                       hintText: 'Create a password',
@@ -322,11 +326,11 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       prefixIcon: Icons.lock_outline,
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16), // Reduced from 20
 
                     // Confirm Password field
                     _buildInputLabel('Confirm Password'),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4), // Reduced from 8
                     _buildTextField(
                       controller: _confirmPasswordController,
                       hintText: 'Confirm your password',
@@ -356,7 +360,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         style: TextButton.styleFrom(
                           minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(
-                              vertical: 8, horizontal: 12),
+                              vertical: 4, horizontal: 8), // Reduced padding
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Text(
@@ -364,12 +368,13 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                           style: TextStyle(
                             color: theme.colorScheme.secondary,
                             fontWeight: FontWeight.w500,
+                            fontSize: 13, // Slightly smaller font
                           ),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 16), // Reduced from 30
 
                     // Sign Up Button
                     ElevatedButton(
@@ -377,7 +382,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: customColors!.textPrimary,
                         foregroundColor: theme.colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14), // Reduced from 16
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -404,9 +410,9 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                             ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16), // Reduced from 24
 
-                    // OR divider
+                    // OR divider with reduced height
                     Row(
                       children: [
                         Expanded(
@@ -416,12 +422,14 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12), // Reduced from 16
                           child: Text(
                             'OR',
                             style: TextStyle(
                               color: customColors.textPrimary.withOpacity(0.6),
                               fontWeight: FontWeight.w500,
+                              fontSize: 13, // Slightly smaller font
                             ),
                           ),
                         ),
@@ -434,7 +442,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       ],
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16), // Reduced from 24
 
                     // Google Sign In Button
                     OutlinedButton.icon(
@@ -442,7 +450,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
                             color: customColors.textPrimary.withOpacity(0.3)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12), // Reduced from 14
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -461,16 +470,17 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
-
-                    // Apple Sign In Button - only show on iOS
                     if (Platform.isIOS) ...[
+                      const SizedBox(height: 12), // Reduced from 16
+
+                      // Apple Sign In Button - only show on iOS
                       OutlinedButton.icon(
                         onPressed: isLoading ? null : _signInWithApple,
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
                               color: customColors.textPrimary.withOpacity(0.3)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12), // Reduced from 14
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -488,10 +498,11 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
                     ],
 
-                    // Login prompt
+                    const SizedBox(height: 16), // Reduced from 20
+
+                    // Login prompt with slightly smaller text
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -499,6 +510,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                           'Already have an account? ',
                           style: TextStyle(
                             color: customColors.textPrimary.withOpacity(0.7),
+                            fontSize: 13, // Slightly smaller font
                           ),
                         ),
                         GestureDetector(
@@ -514,12 +526,13 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                             style: TextStyle(
                               color: theme.colorScheme.secondary,
                               fontWeight: FontWeight.w600,
+                              fontSize: 13, // Slightly smaller font
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 16), // Reduced from 40
                   ],
                 ),
               ),
@@ -536,10 +549,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         label,
-        style: TextStyle(
+        style: AppTypography.inputLabel.copyWith(
           color: customColors!.textPrimary,
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
         ),
       ),
     );
@@ -559,12 +570,13 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       controller: controller,
       obscureText: isPassword && !(passwordVisibility ?? false),
       keyboardType: keyboardType,
-      style: TextStyle(color: customColors!.textPrimary),
+      style: AppTypography.inputText.copyWith(
+        color: customColors!.textPrimary,
+      ),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(
+        hintStyle: AppTypography.inputHint.copyWith(
           color: customColors.textPrimary.withOpacity(0.5),
-          fontSize: 14,
         ),
         filled: true,
         fillColor: Theme.of(context).cardColor,
@@ -572,6 +584,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
             ? Icon(
                 prefixIcon,
                 color: customColors.textPrimary.withOpacity(0.5),
+                size: 22,
               )
             : null,
         suffixIcon: isPassword
@@ -581,6 +594,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       ? Icons.visibility
                       : Icons.visibility_off,
                   color: Theme.of(context).primaryColor.withOpacity(0.5),
+                  size: 22,
                 ),
                 onPressed: () {
                   onPasswordVisibilityChanged

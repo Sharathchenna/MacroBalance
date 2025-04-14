@@ -75,4 +75,27 @@ class AppTypography {
         fontWeight: FontWeight.w600,
         letterSpacing: 0.2,
       );
+
+  // Typography for input fields
+  static TextStyle get inputText => GoogleFonts.inter(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.15,
+        height: 1.5,
+      );
+
+  static TextStyle get inputLabel => GoogleFonts.inter(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.1,
+        height: 1.4,
+      );
+
+  static TextStyle get inputHint => GoogleFonts.inter(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.15,
+        height: 1.5,
+        color: Colors.black54,
+      );
 }
