@@ -44,6 +44,7 @@ import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
 import 'package:macrotracker/screens/loginscreen.dart';
+import 'package:macrotracker/services/posthog_service.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -97,6 +98,9 @@ Future<void> main() async {
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
     url: "https://mdivtblabmnftdqlgysv.supabase.co",
   );
+
+  // Initialize PostHog
+  await PostHogService.initialize();
 
   // Initialize Storage Service (opens Hive box, handles migration)
   await StorageService().initialize();
@@ -450,7 +454,8 @@ void _handleDeepLink(Uri uri) {
   }
 
   // Handle email verification callback
-  if (uri.path.startsWith('/login-callback')) { // <-- Change this line
+  if (uri.path.startsWith('/login-callback')) {
+    // <-- Change this line
     WidgetsBinding.instance.addPostFrameCallback((_) {
       navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -614,7 +619,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 ? ThemeMode.dark
                 : ThemeMode.light,
         initialRoute: Routes.initial,
-        navigatorObservers: [MyRouteObserver()],
+        navigatorObservers: [
+          MyRouteObserver(),
+          PosthogObserver(), // Add PostHog observer for automatic screen tracking
+        ],
         routes: {
           Routes.initial: (context) => const AuthGate(),
           Routes.onboarding: (context) => const OnboardingScreen(),
