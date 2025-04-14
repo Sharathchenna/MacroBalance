@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:macrotracker/Health/Health.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/services/storage_service.dart';
 
 class AppleHealthPage extends StatelessWidget {
   final VoidCallback onNext;
@@ -18,6 +19,7 @@ class AppleHealthPage extends StatelessWidget {
     final healthService = HealthService();
     try {
       bool granted = await healthService.requestPermissions();
+      StorageService().put('healthConnected', granted);
       if (granted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Successfully connected to Health')),

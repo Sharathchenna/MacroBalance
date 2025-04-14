@@ -4,8 +4,8 @@ import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/screens/signup.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/theme/typography.dart';
 import 'dart:io' show Platform;
-import 'package:macrotracker/main.dart'; // Import to access the helper function
 
 class Welcomescreen extends StatefulWidget {
   const Welcomescreen({Key? key}) : super(key: key);
@@ -19,7 +19,14 @@ class _WelcomescreenState extends State<Welcomescreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  late Animation<double> _scaleAnimation;
+
+  void updateStatusBarForIOS(bool isDark) {
+    if (Platform.isIOS) {
+      SystemChrome.setSystemUIOverlayStyle(
+        isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -37,31 +44,21 @@ class _WelcomescreenState extends State<Welcomescreen>
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
+      begin: const Offset(0, 0.05),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.2, 0.8, curve: Curves.easeOutCubic),
+        curve: const Interval(0.1, 0.7, curve: Curves.easeOutCubic),
       ),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-      ),
-    );
-
-    // Start animation after a short delay
-    Future.delayed(const Duration(milliseconds: 200), () {
+    Future.delayed(const Duration(milliseconds: 100), () {
       _animationController.forward();
     });
 
-    // Update status bar for welcome screen (light mode)
     if (Platform.isIOS) {
-      updateStatusBarForIOS(
-          false); // Always use light mode status bar (dark icons) on welcome screen
+      updateStatusBarForIOS(false);
     }
   }
 
@@ -73,262 +70,283 @@ class _WelcomescreenState extends State<Welcomescreen>
 
   @override
   Widget build(BuildContext context) {
-    // No need to set SystemChrome.setSystemUIOverlayStyle here anymore
-    // The helper function in main.dart handles it properly
     final customColors = Theme.of(context).extension<CustomColors>();
-    final ThemeData theme = Theme.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (customColors == null) {
+      return const Scaffold(
+        body: Center(child: Text('Theme error')),
+      );
+    }
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // App Logo and Name
-              ScaleTransition(
-                scale: _scaleAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 80,
-                          width: 80,
-                          decoration: BoxDecoration(
-                            color: customColors!.cardBackground,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Image(
-                              image: AssetImage(Theme.of(context).brightness ==
-                                      Brightness.light
-                                  ? 'assets/icons/icon_black.png'
-                                  : 'assets/icons/icon_white.png')),
+        child: Column(
+          children: [
+            const SizedBox(height: 48),
+
+            // Logo and App Name
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Hero(
+                      tag: 'app_logo',
+                      child: Container(
+                        height: 60,
+                        width: 60,
+                        decoration: BoxDecoration(
+                          color:
+                              isDark ? const Color(0xFF242428) : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDark
+                                  ? Colors.black.withOpacity(0.3)
+                                  : Colors.black.withOpacity(0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                              spreadRadius: 0,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'MacroBalance',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: customColors!.textPrimary,
-                            letterSpacing: 0.5,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Image.asset(
+                            isDark
+                                ? 'assets/icons/icon_white.png'
+                                : 'assets/icons/icon_black.png',
+                            fit: BoxFit.contain,
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 14),
+                    Text(
+                      'MacroBalance',
+                      style: AppTypography.h1.copyWith(
+                        color: customColors.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ),
 
-              // Tagline
-              FadeTransition(
+            const SizedBox(height: 14),
+
+            // Tagline
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: FadeTransition(
                 opacity: _fadeAnimation,
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 12.0),
-                    child: Text(
-                      'Transform Your Nutrition Journey',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: customColors.textSecondary,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+                child: Text(
+                  'Smart nutrition tracking made simple',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.body1.copyWith(
+                    color: customColors.textSecondary,
                   ),
                 ),
               ),
+            ),
 
-              const SizedBox(height: 8),
+            const Spacer(),
 
-              FadeTransition(
+            // Features showcase
+            SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
                 opacity: _fadeAnimation,
-                child: Center(
-                  child: Text(
-                    'Track, Analyze, Achieve',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: customColors.textSecondary,
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      _buildFeature(
+                        isDark: isDark,
+                        icon: CupertinoIcons.camera,
+                        title: 'AI Food Recognition',
+                        description: 'Just snap a photo to log your meals',
+                        backgroundColor: isDark
+                            ? const Color(0xFF242428)
+                            : customColors.dateNavigatorBackground,
+                        iconColor: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildFeature(
+                        isDark: isDark,
+                        icon: CupertinoIcons.chart_pie,
+                        title: 'Effortless Tracking',
+                        description: 'Monitor calories, macros, and nutrients',
+                        backgroundColor: isDark
+                            ? const Color(0xFF242428)
+                            : customColors.dateNavigatorBackground,
+                        iconColor: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildFeature(
+                        isDark: isDark,
+                        icon: CupertinoIcons.heart,
+                        title: 'Health Integration',
+                        description: 'Sync with Apple Health & Google Fit',
+                        backgroundColor: isDark
+                            ? const Color(0xFF242428)
+                            : customColors.dateNavigatorBackground,
+                        iconColor: theme.colorScheme.primary,
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
 
-              // Spacer that takes up available space
-              const Spacer(),
+            const Spacer(),
 
-              // Feature highlights with minimalist design
-              SlideTransition(
-                position: _slideAnimation,
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 24),
-                    decoration: BoxDecoration(
-                      color: customColors.cardBackground,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                      borderRadius: BorderRadius.circular(16),
-                      // border: Border.all(
-                      //   color: Colors.grey[200]!,
-                      //   width: 1,
-                      // ),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildFeatureItem(
-                          icon: Icons.restaurant_menu,
-                          text: 'Smart Meal Tracking & Analysis',
-                        ),
-                        const SizedBox(height: 18),
-                        _buildFeatureItem(
-                          icon: Icons.bar_chart_rounded,
-                          text: 'Detailed Macro & Micronutrients',
-                        ),
-                        const SizedBox(height: 18),
-                        _buildFeatureItem(
-                          icon: Icons.fitness_center,
-                          text: 'Personalized Nutrition Plans',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Sign In Button
-              FadeTransition(
+            // Buttons
+            SlideTransition(
+              position: _slideAnimation,
+              child: FadeTransition(
                 opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginScreen(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Sign In Button
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.primaryColor,
+                          foregroundColor: theme.colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: customColors.textPrimary,
-                      foregroundColor: theme.colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        child: Text(
+                          'Sign In',
+                          style: AppTypography.onboardingButton.copyWith(
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        ),
                       ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      'Sign In',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                        color: theme.colorScheme
-                            .onPrimary, // Explicitly set text color to white
+
+                      const SizedBox(height: 14),
+
+                      // Create Account Button
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) => const Signup(),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: customColors.textPrimary,
+                          side: BorderSide(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.2)
+                                : Colors.black.withOpacity(0.1),
+                            width: 1,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Create Account',
+                          style: AppTypography.onboardingButton.copyWith(
+                            color: customColors.textPrimary,
+                          ),
+                        ),
                       ),
-                    ),
+
+                      const SizedBox(height: 32),
+                    ],
                   ),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // Create Account Button
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (context) => const Signup(),
-                        ),
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: customColors.textPrimary, // Removed opacity
-                        width: 1,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Create Account',
-                      style: TextStyle(
-                        color: customColors.textPrimary, // Removed opacity
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildFeatureItem({required IconData icon, required String text}) {
+  Widget _buildFeature({
+    required bool isDark,
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color backgroundColor,
+    required Color iconColor,
+  }) {
     final customColors = Theme.of(context).extension<CustomColors>();
-    // final ThemeData theme = Theme.of(context);
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: customColors!.dateNavigatorBackground,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            icon,
-            color: customColors.textPrimary,
-            size: 24,
-          ),
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.1)
+              : Colors.black.withOpacity(0.05),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: customColors.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 50,
+            width: 50,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 24,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.h3.copyWith(
+                    color: customColors?.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: AppTypography.body2.copyWith(
+                    color: customColors?.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -39,7 +39,7 @@ class SupabaseService {
 
     try {
       // First sync nutrition goals
-      await syncNutritionGoals(userId);
+      // await syncNutritionGoals(userId); // Commented out to prevent error on missing table
 
       // Then sync food entries
       await syncFoodEntries(userId);

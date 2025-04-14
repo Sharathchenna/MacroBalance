@@ -114,22 +114,30 @@ class WelcomePage extends StatelessWidget {
             duration: const Duration(milliseconds: 800),
             curve: Curves.easeOutCubic,
             builder: (context, value, child) {
+              final customColors = Theme.of(context).extension<CustomColors>();
+              final theme = Theme.of(context);
               return Opacity(
                   opacity: value,
                   child: Transform.translate(
                       offset: Offset(0, 20 * (1 - value)),
-                      child: const Row(
+                      child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             FeatureItem(
                                 icon: Icons.calculate_outlined,
-                                label: 'Calculate'),
+                                label: 'Calculate',
+                                iconColor: customColors?.textPrimary ??
+                                    theme.colorScheme.onBackground),
                             FeatureItem(
                                 icon: Icons.track_changes_outlined,
-                                label: 'Track'),
+                                label: 'Track',
+                                iconColor: customColors?.textPrimary ??
+                                    theme.colorScheme.onBackground),
                             FeatureItem(
                                 icon: Icons.trending_up_outlined,
-                                label: 'Progress')
+                                label: 'Progress',
+                                iconColor: customColors?.textPrimary ??
+                                    theme.colorScheme.onBackground)
                           ])));
             },
           ),

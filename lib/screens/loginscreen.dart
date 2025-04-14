@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:macrotracker/theme/typography.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
@@ -53,6 +54,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _login() async {
+    // Unfocus the keyboard
+    FocusScope.of(context).unfocus();
+
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -69,12 +73,12 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     try {
-      await _authService.signIn(
-        _emailController.text,
-        _passwordController.text,
+      final response = await _supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
 
-      if (mounted) {
+      if (response.user != null) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AuthGate()),
           (route) => false,
@@ -463,10 +467,8 @@ class _LoginScreenState extends State<LoginScreen>
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         label,
-        style: TextStyle(
+        style: AppTypography.inputLabel.copyWith(
           color: customColors!.textPrimary,
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
         ),
       ),
     );
@@ -484,12 +486,13 @@ class _LoginScreenState extends State<LoginScreen>
       controller: controller,
       obscureText: isPassword && !isPasswordVisible,
       keyboardType: keyboardType,
-      style: TextStyle(color: customColors!.textPrimary),
+      style: AppTypography.inputText.copyWith(
+        color: customColors!.textPrimary,
+      ),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(
+        hintStyle: AppTypography.inputHint.copyWith(
           color: customColors.textPrimary.withOpacity(0.5),
-          fontSize: 14,
         ),
         filled: true,
         fillColor: Theme.of(context).cardColor,
@@ -497,6 +500,7 @@ class _LoginScreenState extends State<LoginScreen>
             ? Icon(
                 prefixIcon,
                 color: customColors.textPrimary.withOpacity(0.5),
+                size: 22,
               )
             : null,
         suffixIcon: isPassword
@@ -504,6 +508,7 @@ class _LoginScreenState extends State<LoginScreen>
                 icon: Icon(
                   isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                   color: Theme.of(context).primaryColor.withOpacity(0.5),
+                  size: 22,
                 ),
                 onPressed: () {
                   setState(() {

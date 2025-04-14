@@ -60,6 +60,7 @@ class _ResultsScreenState extends State<ResultsScreen>
 
   // Now synchronous
   void _saveResultsToPrefs() {
+    HapticFeedback.mediumImpact();
     // Assuming StorageService is initialized
     StorageService().put('macro_results', jsonEncode(widget.results));
   }

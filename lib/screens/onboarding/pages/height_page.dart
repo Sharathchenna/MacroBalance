@@ -25,9 +25,10 @@ class HeightPage extends StatelessWidget {
     double totalInches = currentHeightCm / 2.54;
     return (totalInches / 12).floor();
   }
+
   int get _imperialHeightInches {
-     double totalInches = currentHeightCm / 2.54;
-     return (totalInches % 12).round();
+    double totalInches = currentHeightCm / 2.54;
+    return (totalInches % 12).round();
   }
 
   @override
@@ -45,7 +46,8 @@ class HeightPage extends StatelessWidget {
             'What\'s your height?',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: customColors?.textPrimary ?? theme.textTheme.headlineSmall?.color,
+              color: customColors?.textPrimary ??
+                  theme.textTheme.headlineSmall?.color,
             ),
             textAlign: TextAlign.center,
           ),
@@ -56,11 +58,14 @@ class HeightPage extends StatelessWidget {
               Text(
                 'Used to calculate your BMI and BMR',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: customColors?.textSecondary ?? theme.textTheme.bodyMedium?.color,
+                  color: customColors?.textSecondary ??
+                      theme.textTheme.bodyMedium?.color,
                 ),
               ),
               const SizedBox(width: 4),
-              const TooltipIcon(message: 'Your height is used to calculate your BMI and base metabolic rate'),
+              const TooltipIcon(
+                  message:
+                      'Your height is used to calculate your BMI and base metabolic rate'),
             ],
           ),
           const SizedBox(height: 40),
@@ -102,11 +107,23 @@ class HeightPage extends StatelessWidget {
                           HapticFeedback.lightImpact();
                           onHeightChanged(value.toDouble());
                         },
-                        selectedTextStyle: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 32, fontWeight: FontWeight.bold),
-                        textStyle: TextStyle(color: customColors?.textSecondary ?? theme.textTheme.bodyMedium?.color, fontSize: 20),
+                        selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary ??
+                                theme.textTheme.bodyLarge?.color,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold),
+                        textStyle: TextStyle(
+                            color: customColors?.textSecondary ??
+                                theme.textTheme.bodyMedium?.color,
+                            fontSize: 20),
                       ),
                       const SizedBox(width: 8),
-                      Text('cm', style: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 20, fontWeight: FontWeight.w500)),
+                      Text('cm',
+                          style: TextStyle(
+                              color: customColors?.textPrimary ??
+                                  theme.textTheme.bodyLarge?.color,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500)),
                     ] else ...[
                       // Imperial (ft & in) pickers
                       NumberPicker(
@@ -114,13 +131,26 @@ class HeightPage extends StatelessWidget {
                         minValue: 3,
                         maxValue: 7,
                         onChanged: (feet) {
-                          HapticFeedback.lightImpact();
-                          onHeightChanged((feet * 30.48) + (_imperialHeightInches * 2.54));
+                          HapticFeedback.mediumImpact();
+                          onHeightChanged(
+                              (feet * 30.48) + (_imperialHeightInches * 2.54));
                         },
-                         selectedTextStyle: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 32, fontWeight: FontWeight.bold),
-                         textStyle: TextStyle(color: customColors?.textSecondary ?? theme.textTheme.bodyMedium?.color, fontSize: 20),
+                        selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary ??
+                                theme.textTheme.bodyLarge?.color,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold),
+                        textStyle: TextStyle(
+                            color: customColors?.textSecondary ??
+                                theme.textTheme.bodyMedium?.color,
+                            fontSize: 20),
                       ),
-                      Text('ft', style: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 20, fontWeight: FontWeight.w500)),
+                      Text('ft',
+                          style: TextStyle(
+                              color: customColors?.textPrimary ??
+                                  theme.textTheme.bodyLarge?.color,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500)),
                       const SizedBox(width: 16),
                       NumberPicker(
                         value: _imperialHeightInches,
@@ -128,13 +158,26 @@ class HeightPage extends StatelessWidget {
                         maxValue: 11,
                         onChanged: (inches) {
                           HapticFeedback.lightImpact();
-                           onHeightChanged((_imperialHeightFeet * 30.48) + (inches * 2.54));
+                          onHeightChanged(
+                              (_imperialHeightFeet * 30.48) + (inches * 2.54));
                         },
-                         selectedTextStyle: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 32, fontWeight: FontWeight.bold),
-                         textStyle: TextStyle(color: customColors?.textSecondary ?? theme.textTheme.bodyMedium?.color, fontSize: 20),
+                        selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary ??
+                                theme.textTheme.bodyLarge?.color,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold),
+                        textStyle: TextStyle(
+                            color: customColors?.textSecondary ??
+                                theme.textTheme.bodyMedium?.color,
+                            fontSize: 20),
                       ),
                       const SizedBox(width: 8),
-                      Text('in', style: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 20, fontWeight: FontWeight.w500)),
+                      Text('in',
+                          style: TextStyle(
+                              color: customColors?.textPrimary ??
+                                  theme.textTheme.bodyLarge?.color,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500)),
                     ],
                   ],
                 ),

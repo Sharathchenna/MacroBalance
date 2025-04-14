@@ -31,7 +31,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:app_links/app_links.dart'; // Replaced uni_links with app_links
+import 'package:app_links/app_links.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
@@ -43,12 +43,10 @@ import 'package:macrotracker/services/paywall_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
+import 'package:macrotracker/screens/loginscreen.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
-// Instance for app_links
-final _appLinks = AppLinks();
 
 // Define the channel for stats communication (presentation AND data)
 const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
@@ -79,47 +77,7 @@ class Routes {
   static const String expenditure = '/expenditure'; // Added expenditure route
 }
 
-// Add route observer
-class MyRouteObserver extends NavigatorObserver {
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    debugPrint('Navigation: Pushed ${route.settings.name}');
-  }
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    debugPrint('Navigation: Popped ${route.settings.name}');
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    debugPrint(
-        'Navigation: Replaced ${oldRoute?.settings.name} with ${newRoute?.settings.name}');
-  }
-
-  @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    debugPrint('Navigation: Removed ${route.settings.name}');
-  }
-}
-
 bool _initialUriHandled = false;
-
-// Helper function to set status bar style correctly for iOS
-void updateStatusBarForIOS(bool isDarkMode) {
-  if (Platform.isIOS) {
-    // The key for iOS is to set statusBarBrightness correctly
-    // Light brightness = dark content (black icons)
-    // Dark brightness = light content (white icons)
-    SystemChrome.setSystemUIOverlayStyle(
-      SystemUiOverlayStyle(
-        statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
-        // Make status bar transparent
-        statusBarColor: Colors.transparent,
-      ),
-    );
-  }
-}
 
 Future<void> main() async {
   // Ensure Flutter binding is initialized
@@ -162,9 +120,6 @@ Future<void> main() async {
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
   };
-
-  // Initialize deep links
-  await _initializeDeepLinks();
 
   // Setup Stats Channel Handler for widgets
   // Setup Stats Channel Handler for widgets - Needs access to context now or a lookup mechanism
@@ -242,7 +197,6 @@ Future<void> _initializeServicesInBackground() async {
   await Future.wait([
     _initializeFirebase(),
     _initializeSupabase(),
-    _initializeDeepLinks(),
     _initializePlatformState(),
   ]);
 
@@ -278,32 +232,6 @@ Future<void> _initializeSupabase() async {
     );
   } catch (e) {
     debugPrint("Supabase initialization error: $e");
-  }
-}
-
-Future<void> _initializeDeepLinks() async {
-  try {
-    // Use app_links to get the initial link
-    final initialUri =
-        await _appLinks.getInitialLink(); // Trying getInitialLink
-    if (initialUri != null) {
-      debugPrint('Initial URI: $initialUri');
-      _handleDeepLink(initialUri);
-    }
-    _initialUriHandled = true;
-
-    // Handle links when app is already running using app_links stream
-    _appLinks.uriLinkStream.listen((Uri? uri) {
-      if (!_initialUriHandled) return;
-      if (uri != null) {
-        debugPrint('URI link received: $uri');
-        _handleDeepLink(uri);
-      }
-    }, onError: (Object err) {
-      debugPrint('URI link error: $err');
-    });
-  } catch (e) {
-    debugPrint('Deep links initialization error: $e');
   }
 }
 
@@ -520,6 +448,42 @@ void _handleDeepLink(Uri uri) {
       // If we don't recognize the path, go to dashboard
       navigatorKey.currentState?.pushNamed(Routes.dashboard);
   }
+
+  // Handle email verification callback
+  if (uri.path.startsWith('/login-callback')) { // <-- Change this line
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+
+      // Show success message
+      if (navigatorKey.currentContext != null) {
+        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+          const SnackBar(
+            content: Text('Email verified successfully! Please log in.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+  }
+}
+
+// Add this before the MyApp class
+class MyRouteObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    // Optional: Add analytics or logging here
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    // Optional: Add analytics or logging here
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -530,10 +494,27 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  StreamSubscription? _linkSubscription;
+
+  void updateStatusBarForIOS(bool isDarkMode) {
+    SystemChrome.setSystemUIOverlayStyle(
+      isDarkMode
+          ? const SystemUiOverlayStyle(
+              statusBarBrightness: Brightness.light,
+              statusBarIconBrightness: Brightness.light,
+            )
+          : const SystemUiOverlayStyle(
+              statusBarBrightness: Brightness.dark,
+              statusBarIconBrightness: Brightness.dark,
+            ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _initDeepLinks(); // Keep initialization here within the state
     // Removed provider linking logic
     // Trigger initial expenditure calculation after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -544,8 +525,46 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _linkSubscription?.cancel(); // Ensure cancellation on dispose
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  // This function now handles all deep link initialization logic
+  Future<void> _initDeepLinks() async {
+    final appLinks = AppLinks();
+    try {
+      // Handle incoming links when the app is running
+      _linkSubscription = appLinks.uriLinkStream.listen((Uri? uri) {
+        if (uri != null && mounted) {
+          // Check if mounted before handling
+          _handleDeepLink(uri);
+        }
+      }, onError: (err) {
+        debugPrint('Error handling deep links: $err');
+      });
+
+      // Handle the case where the app was launched via a deep link
+      // Needs to be done carefully as context might not be fully ready
+      // Use addPostFrameCallback to ensure navigatorKey is available
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          // Get the initial link directly as Uri?
+          final initialUriFromLink = await appLinks.getInitialLink();
+          // Check if the Uri is not null and the widget is still mounted
+          if (initialUriFromLink != null && mounted) {
+            // No parsing needed, pass the Uri object directly
+            _handleDeepLink(initialUriFromLink);
+          }
+        } on PlatformException {
+          debugPrint('Failed to get initial app link.');
+        } catch (e) {
+          debugPrint('Error processing initial deep link: $e');
+        }
+      });
+    } catch (e) {
+      debugPrint('Deep link initialization error: $e');
+    }
   }
 
   @override
@@ -559,10 +578,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangePlatformBrightness() {
     super.didChangePlatformBrightness();
-    // Notify theme provider when system brightness changes
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    if (themeProvider.useSystemTheme) {
-      themeProvider.notifyListeners();
+    // Update theme when system brightness changes
+    if (mounted) {
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      if (themeProvider.useSystemTheme) {
+        setState(() {}); // Trigger rebuild instead of direct notifyListeners
+      }
     }
   }
 

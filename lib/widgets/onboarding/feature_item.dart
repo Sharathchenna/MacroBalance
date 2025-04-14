@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:macrotracker/theme/app_theme.dart'; // Assuming theme is needed
-import 'package:macrotracker/theme/typography.dart';
+import 'package:flutter/services.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 
 class FeatureItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color? iconColor;
+  final Color? backgroundColor;
 
   const FeatureItem({
     super.key,
     required this.icon,
     required this.label,
+    this.iconColor,
+    this.backgroundColor,
   });
 
   @override
@@ -17,33 +21,45 @@ class FeatureItem extends StatelessWidget {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Center(
+    return GestureDetector(
+      onTap: () => HapticFeedback.lightImpact(),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: backgroundColor ??
+                  customColors?.cardBackground ??
+                  theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.colorScheme.shadow.withOpacity(0.1),
+                  offset: const Offset(0, 4),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
             child: Icon(
               icon,
-              color: (customColors?.textPrimary ?? theme.colorScheme.primary)
-                  .withOpacity(0.8),
-              size: 28,
+              size: 36,
+              color: iconColor ??
+                  customColors?.accentPrimary ??
+                  theme.colorScheme.primary,
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: AppTypography.caption.copyWith(
-            color: customColors?.textPrimary ?? theme.colorScheme.onBackground,
-            fontWeight: FontWeight.w600,
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: customColors?.textPrimary ??
+                      theme.colorScheme.onBackground,
+                ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

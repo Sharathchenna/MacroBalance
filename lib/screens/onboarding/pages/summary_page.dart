@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
@@ -245,7 +246,10 @@ class SummaryPage extends StatelessWidget {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
     return InkWell(
-      onTap: () => onEdit(page),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onEdit(page);
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Row(children: [
