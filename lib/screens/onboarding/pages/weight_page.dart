@@ -37,7 +37,8 @@ class WeightPage extends StatelessWidget {
             'What\'s your current weight?',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: customColors?.textPrimary ?? theme.textTheme.headlineSmall?.color,
+              color: customColors?.textPrimary ??
+                  theme.textTheme.headlineSmall?.color,
             ),
             textAlign: TextAlign.center,
           ),
@@ -48,11 +49,14 @@ class WeightPage extends StatelessWidget {
               Text(
                 'Used to calculate your daily caloric needs',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: customColors?.textSecondary ?? theme.textTheme.bodyMedium?.color,
+                  color: customColors?.textSecondary ??
+                      theme.textTheme.bodyMedium?.color,
                 ),
               ),
               const SizedBox(width: 4),
-              const TooltipIcon(message: 'Your current body weight is used to calculate your daily caloric needs'),
+              const TooltipIcon(
+                  message:
+                      'Your current body weight is used to calculate your daily caloric needs'),
             ],
           ),
           const SizedBox(height: 40),
@@ -91,26 +95,54 @@ class WeightPage extends StatelessWidget {
                         minValue: 30,
                         maxValue: 200,
                         onChanged: (value) {
-                          HapticFeedback.lightImpact();
-                          onWeightChanged(value + (currentWeightKg - currentWeightKg.floor()));
+                          HapticFeedback.selectionClick();
+                          onWeightChanged(value +
+                              (currentWeightKg - currentWeightKg.floor()));
                         },
-                        selectedTextStyle: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 32, fontWeight: FontWeight.bold),
-                        textStyle: TextStyle(color: customColors?.textSecondary ?? theme.textTheme.bodyMedium?.color, fontSize: 20),
+                        selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary ??
+                                theme.textTheme.bodyLarge?.color,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold),
+                        textStyle: TextStyle(
+                            color: customColors?.textSecondary ??
+                                theme.textTheme.bodyMedium?.color,
+                            fontSize: 20),
                       ),
-                      Text('.', style: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 32, fontWeight: FontWeight.bold)),
+                      Text('.',
+                          style: TextStyle(
+                              color: customColors?.textPrimary ??
+                                  theme.textTheme.bodyLarge?.color,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold)),
                       NumberPicker(
-                        value: ((currentWeightKg - currentWeightKg.floor()) * 10).round(),
+                        value:
+                            ((currentWeightKg - currentWeightKg.floor()) * 10)
+                                .round(),
                         minValue: 0,
                         maxValue: 9,
                         onChanged: (value) {
                           HapticFeedback.lightImpact();
-                          onWeightChanged(currentWeightKg.floor() + (value / 10));
+                          onWeightChanged(
+                              currentWeightKg.floor() + (value / 10));
                         },
-                        selectedTextStyle: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 32, fontWeight: FontWeight.bold),
-                        textStyle: TextStyle(color: customColors?.textSecondary ?? theme.textTheme.bodyMedium?.color, fontSize: 20),
+                        selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary ??
+                                theme.textTheme.bodyLarge?.color,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold),
+                        textStyle: TextStyle(
+                            color: customColors?.textSecondary ??
+                                theme.textTheme.bodyMedium?.color,
+                            fontSize: 20),
                       ),
                       const SizedBox(width: 8),
-                      Text('kg', style: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 20, fontWeight: FontWeight.w500)),
+                      Text('kg',
+                          style: TextStyle(
+                              color: customColors?.textPrimary ??
+                                  theme.textTheme.bodyLarge?.color,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500)),
                     ] else ...[
                       // Imperial (lbs) picker
                       NumberPicker(
@@ -121,11 +153,23 @@ class WeightPage extends StatelessWidget {
                           HapticFeedback.lightImpact();
                           onWeightChanged(value / 2.20462);
                         },
-                        selectedTextStyle: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 32, fontWeight: FontWeight.bold),
-                        textStyle: TextStyle(color: customColors?.textSecondary ?? theme.textTheme.bodyMedium?.color, fontSize: 20),
+                        selectedTextStyle: TextStyle(
+                            color: customColors?.textPrimary ??
+                                theme.textTheme.bodyLarge?.color,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold),
+                        textStyle: TextStyle(
+                            color: customColors?.textSecondary ??
+                                theme.textTheme.bodyMedium?.color,
+                            fontSize: 20),
                       ),
                       const SizedBox(width: 8),
-                      Text('lbs', style: TextStyle(color: customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color, fontSize: 20, fontWeight: FontWeight.w500)),
+                      Text('lbs',
+                          style: TextStyle(
+                              color: customColors?.textPrimary ??
+                                  theme.textTheme.bodyLarge?.color,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500)),
                     ],
                   ],
                 ),

@@ -187,7 +187,7 @@ class SetNewGoalPage extends StatelessWidget {
                                     ? (currentWeightKg.floor() - 1)
                                     : 150,
                             onChanged: (value) {
-                              HapticFeedback.selectionClick();
+                              HapticFeedback.mediumImpact();
                               onGoalWeightChanged(value +
                                   (goalWeightKg - goalWeightKg.floor()));
                             },
@@ -237,7 +237,7 @@ class SetNewGoalPage extends StatelessWidget {
                                     ? (_imperialCurrentWeightLbs - 1)
                                     : 330,
                             onChanged: (value) {
-                              HapticFeedback.selectionClick();
+                              HapticFeedback.mediumImpact();
                               onGoalWeightChanged(value / 2.20462);
                             },
                             isLarge: true,

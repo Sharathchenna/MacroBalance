@@ -167,6 +167,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   // --- Navigation ---
   void _nextPage() {
+    HapticFeedback.selectionClick();
     int currentPageIndex = _currentPage;
     int nextPage = currentPageIndex + 1;
 
@@ -190,6 +191,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _previousPage() {
+    HapticFeedback.selectionClick();
     int currentPageIndex = _currentPage;
     int prevPage = currentPageIndex - 1;
 
@@ -205,6 +207,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _goToPage(int page) {
+    HapticFeedback.selectionClick();
     int targetPage = page;
     bool isSkippingForwardMaintain = false; // Flag for the specific skip
 
