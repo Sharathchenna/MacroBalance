@@ -70,10 +70,11 @@ class _SubscriptionSettingsScreenState
         }
       }
     } catch (e) {
+      debugPrint('Error restoring purchases: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error restoring purchases: $e'),
+            content: Text('Error restoring purchases'),
             backgroundColor: Colors.red,
           ),
         );
@@ -122,10 +123,11 @@ class _SubscriptionSettingsScreenState
         throw 'Could not launch subscription management URL';
       }
     } catch (e) {
+      debugPrint('Error opening subscription settings: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error opening subscription settings: $e'),
+            content: Text('Error opening subscription settings'),
             backgroundColor: Colors.red,
           ),
         );

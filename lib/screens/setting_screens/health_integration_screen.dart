@@ -88,7 +88,8 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
       setState(() {
         _healthDataStatus = "Error connecting to Health App";
       });
-      _showErrorSnackbar("Failed to connect to Health App: $e");
+      debugPrint('Failed to connect to Health App: $e');
+      _showErrorSnackbar("Failed to connect to Health App");
     } finally {
       setState(() {
         _isLoading = false;
@@ -119,7 +120,8 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
             heightWeight != "Height or weight data not available";
       });
     } catch (e) {
-      _showErrorSnackbar("Failed to fetch health data: $e");
+      debugPrint('Failed to fetch health data: $e');
+      _showErrorSnackbar("Failed to fetch health data");
     }
   }
 

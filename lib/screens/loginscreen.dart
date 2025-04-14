@@ -153,9 +153,10 @@ class _LoginScreenState extends State<LoginScreen>
         (route) => false,
       );
     } catch (error) {
+      print('Google sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Google sign-in error: $error'),
+          content: Text('There was a problem signing in with google'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -197,9 +198,10 @@ class _LoginScreenState extends State<LoginScreen>
         throw 'No identity token received from Apple';
       }
     } catch (error) {
+      print('Apple sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Apple sign-in error: $error'),
+          content: Text('There was a problem signing in with Apple'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),

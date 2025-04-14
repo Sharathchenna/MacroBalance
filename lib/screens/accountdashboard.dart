@@ -1752,7 +1752,7 @@ class _AccountDashboardState extends State<AccountDashboard>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Could not open subscription settings: $e'),
+              content: Text('Could not open subscription settings'),
               backgroundColor: Colors.red,
             ),
           );
