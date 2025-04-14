@@ -17,6 +17,7 @@ import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../theme/typography.dart';
 import 'dart:math'; // Add missing import for min function and pi constant
+import '../services/posthog_service.dart';
 
 class FoodDetailPage extends StatefulWidget {
   final FoodItem food;
@@ -341,6 +342,22 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       unit: selectedUnit,
       date: dateProvider.selectedDate,
       servingDescription: selectedServing?.description,
+    );
+
+    // Track food entry event
+    PostHogService.trackFoodEntry(
+      foodName: widget.food.name,
+      calories: widget.food.calories,
+      protein: widget.food.nutrients['Protein'] ?? 0,
+      carbs: widget.food.nutrients['Carbohydrate, by difference'] ?? 0,
+      fat: widget.food.nutrients['Total lipid (fat)'] ?? 0,
+      properties: {
+        'meal_type': selectedMeal,
+        'quantity': entry.quantity,
+        'unit': entry.unit,
+        'serving_description': entry.servingDescription,
+        'brand_name': widget.food.brandName,
+      },
     );
 
     // Add entry to provider

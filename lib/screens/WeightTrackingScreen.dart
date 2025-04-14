@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:provider/provider.dart'; // Import Provider
 import '../providers/foodEntryProvider.dart'; // Import FoodEntryProvider
 import '../providers/weight_unit_provider.dart';
+import '../services/posthog_service.dart';
 
 // Weight data point model
 class WeightPoint {
@@ -1182,18 +1183,17 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                         'Date:',
                         style: GoogleFonts.inter(
                           fontSize: 16,
-                          color: customColors.textSecondary,
+                          color: customColors.textPrimary,
                         ),
                       ),
                       TextButton(
                         onPressed: () {
-                          showModalBottomSheet(
+                          showDialog(
                             context: context,
-                            builder: (BuildContext builder) {
-                              return Container(
-                                height: 250,
-                                color: customColors.cardBackground,
-                                child: Column(
+                            builder: (context) {
+                              return AlertDialog(
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Row(
                                       mainAxisAlignment:
@@ -1305,14 +1305,20 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                       if (_weightData.isNotEmpty) {
                         _currentWeight = _weightData.last['weight'] as double;
                       }
-
-                      // Optional: Limit history size if needed (e.g., keep last 100)
-                      // if (_weightData.length > 100) {
-                      //   _weightData = _weightData.sublist(_weightData.length - 100);
-                      // }
                     });
-                    // Save the changes (Note: _saveWeightChanges only saves current/goal)
-                    // A separate mechanism would be needed to persist the full history
+
+                    // Track the weight entry with PostHog
+                    PostHogService.trackWeightEntry(
+                      weight: newWeight,
+                      unit: Provider.of<WeightUnitProvider>(context,
+                              listen: false)
+                          .unitLabel,
+                      properties: {
+                        'date': selectedDate.toIso8601String(),
+                        'previous_weight': _currentWeight,
+                      },
+                    );
+
                     Navigator.pop(context);
                     await _saveWeightChanges();
                   },
