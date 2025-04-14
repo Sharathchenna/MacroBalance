@@ -86,8 +86,20 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     });
 
     try {
+      final email = _emailController.text.trim(); // Trim whitespace
+      if (email.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid email address'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() => isLoading = false); // Reset loading state
+        return;
+      }
       final response = await _supabase.auth.signUp(
-          email: _emailController.text,
+          email: email, // Use trimmed email
           password: _passwordController.text,
           data: {'username': _nameController.text});
 

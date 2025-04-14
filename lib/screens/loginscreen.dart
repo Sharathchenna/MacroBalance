@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       await _authService.signIn(
-        _emailController.text,
+        _emailController.text.trim(), // Trim whitespace from email
         _passwordController.text,
       );
 
