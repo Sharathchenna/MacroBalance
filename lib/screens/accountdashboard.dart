@@ -651,7 +651,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                   _buildListTile(
                     icon: CupertinoIcons.star_fill,
                     iconColor: Colors.amber,
-                    title: 'Give Feedback',
+                    title: 'Give Feedback or Report a Bug',
                     subtitle: 'Help us improve the app',
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
