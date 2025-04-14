@@ -192,9 +192,10 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         (route) => false,
       );
     } catch (error) {
+      print('Google sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Google sign-in error: $error'),
+          content: Text('There was a problem signing in with Google'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -236,9 +237,10 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         throw 'No identity token received from Apple';
       }
     } catch (error) {
+      print('Apple sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Apple sign-in error: $error'),
+          content: Text('There was a problem signing in with Apple'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
