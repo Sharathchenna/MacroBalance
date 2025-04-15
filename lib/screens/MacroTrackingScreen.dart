@@ -294,12 +294,12 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               children: [
                 _buildLegendItem(
                     'Protein (${_targetProtein.round()}g)', // Use round()
-                    Colors.blue.shade600,
-                    customColors), // Protein: Blue
+                    Colors.red.shade600,
+                    customColors), // Protein: Red
                 _buildLegendItem(
                     'Carbs (${_targetCarbs.round()}g)', // Use round()
-                    Colors.red.shade600,
-                    customColors), // Carbs: Red
+                    Colors.blue.shade600,
+                    customColors), // Carbs: Blue
                 _buildLegendItem(
                     'Fat (${_targetFat.round()}g)', // Use round()
                     Colors.amber.shade600,
@@ -683,7 +683,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     'Protein',
                     _currentProtein,
                     _targetProtein,
-                    Colors.blue.shade600,
+                    Colors.red.shade600, // Carbs: Red
                     customColors,
                   ),
                   const SizedBox(height: 14),
@@ -691,7 +691,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     'Carbs',
                     _currentCarbs,
                     _targetCarbs,
-                    Colors.red.shade600, // Carbs: Red
+                    Colors.blue.shade600,
                     customColors,
                   ),
                   const SizedBox(height: 14),
@@ -959,8 +959,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            Colors.blue.shade700,
-                            Colors.blue.shade500
+                            Colors.red.shade700,
+                            Colors.red.shade500
                           ], // Protein: Blue
                         ),
                       ),
@@ -975,8 +975,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           end: Alignment.centerRight,
                           colors: [
                             // Carbs: Red
-                            Colors.red.shade700,
-                            Colors.red.shade500
+                            Colors.blue.shade700,
+                            Colors.blue.shade500
                           ],
                         ),
                       ),
@@ -1008,9 +1008,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildMacroPercentageIndicator('Protein', proteinPercentage,
-                  Colors.blue.shade600, customColors),
-              _buildMacroPercentageIndicator('Carbs', carbsPercentage,
                   Colors.red.shade600, customColors), // Carbs: Red
+              _buildMacroPercentageIndicator(
+                  'Carbs', carbsPercentage, Colors.blue.shade600, customColors),
               _buildMacroPercentageIndicator('Fat', fatPercentage,
                   Colors.amber.shade600, customColors), // Fat: Yellow/Amber
             ],
@@ -1021,7 +1021,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             'Protein',
             _currentProtein,
             proteinPercentage,
-            Colors.blue.shade600,
+            Colors.red.shade600, // Carbs: Red
             customColors,
           ),
           const SizedBox(height: 16),
@@ -1029,7 +1029,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             'Carbs',
             _currentCarbs,
             carbsPercentage,
-            Colors.red.shade600, // Carbs: Red
+            Colors.blue.shade600,
             customColors,
           ),
           const SizedBox(height: 16),
@@ -1239,7 +1239,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildGoalItem('Protein', _targetProtein, Colors.blue.shade600,
+                _buildGoalItem(
+                    'Protein',
+                    _targetProtein,
+                    Colors.red.shade600, // Carbs: Red
                     customColors),
                 Container(
                   height: 40,
@@ -1247,10 +1250,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   color: customColors.dateNavigatorBackground,
                 ),
                 _buildGoalItem(
-                    'Carbs',
-                    _targetCarbs,
-                    Colors.red.shade600, // Carbs: Red
-                    customColors),
+                    'Carbs', _targetCarbs, Colors.blue.shade600, customColors),
                 Container(
                   height: 40,
                   width: 1,
@@ -1529,8 +1529,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Protein',
                           proteinController,
-                          Colors.blue
-                              .shade600, // Protein: Blue (Fixing inconsistency)
+                          Colors.red
+                              .shade600, // Carbs: Red (Fixing inconsistency)
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1546,8 +1546,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Carbs',
                           carbsController,
-                          Colors.red
-                              .shade600, // Carbs: Red (Fixing inconsistency)
+                          Colors.blue
+                              .shade600, // Protein: Blue (Fixing inconsistency)
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1818,7 +1818,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Protein',
                           proteinController,
-                          Colors.blue.shade600, // Protein: Blue
+                          Colors.red.shade600, // Carbs: Red
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1834,7 +1834,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Carbs',
                           carbsController,
-                          Colors.red.shade600, // Carbs: Red
+                          Colors.blue.shade600, // Protein: Blue
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -2430,10 +2430,10 @@ class _MacroBarChartPainter extends CustomPainter {
       canvas.drawRRect(
         RRect.fromRectAndCorners(
           proteinRect,
-          topLeft: Radius.circular(cornerRadius),
-          topRight: Radius.circular(cornerRadius),
+          // topLeft: Radius.circular(cornerRadius),
+          // topRight: Radius.circular(cornerRadius),
         ),
-        Paint()..color = Colors.blue.shade600, // Protein: Blue
+        Paint()..color = Colors.red.shade600, // Carbs: Red
       );
     }
 
@@ -2447,7 +2447,7 @@ class _MacroBarChartPainter extends CustomPainter {
       );
       canvas.drawRect(
         carbsRect,
-        Paint()..color = Colors.red.shade600, // Carbs: Red
+        Paint()..color = Colors.blue.shade600, // Protein: Blue
       );
     }
 
