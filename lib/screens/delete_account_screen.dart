@@ -395,10 +395,11 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           await launch('App-Prefs:root=STORE');
         }
       } catch (e) {
+        print('Error opening subscription settings: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Could not open subscription settings: $e'),
+              content: Text('Could not open subscription settings'),
               backgroundColor: Colors.red,
             ),
           );

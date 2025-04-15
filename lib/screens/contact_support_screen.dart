@@ -86,11 +86,12 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
         }
       } catch (e) {
         // Handle network or other errors
+        debugPrint('Error sending support message: $e'); // Log the detailed error
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Error sending message: ${e.toString()}',
+                'There was a problem sending the message.', // Generic error message
                 style: GoogleFonts.poppins(),
               ),
               backgroundColor: Colors.red,
