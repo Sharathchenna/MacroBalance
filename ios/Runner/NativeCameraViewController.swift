@@ -77,6 +77,9 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     private let darkOverlayColor = UIColor.black.withAlphaComponent(0.4) // Translucent overlay
     private let premiumBackgroundColor = UIColor(white: 0.12, alpha: 0.85) // Premium dark background
 
+    // Add new property for product lookup state
+    private var isLookingUpProduct = false
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -918,9 +921,60 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     
     // MARK: - Barcode Handling
     
+    private func lookupProduct(with barcode: String, completion: @escaping (Bool) -> Void) {
+        // Here you would implement your product lookup logic
+        // For now, we'll simulate a lookup with a delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            // Simulate product found/not found
+            let productFound = Bool.random() // Replace with actual lookup logic
+            completion(productFound)
+        }
+    }
+    
+    private func showProductNotFoundMessage() {
+        let alert = UIAlertController(
+            title: "Product Not Found",
+            message: "We couldn't find this product in our database. Please try again.",
+            preferredStyle: .alert
+        )
+        
+        // Style the alert with premium colors
+        alert.view.tintColor = premiumGoldColor
+        alert.view.backgroundColor = premiumBackgroundColor
+        alert.view.layer.cornerRadius = 12
+        alert.view.layer.borderWidth = 1
+        alert.view.layer.borderColor = premiumGoldColor.withAlphaComponent(0.3).cgColor
+        
+        // Add OK button with premium styling
+        let okAction = UIAlertAction(title: "Try Again", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            
+            // Reset all scanning states
+            self.isLookingUpProduct = false
+            self.hasSentResult = false
+            self.isProcessingFrame = false
+            
+            // Ensure continuous scanning is enabled
+            self.isContinuousBarcodeScanningEnabled = true
+            
+            // Show visual feedback that scanning has resumed
+            UIView.animate(withDuration: 0.2, animations: {
+                self.barcodeScanGuideView.transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
+                self.barcodeScanGuideView.layer.borderColor = self.premiumGoldColor.cgColor
+            }) { _ in
+                UIView.animate(withDuration: 0.2) {
+                    self.barcodeScanGuideView.transform = CGAffineTransform.identity
+                }
+            }
+        }
+        alert.addAction(okAction)
+        
+        present(alert, animated: true)
+    }
+    
     private func handleBarcodes(request: VNRequest, error: Error?) {
-        // Stop processing if we've already sent a result or are in another mode
-        guard !hasSentResult, currentMode == .barcode, isContinuousBarcodeScanningEnabled else {
+        // Stop processing if we've already sent a result, are looking up a product, or are in another mode
+        guard !hasSentResult, !isLookingUpProduct, currentMode == .barcode, isContinuousBarcodeScanningEnabled else {
             isProcessingFrame = false
             return
         }
@@ -939,15 +993,13 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         }
         
         // Get the barcode scan guide frame in normalized coordinates (0-1)
-        // Need to convert the guide view's frame to the coordinate space of the camera feed
-        var guideFrame = CGRect.zero // Changed from 'let' to 'var' and initialized with zero rect
+        var guideFrame = CGRect.zero
         
         DispatchQueue.main.sync {
             // Convert barcodeScanGuideView frame to camera view coordinates
             let guideViewFrame = barcodeScanGuideView.frame
             
-            // Need to convert from view coordinates to normalized coordinates (0-1)
-            // where (0,0) is top-left and (1,1) is bottom-right
+            // Convert from view coordinates to normalized coordinates (0-1)
             let viewWidth = previewView.frame.width
             let viewHeight = previewView.frame.height
             
@@ -960,20 +1012,15 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             )
         }
         
-        // Visual feedback animation when a barcode is detected but not within the frame
-        var foundBarcodeButNotInFrame = false
-        
         // Find a valid barcode within the guide frame
         for observation in observations {
             guard let payloadString = observation.payloadStringValue else { continue }
             
             // Check if the barcode's bounding box is mostly within our guide frame
-            // Vision coordinates are normalized where (0,0) is bottom-left, (1,1) is top-right
-            // We need to flip the y-coordinate to match the UI coordinate system
             let observationBox = observation.boundingBox
             let flippedBox = CGRect(
                 x: observationBox.origin.x,
-                y: 1 - observationBox.origin.y - observationBox.height, // Flip Y
+                y: 1 - observationBox.origin.y - observationBox.height,
                 width: observationBox.width,
                 height: observationBox.height
             )
@@ -988,14 +1035,11 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                 
                 // Only accept barcode if sufficient portion is within guide frame (e.g., >50%)
                 if overlapPercentage > 0.5 {
-                    // Valid barcode found within guide frame, stop processing and report
+                    // Valid barcode found within guide frame
                     DispatchQueue.main.async { [weak self] in
                         guard let self = self, !self.hasSentResult else { return }
                         
-                        self.hasSentResult = true
-                        self.hapticGenerator.impactOccurred(intensity: 1.0)
-                        
-                        // Success animation - briefly highlight the guide in green
+                        // Show visual feedback that barcode was detected
                         let originalBorderColor = self.barcodeScanGuideView.layer.borderColor
                         UIView.animate(withDuration: 0.15, animations: {
                             self.barcodeScanGuideView.layer.borderColor = UIColor.systemGreen.cgColor
@@ -1007,36 +1051,29 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                             }
                         }
                         
-                        // Dismiss and send result to delegate after a brief delay to show the animation
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                            self.dismiss(animated: true) {
-                                self.delegate?.nativeCameraDidFinish(withBarcode: payloadString, mode: .barcode)
+                        // Start product lookup
+                        self.isLookingUpProduct = true
+                        self.lookupProduct(with: payloadString) { [weak self] productFound in
+                            guard let self = self else { return }
+                            
+                            if productFound {
+                                // Product found, proceed to Flutter
+                                self.hasSentResult = true
+                                self.hapticGenerator.impactOccurred(intensity: 1.0)
+                                
+                                // Dismiss and send result to delegate after a brief delay
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                    self.dismiss(animated: true) {
+                                        self.delegate?.nativeCameraDidFinish(withBarcode: payloadString, mode: .barcode)
+                                    }
+                                }
+                            } else {
+                                // Product not found, show message
+                                self.showProductNotFoundMessage()
                             }
                         }
                     }
                     return // Exit loop after finding a valid barcode
-                }
-            } else {
-                // Barcode detected but not in frame
-                foundBarcodeButNotInFrame = true
-            }
-        }
-        
-        // If we found a barcode but it wasn't in frame, show a subtle hint animation
-        if foundBarcodeButNotInFrame {
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self, !self.hasSentResult else { return }
-                
-                // Subtle animation to guide user to place barcode in the frame
-                let originalBorderColor = self.barcodeScanGuideView.layer.borderColor
-                UIView.animate(withDuration: 0.2, animations: {
-                    self.barcodeScanGuideView.layer.borderColor = UIColor.systemOrange.cgColor
-                    self.barcodeScanGuideView.transform = CGAffineTransform(scaleX: 1.03, y: 1.03)
-                }) { _ in
-                    UIView.animate(withDuration: 0.2) {
-                        self.barcodeScanGuideView.layer.borderColor = originalBorderColor
-                        self.barcodeScanGuideView.transform = CGAffineTransform.identity
-                    }
                 }
             }
         }
