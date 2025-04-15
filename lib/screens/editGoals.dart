@@ -755,15 +755,15 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
             ),
       },
       // Add BMR (non-editable for now)
-      {
-        'title': 'Basal Metabolic Rate (BMR)',
-        'value': bmr,
-        'currentValue': null, // No progress for BMR
-        'unit': 'kcal',
-        'icon': Icons.bedtime_rounded,
-        'color': Colors.lightBlue,
-        'onEdit': null, // Not editable directly
-      },
+      // {
+      //   'title': 'Basal Metabolic Rate (BMR)',
+      //   'value': bmr,
+      //   'currentValue': null, // No progress for BMR
+      //   'unit': 'kcal',
+      //   'icon': Icons.bedtime_rounded,
+      //   'color': Colors.lightBlue,
+      //   'onEdit': null, // Not editable directly
+      // },
     ];
   }
 
@@ -830,10 +830,34 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Target Macro Ratio (by Grams)',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Target Macro Ratio (by Grams)',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                Tooltip(
+                  message:
+                      'These percentages show how your daily macro goals are distributed:\n\n'
+                      '• Protein: ${proteinPercent.toStringAsFixed(0)}% (${proteinGoal}g)\n'
+                      '• Carbs: ${carbPercent.toStringAsFixed(0)}% (${carbGoal}g)\n'
+                      '• Fat: ${fatPercent.toStringAsFixed(0)}% (${fatGoal}g)\n\n'
+                      'Based on total grams: ${totalGrams}g',
+                  textStyle: const TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: customColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Row(

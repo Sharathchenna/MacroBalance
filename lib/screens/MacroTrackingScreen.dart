@@ -51,7 +51,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    _macroPercentages = ValueNotifier({ // Initialize
+    _macroPercentages = ValueNotifier({
+      // Initialize
       'protein': 0,
       'carbs': 0,
       'fat': 0,
@@ -70,7 +71,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
 
   // Calculates percentages based on current macros and fetched total calories
   void _updateMacroPercentages(double totalCalories) {
-     final percentages = {
+    final percentages = {
       'protein':
           totalCalories > 0 ? (_currentProtein * 4 / totalCalories * 100) : 0,
       'carbs':
@@ -89,7 +90,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   double _calculateTargetCalories(double protein, double carbs, double fat) {
     return (protein * 4) + (carbs * 4) + (fat * 9);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -118,20 +118,25 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               elevation: 0,
               systemOverlayStyle: SystemUiOverlayStyle.dark,
             ),
-      body: FutureBuilder( // Use FutureBuilder to wait for provider initialization
-        future: Provider.of<FoodEntryProvider>(context, listen: false).ensureInitialized(),
+      body: FutureBuilder(
+        // Use FutureBuilder to wait for provider initialization
+        future: Provider.of<FoodEntryProvider>(context, listen: false)
+            .ensureInitialized(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error initializing provider: ${snapshot.error}'));
+            return Center(
+                child: Text('Error initializing provider: ${snapshot.error}'));
           } else {
             // Provider is initialized, build the main UI
             return SafeArea(
-              child: Consumer<FoodEntryProvider>( // Wrap with Consumer to get provider updates
+              child: Consumer<FoodEntryProvider>(
+                // Wrap with Consumer to get provider updates
                 builder: (context, foodEntryProvider, child) {
                   // Fetch today's data using the new centralized method
-                  final nutrientTotals = foodEntryProvider.getNutrientTotalsForDate(DateTime.now());
+                  final nutrientTotals = foodEntryProvider
+                      .getNutrientTotalsForDate(DateTime.now());
                   final currentCalories = nutrientTotals['calories'] ?? 0.0;
                   final currentProtein = nutrientTotals['protein'] ?? 0.0;
                   final currentCarbs = nutrientTotals['carbs'] ?? 0.0;
@@ -143,21 +148,18 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   _currentCarbs = currentCarbs;
                   _currentFat = currentFat;
 
-
                   // Update percentages whenever build is called with new calorie data
                   // Use addPostFrameCallback to avoid calling setState during build
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                     if (mounted) { // Check if widget is still mounted
-                       _updateMacroPercentages(currentCalories);
-                     }
+                    if (mounted) {
+                      // Check if widget is still mounted
+                      _updateMacroPercentages(currentCalories);
+                    }
                   });
 
                   // Calculate target calories based on loaded goals (already in state)
                   final targetCalories = _calculateTargetCalories(
-                    _targetProtein,
-                    _targetCarbs,
-                    _targetFat
-                  );
+                      _targetProtein, _targetCarbs, _targetFat);
 
                   return CustomScrollView(
                     slivers: [
@@ -168,18 +170,23 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               RepaintBoundary(
-                                child:
-                                    _buildMacroSummaryCard(context, customColors, currentCalories, targetCalories), // Pass fetched calories & calculated target
+                                child: _buildMacroSummaryCard(
+                                    context,
+                                    customColors,
+                                    currentCalories,
+                                    targetCalories), // Pass fetched calories & calculated target
                               ),
                               const SizedBox(height: 24),
                               _buildMacroChart(customColors),
                               const SizedBox(height: 24),
                               RepaintBoundary(
-                                child: _buildMacroBreakdown(customColors, currentCalories), // Pass fetched calories for percentages
+                                child: _buildMacroBreakdown(customColors,
+                                    currentCalories), // Pass fetched calories for percentages
                               ),
                               const SizedBox(height: 24),
                               RepaintBoundary(
-                                child: _buildMacroGoals(customColors, targetCalories), // Pass calculated target calories
+                                child: _buildMacroGoals(customColors,
+                                    targetCalories), // Pass calculated target calories
                               ),
                               const SizedBox(height: 50),
                             ],
@@ -198,7 +205,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   }
 
   Widget _buildMacroChart(CustomColors customColors) {
-     // Calculate target value based on view type
+    // Calculate target value based on view type
     final targetValueForChart = _selectedChartView == 'Calories'
         ? _calculateTargetCalories(_targetProtein, _targetCarbs, _targetFat)
         : _targetProtein + _targetCarbs + _targetFat;
@@ -241,26 +248,26 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     color: customColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Center(
-                  child: Container(
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color:
-                          customColors.dateNavigatorBackground.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildChartViewTab('Calories',
-                            _selectedChartView == 'Calories', customColors),
-                        _buildChartViewTab('Grams',
-                            _selectedChartView == 'Grams', customColors),
-                      ],
-                    ),
-                  ),
-                ),
+                // const SizedBox(height: 16),
+                // Center(
+                //   child: Container(
+                //     height: 36,
+                //     decoration: BoxDecoration(
+                //       color:
+                //           customColors.dateNavigatorBackground.withOpacity(0.5),
+                //       borderRadius: BorderRadius.circular(18),
+                //     ),
+                // child: Row(
+                //   mainAxisSize: MainAxisSize.min,
+                //   children: [
+                // _buildChartViewTab('Calories',
+                //     _selectedChartView == 'Calories', customColors),
+                // _buildChartViewTab('Grams',
+                //     _selectedChartView == 'Grams', customColors),
+                // ],
+                // ),
+                //   ),
+                // ),
               ],
             ),
             const SizedBox(height: 24),
@@ -272,8 +279,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   animation: _animationController,
                   customColors: customColors,
                   targetProtein: _targetProtein, // Added targetProtein
-                  targetCarbs: _targetCarbs,     // Added targetCarbs
-                  targetFat: _targetFat,         // Added targetFat
+                  targetCarbs: _targetCarbs, // Added targetCarbs
+                  targetFat: _targetFat, // Added targetFat
                   // targetValue: targetValueForChart, // Removed - Painter calculates this internally
                   showCalories: _selectedChartView == 'Calories',
                 ),
@@ -285,12 +292,18 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                _buildLegendItem('Protein (${_targetProtein.round()}g)', // Use round()
-                    Colors.blue.shade600, customColors), // Protein: Blue
-                _buildLegendItem('Carbs (${_targetCarbs.round()}g)', // Use round()
-                    Colors.red.shade600, customColors), // Carbs: Red
-                _buildLegendItem('Fat (${_targetFat.round()}g)', // Use round()
-                    Colors.amber.shade600, customColors), // Fat: Yellow/Amber
+                _buildLegendItem(
+                    'Protein (${_targetProtein.round()}g)', // Use round()
+                    Colors.blue.shade600,
+                    customColors), // Protein: Blue
+                _buildLegendItem(
+                    'Carbs (${_targetCarbs.round()}g)', // Use round()
+                    Colors.red.shade600,
+                    customColors), // Carbs: Red
+                _buildLegendItem(
+                    'Fat (${_targetFat.round()}g)', // Use round()
+                    Colors.amber.shade600,
+                    customColors), // Fat: Yellow/Amber
               ],
             ),
           ],
@@ -349,8 +362,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     );
   }
 
-  Widget _buildMacroSummaryCard(
-      BuildContext context, CustomColors customColors, double currentCalories, double targetCalories) { // Added parameters
+  Widget _buildMacroSummaryCard(BuildContext context, CustomColors customColors,
+      double currentCalories, double targetCalories) {
+    // Added parameters
     final calorieProgress =
         _getProgressPercentage(currentCalories, targetCalories);
 
@@ -513,7 +527,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 1500),
                     curve: Curves.easeOutExpo,
-                    tween: Tween<double>(begin: 0, end: calorieProgress), // Animate progress
+                    tween: Tween<double>(
+                        begin: 0, end: calorieProgress), // Animate progress
                     builder: (context, animatedProgress, child) {
                       return Container(
                         width: 140,
@@ -524,8 +539,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           gradient: SweepGradient(
                             center: Alignment.center,
                             startAngle: -math.pi / 2,
-                            endAngle: math.max(-math.pi / 2 + 0.01,
-                                (2 * math.pi * animatedProgress) - (math.pi / 2)), // Use animated progress
+                            endAngle: math.max(
+                                -math.pi / 2 + 0.01,
+                                (2 * math.pi * animatedProgress) -
+                                    (math.pi / 2)), // Use animated progress
                             colors: [
                               customColors.accentPrimary.withOpacity(0.2),
                               customColors.accentPrimary,
@@ -555,12 +572,14 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 width: 120,
                                 height: 120,
                                 child: CircularProgressIndicator(
-                                  value: animatedProgress, // Use animated progress
+                                  value:
+                                      animatedProgress, // Use animated progress
                                   backgroundColor: customColors
                                       .dateNavigatorBackground
                                       .withOpacity(0.15),
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    animatedProgress >= 1.0 // Use animated progress
+                                    animatedProgress >=
+                                            1.0 // Use animated progress
                                         ? Colors.green.shade500
                                         : customColors.accentPrimary,
                                   ),
@@ -594,14 +613,18 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                       curve: Curves.easeOutCubic,
                                       tween: Tween<double>(
                                           begin: 0,
-                                          end: currentCalories), // Use passed-in currentCalories
+                                          end:
+                                              currentCalories), // Use passed-in currentCalories
                                       builder: (context, value, _) {
                                         return Text(
-                                          value.round().toString(), // Use round()
+                                          value
+                                              .round()
+                                              .toString(), // Use round()
                                           style: GoogleFonts.inter(
                                             fontSize: 24,
                                             fontWeight: FontWeight.w800,
-                                            color: animatedProgress >= 1.0 // Use animated progress
+                                            color: animatedProgress >=
+                                                    1.0 // Use animated progress
                                                 ? Colors.green.shade500
                                                 : customColors.accentPrimary,
                                           ),
@@ -636,7 +659,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                               ),
 
                               // Achievement indicator
-                              if (animatedProgress >= 1.0) // Use animated progress
+                              if (animatedProgress >=
+                                  1.0) // Use animated progress
                                 Positioned(
                                   top: 10,
                                   child: Icon(
@@ -864,7 +888,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     });
   }
 
-  Widget _buildMacroBreakdown(CustomColors customColors, double totalCalories) { // Pass totalCalories
+  Widget _buildMacroBreakdown(CustomColors customColors, double totalCalories) {
+    // Pass totalCalories
     // Use passed totalCalories for percentage calculation
     final proteinPercentage = totalCalories > 0
         ? (_currentProtein * 4 / totalCalories * 100).round()
@@ -1145,7 +1170,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     );
   }
 
-  Widget _buildMacroGoals(CustomColors customColors, double targetCalories) { // Added targetCalories
+  Widget _buildMacroGoals(CustomColors customColors, double targetCalories) {
+    // Added targetCalories
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -1354,7 +1380,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
         TextEditingController(text: protein.round().toString()); // Use round()
     final carbsController =
         TextEditingController(text: carbs.round().toString()); // Use round()
-    final fatController = TextEditingController(text: fat.round().toString()); // Use round()
+    final fatController =
+        TextEditingController(text: fat.round().toString()); // Use round()
 
     // Calculate total calories from macros
     double calculateCalories() {
@@ -1482,11 +1509,12 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   ),
                                   Text(
                                     ' kcal',
-                                    style: GoogleFonts.inter( // Corrected style
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.w800,
-                                          color: customColors.accentPrimary,
-                                        ),
+                                    style: GoogleFonts.inter(
+                                      // Corrected style
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w800,
+                                      color: customColors.accentPrimary,
+                                    ),
                                   ),
                                   // Removed duplicate Text widget that caused error
                                 ],
@@ -1582,7 +1610,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   ),
                                 ),
                                 onPressed: () {
-                                  setState(() { // Now inside the state class
+                                  setState(() {
+                                    // Now inside the state class
                                     _currentProtein += protein;
                                     _currentCarbs += carbs;
                                     _currentFat += fat;
@@ -1636,10 +1665,12 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
 
     // Variables to hold user input
     double protein = _targetProtein; // Now accessible
-    double carbs = _targetCarbs;     // Now accessible
-    double fat = _targetFat;         // Now accessible
-    final proteinController = TextEditingController(text: protein.round().toString());
-    final carbsController = TextEditingController(text: carbs.round().toString());
+    double carbs = _targetCarbs; // Now accessible
+    double fat = _targetFat; // Now accessible
+    final proteinController =
+        TextEditingController(text: protein.round().toString());
+    final carbsController =
+        TextEditingController(text: carbs.round().toString());
     final fatController = TextEditingController(text: fat.round().toString());
 
     // Helper to recalculate calories within the dialog
@@ -1753,7 +1784,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                     duration: Duration(milliseconds: 500),
                                     tween: Tween<double>(
                                       begin: 0,
-                                      end: calculateDialogCalories(), // Use helper
+                                      end:
+                                          calculateDialogCalories(), // Use helper
                                     ),
                                     builder: (context, value, child) {
                                       return Text(
@@ -1786,8 +1818,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Protein',
                           proteinController,
-                          Colors.blue
-                              .shade600, // Protein: Blue
+                          Colors.blue.shade600, // Protein: Blue
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1803,8 +1834,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Carbs',
                           carbsController,
-                          Colors.red
-                              .shade600, // Carbs: Red
+                          Colors.red.shade600, // Carbs: Red
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1820,8 +1850,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                         _buildMacroInputField(
                           'Fat',
                           fatController,
-                          Colors.amber
-                              .shade600, // Fat: Yellow/Amber
+                          Colors.amber.shade600, // Fat: Yellow/Amber
                           customColors,
                           onChanged: (value) {
                             if (value.isNotEmpty) {
@@ -1869,7 +1898,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 onPressed: () {
                                   try {
                                     // Update goals in the main state
-                                    setState(() { // Now inside the state class
+                                    setState(() {
+                                      // Now inside the state class
                                       _targetProtein = protein;
                                       _targetCarbs = carbs;
                                       _targetFat = fat;
@@ -1884,8 +1914,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                     foodEntryProvider.carbsGoal = carbs;
                                     foodEntryProvider.fatGoal = fat;
                                     // Recalculate calorie goal based on new macros
-                                    foodEntryProvider.caloriesGoal = calculateDialogCalories();
-
+                                    foodEntryProvider.caloriesGoal =
+                                        calculateDialogCalories();
 
                                     Navigator.pop(context);
 
@@ -1939,7 +1969,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
       },
     );
   }
-
 
   Widget _buildMacroInputField(
     String label,
