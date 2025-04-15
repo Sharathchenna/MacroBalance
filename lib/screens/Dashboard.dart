@@ -702,7 +702,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   final StorageService _storageService = StorageService(); // Instance of StorageService
 
   // Default goal, consider making this configurable or fetched
-  final int _stepsGoal = 9000;
+  // final int _stepsGoal = 9000;
 
   VoidCallback? _storageListener; // To hold the listener reference
 
@@ -1117,6 +1117,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               final proteinGoal = foodEntryProvider.proteinGoal.toInt();
               final carbGoal = foodEntryProvider.carbsGoal.toInt();
               final fatGoal = foodEntryProvider.fatGoal.toInt();
+              final stepsGoal = foodEntryProvider.stepsGoal.toInt();
 
               // Get nutrient totals using the new centralized method
               final nutrientTotals = foodEntryProvider.getNutrientTotalsForDate(dateProvider.selectedDate);
@@ -1368,7 +1369,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                                 context,
                                 'Steps',
                                 _steps, // Use state variable _steps
-                                _stepsGoal, // Use state variable _stepsGoal
+                                stepsGoal, // Use state variable stepsGoal
                                 const Color(0xFF66BB6A),
                                 '',
                               ),
