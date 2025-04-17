@@ -820,27 +820,27 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                     ),
 
                     // Chart instructions
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.touch_app,
-                            size: 14,
-                            color: customColors.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Touch to see details',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: customColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Padding(
+                    //   padding: const EdgeInsets.only(top: 8),
+                    //   child: Row(
+                    //     mainAxisAlignment: MainAxisAlignment.center,
+                    //     children: [
+                    //       Icon(
+                    //         Icons.touch_app,
+                    //         size: 14,
+                    //         color: customColors.textSecondary,
+                    //       ),
+                    //       const SizedBox(width: 4),
+                    //       Text(
+                    //         'Touch to see details',
+                    //         style: GoogleFonts.inter(
+                    //           fontSize: 12,
+                    //           color: customColors.textSecondary,
+                    //         ),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
