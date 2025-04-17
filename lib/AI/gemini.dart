@@ -15,6 +15,9 @@ Future<String> processImageWithGemini(String imagePath) async {
 
     final promptText = '''
         Analyze the following meal and provide its nutritional content. 
+        if the image is a nutrition label, extract the nutrition information from the label and return response in the specified format, give correct nutrition values for different serving sizes, if given percentages then convert them into relavant values, do not provide null values if you couldn't get the number return 0.
+        If the image is food, identify the food and provide the nutrition information for the meal.
+        The meal can be a single food item or a combination of different foods.
         Break down the meal into different foods and do the nutrition analysis for each food.
         give nutrition info for each food in the meal with different serving sizes. the serving sizes can be in grams, ounces, tablespoons, teaspoons, cups etc.
         Return only the numerical values for calories, protein, carbohydrates, fat, and fiber.

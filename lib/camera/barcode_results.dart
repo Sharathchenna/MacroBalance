@@ -15,6 +15,7 @@ import '../providers/foodEntryProvider.dart';
 import '../providers/dateProvider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
+import '../services/camera_service.dart';
 
 // Extension to add withValues method to Color, similar to withOpacity
 extension ColorExtension on Color {
@@ -141,6 +142,9 @@ class _BarcodeResultsState extends State<BarcodeResults>
           List<Serving> parsedServings =
               _parseServingsFromOpenFoodFacts(productData);
 
+          // Check if mounted before calling setState
+          if (!mounted) return;
+
           setState(() {
             _productData = productData;
             _isLoading = false;
@@ -156,6 +160,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
           });
         } else {
           print('Product not found in API response');
+          // Check if mounted before calling setState
+          if (!mounted) return;
           setState(() {
             _error = 'Product not found';
             _isLoading = false;
@@ -163,6 +169,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
         }
       } else {
         print('API request failed with status: ${response.statusCode}');
+        // Check if mounted before calling setState
+        if (!mounted) return;
         setState(() {
           _error = 'Failed to fetch product data';
           _isLoading = false;
@@ -170,6 +178,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
       }
     } catch (e) {
       print('Error in barcode search: $e');
+      // Check if mounted before calling setState
+      if (!mounted) return;
       setState(() {
         _error = 'Error: $e';
         _isLoading = false;
@@ -764,6 +774,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
   Widget _buildErrorState() {
     final customColors = Theme.of(context).extension<CustomColors>();
     final primaryColor = Theme.of(context).primaryColor;
+    final CameraService cameraService = CameraService();
 
     return Center(
       child: Container(
@@ -787,7 +798,14 @@ class _BarcodeResultsState extends State<BarcodeResults>
             ),
             SizedBox(height: 32),
             ElevatedButton(
-              onPressed: () => _searchBarcode(widget.barcode),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                try {
+                  await cameraService.showNativeCamera();
+                } catch (e) {
+                  print("Error reopening camera from BarcodeResults: $e");
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
                 shape: RoundedRectangleBorder(

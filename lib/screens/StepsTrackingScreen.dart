@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import '../Health/Health.dart';
 import '../theme/app_theme.dart';
+import 'dart:async'; // Add this import
 
 class StepTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -927,25 +928,25 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                         'Showing data for ${DateFormat('yyyy-MM-dd').format(date)}');
 
                     HapticFeedback.selectionClick();
-                    ScaffoldMessenger.of(context).clearSnackBars();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          _getTooltipText(data),
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                        backgroundColor: customColors.accentPrimary,
-                        duration: const Duration(seconds: 3),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        margin: const EdgeInsets.all(8),
-                      ),
-                    );
+                    // ScaffoldMessenger.of(context).clearSnackBars();
+                    // ScaffoldMessenger.of(context).showSnackBar(
+                    //   SnackBar(
+                    //     content: Text(
+                    //       _getTooltipText(data),
+                    //       style: GoogleFonts.inter(
+                    //         fontSize: 14,
+                    //         color: Colors.white,
+                    //       ),
+                    //     ),
+                    //     backgroundColor: customColors.accentPrimary,
+                    //     duration: const Duration(seconds: 3),
+                    //     behavior: SnackBarBehavior.floating,
+                    //     shape: RoundedRectangleBorder(
+                    //       borderRadius: BorderRadius.circular(10),
+                    //     ),
+                    //     margin: const EdgeInsets.all(8),
+                    //   ),
+                    // );
                   },
                 ),
               ),
@@ -1604,6 +1605,7 @@ class _BarChartState extends State<CustomBarChart>
   late AnimationController _animationController;
   int? _highlightedIndex;
   bool _showTooltip = false;
+  Timer? _tooltipTimer; // Add this field
   final ScrollController _scrollController = ScrollController();
   final ScrollController _labelsScrollController = ScrollController();
 
@@ -1658,6 +1660,7 @@ class _BarChartState extends State<CustomBarChart>
     _animationController.dispose();
     _scrollController.dispose();
     _labelsScrollController.dispose();
+    _tooltipTimer?.cancel(); // Cancel timer on dispose
     super.dispose();
   }
 
@@ -1779,7 +1782,8 @@ class _BarChartState extends State<CustomBarChart>
                             widget.onBarTap?.call(barIndex);
 
                             // Hide tooltip after a delay
-                            Future.delayed(const Duration(seconds: 2), () {
+                            _tooltipTimer?.cancel(); // Cancel previous timer
+                            _tooltipTimer = Timer(const Duration(seconds: 2), () {
                               if (mounted && _highlightedIndex == barIndex) {
                                 setState(() {
                                   _showTooltip = false;

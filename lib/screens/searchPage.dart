@@ -24,6 +24,7 @@ import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/widgets/search_header.dart';
 import 'dart:async';
 import 'package:lottie/lottie.dart';
+import 'package:macrotracker/services/posthog_service.dart';
 // import 'package:macrotracker/camera/camera.dart'; // No longer needed
 
 // Define the expected result structure at the top level
@@ -224,7 +225,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     }
   }
 
-  Future<void> _searchFood(String query, {bool fromSearchButton = false}) async {
+  Future<void> _searchFood(String query,
+      {bool fromSearchButton = false}) async {
     // If query is empty, just clear results without loading indicator
     if (query.isEmpty) {
       setState(() {
@@ -236,10 +238,19 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       return;
     }
 
+    // Track the search event
+    PostHogService.trackSearch(
+      query,
+      properties: {
+        'from_search_button': fromSearchButton,
+        'result_count': _searchResults.length,
+      },
+    );
+
     setState(() {
       _isLoading = true;
-      _searchButtonClicked = fromSearchButton; // Set flag based on how search was triggered
-      _autoCompleteResults = []; // Clear suggestions when searching starts
+      _searchButtonClicked = fromSearchButton;
+      _autoCompleteResults = [];
     });
 
     // Call the proxy function
@@ -360,7 +371,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Future<void> _showNativeCamera() async {
-    FocusScope.of(context).unfocus(); // Hide keyboard before opening camera
+    FocusScope.of(context).unfocus();
     if (!Platform.isIOS) {
       print('[Flutter SearchPage] Native camera view only supported on iOS.');
       if (mounted) {
@@ -368,6 +379,15 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       }
       return;
     }
+
+    // Track camera usage
+    PostHogService.trackFeatureUsage(
+      'camera_search',
+      properties: {
+        'platform': Platform.operatingSystem,
+      },
+    );
+
     try {
       print('[Flutter SearchPage] Invoking showNativeCamera...');
       await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
@@ -533,7 +553,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 children: [
                   SearchHeader(
                     controller: _searchController,
-                    onSearch: (query) => _searchFood(query, fromSearchButton: true),
+                    onSearch: (query) =>
+                        _searchFood(query, fromSearchButton: true),
                     onChanged: _onSearchChanged,
                     onBack: () => Navigator.pop(context),
                     onCameraTap: _showNativeCamera, // Pass the method here
@@ -699,6 +720,19 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   void _navigateToFoodDetail(FoodItem food) {
     HapticFeedback.mediumImpact();
+
+    // Track food selection
+    PostHogService.trackFoodEntry(
+      foodName: food.name,
+      calories: food.calories,
+      protein: food.nutrients['Protein'] ?? 0.0,
+      carbs: food.nutrients['Carbohydrate, by difference'] ?? 0.0,
+      fat: food.nutrients['Total lipid (fat)'] ?? 0.0,
+      properties: {
+        'brand_name': food.brandName,
+        'meal_type': widget.selectedMeal ?? 'unspecified',
+      },
+    );
 
     Navigator.push(
       context,
@@ -1848,7 +1882,6 @@ class NoResultsFoundWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Simple icon instead of animation
             Icon(
               Icons.search_off_rounded,
               size: 64,
@@ -1872,10 +1905,11 @@ class NoResultsFoundWidget extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-
-            // Simple button for AI help
             ElevatedButton.icon(
               onPressed: () {
+                // Track AI help usage
+                PostHogService.trackFeatureUsage('ai_help');
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(

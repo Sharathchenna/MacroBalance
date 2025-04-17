@@ -77,6 +77,11 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     private let darkOverlayColor = UIColor.black.withAlphaComponent(0.4) // Translucent overlay
     private let premiumBackgroundColor = UIColor(white: 0.12, alpha: 0.85) // Premium dark background
 
+    // Add new property for product lookup state
+    private var isLookingUpProduct = false
+    private var lookupAttemptCount = 0
+    private var isCancelled = false // Flag to stop lookup sequence if view is dismissed
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -588,6 +593,8 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     
     @objc private func closeButtonTapped() {
         hapticGenerator.impactOccurred()
+        isCancelled = true // Signal ongoing lookups to stop
+        isLookingUpProduct = false // Reset lookup state
         // Only dismiss if not already sent a result
         if !hasSentResult {
             hasSentResult = true
@@ -918,40 +925,149 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     
     // MARK: - Barcode Handling
     
+    private func lookupProduct(with barcode: String, completion: @escaping (Bool) -> Void) {
+        // Simulate a single lookup attempt
+        // Replace this with your actual product lookup logic
+        print("Attempting lookup for barcode: \(barcode)")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { // Simulate network delay
+            // Check if cancelled before completing
+            guard !self.isCancelled else {
+                print("Lookup cancelled for barcode: \(barcode)")
+                // We don't call completion here as the process is stopped
+                return
+            }
+            // Simulate product found/not found (e.g., 70% success rate)
+            let productFound = Double.random(in: 0...1) < 0.7 // Adjust probability as needed
+            print("Lookup result for \(barcode): \(productFound)")
+            completion(productFound)
+        }
+    }
+
+    private func performProductLookupSequence(barcode: String) {
+        guard !isCancelled, !hasSentResult else {
+            isLookingUpProduct = false // Ensure state is reset if cancelled early
+            return
+        }
+
+        lookupAttemptCount += 1
+        print("Starting lookup attempt \(lookupAttemptCount) for barcode: \(barcode)")
+
+        // Check if max attempts reached
+        guard lookupAttemptCount <= 3 else {
+            print("Max lookup attempts reached for barcode: \(barcode)")
+            // Only show "Not Found" if still looking up (not cancelled/succeeded)
+            if isLookingUpProduct {
+                 showProductNotFoundMessage()
+            }
+            isLookingUpProduct = false // Reset state after max attempts
+            return
+        }
+
+        // Perform one lookup attempt
+        lookupProduct(with: barcode) { [weak self] productFound in
+            guard let self = self, !self.isCancelled, !self.hasSentResult else {
+                // If cancelled or result already sent while waiting for lookup, stop.
+                self?.isLookingUpProduct = false
+                return
+            }
+
+            if productFound {
+                // Product found - SUCCESS
+                print("Product found on attempt \(self.lookupAttemptCount) for barcode: \(barcode)")
+                self.hasSentResult = true
+                self.isLookingUpProduct = false // Reset state
+                self.hapticGenerator.impactOccurred(intensity: 1.0)
+
+                // Dismiss and send result to delegate after a brief delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    self.dismiss(animated: true) {
+                        self.delegate?.nativeCameraDidFinish(withBarcode: barcode, mode: .barcode)
+                    }
+                }
+            } else {
+                // Product not found on this attempt - RETRY
+                print("Product not found on attempt \(self.lookupAttemptCount), scheduling next attempt.")
+                // Schedule the next attempt after a short delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { // Delay between attempts
+                    self.performProductLookupSequence(barcode: barcode)
+                }
+            }
+        }
+    }
+
+    private func showProductNotFoundMessage() {
+        guard !isCancelled else { return } // Don't show if view is being dismissed
+        
+        let alert = UIAlertController(
+            title: "Product Not Found",
+            message: "We couldn't find this product after multiple attempts. Please try again or enter manually.",
+            preferredStyle: .alert
+        )
+
+        // Style the alert with premium colors
+        alert.view.tintColor = premiumGoldColor
+        alert.view.backgroundColor = premiumBackgroundColor
+        alert.view.layer.cornerRadius = 12
+        alert.view.layer.borderWidth = 1
+        alert.view.layer.borderColor = premiumGoldColor.withAlphaComponent(0.3).cgColor
+
+        // Add OK button with premium styling
+        let okAction = UIAlertAction(title: "Try Again", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+
+            // Reset scanning states for a new attempt sequence
+            self.isLookingUpProduct = false
+            self.hasSentResult = false
+            self.isProcessingFrame = false
+            self.isCancelled = false // Ready for a new sequence
+            // lookupAttemptCount will be reset by handleBarcodes upon next detection
+
+            // Ensure continuous scanning is enabled
+            self.isContinuousBarcodeScanningEnabled = true
+
+            // Show visual feedback that scanning has resumed
+            UIView.animate(withDuration: 0.2, animations: {
+                self.barcodeScanGuideView.transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
+                self.barcodeScanGuideView.layer.borderColor = self.premiumGoldColor.cgColor
+            }) { _ in
+                UIView.animate(withDuration: 0.2) {
+                    self.barcodeScanGuideView.transform = CGAffineTransform.identity
+                }
+            }
+        }
+        alert.addAction(okAction)
+
+        present(alert, animated: true)
+    }
+
     private func handleBarcodes(request: VNRequest, error: Error?) {
-        // Stop processing if we've already sent a result or are in another mode
-        guard !hasSentResult, currentMode == .barcode, isContinuousBarcodeScanningEnabled else {
+        // Stop processing if we've already sent a result, are *actively* looking up a product, or are in another mode
+        // Allow processing if lookup finished but failed (isLookingUpProduct is false)
+        guard !hasSentResult, !isLookingUpProduct, currentMode == .barcode, isContinuousBarcodeScanningEnabled else {
             isProcessingFrame = false
             return
         }
-        
+
         // Check for errors
         if let error = error {
             print("Barcode detection error: \(error.localizedDescription)")
             isProcessingFrame = false
             return
         }
-        
+
         // Process barcode observations
         guard let observations = request.results as? [VNBarcodeObservation], !observations.isEmpty else {
             isProcessingFrame = false
             return
         }
-        
+
         // Get the barcode scan guide frame in normalized coordinates (0-1)
-        // Need to convert the guide view's frame to the coordinate space of the camera feed
-        var guideFrame = CGRect.zero // Changed from 'let' to 'var' and initialized with zero rect
-        
+        var guideFrame = CGRect.zero
+
         DispatchQueue.main.sync {
-            // Convert barcodeScanGuideView frame to camera view coordinates
             let guideViewFrame = barcodeScanGuideView.frame
-            
-            // Need to convert from view coordinates to normalized coordinates (0-1)
-            // where (0,0) is top-left and (1,1) is bottom-right
             let viewWidth = previewView.frame.width
             let viewHeight = previewView.frame.height
-            
-            // Update normalized rectangle
             guideFrame = CGRect(
                 x: guideViewFrame.minX / viewWidth,
                 y: guideViewFrame.minY / viewHeight,
@@ -959,43 +1075,31 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                 height: guideViewFrame.height / viewHeight
             )
         }
-        
-        // Visual feedback animation when a barcode is detected but not within the frame
-        var foundBarcodeButNotInFrame = false
-        
+
         // Find a valid barcode within the guide frame
         for observation in observations {
             guard let payloadString = observation.payloadStringValue else { continue }
-            
-            // Check if the barcode's bounding box is mostly within our guide frame
-            // Vision coordinates are normalized where (0,0) is bottom-left, (1,1) is top-right
-            // We need to flip the y-coordinate to match the UI coordinate system
+
             let observationBox = observation.boundingBox
             let flippedBox = CGRect(
                 x: observationBox.origin.x,
-                y: 1 - observationBox.origin.y - observationBox.height, // Flip Y
+                y: 1 - observationBox.origin.y - observationBox.height,
                 width: observationBox.width,
                 height: observationBox.height
             )
-            
-            // Calculate overlap between barcode and guide frame
+
             let intersection = flippedBox.intersection(guideFrame)
             if !intersection.isNull {
-                // Calculate how much of the barcode is within the guide frame (as a percentage)
                 let overlapArea = intersection.width * intersection.height
                 let barcodeArea = flippedBox.width * flippedBox.height
                 let overlapPercentage = overlapArea / barcodeArea
-                
-                // Only accept barcode if sufficient portion is within guide frame (e.g., >50%)
+
                 if overlapPercentage > 0.5 {
-                    // Valid barcode found within guide frame, stop processing and report
+                    // Valid barcode found within guide frame
                     DispatchQueue.main.async { [weak self] in
-                        guard let self = self, !self.hasSentResult else { return }
-                        
-                        self.hasSentResult = true
-                        self.hapticGenerator.impactOccurred(intensity: 1.0)
-                        
-                        // Success animation - briefly highlight the guide in green
+                        guard let self = self, !self.hasSentResult, !self.isLookingUpProduct else { return }
+
+                        // Show visual feedback that barcode was detected
                         let originalBorderColor = self.barcodeScanGuideView.layer.borderColor
                         UIView.animate(withDuration: 0.15, animations: {
                             self.barcodeScanGuideView.layer.borderColor = UIColor.systemGreen.cgColor
@@ -1006,41 +1110,18 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                                 self.barcodeScanGuideView.transform = CGAffineTransform.identity
                             }
                         }
-                        
-                        // Dismiss and send result to delegate after a brief delay to show the animation
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                            self.dismiss(animated: true) {
-                                self.delegate?.nativeCameraDidFinish(withBarcode: payloadString, mode: .barcode)
-                            }
-                        }
+
+                        // Start product lookup sequence
+                        self.isLookingUpProduct = true // Mark as starting lookup
+                        self.lookupAttemptCount = 0 // Reset attempts for new barcode
+                        self.isCancelled = false // Ensure not cancelled initially
+                        self.performProductLookupSequence(barcode: payloadString)
                     }
-                    return // Exit loop after finding a valid barcode
-                }
-            } else {
-                // Barcode detected but not in frame
-                foundBarcodeButNotInFrame = true
-            }
-        }
-        
-        // If we found a barcode but it wasn't in frame, show a subtle hint animation
-        if foundBarcodeButNotInFrame {
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self, !self.hasSentResult else { return }
-                
-                // Subtle animation to guide user to place barcode in the frame
-                let originalBorderColor = self.barcodeScanGuideView.layer.borderColor
-                UIView.animate(withDuration: 0.2, animations: {
-                    self.barcodeScanGuideView.layer.borderColor = UIColor.systemOrange.cgColor
-                    self.barcodeScanGuideView.transform = CGAffineTransform(scaleX: 1.03, y: 1.03)
-                }) { _ in
-                    UIView.animate(withDuration: 0.2) {
-                        self.barcodeScanGuideView.layer.borderColor = originalBorderColor
-                        self.barcodeScanGuideView.transform = CGAffineTransform.identity
-                    }
+                    return // Exit loop after finding a valid barcode and starting lookup
                 }
             }
         }
-        
+
         isProcessingFrame = false
     }
     
@@ -1116,14 +1197,15 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     // MARK: - PHPickerViewControllerDelegate Methods
     
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        isCancelled = true // Signal ongoing lookups to stop
+        isLookingUpProduct = false // Reset lookup state
         picker.dismiss(animated: true)
-        
+
         guard let result = results.first else {
             print("No image selected")
             return
         }
-        
-        // Get the image data
+
         result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] reading, error in
             guard let self = self,
                   let image = reading as? UIImage,
@@ -1131,15 +1213,16 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                 print("Failed to get image data")
                 return
             }
-            
-            // Mark as sent to prevent duplicate results
-            self.hasSentResult = true
-            
-            DispatchQueue.main.async {
-                // Dismiss the camera view and send result back
-                self.dismiss(animated: true) {
-                    self.delegate?.nativeCameraDidFinish(withPhotoData: imageData, mode: self.currentMode)
-                }
+
+            // Mark as sent to prevent duplicate results (only if not already sent by barcode scan)
+            if !self.hasSentResult {
+                 self.hasSentResult = true
+                 DispatchQueue.main.async {
+                     // Dismiss the camera view and send result back
+                     self.dismiss(animated: true) {
+                         self.delegate?.nativeCameraDidFinish(withPhotoData: imageData, mode: self.currentMode)
+                     }
+                 }
             }
         }
     }
@@ -1147,39 +1230,29 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     // MARK: - ManualBarcodeEntryDelegate Methods
     
     func manualBarcodeEntryDidFinish(with barcode: String) {
+        isCancelled = true // Signal ongoing lookups to stop
+        isLookingUpProduct = false // Reset lookup state
+
         // Check if we already sent a result for this presentation
         guard !hasSentResult else {
             print("DEBUG: Manual barcode entry finished, but result already sent.")
-            // If already sent, just dismiss self (which includes the presented manual VC)
             dismiss(animated: true, completion: nil)
             return
         }
-        
+
         print("DEBUG: Manual Barcode Entered: \(barcode)")
-        print("DEBUG: Delegate exists? \(delegate != nil)")
-        
-        // First dismiss the manual entry view controller (which was presented modally)
-        // Then dismiss the camera view controller and send the barcode to Flutter
-        
-        // Mark result as sent to prevent multiple results
+
         hasSentResult = true
-        
-        // Show haptic feedback
         hapticGenerator.impactOccurred(intensity: 1.0)
-        
-        // Get a reference to the presenting view controller (the navigation controller containing ManualBarcodeEntryViewController)
+
         if let presentedVC = self.presentedViewController {
-            // First dismiss the manual entry screen
             presentedVC.dismiss(animated: true) {
-                // Then dismiss the camera view controller and send the result to Flutter
                 self.dismiss(animated: true) {
-                    // Call the delegate after both screens are dismissed
                     self.delegate?.nativeCameraDidFinish(withBarcode: barcode, mode: .barcode)
                     print("DEBUG: Both screens dismissed, barcode result sent to Flutter")
                 }
             }
         } else {
-            // If for some reason the manual entry screen is not presented, just dismiss the camera view
             self.dismiss(animated: true) {
                 self.delegate?.nativeCameraDidFinish(withBarcode: barcode, mode: .barcode)
                 print("DEBUG: Camera screen dismissed, barcode result sent to Flutter")
@@ -1189,7 +1262,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     
     func manualBarcodeEntryDidCancel() {
         print("Manual Barcode Entry Cancelled")
-        // Just dismiss the manual entry screen, keep camera open
+        // No need to set isCancelled here as the camera remains open
     }
 
     // Enhanced premium text styling for instruction label

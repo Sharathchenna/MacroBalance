@@ -78,12 +78,6 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>com.posthog.posthog.API_KEY</key>
-	<string>phc_eTwRHDoNCBzMn3DGd3dqEOkXHUf9xNsjxMZloUSHPgY</string>
-	<key>com.posthog.posthog.CAPTURE_APPLICATION_LIFECYCLE_EVENTS</key>
-	<true/>
-	<key>com.posthog.posthog.POSTHOG_HOST</key>
-	<string>https://us.i.posthog.com</string>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
 </dict>

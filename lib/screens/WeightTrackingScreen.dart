@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:provider/provider.dart'; // Import Provider
 import '../providers/foodEntryProvider.dart'; // Import FoodEntryProvider
 import '../providers/weight_unit_provider.dart';
+import '../services/posthog_service.dart';
 
 // Weight data point model
 class WeightPoint {
@@ -40,6 +41,12 @@ class WeightTrackingScreen extends StatefulWidget {
   @override
   State<WeightTrackingScreen> createState() => _WeightTrackingScreenState();
 }
+
+// Define padding constants here for painter and touch logic
+const double _chartLeftPadding = 50.0;
+const double _chartRightPadding = 20.0;
+const double _chartBottomPadding = 40.0;
+const double _chartTopPadding = 20.0;
 
 class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     with SingleTickerProviderStateMixin {
@@ -813,27 +820,27 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                     ),
 
                     // Chart instructions
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.touch_app,
-                            size: 14,
-                            color: customColors.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Touch to see details',
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: customColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Padding(
+                    //   padding: const EdgeInsets.only(top: 8),
+                    //   child: Row(
+                    //     mainAxisAlignment: MainAxisAlignment.center,
+                    //     children: [
+                    //       Icon(
+                    //         Icons.touch_app,
+                    //         size: 14,
+                    //         color: customColors.textSecondary,
+                    //       ),
+                    //       const SizedBox(width: 4),
+                    //       Text(
+                    //         'Touch to see details',
+                    //         style: GoogleFonts.inter(
+                    //           fontSize: 12,
+                    //           color: customColors.textSecondary,
+                    //         ),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
@@ -1182,64 +1189,54 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                         'Date:',
                         style: GoogleFonts.inter(
                           fontSize: 16,
-                          color: customColors.textSecondary,
+                          color: customColors.textPrimary,
                         ),
                       ),
                       TextButton(
                         onPressed: () {
-                          showModalBottomSheet(
+                          // Use showCupertinoModalPopup for a bottom sheet picker
+                          showCupertinoModalPopup(
                             context: context,
-                            builder: (BuildContext builder) {
-                              return Container(
-                                height: 250,
-                                color: customColors.cardBackground,
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                            builder: (_) => Container(
+                              height: 250, // Adjust height as needed
+                              color: customColors.cardBackground, // Use theme color
+                              child: Column(
+                                children: [
+                                  // Header with Done button
+                                  Container(
+                                    color: customColors.cardBackground, // Optional header background
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text(
-                                            'Cancel',
-                                            style: TextStyle(
-                                                color:
-                                                    customColors.textSecondary),
-                                          ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
+                                        CupertinoButton(
                                           child: Text(
                                             'Done',
-                                            style: TextStyle(
-                                                color:
-                                                    customColors.accentPrimary),
+                                            style: TextStyle(color: customColors.accentPrimary),
                                           ),
+                                          onPressed: () => Navigator.of(context).pop(), // Close the modal
                                         ),
                                       ],
                                     ),
-                                    Expanded(
-                                      child: CupertinoDatePicker(
-                                        mode: CupertinoDatePickerMode.date,
-                                        initialDateTime: selectedDate,
-                                        maximumDate: DateTime.now(),
-                                        minimumDate: DateTime(2000),
-                                        onDateTimeChanged: (DateTime newDate) {
-                                          setDialogState(() {
-                                            selectedDate = newDate;
-                                          });
-                                        },
-                                      ),
+                                  ),
+                                  // The Date Picker
+                                  Expanded(
+                                    child: CupertinoDatePicker(
+                                      mode: CupertinoDatePickerMode.date,
+                                      initialDateTime: selectedDate,
+                                      maximumDate: DateTime.now(),
+                                      minimumDate: DateTime(2000),
+                                      onDateTimeChanged: (DateTime newDate) {
+                                        // Update the date in the dialog's state
+                                        setDialogState(() {
+                                          selectedDate = newDate;
+                                        });
+                                      },
+                                      backgroundColor: customColors.cardBackground, // Match background
                                     ),
-                                  ],
-                                ),
-                              );
-                            },
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
                         },
                         child: Text(
@@ -1305,14 +1302,20 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                       if (_weightData.isNotEmpty) {
                         _currentWeight = _weightData.last['weight'] as double;
                       }
-
-                      // Optional: Limit history size if needed (e.g., keep last 100)
-                      // if (_weightData.length > 100) {
-                      //   _weightData = _weightData.sublist(_weightData.length - 100);
-                      // }
                     });
-                    // Save the changes (Note: _saveWeightChanges only saves current/goal)
-                    // A separate mechanism would be needed to persist the full history
+
+                    // Track the weight entry with PostHog
+                    PostHogService.trackWeightEntry(
+                      weight: newWeight,
+                      unit: Provider.of<WeightUnitProvider>(context,
+                              listen: false)
+                          .unitLabel,
+                      properties: {
+                        'date': selectedDate.toIso8601String(),
+                        'previous_weight': _currentWeight,
+                      },
+                    );
+
                     Navigator.pop(context);
                     await _saveWeightChanges();
                   },
@@ -1434,6 +1437,8 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
   late double _panOffset = 0.0; // Horizontal panning offset
   final double _maxPanOffset = 100.0; // Maximum pan offset
 
+  // Removed padding constants from here
+
   // Removed initState, dispose, and didUpdateWidget related to AnimationController
 
   @override
@@ -1552,9 +1557,9 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
           },
           onTapUp: (details) {
             // Optional: Hide touch data after a delay
-            // Future.delayed(Duration(seconds: 2), () {
-            //   if (mounted) setState(() => _touchData = null);
-            // });
+            Future.delayed(Duration(seconds: 2), () {
+              if (mounted) setState(() => _touchData = null);
+            });
           },
           child: CustomPaint(
             painter: _WeightChartPainter(
@@ -1639,8 +1644,9 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
     final filteredData = _getFilteredData();
     if (filteredData.isEmpty) return;
 
-    final chartWidth = size.width - 60; // Accounting for padding
-    final chartHeight = size.height - 50; // Accounting for padding
+    // Use padding constants for calculations
+    final chartWidth = size.width - _chartLeftPadding - _chartRightPadding; // Use constants
+    final chartHeight = size.height - _chartTopPadding - _chartBottomPadding; // Use constants
 
     // Calculate min and max values
     final weights = filteredData.map((p) => p.weight).toList();
@@ -1657,11 +1663,12 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
 
     for (int i = visibleRange.start; i <= visibleRange.end; i++) {
       final point = filteredData[i];
+      // Use the static painter method with leftPadding
       final pointX =
-          _getXPositionForIndex(i, filteredData.length, chartWidth, size);
+          _WeightChartPainter._getXPositionForIndex(i, filteredData.length, chartWidth, size, _zoomLevel, _panOffset, _chartLeftPadding); // Use constant
       final pointY = size.height -
-          40 -
-          ((point.weight - minWeight) / (maxWeight - minWeight)) * chartHeight;
+          _chartBottomPadding -
+          ((point.weight - minWeight) / (maxWeight - minWeight)) * chartHeight; // Use constant
 
       final distance = (Offset(pointX, pointY) - position).distance;
       if (distance < minDistance && distance < 30) {
@@ -1709,22 +1716,22 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
     final visibleCount = visibleRange.end - visibleRange.start;
 
     if (visibleCount <= 0 || totalPoints <= 1)
-      return 30 + chartWidth / 2; // Center if no range or single point
+      return _chartLeftPadding + chartWidth / 2; // Center if no range or single point
     if (totalPoints > 1 && visibleCount == 0 && index == 0)
-      return 30; // Handle edge case for single visible point at start
+      return _chartLeftPadding; // Handle edge case for single visible point at start
     if (totalPoints > 1 && visibleCount == 0 && index == totalPoints - 1)
-      return 30 +
+      return _chartLeftPadding +
           chartWidth; // Handle edge case for single visible point at end
 
     if (visibleCount <= 0)
-      return 30 +
+      return _chartLeftPadding +
           (totalPoints > 1
               ? (index / (totalPoints - 1)) * chartWidth
               : chartWidth / 2);
 
     // Map index to position within visible range
     final relativeIndex = index - visibleRange.start;
-    return 30 + (relativeIndex / visibleCount) * chartWidth;
+    return _chartLeftPadding + (relativeIndex / visibleCount) * chartWidth;
   }
 }
 
@@ -1874,61 +1881,84 @@ class _WeightChartPainter extends CustomPainter {
 
   // Made this method static
   static double _getXPositionForIndex(int index, int totalPoints,
-      double chartWidth, Size size, double zoomLevel, double panOffset) {
+      double chartWidth, Size size, double zoomLevel, double panOffset,
+      double leftPadding // Add leftPadding parameter
+      ) {
     final visibleRange =
         _getVisiblePointsIndices(totalPoints, zoomLevel, panOffset);
     final visibleCount = visibleRange.end - visibleRange.start;
 
-    if (visibleCount <= 0 || totalPoints <= 1)
-      return 30 + chartWidth / 2; // Center if no range or single point
-    if (totalPoints > 1 && visibleCount == 0 && index == 0)
-      return 30; // Handle edge case for single visible point at start
-    if (totalPoints > 1 && visibleCount == 0 && index == totalPoints - 1)
-      return 30 +
-          chartWidth; // Handle edge case for single visible point at end
-
-    if (visibleCount <= 0)
-      return 30 +
+    if (visibleCount <= 0 || totalPoints <= 1){
+      return leftPadding + chartWidth / 2; // Use leftPadding
+    }
+    if (totalPoints > 1 && visibleCount == 0 && index == 0){
+      return leftPadding; // Use leftPadding
+    }
+    if (totalPoints > 1 && visibleCount == 0 && index == totalPoints - 1){
+      return leftPadding +
+      chartWidth; // Use leftPadding
+    }
+    if (visibleCount <= 0){
+      return leftPadding + // Use leftPadding
           (totalPoints > 1
               ? (index / (totalPoints - 1)) * chartWidth
               : chartWidth / 2);
-
+    }
     // Map index to position within visible range
     final relativeIndex = index - visibleRange.start;
-    return 30 + (relativeIndex / visibleCount) * chartWidth;
+    return leftPadding + (relativeIndex / visibleCount) * chartWidth; // Use leftPadding
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (weightPoints.isEmpty) {
+    // Get filtered data first
+    final List<WeightPoint> filteredPoints = _getFilteredData();
+
+    if (filteredPoints.isEmpty) {
       _drawEmptyState(canvas, size);
       return;
     }
 
     // --- Start: Calculations moved from _initializeValues ---
-    final weights = weightPoints.map((p) => p.weight).toList();
-    final double minWeight = weights.isEmpty ? 0 : weights.reduce(math.min) - 1;
-    final double maxWeight = weights.isEmpty ? 0 : weights.reduce(math.max) + 1;
-    final _VisibleRange visibleRange =
-        _getVisiblePointsIndices(weightPoints.length, zoomLevel, panOffset);
+    final weights = filteredPoints.map((p) => p.weight).toList(); // Use filtered
+    // Ensure min/max calculation doesn't fail on single point list
+    final double minWeightValue = weights.reduce(math.min);
+    final double maxWeightValue = weights.reduce(math.max);
+    final double minWeight = minWeightValue - 1;
+    final double maxWeight = maxWeightValue == minWeightValue ? maxWeightValue + 1 : maxWeightValue + 1;
 
-    final chartWidth = size.width - 60; // Accounting for padding
-    final chartHeight = size.height - 50; // Height excluding bottom labels
+    final _VisibleRange visibleRange =
+        _getVisiblePointsIndices(filteredPoints.length, zoomLevel, panOffset);
+
+    // Adjust chart dimensions based on padding
+    final chartWidth = size.width - _chartLeftPadding - _chartRightPadding;
+    final chartHeight = size.height - _chartTopPadding - _chartBottomPadding;
+
+    // Check for invalid dimensions
+    if (chartWidth <= 0 || chartHeight <= 0) {
+      // Optionally draw an error message or just return
+      return;
+    }
 
     final List<Offset> animatedPoints = [];
-    if (weightPoints.isNotEmpty) {
-      final filteredPoints =
-          _getFilteredData(); // Use filtered data based on timeFrame
-      for (int i = visibleRange.start; i <= visibleRange.end; i++) {
-        if (i < filteredPoints.length) {
-          final point = filteredPoints[i];
+    final Map<DateTime, Offset> pointOffsets = {}; // Map date to calculated offset
+
+    if (filteredPoints.isNotEmpty) {
+      // final filteredPoints =
+      //     _getFilteredData(); // Use filtered data based on timeFrame - Already done above
+      for (int i = 0; i < filteredPoints.length; i++) {
+        final point = filteredPoints[i];
+        // Calculate offset only for visible points
+        if (i >= visibleRange.start && i <= visibleRange.end) {
           final pointX = _getXPositionForIndex(i, filteredPoints.length,
-              chartWidth, size, zoomLevel, panOffset); // Pass zoom/pan
+              chartWidth, size, zoomLevel, panOffset, _chartLeftPadding); // Pass constant
           final pointY = size.height -
-              40 -
+              _chartBottomPadding -
               ((point.weight - minWeight) / (maxWeight - minWeight)) *
-                  chartHeight; // Removed * animation
-          animatedPoints.add(Offset(pointX, pointY));
+                  chartHeight; // Use constant
+          final currentOffset = Offset(pointX, pointY);
+          animatedPoints.add(currentOffset);
+          pointOffsets[point.date] = currentOffset; // Store exact offset by date
         }
       }
     }
@@ -1936,20 +1966,20 @@ class _WeightChartPainter extends CustomPainter {
     // Initialize paints that depend on size or customColors
     final Paint fillPaint = Paint()
       ..shader = ui.Gradient.linear(
-        Offset(size.width / 2, 0),
-        Offset(size.width / 2, size.height),
+        Offset(size.width / 2, _chartTopPadding), // Use top padding
+        Offset(size.width / 2, size.height - _chartBottomPadding), // Use bottom padding
         [
-          customColors.accentPrimary.withOpacity(0.4),
-          customColors.accentPrimary.withOpacity(0.05),
+          customColors.accentPrimary.withOpacity(0.5),
+          customColors.accentPrimary.withOpacity(0.01),
         ],
       )
       ..style = PaintingStyle.fill
       ..isAntiAlias = true;
 
     final TextStyle labelStyle = TextStyle(
-      color: customColors.textPrimary,
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
+      // Match style from Macro chart painter
+      color: customColors.textSecondary.withOpacity(0.7),
+      fontSize: 10,
     );
 
     // Update colors for existing paints
@@ -1959,35 +1989,42 @@ class _WeightChartPainter extends CustomPainter {
     pointBorderPaint.color = customColors.accentPrimary;
     // --- End: Calculations moved from _initializeValues ---
 
-    // Draw grid lines and labels
+    // Draw grid lines and labels - pass padding and filteredPoints
     _drawGrid(canvas, size, chartWidth, chartHeight, minWeight, maxWeight,
-        labelStyle, visibleRange, animatedPoints); // Pass calculated values
+        labelStyle, visibleRange, animatedPoints, filteredPoints, _chartLeftPadding, _chartRightPadding, _chartTopPadding, _chartBottomPadding);
 
-    // Draw target weight line if in range
+    // Draw target weight line if in range - pass padding
     if (targetWeight >= minWeight && targetWeight <= maxWeight) {
       _drawTargetLine(canvas, size, chartWidth, chartHeight, minWeight,
-          maxWeight, labelStyle); // Pass calculated values
+          maxWeight, labelStyle, _chartLeftPadding, _chartRightPadding, _chartTopPadding, _chartBottomPadding);
     }
 
-    // Draw data points and connecting lines
+    // Draw data points and connecting lines using only VISIBLE points (animatedPoints)
     if (animatedPoints.length > 1) {
-      // Draw area fill first (behind the line)
+      // Draw area fill first (behind the line) - pass padding
       _drawAreaFill(canvas, size, chartWidth, chartHeight, animatedPoints,
-          fillPaint); // Pass calculated values
+          fillPaint, _chartLeftPadding, _chartBottomPadding);
 
-      // Draw connecting line
+      // Draw connecting line - uses animatedPoints already adjusted
       _drawConnectingLine(canvas, size, chartWidth, chartHeight,
-          animatedPoints); // Pass calculated values
+          animatedPoints);
     }
 
-    // Draw individual data points
+    // Draw individual data points - uses animatedPoints already adjusted
     _drawDataPoints(canvas, size, chartWidth, chartHeight,
-        animatedPoints); // Pass calculated values
+        animatedPoints);
 
     // Draw touch interaction elements
     if (touchData != null) {
-      _drawTouchInteraction(canvas, size, chartWidth, chartHeight,
-          labelStyle); // Pass calculated values
+      // Find the exact calculated offset for the touched point's date
+      final Offset? exactPointOffset = pointOffsets[touchData!.point.date];
+
+      // Only draw if the touched point is actually visible and has a calculated offset
+      if (exactPointOffset != null) {
+        _drawTouchInteraction(canvas, size, chartWidth, chartHeight,
+            labelStyle, exactPointOffset, touchData!.point, // Pass exact offset and point data
+            _chartLeftPadding, _chartRightPadding, _chartTopPadding, _chartBottomPadding); // Pass padding
+      }
     }
   }
 
@@ -2023,16 +2060,23 @@ class _WeightChartPainter extends CustomPainter {
       double maxWeight,
       TextStyle labelStyle,
       _VisibleRange visibleRange,
-      List<Offset> animatedPoints) {
+      List<Offset> animatedPoints,
+      List<WeightPoint> filteredPoints, // Pass filtered points
+      double leftPadding,
+      double rightPadding,
+      double topPadding,
+      double bottomPadding
+      ) {
     // Draw horizontal grid lines with improved spacing
     final gridLineCount = 5;
     for (int i = 0; i <= gridLineCount; i++) {
-      final y = 20 + (i / gridLineCount) * chartHeight;
+      // Use topPadding for Y calculation
+      final y = topPadding + (i / gridLineCount) * chartHeight;
 
-      // Draw grid line
+      // Draw grid line using padding
       canvas.drawLine(
-        Offset(30, y),
-        Offset(size.width - 20, y),
+        Offset(leftPadding, y),
+        Offset(size.width - rightPadding, y),
         gridPaint,
       );
 
@@ -2047,23 +2091,26 @@ class _WeightChartPainter extends CustomPainter {
         labelPainter // Use the instance painter
           ..text = TextSpan(
             text: formattedWeight,
-            style: labelStyle, // Use the passed labelStyle
+            // Update label style to match MacroTrackingScreen
+            style: TextStyle(
+              color: customColors.textSecondary.withOpacity(0.7),
+              fontSize: 10,
+            ),
           )
-          ..layout(minWidth: 0, maxWidth: 60);
+          ..layout(minWidth: 0, maxWidth: leftPadding - 8); // Constrain width
 
+        // Move labels to the left side, right-aligned within padding
         labelPainter.paint(
           canvas,
-          Offset(
-              size.width - labelPainter.width - 5, y - labelPainter.height / 2),
+          // Adjust x position to be left of leftPadding
+          Offset(leftPadding - labelPainter.width - 8, y - labelPainter.height / 2),
         );
       }
     }
 
     // Draw date labels at the bottom if we have enough points
-    if (animatedPoints.length > 1) {
-      final filteredPoints =
-          _getFilteredData(); // Still need filtered points for dates
-
+    // Use filteredPoints count here
+    if (filteredPoints.isNotEmpty) {
       // Show appropriate number of date labels based on available width
       final maxLabels = math.max(3, (chartWidth / 100).floor());
       final step = filteredPoints.isEmpty
@@ -2075,7 +2122,7 @@ class _WeightChartPainter extends CustomPainter {
         if (i < filteredPoints.length) {
           final point = filteredPoints[i];
           final xPos = _getXPositionForIndex(i, filteredPoints.length,
-              chartWidth, size, zoomLevel, panOffset); // Pass zoom/pan
+              chartWidth, size, zoomLevel, panOffset, leftPadding); // Pass leftPadding
 
           // Format date based on time frame
           String dateLabel;
@@ -2102,7 +2149,7 @@ class _WeightChartPainter extends CustomPainter {
           labelPainter.paint(
             canvas,
             Offset(xPos - labelPainter.width / 2,
-                size.height - labelPainter.height),
+                size.height - bottomPadding + 5),
           );
         }
       }
@@ -2117,9 +2164,14 @@ class _WeightChartPainter extends CustomPainter {
       double chartHeight,
       double minWeight,
       double maxWeight,
-      TextStyle labelStyle) {
+      TextStyle labelStyle,
+      double leftPadding,
+      double rightPadding,
+      double topPadding,
+      double bottomPadding
+      ) {
     final targetY = size.height -
-        40 -
+        bottomPadding -
         ((targetWeight - minWeight) / (maxWeight - minWeight)) * chartHeight;
 
     // Target line
@@ -2132,8 +2184,8 @@ class _WeightChartPainter extends CustomPainter {
     // Draw dashed line
     final dashWidth = 6;
     final dashSpace = 4;
-    double startX = 30;
-    final endX = size.width - 20;
+    double startX = leftPadding; // Use leftPadding
+    final endX = size.width - rightPadding; // Use rightPadding
 
     while (startX < endX) {
       final endDash = math.min(startX + dashWidth, endX);
@@ -2159,7 +2211,7 @@ class _WeightChartPainter extends CustomPainter {
       ..layout(minWidth: 0, maxWidth: 50);
 
     // Draw small rectangle background
-    final labelRect = Rect.fromLTWH(30, targetY - labelPainter.height / 2 - 2,
+    final labelRect = Rect.fromLTWH(leftPadding + 4, targetY - labelPainter.height / 2 - 2,
         labelPainter.width + 8, labelPainter.height + 4);
 
     canvas.drawRRect(
@@ -2169,19 +2221,21 @@ class _WeightChartPainter extends CustomPainter {
 
     labelPainter.paint(
       canvas,
-      Offset(34, targetY - labelPainter.height / 2),
+      Offset(leftPadding + 8, targetY - labelPainter.height / 2),
     );
   }
 
   // Updated to accept calculated values
   void _drawAreaFill(Canvas canvas, Size size, double chartWidth,
-      double chartHeight, List<Offset> animatedPoints, Paint fillPaint) {
+      double chartHeight, List<Offset> animatedPoints, Paint fillPaint,
+      double leftPadding, double bottomPadding // Add padding parameters
+      ) {
     if (animatedPoints.length < 2) return;
 
     final path = Path();
 
-    // Start from bottom left of the first point
-    path.moveTo(animatedPoints.first.dx, size.height - 40);
+    // Start from bottom left of the first point (using bottomPadding)
+    path.moveTo(animatedPoints.first.dx, size.height - bottomPadding);
 
     // Go to the first actual point
     path.lineTo(animatedPoints.first.dx, animatedPoints.first.dy);
@@ -2191,9 +2245,9 @@ class _WeightChartPainter extends CustomPainter {
       path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
     }
 
-    // Close the path by going to the bottom right and then back to start
-    path.lineTo(animatedPoints.last.dx, size.height - 40);
-    path.lineTo(animatedPoints.first.dx, size.height - 40);
+    // Close the path by going to the bottom right and then back to start (using bottomPadding)
+    path.lineTo(animatedPoints.last.dx, size.height - bottomPadding);
+    path.lineTo(animatedPoints.first.dx, size.height - bottomPadding);
 
     canvas.drawPath(path, fillPaint); // Use the passed fillPaint
   }
@@ -2227,9 +2281,19 @@ class _WeightChartPainter extends CustomPainter {
 
   // Updated to accept calculated values
   void _drawTouchInteraction(Canvas canvas, Size size, double chartWidth,
-      double chartHeight, TextStyle labelStyle) {
-    final touchPoint = touchData!.position;
-    final weightPoint = touchData!.point;
+      double chartHeight, TextStyle labelStyle,
+      // Replace touchData with exact offset and point data
+      Offset exactTouchPoint,
+      WeightPoint weightPoint,
+      // Padding parameters
+      double leftPadding,
+      double rightPadding,
+      double topPadding,
+      double bottomPadding
+      ) {
+    // Use exactTouchPoint instead of touchData.position
+    // Use weightPoint instead of touchData.point
+    final touchPoint = exactTouchPoint;
 
     // Draw highlight circle
     canvas.drawCircle(
@@ -2285,15 +2349,15 @@ class _WeightChartPainter extends CustomPainter {
     final tooltipWidth = math.max(weightPainter.width, datePainter.width) + 20;
     final tooltipHeight = weightPainter.height + datePainter.height + 16;
 
-    // Position tooltip to avoid going off-screen
+    // Position tooltip to avoid going off-screen (consider padding)
     double tooltipX = touchPoint.dx - tooltipWidth / 2;
-    if (tooltipX < 10) tooltipX = 10;
-    if (tooltipX + tooltipWidth > size.width - 10) {
-      tooltipX = size.width - tooltipWidth - 10;
+    if (tooltipX < leftPadding) tooltipX = leftPadding; // Use leftPadding
+    if (tooltipX + tooltipWidth > size.width - rightPadding) { // Use rightPadding
+      tooltipX = size.width - rightPadding - tooltipWidth;
     }
 
     // Position tooltip above or below the point depending on space
-    final tooltipAbove = touchPoint.dy > tooltipHeight + 20;
+    final tooltipAbove = touchPoint.dy > tooltipHeight + topPadding + 15; // Consider topPadding
     final tooltipY =
         tooltipAbove ? touchPoint.dy - tooltipHeight - 15 : touchPoint.dy + 15;
 
