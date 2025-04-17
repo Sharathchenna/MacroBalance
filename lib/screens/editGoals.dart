@@ -91,7 +91,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         carbGoal = foodEntryProvider.carbsGoal.round();
         fatGoal = foodEntryProvider.fatGoal.round();
         stepsGoal = foodEntryProvider.stepsGoal;
-        bmr = foodEntryProvider.bmr.round();
+        // bmr = foodEntryProvider.bmr.round();
       });
 
       debugPrint(
@@ -109,9 +109,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
             stepsGoal = results['recommended_steps'] ?? stepsGoal;
           }
           // Load BMR from macro_results if not loaded from provider
-          if (bmr == 1500) {
-            bmr = results['bmr'] ?? bmr;
-          }
+          // if (bmr == 1500) {
+          //   bmr = results['bmr'] ?? bmr;
+          // }
         });
       }
     }
@@ -690,7 +690,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'currentValue': caloriesConsumed,
         'unit': 'kcal',
         'icon': Icons.local_fire_department_rounded,
-        'color': Colors.deepOrange,
+        'color': Colors.green,
         'onEdit': () => _showEditDialog(
               'Daily Calorie Goal',
               calorieGoal,
@@ -704,7 +704,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'currentValue': proteinConsumed,
         'unit': 'g',
         'icon': Icons.fitness_center_rounded,
-        'color': Colors.purple,
+        'color': Colors.red,
         'onEdit': () => _showEditDialog(
               'Protein Goal',
               proteinGoal,
@@ -863,7 +863,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildPercentItem('Protein', proteinPercent, Colors.purple),
+                _buildPercentItem('Protein', proteinPercent, Colors.red),
                 _buildPercentItem('Carbs', carbPercent, Colors.blue),
                 _buildPercentItem('Fat', fatPercent, Colors.amber),
               ],

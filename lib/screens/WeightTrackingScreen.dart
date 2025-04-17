@@ -1188,58 +1188,49 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                       ),
                       TextButton(
                         onPressed: () {
-                          showDialog(
+                          // Use showCupertinoModalPopup for a bottom sheet picker
+                          showCupertinoModalPopup(
                             context: context,
-                            builder: (context) {
-                              return AlertDialog(
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                            builder: (_) => Container(
+                              height: 250, // Adjust height as needed
+                              color: customColors.cardBackground, // Use theme color
+                              child: Column(
+                                children: [
+                                  // Header with Done button
+                                  Container(
+                                    color: customColors.cardBackground, // Optional header background
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                          child: Text(
-                                            'Cancel',
-                                            style: TextStyle(
-                                                color:
-                                                    customColors.textSecondary),
-                                          ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
+                                        CupertinoButton(
                                           child: Text(
                                             'Done',
-                                            style: TextStyle(
-                                                color:
-                                                    customColors.accentPrimary),
+                                            style: TextStyle(color: customColors.accentPrimary),
                                           ),
+                                          onPressed: () => Navigator.of(context).pop(), // Close the modal
                                         ),
                                       ],
                                     ),
-                                    Expanded(
-                                      child: CupertinoDatePicker(
-                                        mode: CupertinoDatePickerMode.date,
-                                        initialDateTime: selectedDate,
-                                        maximumDate: DateTime.now(),
-                                        minimumDate: DateTime(2000),
-                                        onDateTimeChanged: (DateTime newDate) {
-                                          setDialogState(() {
-                                            selectedDate = newDate;
-                                          });
-                                        },
-                                      ),
+                                  ),
+                                  // The Date Picker
+                                  Expanded(
+                                    child: CupertinoDatePicker(
+                                      mode: CupertinoDatePickerMode.date,
+                                      initialDateTime: selectedDate,
+                                      maximumDate: DateTime.now(),
+                                      minimumDate: DateTime(2000),
+                                      onDateTimeChanged: (DateTime newDate) {
+                                        // Update the date in the dialog's state
+                                        setDialogState(() {
+                                          selectedDate = newDate;
+                                        });
+                                      },
+                                      backgroundColor: customColors.cardBackground, // Match background
                                     ),
-                                  ],
-                                ),
-                              );
-                            },
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
                         },
                         child: Text(
