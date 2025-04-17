@@ -91,7 +91,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         carbGoal = foodEntryProvider.carbsGoal.round();
         fatGoal = foodEntryProvider.fatGoal.round();
         stepsGoal = foodEntryProvider.stepsGoal;
-        // bmr = foodEntryProvider.bmr.round();
+        bmr = foodEntryProvider.bmr.round();
       });
 
       debugPrint(
@@ -241,7 +241,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       await foodEntryProvider.updateNutritionGoals(
         calories: calorieGoal.toDouble(),
         protein: proteinGoal.toDouble(),
-        carbs: carbGoal.toDouble(),
+        carbs: carbGoal.toDouble(), 
         fat: fatGoal.toDouble(),
         steps: stepsGoal,
         bmr: bmr.toDouble(),
