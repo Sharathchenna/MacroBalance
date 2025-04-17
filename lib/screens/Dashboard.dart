@@ -26,6 +26,7 @@ import 'package:hive_flutter/hive_flutter.dart'; // Import Hive
 
 import '../AI/gemini.dart';
 import '../Health/Health.dart';
+import '../services/camera_service.dart'; // Import CameraService
 import '../services/storage_service.dart'; // Import StorageService
 
 // Define the expected result structure at the top level
@@ -39,9 +40,8 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  // Method Channel for the native camera view (moved from CameraScreen)
-  static const MethodChannel _nativeCameraViewChannel =
-      MethodChannel('com.macrotracker/native_camera_view');
+  // Use CameraService instance
+  final CameraService _cameraService = CameraService();
 
   @override
   void initState() {
@@ -68,7 +68,8 @@ class _DashboardState extends State<Dashboard> {
   // --- Native Camera Handling (Moved from CameraScreen) ---
 
   void _setupNativeCameraHandler() {
-    _nativeCameraViewChannel.setMethodCallHandler((call) async {
+    // Use CameraService to set the handler
+    _cameraService.setupMethodCallHandler((call) async {
       print('[Flutter Dashboard] Received method call: ${call.method}');
       switch (call.method) {
         case 'cameraResult':
@@ -115,19 +116,9 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Future<void> _showNativeCamera() async {
-    if (!Platform.isIOS) {
-      print('[Flutter Dashboard] Native camera view only supported on iOS.');
-      if (mounted) {
-        _showErrorSnackbar('Camera feature is only available on iOS.');
-      }
-      return;
-    }
-
     try {
-      print('[Flutter Dashboard] Invoking showNativeCamera...');
-      await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
-      print('[Flutter Dashboard] showNativeCamera invoked successfully.');
-      // No navigation or state change needed here, handler will receive result
+      // Use CameraService to show the camera
+      await _cameraService.showNativeCamera();
     } on PlatformException catch (e) {
       print('[Flutter Dashboard] Error showing native camera: ${e.message}');
       if (mounted) {
