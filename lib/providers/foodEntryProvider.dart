@@ -542,10 +542,11 @@ class FoodEntryProvider with ChangeNotifier {
       } else {
         baseValue = entry.food.nutrients[nutrientKey] ?? 0.0;
       }
-      double calculatedValue = baseValue * entry.quantity;
+      // For AI Detected foods, the baseValue already represents the total for the selected quantity.
+      // We should not multiply by entry.quantity again.
       debugPrint(
-          "[DEBUG Provider] AI Entry: ${entry.food.name}, Nutrient: $nutrientKey, BaseValue: $baseValue, Quantity: ${entry.quantity}, Result: $calculatedValue");
-      return calculatedValue;
+          "[DEBUG Provider] AI Entry: ${entry.food.name}, Nutrient: $nutrientKey, Stored Total: $baseValue, Quantity: ${entry.quantity}. Returning stored total.");
+      return baseValue;
     }
 
     // --- Existing logic for non-AI foods ---

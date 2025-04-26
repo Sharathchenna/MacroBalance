@@ -828,16 +828,25 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
 
     // Get the selected quantity
     final double quantity = double.tryParse(quantityController.text) ?? 1.0;
+    print('--- AIFoodDetailPage Debug ---'); // Log Start
+    print('Raw quantity input: ${quantityController.text}'); // Log Raw Input
+    print('Parsed quantity: $quantity'); // Log Parsed Quantity
 
     // Calculate nutrition based on selected serving and quantity
     final nutrition = widget.food.getNutritionForIndex(
       selectedServingIndex,
       quantity,
     );
+    print('Calculated Nutrition for quantity $quantity:'); // Log Calculated Nutrition
+    print('  Calories: ${nutrition.calories}');
+    print('  Protein: ${nutrition.protein}');
+    print('  Carbs: ${nutrition.carbohydrates}');
+    print('  Fat: ${nutrition.fat}');
 
     // Get the current serving size description
     final String servingDescription =
         widget.food.servingSizes[selectedServingIndex];
+    print('Selected serving description: $servingDescription'); // Log Serving Description
 
     // Create food entry with proper serving information
     final entry = FoodEntry(
@@ -862,12 +871,20 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
       unit: 'serving', // Unit reflects the selected serving size
       date: dateProvider.selectedDate,
       servingDescription: "$quantity x $servingDescription", // Combine quantity and original description
-    );
+  );
+  print('Created FoodEntry object:'); // Log FoodEntry Object
+  print('  ID: ${entry.id}');
+  print('  Food Name: ${entry.food.name}');
+  print('  Calories (in entry): ${entry.food.calories}');
+  print('  Protein (in entry): ${entry.food.nutrients['Protein']}');
+  print('  Quantity (in entry): ${entry.quantity}');
+  print('  Serving Description (in entry): ${entry.servingDescription}');
+  print('--- End AIFoodDetailPage Debug ---'); // Log End
 
-    // Add entry to provider
-    foodEntryProvider.addEntry(entry);
+  // Add entry to provider
+  foodEntryProvider.addEntry(entry);
 
-    // Pop back to camera results page
+  // Pop back to camera results page
     Navigator.pop(context);
 
     // Show confirmation
