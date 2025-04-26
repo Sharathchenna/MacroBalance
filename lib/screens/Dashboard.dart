@@ -690,7 +690,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   bool _isLoadingHealthData = false;
   DateTime? _lastFetchedDate;
   late DateProvider _dateProvider;
-  final StorageService _storageService = StorageService(); // Instance of StorageService
+  final StorageService _storageService =
+      StorageService(); // Instance of StorageService
 
   // Default goal, consider making this configurable or fetched
   // final int _stepsGoal = 9000;
@@ -708,7 +709,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
       // Set up listener for StorageService changes
       _storageListener = () {
-        final currentStatus = _storageService.get('healthConnected', defaultValue: false);
+        final currentStatus =
+            _storageService.get('healthConnected', defaultValue: false);
         // Check if the status has changed and is now true
         if (currentStatus && !_hasHealthPermissions) {
           if (mounted) {
@@ -719,15 +721,15 @@ class _CalorieTrackerState extends State<CalorieTracker> {
             _fetchHealthData(); // Fetch data immediately on status change
           }
         } else if (!currentStatus && _hasHealthPermissions) {
-           // Optional: Handle disconnection if needed
-           if (mounted) {
-             setState(() {
-               _hasHealthPermissions = false;
-               _steps = 0; // Reset data on disconnect
-               _caloriesBurned = 0;
-             });
-             print("Health connection status changed to false.");
-           }
+          // Optional: Handle disconnection if needed
+          if (mounted) {
+            setState(() {
+              _hasHealthPermissions = false;
+              _steps = 0; // Reset data on disconnect
+              _caloriesBurned = 0;
+            });
+            print("Health connection status changed to false.");
+          }
         }
       };
       _storageService.listenForChanges(_storageListener!);
@@ -742,10 +744,12 @@ class _CalorieTrackerState extends State<CalorieTracker> {
       // Access the Hive box directly to remove the listener
       // This is a workaround as StorageService doesn't expose removeListener
       try {
-         Hive.box('user_preferences').listenable().removeListener(_storageListener!);
-         print("Storage listener removed.");
+        Hive.box('user_preferences')
+            .listenable()
+            .removeListener(_storageListener!);
+        print("Storage listener removed.");
       } catch (e) {
-         print("Error removing storage listener: $e");
+        print("Error removing storage listener: $e");
       }
     }
     super.dispose();
@@ -770,7 +774,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
   Future<void> _initializeHealthData() async {
     // Read initial status from storage
-    final initialStatus = _storageService.get('healthConnected', defaultValue: false);
+    final initialStatus =
+        _storageService.get('healthConnected', defaultValue: false);
     if (mounted) {
       setState(() {
         _hasHealthPermissions = initialStatus;
@@ -785,7 +790,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
       print("Initial health status is not connected.");
     }
   }
-
 
   // Future<void> _checkAndRequestPermissions() async {
   //   // Don't check if already checked and granted
@@ -1111,12 +1115,15 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               final stepsGoal = foodEntryProvider.stepsGoal.toInt();
 
               // Get nutrient totals using the new centralized method
-              final nutrientTotals = foodEntryProvider.getNutrientTotalsForDate(dateProvider.selectedDate);
+              final nutrientTotals = foodEntryProvider
+                  .getNutrientTotalsForDate(dateProvider.selectedDate);
               final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
+              // --- Dashboard Debug Log ---
+              print('[CalorieTracker Build] Received caloriesFromFood: $caloriesFromFood for date: ${dateProvider.selectedDate}');
+              // --- End Debug Log ---
               final totalProtein = nutrientTotals['protein'] ?? 0.0;
               final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
               final totalFat = nutrientTotals['fat'] ?? 0.0;
-
 
               // Calculate remaining calories (updated logic)
               // Handle potential division by zero if caloriesGoal is 0
@@ -1402,85 +1409,46 @@ class _MealSectionState extends State<MealSection> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          _buildMealCard('Breakfast'),
-          _buildMealCard('Lunch'),
-          _buildMealCard('Snacks'),
-          _buildMealCard('Dinner'),
-          // Removed SizedBox here since we added it to the main column
+          // Use unique keys for meal cards to ensure proper rebuilding
+          Consumer<DateProvider>(
+            builder: (context, dateProvider, _) => Column(
+              children: [
+                _buildMealCard('Breakfast',
+                    key: ValueKey('Breakfast-${dateProvider.selectedDate}')),
+                _buildMealCard('Lunch',
+                    key: ValueKey('Lunch-${dateProvider.selectedDate}')),
+                _buildMealCard('Snacks',
+                    key: ValueKey('Snacks-${dateProvider.selectedDate}')),
+                _buildMealCard('Dinner',
+                    key: ValueKey('Dinner-${dateProvider.selectedDate}')),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMealCard(String mealType) {
+  Widget _buildMealCard(String mealType, {Key? key}) {
     return Consumer2<FoodEntryProvider, DateProvider>(
+      key: key,
       builder: (context, foodEntryProvider, dateProvider, child) {
         final entries = foodEntryProvider.getEntriesForMeal(
-            mealType, dateProvider.selectedDate);
+            dateProvider.selectedDate, mealType);
 
-        // Calculate calories using improved serving logic
-        double totalCalories = entries.fold(0.0, (sum, entry) {
-          Serving? serving;
-          // Try to find the exact serving description saved with the entry
-          if (entry.servingDescription != null &&
-              entry.food.servings.isNotEmpty) {
-            try {
-              serving = entry.food.servings
-                  .firstWhere((s) => s.description == entry.servingDescription);
-            } catch (e) {
-              serving = null;
-            }
-          }
+        // *** FIX: Use the provider's calculation method ***
+        double totalCalories = entries.fold(
+            0.0,
+            (sum, entry) =>
+                sum +
+                foodEntryProvider.calculateNutrientForEntry(entry, 'calories'));
 
-          double multiplier = 1.0;
-          double baseCalories = 0.0;
+       // --- Dashboard Debug Log ---
+       print('[MealCard Build - $mealType] Calculated totalCalories: $totalCalories for date: ${dateProvider.selectedDate}');
+       // --- End Debug Log ---
 
-          if (serving != null) {
-            // --- Calculation based on the specific serving ---
-            if (serving.metricAmount > 0 &&
-                serving.metricUnit.toLowerCase() == 'g') {
-              // If serving has valid metric data, use it for calculation
-              double baseAmount = serving.metricAmount;
-              double quantityGrams = entry.quantity;
-
-              // Convert to grams if needed
-              if (entry.unit.toLowerCase() == 'oz') {
-                quantityGrams *= 28.35;
-              } else if (entry.unit.toLowerCase() == 'lbs') {
-                quantityGrams *= 453.59;
-              } else if (entry.unit.toLowerCase() == 'kg') {
-                quantityGrams *= 1000;
-              }
-
-              multiplier = quantityGrams / baseAmount;
-            } else {
-              // For non-metric servings (like "1 burger"), use direct multiplication
-              multiplier = entry.quantity; // Direct multiplication by quantity
-            }
-            baseCalories = serving.calories;
-          } else {
-            // --- Fallback: Calculate based on 100g if no serving info ---
-            if (entry.unit.toLowerCase() == 'g') {
-              multiplier = entry.quantity / 100.0;
-            } else if (entry.unit.toLowerCase() == 'oz') {
-              multiplier = (entry.quantity * 28.35) / 100.0;
-            } else if (entry.unit.toLowerCase() == 'lbs') {
-              multiplier = (entry.quantity * 453.59) / 100.0;
-            } else if (entry.unit.toLowerCase() == 'kg') {
-              multiplier = (entry.quantity * 1000) / 100.0;
-            } else {
-              // For unknown units, use direct multiplication
-              multiplier = entry.quantity;
-            }
-            baseCalories = entry.food.calories;
-          }
-
-          if (multiplier < 0) multiplier = 0;
-          return sum + (baseCalories * multiplier);
-        });
-
-        // Meal type icon mapping
-        IconData getMealIcon() {
+       // Meal type icon mapping
+       IconData getMealIcon() {
           switch (mealType) {
             case 'Breakfast':
               return Icons.breakfast_dining;
@@ -1767,46 +1735,25 @@ Color _getMealColor(String mealType) {
 // Helper method for food items
 Widget _buildFoodItem(
     BuildContext context, dynamic entry, FoodEntryProvider provider) {
-  // Calculate calories with proper serving size handling
-  double calories = 0;
-  String displayUnit = entry.unit; // Default to the stored unit
+  // Use the centralized calculation method from FoodEntryProvider
+  // *** ADDED LOGGING ***
+  debugPrint(
+      "[Dashboard BuildFoodItem] Processing entry: ID=${entry.id}, Name=${entry.food.name}, Quantity=${entry.quantity}, Unit=${entry.unit}, ServingDesc=${entry.servingDescription}, Brand=${entry.food.brandName}");
+  // *** END LOGGING ***
 
-  // First try to use the specific serving if available
-  if (entry.servingDescription != null && entry.food.servings.isNotEmpty) {
-    try {
-      final serving = entry.food.servings
-          .firstWhere((s) => s.description == entry.servingDescription);
-      // Update display unit to use the serving description
-      displayUnit =
-          serving.description.replaceAll(RegExp(r'^\d+\s*'), '').trim();
+  final double calories = provider.calculateNutrientForEntry(entry, 'calories');
 
-      // For servings with metric measurements
-      if (serving.metricAmount > 0 && serving.metricUnit.toLowerCase() == 'g') {
-        double quantityInGrams = entry.quantity;
-        // Convert to grams if needed
-        switch (entry.unit.toLowerCase()) {
-          case "oz":
-            quantityInGrams *= 28.35;
-            break;
-          case "kg":
-            quantityInGrams *= 1000;
-            break;
-          case "lbs":
-            quantityInGrams *= 453.59;
-            break;
-        }
-        calories = serving.calories * (quantityInGrams / serving.metricAmount);
-      } else {
-        // For non-metric servings (like "1 burger"), use direct multiplication
-        calories = serving.calories * entry.quantity;
-      }
-    } catch (e) {
-      // If serving not found, fall back to per 100g calculation
-      calories = _calculateCaloriesPer100g(entry);
-    }
+  // Determine the display unit based on the entry type
+  String displayUnit;
+  if (entry.food.brandName == 'AI Detected' &&
+      entry.servingDescription != null) {
+    // For AI entries with a serving description, use the description (excluding leading numbers)
+    displayUnit = entry.servingDescription
+        .replaceAll(RegExp(r'^\d+(\.\d+)?\s*x?\s*'), '')
+        .trim(); // Refined Regex
   } else {
-    // If no serving info, fall back to per 100g calculation
-    calories = _calculateCaloriesPer100g(entry);
+    // For other entries, use the stored unit
+    displayUnit = entry.unit;
   }
 
   return Dismissible(
@@ -1858,8 +1805,12 @@ Widget _buildFoodItem(
                           ?.textPrimary,
                     ),
                   ),
+                  // *** ADDED DISPLAY LOGGING ***
+                  () { debugPrint("[DISPLAY VALUE CHECK] Qty=${entry.quantity}, Unit=$displayUnit for ${entry.id}"); return const SizedBox.shrink(); } (),
+                  // *** END DISPLAY LOGGING ***
+
                   Text(
-                    '${entry.quantity} $displayUnit',
+                    '${entry.quantity.toStringAsFixed(entry.quantity.toInt() == entry.quantity ? 0 : 1)} $displayUnit', // Format quantity to show decimal only if needed
                     style: GoogleFonts.poppins(
                       fontSize: 11, // Reduced from 13
                       color: Theme.of(context).brightness == Brightness.light
@@ -1895,21 +1846,4 @@ Widget _buildFoodItem(
           ],
         ),
       ));
-}
-
-// Helper method for calculating calories per 100g
-double _calculateCaloriesPer100g(dynamic entry) {
-  double quantityInGrams = entry.quantity;
-  switch (entry.unit.toLowerCase()) {
-    case "oz":
-      quantityInGrams *= 28.35;
-      break;
-    case "kg":
-      quantityInGrams *= 1000;
-      break;
-    case "lbs":
-      quantityInGrams *= 453.59;
-      break;
-  }
-  return entry.food.calories * (quantityInGrams / 100);
 }

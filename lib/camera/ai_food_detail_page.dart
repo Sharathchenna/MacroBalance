@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
-import 'package:macrotracker/widgets/macro_progress_ring.dart';
 import 'package:macrotracker/widgets/quantity_selector.dart';
 import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'package:provider/provider.dart';
@@ -121,7 +120,6 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
       selectedServingIndex,
       double.tryParse(quantityController.text) ?? 1.0,
     );
-    final macroPercentages = getMacroPercentages();
     final primaryColor = Theme.of(context).primaryColor;
 
     return GestureDetector(
@@ -272,7 +270,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                 Text(
                                   widget.food.name,
                                   style: AppTypography.h2.copyWith(
-                                    color: customColors?.textPrimary,
+                                    color: customColors.textPrimary,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -356,7 +354,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                             child: Text(
                               "Serving Size",
                               style: AppTypography.h2.copyWith(
-                                color: customColors?.textPrimary,
+                                color: customColors.textPrimary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -366,7 +364,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                             margin: const EdgeInsets.only(bottom: 24),
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: customColors?.cardBackground,
+                              color: customColors.cardBackground,
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
@@ -384,13 +382,13 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                     Container(
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: customColors?.textSecondary
+                                        color: customColors.textSecondary
                                             .withOpacity(0.15),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(
                                         Icons.restaurant_menu_rounded,
-                                        color: customColors?.textSecondary,
+                                        color: customColors.textSecondary,
                                         size: 22,
                                       ),
                                     ),
@@ -504,7 +502,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                                   color: isSelected
                                                       ? Colors.white
                                                       : customColors
-                                                          ?.textPrimary,
+                                                          .textPrimary,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                                 textAlign: TextAlign.center,
@@ -551,7 +549,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: customColors?.cardBackground,
+                              color: customColors.cardBackground,
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
@@ -589,13 +587,13 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                               () => selectedMultiplier = 0);
                                         },
                                         style: AppTypography.body1.copyWith(
-                                          color: customColors?.textPrimary,
+                                          color: customColors.textPrimary,
                                           fontWeight: FontWeight.w500,
                                         ),
                                         decoration: InputDecoration(
                                           labelText: "Quantity",
                                           labelStyle: TextStyle(
-                                            color: customColors?.textSecondary,
+                                            color: customColors.textSecondary,
                                           ),
                                           enabledBorder: OutlineInputBorder(
                                             borderRadius:
@@ -699,7 +697,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                           Text(
                             "Nutrition Facts",
                             style: AppTypography.h2.copyWith(
-                              color: customColors?.textPrimary,
+                              color: customColors.textPrimary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -830,43 +828,67 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
 
     // Get the selected quantity
     final double quantity = double.tryParse(quantityController.text) ?? 1.0;
+    print('--- AIFoodDetailPage Debug ---'); // Log Start
+    print('Raw quantity input: ${quantityController.text}'); // Log Raw Input
+    print('Parsed quantity: $quantity'); // Log Parsed Quantity
 
-    // The nutrition values from AI are already for the serving size, but the app expects values per 100g
-    // So we need to adjust the values to be per 100g
-    final calories =
-        widget.food.calories[selectedServingIndex] / quantity * 100;
-    final protein = widget.food.protein[selectedServingIndex] / quantity * 100;
-    final carbs =
-        widget.food.carbohydrates[selectedServingIndex] / quantity * 100;
-    final fat = widget.food.fat[selectedServingIndex] / quantity * 100;
-    final fiber = widget.food.fiber[selectedServingIndex] / quantity * 100;
+    // Calculate nutrition based on selected serving and quantity
+    final nutrition = widget.food.getNutritionForIndex(
+      selectedServingIndex,
+      quantity,
+    );
+    print(
+        'Calculated Nutrition for quantity $quantity:'); // Log Calculated Nutrition
+    print('  Calories: ${nutrition.calories}');
+    print('  Protein: ${nutrition.protein}');
+    print('  Carbs: ${nutrition.carbohydrates}');
+    print('  Fat: ${nutrition.fat}');
 
-    // Create food entry
+    // Get the current serving size description
+    final String servingDescription =
+        widget.food.servingSizes[selectedServingIndex];
+    print(
+        'Selected serving description: $servingDescription'); // Log Serving Description
+
+    // Create food entry with proper serving information
     final entry = FoodEntry(
       id: const Uuid().v4(),
       food: FoodEntry.createFood(
-        fdcId: widget.food.name.hashCode.toString(),
+        fdcId: widget.food.name.hashCode
+            .toString(), // Use a unique ID if available, otherwise hash is okay
         name: widget.food.name,
         brandName: 'AI Detected',
-        calories: calories, // Use adjusted value
+        // *** FIX: Store the BASE nutrition values for the selected serving, NOT the calculated totals ***
+        calories: widget.food.calories[selectedServingIndex],
         nutrients: {
-          'Protein': protein, // Use adjusted value
-          'Carbohydrate, by difference': carbs, // Use adjusted value
-          'Total lipid (fat)': fat, // Use adjusted value
-          'Fiber': fiber, // Use adjusted value
+          'Protein': widget.food.protein[selectedServingIndex],
+          'Carbohydrate, by difference':
+              widget.food.carbohydrates[selectedServingIndex],
+          'Total lipid (fat)': widget.food.fat[selectedServingIndex],
+          'Fiber': widget.food.fiber[selectedServingIndex],
         },
         mealType: selectedMeal,
       ),
       meal: selectedMeal,
-      quantity: quantity,
-      unit: widget.food.servingSizes[selectedServingIndex],
+      quantity: quantity, // Store the multiplier/quantity
+      unit: 'serving', // Unit reflects the selected serving size
       date: dateProvider.selectedDate,
+      servingDescription:
+          "$quantity x $servingDescription", // Combine quantity and original description
     );
+    print('Created FoodEntry object:'); // Log FoodEntry Object
+    print('  ID: ${entry.id}');
+    print('  Food Name: ${entry.food.name}');
+    print('  Calories (in entry): ${entry.food.calories}');
+    print('  Protein (in entry): ${entry.food.nutrients['Protein']}');
+    print('  Quantity (in entry): ${entry.quantity}');
+    print('  Serving Description (in entry): ${entry.servingDescription}');
+    print('--- End AIFoodDetailPage Debug ---'); // Log End
 
     // Add entry to provider
     foodEntryProvider.addEntry(entry);
 
-    // Pop only this page to return to results page
+    // Pop back to camera results page
     Navigator.pop(context);
 
     // Show confirmation
@@ -876,22 +898,19 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
           children: [
             Icon(Icons.check_circle_outline,
                 color: Theme.of(context).colorScheme.onPrimary),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
               'Added to $selectedMeal',
               style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
             ),
           ],
         ),
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
+        backgroundColor: const Color(0xFFFFC107),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: EdgeInsets.all(8),
+        margin: const EdgeInsets.all(8),
         duration: const Duration(seconds: 2),
       ),
     );
-
-    // // Navigate back to food detail screen
-    // Navigator.pop(context);
   }
 }

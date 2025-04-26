@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'package:lottie/lottie.dart';
+import 'package:math_expressions/math_expressions.dart'; // Import math_expressions
 
 class Askai extends StatefulWidget {
   const Askai({super.key});
@@ -84,6 +85,7 @@ Return the response as a JSON list of objects with this structure:
   {...}
 ]
 Important note: Do not leave any trailing commas in the JSON response.
+**Crucially, all numeric values in the arrays (calories, protein, etc.) MUST be calculated final numbers, not mathematical expressions (e.g., use `36`, not `72*0.5`).**
 Make educated estimates for nutrition values if needed. If the meal is complex, break it down into its main components.
 Ensure each food has at least two serving size options (e.g., "1 serving" and "100g").
 Meal to analyze: ${_mealController.text}
@@ -92,14 +94,28 @@ Meal to analyze: ${_mealController.text}
       final content = [Content.text(prompt)];
       final response = await model.generateContent(content);
       final responseText = response.text ?? '';
+      print('--- Raw AI Response ---');
+      print(responseText);
+      print('-----------------------');
 
       // Extract JSON from response (in case there's any text around it)
       final jsonRegExp = RegExp(r'(\[[\s\S]*\])');
       final match = jsonRegExp.firstMatch(responseText);
 
       if (match != null) {
+        final jsonString = match.group(1)!;
+        print('--- Extracted JSON String ---');
+        print(jsonString);
+        print('---------------------------');
+        String processedJsonString = ''; // Declare before try
         try {
-          final jsonData = json.decode(match.group(1)!);
+          // Pre-process the JSON string to evaluate math expressions
+          processedJsonString = _preprocessJsonResponse(jsonString); // Assign here
+          print('--- Processed JSON String ---');
+          print(processedJsonString);
+          print('-----------------------------');
+
+          final jsonData = json.decode(processedJsonString); // Use processed string
           final List<AIFoodItem> parsedItems = [];
 
           for (var item in jsonData) {
@@ -115,8 +131,14 @@ Meal to analyze: ${_mealController.text}
             _isLoading = false;
           });
         } catch (e) {
+          print('--- JSON Parsing Error ---');
+          print('Error: ${e.toString()}');
+          // Log both original and processed strings on error
+          print('Original String: $jsonString');
+          print('Processed String: $processedJsonString');
+          print('------------------------');
           setState(() {
-            _isLoading = false;
+             _isLoading = false;
           });
           _showErrorSnackbar('Error parsing results: ${e.toString()}');
         }
@@ -133,6 +155,37 @@ Meal to analyze: ${_mealController.text}
       _showErrorSnackbar('Error analyzing meal: ${e.toString()}');
     }
   }
+
+  // Function to preprocess JSON string and evaluate simple math expressions
+  String _preprocessJsonResponse(String jsonString) {
+    // Regex to find simple multiplications or divisions like number*number or number/number
+    // It handles integers and decimals.
+    final expRegex = RegExp(r'(\d+(\.\d+)?)\s*([\*\/])\s*(\d+(\.\d+)?)');
+    Parser p = Parser();
+    ContextModel cm = ContextModel();
+
+    // Replace found expressions with their calculated values
+    String processedString = jsonString.replaceAllMapped(expRegex, (match) {
+      try {
+        String expression = match.group(0)!; // The full matched expression e.g., "72*0.5"
+        Expression exp = p.parse(expression);
+        double result = exp.evaluate(EvaluationType.REAL, cm);
+        // Format to avoid unnecessary trailing zeros for integers
+        if (result == result.truncate()) {
+          return result.toInt().toString();
+        } else {
+          // Limit decimal places if needed, e.g., toStringAsFixed(2)
+          return result.toStringAsFixed(2); // Adjust precision as needed
+        }
+      } catch (e) {
+        print("Error evaluating expression '${match.group(0)}': $e");
+        return match.group(0)!; // Return original string if evaluation fails
+      }
+    });
+
+    return processedString;
+  }
+
 
   // Helper method to validate and fix JSON data to prevent errors
   void _validateAndFixJsonItem(Map<String, dynamic> item) {
