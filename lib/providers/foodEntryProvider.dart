@@ -521,11 +521,20 @@ class FoodEntryProvider with ChangeNotifier {
 
   Future<void> addEntry(FoodEntry entry) async {
     _entries.add(entry);
-    await _clearDateCache();
+    await _clearDateCache(); // Clear the cache to ensure fresh data
+    notifyListeners(); // Notify listeners immediately after adding entry
+    await _saveEntries(); // Save to local storage
+    await _syncSingleEntryToSupabase(entry); // Sync to Supabase
+    _notifyNativeStatsChanged(); // Update widgets if needed
+
+    // Force a refresh of the cached data for this date
+    final cacheKey =
+        '${entry.date.year}-${entry.date.month.toString().padLeft(2, '0')}-${entry.date.day.toString().padLeft(2, '0')}';
+    _dateEntriesCache.remove(cacheKey);
+    _dateCacheTimestamp.remove(cacheKey);
+
+    // Notify listeners again after all async operations are complete
     notifyListeners();
-    await _saveEntries(); // Save locally first
-    await _syncSingleEntryToSupabase(entry); // Then sync to Supabase
-    _notifyNativeStatsChanged();
   }
 
   Future<void> removeEntry(String id) async {
@@ -865,7 +874,8 @@ class FoodEntryProvider with ChangeNotifier {
         return null;
       }
     } catch (e) {
-      debugPrint('Error calling proxy function for food details ID $foodId: $e');
+      debugPrint(
+          'Error calling proxy function for food details ID $foodId: $e');
       return null;
     }
   }
@@ -888,7 +898,8 @@ class FoodEntryProvider with ChangeNotifier {
       if (response is List) {
         // final Set<String> localEntryIds = _entries.map((e) => e.id).toSet(); // REMOVED - _entries is cleared before this now
         int processedCount = 0; // Count processed records
-        List<FoodEntry> fetchedEntries = []; // Temp list to hold successfully fetched entries
+        List<FoodEntry> fetchedEntries =
+            []; // Temp list to hold successfully fetched entries
 
         // Use Future.forEach for async operations inside the loop
         await Future.forEach(response, (record) async {
@@ -902,7 +913,8 @@ class FoodEntryProvider with ChangeNotifier {
               }
 
               // Fetch the full food details using the helper function
-              final FoodItem? fullFoodItem = await _fetchFullFoodDetails(foodId);
+              final FoodItem? fullFoodItem =
+                  await _fetchFullFoodDetails(foodId);
 
               if (fullFoodItem != null) {
                 // Successfully fetched full details, create the FoodEntry
@@ -966,7 +978,8 @@ class FoodEntryProvider with ChangeNotifier {
 
     // 3. Explicitly delete local storage entry data before loading from Supabase
     await StorageService().delete(_storageKey);
-    debugPrint("[Provider Load] Deleted local storage entries ('$_storageKey').");
+    debugPrint(
+        "[Provider Load] Deleted local storage entries ('$_storageKey').");
 
     // 4. Load fresh entries directly from Supabase for the current user
     await loadEntriesFromSupabase(); // This method now handles fetching and merging/replacing
@@ -974,7 +987,8 @@ class FoodEntryProvider with ChangeNotifier {
 
     // 5. Notify listeners after all loading is complete
     notifyListeners();
-    debugPrint("[Provider Load] loadEntriesForCurrentUser complete. Notified listeners.");
+    debugPrint(
+        "[Provider Load] loadEntriesForCurrentUser complete. Notified listeners.");
   }
 
   Future<void> _clearDateCache() async {
