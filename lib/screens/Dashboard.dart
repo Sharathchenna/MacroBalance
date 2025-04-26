@@ -1495,7 +1495,7 @@ class _MealSectionState extends State<MealSection> {
               multiplier = entry.quantity;
               // If calories are stored per 100g but we're using serving-based measurement,
               // we need to adjust the base calories to be per serving
-              baseCaloriesPerServing = baseCaloriesPerServing / 100.0;
+              baseCaloriesPerServing = baseCaloriesPerServing;
             }
             baseCalories = baseCaloriesPerServing;
           }

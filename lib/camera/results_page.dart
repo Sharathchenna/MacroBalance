@@ -341,12 +341,13 @@ class ResultsPage extends StatelessWidget {
     // Default quantity is 1.0 for quick add
     final double quantity = 1.0;
 
-    // Adjust nutrients to be per 100g instead of per serving
-    final calories = food.calories[0] / quantity * 100;
-    final protein = food.protein[0] / quantity * 100;
-    final carbs = food.carbohydrates[0] / quantity * 100;
-    final fat = food.fat[0] / quantity * 100;
-    final fiber = food.fiber[0] / quantity * 100;
+    // The nutrition values from AI are already for the serving size.
+    // We store the selected serving's nutrients directly and the quantity as the multiplier.
+    final calories = food.calories[0];
+    final protein = food.protein[0];
+    final carbs = food.carbohydrates[0];
+    final fat = food.fat[0];
+    final fiber = food.fiber[0];
 
     // Create food entry using the first serving size
     final entry = FoodEntry(

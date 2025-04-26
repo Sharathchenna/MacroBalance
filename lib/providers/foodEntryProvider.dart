@@ -520,21 +520,29 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   Future<void> addEntry(FoodEntry entry) async {
+    debugPrint("[FoodEntryProvider] Adding entry: ${entry.food.name} (${entry.quantity} ${entry.unit}) to meal ${entry.meal} on ${entry.date.toIso8601String()}");
     _entries.add(entry);
     await _clearDateCache(); // Clear the cache to ensure fresh data
+    debugPrint("[FoodEntryProvider] Cache cleared after adding entry.");
     notifyListeners(); // Notify listeners immediately after adding entry
+    debugPrint("[FoodEntryProvider] Notified listeners after adding entry.");
     await _saveEntries(); // Save to local storage
+    debugPrint("[FoodEntryProvider] Entry saved locally.");
     await _syncSingleEntryToSupabase(entry); // Sync to Supabase
+    debugPrint("[FoodEntryProvider] Entry synced to Supabase.");
     _notifyNativeStatsChanged(); // Update widgets if needed
+    debugPrint("[FoodEntryProvider] Notified native stats changed.");
 
     // Force a refresh of the cached data for this date
     final cacheKey =
         '${entry.date.year}-${entry.date.month.toString().padLeft(2, '0')}-${entry.date.day.toString().padLeft(2, '0')}';
     _dateEntriesCache.remove(cacheKey);
     _dateCacheTimestamp.remove(cacheKey);
+    debugPrint("[FoodEntryProvider] Removed date cache for ${cacheKey}.");
 
     // Notify listeners again after all async operations are complete
     notifyListeners();
+    debugPrint("[FoodEntryProvider] Notified listeners again after async ops.");
   }
 
   Future<void> removeEntry(String id) async {
@@ -561,6 +569,22 @@ class FoodEntryProvider with ChangeNotifier {
 
   // Helper to calculate nutrient value for a single entry
   double _calculateNutrientForEntry(FoodEntry entry, String nutrientKey) {
+    // --- Special handling for AI-detected foods ---
+    // AI-detected foods store the selected serving's nutrients directly in the FoodItem
+    // and the quantity represents the multiplier for that serving.
+    if (entry.food.brandName == 'AI Detected') {
+      double baseValue = 0.0;
+      if (nutrientKey == 'calories') {
+        baseValue = entry.food.calories;
+      } else {
+        baseValue = entry.food.nutrients[nutrientKey] ?? 0.0;
+      }
+      double calculatedValue = baseValue * entry.quantity;
+      debugPrint("[DEBUG Provider] AI Entry: ${entry.food.name}, Nutrient: $nutrientKey, BaseValue: $baseValue, Quantity: ${entry.quantity}, Result: $calculatedValue");
+      return calculatedValue;
+    }
+
+    // --- Existing logic for non-AI foods ---
     Serving? serving;
     // Try to find the exact serving description saved with the entry
     if (entry.servingDescription != null && entry.food.servings.isNotEmpty) {
@@ -658,7 +682,7 @@ class FoodEntryProvider with ChangeNotifier {
 
     // Final calculation
     double calculatedValue = baseValue * multiplier;
-    // print("[DEBUG Provider] Entry: ${entry.food.name}, Nutrient: $nutrientKey, BaseValue: $baseValue, Multiplier: $multiplier, Result: $calculatedValue");
+    debugPrint("[DEBUG Provider] Entry: ${entry.food.name}, Nutrient: $nutrientKey, BaseValue: $baseValue, Multiplier: $multiplier, Result: $calculatedValue");
     return calculatedValue;
   }
 
