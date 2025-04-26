@@ -829,6 +829,12 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     // Get the selected quantity
     final double quantity = double.tryParse(quantityController.text) ?? 1.0;
 
+    // Calculate nutrition based on selected serving and quantity
+    final nutrition = widget.food.getNutritionForIndex(
+      selectedServingIndex,
+      quantity,
+    );
+
     // Get the current serving size description
     final String servingDescription =
         widget.food.servingSizes[selectedServingIndex];
@@ -837,24 +843,25 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     final entry = FoodEntry(
       id: const Uuid().v4(),
       food: FoodEntry.createFood(
-        fdcId: widget.food.name.hashCode.toString(),
+        fdcId: widget.food.name.hashCode.toString(), // Use a unique ID if available, otherwise hash is okay
         name: widget.food.name,
         brandName: 'AI Detected',
-        calories: widget.food.calories[selectedServingIndex],
+        // Store the *calculated* values based on quantity, not the base serving values
+        calories: nutrition.calories,
         nutrients: {
-          'Protein': widget.food.protein[selectedServingIndex],
-          'Carbohydrate, by difference':
-              widget.food.carbohydrates[selectedServingIndex],
-          'Total lipid (fat)': widget.food.fat[selectedServingIndex],
-          'Fiber': widget.food.fiber[selectedServingIndex],
+          'Protein': nutrition.protein,
+          'Carbohydrate, by difference': nutrition.carbohydrates,
+          'Total lipid (fat)': nutrition.fat,
+          'Fiber': nutrition.fiber,
+          // Add other relevant nutrients from the 'nutrition' object if available/needed
         },
         mealType: selectedMeal,
       ),
       meal: selectedMeal,
-      quantity: quantity,
-      unit: 'g',
+      quantity: quantity, // Store the multiplier/quantity
+      unit: 'serving', // Unit reflects the selected serving size
       date: dateProvider.selectedDate,
-      servingDescription: servingDescription,
+      servingDescription: "$quantity x $servingDescription", // Combine quantity and original description
     );
 
     // Add entry to provider

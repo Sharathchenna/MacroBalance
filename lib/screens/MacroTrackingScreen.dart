@@ -2105,7 +2105,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
 
         // Get food entries for this date
         List<FoodEntry> entriesForDate =
-            foodEntryProvider.getEntriesForDate(date);
+            foodEntryProvider.getAllEntriesForDate(date);
 
         // Calculate macros from food entries
         double protein = 0, carbs = 0, fat = 0;

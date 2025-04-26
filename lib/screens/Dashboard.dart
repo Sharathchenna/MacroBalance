@@ -1431,7 +1431,7 @@ class _MealSectionState extends State<MealSection> {
       key: key,
       builder: (context, foodEntryProvider, dateProvider, child) {
         final entries = foodEntryProvider.getEntriesForMeal(
-            mealType, dateProvider.selectedDate);
+            dateProvider.selectedDate, mealType);
 
         // Calculate calories using improved serving logic
         double totalCalories = entries.fold(0.0, (sum, entry) {
@@ -1792,46 +1792,19 @@ Color _getMealColor(String mealType) {
 // Helper method for food items
 Widget _buildFoodItem(
     BuildContext context, dynamic entry, FoodEntryProvider provider) {
-  // Calculate calories with proper serving size handling
-  double calories = 0;
-  String displayUnit = entry.unit; // Default to the stored unit
+  // Use the centralized calculation method from FoodEntryProvider
+  final double calories = provider.calculateNutrientForEntry(entry, 'calories');
 
-  // First try to use the specific serving if available
-  if (entry.servingDescription != null && entry.food.servings.isNotEmpty) {
-    try {
-      final serving = entry.food.servings
-          .firstWhere((s) => s.description == entry.servingDescription);
-      // Update display unit to use the serving description
-      displayUnit =
-          serving.description.replaceAll(RegExp(r'^\d+\s*'), '').trim();
-
-      // For servings with metric measurements
-      if (serving.metricAmount > 0 && serving.metricUnit.toLowerCase() == 'g') {
-        double quantityInGrams = entry.quantity;
-        // Convert to grams if needed
-        switch (entry.unit.toLowerCase()) {
-          case "oz":
-            quantityInGrams *= 28.35;
-            break;
-          case "kg":
-            quantityInGrams *= 1000;
-            break;
-          case "lbs":
-            quantityInGrams *= 453.59;
-            break;
-        }
-        calories = serving.calories * (quantityInGrams / serving.metricAmount);
-      } else {
-        // For non-metric servings (like "1 burger"), use direct multiplication
-        calories = serving.calories * entry.quantity;
-      }
-    } catch (e) {
-      // If serving not found, fall back to per 100g calculation
-      calories = _calculateCaloriesPer100g(entry);
-    }
+  // Determine the display unit based on the entry type
+  String displayUnit;
+  if (entry.food.brandName == 'AI Detected' &&
+      entry.servingDescription != null) {
+    // For AI entries with a serving description, use the description (excluding leading numbers)
+    displayUnit =
+        entry.servingDescription.replaceAll(RegExp(r'^\d+\s*'), '').trim();
   } else {
-    // If no serving info, fall back to per 100g calculation
-    calories = _calculateCaloriesPer100g(entry);
+    // For other entries, use the stored unit
+    displayUnit = entry.unit;
   }
 
   return Dismissible(
@@ -1884,7 +1857,7 @@ Widget _buildFoodItem(
                     ),
                   ),
                   Text(
-                    '${entry.quantity} $displayUnit',
+                    '${entry.quantity.toStringAsFixed(entry.quantity.toInt() == entry.quantity ? 0 : 1)} $displayUnit', // Format quantity to show decimal only if needed
                     style: GoogleFonts.poppins(
                       fontSize: 11, // Reduced from 13
                       color: Theme.of(context).brightness == Brightness.light
@@ -1920,21 +1893,4 @@ Widget _buildFoodItem(
           ],
         ),
       ));
-}
-
-// Helper method for calculating calories per 100g
-double _calculateCaloriesPer100g(dynamic entry) {
-  double quantityInGrams = entry.quantity;
-  switch (entry.unit.toLowerCase()) {
-    case "oz":
-      quantityInGrams *= 28.35;
-      break;
-    case "kg":
-      quantityInGrams *= 1000;
-      break;
-    case "lbs":
-      quantityInGrams *= 453.59;
-      break;
-  }
-  return entry.food.calories * (quantityInGrams / 100);
 }
