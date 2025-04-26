@@ -1118,6 +1118,9 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               final nutrientTotals = foodEntryProvider
                   .getNutrientTotalsForDate(dateProvider.selectedDate);
               final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
+              // --- Dashboard Debug Log ---
+              print('[CalorieTracker Build] Received caloriesFromFood: $caloriesFromFood for date: ${dateProvider.selectedDate}');
+              // --- End Debug Log ---
               final totalProtein = nutrientTotals['protein'] ?? 0.0;
               final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
               final totalFat = nutrientTotals['fat'] ?? 0.0;
@@ -1433,79 +1436,19 @@ class _MealSectionState extends State<MealSection> {
         final entries = foodEntryProvider.getEntriesForMeal(
             dateProvider.selectedDate, mealType);
 
-        // Calculate calories using improved serving logic
-        double totalCalories = entries.fold(0.0, (sum, entry) {
-          Serving? serving;
-          // Try to find the exact serving description saved with the entry
-          if (entry.servingDescription != null &&
-              entry.food.servings.isNotEmpty) {
-            try {
-              serving = entry.food.servings
-                  .firstWhere((s) => s.description == entry.servingDescription);
-            } catch (e) {
-              serving = null;
-            }
-          }
+        // *** FIX: Use the provider's calculation method ***
+        double totalCalories = entries.fold(
+            0.0,
+            (sum, entry) =>
+                sum +
+                foodEntryProvider.calculateNutrientForEntry(entry, 'calories'));
 
-          double multiplier = 1.0;
-          double baseCalories = 0.0;
+       // --- Dashboard Debug Log ---
+       print('[MealCard Build - $mealType] Calculated totalCalories: $totalCalories for date: ${dateProvider.selectedDate}');
+       // --- End Debug Log ---
 
-          if (serving != null) {
-            // --- Calculation based on the specific serving ---
-            if (serving.metricAmount > 0 &&
-                serving.metricUnit.toLowerCase() == 'g') {
-              // If serving has valid metric data, use it for calculation
-              double baseAmount = serving.metricAmount;
-              double quantityGrams = entry.quantity;
-
-              // Convert to grams if needed
-              if (entry.unit.toLowerCase() == 'oz') {
-                quantityGrams *= 28.35;
-              } else if (entry.unit.toLowerCase() == 'lbs') {
-                quantityGrams *= 453.59;
-              } else if (entry.unit.toLowerCase() == 'kg') {
-                quantityGrams *= 1000;
-              }
-
-              multiplier = quantityGrams / baseAmount;
-            } else {
-              // For non-metric servings (like "1 burger"), use direct multiplication
-              multiplier = entry.quantity; // Direct multiplication by quantity
-            }
-            baseCalories = serving.calories;
-          } else {
-            // --- Fallback: Calculate based on per serving or per 100g ---
-            double baseCaloriesPerServing = entry.food.calories;
-
-            // Convert quantity to the base unit if weight-based
-            if (entry.unit.toLowerCase() == 'g') {
-              // If the food calories are per 100g (standard), adjust the multiplier
-              multiplier = entry.quantity / 100.0;
-            } else if (entry.unit.toLowerCase() == 'oz') {
-              // Convert oz to grams then divide by 100g base
-              multiplier = (entry.quantity * 28.35) / 100.0;
-            } else if (entry.unit.toLowerCase() == 'lbs') {
-              // Convert lbs to grams then divide by 100g base
-              multiplier = (entry.quantity * 453.59) / 100.0;
-            } else if (entry.unit.toLowerCase() == 'kg') {
-              // Convert kg to grams then divide by 100g base
-              multiplier = (entry.quantity * 1000) / 100.0;
-            } else {
-              // For any other unit, assume it's a serving-based measurement
-              multiplier = entry.quantity;
-              // If calories are stored per 100g but we're using serving-based measurement,
-              // we need to adjust the base calories to be per serving
-              baseCaloriesPerServing = baseCaloriesPerServing;
-            }
-            baseCalories = baseCaloriesPerServing;
-          }
-
-          if (multiplier < 0) multiplier = 0;
-          return sum + (baseCalories * multiplier);
-        });
-
-        // Meal type icon mapping
-        IconData getMealIcon() {
+       // Meal type icon mapping
+       IconData getMealIcon() {
           switch (mealType) {
             case 'Breakfast':
               return Icons.breakfast_dining;
@@ -1793,6 +1736,11 @@ Color _getMealColor(String mealType) {
 Widget _buildFoodItem(
     BuildContext context, dynamic entry, FoodEntryProvider provider) {
   // Use the centralized calculation method from FoodEntryProvider
+  // *** ADDED LOGGING ***
+  debugPrint(
+      "[Dashboard BuildFoodItem] Processing entry: ID=${entry.id}, Name=${entry.food.name}, Quantity=${entry.quantity}, Unit=${entry.unit}, ServingDesc=${entry.servingDescription}, Brand=${entry.food.brandName}");
+  // *** END LOGGING ***
+
   final double calories = provider.calculateNutrientForEntry(entry, 'calories');
 
   // Determine the display unit based on the entry type
@@ -1800,8 +1748,9 @@ Widget _buildFoodItem(
   if (entry.food.brandName == 'AI Detected' &&
       entry.servingDescription != null) {
     // For AI entries with a serving description, use the description (excluding leading numbers)
-    displayUnit =
-        entry.servingDescription.replaceAll(RegExp(r'^\d+\s*'), '').trim();
+    displayUnit = entry.servingDescription
+        .replaceAll(RegExp(r'^\d+(\.\d+)?\s*x?\s*'), '')
+        .trim(); // Refined Regex
   } else {
     // For other entries, use the stored unit
     displayUnit = entry.unit;
@@ -1856,6 +1805,10 @@ Widget _buildFoodItem(
                           ?.textPrimary,
                     ),
                   ),
+                  // *** ADDED DISPLAY LOGGING ***
+                  () { debugPrint("[DISPLAY VALUE CHECK] Qty=${entry.quantity}, Unit=$displayUnit for ${entry.id}"); return const SizedBox.shrink(); } (),
+                  // *** END DISPLAY LOGGING ***
+
                   Text(
                     '${entry.quantity.toStringAsFixed(entry.quantity.toInt() == entry.quantity ? 0 : 1)} $displayUnit', // Format quantity to show decimal only if needed
                     style: GoogleFonts.poppins(

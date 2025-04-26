@@ -138,7 +138,7 @@ Meal to analyze: ${_mealController.text}
           print('Processed String: $processedJsonString');
           print('------------------------');
           setState(() {
-            _isLoading = false;
+             _isLoading = false;
           });
           _showErrorSnackbar('Error parsing results: ${e.toString()}');
         }

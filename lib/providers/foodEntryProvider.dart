@@ -466,12 +466,10 @@ class FoodEntryProvider with ChangeNotifier {
     }
 
     try {
-      // Calculate nutrients for this specific entry instance
-      final calories = calculateNutrientForEntry(entry, 'calories');
-      final protein = calculateNutrientForEntry(entry, 'Protein');
-      final carbs =
-          calculateNutrientForEntry(entry, 'Carbohydrate, by difference');
-      final fat = calculateNutrientForEntry(entry, 'Total lipid (fat)');
+      // For AI entries, we store the BASE nutrients of the selected serving.
+      // For non-AI entries, these columns might store calculated totals based on weight/serving,
+      // but the loading logic for non-AI entries fetches fresh data anyway.
+      // Therefore, we consistently store BASE values here for AI entries.
 
       final Map<String, dynamic> entryData = {
         'entry_id': entry.id, // Use the existing UUID
@@ -484,10 +482,13 @@ class FoodEntryProvider with ChangeNotifier {
         'unit': entry.unit,
         'entry_date': entry.date.toUtc().toIso8601String(), // Store in UTC
         'serving_description': entry.servingDescription,
-        'calories_per_entry': calories,
-        'protein_per_entry': protein,
-        'carbs_per_entry': carbs,
-        'fat_per_entry': fat,
+        // *** Store BASE nutrients per serving (from the AI entry's FoodItem) ***
+        // Reusing existing columns, but storing base values now for AI entries.
+        'calories_per_entry': entry.food.calories,
+        'protein_per_entry': entry.food.nutrients['Protein'] ?? 0.0,
+        'carbs_per_entry':
+            entry.food.nutrients['Carbohydrate, by difference'] ?? 0.0,
+        'fat_per_entry': entry.food.nutrients['Total lipid (fat)'] ?? 0.0,
         // created_at is handled by default value
         // updated_at is handled by trigger or default value
       };
@@ -532,6 +533,7 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   double calculateNutrientForEntry(FoodEntry entry, String nutrientKey) {
+    debugPrint("[DEBUG CALC] Calculating nutrient '$nutrientKey' for entry: ${entry.food.name}, Quantity: ${entry.quantity}, Unit: ${entry.unit}, Brand: ${entry.food.brandName}");
     // --- Special handling for AI-detected foods ---
     // AI-detected foods store the selected serving's nutrients directly in the FoodItem
     // and the quantity represents the multiplier for that serving.
@@ -542,11 +544,13 @@ class FoodEntryProvider with ChangeNotifier {
       } else {
         baseValue = entry.food.nutrients[nutrientKey] ?? 0.0;
       }
-      // For AI Detected foods, the baseValue already represents the total for the selected quantity.
-      // We should not multiply by entry.quantity again.
+      // For AI Detected foods, the baseValue is for the selected serving. Multiply by quantity.
+      double calculatedValue = baseValue * entry.quantity;
+      // Ensure multiplier is not negative (though quantity shouldn't be)
+      if (calculatedValue < 0) calculatedValue = 0;
       debugPrint(
-          "[DEBUG Provider] AI Entry: ${entry.food.name}, Nutrient: $nutrientKey, Stored Total: $baseValue, Quantity: ${entry.quantity}. Returning stored total.");
-      return baseValue;
+          "[DEBUG CALC]   AI Detected - Food: ${entry.food.name}, BaseValue: $baseValue, Entry Quantity: ${entry.quantity}. Calculated: $calculatedValue");
+      return calculatedValue;
     }
 
     // --- Existing logic for non-AI foods ---
@@ -647,8 +651,8 @@ class FoodEntryProvider with ChangeNotifier {
 
     // Final calculation
     double calculatedValue = baseValue * multiplier;
-    debugPrint(
-        "[DEBUG Provider] Entry: ${entry.food.name}, Nutrient: $nutrientKey, BaseValue: $baseValue, Multiplier: $multiplier, Result: $calculatedValue");
+    debugPrint("[DEBUG CALC]   Non-AI - BaseValue: $baseValue, Multiplier: $multiplier. Calculated: $calculatedValue");
+    debugPrint("[DEBUG CALC]   Final calculated value for ${entry.food.name}: $calculatedValue");
     return calculatedValue;
   }
 
@@ -684,6 +688,7 @@ class FoodEntryProvider with ChangeNotifier {
   // --- NEW Centralized Calculation Method ---
 
   Map<String, double> getNutrientTotalsForDate(DateTime date) {
+    debugPrint("[DEBUG TOTALS] Calculating totals for date: ${date.toIso8601String()}");
     final entriesForDate = getAllEntriesForDate(date);
     double totalCalories = 0.0;
     double totalProtein = 0.0;
@@ -691,6 +696,7 @@ class FoodEntryProvider with ChangeNotifier {
     double totalFat = 0.0;
 
     for (final entry in entriesForDate) {
+      debugPrint("[DEBUG TOTALS]   Processing entry: ${entry.food.name}, Calculated Calories: ${calculateNutrientForEntry(entry, 'calories')}, Protein: ${calculateNutrientForEntry(entry, 'Protein')}, Carbs: ${calculateNutrientForEntry(entry, 'Carbohydrate, by difference')}, Fat: ${calculateNutrientForEntry(entry, 'Total lipid (fat)')}");
       totalCalories += calculateNutrientForEntry(entry, 'calories');
       totalProtein += calculateNutrientForEntry(entry, 'Protein');
       totalCarbs +=
@@ -698,6 +704,7 @@ class FoodEntryProvider with ChangeNotifier {
       totalFat += calculateNutrientForEntry(entry, 'Total lipid (fat)');
     }
 
+    debugPrint("[DEBUG TOTALS]   Final Totals - Calories: $totalCalories, Protein: $totalProtein, Carbs: $totalCarbs, Fat: $totalFat");
     return {
       'calories': totalCalories,
       'protein': totalProtein,
@@ -736,11 +743,15 @@ class FoodEntryProvider with ChangeNotifier {
 
   Future<void> addEntry(FoodEntry entry) async {
     debugPrint("[Provider Add] Adding entry ${entry.id}...");
+    // *** ADDED LOGGING ***
+    debugPrint(
+        "[Provider Add] Received FoodEntry: ID=${entry.id}, Name=${entry.food.name}, Quantity=${entry.quantity}, Unit=${entry.unit}, ServingDesc=${entry.servingDescription}, FoodBrand=${entry.food.brandName}");
+    // *** END LOGGING ***
     _entries.add(entry);
     await _clearDateCache(); // Clear cache as entries changed
-    notifyListeners();
-    await saveEntries(); // Save locally
-    await syncSingleEntryToSupabase(entry); // Sync to Supabase
+    await saveEntries(); // Save locally FIRST
+    notifyListeners(); // Notify AFTER saving and clearing cache
+    await syncSingleEntryToSupabase(entry); // Sync to Supabase can happen after notification
     debugPrint("[Provider Add] Entry ${entry.id} added and synced.");
   }
 
@@ -1077,7 +1088,7 @@ class FoodEntryProvider with ChangeNotifier {
       }
     } catch (e) {
       debugPrint(
-          '[Provider Load] Error loading entries from Supabase food_log: $e');
+            '[Provider Load] Error loading entries from Supabase food_log: $e');
     }
     debugPrint("[Provider Load] loadEntriesFromSupabase finished.");
   }
@@ -1118,5 +1129,27 @@ class FoodEntryProvider with ChangeNotifier {
   void resetGoalsToDefault() {
     // ... (existing implementation) ...
     recalculateMacroGoals(_tdee); // Use the last known TDEE or default
+  }
+
+  // Method to update an existing food entry
+  Future<void> updateEntry(FoodEntry updatedEntry) async {
+    debugPrint("[Provider Update] Starting updateEntry for entry ${updatedEntry.id}...");
+    final index = _entries.indexWhere((entry) => entry.id == updatedEntry.id);
+    // *** ADDED LOGGING ***
+    debugPrint(
+        "[Provider Update] Received updatedEntry: ID=${updatedEntry.id}, Name=${updatedEntry.food.name}, Quantity=${updatedEntry.quantity}, Unit=${updatedEntry.unit}, FoodCalories=${updatedEntry.food.calories}, FoodBrand=${updatedEntry.food.brandName}");
+    if (index != -1) {
+      debugPrint("[Provider Update] Found entry ${updatedEntry.id} at index $index. Old entry: ${_entries[index].food.name}, Quantity: ${_entries[index].quantity}");
+      _entries[index] = updatedEntry;
+      debugPrint("[Provider Update] Updated entry ${updatedEntry.id}. New entry: ${_entries[index].food.name}, Quantity: ${_entries[index].quantity}");
+      await _clearDateCache(); // Clear cache as entries changed
+      debugPrint("[Provider Update] Cleared date cache after update."); // Added log
+      notifyListeners();
+      await saveEntries(); // Save locally
+      await syncSingleEntryToSupabase(updatedEntry); // Sync to Supabase
+      debugPrint("[Provider Update] Entry ${updatedEntry.id} updated and synced.");
+    } else {
+      debugPrint("[Provider Update] Entry ${updatedEntry.id} not found for update.");
+    }
   }
 }

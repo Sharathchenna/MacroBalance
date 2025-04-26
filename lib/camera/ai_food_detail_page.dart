@@ -837,7 +837,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
       selectedServingIndex,
       quantity,
     );
-    print('Calculated Nutrition for quantity $quantity:'); // Log Calculated Nutrition
+    print(
+        'Calculated Nutrition for quantity $quantity:'); // Log Calculated Nutrition
     print('  Calories: ${nutrition.calories}');
     print('  Protein: ${nutrition.protein}');
     print('  Carbs: ${nutrition.carbohydrates}');
@@ -846,23 +847,25 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     // Get the current serving size description
     final String servingDescription =
         widget.food.servingSizes[selectedServingIndex];
-    print('Selected serving description: $servingDescription'); // Log Serving Description
+    print(
+        'Selected serving description: $servingDescription'); // Log Serving Description
 
     // Create food entry with proper serving information
     final entry = FoodEntry(
       id: const Uuid().v4(),
       food: FoodEntry.createFood(
-        fdcId: widget.food.name.hashCode.toString(), // Use a unique ID if available, otherwise hash is okay
+        fdcId: widget.food.name.hashCode
+            .toString(), // Use a unique ID if available, otherwise hash is okay
         name: widget.food.name,
         brandName: 'AI Detected',
-        // Store the *calculated* values based on quantity, not the base serving values
-        calories: nutrition.calories,
+        // *** FIX: Store the BASE nutrition values for the selected serving, NOT the calculated totals ***
+        calories: widget.food.calories[selectedServingIndex],
         nutrients: {
-          'Protein': nutrition.protein,
-          'Carbohydrate, by difference': nutrition.carbohydrates,
-          'Total lipid (fat)': nutrition.fat,
-          'Fiber': nutrition.fiber,
-          // Add other relevant nutrients from the 'nutrition' object if available/needed
+          'Protein': widget.food.protein[selectedServingIndex],
+          'Carbohydrate, by difference':
+              widget.food.carbohydrates[selectedServingIndex],
+          'Total lipid (fat)': widget.food.fat[selectedServingIndex],
+          'Fiber': widget.food.fiber[selectedServingIndex],
         },
         mealType: selectedMeal,
       ),
@@ -870,21 +873,22 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
       quantity: quantity, // Store the multiplier/quantity
       unit: 'serving', // Unit reflects the selected serving size
       date: dateProvider.selectedDate,
-      servingDescription: "$quantity x $servingDescription", // Combine quantity and original description
-  );
-  print('Created FoodEntry object:'); // Log FoodEntry Object
-  print('  ID: ${entry.id}');
-  print('  Food Name: ${entry.food.name}');
-  print('  Calories (in entry): ${entry.food.calories}');
-  print('  Protein (in entry): ${entry.food.nutrients['Protein']}');
-  print('  Quantity (in entry): ${entry.quantity}');
-  print('  Serving Description (in entry): ${entry.servingDescription}');
-  print('--- End AIFoodDetailPage Debug ---'); // Log End
+      servingDescription:
+          "$quantity x $servingDescription", // Combine quantity and original description
+    );
+    print('Created FoodEntry object:'); // Log FoodEntry Object
+    print('  ID: ${entry.id}');
+    print('  Food Name: ${entry.food.name}');
+    print('  Calories (in entry): ${entry.food.calories}');
+    print('  Protein (in entry): ${entry.food.nutrients['Protein']}');
+    print('  Quantity (in entry): ${entry.quantity}');
+    print('  Serving Description (in entry): ${entry.servingDescription}');
+    print('--- End AIFoodDetailPage Debug ---'); // Log End
 
-  // Add entry to provider
-  foodEntryProvider.addEntry(entry);
+    // Add entry to provider
+    foodEntryProvider.addEntry(entry);
 
-  // Pop back to camera results page
+    // Pop back to camera results page
     Navigator.pop(context);
 
     // Show confirmation
