@@ -45,6 +45,7 @@ import 'package:macrotracker/services/storage_service.dart'; // Added StorageSer
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
+import 'package:lottie/lottie.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -231,7 +232,7 @@ Future<void> _initializeSupabase() async {
   try {
     await Supabase.initialize(
       anonKey:
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9zZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
       url: "https://mdivtblabmnftdqlgysv.supabase.co",
     );
   } catch (e) {

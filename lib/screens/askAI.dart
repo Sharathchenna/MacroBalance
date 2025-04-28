@@ -2,6 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
@@ -25,13 +26,11 @@ class Askai extends StatefulWidget {
 
 class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
   final TextEditingController _mealController = TextEditingController();
-  String _nutritionResult = '';
   bool _isLoading = false;
   bool _canSend = false;
   List<AIFoodItem> _foodItems = [];
   bool _hasSearched = false;
-  final FocusNode _mealFocusNode = FocusNode(); // Add FocusNode
-  // Removed _isTextFieldReadOnly state
+  final FocusNode _mealFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -110,12 +109,14 @@ Meal to analyze: ${_mealController.text}
         String processedJsonString = ''; // Declare before try
         try {
           // Pre-process the JSON string to evaluate math expressions
-          processedJsonString = _preprocessJsonResponse(jsonString); // Assign here
+          processedJsonString =
+              _preprocessJsonResponse(jsonString); // Assign here
           print('--- Processed JSON String ---');
           print(processedJsonString);
           print('-----------------------------');
 
-          final jsonData = json.decode(processedJsonString); // Use processed string
+          final jsonData =
+              json.decode(processedJsonString); // Use processed string
           final List<AIFoodItem> parsedItems = [];
 
           for (var item in jsonData) {
@@ -138,7 +139,7 @@ Meal to analyze: ${_mealController.text}
           print('Processed String: $processedJsonString');
           print('------------------------');
           setState(() {
-             _isLoading = false;
+            _isLoading = false;
           });
           _showErrorSnackbar('Error parsing results: ${e.toString()}');
         }
@@ -167,7 +168,8 @@ Meal to analyze: ${_mealController.text}
     // Replace found expressions with their calculated values
     String processedString = jsonString.replaceAllMapped(expRegex, (match) {
       try {
-        String expression = match.group(0)!; // The full matched expression e.g., "72*0.5"
+        String expression =
+            match.group(0)!; // The full matched expression e.g., "72*0.5"
         Expression exp = p.parse(expression);
         double result = exp.evaluate(EvaluationType.REAL, cm);
         // Format to avoid unnecessary trailing zeros for integers
@@ -185,7 +187,6 @@ Meal to analyze: ${_mealController.text}
 
     return processedString;
   }
-
 
   // Helper method to validate and fix JSON data to prevent errors
   void _validateAndFixJsonItem(Map<String, dynamic> item) {
@@ -308,7 +309,7 @@ Meal to analyze: ${_mealController.text}
   void _quickAddFood(AIFoodItem food, String meal) {
     // Pop the bottom sheet FIRST
     Navigator.pop(context);
-
+    _mealFocusNode.unfocus(); // Unfocus the text field
     // Add a small delay AFTER popping before proceeding
     Future.delayed(const Duration(milliseconds: 50), () {
       if (!mounted) return; // Check if still mounted after delay
@@ -320,12 +321,12 @@ Meal to analyze: ${_mealController.text}
       // Default quantity is 1.0 for quick add
       final double quantity = 1.0;
 
-      // Adjust nutrients to be per 100g instead of per serving
-      final calories = food.calories[0] / quantity * 100;
-      final protein = food.protein[0] / quantity * 100;
-      final carbs = food.carbohydrates[0] / quantity * 100;
-      final fat = food.fat[0] / quantity * 100;
-      final fiber = food.fiber[0] / quantity * 100;
+      // Get base nutrient values from the first serving size
+      final calories = food.calories[0];
+      final protein = food.protein[0];
+      final carbs = food.carbohydrates[0];
+      final fat = food.fat[0];
+      final fiber = food.fiber[0];
 
       // Create food entry using the first serving size
       final entry = FoodEntry(
@@ -333,7 +334,8 @@ Meal to analyze: ${_mealController.text}
         food: FoodEntry.createFood(
           fdcId: food.name.hashCode.toString(),
           name: food.name,
-          brandName: 'AI Analyzed',
+          brandName:
+              'AI Detected', // Changed from 'AI Analyzed' to 'AI Detected'
           calories: calories,
           nutrients: {
             'Protein': protein,
@@ -345,26 +347,22 @@ Meal to analyze: ${_mealController.text}
         ),
         meal: meal,
         quantity: quantity,
-        unit: food.servingSizes[0],
+        unit: 'serving',
         date: dateProvider.selectedDate,
+        servingDescription:
+            "$quantity x ${food.servingSizes[0]}", // Add proper serving description
       );
 
       foodEntryProvider.addEntry(entry);
-      // Navigator.pop(context); // Already popped above
 
-      // Set readOnly before showing snackbar - REMOVED
-      // setState(() {
-      //   _isTextFieldReadOnly = true;
-      // });
-
-      // Show confirmation and wait for it to close - REVERTED
+      // Show confirmation
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
               Icon(Icons.check_circle_outline,
                   color: Theme.of(context).colorScheme.onPrimary),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'Added to $meal',
                 style:
@@ -372,33 +370,15 @@ Meal to analyze: ${_mealController.text}
               ),
             ],
           ),
-          backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
+          backgroundColor: const Color(0xFFFFC107),
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: EdgeInsets.all(8),
+          margin: const EdgeInsets.all(8),
           duration: const Duration(seconds: 2),
         ),
       );
-
-      // Wait for snackbar to close - REMOVED
-      // await snackbarResult.closed;
-
-      // Unfocus and reset readOnly after snackbar closes, checking if mounted - REMOVED
-      // if (mounted) {
-      //   // Try unfocusing first
-      //   FocusManager.instance.primaryFocus?.unfocus();
-      //   // Then reset the readOnly state
-      //   setState(() {
-      //     _isTextFieldReadOnly = false;
-      //   });
-      // }
-
-      // Removed navigation to dashboard to allow user to continue adding foods
-
-      // Ensure FocusManager unfocus is also called after delay, if needed
-      FocusManager.instance.primaryFocus?.unfocus();
-    }); // End of Future.delayed
+    });
   }
 
   // Add this method to handle text field submissions
@@ -628,7 +608,10 @@ Meal to analyze: ${_mealController.text}
 
   Widget _buildMealOption(BuildContext context, AIFoodItem food, String meal) {
     return InkWell(
-      onTap: () => _quickAddFood(food, meal),
+      onTap: (){
+      HapticFeedback.lightImpact();
+      _quickAddFood(food, meal);
+      } ,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
@@ -671,13 +654,13 @@ Meal to analyze: ${_mealController.text}
       appBar: AppBar(
         backgroundColor: CupertinoColors.systemGrey.withOpacity(0.0),
         leading: CupertinoNavigationBarBackButton(
-          color: customColors!.textPrimary,
           onPressed: () => Navigator.of(context).pop(),
+          color: customColors?.textPrimary,
         ),
         title: Text(
           'Ask AI',
           style: GoogleFonts.roboto(
-            color: customColors.textPrimary,
+            color: customColors?.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -698,7 +681,7 @@ Meal to analyze: ${_mealController.text}
                   maxHeight: 150,
                 ),
                 decoration: BoxDecoration(
-                  color: customColors.cardBackground,
+                  color: customColors?.cardBackground,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: CupertinoTextField(
@@ -718,7 +701,7 @@ Meal to analyze: ${_mealController.text}
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                   placeholder: 'Describe your meal or food...',
                   placeholderStyle: GoogleFonts.roboto(
-                    color: customColors.textSecondary,
+                    color: customColors?.textSecondary,
                   ),
                   decoration: const BoxDecoration(),
                   suffix: CupertinoButton(
@@ -752,7 +735,6 @@ Meal to analyze: ${_mealController.text}
                             decoration: BoxDecoration(
                               color: Theme.of(context).cardColor,
                               shape: BoxShape.circle,
-                              // borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
                                   color: Theme.of(context)
@@ -772,11 +754,11 @@ Meal to analyze: ${_mealController.text}
                           Text(
                             'Analyzing your meal...',
                             style: TextStyle(
-                              color: customColors.textSecondary,
+                              color: customColors?.textSecondary,
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
-                          ),
+                          )
                         ],
                       ),
                     )
@@ -796,7 +778,7 @@ Meal to analyze: ${_mealController.text}
                                     width: 120,
                                     padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
-                                      color: customColors.cardBackground
+                                      color: customColors?.cardBackground
                                           .withOpacity(0.7),
                                       shape: BoxShape.circle,
                                       boxShadow: [
@@ -813,7 +795,7 @@ Meal to analyze: ${_mealController.text}
                                               .exclamationmark_circle
                                           : CupertinoIcons.doc_text_search,
                                       size: 80,
-                                      color: customColors.textPrimary
+                                      color: customColors?.textPrimary
                                           .withOpacity(0.8),
                                     ),
                                   ),
