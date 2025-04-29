@@ -685,7 +685,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
         ),
       ),
       child: ElevatedButton(
-        onPressed: () => _addToMeal(selectedMeal),
+        onPressed: () {
+          HapticFeedback.mediumImpact();
+          _addToMeal(selectedMeal);
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           foregroundColor: customColors!.textPrimary,
@@ -1491,14 +1494,14 @@ class _BarcodeResultsState extends State<BarcodeResults>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Quantity",
-                  style: AppTypography.body2.copyWith(
-                    color: customColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 12),
+                // Text(
+                //   "Quantity",
+                //   style: AppTypography.body2.copyWith(
+                //     color: customColors.textSecondary,
+                //     fontWeight: FontWeight.w500,
+                //   ),
+                // ),
+                // SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
@@ -1524,7 +1527,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                           fontWeight: FontWeight.w500,
                         ),
                         decoration: InputDecoration(
-                          labelText: "Amount",
+                          labelText: "Quantity",
                           labelStyle: TextStyle(
                             color: customColors.textSecondary,
                           ),
@@ -1543,7 +1546,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
-                            vertical: 14,
+                            vertical: 22,
                           ),
                         ),
                       ),
