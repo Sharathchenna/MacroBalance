@@ -1143,7 +1143,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                           contentPadding:
                                               const EdgeInsets.symmetric(
                                             horizontal: 16,
-                                            vertical: 14,
+                                            vertical: 22,
                                           ),
                                         ),
                                       ),
@@ -1241,7 +1241,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                     // --- End Conditional Unit Dropdown ---
                                   ],
                                 ),
-                                const SizedBox(height: 20),
+                                // const SizedBox(height: 20),
                               ],
                             ),
                           ),

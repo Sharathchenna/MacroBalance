@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
@@ -150,7 +151,10 @@ class ResultsPage extends StatelessWidget {
                               CupertinoIcons.add_circled,
                               color: customColors.textPrimary,
                             ),
-                            onPressed: () => _quickAddFood(context, food),
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              _quickAddFood(context, food);
+                            },
                             tooltip: 'Add to meal',
                           ),
                           SizedBox(width: 8),
@@ -252,6 +256,7 @@ class ResultsPage extends StatelessWidget {
   }
 
   void _quickAddFood(BuildContext context, AIFoodItem food) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -269,7 +274,7 @@ class ResultsPage extends StatelessWidget {
             Text(
               'Add to Meal',
               style: TextStyle(
-                color: Theme.of(context).primaryColor,
+                color: customColors!.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -297,8 +302,12 @@ class ResultsPage extends StatelessWidget {
   }
 
   Widget _buildMealOption(BuildContext context, AIFoodItem food, String meal) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     return InkWell(
-      onTap: () => _addFoodToMeal(context, food, meal),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        _addFoodToMeal(context, food, meal);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
@@ -315,14 +324,14 @@ class ResultsPage extends StatelessWidget {
             Text(
               meal,
               style: TextStyle(
-                color: Theme.of(context).primaryColor,
+                color: customColors!.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
             ),
             Icon(
               Icons.arrow_forward_ios_rounded,
-              color: Theme.of(context).primaryColor,
+              color: customColors.textPrimary,
               size: 16,
             ),
           ],
