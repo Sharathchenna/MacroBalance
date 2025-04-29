@@ -761,6 +761,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                   ),
                   child: ElevatedButton(
                     onPressed: () {
+                      HapticFeedback.mediumImpact();
                       _addToMeal();
                     },
                     style: ElevatedButton.styleFrom(
