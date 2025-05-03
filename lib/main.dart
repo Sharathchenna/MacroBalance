@@ -145,9 +145,11 @@ Future<void> main() async {
       value: Supabase.instance.client.auth.onAuthStateChange
           .map((data) => data.session?.user), // Provide the User? object
       initialData: () {
-        debugPrint("[Startup Timing] Before Supabase.instance.client.auth.currentUser: ${DateTime.now()}");
+        debugPrint(
+            "[Startup Timing] Before Supabase.instance.client.auth.currentUser: ${DateTime.now()}");
         final currentUser = Supabase.instance.client.auth.currentUser;
-        debugPrint("[Startup Timing] After Supabase.instance.client.auth.currentUser: ${DateTime.now()}");
+        debugPrint(
+            "[Startup Timing] After Supabase.instance.client.auth.currentUser: ${DateTime.now()}");
         return currentUser;
       }(), // Immediately invoke the function to get the value
       child: MultiProvider(
@@ -174,7 +176,8 @@ Future<void> main() async {
                       "[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.");
                   final newProvider = FoodEntryProvider();
                   // Don't await here, let it load in background
-                  debugPrint("[Startup Timing] Calling loadEntriesForCurrentUser: ${DateTime.now()}");
+                  debugPrint(
+                      "[Startup Timing] Calling loadEntriesForCurrentUser: ${DateTime.now()}");
                   newProvider.loadEntriesForCurrentUser();
                   return newProvider;
                 } else {
@@ -513,20 +516,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   StreamSubscription? _linkSubscription;
 
-  void updateStatusBarForIOS(bool isDarkMode) {
-    SystemChrome.setSystemUIOverlayStyle(
-      isDarkMode
-          ? const SystemUiOverlayStyle(
-              statusBarBrightness: Brightness.light,
-              statusBarIconBrightness: Brightness.light,
-            )
-          : const SystemUiOverlayStyle(
-              statusBarBrightness: Brightness.dark,
-              statusBarIconBrightness: Brightness.dark,
-            ),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
@@ -607,68 +596,58 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(builder: (context, themeProvider, child) {
-      // Update iOS status bar style based on theme
-      if (Platform.isIOS) {
-        updateStatusBarForIOS(themeProvider.isDarkMode);
-      } else {
-        // For Android, the simpler approach works fine
-        SystemChrome.setSystemUIOverlayStyle(
-          themeProvider.isDarkMode
-              ? SystemUiOverlayStyle.light
-              : SystemUiOverlayStyle.dark,
-        );
-      }
-
-      return PostHogWidget( // Wrap MaterialApp with PostHogWidget
+      return PostHogWidget(
+        // Wrap MaterialApp with PostHogWidget
         child: MaterialApp(
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
-        title: 'MacroTracker',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: themeProvider.useSystemTheme
-            ? ThemeMode.system
-            : themeProvider.isDarkMode
-                ? ThemeMode.dark
-                : ThemeMode.light,
-        initialRoute: Routes.initial,
-        navigatorObservers: [
-          MyRouteObserver(),
-          PosthogObserver(), // Add PostHog observer for automatic screen tracking
-        ],
-        routes: {
-          Routes.initial: (context) => const AuthGate(),
-          Routes.onboarding: (context) => const OnboardingScreen(),
-          Routes.home: (context) => const PaywallGate(child: Dashboard()),
-          Routes.dashboard: (context) => const PaywallGate(child: Dashboard()),
-          Routes.goals: (context) =>
-              const PaywallGate(child: StepTrackingScreen()),
-          Routes.search: (context) =>
-              const PaywallGate(child: FoodSearchPage()),
-          Routes.account: (context) =>
-              const PaywallGate(child: AccountDashboard()),
-          Routes.weightTracking: (context) =>
-              const PaywallGate(child: WeightTrackingScreen()),
-          Routes.macroTracking: (context) =>
-              const PaywallGate(child: MacroTrackingScreen()),
-          // Routes.expenditure: (context) => const PaywallGate(
-          //     child: ExpenditureScreen()), // Added expenditure route mapping
-        },
-        onGenerateRoute: (settings) {
-          // Handle any dynamic routes or routes with parameters here
-          debugPrint('Generating route for: ${settings.name}');
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const AuthGate(),
-          );
-        },
-        onUnknownRoute: (settings) {
-          debugPrint('Unknown route: ${settings.name}');
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const AuthGate(),
-          );
-        },
+          title: 'MacroTracker',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeProvider.useSystemTheme
+              ? ThemeMode.system
+              : themeProvider.isDarkMode
+                  ? ThemeMode.dark
+                  : ThemeMode.light,
+          initialRoute: Routes.initial,
+          navigatorObservers: [
+            MyRouteObserver(),
+            PosthogObserver(), // Add PostHog observer for automatic screen tracking
+          ],
+          routes: {
+            Routes.initial: (context) => const AuthGate(),
+            Routes.onboarding: (context) => const OnboardingScreen(),
+            Routes.home: (context) => const PaywallGate(child: Dashboard()),
+            Routes.dashboard: (context) =>
+                const PaywallGate(child: Dashboard()),
+            Routes.goals: (context) =>
+                const PaywallGate(child: StepTrackingScreen()),
+            Routes.search: (context) =>
+                const PaywallGate(child: FoodSearchPage()),
+            Routes.account: (context) =>
+                const PaywallGate(child: AccountDashboard()),
+            Routes.weightTracking: (context) =>
+                const PaywallGate(child: WeightTrackingScreen()),
+            Routes.macroTracking: (context) =>
+                const PaywallGate(child: MacroTrackingScreen()),
+            // Routes.expenditure: (context) => const PaywallGate(
+            //     child: ExpenditureScreen()), // Added expenditure route mapping
+          },
+          onGenerateRoute: (settings) {
+            // Handle any dynamic routes or routes with parameters here
+            debugPrint('Generating route for: ${settings.name}');
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => const AuthGate(),
+            );
+          },
+          onUnknownRoute: (settings) {
+            debugPrint('Unknown route: ${settings.name}');
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (_) => const AuthGate(),
+            );
+          },
         ),
       );
     });

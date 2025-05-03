@@ -1115,8 +1115,9 @@ class FoodEntryProvider with ChangeNotifier {
       debugPrint("[Provider Load] Notified listeners with initial Hive data.");
     }
 
-    // 5. Load fresh entries from Supabase in the background (don't await)
+    // 5. Load fresh entries from Supabase in the background (don't await) <<-- COMMENTED OUT FOR NOW
     //    This will update the UI again when complete and save to Hive.
+    /* // <<-- Start comment
     loadEntriesFromSupabase().then((_) {
        debugPrint("[Provider Load] Background Supabase load complete.");
        // Optional: Add any post-background-load logic here if needed
@@ -1125,6 +1126,8 @@ class FoodEntryProvider with ChangeNotifier {
        // Handle background load error if necessary
     });
     debugPrint("[Provider Load] Initiated background load from Supabase.");
+    */ // <<-- End comment
+    debugPrint("[Provider Load] Background Supabase load SKIPPED in this version."); // Added log
 
     // Note: No final notifyListeners() here, as loadEntriesFromSupabase handles it.
     debugPrint("[Provider Load] loadEntriesForCurrentUser finished initial phase.");

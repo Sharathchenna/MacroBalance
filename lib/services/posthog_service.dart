@@ -60,6 +60,7 @@ class PostHogService {
 
   // Track custom events
   static void trackEvent(String eventName, {Map<String, dynamic>? properties}) {
+    debugPrint("[PostHogService] Capturing event: $eventName with properties: $properties"); // Added log
     _instance.capture(
       eventName: eventName,
       properties:
@@ -73,6 +74,7 @@ class PostHogService {
     Map<String, dynamic>? userProperties,
     Map<String, dynamic>? userPropertiesSetOnce,
   }) {
+    debugPrint("[PostHogService] Identifying user: $userId with properties: $userProperties"); // Added log
     _instance.identify(
       userId: userId,
       userProperties:
@@ -93,6 +95,7 @@ class PostHogService {
 
   // Reset user identification
   static void resetUser() {
+    debugPrint("[PostHogService] Resetting user identification."); // Added log
     _instance.reset();
   }
 
@@ -100,7 +103,7 @@ class PostHogService {
   static void trackScreen(String screenName) {
     debugPrint("[PostHogService] Tracking screen: $screenName");
     _instance.screen(screenName: screenName);
-    debugPrint("[PostHogService] Forcing event flush after screen track.");
+    debugPrint("[PostHogService] Screen tracked. Forcing event flush."); // Slightly modified log
     _instance.flush(); // Force send events immediately
   }
 

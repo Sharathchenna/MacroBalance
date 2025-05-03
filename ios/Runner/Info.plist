@@ -67,15 +67,10 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>com.posthog.posthog.API_KEY</key>
 	<string>phc_msu4KagunERf8QZvyEDNaF55LcRRAZ61tRzgTs7ot2I</string>
@@ -85,6 +80,8 @@
 	<true/>
 	<key>com.posthog.posthog.POSTHOG_HOST</key>
 	<string>https://us.i.posthog.com</string>
+<key>com.posthog.posthog.AUTO_INIT</key>
+	<false/>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
 </dict>

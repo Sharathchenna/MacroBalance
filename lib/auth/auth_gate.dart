@@ -10,6 +10,7 @@ import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/auth/paywall_gate.dart'; // Import the PaywallGate
 import 'dart:convert'; // Add for JSON parsing
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
+import 'package:macrotracker/services/posthog_service.dart'; // Added PostHogService import
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -229,8 +230,12 @@ class _AuthGateState extends State<AuthGate> {
                         .clearEntries();
                     print("[AuthGate] FoodEntryProvider cleared on logout.");
                     // Optionally clear other providers if needed
+
+                    // Reset PostHog user identification
+                    PostHogService.resetUser();
+                    print("[AuthGate] PostHog user reset.");
                   } catch (e) {
-                    print("Error clearing provider data on logout: $e");
+                    print("Error clearing provider data or resetting PostHog user on logout: $e");
                   }
                 }
               });
@@ -252,6 +257,18 @@ class _AuthGateState extends State<AuthGate> {
                 // Make callback async
                 // Call the renamed function to load user data
                 await _loadUserDataAfterLogin();
+
+                // Identify the user in PostHog
+                if (session?.user != null) {
+                  PostHogService.identifyUser(
+                    session!.user.id, // Pass userId as positional argument
+                    userProperties: {
+                      'email': session.user.email,
+                      // Add any other relevant user properties here
+                    },
+                  );
+                  print("[AuthGate] PostHog user identified: ${session.user.id}");
+                }
               });
             }
 

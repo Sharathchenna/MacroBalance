@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'typography.dart';
 
 class AppTheme {
@@ -17,6 +18,9 @@ class AppTheme {
       onSecondary: Colors.white,
       error: const Color(0xFFD32F2F),
       tertiary: const Color(0xFF4CAF50), // Added for success states
+    ),
+    appBarTheme: const AppBarTheme(
+      systemOverlayStyle: SystemUiOverlayStyle.dark, // Dark icons for light theme
     ),
     // Add Material 3 card theme with containerColor
     // cardTheme: const CardTheme(
@@ -62,6 +66,9 @@ class AppTheme {
       onSecondary: Colors.black,
       error: const Color(0xFFEF5350),
       tertiary: const Color(0xFF81C784), // Added for success states
+    ),
+    appBarTheme: const AppBarTheme(
+      systemOverlayStyle: SystemUiOverlayStyle.light, // Light icons for dark theme
     ),
     // Add Material 3 card theme with containerColor
     // cardTheme: const CardTheme(
