@@ -8,6 +8,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:macrotracker/Routes/route_constants.dart'; // Added import
+import 'package:macrotracker/services/posthog_service.dart'; // Added import
+import 'package:macrotracker/services/auth_service.dart'; // Import AuthService
+import 'package:firebase_messaging/firebase_messaging.dart'; // Import FirebaseMessaging
+import 'dart:io' show Platform; // Import Platform
+import 'package:device_info_plus/device_info_plus.dart'; // Import DeviceInfoPlugin
+
 
 class CustomPaywallScreen extends StatefulWidget {
   final VoidCallback
@@ -45,6 +51,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
   Timer? _carouselTimer;
   Timer? _dismissButtonTimer;
   int _currentPage = 0;
+  final AuthService _authService = AuthService(); // Instantiate AuthService
+  final DeviceInfoPlugin _deviceInfoPlugin = DeviceInfoPlugin(); // Instantiate DeviceInfoPlugin
 
   // Features for carousel with enhanced descriptions
   final List<Map<String, dynamic>> _features = [
@@ -114,6 +122,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     _checkIfReturningUser();
 
     _fetchOfferings();
+// Manually track paywall screen view
+    PostHogService.trackScreen('CustomPaywallScreen');
     _startCarouselTimer();
     // Delay showing dismiss button
     _dismissButtonTimer = Timer(const Duration(seconds: 5), () {
@@ -192,6 +202,70 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     setState(() {
       _isPurchasing = true;
     });
+
+    // Set subscriber attributes before purchase
+    final user = _authService.currentUser;
+    if (user != null && user.email != null) {
+      try {
+        await Purchases.setEmail(user.email!);
+        // Attempt to get name from metadata, checking common keys
+        final displayName = user.userMetadata?['full_name'] ?? user.userMetadata?['name'];
+        if (displayName != null && displayName is String && displayName.isNotEmpty) {
+          await Purchases.setDisplayName(displayName);
+        }
+        debugPrint('Set RevenueCat attributes: email=${user.email}, name=$displayName');
+      } catch (e) {
+        debugPrint('Error setting RevenueCat attributes: $e');
+        // Decide if you want to proceed with purchase even if attributes fail
+        // For now, we'll proceed. Consider adding error handling if setting attributes is critical.
+      }
+    } else {
+       debugPrint('User not logged in or email missing, cannot set RevenueCat attributes.');
+       // Consider showing an error or preventing purchase if user must be logged in
+    }
+
+    // Set push token before purchase
+    try {
+      // Check if push notifications are supported on the platform
+      if (Platform.isIOS || Platform.isAndroid) {
+        final pushToken = await FirebaseMessaging.instance.getToken();
+        if (pushToken != null) {
+          await Purchases.setPushToken(pushToken);
+          debugPrint('Set RevenueCat push token: $pushToken');
+        } else {
+          debugPrint('Could not get push token to set in RevenueCat.');
+        }
+      } else {
+         debugPrint('Push notifications not supported on this platform.');
+      }
+    } catch (e) {
+      debugPrint('Error setting RevenueCat push token: $e');
+      // Decide if you want to proceed with purchase even if token setting fails
+    }
+
+    // Set OS version attribute before purchase
+    try {
+      String? osVersion;
+      if (Platform.isAndroid) {
+        final androidInfo = await _deviceInfoPlugin.androidInfo;
+        osVersion = "Android ${androidInfo.version.release}"; // e.g., "Android 14"
+      } else if (Platform.isIOS) {
+        final iosInfo = await _deviceInfoPlugin.iosInfo;
+        osVersion = "iOS ${iosInfo.systemVersion}"; // e.g., "iOS 17.4"
+      }
+
+      if (osVersion != null) {
+        await Purchases.setAttributes({'os_version': osVersion});
+        debugPrint('Set RevenueCat attribute os_version: $osVersion');
+      } else {
+        debugPrint('Could not determine OS version to set in RevenueCat.');
+      }
+    } catch (e) {
+      debugPrint('Error setting RevenueCat os_version attribute: $e');
+      // Decide if you want to proceed with purchase even if attribute setting fails
+    }
+
+
     try {
       final customerInfo = await Purchases.purchasePackage(package);
       if (customerInfo.entitlements.active.isNotEmpty) {

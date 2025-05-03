@@ -1,21 +1,42 @@
 import 'package:posthog_flutter/posthog_flutter.dart';
+import 'package:flutter/foundation.dart'; // Import for debugPrint
 
 class PostHogService {
   static const String _apiKey =
       'phc_msu4KagunERf8QZvyEDNaF55LcRRAZ61tRzgTs7ot2I'; // Replace with your actual PostHog API key
   static const String _host =
-      'https://app.posthog.com'; // Replace with your PostHog instance URL if using self-hosted
+      'https://us.i.posthog.com'; // Use the US ingestion endpoint
 
   static final _instance = Posthog();
 
   static Future<void> initialize() async {
-    final config = PostHogConfig(_apiKey);
-    config.host = _host;
+    debugPrint("[PostHogService] Starting initialization...");
+    try {
+      final config = PostHogConfig(_apiKey);
+      config.host = _host;
 
-    // Enable session replay
-    config.sessionReplay = true;
+      // Enable session replay
+      config.sessionReplay = true;
+      // Enable PostHog SDK debug logging
+      config.debug = true;
 
-    await _instance.setup(config);
+      debugPrint("[PostHogService] Calling Posthog().setup()...");
+      await _instance.setup(config);
+      debugPrint("[PostHogService] Posthog().setup() completed.");
+      // Add extra logging post-setup
+      debugPrint("[PostHogService] Configured Host: ${_instance.config?.host}");
+      debugPrint(
+          "[PostHogService] Session Replay Enabled in Config: ${_instance.config?.sessionReplay}");
+      debugPrint(
+          "[PostHogService] Debug Enabled in Config: ${_instance.config?.debug}");
+      debugPrint("[PostHogService] Forcing initial flush...");
+      _instance.flush(); // Force an immediate flush after setup
+    } catch (e, stackTrace) {
+      debugPrint("[PostHogService] ERROR during Posthog().setup(): $e");
+      debugPrint("[PostHogService] StackTrace: $stackTrace");
+      // Optionally rethrow or handle the error appropriately
+    }
+    debugPrint("[PostHogService] Initialization finished.");
   }
 
   // Enable/disable session replay
@@ -47,8 +68,18 @@ class PostHogService {
   }
 
   // Identify users
-  static void identifyUser(String userId) {
-    _instance.identify(userId: userId);
+  static void identifyUser(
+    String userId, {
+    Map<String, dynamic>? userProperties,
+    Map<String, dynamic>? userPropertiesSetOnce,
+  }) {
+    _instance.identify(
+      userId: userId,
+      userProperties:
+          userProperties?.map((key, value) => MapEntry(key, value as Object)),
+      userPropertiesSetOnce: userPropertiesSetOnce
+          ?.map((key, value) => MapEntry(key, value as Object)),
+    );
   }
 
   // Set user properties
@@ -67,7 +98,10 @@ class PostHogService {
 
   // Track screen views
   static void trackScreen(String screenName) {
+    debugPrint("[PostHogService] Tracking screen: $screenName");
     _instance.screen(screenName: screenName);
+    debugPrint("[PostHogService] Forcing event flush after screen track.");
+    _instance.flush(); // Force send events immediately
   }
 
   // Enable/disable debug mode

@@ -1105,20 +1105,29 @@ class FoodEntryProvider with ChangeNotifier {
     await _clearDateCache();
     debugPrint("[Provider Load] Cleared existing in-memory entries and cache.");
 
-    // 3. Explicitly delete local storage entry data before loading from Supabase
-    // This ensures we don't have stale local data if Supabase is the source of truth
-    await StorageService().delete(_storageKey);
-    debugPrint(
-        "[Provider Load] Deleted local storage entries ('$_storageKey').");
+    // 3. Attempt to load entries from local Hive storage first
+    await _loadEntries(); // This populates _entries if data exists
+    debugPrint("[Provider Load] Attempted to load entries from Hive. Found: ${_entries.length}");
 
-    // 4. Load fresh entries directly from Supabase for the current user
-    await loadEntriesFromSupabase(); // This method now handles fetching and merging/replacing
-    debugPrint("[Provider Load] Finished loading/merging from Supabase.");
+    // 4. If entries were found in Hive, notify listeners immediately for faster UI update
+    if (_entries.isNotEmpty) {
+      notifyListeners();
+      debugPrint("[Provider Load] Notified listeners with initial Hive data.");
+    }
 
-    // 5. Notify listeners after all loading is complete
-    notifyListeners();
-    debugPrint(
-        "[Provider Load] loadEntriesForCurrentUser complete. Notified listeners.");
+    // 5. Load fresh entries from Supabase in the background (don't await)
+    //    This will update the UI again when complete and save to Hive.
+    loadEntriesFromSupabase().then((_) {
+       debugPrint("[Provider Load] Background Supabase load complete.");
+       // Optional: Add any post-background-load logic here if needed
+    }).catchError((error) {
+       debugPrint("[Provider Load] Error during background Supabase load: $error");
+       // Handle background load error if necessary
+    });
+    debugPrint("[Provider Load] Initiated background load from Supabase.");
+
+    // Note: No final notifyListeners() here, as loadEntriesFromSupabase handles it.
+    debugPrint("[Provider Load] loadEntriesForCurrentUser finished initial phase.");
   }
 
   Future<void> _clearDateCache() async {

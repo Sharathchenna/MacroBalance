@@ -211,11 +211,11 @@ PODS:
     - FlutterMacOS
   - permission_handler_apple (9.3.0):
     - Flutter
-  - PostHog (3.19.7)
+  - PostHog (3.25.0)
   - posthog_flutter (0.0.1):
     - Flutter
     - FlutterMacOS
-    - PostHog (~> 3.19)
+    - PostHog (~> 3.22)
   - PromisesObjC (2.4.0)
   - purchases_flutter (8.6.1):
     - Flutter
@@ -443,8 +443,8 @@ SPEC CHECKSUMS:
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
-  PostHog: 7bd05cb66387f576579e576f7eba4650ea3d3c87
-  posthog_flutter: c7cc14a5f1b0759dfdfd63dd31a9a9a1af5caf96
+  PostHog: a475f31e1b6a4058b2326f23b38573a40f4a8173
+  posthog_flutter: 631ab870f7daf1ed190deeb2414eb3e347445f37
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   purchases_flutter: da84b1c99daa6c94f77c4e812b5a096ea8eb9916
   purchases_ui_flutter: 2f664731a6d793e4a6eeaaee323eea5bd1292649

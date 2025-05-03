@@ -94,14 +94,18 @@ Future<void> main() async {
   );
 
   // Initialize Supabase - make sure this completes before accessing Supabase.instance
+  debugPrint("[Startup Timing] Before Supabase.initialize: ${DateTime.now()}");
   await Supabase.initialize(
     anonKey:
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
     url: "https://mdivtblabmnftdqlgysv.supabase.co",
   );
+  debugPrint("[Startup Timing] After Supabase.initialize: ${DateTime.now()}");
 
   // Initialize PostHog
+  debugPrint("[PostHog] Initializing PostHogService...");
   await PostHogService.initialize();
+  debugPrint("[PostHog] PostHogService initialization attempted.");
 
   // Initialize Storage Service (opens Hive box, handles migration)
   await StorageService().initialize();
@@ -140,7 +144,12 @@ Future<void> main() async {
     StreamProvider<User?>.value(
       value: Supabase.instance.client.auth.onAuthStateChange
           .map((data) => data.session?.user), // Provide the User? object
-      initialData: Supabase.instance.client.auth.currentUser,
+      initialData: () {
+        debugPrint("[Startup Timing] Before Supabase.instance.client.auth.currentUser: ${DateTime.now()}");
+        final currentUser = Supabase.instance.client.auth.currentUser;
+        debugPrint("[Startup Timing] After Supabase.instance.client.auth.currentUser: ${DateTime.now()}");
+        return currentUser;
+      }(), // Immediately invoke the function to get the value
       child: MultiProvider(
         providers: [
           // Use ChangeNotifierProxyProvider linked to the User? stream
@@ -165,6 +174,7 @@ Future<void> main() async {
                       "[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.");
                   final newProvider = FoodEntryProvider();
                   // Don't await here, let it load in background
+                  debugPrint("[Startup Timing] Calling loadEntriesForCurrentUser: ${DateTime.now()}");
                   newProvider.loadEntriesForCurrentUser();
                   return newProvider;
                 } else {
@@ -482,7 +492,8 @@ class MyRouteObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     super.didPush(route, previousRoute);
-    // Optional: Add analytics or logging here
+    // Optional: Add non-PostHog analytics or logging here if needed
+    // PostHog screen tracking is handled by PosthogObserver
   }
 
   @override
@@ -608,9 +619,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         );
       }
 
-      return MaterialApp(
-        navigatorKey: navigatorKey,
-        debugShowCheckedModeBanner: false,
+      return PostHogWidget( // Wrap MaterialApp with PostHogWidget
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
         title: 'MacroTracker',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
@@ -657,6 +669,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             builder: (_) => const AuthGate(),
           );
         },
+        ),
       );
     });
   }
