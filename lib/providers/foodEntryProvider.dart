@@ -1106,7 +1106,7 @@ class FoodEntryProvider with ChangeNotifier {
     debugPrint("[Provider Load] Cleared existing in-memory entries and cache.");
 
     // 3. Attempt to load entries from local Hive storage first
-    await _loadEntries(); // This populates _entries if data exists
+    await loadEntries(); // This populates _entries if data exists
     debugPrint("[Provider Load] Attempted to load entries from Hive. Found: ${_entries.length}");
 
     // 4. If entries were found in Hive, notify listeners immediately for faster UI update
