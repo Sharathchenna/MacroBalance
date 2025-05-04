@@ -87,36 +87,39 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          if (_currentPage == 1) // Weight screen unit toggle
-            Consumer<WeightUnitProvider>(
-              builder: (context, unitProvider, _) => TextButton.icon(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  unitProvider.toggleUnit();
-                },
-                icon: Icon(
-                  Icons.scale,
-                  color: customColors.textPrimary,
-                  size: 20,
-                ),
-                label: Text(
-                  unitProvider.unitLabel,
-                  style: TextStyle(
+          if (_currentPage == 0) // Weight screen unit toggle
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Consumer<WeightUnitProvider>(
+                builder: (context, unitProvider, _) => TextButton.icon(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    unitProvider.toggleUnit();
+                  },
+                  icon: Icon(
+                    Icons.scale,
                     color: customColors.textPrimary,
-                    fontWeight: FontWeight.w600,
+                    size: 20,
+                  ),
+                  label: Text(
+                    unitProvider.unitLabel,
+                    style: TextStyle(
+                      color: customColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
             ),
           // Navigation hint icon in app bar
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Icon(
-              Icons.swipe,
-              size: 20,
-              color: customColors.textSecondary.withOpacity(0.6),
-            ),
-          ),
+          // Padding(
+          //   padding: const EdgeInsets.only(right: 16),
+          //   child: Icon(
+          //     Icons.swipe,
+          //     size: 20,
+          //     color: customColors.textSecondary.withOpacity(0.6),
+          //   ),
+          // ),
         ],
       ),
       // Removed bottomNavigationBar, using Stack for floating effect
