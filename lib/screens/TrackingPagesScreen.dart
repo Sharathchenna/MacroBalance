@@ -21,7 +21,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with AutomaticKeepAliveClientMixin {
   late PageController _pageController;
   int _currentPage = 0;
-  final List<String> _titles = ['Steps', 'Weight', 'Macros'];
+  final List<String> _titles = ['Weight', 'Macros', 'Steps'];
   bool _showSwipeHint = true;
   bool _isInitialLoad = true;
 
@@ -87,36 +87,39 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          if (_currentPage == 1) // Weight screen unit toggle
-            Consumer<WeightUnitProvider>(
-              builder: (context, unitProvider, _) => TextButton.icon(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  unitProvider.toggleUnit();
-                },
-                icon: Icon(
-                  Icons.scale,
-                  color: customColors.textPrimary,
-                  size: 20,
-                ),
-                label: Text(
-                  unitProvider.unitLabel,
-                  style: TextStyle(
+          if (_currentPage == 0) // Weight screen unit toggle
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Consumer<WeightUnitProvider>(
+                builder: (context, unitProvider, _) => TextButton.icon(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    unitProvider.toggleUnit();
+                  },
+                  icon: Icon(
+                    Icons.scale,
                     color: customColors.textPrimary,
-                    fontWeight: FontWeight.w600,
+                    size: 20,
+                  ),
+                  label: Text(
+                    unitProvider.unitLabel,
+                    style: TextStyle(
+                      color: customColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
             ),
           // Navigation hint icon in app bar
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Icon(
-              Icons.swipe,
-              size: 20,
-              color: customColors.textSecondary.withOpacity(0.6),
-            ),
-          ),
+          // Padding(
+          //   padding: const EdgeInsets.only(right: 16),
+          //   child: Icon(
+          //     Icons.swipe,
+          //     size: 20,
+          //     color: customColors.textSecondary.withOpacity(0.6),
+          //   ),
+          // ),
         ],
       ),
       // Removed bottomNavigationBar, using Stack for floating effect
@@ -134,9 +137,9 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
               });
             },
             children: [
-              KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
+              KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
             ],
           ),
 
@@ -288,9 +291,9 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
   // This function builds the floating bar content
   Widget _buildPageIndicator(ThemeData theme, CustomColors customColors) {
     final List<IconData> icons = [
-      Icons.directions_walk, // Steps
       Icons.monitor_weight_outlined, // Weight
       Icons.pie_chart_outline_rounded, // Macros
+      Icons.directions_walk, // Steps
     ];
 
     return ClipRRect(
