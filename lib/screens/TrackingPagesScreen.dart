@@ -21,7 +21,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with AutomaticKeepAliveClientMixin {
   late PageController _pageController;
   int _currentPage = 0;
-  final List<String> _titles = ['Steps', 'Weight', 'Macros'];
+  final List<String> _titles = ['Weight', 'Macros', 'Steps'];
   bool _showSwipeHint = true;
   bool _isInitialLoad = true;
 
@@ -134,9 +134,9 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
               });
             },
             children: [
-              KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
+              KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
             ],
           ),
 
@@ -288,9 +288,9 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
   // This function builds the floating bar content
   Widget _buildPageIndicator(ThemeData theme, CustomColors customColors) {
     final List<IconData> icons = [
-      Icons.directions_walk, // Steps
       Icons.monitor_weight_outlined, // Weight
       Icons.pie_chart_outline_rounded, // Macros
+      Icons.directions_walk, // Steps
     ];
 
     return ClipRRect(
