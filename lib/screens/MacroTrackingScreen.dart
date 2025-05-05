@@ -178,11 +178,11 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                               ),
                               const SizedBox(height: 24),
                               _buildMacroChart(customColors),
-                              const SizedBox(height: 24),
-                              RepaintBoundary(
-                                child: _buildMacroBreakdown(customColors,
-                                    currentCalories), // Pass fetched calories for percentages
-                              ),
+                              // const SizedBox(height: 24),
+                              // RepaintBoundary(
+                              //   child: _buildMacroBreakdown(customColors,
+                              //       currentCalories), // Pass fetched calories for percentages
+                              // ),
                               const SizedBox(height: 24),
                               RepaintBoundary(
                                 child: _buildMacroGoals(customColors,
@@ -231,7 +231,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Macro Intake',
+                  'Weekly Nutrition Intake',
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
                     fontSize: 20,
@@ -239,35 +239,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     color: customColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Track your nutrition progress',
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: customColors.textSecondary,
-                  ),
-                ),
-                // const SizedBox(height: 16),
-                // Center(
-                //   child: Container(
-                //     height: 36,
-                //     decoration: BoxDecoration(
-                //       color:
-                //           customColors.dateNavigatorBackground.withOpacity(0.5),
-                //       borderRadius: BorderRadius.circular(18),
-                //     ),
-                // child: Row(
-                //   mainAxisSize: MainAxisSize.min,
-                //   children: [
-                // _buildChartViewTab('Calories',
-                //     _selectedChartView == 'Calories', customColors),
-                // _buildChartViewTab('Grams',
-                //     _selectedChartView == 'Grams', customColors),
-                // ],
-                // ),
-                //   ),
-                // ),
               ],
             ),
             const SizedBox(height: 24),
@@ -287,21 +258,20 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               ),
             ),
             const SizedBox(height: 24),
-            Wrap(
+            Row(
               spacing: 16,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildLegendItem(
-                    'Protein (${_targetProtein.round()}g)', // Use round()
+                    'Protein', // Use round()
                     Colors.red.shade600,
                     customColors), // Protein: Red
                 _buildLegendItem(
-                    'Carbs (${_targetCarbs.round()}g)', // Use round()
+                    'Carbs', // Use round()
                     Colors.blue.shade600,
                     customColors), // Carbs: Blue
                 _buildLegendItem(
-                    'Fat (${_targetFat.round()}g)', // Use round()
+                    'Fat', // Use round()
                     Colors.amber.shade600,
                     customColors), // Fat: Yellow/Amber
               ],
@@ -394,27 +364,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     children: [
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                                color: customColors.accentPrimary
-                                    .withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: customColors.accentPrimary
-                                        .withOpacity(0.1),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ]),
-                            child: Icon(
-                              Icons.restaurant_menu,
-                              size: 20,
-                              color: customColors.accentPrimary,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
                           Flexible(
                             child: Text(
                               'Today\'s Nutrition',
@@ -428,9 +377,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Padding(
-                        padding: const EdgeInsets.only(left: 42),
+                        padding: const EdgeInsets.only(left: 0),
                         child: Row(
                           children: [
                             Icon(
@@ -453,46 +402,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: customColors.cardBackground,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: customColors.accentPrimary.withOpacity(0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                    border: Border.all(
-                      color: customColors.accentPrimary.withOpacity(0.2),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        calorieProgress >= 1.0
-                            ? Icons.star_rounded
-                            : Icons.trending_up_rounded,
-                        size: 16,
-                        color: customColors.accentPrimary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${(calorieProgress * 100).toInt()}%',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: customColors.accentPrimary,
                         ),
                       ),
                     ],
@@ -521,186 +430,152 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   width: 1,
                 ),
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  // Calorie progress circle with animated gradient
-                  TweenAnimationBuilder<double>(
-                    duration: const Duration(milliseconds: 1500),
-                    curve: Curves.easeOutExpo,
-                    tween: Tween<double>(
-                        begin: 0, end: calorieProgress), // Animate progress
-                    builder: (context, animatedProgress, child) {
-                      return Container(
-                        width: 140,
-                        height: 140,
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: SweepGradient(
-                            center: Alignment.center,
-                            startAngle: -math.pi / 2,
-                            endAngle: math.max(
-                                -math.pi / 2 + 0.01,
-                                (2 * math.pi * animatedProgress) -
-                                    (math.pi / 2)), // Use animated progress
-                            colors: [
-                              customColors.accentPrimary.withOpacity(0.2),
-                              customColors.accentPrimary,
-                              customColors.accentPrimary.withOpacity(0.2),
-                            ],
-                            stops: const [0.0, 0.8, 1.0],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  customColors.accentPrimary.withOpacity(0.15),
-                              blurRadius: 15,
-                              spreadRadius: 2,
+                  // Left side - Calorie progress circle
+                  Flexible(
+                    flex: 4,
+                    child: TweenAnimationBuilder<double>(
+                      duration: const Duration(milliseconds: 1500),
+                      curve: Curves.easeOutExpo,
+                      tween: Tween<double>(begin: 0, end: calorieProgress),
+                      builder: (context, animatedProgress, child) {
+                        return Container(
+                          width: 120,
+                          height: 120,
+                          // padding: const EdgeInsets.all(3),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: customColors.cardBackground,
                             ),
-                          ],
-                        ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: customColors.cardBackground,
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Progress indicator
-                              SizedBox(
-                                width: 120,
-                                height: 120,
-                                child: CircularProgressIndicator(
-                                  value:
-                                      animatedProgress, // Use animated progress
-                                  backgroundColor: customColors
-                                      .dateNavigatorBackground
-                                      .withOpacity(0.15),
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    animatedProgress >=
-                                            1.0 // Use animated progress
-                                        ? Colors.green.shade500
-                                        : customColors.accentPrimary,
-                                  ),
-                                  strokeWidth: 8,
-                                  strokeCap: StrokeCap.round,
-                                ),
-                              ),
-
-                              // Inner content
-                              Container(
-                                width: 95,
-                                height: 95,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: customColors.cardBackground,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 100,
+                                  height: 100,
+                                  child: CircularProgressIndicator(
+                                    value: animatedProgress,
+                                    backgroundColor:
+                                        customColors.dateNavigatorBackground,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      animatedProgress >= 1.0
+                                          ? Colors.green.shade500
+                                          : customColors.accentPrimary,
                                     ),
-                                  ],
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    // Animated calorie count
-                                    TweenAnimationBuilder<double>(
-                                      duration:
-                                          const Duration(milliseconds: 1500),
-                                      curve: Curves.easeOutCubic,
-                                      tween: Tween<double>(
-                                          begin: 0,
-                                          end:
-                                              currentCalories), // Use passed-in currentCalories
-                                      builder: (context, value, _) {
-                                        return Text(
-                                          value
-                                              .round()
-                                              .toString(), // Use round()
-                                          style: GoogleFonts.inter(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.w800,
-                                            color: animatedProgress >=
-                                                    1.0 // Use animated progress
-                                                ? Colors.green.shade500
-                                                : customColors.accentPrimary,
-                                          ),
-                                        );
-                                      },
-                                    ),
-
-                                    // Unit label
-                                    Text(
-                                      'kcal',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: customColors.textSecondary,
-                                        height: 1.2,
-                                      ),
-                                    ),
-
-                                    // Target calories
-                                    Text(
-                                      'of ${targetCalories.round()}', // Use round()
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: customColors.textSecondary
-                                            .withOpacity(0.7),
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Achievement indicator
-                              if (animatedProgress >=
-                                  1.0) // Use animated progress
-                                Positioned(
-                                  top: 10,
-                                  child: Icon(
-                                    Icons.star_rounded,
-                                    color: Colors.amber.shade400,
-                                    size: 24,
+                                    strokeWidth: 8,
+                                    strokeCap: StrokeCap.round,
                                   ),
                                 ),
-                            ],
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: customColors.cardBackground,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      TweenAnimationBuilder<double>(
+                                        duration:
+                                            const Duration(milliseconds: 1500),
+                                        curve: Curves.easeOutCubic,
+                                        tween: Tween<double>(
+                                            begin: 0, end: currentCalories),
+                                        builder: (context, value, _) {
+                                          return Text(
+                                            value.round().toString(),
+                                            style: GoogleFonts.inter(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w800,
+                                              color: animatedProgress >= 1.0
+                                                  ? Colors.green.shade500
+                                                  : customColors.accentPrimary,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      Text(
+                                        'kcal',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: customColors.textSecondary,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                      Text(
+                                        'of ${targetCalories.round()}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: customColors.textSecondary
+                                              .withOpacity(0.7),
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (animatedProgress >= 1.0)
+                                  Positioned(
+                                    top: 10,
+                                    child: Icon(
+                                      Icons.star_rounded,
+                                      color: Colors.amber.shade400,
+                                      size: 20,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(width: 20),
+
+                  // Right side - Macro indicators
+                  Flexible(
+                    flex: 5,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildMacroIndicator(
+                          'Protein',
+                          _currentProtein,
+                          _targetProtein,
+                          Colors.red.shade600,
+                          customColors,
                         ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Macro indicators
-                  _buildMacroIndicator(
-                    'Protein',
-                    _currentProtein,
-                    _targetProtein,
-                    Colors.red.shade600, // Carbs: Red
-                    customColors,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildMacroIndicator(
-                    'Carbs',
-                    _currentCarbs,
-                    _targetCarbs,
-                    Colors.blue.shade600,
-                    customColors,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildMacroIndicator(
-                    'Fat',
-                    _currentFat,
-                    _targetFat,
-                    Colors.amber.shade600, // Fat: Yellow/Amber
-                    customColors,
+                        const SizedBox(height: 12),
+                        _buildMacroIndicator(
+                          'Carbs',
+                          _currentCarbs,
+                          _targetCarbs,
+                          Colors.blue.shade600,
+                          customColors,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildMacroIndicator(
+                          'Fat',
+                          _currentFat,
+                          _targetFat,
+                          Colors.amber.shade600,
+                          customColors,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -740,21 +615,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(4),
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withOpacity(0.3),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          )
-                        ]),
-                  ),
-                  const SizedBox(width: 8),
                   Text(
                     label,
                     style: GoogleFonts.inter(
@@ -795,36 +655,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     ),
 
                     SizedBox(width: isNarrow ? 3 : 6),
-
-                    // Percentage badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: progress >= 1.0
-                            ? Colors.green.shade500.withOpacity(0.1)
-                            : color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: progress >= 1.0
-                                ? Colors.green.shade500.withOpacity(0.1)
-                                : color.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        '$percentage%',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              progress >= 1.0 ? Colors.green.shade500 : color,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -888,287 +718,287 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     });
   }
 
-  Widget _buildMacroBreakdown(CustomColors customColors, double totalCalories) {
-    // Pass totalCalories
-    // Use passed totalCalories for percentage calculation
-    final proteinPercentage = totalCalories > 0
-        ? (_currentProtein * 4 / totalCalories * 100).round()
-        : 0;
-    final carbsPercentage = totalCalories > 0
-        ? (_currentCarbs * 4 / totalCalories * 100).round()
-        : 0;
-    final fatPercentage =
-        totalCalories > 0 ? (_currentFat * 9 / totalCalories * 100).round() : 0;
+  // Widget _buildMacroBreakdown(CustomColors customColors, double totalCalories) {
+  //   // Pass totalCalories
+  //   // Use passed totalCalories for percentage calculation
+  //   final proteinPercentage = totalCalories > 0
+  //       ? (_currentProtein * 4 / totalCalories * 100).round()
+  //       : 0;
+  //   final carbsPercentage = totalCalories > 0
+  //       ? (_currentCarbs * 4 / totalCalories * 100).round()
+  //       : 0;
+  //   final fatPercentage =
+  //       totalCalories > 0 ? (_currentFat * 9 / totalCalories * 100).round() : 0;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: customColors.cardBackground,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Macro Breakdown',
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: customColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Percentage of total calories from each source',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: customColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 24),
+  //   return Container(
+  //     padding: const EdgeInsets.all(24),
+  //     decoration: BoxDecoration(
+  //       color: customColors.cardBackground,
+  //       borderRadius: BorderRadius.circular(24),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.06),
+  //           blurRadius: 12,
+  //           offset: const Offset(0, 5),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           'Macro Breakdown',
+  //           style: GoogleFonts.inter(
+  //             fontSize: 20,
+  //             fontWeight: FontWeight.w700,
+  //             color: customColors.textPrimary,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 6),
+  //         Text(
+  //           'Percentage of total calories from each source',
+  //           style: GoogleFonts.inter(
+  //             fontSize: 14,
+  //             color: customColors.textSecondary,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 24),
 
-          // Macro distribution bar
-          Container(
-            height: 14,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: proteinPercentage,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            Colors.red.shade700,
-                            Colors.red.shade500
-                          ], // Protein: Blue
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: carbsPercentage,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            // Carbs: Red
-                            Colors.blue.shade700,
-                            Colors.blue.shade500
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: fatPercentage,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            // Fat: Yellow/Amber
-                            Colors.amber.shade700,
-                            Colors.amber.shade500
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+  //         // Macro distribution bar
+  //         Container(
+  //           height: 14,
+  //           decoration: BoxDecoration(
+  //             borderRadius: BorderRadius.circular(10),
+  //             boxShadow: [
+  //               BoxShadow(
+  //                 color: Colors.black.withOpacity(0.05),
+  //                 blurRadius: 4,
+  //                 offset: const Offset(0, 2),
+  //               ),
+  //             ],
+  //           ),
+  //           child: ClipRRect(
+  //             borderRadius: BorderRadius.circular(10),
+  //             child: Row(
+  //               children: [
+  //                 Expanded(
+  //                   flex: proteinPercentage,
+  //                   child: Container(
+  //                     decoration: BoxDecoration(
+  //                       gradient: LinearGradient(
+  //                         begin: Alignment.centerLeft,
+  //                         end: Alignment.centerRight,
+  //                         colors: [
+  //                           Colors.red.shade700,
+  //                           Colors.red.shade500
+  //                         ], // Protein: Blue
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ),
+  //                 Expanded(
+  //                   flex: carbsPercentage,
+  //                   child: Container(
+  //                     decoration: BoxDecoration(
+  //                       gradient: LinearGradient(
+  //                         begin: Alignment.centerLeft,
+  //                         end: Alignment.centerRight,
+  //                         colors: [
+  //                           // Carbs: Red
+  //                           Colors.blue.shade700,
+  //                           Colors.blue.shade500
+  //                         ],
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ),
+  //                 Expanded(
+  //                   flex: fatPercentage,
+  //                   child: Container(
+  //                     decoration: BoxDecoration(
+  //                       gradient: LinearGradient(
+  //                         begin: Alignment.centerLeft,
+  //                         end: Alignment.centerRight,
+  //                         colors: [
+  //                           // Fat: Yellow/Amber
+  //                           Colors.amber.shade700,
+  //                           Colors.amber.shade500
+  //                         ],
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ),
 
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildMacroPercentageIndicator('Protein', proteinPercentage,
-                  Colors.red.shade600, customColors), // Carbs: Red
-              _buildMacroPercentageIndicator(
-                  'Carbs', carbsPercentage, Colors.blue.shade600, customColors),
-              _buildMacroPercentageIndicator('Fat', fatPercentage,
-                  Colors.amber.shade600, customColors), // Fat: Yellow/Amber
-            ],
-          ),
-          const SizedBox(height: 24),
+  //         const SizedBox(height: 20),
+  //         Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceAround,
+  //           children: [
+  //             _buildMacroPercentageIndicator('Protein', proteinPercentage,
+  //                 Colors.red.shade600, customColors), // Carbs: Red
+  //             _buildMacroPercentageIndicator(
+  //                 'Carbs', carbsPercentage, Colors.blue.shade600, customColors),
+  //             _buildMacroPercentageIndicator('Fat', fatPercentage,
+  //                 Colors.amber.shade600, customColors), // Fat: Yellow/Amber
+  //           ],
+  //         ),
+  //         const SizedBox(height: 24),
 
-          _buildMacroBreakdownItem(
-            'Protein',
-            _currentProtein,
-            proteinPercentage,
-            Colors.red.shade600, // Carbs: Red
-            customColors,
-          ),
-          const SizedBox(height: 16),
-          _buildMacroBreakdownItem(
-            'Carbs',
-            _currentCarbs,
-            carbsPercentage,
-            Colors.blue.shade600,
-            customColors,
-          ),
-          const SizedBox(height: 16),
-          _buildMacroBreakdownItem(
-            'Fat',
-            _currentFat,
-            fatPercentage,
-            Colors.amber.shade600, // Fat: Yellow/Amber
-            customColors,
-          ),
-        ],
-      ),
-    );
-  }
+  //         _buildMacroBreakdownItem(
+  //           'Protein',
+  //           _currentProtein,
+  //           proteinPercentage,
+  //           Colors.red.shade600, // Carbs: Red
+  //           customColors,
+  //         ),
+  //         const SizedBox(height: 16),
+  //         _buildMacroBreakdownItem(
+  //           'Carbs',
+  //           _currentCarbs,
+  //           carbsPercentage,
+  //           Colors.blue.shade600,
+  //           customColors,
+  //         ),
+  //         const SizedBox(height: 16),
+  //         _buildMacroBreakdownItem(
+  //           'Fat',
+  //           _currentFat,
+  //           fatPercentage,
+  //           Colors.amber.shade600, // Fat: Yellow/Amber
+  //           customColors,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-  Widget _buildMacroPercentageIndicator(
-      String label, int percentage, Color color, CustomColors customColors) {
-    return Column(
-      children: [
-        Text(
-          '$percentage%',
-          style: GoogleFonts.inter(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: customColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
+  // Widget _buildMacroPercentageIndicator(
+  //     String label, int percentage, Color color, CustomColors customColors) {
+  //   return Column(
+  //     children: [
+  //       Text(
+  //         '$percentage%',
+  //         style: GoogleFonts.inter(
+  //           fontSize: 18,
+  //           fontWeight: FontWeight.w700,
+  //           color: color,
+  //         ),
+  //       ),
+  //       const SizedBox(height: 4),
+  //       Text(
+  //         label,
+  //         style: GoogleFonts.inter(
+  //           fontSize: 13,
+  //           fontWeight: FontWeight.w500,
+  //           color: customColors.textSecondary,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
-  Widget _buildMacroBreakdownItem(
-    String label,
-    double grams,
-    int percentage,
-    Color color,
-    CustomColors customColors,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                '$percentage%',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      '${grams.round()}g', // Use round()
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: color,
-                      ),
-                    ),
-                    Text(
-                      ' • ${(grams * (label == 'Fat' ? 9 : 4)).round()} calories', // Use round()
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: customColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              Icons.analytics_outlined,
-              size: 20,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildMacroBreakdownItem(
+  //   String label,
+  //   double grams,
+  //   int percentage,
+  //   Color color,
+  //   CustomColors customColors,
+  // ) {
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: color.withOpacity(0.08),
+  //       borderRadius: BorderRadius.circular(16),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: color.withOpacity(0.08),
+  //           blurRadius: 8,
+  //           offset: const Offset(0, 3),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Container(
+  //           width: 48,
+  //           height: 48,
+  //           decoration: BoxDecoration(
+  //             color: color.withOpacity(0.15),
+  //             borderRadius: BorderRadius.circular(12),
+  //             boxShadow: [
+  //               BoxShadow(
+  //                 color: color.withOpacity(0.1),
+  //                 blurRadius: 4,
+  //                 offset: const Offset(0, 2),
+  //               ),
+  //             ],
+  //           ),
+  //           child: Center(
+  //             child: Text(
+  //               '$percentage%',
+  //               style: GoogleFonts.inter(
+  //                 fontSize: 18,
+  //                 fontWeight: FontWeight.w700,
+  //                 color: color,
+  //               ),
+  //             ),
+  //           ),
+  //         ),
+  //         const SizedBox(width: 16),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(
+  //                 label,
+  //                 style: GoogleFonts.inter(
+  //                   fontSize: 16,
+  //                   fontWeight: FontWeight.w600,
+  //                   color: customColors.textPrimary,
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 4),
+  //               Row(
+  //                 children: [
+  //                   Text(
+  //                     '${grams.round()}g', // Use round()
+  //                     style: GoogleFonts.inter(
+  //                       fontSize: 14,
+  //                       fontWeight: FontWeight.w600,
+  //                       color: color,
+  //                     ),
+  //                   ),
+  //                   Text(
+  //                     ' • ${(grams * (label == 'Fat' ? 9 : 4)).round()} calories', // Use round()
+  //                     style: GoogleFonts.inter(
+  //                       fontSize: 14,
+  //                       color: customColors.textSecondary,
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         Container(
+  //           padding: const EdgeInsets.all(8),
+  //           decoration: BoxDecoration(
+  //             color: color.withOpacity(0.1),
+  //             borderRadius: BorderRadius.circular(12),
+  //           ),
+  //           child: Icon(
+  //             Icons.analytics_outlined,
+  //             size: 20,
+  //             color: color,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildMacroGoals(CustomColors customColors, double targetCalories) {
     // Added targetCalories
@@ -2371,7 +2201,7 @@ class _MacroBarChartPainter extends CustomPainter {
 
   void _drawBars(Canvas canvas, Rect chartArea) {
     final barWidth = chartArea.width / (macroData.length * 2 + 1);
-    final cornerRadius = 4.0;
+    final cornerRadius = 2.0;
 
     for (int i = 0; i < macroData.length; i++) {
       final data = macroData[i];
