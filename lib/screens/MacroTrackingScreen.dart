@@ -40,6 +40,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
 
   // Flag to ensure animation starts only once
   bool _isAnimationStarted = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -134,6 +135,12 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
              // Optionally set default goals or show error message
          });
       }
+    } finally {
+      if (mounted) {
+         setState(() {
+            _isLoading = false;
+         });
+      }
     }
     // No setState for loading = false, no animation start here
   }
@@ -183,89 +190,75 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               elevation: 0,
               systemOverlayStyle: SystemUiOverlayStyle.dark,
             ),
-      body: FutureBuilder(
-        // Use FutureBuilder ONLY to ensure provider is ready
-        future: Provider.of<FoodEntryProvider>(context, listen: false)
-            .ensureInitialized(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            // Show loading indicator while provider initializes
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(
-                child: Text('Error initializing provider: ${snapshot.error}'));
-          } else {
-            // Provider is initialized, now use Consumer to get data and build UI
-            return SafeArea(
-              child: Consumer<FoodEntryProvider>(
-                builder: (context, foodEntryProvider, child) {
-                  // --- Get Data Directly from Provider ---
-                  final nutrientTotals = foodEntryProvider
-                      .getNutrientTotalsForDate(DateTime.now());
-                  final currentCalories = nutrientTotals['calories'] ?? 0.0;
-                  final currentProtein = nutrientTotals['protein'] ?? 0.0;
-                  final currentCarbs = nutrientTotals['carbs'] ?? 0.0;
-                  final currentFat = nutrientTotals['fat'] ?? 0.0;
+      body: _isLoading
+           ? const Center(child: CircularProgressIndicator())
+           : SafeArea(
+               child: Consumer<FoodEntryProvider>(
+                 builder: (context, foodEntryProvider, child) {
+                   // --- Get Data Directly from Provider ---
+                   final nutrientTotals = foodEntryProvider
+                       .getNutrientTotalsForDate(DateTime.now());
+                   final currentCalories = nutrientTotals['calories'] ?? 0.0;
+                   final currentProtein = nutrientTotals['protein'] ?? 0.0;
+                   final currentCarbs = nutrientTotals['carbs'] ?? 0.0;
+                   final currentFat = nutrientTotals['fat'] ?? 0.0;
 
-                  // --- Animation Control ---
-                  // Start animation only once after the first build completes with data
-                  // This runs *after* the build method completes for this frame.
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted && !_isAnimationStarted) {
-                      _animationController.forward();
-                      _isAnimationStarted = true; // Set flag to prevent restart
-                    }
-                  });
+                   // --- Animation Control ---
+                   // Start animation only once after the first build completes with data
+                   // This runs *after* the build method completes for this frame.
+                   WidgetsBinding.instance.addPostFrameCallback((_) {
+                     if (mounted && !_isAnimationStarted) {
+                       _animationController.forward();
+                       _isAnimationStarted = true; // Set flag to prevent restart
+                     }
+                   });
 
-                  // Update ValueNotifier for percentages (doesn't trigger full rebuild)
-                  _updateMacroPercentages(currentCalories, nutrientTotals);
+                   // Update ValueNotifier for percentages (doesn't trigger full rebuild)
+                   _updateMacroPercentages(currentCalories, nutrientTotals);
 
-                  // Calculate target calories based on state goals
-                  final targetCalories = _calculateTargetCalories(
-                      _targetProtein, _targetCarbs, _targetFat);
+                   // Calculate target calories based on state goals
+                   final targetCalories = _calculateTargetCalories(
+                       _targetProtein, _targetCarbs, _targetFat);
 
-                  // Build the main UI using data from provider and state
-                  return CustomScrollView(
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              RepaintBoundary(
-                                child: _buildMacroSummaryCard(
-                                    context,
-                                    customColors,
-                                    currentCalories, // Pass current calories
-                                    targetCalories, // Pass target calories
-                                    // Pass current macros from provider
-                                    currentProtein,
-                                    currentCarbs,
-                                    currentFat
-                                 ),
-                              ),
-                              const SizedBox(height: 24),
-                              // Pass history from state to chart
-                              _buildMacroChart(customColors),
-                              const SizedBox(height: 24),
-                              RepaintBoundary(
-                                child: _buildMacroGoals(customColors,
-                                    targetCalories), // Pass calculated target calories
-                              ),
-                              const SizedBox(height: 50),
-                            ],
-                          ),
-                        ),
-                      )
-                    ],
-                  );
-                },
-              ),
-            );
-          }
-        },
-      ),
+                   // Build the main UI using data from provider and state
+                   return CustomScrollView(
+                     slivers: [
+                       SliverToBoxAdapter(
+                         child: Padding(
+                           padding: const EdgeInsets.all(16.0),
+                           child: Column(
+                             crossAxisAlignment: CrossAxisAlignment.start,
+                             children: [
+                               RepaintBoundary(
+                                 child: _buildMacroSummaryCard(
+                                     context,
+                                     customColors,
+                                     currentCalories, // Pass current calories
+                                     targetCalories, // Pass target calories
+                                     // Pass current macros from provider
+                                     currentProtein,
+                                     currentCarbs,
+                                     currentFat
+                                  ),
+                               ),
+                               const SizedBox(height: 24),
+                               // Pass history from state to chart
+                               _buildMacroChart(customColors),
+                               const SizedBox(height: 24),
+                               RepaintBoundary(
+                                 child: _buildMacroGoals(customColors,
+                                     targetCalories), // Pass calculated target calories
+                               ),
+                               const SizedBox(height: 50),
+                             ],
+                           ),
+                         ),
+                       )
+                     ],
+                   );
+                 },
+               ),
+             ),
     );
   }
 
