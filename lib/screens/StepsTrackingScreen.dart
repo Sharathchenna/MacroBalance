@@ -441,8 +441,8 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       const SizedBox(height: 24),
                       _buildStepsChart(customColors),
                       const SizedBox(height: 24),
-                      _buildStepsHistoryList(customColors),
-                      const SizedBox(height: 16),
+                      // _buildStepsHistoryList(customColors),
+                      // const SizedBox(height: 16),
                       _buildActivityInsights(customColors),
                       const SizedBox(height: 50)
                     ],
@@ -878,8 +878,8 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   Expanded(
                     child: Text(
                       _selectedTimeFrame == 'Month'
-                          ? 'Weekly Average Steps'
-                          : 'Daily Steps',
+                          ? 'Weekly Average'
+                          : 'Daily',
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -1392,32 +1392,32 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               ),
             ),
           ],
-          const SizedBox(height: 20),
-          TextButton.icon(
+          const SizedBox(height: 24),
+          ElevatedButton(
             onPressed: () {
-              // Show edit goal dialog
               HapticFeedback.selectionClick();
               _showEditGoalDialog(context, customColors);
             },
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              backgroundColor: customColors.accentPrimary.withOpacity(0.08),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: customColors.accentPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(16),
               ),
+              elevation: 0,
             ),
-            icon: Icon(
-              Icons.edit,
-              size: 18,
-              color: customColors.accentPrimary,
-            ),
-            label: Text(
-              'Edit Step Goal ($_stepGoal)', // Show current goal
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: customColors.accentPrimary,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Edit Goal: ${NumberFormat.decimalPattern().format(_stepGoal)} steps',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1783,7 +1783,8 @@ class _BarChartState extends State<CustomBarChart>
 
                             // Hide tooltip after a delay
                             _tooltipTimer?.cancel(); // Cancel previous timer
-                            _tooltipTimer = Timer(const Duration(seconds: 2), () {
+                            _tooltipTimer =
+                                Timer(const Duration(seconds: 2), () {
                               if (mounted && _highlightedIndex == barIndex) {
                                 setState(() {
                                   _showTooltip = false;
