@@ -946,7 +946,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         }
       },
       child: SizedBox(
-        height: 125,
+        height: 116,
         width: 75,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
