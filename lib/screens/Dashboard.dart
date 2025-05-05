@@ -918,7 +918,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   Widget _buildMacroProgressEnhanced(BuildContext context, String label,
       int value, int goal, Color color, String unit) {
     final progress = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
-    final percentage = (progress * 100).toInt();
     final textColor = Theme.of(context).brightness == Brightness.light
         ? Colors.grey.shade700 // Adjusted for better contrast in light mode
         : Colors.grey.shade300; // Adjusted for better contrast in dark mode
@@ -947,47 +946,40 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         }
       },
       child: SizedBox(
-        // Changed Container to SizedBox
-        // Adjusted height to accommodate text below
-        height: 125, // Slightly increased height for better spacing
-        width: 75, // Slightly increased width for better spacing
+        height: 116,
+        width: 75,
         child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.start, // Align to start for better layout
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            // Original Stack with Progress Circle and Icon
             Stack(
               alignment: Alignment.center,
               children: [
-                // Progress circle
                 SizedBox(
-                  height: 60, // Slightly smaller circle
+                  height: 60,
                   width: 60,
                   child: CircularProgressIndicator(
                     value: progress,
-                    strokeWidth: 7, // Slightly thicker stroke
+                    strokeWidth: 7,
                     strokeCap: StrokeCap.round,
                     backgroundColor:
                         Theme.of(context).brightness == Brightness.light
-                            ? color.withOpacity(0.15) // Use withOpacity
-                            : color.withOpacity(0.2), // Use withOpacity
+                            ? color.withOpacity(0.15)
+                            : color.withOpacity(0.2),
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
-                // Macro icon
                 Icon(
-                  _getMacroIcon(label), // Use the helper method
+                  _getMacroIcon(label),
                   color: color,
-                  size: 22, // Slightly larger icon
+                  size: 22,
                 ),
               ],
             ),
-            const SizedBox(height: 8), // Increased space
-            // Label Text (e.g., Carbs)
+            const SizedBox(height: 8),
             Text(
               label,
               style: GoogleFonts.poppins(
-                fontSize: 12, // Kept size
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: textColor,
               ),
@@ -995,27 +987,29 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 2), // Space between label and value
-            // Value + Unit Text (e.g., 88g)
-            Text(
-              '$value$unit',
-              style: GoogleFonts.poppins(
-                fontSize: 12, // Increased size slightly
-                fontWeight: FontWeight.w600, // Bolder weight
-                color: textColor,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2), // Space between value and percentage
-            // Percentage Text (e.g., 30%)
-            Text(
-              '$percentage%',
-              style: GoogleFonts.poppins(
-                fontSize: 11, // Slightly larger size
-                fontWeight: FontWeight.w600, // Keep bold
-                color: percentageColor, // Use the vibrant color
+            const SizedBox(height: 4),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: value.toString(),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: percentageColor,
+                    ),
+                  ),
+                  TextSpan(
+                    text: '/$goal${unit.isNotEmpty ? unit : ''}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.grey.shade600
+                          : Colors.grey.shade400,
+                    ),
+                  ),
+                ],
               ),
               textAlign: TextAlign.center,
               maxLines: 1,

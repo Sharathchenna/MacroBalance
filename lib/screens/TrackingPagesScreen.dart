@@ -21,7 +21,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with AutomaticKeepAliveClientMixin {
   late PageController _pageController;
   int _currentPage = 0;
-  final List<String> _titles = ['Weight', 'Macros', 'Steps'];
+  final List<String> _titles = ['Weight', 'Calories', 'Steps'];
   bool _showSwipeHint = true;
   bool _isInitialLoad = true;
 

@@ -24,7 +24,6 @@ class MacroTrackingScreen extends StatefulWidget {
 class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  bool _isLoading = true;
   String _selectedTimeFrame = 'Week';
   String _selectedChartView = 'Calories';
 
@@ -33,16 +32,15 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   double _targetCarbs = 0;
   double _targetFat = 0;
 
-  // Current macros (loaded from history)
-  double _currentProtein = 0;
-  double _currentCarbs = 0;
-  double _currentFat = 0;
-
   // Macro history
   List<Map<String, dynamic>> _macroHistory = [];
 
   // ValueNotifier for macro percentages (updated when data loads or changes)
   late final ValueNotifier<Map<String, double>> _macroPercentages;
+
+  // Flag to ensure animation starts only once
+  bool _isAnimationStarted = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -52,14 +50,18 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
       duration: const Duration(milliseconds: 1000),
     );
     _macroPercentages = ValueNotifier({
-      // Initialize
       'protein': 0,
       'carbs': 0,
       'fat': 0,
     });
-    _loadMacroData(); // Load initial data
 
-    _animationController.forward();
+    // Load initial goals and history after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadInitialData(); // Renamed function
+      }
+    });
+    // DO NOT start animation here
   }
 
   @override
@@ -69,31 +71,101 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     super.dispose();
   }
 
-  // Calculates percentages based on current macros and fetched total calories
-  void _updateMacroPercentages(double totalCalories) {
-    final percentages = {
-      'protein':
-          totalCalories > 0 ? (_currentProtein * 4 / totalCalories * 100) : 0,
-      'carbs':
-          totalCalories > 0 ? (_currentCarbs * 4 / totalCalories * 100) : 0,
-      'fat': totalCalories > 0 ? (_currentFat * 9 / totalCalories * 100) : 0,
-    };
-    // Ensure percentages are doubles
-    _macroPercentages.value = {
-      'protein': percentages['protein']!.toDouble(),
-      'carbs': percentages['carbs']!.toDouble(),
-      'fat': percentages['fat']!.toDouble(),
-    };
+  // Combined function to load goals and history
+  Future<void> _loadInitialData() async {
+    // No setState for loading = true needed, FutureBuilder handles UI
+    try {
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
+      // FutureBuilder already ensures initialization, but double-check won't hurt
+      await foodEntryProvider.ensureInitialized();
+
+      // --- Load History (Keep this logic here for the chart) ---
+      List<Map<String, dynamic>> history = [];
+      history = List<Map<String, dynamic>>.empty(growable: true);
+      final todayDateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      for (int i = 29; i >= 0; i--) {
+          final date = DateTime.now().subtract(Duration(days: i));
+          // This might be inefficient if getAllEntriesForDate is slow,
+          // consider optimizing in provider if needed.
+          List<FoodEntry> entriesForDate = foodEntryProvider.getAllEntriesForDate(date);
+          double protein = 0, carbs = 0, fat = 0;
+          for (var entry in entriesForDate) {
+              double multiplier = entry.quantity;
+              switch (entry.unit) {
+                  case "oz": multiplier *= 28.35; break;
+                  case "kg": multiplier *= 1000; break;
+                  case "lbs": multiplier *= 453.59; break;
+              }
+              multiplier /= 100;
+              protein += (entry.food.nutrients['Protein'] ?? 0) * multiplier;
+              carbs += (entry.food.nutrients['Carbohydrate, by difference'] ?? 0) * multiplier;
+              fat += (entry.food.nutrients['Total lipid (fat)'] ?? 0) * multiplier;
+          }
+          history.add({'date': date, 'protein': protein, 'carbs': carbs, 'fat': fat});
+      }
+      // Ensure history isn't empty for chart rendering
+      if (history.isEmpty) {
+        history = List.generate(30, (i) {
+            final date = DateTime.now().subtract(Duration(days: 29 - i));
+            return {'date': date, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.0};
+        });
+      }
+      // --- End History Load ---
+
+
+      // Load goals and history into state in one go
+      if (mounted) {
+        setState(() {
+          _targetProtein = foodEntryProvider.proteinGoal;
+          _targetCarbs = foodEntryProvider.carbsGoal;
+          _targetFat = foodEntryProvider.fatGoal;
+          _macroHistory = history; // Update history state
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading initial data: $e');
+      if (mounted) {
+         setState(() {
+             // Initialize history with default data on error
+             _macroHistory = List.generate(30, (i) {
+                 final date = DateTime.now().subtract(Duration(days: 29 - i));
+                 return {'date': date, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.0};
+             });
+             // Optionally set default goals or show error message
+         });
+      }
+    } finally {
+      if (mounted) {
+         setState(() {
+            _isLoading = false;
+         });
+      }
+    }
+    // No setState for loading = false, no animation start here
   }
 
-  // Calculates target calories based on target macros
+  // Update macro percentages - Use data directly from Consumer/Provider
+  void _updateMacroPercentages(double totalCalories, Map<String, double> nutrientTotals) {
+      final percentages = {
+          'protein': totalCalories > 0 ? ((nutrientTotals['protein'] ?? 0.0) * 4 / totalCalories * 100) : 0,
+          'carbs': totalCalories > 0 ? ((nutrientTotals['carbs'] ?? 0.0) * 4 / totalCalories * 100) : 0,
+          'fat': totalCalories > 0 ? ((nutrientTotals['fat'] ?? 0.0) * 9 / totalCalories * 100) : 0,
+      };
+      _macroPercentages.value = {
+          'protein': percentages['protein']!.toDouble(),
+          'carbs': percentages['carbs']!.toDouble(),
+          'fat': percentages['fat']!.toDouble(),
+      };
+  }
+
+  // Calculates target calories based on target macros (state)
   double _calculateTargetCalories(double protein, double carbs, double fat) {
     return (protein * 4) + (carbs * 4) + (fat * 9);
   }
 
   @override
   Widget build(BuildContext context) {
-    // No need to get provider here, Consumer will handle it
     final theme = Theme.of(context);
     final customColors = Theme.of(context).extension<CustomColors>();
 
@@ -118,89 +190,75 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               elevation: 0,
               systemOverlayStyle: SystemUiOverlayStyle.dark,
             ),
-      body: FutureBuilder(
-        // Use FutureBuilder to wait for provider initialization
-        future: Provider.of<FoodEntryProvider>(context, listen: false)
-            .ensureInitialized(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(
-                child: Text('Error initializing provider: ${snapshot.error}'));
-          } else {
-            // Provider is initialized, build the main UI
-            return SafeArea(
-              child: Consumer<FoodEntryProvider>(
-                // Wrap with Consumer to get provider updates
-                builder: (context, foodEntryProvider, child) {
-                  // Fetch today's data using the new centralized method
-                  final nutrientTotals = foodEntryProvider
-                      .getNutrientTotalsForDate(DateTime.now());
-                  final currentCalories = nutrientTotals['calories'] ?? 0.0;
-                  final currentProtein = nutrientTotals['protein'] ?? 0.0;
-                  final currentCarbs = nutrientTotals['carbs'] ?? 0.0;
-                  final currentFat = nutrientTotals['fat'] ?? 0.0;
+      body: _isLoading
+           ? const Center(child: CircularProgressIndicator())
+           : SafeArea(
+               child: Consumer<FoodEntryProvider>(
+                 builder: (context, foodEntryProvider, child) {
+                   // --- Get Data Directly from Provider ---
+                   final nutrientTotals = foodEntryProvider
+                       .getNutrientTotalsForDate(DateTime.now());
+                   final currentCalories = nutrientTotals['calories'] ?? 0.0;
+                   final currentProtein = nutrientTotals['protein'] ?? 0.0;
+                   final currentCarbs = nutrientTotals['carbs'] ?? 0.0;
+                   final currentFat = nutrientTotals['fat'] ?? 0.0;
 
-                  // Update state variables (if needed elsewhere, though direct use is preferred)
-                  // Consider removing _currentProtein, _currentCarbs, _currentFat state variables if only used here
-                  _currentProtein = currentProtein;
-                  _currentCarbs = currentCarbs;
-                  _currentFat = currentFat;
+                   // --- Animation Control ---
+                   // Start animation only once after the first build completes with data
+                   // This runs *after* the build method completes for this frame.
+                   WidgetsBinding.instance.addPostFrameCallback((_) {
+                     if (mounted && !_isAnimationStarted) {
+                       _animationController.forward();
+                       _isAnimationStarted = true; // Set flag to prevent restart
+                     }
+                   });
 
-                  // Update percentages whenever build is called with new calorie data
-                  // Use addPostFrameCallback to avoid calling setState during build
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      // Check if widget is still mounted
-                      _updateMacroPercentages(currentCalories);
-                    }
-                  });
+                   // Update ValueNotifier for percentages (doesn't trigger full rebuild)
+                   _updateMacroPercentages(currentCalories, nutrientTotals);
 
-                  // Calculate target calories based on loaded goals (already in state)
-                  final targetCalories = _calculateTargetCalories(
-                      _targetProtein, _targetCarbs, _targetFat);
+                   // Calculate target calories based on state goals
+                   final targetCalories = _calculateTargetCalories(
+                       _targetProtein, _targetCarbs, _targetFat);
 
-                  return CustomScrollView(
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              RepaintBoundary(
-                                child: _buildMacroSummaryCard(
-                                    context,
-                                    customColors,
-                                    currentCalories,
-                                    targetCalories), // Pass fetched calories & calculated target
-                              ),
-                              const SizedBox(height: 24),
-                              _buildMacroChart(customColors),
-                              const SizedBox(height: 24),
-                              RepaintBoundary(
-                                child: _buildMacroBreakdown(customColors,
-                                    currentCalories), // Pass fetched calories for percentages
-                              ),
-                              const SizedBox(height: 24),
-                              RepaintBoundary(
-                                child: _buildMacroGoals(customColors,
-                                    targetCalories), // Pass calculated target calories
-                              ),
-                              const SizedBox(height: 50),
-                            ],
-                          ),
-                        ),
-                      )
-                    ],
-                  );
-                },
-              ),
-            );
-          }
-        },
-      ),
+                   // Build the main UI using data from provider and state
+                   return CustomScrollView(
+                     slivers: [
+                       SliverToBoxAdapter(
+                         child: Padding(
+                           padding: const EdgeInsets.all(16.0),
+                           child: Column(
+                             crossAxisAlignment: CrossAxisAlignment.start,
+                             children: [
+                               RepaintBoundary(
+                                 child: _buildMacroSummaryCard(
+                                     context,
+                                     customColors,
+                                     currentCalories, // Pass current calories
+                                     targetCalories, // Pass target calories
+                                     // Pass current macros from provider
+                                     currentProtein,
+                                     currentCarbs,
+                                     currentFat
+                                  ),
+                               ),
+                               const SizedBox(height: 24),
+                               // Pass history from state to chart
+                               _buildMacroChart(customColors),
+                               const SizedBox(height: 24),
+                               RepaintBoundary(
+                                 child: _buildMacroGoals(customColors,
+                                     targetCalories), // Pass calculated target calories
+                               ),
+                               const SizedBox(height: 50),
+                             ],
+                           ),
+                         ),
+                       )
+                     ],
+                   );
+                 },
+               ),
+             ),
     );
   }
 
@@ -231,7 +289,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Macro Intake',
+                  'Weekly Nutrition Intake',
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
                     fontSize: 20,
@@ -239,35 +297,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     color: customColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Track your nutrition progress',
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: customColors.textSecondary,
-                  ),
-                ),
-                // const SizedBox(height: 16),
-                // Center(
-                //   child: Container(
-                //     height: 36,
-                //     decoration: BoxDecoration(
-                //       color:
-                //           customColors.dateNavigatorBackground.withOpacity(0.5),
-                //       borderRadius: BorderRadius.circular(18),
-                //     ),
-                // child: Row(
-                //   mainAxisSize: MainAxisSize.min,
-                //   children: [
-                // _buildChartViewTab('Calories',
-                //     _selectedChartView == 'Calories', customColors),
-                // _buildChartViewTab('Grams',
-                //     _selectedChartView == 'Grams', customColors),
-                // ],
-                // ),
-                //   ),
-                // ),
               ],
             ),
             const SizedBox(height: 24),
@@ -287,21 +316,20 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               ),
             ),
             const SizedBox(height: 24),
-            Wrap(
+            Row(
               spacing: 16,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildLegendItem(
-                    'Protein (${_targetProtein.round()}g)', // Use round()
+                    'Protein', // Use round()
                     Colors.red.shade600,
                     customColors), // Protein: Red
                 _buildLegendItem(
-                    'Carbs (${_targetCarbs.round()}g)', // Use round()
+                    'Carbs', // Use round()
                     Colors.blue.shade600,
                     customColors), // Carbs: Blue
                 _buildLegendItem(
-                    'Fat (${_targetFat.round()}g)', // Use round()
+                    'Fat', // Use round()
                     Colors.amber.shade600,
                     customColors), // Fat: Yellow/Amber
               ],
@@ -363,7 +391,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
   }
 
   Widget _buildMacroSummaryCard(BuildContext context, CustomColors customColors,
-      double currentCalories, double targetCalories) {
+      double currentCalories, double targetCalories, double currentProtein, double currentCarbs, double currentFat){
     // Added parameters
     final calorieProgress =
         _getProgressPercentage(currentCalories, targetCalories);
@@ -394,27 +422,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     children: [
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                                color: customColors.accentPrimary
-                                    .withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: customColors.accentPrimary
-                                        .withOpacity(0.1),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  )
-                                ]),
-                            child: Icon(
-                              Icons.restaurant_menu,
-                              size: 20,
-                              color: customColors.accentPrimary,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
                           Flexible(
                             child: Text(
                               'Today\'s Nutrition',
@@ -428,9 +435,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Padding(
-                        padding: const EdgeInsets.only(left: 42),
+                        padding: const EdgeInsets.only(left: 0),
                         child: Row(
                           children: [
                             Icon(
@@ -453,46 +460,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: customColors.cardBackground,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: customColors.accentPrimary.withOpacity(0.15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                    border: Border.all(
-                      color: customColors.accentPrimary.withOpacity(0.2),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        calorieProgress >= 1.0
-                            ? Icons.star_rounded
-                            : Icons.trending_up_rounded,
-                        size: 16,
-                        color: customColors.accentPrimary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${(calorieProgress * 100).toInt()}%',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: customColors.accentPrimary,
                         ),
                       ),
                     ],
@@ -521,44 +488,17 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                   width: 1,
                 ),
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  // Calorie progress circle with animated gradient
+                  // Calorie progress circle
                   TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 1500),
                     curve: Curves.easeOutExpo,
-                    tween: Tween<double>(
-                        begin: 0, end: calorieProgress), // Animate progress
+                    tween: Tween<double>(begin: 0, end: calorieProgress),
                     builder: (context, animatedProgress, child) {
                       return Container(
-                        width: 140,
-                        height: 140,
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: SweepGradient(
-                            center: Alignment.center,
-                            startAngle: -math.pi / 2,
-                            endAngle: math.max(
-                                -math.pi / 2 + 0.01,
-                                (2 * math.pi * animatedProgress) -
-                                    (math.pi / 2)), // Use animated progress
-                            colors: [
-                              customColors.accentPrimary.withOpacity(0.2),
-                              customColors.accentPrimary,
-                              customColors.accentPrimary.withOpacity(0.2),
-                            ],
-                            stops: const [0.0, 0.8, 1.0],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  customColors.accentPrimary.withOpacity(0.15),
-                              blurRadius: 15,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
+                        width: 120,
+                        height: 120,
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -567,19 +507,15 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              // Progress indicator
                               SizedBox(
-                                width: 120,
-                                height: 120,
+                                width: 100,
+                                height: 100,
                                 child: CircularProgressIndicator(
-                                  value:
-                                      animatedProgress, // Use animated progress
-                                  backgroundColor: customColors
-                                      .dateNavigatorBackground
-                                      .withOpacity(0.15),
+                                  value: animatedProgress,
+                                  backgroundColor:
+                                      customColors.dateNavigatorBackground,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                    animatedProgress >=
-                                            1.0 // Use animated progress
+                                    animatedProgress >= 1.0
                                         ? Colors.green.shade500
                                         : customColors.accentPrimary,
                                   ),
@@ -587,11 +523,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   strokeCap: StrokeCap.round,
                                 ),
                               ),
-
-                              // Inner content
                               Container(
-                                width: 95,
-                                height: 95,
+                                width: 80,
+                                height: 80,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: customColors.cardBackground,
@@ -606,48 +540,38 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    // Animated calorie count
                                     TweenAnimationBuilder<double>(
                                       duration:
                                           const Duration(milliseconds: 1500),
                                       curve: Curves.easeOutCubic,
                                       tween: Tween<double>(
-                                          begin: 0,
-                                          end:
-                                              currentCalories), // Use passed-in currentCalories
+                                          begin: 0, end: currentCalories),
                                       builder: (context, value, _) {
                                         return Text(
-                                          value
-                                              .round()
-                                              .toString(), // Use round()
+                                          value.round().toString(),
                                           style: GoogleFonts.inter(
-                                            fontSize: 24,
+                                            fontSize: 20,
                                             fontWeight: FontWeight.w800,
-                                            color: animatedProgress >=
-                                                    1.0 // Use animated progress
+                                            color: animatedProgress >= 1.0
                                                 ? Colors.green.shade500
                                                 : customColors.accentPrimary,
                                           ),
                                         );
                                       },
                                     ),
-
-                                    // Unit label
                                     Text(
                                       'kcal',
                                       style: GoogleFonts.inter(
-                                        fontSize: 14,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: customColors.textSecondary,
                                         height: 1.2,
                                       ),
                                     ),
-
-                                    // Target calories
                                     Text(
-                                      'of ${targetCalories.round()}', // Use round()
+                                      'of ${targetCalories.round()}',
                                       style: GoogleFonts.inter(
-                                        fontSize: 12,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.w500,
                                         color: customColors.textSecondary
                                             .withOpacity(0.7),
@@ -657,16 +581,13 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   ],
                                 ),
                               ),
-
-                              // Achievement indicator
-                              if (animatedProgress >=
-                                  1.0) // Use animated progress
+                              if (animatedProgress >= 1.0)
                                 Positioned(
                                   top: 10,
                                   child: Icon(
                                     Icons.star_rounded,
                                     color: Colors.amber.shade400,
-                                    size: 24,
+                                    size: 20,
                                   ),
                                 ),
                             ],
@@ -676,32 +597,37 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     },
                   ),
 
-                  const SizedBox(height: 20),
-
-                  // Macro indicators
-                  _buildMacroIndicator(
-                    'Protein',
-                    _currentProtein,
-                    _targetProtein,
-                    Colors.red.shade600, // Carbs: Red
-                    customColors,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildMacroIndicator(
+                        'Protein',
+                        currentProtein, // Use passed value
+                        _targetProtein, // Use state value for target
+                        Colors.red.shade600,
+                        customColors,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildMacroIndicator(
+                        'Carbs',
+                        currentCarbs, // Use passed value
+                        _targetCarbs, // Use state value for target
+                        Colors.blue.shade600,
+                        customColors,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildMacroIndicator(
+                        'Fat',
+                        currentFat, // Use passed value
+                        _targetFat, // Use state value for target
+                        Colors.amber.shade600,
+                        customColors,
+                      ),
+                    ]// Macr)o indicators - Pass current values from parameters
                   ),
-                  const SizedBox(height: 14),
-                  _buildMacroIndicator(
-                    'Carbs',
-                    _currentCarbs,
-                    _targetCarbs,
-                    Colors.blue.shade600,
-                    customColors,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildMacroIndicator(
-                    'Fat',
-                    _currentFat,
-                    _targetFat,
-                    Colors.amber.shade600, // Fat: Yellow/Amber
-                    customColors,
-                  ),
+                  )
                 ],
               ),
             ),
@@ -740,21 +666,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(4),
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withOpacity(0.3),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1),
-                          )
-                        ]),
-                  ),
-                  const SizedBox(width: 8),
                   Text(
                     label,
                     style: GoogleFonts.inter(
@@ -795,36 +706,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                     ),
 
                     SizedBox(width: isNarrow ? 3 : 6),
-
-                    // Percentage badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: progress >= 1.0
-                            ? Colors.green.shade500.withOpacity(0.1)
-                            : color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: progress >= 1.0
-                                ? Colors.green.shade500.withOpacity(0.1)
-                                : color.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        '$percentage%',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              progress >= 1.0 ? Colors.green.shade500 : color,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -888,17 +769,23 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     });
   }
 
-  Widget _buildMacroBreakdown(CustomColors customColors, double totalCalories) {
-    // Pass totalCalories
-    // Use passed totalCalories for percentage calculation
+  Widget _buildMacroBreakdown(
+      CustomColors customColors,
+      double totalCalories,
+      // Add current macros from provider
+      double currentProtein,
+      double currentCarbs,
+      double currentFat
+   ) {
+    // Use passed-in values instead of state variables
     final proteinPercentage = totalCalories > 0
-        ? (_currentProtein * 4 / totalCalories * 100).round()
+        ? (currentProtein * 4 / totalCalories * 100).round()
         : 0;
     final carbsPercentage = totalCalories > 0
-        ? (_currentCarbs * 4 / totalCalories * 100).round()
+        ? (currentCarbs * 4 / totalCalories * 100).round()
         : 0;
     final fatPercentage =
-        totalCalories > 0 ? (_currentFat * 9 / totalCalories * 100).round() : 0;
+        totalCalories > 0 ? (currentFat * 9 / totalCalories * 100).round() : 0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -974,7 +861,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            // Carbs: Red
                             Colors.blue.shade700,
                             Colors.blue.shade500
                           ],
@@ -990,7 +876,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            // Fat: Yellow/Amber
                             Colors.amber.shade700,
                             Colors.amber.shade500
                           ],
@@ -1019,15 +904,15 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
 
           _buildMacroBreakdownItem(
             'Protein',
-            _currentProtein,
+            currentProtein, // Use passed value
             proteinPercentage,
-            Colors.red.shade600, // Carbs: Red
+            Colors.red.shade600,
             customColors,
           ),
           const SizedBox(height: 16),
           _buildMacroBreakdownItem(
             'Carbs',
-            _currentCarbs,
+            currentCarbs, // Use passed value
             carbsPercentage,
             Colors.blue.shade600,
             customColors,
@@ -1035,9 +920,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
           const SizedBox(height: 16),
           _buildMacroBreakdownItem(
             'Fat',
-            _currentFat,
+            currentFat, // Use passed value
             fatPercentage,
-            Colors.amber.shade600, // Fat: Yellow/Amber
+            Colors.amber.shade600,
             customColors,
           ),
         ],
@@ -1612,24 +1497,30 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 onPressed: () {
                                   setState(() {
                                     // Now inside the state class
-                                    _currentProtein += protein;
-                                    _currentCarbs += carbs;
-                                    _currentFat += fat;
-
-                                    // Update the macro history for today
-                                    if (_macroHistory.isNotEmpty) {
-                                      final today = _macroHistory.last;
-                                      today['protein'] = _currentProtein;
-                                      today['carbs'] = _currentCarbs;
-                                      today['fat'] = _currentFat;
-                                    }
+                                    _targetProtein = protein;
+                                    _targetCarbs = carbs;
+                                    _targetFat = fat;
                                   });
+
+                                  // Update in FoodEntryProvider
+                                  final foodEntryProvider =
+                                      Provider.of<FoodEntryProvider>(context,
+                                          listen: false);
+                                  // Use the setters which handle saving and syncing
+                                  foodEntryProvider.proteinGoal = protein;
+                                  foodEntryProvider.carbsGoal = carbs;
+                                  foodEntryProvider.fatGoal = fat;
+                                  // Recalculate calorie goal based on new macros
+                                  foodEntryProvider.caloriesGoal =
+                                      _calculateTargetCalories(protein, carbs, fat);
+
                                   Navigator.pop(context);
 
                                   // Show success message
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Food added successfully!'),
+                                      content:
+                                          Text('Goals updated successfully!'),
                                       backgroundColor: Colors.green,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
@@ -1639,7 +1530,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   );
                                 },
                                 child: Text(
-                                  'Add Food',
+                                  'Save Goals',
                                   style: GoogleFonts.inter(
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -2083,94 +1974,6 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     );
   }
 
-  Future<void> _loadMacroData() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Get the FoodEntryProvider
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
-
-      // Get protein, carbs, and fat goals from provider
-      _targetProtein = foodEntryProvider.proteinGoal;
-      _targetCarbs = foodEntryProvider.carbsGoal;
-      _targetFat = foodEntryProvider.fatGoal;
-
-      // Generate macro history for the last 30 days
-      _macroHistory = List<Map<String, dynamic>>.empty(growable: true);
-      for (int i = 29; i >= 0; i--) {
-        final date = DateTime.now().subtract(Duration(days: i));
-
-        // Get food entries for this date
-        List<FoodEntry> entriesForDate =
-            foodEntryProvider.getAllEntriesForDate(date);
-
-        // Calculate macros from food entries
-        double protein = 0, carbs = 0, fat = 0;
-
-        for (var entry in entriesForDate) {
-          // Calculate multiplier based on quantity and unit
-          double multiplier = entry.quantity;
-          switch (entry.unit) {
-            case "oz":
-              multiplier *= 28.35;
-              break;
-            case "kg":
-              multiplier *= 1000;
-              break;
-            case "lbs":
-              multiplier *= 453.59;
-              break;
-          }
-          multiplier /= 100; // Since nutrients are per 100g
-
-          // Add protein, carbs and fat
-          protein += (entry.food.nutrients['Protein'] ?? 0) * multiplier;
-          carbs += (entry.food.nutrients['Carbohydrate, by difference'] ?? 0) *
-              multiplier;
-          fat += (entry.food.nutrients['Total lipid (fat)'] ?? 0) * multiplier;
-        }
-
-        _macroHistory.add({
-          'date': date,
-          'protein': protein,
-          'carbs': carbs,
-          'fat': fat,
-        });
-      }
-
-      // Set current day's macros
-      if (_macroHistory.isNotEmpty) {
-        final today = _macroHistory.last;
-        _currentProtein = (today['protein'] as num).toDouble();
-        _currentCarbs = (today['carbs'] as num).toDouble();
-        _currentFat = (today['fat'] as num).toDouble();
-      }
-    } catch (e) {
-      // Handle potential errors including PostgreSQL errors
-      debugPrint('Error loading macro data: $e');
-
-      // Initialize with default values if there's an error
-      if (_macroHistory.isEmpty) {
-        for (int i = 29; i >= 0; i--) {
-          final date = DateTime.now().subtract(Duration(days: i));
-          _macroHistory.add({
-            'date': date,
-            'protein': 0.0,
-            'carbs': 0.0,
-            'fat': 0.0,
-          });
-        }
-      }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
   double _calculateTotalCalories(double protein, double carbs, double fat) {
     return (protein * 4) + (carbs * 4) + (fat * 9);
   }
@@ -2371,7 +2174,7 @@ class _MacroBarChartPainter extends CustomPainter {
 
   void _drawBars(Canvas canvas, Rect chartArea) {
     final barWidth = chartArea.width / (macroData.length * 2 + 1);
-    final cornerRadius = 4.0;
+    final cornerRadius = 2.0;
 
     for (int i = 0; i < macroData.length; i++) {
       final data = macroData[i];

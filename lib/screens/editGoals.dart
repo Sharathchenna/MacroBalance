@@ -241,7 +241,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       await foodEntryProvider.updateNutritionGoals(
         calories: calorieGoal.toDouble(),
         protein: proteinGoal.toDouble(),
-        carbs: carbGoal.toDouble(), 
+        carbs: carbGoal.toDouble(),
         fat: fatGoal.toDouble(),
         steps: stepsGoal,
         bmr: bmr.toDouble(),
@@ -783,8 +783,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           // Wrap ListView in a Column
           children: [
             // Widget for Macro Percentages
-            _buildMacroPercentageCard(),
-            const SizedBox(height: 10), // Spacing
+            // _buildMacroPercentageCard(),
+            // const SizedBox(height: 10), // Spacing
 
             // Existing ListView for Goal Cards
             Expanded(
