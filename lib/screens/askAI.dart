@@ -65,7 +65,8 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
 
       final prompt = '''
 Analyze the following meal description and extract all food items with their nutritional content.
-Break the meal into individual food items. For each item provide:
+Break the meal into individual food items. do not breakdown the meal into ingredients but rather into food items. for example, "turkey sandwich with avocado and cheese" should be broken down into "turkey sandwich", "avocado", and "cheese". another example is "a banana milkshake with chocolate syrup" should be broken down into "banana milkshake" and "chocolate syrup".
+For each item provide:
 1. The name of the food item
 2. A list of serving sizes
 3. Calories, protein, carbohydrates, fat, and fiber for each serving size
