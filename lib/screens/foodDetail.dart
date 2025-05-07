@@ -641,103 +641,176 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               ],
                             ),
                           ),
-
-                          // Add to Meal section (moved here)
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            decoration: BoxDecoration(
-                              color: customColors.cardBackground,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4),
+                                child: Text(
                                   "Add to Meal",
-                                  style: AppTypography.h3.copyWith(
-                                    color: customColors.textPrimary,
-                                    fontWeight: FontWeight.w600,
+                                  style: AppTypography.body2.copyWith(
+                                    color: customColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  height: 60,
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: customColors.dateNavigatorBackground
-                                        .withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    children: mealOptions.map((meal) {
-                                      final isSelected = meal == selectedMeal;
-                                      final mealColor =
-                                          Theme.of(context).brightness ==
-                                                  Brightness.dark
-                                              ? Color(0xFFFBBC05)
-                                                  .withValues(alpha: 0.8)
-                                              : customColors.textPrimary;
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                height: 60,
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: customColors!.dateNavigatorBackground
+                                      .withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: mealOptions.map((meal) {
+                                    final isSelected = meal == selectedMeal;
+                                    final mealColor =
+                                        Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Color(0xFFFBBC05).withOpacity(0.8)
+                                            : customColors.textPrimary;
 
-                                      return Expanded(
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            HapticFeedback.lightImpact();
-                                            setState(() => selectedMeal = meal);
-                                          },
-                                          child: AnimatedContainer(
-                                            duration: const Duration(
-                                                milliseconds: 200),
-                                            decoration: BoxDecoration(
-                                              color: isSelected
-                                                  ? mealColor
-                                                  : Colors.transparent,
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                            ),
-                                            child: Center(
-                                              child: Text(
-                                                meal,
-                                                style: TextStyle(
-                                                  color: isSelected
-                                                      ? Colors.white
-                                                      : customColors
-                                                          .textSecondary,
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.bold
-                                                      : FontWeight.normal,
-                                                ),
+                                    return Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          HapticFeedback.lightImpact();
+                                          setState(() => selectedMeal = meal);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 200),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? mealColor
+                                                : Colors.transparent,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              meal,
+                                              style: TextStyle(
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : customColors
+                                                        .textSecondary,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
                                               ),
                                             ),
                                           ),
                                         ),
-                                      );
-                                    }).toList(),
-                                  ),
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
 
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 4),
-                            child: Text(
-                              "Serving Size",
-                              style: AppTypography.h2.copyWith(
-                                color: Theme.of(context)
-                                    .extension<CustomColors>()!
-                                    .textPrimary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          // // Add to Meal section (moved here)
+                          // Container(
+                          //   padding: const EdgeInsets.all(20),
+                          //   margin: const EdgeInsets.only(bottom: 24),
+                          //   decoration: BoxDecoration(
+                          //     color: customColors.cardBackground,
+                          //     borderRadius: BorderRadius.circular(20),
+                          //     boxShadow: [
+                          //       BoxShadow(
+                          //         color: Colors.black.withOpacity(0.04),
+                          //         blurRadius: 10,
+                          //         offset: const Offset(0, 4),
+                          //       ),
+                          //     ],
+                          //   ),
+                          //   child: Column(
+                          //     crossAxisAlignment: CrossAxisAlignment.start,
+                          //     children: [
+                          //       Text(
+                          //         "Add to Meal",
+                          //         style: AppTypography.h3.copyWith(
+                          //           color: customColors.textPrimary,
+                          //           fontWeight: FontWeight.w600,
+                          //         ),
+                          //       ),
+                          //       const SizedBox(height: 16),
+                          //       Container(
+                          //         height: 60,
+                          //         padding: const EdgeInsets.all(2),
+                          //         decoration: BoxDecoration(
+                          //           color: customColors.dateNavigatorBackground
+                          //               .withOpacity(0.6),
+                          //           borderRadius: BorderRadius.circular(16),
+                          //         ),
+                          //         child: Row(
+                          //           children: mealOptions.map((meal) {
+                          //             final isSelected = meal == selectedMeal;
+                          //             final mealColor =
+                          //                 Theme.of(context).brightness ==
+                          //                         Brightness.dark
+                          //                     ? Color(0xFFFBBC05)
+                          //                         .withValues(alpha: 0.8)
+                          //                     : customColors.textPrimary;
+
+                          //             return Expanded(
+                          //               child: GestureDetector(
+                          //                 onTap: () {
+                          //                   HapticFeedback.lightImpact();
+                          //                   setState(() => selectedMeal = meal);
+                          //                 },
+                          //                 child: AnimatedContainer(
+                          //                   duration: const Duration(
+                          //                       milliseconds: 200),
+                          //                   decoration: BoxDecoration(
+                          //                     color: isSelected
+                          //                         ? mealColor
+                          //                         : Colors.transparent,
+                          //                     borderRadius:
+                          //                         BorderRadius.circular(14),
+                          //                   ),
+                          //                   child: Center(
+                          //                     child: Text(
+                          //                       meal,
+                          //                       style: TextStyle(
+                          //                         color: isSelected
+                          //                             ? Colors.white
+                          //                             : customColors
+                          //                                 .textSecondary,
+                          //                         fontWeight: isSelected
+                          //                             ? FontWeight.bold
+                          //                             : FontWeight.normal,
+                          //                       ),
+                          //                     ),
+                          //                   ),
+                          //                 ),
+                          //               ),
+                          //             );
+                          //           }).toList(),
+                          //         ),
+                          //       ),
+                          //     ],
+                          //   ),
+                          // ),
+
+                          // Padding(
+                          //   padding: const EdgeInsets.symmetric(
+                          //       vertical: 16, horizontal: 4),
+                          //   child: Text(
+                          //     "Serving Size",
+                          //     style: AppTypography.h2.copyWith(
+                          //       color: Theme.of(context)
+                          //           .extension<CustomColors>()!
+                          //           .textPrimary,
+                          //       fontWeight: FontWeight.bold,
+                          //     ),
+                          //   ),
+                          // ),
+
+                          SizedBox(
+                            height: 24,
                           ),
 
                           if (widget.food.servings.isNotEmpty)
