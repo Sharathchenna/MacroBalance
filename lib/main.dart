@@ -48,6 +48,10 @@ import 'package:macrotracker/providers/workout_planning_provider.dart'; // Added
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:lottie/lottie.dart';
+// Added imports for AI services
+import 'package:macrotracker/services/meal_planning_service.dart';
+import 'package:macrotracker/services/workout_planning_service.dart';
+import 'package:macrotracker/config/api_config.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -126,6 +130,12 @@ Future<void> main() async {
 
   // Initialize widget service
   await WidgetService.initWidgetService();
+
+  // Initialize AI services
+  debugPrint("[AI Services] Initializing AI services...");
+  MealPlanningService().initializeAI(ApiConfig.geminiApiKey);
+  WorkoutPlanningService().initializeAI(ApiConfig.geminiApiKey);
+  debugPrint("[AI Services] AI services initialized successfully.");
 
   // Register error handlers
   FlutterError.onError = (FlutterErrorDetails details) {

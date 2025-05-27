@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Needed for migration
+import '../models/user_preferences.dart'; // Import UserPreferences model
 
 class StorageService {
   static const String _preferencesBoxName = 'user_preferences';
@@ -28,7 +29,6 @@ class StorageService {
 
       // Check if migration from SharedPreferences is needed
       await _migrateFromSharedPreferencesIfNeeded();
-
     } catch (e) {
       debugPrint('Error initializing StorageService or opening Hive box: $e');
       // Consider how to handle initialization errors (e.g., retry, fallback)
@@ -67,7 +67,6 @@ class StorageService {
         // Optional: Clear all SharedPreferences after successful migration
         // await prefs.clear();
         // debugPrint('SharedPreferences cleared after migration.');
-
       } else {
         debugPrint('SharedPreferences migration already completed.');
       }
@@ -76,7 +75,6 @@ class StorageService {
       // Decide how to handle migration errors. Maybe retry later?
     }
   }
-
 
   // --- Core Get/Put Methods ---
 
@@ -99,7 +97,6 @@ class StorageService {
 
       // Asynchronously sync to Supabase (don't wait for it)
       // _syncToSupabase(key, value); // Commented out - causing errors due to table schema mismatch
-
     } catch (e) {
       debugPrint('Error putting key "$key" into Hive: $e');
     }
@@ -107,19 +104,17 @@ class StorageService {
 
   // Delete a value from the Hive box and sync deletion to Supabase
   Future<void> delete(String key) async {
-     try {
+    try {
       // Delete locally immediately
       await _preferencesBox.delete(key);
       debugPrint('Deleted key "$key" from Hive.');
 
       // Asynchronously sync deletion to Supabase
       // _deleteFromSupabase(key); // Commented out - causing errors due to table schema mismatch
-
     } catch (e) {
       debugPrint('Error deleting key "$key" from Hive: $e');
     }
   }
-
 
   // --- Supabase Syncing ---
 
@@ -144,11 +139,11 @@ class StorageService {
       await Supabase.instance.client
           .from('user_preferences') // Ensure this table exists in Supabase
           .upsert({
-            'user_id': userId,
-            'key': key,
-            'value': valueString, // Store as text
-            'updated_at': DateTime.now().toIso8601String(),
-          });
+        'user_id': userId,
+        'key': key,
+        'value': valueString, // Store as text
+        'updated_at': DateTime.now().toIso8601String(),
+      });
       debugPrint('Successfully synced key "$key" to Supabase.');
     } catch (e) {
       debugPrint('Error syncing key "$key" to Supabase: $e');
@@ -156,7 +151,7 @@ class StorageService {
     }
   }
 
-   // Sync deletion up to Supabase
+  // Sync deletion up to Supabase
   Future<void> _deleteFromSupabase(String key) async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
@@ -164,7 +159,7 @@ class StorageService {
       return;
     }
 
-     // Do not try to delete the migration flag from Supabase
+    // Do not try to delete the migration flag from Supabase
     if (key == _migrationFlagKey) {
       return;
     }
@@ -180,7 +175,6 @@ class StorageService {
       // Implement retry logic or error queuing if needed
     }
   }
-
 
   // Fetch all preferences from Supabase and update the local Hive box
   /* // Commented out - This service should only handle local storage now.
@@ -247,16 +241,18 @@ class StorageService {
           deleteCount++;
         }
       }
-      debugPrint('Cleared $deleteCount preferences from Hive box "$_preferencesBoxName".');
+      debugPrint(
+          'Cleared $deleteCount preferences from Hive box "$_preferencesBoxName".');
       // Note: This does NOT clear data from Supabase.
     } catch (e) {
-      debugPrint('Error clearing preferences from Hive box "$_preferencesBoxName": $e');
+      debugPrint(
+          'Error clearing preferences from Hive box "$_preferencesBoxName": $e');
     }
   }
 
   // Optional: Method to listen for changes in the Hive box
   void listenForChanges(VoidCallback listener) {
-     _preferencesBox.listenable().addListener(listener);
+    _preferencesBox.listenable().addListener(listener);
   }
 
   // Optional: Method to close the box when done (e.g., on app dispose)
@@ -265,7 +261,101 @@ class StorageService {
       await _preferencesBox.close();
       debugPrint('Hive box "$_preferencesBoxName" closed.');
     } catch (e) {
-       debugPrint('Error closing Hive box "$_preferencesBoxName": $e');
+      debugPrint('Error closing Hive box "$_preferencesBoxName": $e');
+    }
+  }
+
+  // --- UserPreferences-specific methods ---
+
+  // Key for storing UserPreferences object
+  static const String _userPreferencesKey = 'user_preferences_object';
+
+  // Save UserPreferences to Hive
+  Future<void> saveUserPreferences(UserPreferences userPreferences) async {
+    try {
+      final json = userPreferences.toJson();
+      await put(_userPreferencesKey, json);
+      debugPrint('UserPreferences saved to Hive successfully.');
+    } catch (e) {
+      debugPrint('Error saving UserPreferences to Hive: $e');
+    }
+  }
+
+  // Get UserPreferences from Hive
+  UserPreferences? getUserPreferences() {
+    try {
+      final json = get(_userPreferencesKey);
+      if (json != null && json is Map<String, dynamic>) {
+        return UserPreferences.fromJson(json);
+      }
+      debugPrint('No UserPreferences found in Hive.');
+      return null;
+    } catch (e) {
+      debugPrint('Error getting UserPreferences from Hive: $e');
+      return null;
+    }
+  }
+
+  // Get UserPreferences with default values if none exist
+  UserPreferences getUserPreferencesWithDefaults({String userId = 'default'}) {
+    final existingPrefs = getUserPreferences();
+    if (existingPrefs != null) {
+      return existingPrefs;
+    }
+
+    // Return default UserPreferences if none exist
+    debugPrint('No UserPreferences found, returning defaults.');
+    return UserPreferences(
+      userId: userId,
+      targetCalories: 2000,
+      targetProtein: 150,
+      targetCarbohydrates: 200,
+      targetFat: 65,
+      dietaryPreferences: DietaryPreferences(
+        preferences: [],
+        allergies: [],
+        dislikedFoods: [],
+        mealsPerDay: 3,
+      ),
+      fitnessGoals: FitnessGoals(
+        primary: 'general_fitness',
+        secondary: [],
+        workoutsPerWeek: 3,
+      ),
+      equipment: EquipmentAvailability(),
+    );
+  }
+
+  // Update specific nutritional targets
+  Future<void> updateNutritionalTargets({
+    double? calories,
+    double? protein,
+    double? carbohydrates,
+    double? fat,
+  }) async {
+    try {
+      final currentPrefs = getUserPreferencesWithDefaults();
+      final updatedPrefs = currentPrefs.copyWith(
+        targetCalories: calories ?? currentPrefs.targetCalories,
+        targetProtein: protein ?? currentPrefs.targetProtein,
+        targetCarbohydrates: carbohydrates ?? currentPrefs.targetCarbohydrates,
+        targetFat: fat ?? currentPrefs.targetFat,
+        updatedAt: DateTime.now(),
+      );
+      await saveUserPreferences(updatedPrefs);
+      debugPrint('Nutritional targets updated successfully.');
+    } catch (e) {
+      debugPrint('Error updating nutritional targets: $e');
+    }
+  }
+
+  // Delete UserPreferences
+  Future<void> deleteUserPreferences() async {
+    try {
+      await delete(_userPreferencesKey);
+      debugPrint('UserPreferences deleted from Hive.');
+    } catch (e) {
+      debugPrint('Error deleting UserPreferences from Hive: $e');
     }
   }
 }

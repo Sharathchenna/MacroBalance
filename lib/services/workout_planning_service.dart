@@ -32,6 +32,13 @@ class WorkoutPlanningService {
   final Map<String, WorkoutRoutine> _routineCache = {};
   final Map<String, WorkoutPlan> _planCache = {};
 
+  void initializeAI(String apiKey) {
+    _model = GenerativeModel(
+      model: 'gemini-2.5-flash-preview-05-20',
+      apiKey: apiKey,
+    );
+  }
+
   // Exercise Management
   Future<List<Exercise>> getExercises({
     String? searchQuery,
@@ -271,9 +278,22 @@ class WorkoutPlanningService {
 
   Future<WorkoutRoutine?> createWorkoutRoutine(WorkoutRoutine routine) async {
     try {
+      // Get the current user ID for RLS policy compliance
+      final currentUser = _supabaseService.supabaseClient.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('Error: No authenticated user found');
+        return null;
+      }
+
+      // Ensure the routine has the correct createdBy field
+      final routineWithUser = routine.copyWith(
+        createdBy: currentUser.id,
+        updatedAt: DateTime.now(),
+      );
+
       final response = await _supabaseService.supabaseClient
           .from('workout_routines')
-          .insert(routine.toJson())
+          .insert(routineWithUser.toJson())
           .select()
           .single();
 
@@ -291,9 +311,21 @@ class WorkoutPlanningService {
 
   Future<WorkoutRoutine?> updateWorkoutRoutine(WorkoutRoutine routine) async {
     try {
+      // Get the current user ID for RLS policy compliance
+      final currentUser = _supabaseService.supabaseClient.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('Error: No authenticated user found');
+        return null;
+      }
+
+      // Update the routine with current timestamp
+      final routineWithUpdatedTime = routine.copyWith(
+        updatedAt: DateTime.now(),
+      );
+
       final response = await _supabaseService.supabaseClient
           .from('workout_routines')
-          .update(routine.toJson())
+          .update(routineWithUpdatedTime.toJson())
           .eq('id', routine.id)
           .select()
           .single();
@@ -411,9 +443,22 @@ class WorkoutPlanningService {
 
   Future<WorkoutPlan?> createWorkoutPlan(WorkoutPlan plan) async {
     try {
+      // Get the current user ID for RLS policy compliance
+      final currentUser = _supabaseService.supabaseClient.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('Error: No authenticated user found');
+        return null;
+      }
+
+      // Ensure the plan has the correct createdBy field
+      final planWithUser = plan.copyWith(
+        createdBy: currentUser.id,
+        updatedAt: DateTime.now(),
+      );
+
       final response = await _supabaseService.supabaseClient
           .from('workout_plans')
-          .insert(plan.toJson())
+          .insert(planWithUser.toJson())
           .select()
           .single();
 
@@ -431,9 +476,21 @@ class WorkoutPlanningService {
 
   Future<WorkoutPlan?> updateWorkoutPlan(WorkoutPlan plan) async {
     try {
+      // Get the current user ID for RLS policy compliance
+      final currentUser = _supabaseService.supabaseClient.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('Error: No authenticated user found');
+        return null;
+      }
+
+      // Update the plan with current timestamp
+      final planWithUpdatedTime = plan.copyWith(
+        updatedAt: DateTime.now(),
+      );
+
       final response = await _supabaseService.supabaseClient
           .from('workout_plans')
-          .update(plan.toJson())
+          .update(planWithUpdatedTime.toJson())
           .eq('id', plan.id)
           .select()
           .single();
@@ -677,67 +734,69 @@ Format the response as a JSON object with an array of exercises.
       final response = await _model!.generateContent(content);
 
       final jsonStr = response.text?.trim() ?? '';
+      debugPrint('Generated workout response: $jsonStr');
 
       // Extract JSON from the response if needed
       final jsonMatch = RegExp(r'\{.*\}', dotAll: true).firstMatch(jsonStr);
       final jsonData = jsonMatch != null ? jsonMatch.group(0) : jsonStr;
 
-      if (jsonData == null) {
-        throw Exception('Failed to parse generated workout');
+      if (jsonData == null || jsonData.isEmpty) {
+        throw Exception(
+            'Failed to parse generated workout - no JSON data found');
       }
 
-      final routineData = json.decode(jsonData);
-      final exercises = routineData['exercises'] as List<dynamic>;
+      Map<String, dynamic> routineData;
+      try {
+        routineData = json.decode(jsonData);
+      } catch (e) {
+        debugPrint('JSON decode error: $e');
+        debugPrint('Attempted to decode: $jsonData');
+        throw Exception('Failed to parse generated workout JSON: $e');
+      }
+
+      final exercises = routineData['exercises'] as List<dynamic>? ?? [];
+      if (exercises.isEmpty) {
+        throw Exception('No exercises found in generated workout');
+      }
 
       // Find or create exercises
       final workoutExercises = <WorkoutExercise>[];
 
       for (final exerciseData in exercises) {
-        final exerciseName = exerciseData['name'] as String;
-
-        // Search for existing exercise
-        final existingExercises = await getExercises(
-          searchQuery: exerciseName,
-          limit: 1,
-        );
-
-        String exerciseId;
-        Exercise? exercise;
-
-        if (existingExercises.isNotEmpty) {
-          exercise = existingExercises.first;
-          exerciseId = exercise.id;
-        } else {
-          // Create a new exercise if not found
-          final newExercise = Exercise(
-            name: exerciseName,
-            description:
-                exerciseData['description'] ?? 'No description available',
-            primaryMuscles: targetMuscles,
-            equipment: equipment,
-            type: 'strength',
-            difficulty: difficulty,
-            instructions: List<String>.from(exerciseData['instructions'] ?? []),
-            isCompound: targetMuscles.length > 1,
-            defaultSets: exerciseData['sets'] ?? 3,
-            defaultReps: exerciseData['reps'],
-            defaultDurationSeconds: exerciseData['duration_seconds'],
-          );
-
-          final createdExercise = await createExercise(newExercise);
-          if (createdExercise != null) {
-            exercise = createdExercise;
-            exerciseId = createdExercise.id;
-          } else {
-            continue; // Skip if exercise creation failed
-          }
+        final exerciseName = exerciseData['name']?.toString();
+        if (exerciseName == null || exerciseName.isEmpty) {
+          debugPrint('Skipping exercise with no name: $exerciseData');
+          continue;
         }
+
+        // Generate a unique exercise ID using UUID
+        final exerciseId = _uuid.v4();
+
+        // Create a simple exercise object for this workout
+        // Instead of trying to store in database, we'll just use it for this routine
+        final exercise = Exercise(
+          id: exerciseId,
+          name: exerciseName,
+          description:
+              exerciseData['notes']?.toString() ?? 'No description available',
+          primaryMuscles: targetMuscles,
+          equipment: equipment,
+          type: 'strength',
+          difficulty: difficulty,
+          instructions: [],
+          isCompound: targetMuscles.length > 1,
+          defaultSets: _parseIntSafely(exerciseData['sets'], 3),
+          defaultReps:
+              _parseRepsFromString(exerciseData['reps_or_duration'], 10),
+          defaultDurationSeconds: null,
+        );
 
         // Create workout sets
         final sets = <WorkoutSet>[];
-        final numSets = exerciseData['sets'] ?? 3;
-        final reps = exerciseData['reps'] ?? 10;
-        final durationSeconds = exerciseData['duration_seconds'];
+        final numSets = _parseIntSafely(exerciseData['sets'], 3);
+        final reps = _parseRepsFromString(exerciseData['reps_or_duration'], 10);
+        final durationSeconds =
+            _parseDurationFromString(exerciseData['reps_or_duration']);
 
         for (int i = 0; i < numSets; i++) {
           sets.add(WorkoutSet(
@@ -751,7 +810,7 @@ Format the response as a JSON object with an array of exercises.
           exerciseId: exerciseId,
           exercise: exercise,
           sets: sets,
-          restSeconds: exerciseData['rest_seconds'] ?? 60,
+          restSeconds: _parseIntSafely(exerciseData['rest_seconds'], 60),
         ));
       }
 
@@ -773,6 +832,68 @@ Format the response as a JSON object with an array of exercises.
       debugPrint('Error generating workout routine: $e');
       return null;
     }
+  }
+
+  // Helper methods for parsing AI-generated data
+  int _parseIntSafely(dynamic value, int defaultValue) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      return parsed ?? defaultValue;
+    }
+    return defaultValue;
+  }
+
+  int _parseRepsFromString(String? value, int defaultValue) {
+    if (value == null) return defaultValue;
+
+    // Handle formats like "10-12 reps", "8-10 reps per leg", "AMRAP", "5 minutes"
+    final lowerValue = value.toLowerCase();
+
+    // Check for time-based exercises
+    if (lowerValue.contains('minute') || lowerValue.contains('min')) {
+      return 1; // For time-based exercises, use 1 rep
+    }
+
+    // Check for AMRAP (as many reps as possible)
+    if (lowerValue.contains('amrap')) {
+      // Extract the max number if present, e.g., "AMRAP (up to 10-15)"
+      final match = RegExp(r'(\d+)').firstMatch(value);
+      return match != null
+          ? int.tryParse(match.group(1)!) ?? defaultValue
+          : defaultValue;
+    }
+
+    // Extract first number from range like "10-12" or "8-10"
+    final match = RegExp(r'(\d+)').firstMatch(value);
+    return match != null
+        ? int.tryParse(match.group(1)!) ?? defaultValue
+        : defaultValue;
+  }
+
+  int? _parseDurationFromString(String? value) {
+    if (value == null) return null;
+
+    final lowerValue = value.toLowerCase();
+
+    // Handle formats like "5 minutes", "30 seconds"
+    if (lowerValue.contains('minute') || lowerValue.contains('min')) {
+      final match = RegExp(r'(\d+)').firstMatch(value);
+      if (match != null) {
+        final minutes = int.tryParse(match.group(1)!);
+        return minutes != null ? minutes * 60 : null; // Convert to seconds
+      }
+    }
+
+    if (lowerValue.contains('second') || lowerValue.contains('sec')) {
+      final match = RegExp(r'(\d+)').firstMatch(value);
+      if (match != null) {
+        return int.tryParse(match.group(1)!);
+      }
+    }
+
+    return null;
   }
 
   // Clear cache

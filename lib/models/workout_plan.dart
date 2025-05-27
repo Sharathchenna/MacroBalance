@@ -106,13 +106,44 @@ class WorkoutExercise {
       exerciseId: json['exercise_id'] ?? '',
       exercise:
           json['exercise'] != null ? Exercise.fromJson(json['exercise']) : null,
-      sets: ((json['sets'] ?? []) as List)
-          .map((set) => WorkoutSet.fromJson(set))
-          .toList(),
+      sets: _parseSets(json['sets']),
       restSeconds: json['rest_seconds'] ?? 60,
       notes: json['notes'],
       isCompleted: json['is_completed'] ?? false,
     );
+  }
+
+  static List<WorkoutSet> _parseSets(dynamic setsData) {
+    if (setsData == null) return [];
+
+    try {
+      if (setsData is List) {
+        return setsData
+            .where((set) => set != null)
+            .map((set) {
+              try {
+                if (set is Map<String, dynamic>) {
+                  return WorkoutSet.fromJson(set);
+                } else {
+                  print('Warning: Set data is not a Map: $set');
+                  return null;
+                }
+              } catch (e) {
+                print('Error parsing set: $e, data: $set');
+                return null;
+              }
+            })
+            .where((set) => set != null)
+            .cast<WorkoutSet>()
+            .toList();
+      } else {
+        print('Warning: sets data is not a List: $setsData');
+        return [];
+      }
+    } catch (e) {
+      print('Error parsing sets list: $e');
+      return [];
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -201,14 +232,45 @@ class WorkoutRoutine {
     );
   }
 
+  static List<WorkoutExercise> _parseExercises(dynamic exercisesData) {
+    if (exercisesData == null) return [];
+
+    try {
+      if (exercisesData is List) {
+        return exercisesData
+            .where((exercise) => exercise != null)
+            .map((exercise) {
+              try {
+                if (exercise is Map<String, dynamic>) {
+                  return WorkoutExercise.fromJson(exercise);
+                } else {
+                  print('Warning: Exercise data is not a Map: $exercise');
+                  return null;
+                }
+              } catch (e) {
+                print('Error parsing exercise: $e, data: $exercise');
+                return null;
+              }
+            })
+            .where((exercise) => exercise != null)
+            .cast<WorkoutExercise>()
+            .toList();
+      } else {
+        print('Warning: exercises data is not a List: $exercisesData');
+        return [];
+      }
+    } catch (e) {
+      print('Error parsing exercises list: $e');
+      return [];
+    }
+  }
+
   factory WorkoutRoutine.fromJson(Map<String, dynamic> json) {
     return WorkoutRoutine(
       id: json['id'],
       name: json['name'] ?? '',
       description: json['description'] ?? '',
-      exercises: ((json['exercises'] ?? []) as List)
-          .map((exercise) => WorkoutExercise.fromJson(exercise))
-          .toList(),
+      exercises: _parseExercises(json['exercises']),
       estimatedDurationMinutes: json['estimated_duration_minutes'] ?? 30,
       difficulty: json['difficulty'] ?? 'beginner',
       targetMuscles: List<String>.from(json['target_muscles'] ?? []),

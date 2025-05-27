@@ -16,6 +16,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'package:lottie/lottie.dart';
 import 'package:math_expressions/math_expressions.dart'; // Import math_expressions
+import 'package:macrotracker/config/api_config.dart'; // Import API configuration
 
 class Askai extends StatefulWidget {
   const Askai({super.key});
@@ -56,7 +57,7 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
     });
 
     try {
-      const apiKey = 'AIzaSyDe8qpEeJHOYJtJviyr4GVH2_ssCUy9gZc';
+      const apiKey = ApiConfig.geminiApiKey;
 
       final model = GenerativeModel(
         model: 'gemini-2.0-flash',
@@ -609,10 +610,10 @@ Meal to analyze: ${_mealController.text}
 
   Widget _buildMealOption(BuildContext context, AIFoodItem food, String meal) {
     return InkWell(
-      onTap: (){
-      HapticFeedback.lightImpact();
-      _quickAddFood(food, meal);
-      } ,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        _quickAddFood(food, meal);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
