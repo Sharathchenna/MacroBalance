@@ -18,6 +18,8 @@ import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/searchPage.dart';
+import 'package:macrotracker/screens/meal_planning_screen.dart';
+import 'package:macrotracker/screens/workout_planning_screen.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -28,6 +30,7 @@ import '../AI/gemini.dart';
 import '../Health/Health.dart';
 import '../services/camera_service.dart'; // Import CameraService
 import '../services/storage_service.dart'; // Import StorageService
+import 'debug_screens.dart';
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -417,6 +420,30 @@ class _DashboardState extends State<Dashboard> {
                     context,
                     CupertinoPageRoute(
                         builder: (context) => AccountDashboard()),
+                  );
+                },
+              ),
+              _buildNavItemCompact(
+                context: context,
+                icon: CupertinoIcons.chart_pie_fill,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(
+                        builder: (context) => const MealPlanningScreen()),
+                  );
+                },
+              ),
+              _buildNavItemCompact(
+                context: context,
+                icon: CupertinoIcons.sportscourt_fill,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(
+                        builder: (context) => const WorkoutPlanningScreen()),
                   );
                 },
               ),
@@ -1113,7 +1140,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                   .getNutrientTotalsForDate(dateProvider.selectedDate);
               final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
               // --- Dashboard Debug Log ---
-              print('[CalorieTracker Build] Received caloriesFromFood: $caloriesFromFood for date: ${dateProvider.selectedDate}');
+              print(
+                  '[CalorieTracker Build] Received caloriesFromFood: $caloriesFromFood for date: ${dateProvider.selectedDate}');
               // --- End Debug Log ---
               final totalProtein = nutrientTotals['protein'] ?? 0.0;
               final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
@@ -1437,12 +1465,13 @@ class _MealSectionState extends State<MealSection> {
                 sum +
                 foodEntryProvider.calculateNutrientForEntry(entry, 'calories'));
 
-       // --- Dashboard Debug Log ---
-       print('[MealCard Build - $mealType] Calculated totalCalories: $totalCalories for date: ${dateProvider.selectedDate}');
-       // --- End Debug Log ---
+        // --- Dashboard Debug Log ---
+        print(
+            '[MealCard Build - $mealType] Calculated totalCalories: $totalCalories for date: ${dateProvider.selectedDate}');
+        // --- End Debug Log ---
 
-       // Meal type icon mapping
-       IconData getMealIcon() {
+        // Meal type icon mapping
+        IconData getMealIcon() {
           switch (mealType) {
             case 'Breakfast':
               return Icons.breakfast_dining;
@@ -1800,7 +1829,11 @@ Widget _buildFoodItem(
                     ),
                   ),
                   // *** ADDED DISPLAY LOGGING ***
-                  () { debugPrint("[DISPLAY VALUE CHECK] Qty=${entry.quantity}, Unit=$displayUnit for ${entry.id}"); return const SizedBox.shrink(); } (),
+                  () {
+                    debugPrint(
+                        "[DISPLAY VALUE CHECK] Qty=${entry.quantity}, Unit=$displayUnit for ${entry.id}");
+                    return const SizedBox.shrink();
+                  }(),
                   // *** END DISPLAY LOGGING ***
 
                   Text(

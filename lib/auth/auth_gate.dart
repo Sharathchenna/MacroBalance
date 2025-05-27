@@ -173,7 +173,6 @@ class _AuthGateState extends State<AuthGate> {
 
       // Optionally sync other provider data if needed here
       // e.g., await Provider.of<OtherProvider>(context, listen: false).loadData();
-
     } catch (e) {
       print('Error loading user data after login: $e');
     }
@@ -220,11 +219,13 @@ class _AuthGateState extends State<AuthGate> {
             if (authEvent == AuthChangeEvent.signedOut) {
               // Use addPostFrameCallback to schedule the clear after the build phase,
               // and ensure it's awaited before potential navigation/rebuild.
-              WidgetsBinding.instance.addPostFrameCallback((_) async { // Make async
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                // Make async
                 // Check if mounted before accessing provider
                 if (mounted) {
                   try {
-                    print("[AuthGate] User signed out. Clearing FoodEntryProvider...");
+                    print(
+                        "[AuthGate] User signed out. Clearing FoodEntryProvider...");
                     // Await the clearing process
                     await Provider.of<FoodEntryProvider>(context, listen: false)
                         .clearEntries();
@@ -235,7 +236,8 @@ class _AuthGateState extends State<AuthGate> {
                     PostHogService.resetUser();
                     print("[AuthGate] PostHog user reset.");
                   } catch (e) {
-                    print("Error clearing provider data or resetting PostHog user on logout: $e");
+                    print(
+                        "Error clearing provider data or resetting PostHog user on logout: $e");
                   }
                 }
               });
@@ -267,7 +269,8 @@ class _AuthGateState extends State<AuthGate> {
                       // Add any other relevant user properties here
                     },
                   );
-                  print("[AuthGate] PostHog user identified: ${session.user.id}");
+                  print(
+                      "[AuthGate] PostHog user identified: ${session.user.id}");
                 }
               });
             }
@@ -280,9 +283,11 @@ class _AuthGateState extends State<AuthGate> {
 
             // User is authenticated and has macro data
             // Wrap the Dashboard with the PaywallGate
-            return PaywallGate(
-              child: const Dashboard(),
-            );
+            // return PaywallGate(
+            //   child: const Dashboard(),
+            // );
+            // For testing: render Dashboard directly without paywall
+            return const Dashboard();
           },
         );
       },

@@ -43,6 +43,8 @@ import 'package:macrotracker/services/paywall_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
+import 'package:macrotracker/providers/meal_planning_provider.dart'; // Added MealPlanningProvider
+import 'package:macrotracker/providers/workout_planning_provider.dart'; // Added WorkoutPlanningProvider
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:lottie/lottie.dart';
@@ -195,6 +197,9 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
           ChangeNotifierProvider(
               create: (_) => WeightUnitProvider()), // Keep this instance
+          // Meal and Workout Planning Providers - Using empty constructors
+          ChangeNotifierProvider(create: (_) => MealPlanningProvider()),
+          ChangeNotifierProvider(create: (_) => WorkoutPlanningProvider()),
           // Pass FoodEntryProvider instance to ExpenditureProvider
           // ChangeNotifierProvider(
           //     create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
