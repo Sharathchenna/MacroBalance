@@ -3,10 +3,9 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
-import 'package:macrotracker/auth/paywall_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
 import 'package:macrotracker/screens/dashboard.dart';
@@ -59,9 +58,6 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Define the channel for stats communication (presentation AND data)
 const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
 
-// REMOVED Global instance of FoodEntryProvider
-// late FoodEntryProvider _foodEntryProviderInstance;
-
 // Add these variables at the top of the file, after imports
 DateTime? _lastStatsUpdate;
 Map<String, List<Map<String, dynamic>>>? _statsCache;
@@ -85,7 +81,8 @@ class Routes {
   static const String expenditure = '/expenditure'; // Added expenditure route
 }
 
-bool _initialUriHandled = false;
+// Global variable for AI initialization tracking
+bool _aiInitialized = false;
 
 Future<void> main() async {
   // Ensure Flutter binding is initialized
@@ -101,35 +98,64 @@ Future<void> main() async {
 
   // Initialize Supabase - make sure this completes before accessing Supabase.instance
   debugPrint("[Startup Timing] Before Supabase.initialize: ${DateTime.now()}");
-  await Supabase.initialize(
-    anonKey:
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
-    url: "https://mdivtblabmnftdqlgysv.supabase.co",
-  );
-  debugPrint("[Startup Timing] After Supabase.initialize: ${DateTime.now()}");
+  try {
+    await Supabase.initialize(
+      anonKey:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
+      url: "https://mdivtblabmnftdqlgysv.supabase.co",
+    ).timeout(
+      const Duration(
+          seconds: 15), // 15 second timeout for Supabase initialization
+      onTimeout: () {
+        debugPrint(
+            "Supabase initialization timeout - continuing with offline mode");
+        throw Exception('Supabase initialization timed out');
+      },
+    );
+    debugPrint("[Startup Timing] After Supabase.initialize: ${DateTime.now()}");
+  } catch (e) {
+    debugPrint(
+        "[Startup] Supabase initialization failed: $e - continuing in offline mode");
+    // Continue app startup even if Supabase fails - app should work offline
+  }
 
-  // Initialize PostHog
-  debugPrint("[PostHog] Initializing PostHogService...");
-  await PostHogService.initialize();
-  debugPrint("[PostHog] PostHogService initialization attempted.");
+  // Initialize PostHog in background to avoid blocking startup
+  debugPrint("[PostHog] Initializing PostHogService in background...");
+  _initializePostHogInBackground();
 
   // Initialize Storage Service (opens Hive box, handles migration)
   await StorageService().initialize();
 
-  // Setup Firebase Messaging service
-  await _setupFirebaseMessaging();
+  // Setup Firebase Messaging service in background to avoid blocking startup
+  _setupFirebaseMessagingInBackground();
 
-  // Initialize RevenueCat
-  await _initializePlatformState();
+  // Initialize RevenueCat synchronously with timeout to ensure it's configured before providers
+  try {
+    debugPrint("[RevenueCat] Starting synchronous initialization...");
+    await _initializePlatformState().timeout(
+      const Duration(seconds: 8), // 8 second timeout
+      onTimeout: () {
+        debugPrint(
+            "[RevenueCat] Initialization timeout - continuing without in-app purchases");
+        throw Exception('RevenueCat initialization timed out');
+      },
+    );
+    debugPrint(
+        "[RevenueCat] Synchronous initialization completed successfully");
+  } catch (e) {
+    debugPrint(
+        "[RevenueCat] Synchronous initialization failed: $e - in-app purchases disabled");
+    // Continue app execution even if RevenueCat fails
+  }
 
-  // Initialize subscription service
-  await SubscriptionService().initialize();
+  // Initialize subscription service in background to avoid blocking startup
+  _initializeSubscriptionServiceInBackground();
 
   // Increment app session count for paywall logic (now synchronous)
   PaywallManager().incrementAppSession();
 
-  // Initialize widget service
-  await WidgetService.initWidgetService();
+  // Initialize widget service in background to avoid blocking startup
+  _initializeWidgetServiceInBackground();
 
   // Initialize AI services
   debugPrint("[AI Services] Initializing AI services...");
@@ -143,13 +169,7 @@ Future<void> main() async {
   };
 
   // Setup Stats Channel Handler for widgets
-  // Setup Stats Channel Handler for widgets - Needs access to context now or a lookup mechanism
-  // We will fetch the provider inside the handler for now.
-  // Setup Stats Channel Handler for widgets - Needs access to context now or a lookup mechanism
-  // We will fetch the provider inside the handler for now.
   _setupStatsChannelHandler();
-
-  // REMOVED global provider initialization
 
   runApp(
     // Wrap MultiProvider with a StreamProvider for AuthState
@@ -188,9 +208,12 @@ Future<void> main() async {
                       "[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.");
                   final newProvider = FoodEntryProvider();
                   // Don't await here, let it load in background
+                  // Wrap in addPostFrameCallback to prevent setState during build
                   debugPrint(
-                      "[Startup Timing] Calling loadEntriesForCurrentUser: ${DateTime.now()}");
-                  newProvider.loadEntriesForCurrentUser();
+                      "[Startup Timing] Scheduling loadEntriesForCurrentUser: ${DateTime.now()}");
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    newProvider.loadEntriesForCurrentUser();
+                  });
                   return newProvider;
                 } else {
                   // User is the same, reuse the existing provider
@@ -222,99 +245,6 @@ Future<void> main() async {
 
   // Delayed widget refresh to avoid impacting startup time
   _delayedWidgetRefresh();
-}
-
-// New function to initialize non-essential services in the background
-Future<void> _initializeServicesInBackground() async {
-  // Use multiple parallel operations for faster initialization
-  await Future.wait([
-    _initializeFirebase(),
-    _initializeSupabase(),
-    _initializePlatformState(),
-  ]);
-
-  // Then initialize services that depend on above initializations
-  // ApiService().getAccessToken(); // Removed - Token fetched by Edge Function now
-  NotificationService().initialize(); // Don't await this
-  WidgetService.initWidgetService(); // Don't await this
-
-  // Delay widget refresh to avoid slowing down initial UI rendering
-  _delayedWidgetRefresh();
-
-  // Posthog logging (not critical for initial UI)
-  Posthog().screen(screenName: "MainScreen");
-}
-
-Future<void> _initializeFirebase() async {
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    debugPrint("Firebase initialized successfully with explicit options");
-  } catch (e) {
-    debugPrint("Firebase initialization error: $e");
-  }
-}
-
-Future<void> _initializeSupabase() async {
-  try {
-    await Supabase.initialize(
-      anonKey:
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9zZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
-      url: "https://mdivtblabmnftdqlgysv.supabase.co",
-    );
-  } catch (e) {
-    debugPrint("Supabase initialization error: $e");
-  }
-}
-
-Future<void> _setupFirebaseMessaging() async {
-  try {
-    // Firebase Messaging setup
-    if (Platform.isIOS || Platform.isAndroid) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-
-      // Optional: Add other Firebase Messaging initialization here if needed
-      debugPrint('Firebase Messaging initialized successfully');
-    }
-  } catch (e) {
-    debugPrint('Firebase Messaging initialization error: $e');
-  }
-}
-
-Future<void> _initializePlatformState() async {
-  try {
-    await Purchases.setLogLevel(LogLevel.debug);
-
-    PurchasesConfiguration? configuration;
-    if (Platform.isAndroid) {
-      // Android Implementation
-    } else if (Platform.isIOS) {
-      configuration =
-          PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
-    }
-
-    if (configuration != null) {
-      await Purchases.configure(configuration);
-    }
-  } catch (e) {
-    debugPrint('Platform state initialization error: $e');
-  }
-}
-
-// Delay widget refresh to avoid impacting startup time
-Future<void> _delayedWidgetRefresh() async {
-  // Delay widget refresh to avoid slowing startup
-  await Future.delayed(const Duration(seconds: 3));
-  try {
-    // Double-check that widget service is initialized
-    await WidgetService.initWidgetService();
-    await WidgetService.forceWidgetRefresh();
-  } catch (e) {
-    debugPrint('Delayed widget refresh failed: $e');
-  }
 }
 
 // Function to setup the method channel handler
@@ -366,7 +296,7 @@ void _setupStatsChannelHandler() {
           final endDate = DateTime.parse(endDateString).toLocal();
 
           // Check cache first
-          final cacheKey = '${startDateString}_${endDateString}';
+          final cacheKey = '${startDateString}_$endDateString';
           if (_statsCache?.containsKey(cacheKey) == true &&
               _lastStatsUpdate != null &&
               now.difference(_lastStatsUpdate!) < _minimumUpdateInterval) {
@@ -432,7 +362,7 @@ void _setupStatsChannelHandler() {
           // Update cache and last update time
           _lastStatsUpdate = now;
           _statsCache ??= {};
-          _statsCache!['${startDateString}_${endDateString}'] = results;
+          _statsCache![cacheKey] = results;
 
           debugPrint(
               '[Flutter Stats Handler] Cache updated with ${results.length} entries');
@@ -507,22 +437,12 @@ void _handleDeepLink(Uri uri) {
 
 // Add this before the MyApp class
 class MyRouteObserver extends NavigatorObserver {
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPush(route, previousRoute);
-    // Optional: Add non-PostHog analytics or logging here if needed
-    // PostHog screen tracking is handled by PosthogObserver
-  }
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPop(route, previousRoute);
-    // Optional: Add analytics or logging here
-  }
+  // Optional: Add analytics or logging here if needed
+  // PostHog screen tracking is handled by PosthogObserver
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -632,19 +552,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           routes: {
             Routes.initial: (context) => const AuthGate(),
             Routes.onboarding: (context) => const OnboardingScreen(),
-            Routes.home: (context) => const PaywallGate(child: Dashboard()),
-            Routes.dashboard: (context) =>
-                const PaywallGate(child: Dashboard()),
-            Routes.goals: (context) =>
-                const PaywallGate(child: StepTrackingScreen()),
-            Routes.search: (context) =>
-                const PaywallGate(child: FoodSearchPage()),
-            Routes.account: (context) =>
-                const PaywallGate(child: AccountDashboard()),
-            Routes.weightTracking: (context) =>
-                const PaywallGate(child: WeightTrackingScreen()),
-            Routes.macroTracking: (context) =>
-                const PaywallGate(child: MacroTrackingScreen()),
+            Routes.home: (context) => const Dashboard(),
+            Routes.dashboard: (context) => const Dashboard(),
+            Routes.goals: (context) => const StepTrackingScreen(),
+            Routes.search: (context) => const FoodSearchPage(),
+            Routes.account: (context) => const AccountDashboard(),
+            Routes.weightTracking: (context) => const WeightTrackingScreen(),
+            Routes.macroTracking: (context) => const MacroTrackingScreen(),
             // Routes.expenditure: (context) => const PaywallGate(
             //     child: ExpenditureScreen()), // Added expenditure route mapping
           },
@@ -666,5 +580,147 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
       );
     });
+  }
+}
+
+// Ensure AI services are initialized when first needed
+Future<void> ensureAIServicesInitialized() async {
+  if (_aiInitialized) return;
+
+  try {
+    MealPlanningService().initializeAI(ApiConfig.geminiApiKey);
+    WorkoutPlanningService().initializeAI(ApiConfig.geminiApiKey);
+    _aiInitialized = true;
+    debugPrint("[AI] AI services initialized on demand");
+  } catch (e) {
+    debugPrint("[AI] Error initializing AI services: $e");
+  }
+}
+
+// Setup Firebase Messaging service in background to avoid blocking startup
+void _setupFirebaseMessagingInBackground() {
+  Future.microtask(() async {
+    try {
+      debugPrint("[Firebase Messaging] Starting background initialization...");
+      await _setupFirebaseMessaging().timeout(
+        const Duration(seconds: 10), // 10 second timeout
+        onTimeout: () {
+          debugPrint(
+              "[Firebase Messaging] Initialization timeout - continuing without push notifications");
+          throw Exception('Firebase Messaging initialization timed out');
+        },
+      );
+      debugPrint(
+          "[Firebase Messaging] Background initialization completed successfully");
+    } catch (e) {
+      debugPrint(
+          "[Firebase Messaging] Background initialization failed: $e - push notifications disabled");
+      // Continue app execution even if Firebase Messaging fails
+    }
+  });
+}
+
+Future<void> _setupFirebaseMessaging() async {
+  try {
+    // Firebase Messaging setup
+    if (Platform.isIOS || Platform.isAndroid) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+
+      // Optional: Add other Firebase Messaging initialization here if needed
+      debugPrint('Firebase Messaging initialized successfully');
+    }
+  } catch (e) {
+    debugPrint('Firebase Messaging initialization error: $e');
+  }
+}
+
+// Initialize RevenueCat synchronously with timeout to ensure it's configured before providers
+Future<void> _initializePlatformState() async {
+  try {
+    await Purchases.setLogLevel(LogLevel.debug);
+
+    PurchasesConfiguration? configuration;
+    if (Platform.isAndroid) {
+      // Android Implementation
+    } else if (Platform.isIOS) {
+      configuration =
+          PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
+    }
+
+    if (configuration != null) {
+      await Purchases.configure(configuration);
+    }
+  } catch (e) {
+    debugPrint('Platform state initialization error: $e');
+  }
+}
+
+// Initialize subscription service in background to avoid blocking startup
+void _initializeSubscriptionServiceInBackground() {
+  Future.microtask(() async {
+    try {
+      debugPrint(
+          "[Subscription Service] Starting background initialization...");
+      await SubscriptionService().initialize();
+      debugPrint(
+          "[Subscription Service] Background initialization completed successfully");
+    } catch (e) {
+      debugPrint(
+          "[Subscription Service] Background initialization failed: $e - subscription service disabled");
+      // Continue app execution even if subscription service fails
+    }
+  });
+}
+
+// Initialize widget service in background to avoid blocking startup
+void _initializeWidgetServiceInBackground() {
+  Future.microtask(() async {
+    try {
+      debugPrint("[Widget Service] Starting background initialization...");
+      await WidgetService.initWidgetService();
+      debugPrint(
+          "[Widget Service] Background initialization completed successfully");
+    } catch (e) {
+      debugPrint(
+          "[Widget Service] Background initialization failed: $e - widget service disabled");
+      // Continue app execution even if widget service fails
+    }
+  });
+}
+
+// Initialize PostHog in background to avoid blocking startup
+void _initializePostHogInBackground() {
+  Future.microtask(() async {
+    try {
+      debugPrint("[PostHog] Starting background initialization...");
+      await PostHogService.initialize().timeout(
+        const Duration(seconds: 10), // 10 second timeout
+        onTimeout: () {
+          debugPrint(
+              "[PostHog] Initialization timeout - continuing without PostHog");
+          throw Exception('PostHog initialization timed out');
+        },
+      );
+      debugPrint("[PostHog] Background initialization completed successfully");
+    } catch (e) {
+      debugPrint(
+          "[PostHog] Background initialization failed: $e - analytics disabled");
+      // Continue app execution even if PostHog fails
+    }
+  });
+}
+
+// Delay widget refresh to avoid impacting startup time
+Future<void> _delayedWidgetRefresh() async {
+  // Delay widget refresh to avoid slowing startup
+  await Future.delayed(const Duration(seconds: 3));
+  try {
+    // Double-check that widget service is initialized
+    await WidgetService.initWidgetService();
+    await WidgetService.forceWidgetRefresh();
+  } catch (e) {
+    debugPrint('Delayed widget refresh failed: $e');
   }
 }

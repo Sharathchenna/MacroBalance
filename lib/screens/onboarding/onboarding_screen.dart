@@ -25,6 +25,14 @@ import 'pages/advanced_settings_page.dart';
 import 'pages/apple_health_page.dart'; // Import the new Apple Health page
 import 'pages/summary_page.dart';
 
+// Import new fitness onboarding pages
+import 'pages/fitness_level_page.dart';
+import 'pages/equipment_preferences_page.dart';
+import 'pages/workout_schedule_page.dart';
+
+// Import fitness profile model
+import '../../models/fitness_profile.dart';
+
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -36,9 +44,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  // Total pages is now 11, adding Apple Health page
+  // Total pages is now 14, adding 3 new fitness pages
   final int _totalPages =
-      11; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+Advanced(8)+AppleHealth(9)+Summary(10)
+      14; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+Fitness(8)+Equipment(9)+Schedule(10)+Advanced(11)+AppleHealth(12)+Summary(13)
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
@@ -58,6 +66,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   bool _showBodyFatInput = false;
   bool _isMetricWeight = true;
   bool _isMetricHeight = true;
+
+  // --- New Fitness State Variables ---
+  String _fitnessLevel = '';
+  int _yearsOfExperience = 0;
+  List<String> _previousExerciseTypes = [];
+  String _workoutLocation = '';
+  List<String> _availableEquipment = [];
+  bool _hasGymAccess = false;
+  String _workoutSpace = '';
+  int _workoutsPerWeek = 3;
+  int _maxWorkoutDuration = 30;
+  String _preferredTimeOfDay = '';
+  List<String> _preferredDays = [];
   // --- End State Variables ---
 
   @override
@@ -179,7 +200,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     // Skip SetNewGoalPage (index 7) if goal is Maintain
     if (currentPageIndex == 6 &&
         _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      nextPage = 8; // Skip to Advanced Settings (index 8)
+      nextPage = 8; // Skip to Fitness Level (index 8)
     }
 
     if (nextPage < _totalPages) {
@@ -195,7 +216,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     int currentPageIndex = _currentPage;
     int prevPage = currentPageIndex - 1;
 
-    // Skip SetNewGoalPage (index 7) if goal is Maintain when going back from Advanced (index 8)
+    // Skip SetNewGoalPage (index 7) if goal is Maintain when going back from Fitness Level (index 8)
     if (currentPageIndex == 8 &&
         _goal == MacroCalculatorService.GOAL_MAINTAIN) {
       prevPage = 6; // Go back to Goal Page (index 6)
@@ -216,7 +237,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (targetPage == 7 && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
       if (_currentPage < 7) {
         // Moving forward from a page before 7
-        targetPage = 8; // Skip forward to Advanced
+        targetPage = 8; // Skip forward to Fitness Level
         isSkippingForwardMaintain = true; // Mark this specific skip
       } else {
         // Moving backward from a page after 7
@@ -297,9 +318,36 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   Future<void> saveMacroResults(Map<String, dynamic> macroResults) async {
     try {
-      StorageService().put('macro_results', json.encode(macroResults));
+      // Create fitness profile from collected data
+      final fitnessProfile = FitnessProfile(
+        fitnessLevel: _fitnessLevel,
+        yearsOfExperience: _yearsOfExperience,
+        previousExerciseTypes: _previousExerciseTypes,
+        workoutLocation: _workoutLocation,
+        availableEquipment: _availableEquipment,
+        hasGymAccess: _hasGymAccess,
+        workoutSpace: _workoutSpace,
+        workoutsPerWeek: _workoutsPerWeek,
+        maxWorkoutDuration: _maxWorkoutDuration,
+        preferredTimeOfDay: _preferredTimeOfDay,
+        preferredDays: _preferredDays,
+        lastUpdated: DateTime.now(),
+      );
+
+      // Save locally with fitness data
+      final expandedResults = {
+        ...macroResults,
+        'fitness_profile': fitnessProfile.toJson(),
+      };
+      StorageService().put('macro_results', json.encode(expandedResults));
+
+      // Also save fitness profile separately for easy access
+      StorageService()
+          .put('fitness_profile', json.encode(fitnessProfile.toJson()));
+
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser != null) {
+        // Save macro data to user_macros table
         final Map<String, dynamic> supabaseData = {
           'id': currentUser.id,
           'email': currentUser.email ?? '',
@@ -337,10 +385,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         if (supabaseData['macro_targets'] != null)
           (supabaseData['macro_targets'] as Map<String, dynamic>)
               .removeWhere((_, v) => v is double && (v.isNaN || v.isInfinite));
+
         await Supabase.instance.client.from('user_macros').upsert(supabaseData);
-        debugPrint('Successfully saved macro results to Supabase');
+
+        // Save fitness profile data to fitness_profiles table
+        final Map<String, dynamic> fitnessData = {
+          'user_id': currentUser.id,
+          'fitness_level': _fitnessLevel,
+          'years_of_experience': _yearsOfExperience,
+          'previous_exercise_types': _previousExerciseTypes,
+          'workout_location': _workoutLocation,
+          'available_equipment': _availableEquipment,
+          'has_gym_access': _hasGymAccess,
+          'workout_space': _workoutSpace,
+          'workouts_per_week': _workoutsPerWeek,
+          'max_workout_duration': _maxWorkoutDuration,
+          'preferred_time_of_day': _preferredTimeOfDay,
+          'preferred_days': _preferredDays,
+          'updated_at': DateTime.now().toIso8601String(),
+          'last_updated': DateTime.now().toIso8601String(),
+        };
+
+        await Supabase.instance.client
+            .from('fitness_profiles')
+            .upsert(fitnessData, onConflict: 'user_id');
+
+        debugPrint(
+            'Successfully saved macro results and fitness profile to Supabase');
       }
-      _saveLocalGoals(macroResults);
+      _saveLocalGoals(expandedResults);
     } catch (e) {
       debugPrint('Error saving macro results: $e');
       if (e is PostgrestException) debugPrint('Supabase error: ${e.message}');
@@ -475,8 +548,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
-    // Hide the button on the Apple Health page (index 9)
-    if (_currentPage == 9) {
+    // Hide the button on the Apple Health page (index 12)
+    if (_currentPage == 12) {
       // Return an empty SizedBox to maintain layout spacing if needed,
       // or just an empty Container if no space is required.
       // Match the width of the back button for alignment.
@@ -576,8 +649,47 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         onWeightUnitChanged: (isMetric) =>
             setState(() => _isMetricWeight = isMetric),
       ),
+
+      // NEW FITNESS ONBOARDING PAGES (index 8, 9, 10)
+      FitnessLevelPage(
+        currentFitnessLevel: _fitnessLevel,
+        yearsOfExperience: _yearsOfExperience,
+        previousExerciseTypes: _previousExerciseTypes,
+        onFitnessLevelChanged: (level) => setState(() => _fitnessLevel = level),
+        onYearsOfExperienceChanged: (years) =>
+            setState(() => _yearsOfExperience = years),
+        onPreviousExerciseTypesChanged: (types) =>
+            setState(() => _previousExerciseTypes = types),
+      ),
+      EquipmentPreferencesPage(
+        workoutLocation: _workoutLocation,
+        availableEquipment: _availableEquipment,
+        hasGymAccess: _hasGymAccess,
+        workoutSpace: _workoutSpace,
+        onWorkoutLocationChanged: (location) =>
+            setState(() => _workoutLocation = location),
+        onAvailableEquipmentChanged: (equipment) =>
+            setState(() => _availableEquipment = equipment),
+        onGymAccessChanged: (hasAccess) =>
+            setState(() => _hasGymAccess = hasAccess),
+        onWorkoutSpaceChanged: (space) => setState(() => _workoutSpace = space),
+      ),
+      WorkoutSchedulePage(
+        workoutsPerWeek: _workoutsPerWeek,
+        maxWorkoutDuration: _maxWorkoutDuration,
+        preferredTimeOfDay: _preferredTimeOfDay,
+        preferredDays: _preferredDays,
+        onWorkoutsPerWeekChanged: (count) =>
+            setState(() => _workoutsPerWeek = count),
+        onMaxWorkoutDurationChanged: (duration) =>
+            setState(() => _maxWorkoutDuration = duration),
+        onPreferredTimeOfDayChanged: (time) =>
+            setState(() => _preferredTimeOfDay = time),
+        onPreferredDaysChanged: (days) => setState(() => _preferredDays = days),
+      ),
+
       AdvancedSettingsPage(
-        // Now at index 8
+        // Now at index 11
         isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
         bodyFatPercentage: _bodyFatPercentage,
         proteinRatio: _proteinRatio, fatRatio: _fatRatio,
@@ -589,13 +701,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         onProteinRatioChanged: (ratio) => setState(() => _proteinRatio = ratio),
         onFatRatioChanged: (ratio) => setState(() => _fatRatio = ratio),
       ),
-      // Add Apple Health integration page (index 9)
+      // Add Apple Health integration page (index 12)
       AppleHealthPage(
         onNext: _nextPage,
         onSkip: _nextPage,
       ),
       SummaryPage(
-        // Now at index 10
+        // Now at index 13
         gender: _gender, weightKg: _weightKg, heightCm: _heightCm,
         age: _age,
         activityLevel: _activityLevel, goal: _goal,

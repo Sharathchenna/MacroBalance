@@ -92,6 +92,7 @@
 		B88697D12D8DB66900A0732A /* Exceptions for "Runner" folder in "Runner" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"GoogleService-Info.plist",
 				Info.plist,
 			);
 			target = 97C146ED1CF9000F007C117D /* Runner */;

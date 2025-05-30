@@ -9,7 +9,7 @@ import 'package:macrotracker/widgets/nutrient_row.dart';
 import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'searchPage.dart'; // This has the FoodItem class we need
 import 'package:provider/provider.dart';
-import '../providers/foodEntryProvider.dart';
+import '../providers/food_entry_provider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/cupertino.dart';

@@ -8,6 +8,7 @@ class PostHogService {
       'https://us.i.posthog.com'; // Use the US ingestion endpoint
 
   static final _instance = Posthog();
+  static bool _isInitialized = false;
 
   static Future<void> initialize() async {
     debugPrint("[PostHogService] Starting initialization...");
@@ -23,6 +24,10 @@ class PostHogService {
       debugPrint("[PostHogService] Calling Posthog().setup()...");
       await _instance.setup(config);
       debugPrint("[PostHogService] Posthog().setup() completed.");
+
+      // Mark as initialized before any network calls
+      _isInitialized = true;
+
       // Add extra logging post-setup
       debugPrint("[PostHogService] Configured Host: ${_instance.config?.host}");
       debugPrint(
@@ -34,13 +39,27 @@ class PostHogService {
     } catch (e, stackTrace) {
       debugPrint("[PostHogService] ERROR during Posthog().setup(): $e");
       debugPrint("[PostHogService] StackTrace: $stackTrace");
-      // Optionally rethrow or handle the error appropriately
+      // Don't rethrow - let the app continue without PostHog
     }
     debugPrint("[PostHogService] Initialization finished.");
   }
 
+  // Helper method to check if PostHog is ready
+  static bool get isInitialized => _isInitialized;
+
+  // Helper method for safe PostHog operations
+  static bool _isReady() {
+    if (!_isInitialized) {
+      debugPrint(
+          "[PostHogService] Service not initialized yet - skipping operation");
+      return false;
+    }
+    return true;
+  }
+
   // Enable/disable session replay
   static void setSessionReplayEnabled(bool enabled) {
+    if (!_isReady()) return;
     _instance.capture(
       eventName: 'session_replay_toggle',
       properties: {
@@ -60,7 +79,9 @@ class PostHogService {
 
   // Track custom events
   static void trackEvent(String eventName, {Map<String, dynamic>? properties}) {
-    debugPrint("[PostHogService] Capturing event: $eventName with properties: $properties"); // Added log
+    if (!_isReady()) return;
+    debugPrint(
+        "[PostHogService] Capturing event: $eventName with properties: $properties"); // Added log
     _instance.capture(
       eventName: eventName,
       properties:
@@ -74,7 +95,9 @@ class PostHogService {
     Map<String, dynamic>? userProperties,
     Map<String, dynamic>? userPropertiesSetOnce,
   }) {
-    debugPrint("[PostHogService] Identifying user: $userId with properties: $userProperties"); // Added log
+    if (!_isReady()) return;
+    debugPrint(
+        "[PostHogService] Identifying user: $userId with properties: $userProperties"); // Added log
     _instance.identify(
       userId: userId,
       userProperties:
@@ -86,6 +109,7 @@ class PostHogService {
 
   // Set user properties
   static void setUserProperties(Map<String, dynamic> properties) {
+    if (!_isReady()) return;
     _instance.capture(
       eventName: '\$set',
       properties:
@@ -95,15 +119,18 @@ class PostHogService {
 
   // Reset user identification
   static void resetUser() {
+    if (!_isReady()) return;
     debugPrint("[PostHogService] Resetting user identification."); // Added log
     _instance.reset();
   }
 
   // Track screen views
   static void trackScreen(String screenName) {
+    if (!_isReady()) return;
     debugPrint("[PostHogService] Tracking screen: $screenName");
     _instance.screen(screenName: screenName);
-    debugPrint("[PostHogService] Screen tracked. Forcing event flush."); // Slightly modified log
+    debugPrint(
+        "[PostHogService] Screen tracked. Forcing event flush."); // Slightly modified log
     _instance.flush(); // Force send events immediately
   }
 

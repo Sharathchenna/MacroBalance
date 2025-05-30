@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:macrotracker/theme/app_theme.dart';

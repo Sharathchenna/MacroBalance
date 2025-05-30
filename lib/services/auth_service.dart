@@ -1,5 +1,5 @@
 import 'package:macrotracker/main.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';

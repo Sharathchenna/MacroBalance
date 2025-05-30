@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:macrotracker/models/ai_food_item.dart';
-import 'package:macrotracker/screens/foodDetail.dart';
-import 'package:macrotracker/widgets/quantity_selector.dart';
-import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'package:provider/provider.dart';
-import 'package:macrotracker/providers/dateProvider.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
-import 'package:macrotracker/models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/models/ai_food_item.dart';
+import 'package:macrotracker/models/foodEntry.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
+import 'package:macrotracker/screens/searchPage.dart';
+import 'package:macrotracker/screens/foodDetail.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'dart:math';
+import 'package:macrotracker/widgets/quantity_selector.dart';
+import 'package:macrotracker/widgets/food_detail_components.dart';
+import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'dart:ui';
 

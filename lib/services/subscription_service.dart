@@ -32,6 +32,9 @@ class SubscriptionService {
   // Initialize the service and set up listeners
   Future<void> initialize() async {
     try {
+      // First check if RevenueCat is configured by testing a simple call
+      await Purchases.getCustomerInfo();
+
       // Set up listener for customer info updates
       Purchases.addCustomerInfoUpdateListener((customerInfo) {
         _processCustomerInfo(customerInfo);
@@ -42,6 +45,8 @@ class SubscriptionService {
       _processCustomerInfo(customerInfo);
     } catch (e) {
       debugPrint('Error initializing subscription service: $e');
+      debugPrint(
+          'RevenueCat may not be configured yet. Will retry when needed.');
       _updateStatus(SubscriptionStatus.free);
     }
   }
@@ -86,6 +91,7 @@ class SubscriptionService {
       _processCustomerInfo(customerInfo);
     } catch (e) {
       debugPrint('Error refreshing purchaser info: $e');
+      // If RevenueCat isn't configured, maintain current status
     }
   }
 
@@ -97,7 +103,8 @@ class SubscriptionService {
       return hasPremiumAccess();
     } catch (e) {
       debugPrint('Error restoring purchases: $e');
-      return false;
+      // Return current status if restore fails
+      return hasPremiumAccess();
     }
   }
 

@@ -5,7 +5,11 @@ import 'package:home_widget/home_widget.dart';
 import 'package:macrotracker/main.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:macrotracker/models/foodEntry.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../screens/Dashboard.dart';
+import '../main.dart';
 
 // Constants for app group and widget kinds
 const String APP_GROUP = 'group.app.macrobalance.com';
@@ -158,7 +162,8 @@ class WidgetService {
         for (final key in keysToRefresh) {
           // Use StorageService().get - it returns dynamic, cast if needed or handle null
           final dynamic value = StorageService().get(key);
-          if (value != null && value is String) { // Ensure it's a non-null string
+          if (value != null && value is String) {
+            // Ensure it's a non-null string
             currentData[key] = value;
           }
         }

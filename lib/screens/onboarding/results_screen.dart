@@ -11,9 +11,10 @@ import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
-import 'package:macrotracker/auth/paywall_gate.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart'; // Add this import
-import 'package:macrotracker/providers/foodEntryProvider.dart'; // Import FoodEntryProvider
+import 'package:macrotracker/providers/food_entry_provider.dart';
+import 'package:macrotracker/models/nutrition_goals.dart'; // Import NutritionGoals
+import 'package:macrotracker/services/macro_calculator_service.dart';
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -75,6 +76,75 @@ class _ResultsScreenState extends State<ResultsScreen>
     );
   }
 
+  Future<void> _initializeFoodEntryProvider() async {
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+
+    // Initialize the provider and load goals
+    await foodEntryProvider.initialize();
+
+    // Load entries from Supabase in background (this is optional)
+    foodEntryProvider.loadEntriesFromSupabase();
+  }
+
+  Future<void> _proceedToDashboard() async {
+    try {
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
+
+      // Initialize the provider
+      await foodEntryProvider.initialize();
+
+      // Load entries from Supabase in background
+      foodEntryProvider.loadEntriesFromSupabase();
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const Dashboard()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error proceeding to dashboard: $e');
+      if (mounted) {
+        // Still proceed even if there's an error
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const Dashboard()),
+          (route) => false,
+        );
+      }
+    }
+  }
+
+  Future<void> _updateNutritionGoals(Map<String, dynamic> macroResults) async {
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+
+    await foodEntryProvider.initialize();
+
+    // Create NutritionGoals object and update
+    final nutritionGoals = NutritionGoals(
+      calories: macroResults['calories']?.toDouble() ?? 2000.0,
+      protein: macroResults['protein']?.toDouble() ?? 150.0,
+      carbs: macroResults['carbs']?.toDouble() ?? 225.0,
+      fat: macroResults['fat']?.toDouble() ?? 65.0,
+      steps: macroResults['recommended_steps'] ?? 10000,
+      bmr: macroResults['bmr']?.toDouble() ?? 1500.0,
+      tdee: macroResults['tdee']?.toDouble() ?? 2000.0,
+      goalWeightKg: macroResults['goal_weight_kg']?.toDouble() ?? 70.0,
+      currentWeightKg: macroResults['current_weight_kg']?.toDouble() ?? 70.0,
+      goalType: macroResults['goal_type'] ?? 'maintain',
+      deficitSurplus: macroResults['deficit_surplus'] ?? 0,
+    );
+
+    await foodEntryProvider.updateNutritionGoals(nutritionGoals);
+
+    // Load entries from Supabase in background
+    foodEntryProvider.loadEntriesFromSupabase();
+  }
+
   void _showPaywallAndProceed() {
     HapticFeedback.mediumImpact();
 
@@ -88,22 +158,16 @@ class _ResultsScreenState extends State<ResultsScreen>
 
     // Force reload nutrition goals to ensure latest data from onboarding
     // is reflected in the Dashboard
-    foodEntryProvider.loadNutritionGoals().then((_) {
+    foodEntryProvider.initialize().then((_) {
       debugPrint(
-          'Refreshed nutrition goals in FoodEntryProvider: Calories=${foodEntryProvider.caloriesGoal}, Protein=${foodEntryProvider.proteinGoal}');
+          'Initialized FoodEntryProvider: Calories=${foodEntryProvider.caloriesGoal}, Protein=${foodEntryProvider.proteinGoal}');
 
-      // Explicitly sync nutrition goals to Supabase after loading
-      // Use a private method via reflection to access _syncNutritionGoalsToSupabase
+      // Load entries from Supabase in background
       try {
-        // Access the private method using reflection
-        final syncGoalsMethod = foodEntryProvider.syncAllDataWithSupabase();
-        debugPrint(
-            'Explicitly syncing nutrition goals to Supabase after onboarding');
-        syncGoalsMethod.then((_) {
-          debugPrint('Completed explicit sync of nutrition goals to Supabase');
-        });
+        foodEntryProvider.loadEntriesFromSupabase();
+        debugPrint('Loading entries from Supabase in background');
       } catch (e) {
-        debugPrint('Error syncing nutrition goals to Supabase: $e');
+        debugPrint('Error loading entries from Supabase: $e');
       }
 
       // Now check subscription status
@@ -118,117 +182,11 @@ class _ResultsScreenState extends State<ResultsScreen>
             );
           }
         } else {
-          // Not a Pro user - show paywall
+          // Navigate to dashboard directly (paywall disabled)
           if (mounted) {
-            Navigator.of(context).push(
+            Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                fullscreenDialog: true,
-                builder: (context) => CustomPaywallScreen(
-                  onDismiss: () async {
-                    // Use our subscription provider to check subscription status
-                    final subscriptionProvider =
-                        Provider.of<SubscriptionProvider>(context,
-                            listen: false);
-                    await subscriptionProvider.refreshSubscriptionStatus();
-
-                    // Always refresh the goals again before navigating
-                    final foodEntryProvider =
-                        Provider.of<FoodEntryProvider>(context, listen: false);
-                    await foodEntryProvider.loadNutritionGoals();
-
-                    // Explicitly sync nutrition goals to Supabase
-                    try {
-                      debugPrint(
-                          'Explicitly syncing nutrition goals to Supabase after paywall dismissal');
-                      await foodEntryProvider.syncAllDataWithSupabase();
-                      debugPrint(
-                          'Completed explicit sync of nutrition goals to Supabase');
-                    } catch (e) {
-                      debugPrint(
-                          'Error syncing nutrition goals to Supabase: $e');
-                    }
-
-                    if (subscriptionProvider.isProUser) {
-                      // Pro user - proceed to dashboard
-                      if (mounted) {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            // Wrap Dashboard with PaywallGate for extra security
-                            builder: (context) => const PaywallGate(
-                              child: Dashboard(),
-                            ),
-                          ),
-                        );
-                      }
-                    } else {
-                      // Free user - hard paywall, show them the paywall again with explicit message
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'A subscription is required to use this app'),
-                            duration: Duration(seconds: 3),
-                            behavior: SnackBarBehavior.fixed,
-                          ),
-                        );
-
-                        // Show the paywall again, but this time with harder enforcement
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            fullscreenDialog: true,
-                            builder: (context) => CustomPaywallScreen(
-                              allowDismissal:
-                                  false, // Don't allow dismissal without subscribing
-                              onDismiss: () async {
-                                // This will only be called if they subscribe
-                                final subscriptionProvider =
-                                    Provider.of<SubscriptionProvider>(context,
-                                        listen: false);
-                                await subscriptionProvider
-                                    .refreshSubscriptionStatus();
-
-                                // Always refresh the goals again before navigating
-                                final foodEntryProvider =
-                                    Provider.of<FoodEntryProvider>(context,
-                                        listen: false);
-                                await foodEntryProvider.loadNutritionGoals();
-
-                                // Explicitly sync nutrition goals to Supabase
-                                try {
-                                  debugPrint(
-                                      'Explicitly syncing nutrition goals to Supabase after hard paywall dismissal');
-                                  await foodEntryProvider
-                                      .syncAllDataWithSupabase();
-                                  debugPrint(
-                                      'Completed explicit sync of nutrition goals to Supabase');
-                                } catch (e) {
-                                  debugPrint(
-                                      'Error syncing nutrition goals to Supabase: $e');
-                                }
-
-                                if (mounted && subscriptionProvider.isProUser) {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (context) => const Dashboard(),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  // When back button is pressed on paywall shown from results, just pop back to results
-                  onBackPressedOverride: () {
-                    if (mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  // Start with a soft paywall to give users a chance to subscribe willingly
-                  allowDismissal: true,
-                ),
+                builder: (context) => const Dashboard(),
               ),
             );
           }

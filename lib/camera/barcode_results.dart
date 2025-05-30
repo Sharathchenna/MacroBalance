@@ -11,7 +11,7 @@ import 'package:macrotracker/widgets/macro_progress_ring.dart';
 import '../theme/app_theme.dart';
 import '../theme/typography.dart';
 import 'package:provider/provider.dart';
-import '../providers/foodEntryProvider.dart';
+import '../providers/food_entry_provider.dart';
 import '../providers/dateProvider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';

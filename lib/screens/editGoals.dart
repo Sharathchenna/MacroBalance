@@ -4,7 +4,8 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
+import 'package:macrotracker/models/nutrition_goals.dart'; // Import NutritionGoals
 import 'dart:ui';
 import 'package:macrotracker/Health/Health.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -83,7 +84,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           Provider.of<FoodEntryProvider>(context, listen: false);
 
       // Wait for provider to initialize if needed
-      await foodEntryProvider.ensureInitialized();
+      await foodEntryProvider.initialize();
 
       setState(() {
         calorieGoal = foodEntryProvider.caloriesGoal.round();
@@ -103,16 +104,14 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     if (resultsString != null && resultsString.isNotEmpty) {
       final Map<String, dynamic> results = jsonDecode(resultsString);
       if (mounted) {
-        setState(() {
-          // If any values are still default, try to get from macro_results
-          if (stepsGoal == 9000) {
-            stepsGoal = results['recommended_steps'] ?? stepsGoal;
-          }
-          // Load BMR from macro_results if not loaded from provider
-          // if (bmr == 1500) {
-          //   bmr = results['bmr'] ?? bmr;
-          // }
-        });
+        // If any values are still default, try to get from macro_results
+        if (stepsGoal == 9000) {
+          stepsGoal = results['recommended_steps'] ?? stepsGoal;
+        }
+        // Load BMR from macro_results if not loaded from provider
+        // if (bmr == 1500) {
+        //   bmr = results['bmr'] ?? bmr;
+        // }
       }
     }
 
@@ -235,10 +234,10 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           Provider.of<FoodEntryProvider>(context, listen: false);
 
       // Ensure provider is initialized
-      await foodEntryProvider.ensureInitialized();
+      await foodEntryProvider.initialize();
 
-      // Update goals in provider (this triggers save to storage and Supabase sync)
-      await foodEntryProvider.updateNutritionGoals(
+      // Create NutritionGoals object and update
+      final nutritionGoals = NutritionGoals(
         calories: calorieGoal.toDouble(),
         protein: proteinGoal.toDouble(),
         carbs: carbGoal.toDouble(),
@@ -246,7 +245,14 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         steps: stepsGoal,
         bmr: bmr.toDouble(),
         tdee: foodEntryProvider.tdee, // Keep existing TDEE
+        goalWeightKg: foodEntryProvider.nutritionGoals.goalWeightKg,
+        currentWeightKg: foodEntryProvider.nutritionGoals.currentWeightKg,
+        goalType: foodEntryProvider.nutritionGoals.goalType,
+        deficitSurplus: foodEntryProvider.nutritionGoals.deficitSurplus,
       );
+
+      // Update goals in provider (this triggers save to storage and Supabase sync)
+      await foodEntryProvider.updateNutritionGoals(nutritionGoals);
 
       // Log diagnostic info
       debugPrint(
@@ -266,7 +272,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       StorageService().put('macro_results', jsonEncode(results));
 
       // Also save to nutrition_goals for more structured data
-      final Map<String, dynamic> nutritionGoals = {
+      final Map<String, dynamic> nutritionGoalsMap = {
         'calories': calorieGoal,
         'protein': proteinGoal,
         'carbs': carbGoal,
@@ -274,7 +280,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'steps': stepsGoal,
         'bmr': bmr,
       };
-      StorageService().put('nutrition_goals', jsonEncode(nutritionGoals));
+      StorageService().put('nutrition_goals', jsonEncode(nutritionGoalsMap));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

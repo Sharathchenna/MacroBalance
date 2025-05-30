@@ -44,7 +44,8 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
   void _loadConnectionStatus() {
     // Assuming StorageService is initialized
     setState(() {
-      _isHealthConnected = StorageService().get('healthConnected', defaultValue: false);
+      _isHealthConnected =
+          StorageService().get('healthConnected', defaultValue: false);
       _healthDataStatus = _isHealthConnected
           ? "Connected to Health App"
           : "Not connected to Health App";
@@ -75,7 +76,8 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
             ? "Successfully connected to Health App"
             : "Permission denied for Health App";
       });
-      _saveConnectionStatus(_isHealthConnected); // Save the status (now synchronous)
+      _saveConnectionStatus(
+          _isHealthConnected); // Save the status (now synchronous)
 
       if (granted) {
         await _fetchHealthData();
@@ -538,7 +540,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colorScheme.primary,
-                foregroundColor: Colors.white,
+                // foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -561,7 +563,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colorScheme.primary,
-                foregroundColor: Colors.white,
+                // foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

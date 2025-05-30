@@ -6,7 +6,7 @@ import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -140,7 +140,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         }
 
         // 4. Clear local data using StorageService
-        await StorageService().clearAllPreferences(); // Clear Hive data
+        await StorageService().clearAll(); // Clear Hive data
 
         // Clear local provider data (now synchronous)
         final foodEntryProvider =

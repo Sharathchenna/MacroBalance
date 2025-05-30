@@ -12,7 +12,7 @@ import 'package:macrotracker/camera/barcode_results.dart' hide Serving;
 import 'package:macrotracker/camera/results_page.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
@@ -30,6 +30,7 @@ import '../AI/gemini.dart';
 import '../Health/Health.dart';
 import '../services/camera_service.dart'; // Import CameraService
 import '../services/storage_service.dart'; // Import StorageService
+import '../services/nutrition_calculator_service.dart'; // Import NutritionCalculatorService
 import 'debug_screens.dart';
 
 // Define the expected result structure at the top level
@@ -759,7 +760,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           }
         }
       };
-      _storageService.listenForChanges(_storageListener!);
+      final box = Hive.box('user_preferences');
+      box.listenable().addListener(_storageListener!);
     });
   }
 
@@ -769,11 +771,9 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     // Remove the listener when the widget is disposed
     if (_storageListener != null) {
       // Access the Hive box directly to remove the listener
-      // This is a workaround as StorageService doesn't expose removeListener
       try {
-        Hive.box('user_preferences')
-            .listenable()
-            .removeListener(_storageListener!);
+        final box = Hive.box('user_preferences');
+        box.listenable().removeListener(_storageListener!);
         print("Storage listener removed.");
       } catch (e) {
         print("Error removing storage listener: $e");
@@ -1104,8 +1104,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   Widget build(BuildContext context) {
     // Use FutureBuilder to ensure provider is initialized before building UI
     return FutureBuilder(
-      future: Provider.of<FoodEntryProvider>(context, listen: false)
-          .ensureInitialized(),
+      future:
+          Provider.of<FoodEntryProvider>(context, listen: false).initialize(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           // Show a loading indicator while the provider initializes
@@ -1137,7 +1137,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
               // Get nutrient totals using the new centralized method
               final nutrientTotals = foodEntryProvider
-                  .getNutrientTotalsForDate(dateProvider.selectedDate);
+                  .getNutritionTotalsForDate(dateProvider.selectedDate);
               final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
               // --- Dashboard Debug Log ---
               print(
@@ -1149,7 +1149,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
               // Calculate remaining calories (updated logic)
               // Handle potential division by zero if caloriesGoal is 0
-              final int caloriesRemaining = caloriesGoal > 0
+              final num caloriesRemaining = caloriesGoal > 0
                   ? caloriesGoal - caloriesFromFood.toInt()
                   : 0;
               double progress =
@@ -1458,12 +1458,13 @@ class _MealSectionState extends State<MealSection> {
         final entries = foodEntryProvider.getEntriesForMeal(
             dateProvider.selectedDate, mealType);
 
-        // *** FIX: Use the provider's calculation method ***
+        // *** FIX: Use the nutrition calculator service method ***
         double totalCalories = entries.fold(
             0.0,
             (sum, entry) =>
                 sum +
-                foodEntryProvider.calculateNutrientForEntry(entry, 'calories'));
+                NutritionCalculatorService.calculateNutrientForEntry(
+                    entry, 'calories'));
 
         // --- Dashboard Debug Log ---
         print(
@@ -1649,8 +1650,7 @@ class _MealSectionState extends State<MealSection> {
                                   curve: Curves.easeOutCubic,
                                   child: Column(
                                     children: [
-                                      _buildFoodItem(context, entries[i],
-                                          foodEntryProvider),
+                                      _buildFoodItem(context, entries[i]),
                                       if (i < entries.length - 1)
                                         const Padding(
                                           // Added const
@@ -1756,15 +1756,15 @@ Color _getMealColor(String mealType) {
 }
 
 // Helper method for food items
-Widget _buildFoodItem(
-    BuildContext context, dynamic entry, FoodEntryProvider provider) {
+Widget _buildFoodItem(BuildContext context, dynamic entry) {
   // Use the centralized calculation method from FoodEntryProvider
   // *** ADDED LOGGING ***
   debugPrint(
       "[Dashboard BuildFoodItem] Processing entry: ID=${entry.id}, Name=${entry.food.name}, Quantity=${entry.quantity}, Unit=${entry.unit}, ServingDesc=${entry.servingDescription}, Brand=${entry.food.brandName}");
   // *** END LOGGING ***
 
-  final double calories = provider.calculateNutrientForEntry(entry, 'calories');
+  final double calories =
+      NutritionCalculatorService.calculateNutrientForEntry(entry, 'calories');
 
   // Determine the display unit based on the entry type
   String displayUnit;
@@ -1789,7 +1789,10 @@ Widget _buildFoodItem(
       ),
       direction: DismissDirection.endToStart,
       onDismissed: (direction) {
-        provider.removeEntry(entry.id);
+        // Remove the entry from the provider
+        final foodEntryProvider =
+            Provider.of<FoodEntryProvider>(context, listen: false);
+        foodEntryProvider.removeEntry(entry.id);
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1865,7 +1868,10 @@ Widget _buildFoodItem(
                   ? Colors.red.shade400
                   : Colors.red.shade300,
               onPressed: () {
-                provider.removeEntry(entry.id);
+                // Remove the entry from the provider
+                final foodEntryProvider =
+                    Provider.of<FoodEntryProvider>(context, listen: false);
+                foodEntryProvider.removeEntry(entry.id);
               },
               padding: const EdgeInsets.all(8),
               constraints: const BoxConstraints(),

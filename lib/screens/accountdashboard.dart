@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/main.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
+import 'package:macrotracker/providers/food_entry_provider.dart';
+import 'package:macrotracker/models/nutrition_goals.dart'; // Import NutritionGoals
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Add this import
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
@@ -414,11 +415,25 @@ class _AccountDashboardState extends State<AccountDashboard>
                         // For now, let's just call notifyListeners as the provider state *should*
                         // already be updated by the EditGoalsScreen save.
                         // Explicitly reload goals from storage to update the provider's state
-                        await Provider.of<FoodEntryProvider>(context,
-                                listen: false)
-                            .loadNutritionGoals();
-                        debugPrint(
-                            "FoodEntryProvider goals reloaded after EditGoalsScreen.");
+                        final provider = Provider.of<FoodEntryProvider>(context,
+                            listen: false);
+
+                        // Create NutritionGoals object with default values
+                        final defaultGoals = NutritionGoals(
+                          calories: 2000.0,
+                          protein: 150.0,
+                          carbs: 225.0,
+                          fat: 65.0,
+                          steps: 10000,
+                          bmr: 1500.0,
+                          tdee: 2000.0,
+                          goalWeightKg: 70.0, // Default goal weight
+                          currentWeightKg: 70.0, // Default current weight
+                          goalType: 'maintain', // Default goal type
+                          deficitSurplus: 0, // Default deficit/surplus (int)
+                        );
+
+                        await provider.updateNutritionGoals(defaultGoals);
                       }
                     },
                     colorScheme: colorScheme,
@@ -1572,7 +1587,24 @@ class _AccountDashboardState extends State<AccountDashboard>
 
       // Reset provider data and goals locally first - this sets defaults
       foodEntryProvider.clearEntries(); // Clear food logs
-      foodEntryProvider.resetGoalsToDefault(); // Reset goals in provider state
+      await foodEntryProvider.initialize();
+
+      // Since resetGoalsToDefault doesn't exist, use the updateNutritionGoals with default values
+      final defaultGoals = NutritionGoals(
+        calories: 2000.0,
+        protein: 150.0,
+        carbs: 225.0,
+        fat: 65.0,
+        steps: 10000,
+        bmr: 1500.0,
+        tdee: 2000.0,
+        goalWeightKg: 70.0, // Default goal weight
+        currentWeightKg: 70.0, // Default current weight
+        goalType: 'maintain', // Default goal type
+        deficitSurplus: 0, // Default deficit/surplus (int)
+      );
+
+      await foodEntryProvider.updateNutritionGoals(defaultGoals);
 
       // Now sync the default values to Supabase
       final currentUser = _supabase.auth.currentUser;

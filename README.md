@@ -1,112 +1,160 @@
-# MacroBalance - Macro Tracking App
+# MacroBalance - Advanced Nutrition & Fitness Tracking
 
-A modern, feature-rich macro and nutrition tracking application built with Flutter.
+## Latest Updates
+
+### Workout Execution Screen Improvements ✨
+
+The workout execution screen has been completely redesigned with premium UX features and consistent design system integration:
+
+#### 🎨 Design System Integration
+- **Premium Colors**: Consistent use of the app's color palette (PremiumColors.slate900, emerald500, etc.)
+- **Typography**: Proper use of PremiumTypography system for all text elements
+- **Animations**: Smooth transitions using PremiumAnimations timing and curves
+- **Shadows & Elevation**: Consistent with AppTheme shadow system
+
+#### 🚀 UX Enhancements Implemented
+
+1. **Enhanced Progress Visualization**
+   - Dual progress bars: overall workout progress + current exercise set progress
+   - Real-time visual feedback with smooth animations
+   - Set completion tracking with emerald progress indicators
+
+2. **Advanced Haptic Feedback System**
+   - Light impact for navigation and minor actions
+   - Medium impact for set completions and transitions
+   - Heavy impact for exercise completion and workout finish
+   - Countdown alerts with haptic cues (10s warning, 3s final countdown)
+   - Celebration double-haptic on workout completion
+
+3. **Rest Period Customization**
+   - +15s / -15s adjustment buttons during rest
+   - Visual feedback for time modifications
+   - Smooth animations for rest circle progress
+
+4. **Exercise Instructions Toggle**
+   - Optional exercise instructions display
+   - Clean, readable instructions in overlay format
+   - Toggleable via info button in app bar
+
+5. **Swipe Gesture Controls**
+   - Swipe right to complete sets (velocity-based detection)
+   - Visual hint showing swipe gesture availability
+   - Immediate haptic feedback on gesture completion
+
+6. **Enhanced Rest Screen**
+   - Animated rest circle with countdown
+   - Color-coded urgency (amber → red for final countdown)
+   - "Get Ready" alerts for final 3 seconds
+   - Next exercise preview during rest periods
+
+7. **Improved Visual Hierarchy**
+   - Better contrast and readability
+   - Consistent spacing and padding
+   - Premium card designs with proper elevation
+   - Clean, modern button designs
+
+8. **Smart Pause States**
+   - Clear visual indicators when paused
+   - Proper timer state management
+   - Consistent pause/play controls
+
+#### 🔮 Additional UX Suggestions for Future Implementation
+
+1. **Audio & Voice Features**
+   - Optional voice coaching and countdown announcements
+   - Audio cues for rest periods and exercise transitions
+   - Background music integration with auto-ducking
+
+2. **Smart Watch Integration**
+   - Apple Watch/WearOS companion app
+   - Heart rate monitoring integration
+   - Haptic feedback on watch for hands-free operation
+
+3. **Advanced Analytics**
+   - Real-time calorie burn estimation
+   - Form analysis using device sensors
+   - Recovery time recommendations based on performance
+
+4. **Social & Gamification**
+   - Workout sharing with friends
+   - Achievement badges and milestones
+   - Leaderboards and challenges
+
+5. **Accessibility Enhancements**
+   - VoiceOver support for visually impaired users
+   - Larger touch targets option
+   - High contrast mode support
+   - Voice command integration
+
+6. **Smart Adaptations**
+   - Auto-adjust rest times based on performance
+   - Smart exercise substitutions based on available equipment
+   - Fatigue detection and workout modifications
+
+7. **Environmental Awareness**
+   - Auto-pause when phone is face down
+   - Ambient light sensor integration for UI brightness
+   - Noise level detection for audio cue adjustments
+
+8. **Recovery & Health Integration**
+   - Sleep quality integration affecting workout intensity
+   - Stress level monitoring integration
+   - Recovery recommendations between workouts
+
+9. **Advanced Customization**
+   - Custom rest period templates per exercise type
+   - Personalized motivation messages
+   - Custom haptic feedback patterns
+
+10. **Offline & Sync Features**
+    - Complete offline workout capability
+    - Cloud sync with conflict resolution
+    - Backup and restore workout data
+
+The current implementation focuses on the most impactful improvements that enhance the core workout experience while maintaining the app's premium design language.
 
 ## Features
 
-- 📊 Track daily macronutrients (proteins, carbs, fats)
-- 📱 Cross-platform support (iOS, Android, macOS)
-- 📸 AI-powered food recognition
-- 🔄 Health app integration
-- 🎯 Custom goal setting
-- 📈 Progress tracking
-- 🌙 Light/Dark theme support
-- 🔐 Secure authentication
-- ☁️ Cloud data sync
+- **Calorie Tracking**: Monitor daily caloric intake with precision
+- **Macro Balance**: Track proteins, carbohydrates, and fats
+- **Meal Planning**: AI-powered meal suggestions
+- **Recipe Management**: Custom recipes with nutritional analysis
+- **Workout Planning**: Comprehensive exercise routines
+- **Progress Analytics**: Detailed insights and trends
+- **Premium UI**: Modern, accessible design system
 
 ## Getting Started
 
 ### Prerequisites
-
-- Flutter (latest version)
-- Dart SDK
-- Xcode (for iOS/macOS development)
-- Android Studio (for Android development)
-- An Apple Developer account (for iOS/macOS deployment)
+- Flutter 3.0+
+- Dart 3.0+
+- iOS 12.0+ / Android API 21+
 
 ### Installation
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/macrotracker.git
-cd macrotracker
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/yourusername/macrobalance.git
+cd macrobalance
 flutter pub get
-```
-
-3. Run the app:
-```bash
 flutter run
 ```
 
-### Configuration
+## Architecture
 
-To use all features of the app, you'll need to set up:
-- Supabase for backend services
-- Google Sign-In credentials
-- Apple Sign-In configuration
-- PostHog for analytics
-
-## Project Structure
-
-```
-lib/
-├── AI/          # AI-related functionality
-├── auth/        # Authentication logic
-├── camera/      # Camera and image processing
-├── Health/      # Health app integration
-├── models/      # Data models
-├── providers/   # State management
-├── screens/     # UI screens
-├── services/    # Backend services
-├── theme/       # App theming
-├── utils/       # Utility functions
-└── widgets/     # Reusable widgets
-```
-
-## Development
-
-This project follows Flutter best practices and uses:
-- Provider for state management
-- Supabase for backend services
-- PostHog for analytics
-- Google's Gemini AI for food recognition
-- Custom UI components for a consistent experience
-
-## Building for Production
-
-### iOS
-```bash
-flutter build ios --release
-```
-
-### Android
-```bash
-flutter build apk --release
-```
-
-### macOS
-```bash
-flutter build macos --release
-```
+The app follows a clean architecture pattern with:
+- **Models**: Data structures and business logic
+- **Services**: API integrations and data processing
+- **Providers**: State management using Provider pattern
+- **Widgets**: Reusable UI components
+- **Screens**: App pages and navigation
+- **Theme**: Consistent design system
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Flutter team for the amazing framework
-- Supabase for backend services
-- PostHog for analytics
-- All contributors and users of the app
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 # MacroTracker RevenueCat Hard Paywall Implementation
 

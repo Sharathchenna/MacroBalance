@@ -1,14 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Needed for migration
 import '../models/user_preferences.dart'; // Import UserPreferences model
+import 'dart:async';
 
 class StorageService {
   static const String _preferencesBoxName = 'user_preferences';
   static const String _migrationFlagKey = 'prefs_migrated_to_hive_v1';
 
   late Box _preferencesBox;
+
+  // Performance optimizations
+  static const int _maxCacheSize = 100;
+  final Map<String, dynamic> _memoryCache = <String, dynamic>{};
+  final Map<String, Timer> _writeTimers = <String, Timer>{};
+  final Map<String, dynamic> _pendingWrites = <String, dynamic>{};
+  static const Duration _writeDelay = Duration(milliseconds: 500);
 
   // Private constructor for Singleton pattern
   StorageService._privateConstructor();
@@ -21,249 +28,327 @@ class StorageService {
     return _instance;
   }
 
-  // Initialize the service: open the Hive box and perform migration if needed
+  bool _isInitialized = false;
+  final Completer<void> _initCompleter = Completer<void>();
+
+  /// Initialize with performance optimizations
   Future<void> initialize() async {
+    if (_isInitialized) {
+      return _initCompleter.future;
+    }
+
     try {
       _preferencesBox = await Hive.openBox<dynamic>(_preferencesBoxName);
       debugPrint('Hive box "$_preferencesBoxName" opened successfully.');
 
-      // Check if migration from SharedPreferences is needed
-      await _migrateFromSharedPreferencesIfNeeded();
+      // Preload frequently used data into memory cache
+      await _preloadCache();
+
+      // Migration in background to avoid blocking startup
+      _migrateFromSharedPreferencesInBackground();
+
+      _isInitialized = true;
+      _initCompleter.complete();
     } catch (e) {
-      debugPrint('Error initializing StorageService or opening Hive box: $e');
-      // Consider how to handle initialization errors (e.g., retry, fallback)
+      debugPrint('Error initializing StorageService: $e');
+      if (!_initCompleter.isCompleted) {
+        _initCompleter.completeError(e);
+      }
     }
   }
 
-  // --- Migration Logic ---
+  /// Preload frequently accessed data
+  Future<void> _preloadCache() async {
+    try {
+      // Preload common preferences
+      final commonKeys = [
+        'theme_mode',
+        'units_metric',
+        'notifications_enabled',
+        'daily_calorie_goal',
+        'daily_protein_goal',
+        'daily_carbs_goal',
+        'daily_fat_goal',
+      ];
+
+      for (final key in commonKeys) {
+        if (_preferencesBox.containsKey(key)) {
+          _memoryCache[key] = _preferencesBox.get(key);
+        }
+      }
+
+      debugPrint('Preloaded ${_memoryCache.length} preferences into cache');
+    } catch (e) {
+      debugPrint('Error preloading cache: $e');
+    }
+  }
+
+  /// Background migration to avoid blocking initialization
+  void _migrateFromSharedPreferencesInBackground() {
+    Future.microtask(() async {
+      try {
+        await _migrateFromSharedPreferencesIfNeeded();
+      } catch (e) {
+        debugPrint('Background migration error: $e');
+      }
+    });
+  }
 
   Future<void> _migrateFromSharedPreferencesIfNeeded() async {
     try {
-      final bool migrationDone = get(_migrationFlagKey, defaultValue: false);
+      final bool migrationDone =
+          _preferencesBox.get(_migrationFlagKey, defaultValue: false);
 
       if (!migrationDone) {
-        debugPrint('Starting migration from SharedPreferences to Hive...');
+        debugPrint('Starting SharedPreferences migration...');
         final prefs = await SharedPreferences.getInstance();
         final allKeys = prefs.getKeys();
 
         int migratedCount = 0;
+        final batch = <String, dynamic>{};
+
         for (String key in allKeys) {
-          // Avoid migrating the migration flag itself if it somehow exists
           if (key == _migrationFlagKey) continue;
 
           final value = prefs.get(key);
           if (value != null) {
-            await _preferencesBox.put(key, value);
+            batch[key] = value;
             migratedCount++;
-            // Optional: Remove the key from SharedPreferences after migration
-            // await prefs.remove(key);
           }
         }
 
-        // Mark migration as complete in Hive
-        await _preferencesBox.put(_migrationFlagKey, true);
-        debugPrint('Migration complete. Migrated $migratedCount keys.');
+        // Batch write for better performance
+        if (batch.isNotEmpty) {
+          await _preferencesBox.putAll(batch);
 
-        // Optional: Clear all SharedPreferences after successful migration
-        // await prefs.clear();
-        // debugPrint('SharedPreferences cleared after migration.');
-      } else {
-        debugPrint('SharedPreferences migration already completed.');
+          // Update memory cache with migrated data
+          _memoryCache.addAll(batch);
+        }
+
+        await _preferencesBox.put(_migrationFlagKey, true);
+        debugPrint('Migration completed. Migrated $migratedCount keys.');
       }
     } catch (e) {
-      debugPrint('Error during SharedPreferences migration: $e');
-      // Decide how to handle migration errors. Maybe retry later?
+      debugPrint('Migration error: $e');
     }
   }
 
-  // --- Core Get/Put Methods ---
-
-  // Get a value from the Hive box
+  /// Optimized get with memory cache
   dynamic get(String key, {dynamic defaultValue}) {
     try {
-      return _preferencesBox.get(key, defaultValue: defaultValue);
+      // Check memory cache first
+      if (_memoryCache.containsKey(key)) {
+        return _memoryCache[key];
+      }
+
+      // Fallback to Hive
+      final value = _preferencesBox.get(key, defaultValue: defaultValue);
+
+      // Cache in memory for faster access
+      if (value != defaultValue && _memoryCache.length < _maxCacheSize) {
+        _memoryCache[key] = value;
+      }
+
+      return value;
     } catch (e) {
-      debugPrint('Error getting key "$key" from Hive: $e');
+      debugPrint('Error getting key "$key": $e');
       return defaultValue;
     }
   }
 
-  // Put a value into the Hive box and sync to Supabase
+  /// Optimized put with write-behind caching
   Future<void> put(String key, dynamic value) async {
     try {
-      // Write locally immediately
-      await _preferencesBox.put(key, value);
-      debugPrint('Put key "$key" with value "$value" into Hive.');
+      // Update memory cache immediately for fast reads
+      _memoryCache[key] = value;
 
-      // Asynchronously sync to Supabase (don't wait for it)
-      // _syncToSupabase(key, value); // Commented out - causing errors due to table schema mismatch
+      // Cancel any existing write timer for this key
+      _writeTimers[key]?.cancel();
+
+      // Store pending write
+      _pendingWrites[key] = value;
+
+      // Set up delayed write to reduce disk I/O
+      _writeTimers[key] = Timer(_writeDelay, () async {
+        await _flushPendingWrite(key);
+      });
+
+      debugPrint('Scheduled write for key "$key"');
     } catch (e) {
-      debugPrint('Error putting key "$key" into Hive: $e');
+      debugPrint('Error scheduling write for key "$key": $e');
     }
   }
 
-  // Delete a value from the Hive box and sync deletion to Supabase
+  /// Flush a specific pending write
+  Future<void> _flushPendingWrite(String key) async {
+    if (!_pendingWrites.containsKey(key)) return;
+
+    try {
+      final value = _pendingWrites.remove(key);
+      _writeTimers.remove(key);
+
+      await _preferencesBox.put(key, value);
+      debugPrint('Flushed write for key "$key"');
+
+      // Sync to Supabase in background (if needed)
+      // _syncToSupabaseInBackground(key, value);
+    } catch (e) {
+      debugPrint('Error flushing write for key "$key": $e');
+    }
+  }
+
+  /// Force flush all pending writes
+  Future<void> flushAllPendingWrites() async {
+    if (_pendingWrites.isEmpty) return;
+
+    try {
+      // Cancel all timers
+      for (final timer in _writeTimers.values) {
+        timer.cancel();
+      }
+      _writeTimers.clear();
+
+      // Batch write all pending changes
+      await _preferencesBox.putAll(Map.from(_pendingWrites));
+      debugPrint('Flushed ${_pendingWrites.length} pending writes');
+
+      _pendingWrites.clear();
+    } catch (e) {
+      debugPrint('Error flushing all pending writes: $e');
+    }
+  }
+
+  /// Optimized delete with cache invalidation
   Future<void> delete(String key) async {
     try {
-      // Delete locally immediately
+      // Remove from memory cache
+      _memoryCache.remove(key);
+
+      // Cancel any pending write
+      _writeTimers[key]?.cancel();
+      _writeTimers.remove(key);
+      _pendingWrites.remove(key);
+
+      // Delete from Hive
       await _preferencesBox.delete(key);
-      debugPrint('Deleted key "$key" from Hive.');
-
-      // Asynchronously sync deletion to Supabase
-      // _deleteFromSupabase(key); // Commented out - causing errors due to table schema mismatch
+      debugPrint('Deleted key "$key"');
     } catch (e) {
-      debugPrint('Error deleting key "$key" from Hive: $e');
+      debugPrint('Error deleting key "$key": $e');
     }
   }
 
-  // --- Supabase Syncing ---
+  /// Check if key exists (fast memory + Hive check)
+  bool containsKey(String key) {
+    return _memoryCache.containsKey(key) || _preferencesBox.containsKey(key);
+  }
 
-  // Sync a single key-value pair up to Supabase
-  Future<void> _syncToSupabase(String key, dynamic value) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      debugPrint('Cannot sync key "$key" to Supabase: User not logged in.');
-      return;
-    }
+  /// Get all keys (for debugging)
+  Iterable<String> getAllKeys() {
+    final Set<String> allKeys = <String>{};
+    allKeys.addAll(_memoryCache.keys);
+    allKeys.addAll(_preferencesBox.keys.cast<String>());
+    return allKeys;
+  }
 
-    // Do not sync the migration flag
-    if (key == _migrationFlagKey) {
-      return;
-    }
-
+  /// Clear all data (with confirmation)
+  Future<void> clearAll() async {
     try {
-      // Use toString() for simplicity, assuming TEXT column in Supabase.
-      // If using JSONB, you'd need JSON encoding/decoding.
-      final String valueString = value.toString();
+      // Cancel all pending writes
+      for (final timer in _writeTimers.values) {
+        timer.cancel();
+      }
+      _writeTimers.clear();
+      _pendingWrites.clear();
 
-      await Supabase.instance.client
-          .from('user_preferences') // Ensure this table exists in Supabase
-          .upsert({
-        'user_id': userId,
-        'key': key,
-        'value': valueString, // Store as text
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-      debugPrint('Successfully synced key "$key" to Supabase.');
+      // Clear memory cache
+      _memoryCache.clear();
+
+      // Clear Hive box
+      await _preferencesBox.clear();
+      debugPrint('Cleared all storage data');
     } catch (e) {
-      debugPrint('Error syncing key "$key" to Supabase: $e');
-      // Implement retry logic or error queuing if needed for offline support
+      debugPrint('Error clearing all data: $e');
     }
   }
 
-  // Sync deletion up to Supabase
-  Future<void> _deleteFromSupabase(String key) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      debugPrint('Cannot delete key "$key" from Supabase: User not logged in.');
-      return;
-    }
-
-    // Do not try to delete the migration flag from Supabase
-    if (key == _migrationFlagKey) {
-      return;
-    }
-
-    try {
-      await Supabase.instance.client
-          .from('user_preferences')
-          .delete()
-          .match({'user_id': userId, 'key': key});
-      debugPrint('Successfully synced deletion of key "$key" to Supabase.');
-    } catch (e) {
-      debugPrint('Error syncing deletion of key "$key" to Supabase: $e');
-      // Implement retry logic or error queuing if needed
-    }
+  /// Get storage statistics (for debugging)
+  Map<String, dynamic> getStorageStats() {
+    return {
+      'memory_cache_size': _memoryCache.length,
+      'pending_writes': _pendingWrites.length,
+      'active_timers': _writeTimers.length,
+      'hive_box_size': _preferencesBox.length,
+      'is_initialized': _isInitialized,
+    };
   }
 
-  // Fetch all preferences from Supabase and update the local Hive box
-  /* // Commented out - This service should only handle local storage now.
-  Future<void> syncFromServer() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      debugPrint('Cannot sync from Supabase: User not logged in.');
-      return;
-    }
-
-    debugPrint('Starting sync from Supabase...');
+  /// Compact and optimize storage
+  Future<void> compact() async {
     try {
-      final response = await Supabase.instance.client
-          .from('user_preferences')
-          .select('key, value') // Select only key and value
-          .eq('user_id', userId);
+      // Flush pending writes first
+      await flushAllPendingWrites();
 
-      // Assuming response is List<Map<String, dynamic>>
-       if (response is List) {
-         int updatedCount = 0;
-         for (final record in response) {
-           if (record is Map<String, dynamic>) {
-             final key = record['key'] as String?;
-             final value = record['value']; // This will likely be String
+      // Compact Hive box
+      await _preferencesBox.compact();
 
-             if (key != null && key != _migrationFlagKey && value != null) {
-               // TODO: Attempt to parse value back to original type if needed
-               // For now, storing as String as fetched.
-               // If you stored bools/ints/doubles, you might try parsing here.
-               // Example:
-               // dynamic parsedValue = value;
-               // if (value is String) {
-               //   if (value.toLowerCase() == 'true') parsedValue = true;
-               //   else if (value.toLowerCase() == 'false') parsedValue = false;
-               //   else if (int.tryParse(value) != null) parsedValue = int.parse(value);
-               //   else if (double.tryParse(value) != null) parsedValue = double.parse(value);
-               // }
-               await _preferencesBox.put(key, value); // Store the raw value (likely string)
-               updatedCount++;
-             }
-           }
-         }
-         debugPrint('Sync from Supabase complete. Updated $updatedCount local keys.');
-       } else {
-          debugPrint('Sync from Supabase failed: Unexpected response format.');
-       }
-
-    } catch (e) {
-      debugPrint('Error syncing from Supabase: $e');
-    }
-  }
-  */
-
-  // Clear all preferences from the Hive box, except the migration flag
-  Future<void> clearAllPreferences() async {
-    try {
-      // Get all keys
-      final keys = _preferencesBox.keys.toList();
-      int deleteCount = 0;
-      for (var key in keys) {
-        // Don't delete the migration flag
-        if (key != _migrationFlagKey) {
-          await _preferencesBox.delete(key);
-          deleteCount++;
+      // Clear old memory cache entries if too large
+      if (_memoryCache.length > _maxCacheSize) {
+        final keysToRemove =
+            _memoryCache.keys.take(_memoryCache.length - _maxCacheSize);
+        for (final key in keysToRemove) {
+          _memoryCache.remove(key);
         }
       }
-      debugPrint(
-          'Cleared $deleteCount preferences from Hive box "$_preferencesBoxName".');
-      // Note: This does NOT clear data from Supabase.
+
+      debugPrint('Storage compaction completed');
     } catch (e) {
-      debugPrint(
-          'Error clearing preferences from Hive box "$_preferencesBoxName": $e');
+      debugPrint('Error during storage compaction: $e');
     }
   }
 
-  // Optional: Method to listen for changes in the Hive box
-  void listenForChanges(VoidCallback listener) {
-    _preferencesBox.listenable().addListener(listener);
-  }
-
-  // Optional: Method to close the box when done (e.g., on app dispose)
+  /// Dispose and cleanup
   Future<void> dispose() async {
     try {
-      await _preferencesBox.close();
-      debugPrint('Hive box "$_preferencesBoxName" closed.');
+      // Flush all pending writes before disposal
+      await flushAllPendingWrites();
+
+      // Cancel all timers
+      for (final timer in _writeTimers.values) {
+        timer.cancel();
+      }
+      _writeTimers.clear();
+
+      // Clear memory cache
+      _memoryCache.clear();
+
+      debugPrint('StorageService disposed successfully');
     } catch (e) {
-      debugPrint('Error closing Hive box "$_preferencesBoxName": $e');
+      debugPrint('Error disposing StorageService: $e');
     }
   }
+
+  // Background Supabase sync (commented out for now due to table schema issues)
+  /*
+  void _syncToSupabaseInBackground(String key, dynamic value) {
+    Future.microtask(() async {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null || key == _migrationFlagKey) return;
+
+      try {
+        await Supabase.instance.client
+            .from('user_preferences')
+            .upsert({
+          'user_id': userId,
+          'key': key,
+          'value': value.toString(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint('Background Supabase sync error for key "$key": $e');
+    }
+    });
+  }
+  */
 
   // --- UserPreferences-specific methods ---
 
