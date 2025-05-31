@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:firebase_vertexai/firebase_vertexai.dart';
 import '../models/fitness_profile.dart';
 import '../services/storage_service.dart';
+import '../services/exercise_image_service.dart';
 
 class FitnessAIService {
   static final FitnessAIService _instance = FitnessAIService._internal();
@@ -11,6 +12,7 @@ class FitnessAIService {
 
   late final GenerativeModel _model;
   final StorageService _storage = StorageService();
+  final ExerciseImageService _exerciseService = ExerciseImageService();
 
   void initialize() {
     _model = FirebaseVertexAI.instance.generativeModel(
@@ -24,23 +26,31 @@ class FitnessAIService {
     );
   }
 
-  // ================== WORKOUT RECOMMENDATIONS ==================
+  // ================== ENHANCED WORKOUT RECOMMENDATIONS ==================
 
-  Future<Map<String, dynamic>> generateWorkoutPlan({
+  Future<Map<String, dynamic>> generateEnhancedWorkoutPlan({
     required FitnessProfile fitnessProfile,
     required Map<String, dynamic> macroData,
     String? specificMuscleGroup,
     int? customDuration,
   }) async {
     try {
-      final prompt = _buildWorkoutPlanPrompt(
+      // First, get AI-powered exercise recommendations from ExerciseDB
+      final aiExercises = await _getAIExerciseRecommendations(
+        fitnessProfile,
+        specificMuscleGroup,
+      );
+
+      // Generate workout structure using AI
+      final prompt = _buildEnhancedWorkoutPlanPrompt(
         fitnessProfile,
         macroData,
         specificMuscleGroup,
         customDuration,
+        aiExercises,
       );
 
-      log('[FitnessAI] Generating workout plan for ${fitnessProfile.fitnessLevel} user');
+      log('[FitnessAI] Generating enhanced workout plan for ${fitnessProfile.fitnessLevel} user');
 
       final response = await _model.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
@@ -48,14 +58,327 @@ class FitnessAIService {
       // Parse and validate the JSON response
       final workoutData = _parseWorkoutResponse(responseText);
 
+      // Enhance workout data with real exercise information
+      final enhancedWorkout = await _enhanceWorkoutWithExerciseDB(workoutData);
+
       // Store the workout for future reference
-      await _storeWorkoutPlan(workoutData);
+      await _storeWorkoutPlan(enhancedWorkout);
+
+      return enhancedWorkout;
+    } catch (e) {
+      log('[FitnessAI] Error generating enhanced workout plan: $e');
+      return _getBackupWorkoutPlan(fitnessProfile);
+    }
+  }
+
+  /// Get AI-powered exercise recommendations using ExerciseDB
+  Future<List<Map<String, dynamic>>> _getAIExerciseRecommendations(
+    FitnessProfile profile,
+    String? targetMuscleGroup,
+  ) async {
+    try {
+      // Map user's muscle group preference to ExerciseDB target
+      final exerciseDbTarget = _mapMuscleGroupToExerciseDB(targetMuscleGroup);
+
+      // Get personalized exercise recommendations
+      final recommendations =
+          await _exerciseService.getAIExerciseRecommendations(
+        fitnessLevel: profile.fitnessLevel,
+        availableEquipment: profile.availableEquipment,
+        targetMuscleGroup: exerciseDbTarget,
+        limit: 20,
+      );
+
+      log('[FitnessAI] Found ${recommendations.length} AI exercise recommendations');
+      return recommendations;
+    } catch (e) {
+      log('[FitnessAI] Error getting AI exercise recommendations: $e');
+      return [];
+    }
+  }
+
+  /// Map muscle group to ExerciseDB target format
+  String _mapMuscleGroupToExerciseDB(String? muscleGroup) {
+    if (muscleGroup == null) return 'pectorals'; // Default to chest
+
+    switch (muscleGroup.toLowerCase()) {
+      case 'chest':
+        return 'pectorals';
+      case 'back':
+        return 'lats';
+      case 'shoulders':
+        return 'delts';
+      case 'arms':
+      case 'biceps':
+        return 'biceps';
+      case 'triceps':
+        return 'triceps';
+      case 'legs':
+      case 'quads':
+        return 'quads';
+      case 'hamstrings':
+        return 'hamstrings';
+      case 'glutes':
+        return 'glutes';
+      case 'calves':
+        return 'calves';
+      case 'core':
+      case 'abs':
+        return 'abs';
+      default:
+        return 'pectorals';
+    }
+  }
+
+  /// Enhance workout data with real exercise information from ExerciseDB
+  Future<Map<String, dynamic>> _enhanceWorkoutWithExerciseDB(
+      Map<String, dynamic> workoutData) async {
+    try {
+      // Enhance main exercises
+      if (workoutData['main_exercises'] != null) {
+        final List<dynamic> mainExercises = workoutData['main_exercises'];
+
+        for (int i = 0; i < mainExercises.length; i++) {
+          final exercise = mainExercises[i];
+          if (exercise['exercise'] != null) {
+            final exerciseData =
+                await _exerciseService.getExerciseData(exercise['exercise']);
+
+            if (exerciseData != null) {
+              // Enhance with real data
+              exercise['enhanced_data'] = {
+                'gif_url': exerciseData['gifUrl'],
+                'instructions': exerciseData['instructions'],
+                'target_muscle': exerciseData['target'],
+                'secondary_muscles': exerciseData['secondaryMuscles'],
+                'equipment': exerciseData['equipment'],
+                'body_part': exerciseData['bodyPart'],
+                'difficulty': exerciseData['difficulty'],
+              };
+
+              // Update exercise image
+              exercise['image_url'] = exerciseData['gifUrl'];
+            }
+          }
+        }
+      }
+
+      workoutData['enhanced_with_exercisedb'] = true;
+      workoutData['enhancement_timestamp'] = DateTime.now().toIso8601String();
 
       return workoutData;
     } catch (e) {
-      log('[FitnessAI] Error generating workout plan: $e');
-      return _getBackupWorkoutPlan(fitnessProfile);
+      log('[FitnessAI] Error enhancing workout with ExerciseDB: $e');
+      return workoutData;
     }
+  }
+
+  /// Generate alternative exercises using ExerciseDB
+  Future<List<Map<String, dynamic>>> getSmartExerciseAlternatives({
+    required String exerciseName,
+    required FitnessProfile fitnessProfile,
+    String? reason,
+  }) async {
+    try {
+      // Get exercise data first
+      final exerciseData = await _exerciseService.getExerciseData(exerciseName);
+
+      if (exerciseData != null) {
+        // Get alternatives based on target muscle and equipment
+        final alternatives = await _exerciseService
+            .getExercisesByMuscleGroup(exerciseData['target']);
+
+        // Filter and score alternatives using AI
+        final filteredAlternatives = alternatives
+            .where((alt) => alt['name'] != exerciseName)
+            .where((alt) => _isEquipmentAvailable(
+                alt['equipment'], fitnessProfile.availableEquipment))
+            .take(5)
+            .toList();
+
+        // Enhance with AI scoring
+        return _scoreAlternativeExercises(
+            filteredAlternatives, fitnessProfile, reason);
+      }
+
+      // Fallback to original method
+      return await getExerciseAlternatives(
+        exerciseName: exerciseName,
+        fitnessProfile: fitnessProfile,
+        reason: reason,
+      );
+    } catch (e) {
+      log('[FitnessAI] Error getting smart exercise alternatives: $e');
+      return [];
+    }
+  }
+
+  /// Score alternative exercises based on user profile and context
+  List<Map<String, dynamic>> _scoreAlternativeExercises(
+    List<Map<String, dynamic>> alternatives,
+    FitnessProfile profile,
+    String? reason,
+  ) {
+    for (var alt in alternatives) {
+      double score = 50.0; // Base score
+
+      // Equipment availability bonus
+      if (_isEquipmentAvailable(alt['equipment'], profile.availableEquipment)) {
+        score += 20.0;
+      }
+
+      // Fitness level appropriateness
+      final difficulty =
+          _inferExerciseDifficulty(alt['equipment'], alt['name']);
+      if (_isDifficultyAppropriate(difficulty, profile.fitnessLevel)) {
+        score += 15.0;
+      }
+
+      // Reason-specific scoring
+      if (reason != null) {
+        switch (reason.toLowerCase()) {
+          case 'injury':
+            if (alt['equipment'] == 'body weight') score += 10.0;
+            break;
+          case 'equipment':
+            if (alt['equipment'] == 'body weight') score += 15.0;
+            break;
+          case 'difficulty':
+            // Already handled in fitness level check
+            break;
+        }
+      }
+
+      alt['ai_score'] = score;
+    }
+
+    // Sort by score
+    alternatives
+        .sort((a, b) => (b['ai_score'] ?? 0.0).compareTo(a['ai_score'] ?? 0.0));
+
+    return alternatives
+        .map((alt) => {
+              'exercise_name': alt['name'],
+              'difficulty_level':
+                  _inferExerciseDifficulty(alt['equipment'], alt['name']),
+              'equipment_needed': [alt['equipment']],
+              'muscle_groups': [alt['target']],
+              'instructions': 'Enhanced exercise from ExerciseDB',
+              'why_good_alternative':
+                  'AI-selected based on muscle targeting and equipment compatibility',
+              'gif_url': alt['gifUrl'],
+              'ai_score': alt['ai_score'],
+            })
+        .toList();
+  }
+
+  /// Check if required equipment is available
+  bool _isEquipmentAvailable(
+      String? requiredEquipment, List<String> availableEquipment) {
+    if (requiredEquipment == null) return true;
+    if (requiredEquipment.toLowerCase() == 'body weight') return true;
+
+    return availableEquipment.any((available) =>
+        available.toLowerCase().contains(requiredEquipment.toLowerCase()) ||
+        requiredEquipment.toLowerCase().contains(available.toLowerCase()));
+  }
+
+  /// Infer exercise difficulty
+  String _inferExerciseDifficulty(String? equipment, String? name) {
+    final exerciseName = name?.toLowerCase() ?? '';
+    final equipmentType = equipment?.toLowerCase() ?? '';
+
+    if (exerciseName.contains('advanced') ||
+        equipmentType.contains('olympic')) {
+      return 'Advanced';
+    }
+    if (equipmentType.contains('barbell') ||
+        exerciseName.contains('weighted')) {
+      return 'Intermediate';
+    }
+    return 'Beginner';
+  }
+
+  /// Check if difficulty is appropriate for fitness level
+  bool _isDifficultyAppropriate(String difficulty, String fitnessLevel) {
+    switch (fitnessLevel.toLowerCase()) {
+      case 'beginner':
+        return difficulty == 'Beginner';
+      case 'intermediate':
+        return difficulty == 'Beginner' || difficulty == 'Intermediate';
+      case 'advanced':
+        return true; // Can handle all difficulties
+      default:
+        return difficulty == 'Beginner';
+    }
+  }
+
+  /// Generate personalized workout schedule using ExerciseDB data
+  Future<List<Map<String, dynamic>>> generateSmartWeeklySchedule({
+    required FitnessProfile fitnessProfile,
+    required Map<String, dynamic> macroData,
+  }) async {
+    try {
+      // Get exercise recommendations for different muscle groups
+      final exercisesByMuscleGroup = <String, List<Map<String, dynamic>>>{};
+      final muscleGroups = [
+        'pectorals',
+        'lats',
+        'delts',
+        'biceps',
+        'triceps',
+        'quads',
+        'hamstrings',
+        'abs'
+      ];
+
+      for (final muscleGroup in muscleGroups) {
+        final exercises =
+            await _exerciseService.getExercisesByMuscleGroup(muscleGroup);
+        if (exercises.isNotEmpty) {
+          exercisesByMuscleGroup[muscleGroup] = exercises
+              .where((ex) => _isEquipmentAvailable(
+                  ex['equipment'], fitnessProfile.availableEquipment))
+              .take(5)
+              .toList();
+        }
+      }
+
+      // Generate AI-optimized schedule
+      final prompt = _buildSmartWeeklySchedulePrompt(
+          fitnessProfile, macroData, exercisesByMuscleGroup);
+
+      final response = await _model.generateContent([Content.text(prompt)]);
+      final responseText = response.text ?? '';
+
+      final scheduleData = _parseWeeklyScheduleResponse(responseText);
+      await _storeWeeklySchedule(scheduleData);
+
+      return scheduleData;
+    } catch (e) {
+      log('[FitnessAI] Error generating smart weekly schedule: $e');
+      return await generateWeeklySchedule(
+        fitnessProfile: fitnessProfile,
+        macroData: macroData,
+      );
+    }
+  }
+
+  // ================== ORIGINAL METHODS (kept for backward compatibility) ==================
+
+  Future<Map<String, dynamic>> generateWorkoutPlan({
+    required FitnessProfile fitnessProfile,
+    required Map<String, dynamic> macroData,
+    String? specificMuscleGroup,
+    int? customDuration,
+  }) async {
+    // Redirect to enhanced version
+    return await generateEnhancedWorkoutPlan(
+      fitnessProfile: fitnessProfile,
+      macroData: macroData,
+      specificMuscleGroup: specificMuscleGroup,
+      customDuration: customDuration,
+    );
   }
 
   Future<List<Map<String, dynamic>>> generateWeeklySchedule({
@@ -171,19 +494,27 @@ class FitnessAIService {
 
   // ================== PROMPT BUILDERS ==================
 
-  String _buildWorkoutPlanPrompt(
+  String _buildEnhancedWorkoutPlanPrompt(
     FitnessProfile profile,
     Map<String, dynamic> macroData,
     String? specificMuscleGroup,
     int? customDuration,
+    List<Map<String, dynamic>> availableExercises,
   ) {
     final duration = customDuration ?? profile.optimalWorkoutDuration;
     final muscleGroupFocus = specificMuscleGroup != null
         ? 'Focus specifically on: $specificMuscleGroup'
         : 'Provide a balanced workout';
 
+    // Format available exercises for the prompt
+    final exerciseList = availableExercises
+        .take(10)
+        .map((ex) =>
+            '${ex['name']} (${ex['equipment']}, targets: ${ex['target']})')
+        .join('\n');
+
     return '''
-You are an expert fitness trainer and exercise physiologist. Create a personalized workout plan based on the following user profile:
+You are an expert fitness trainer and exercise physiologist. Create a personalized workout plan using REAL exercises from the ExerciseDB database.
 
 FITNESS PROFILE:
 - Fitness Level: ${profile.fitnessLevel}
@@ -204,8 +535,10 @@ WORKOUT REQUIREMENTS:
 $muscleGroupFocus
 - Must be suitable for ${profile.workoutLocation} environment
 - Use only available equipment: ${profile.availableEquipment.join(', ')}
-- Appropriate for ${profile.workoutSpace} space
-- Match ${profile.fitnessLevel} fitness level
+- IMPORTANT: Select exercises ONLY from the list below:
+
+AVAILABLE EXERCISES FROM EXERCISEDB:
+$exerciseList
 
 RESPONSE FORMAT:
 Return ONLY a valid JSON object with this exact structure:
@@ -218,7 +551,7 @@ Return ONLY a valid JSON object with this exact structure:
   "muscle_groups_targeted": ["primary", "secondary"],
   "warm_up": [
     {
-      "exercise": "Exercise name",
+      "exercise": "Exercise name from the list above",
       "duration": "2 minutes",
       "instructions": "Brief instructions",
       "modifications": "Easier/harder options"
@@ -226,7 +559,7 @@ Return ONLY a valid JSON object with this exact structure:
   ],
   "main_exercises": [
     {
-      "exercise": "Exercise name",
+      "exercise": "Exercise name from the list above",
       "sets": 3,
       "reps": "8-12",
       "rest": "60 seconds",
@@ -244,10 +577,78 @@ Return ONLY a valid JSON object with this exact structure:
     }
   ],
   "notes": "Additional tips or considerations",
-  "progression_tips": "How to advance this workout"
+  "progression_tips": "How to advance this workout",
+  "exercise_source": "ExerciseDB"
 }
 
-Ensure all exercises are safe, effective, and match the user's fitness level and available equipment.
+IMPORTANT: Only use exercise names exactly as listed above. This ensures we can provide proper GIF demonstrations and detailed instructions.
+''';
+  }
+
+  String _buildSmartWeeklySchedulePrompt(
+    FitnessProfile profile,
+    Map<String, dynamic> macroData,
+    Map<String, List<Map<String, dynamic>>> exercisesByMuscleGroup,
+  ) {
+    // Format exercises by muscle group
+    final exerciseGroupsText = exercisesByMuscleGroup.entries.map((entry) {
+      final exercises = entry.value.take(3).map((ex) => ex['name']).join(', ');
+      return '${entry.key}: $exercises';
+    }).join('\n');
+
+    return '''
+Create a comprehensive weekly workout schedule using REAL exercises from ExerciseDB for optimal results:
+
+PROFILE:
+- Fitness Level: ${profile.fitnessLevel}
+- Workouts per week: ${profile.workoutsPerWeek}
+- Max duration per session: ${profile.maxWorkoutDuration} minutes
+- Preferred days: ${profile.preferredDays.join(', ')}
+- Preferred time: ${profile.preferredTimeOfDay}
+- Location: ${profile.workoutLocation}
+- Equipment: ${profile.availableEquipment.join(', ')}
+- Goal: ${macroData['goal_type'] ?? 'general fitness'}
+
+AVAILABLE EXERCISES BY MUSCLE GROUP:
+$exerciseGroupsText
+
+REQUIREMENTS:
+- Distribute workouts across the week for optimal recovery
+- Vary workout types to prevent boredom and plateaus
+- Consider muscle group rotation for proper recovery
+- Include both strength and cardio elements if appropriate
+- Match user's preferred days when possible
+- Use exercises from the muscle groups listed above
+
+RESPONSE FORMAT:
+Return ONLY a valid JSON array with this structure:
+
+[
+  {
+    "day": "Monday",
+    "workout_type": "Upper Body Strength",
+    "primary_focus": "Chest, Shoulders, Triceps",
+    "estimated_duration": 45,
+    "intensity": "moderate",
+    "equipment_needed": ["Dumbbells", "Bench"],
+    "key_exercises": ["Exercise names from the available list"],
+    "rest_day": false,
+    "muscle_groups_targeted": ["pectorals", "delts", "triceps"]
+  },
+  {
+    "day": "Tuesday",
+    "workout_type": "Active Recovery",
+    "primary_focus": "Mobility and Light Cardio",
+    "estimated_duration": 30,
+    "intensity": "low",
+    "equipment_needed": ["Yoga Mat"],
+    "key_exercises": ["Walking", "Stretching", "Light Movement"],
+    "rest_day": true,
+    "muscle_groups_targeted": []
+  }
+]
+
+Create a balanced schedule that promotes consistency, progressive overload, and sustainable progress using the available exercises.
 ''';
   }
 

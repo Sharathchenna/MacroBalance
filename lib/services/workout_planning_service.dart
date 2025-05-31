@@ -344,15 +344,59 @@ class WorkoutPlanningService {
 
   Future<bool> deleteWorkoutRoutine(String id) async {
     try {
-      await _supabaseService.supabaseClient
+      // Get the current user for RLS policy compliance
+      final currentUser = _supabaseService.supabaseClient.auth.currentUser;
+      if (currentUser == null) {
+        debugPrint('Error: No authenticated user found for deletion');
+        return false;
+      }
+
+      debugPrint(
+          'Attempting to delete workout routine: $id for user: ${currentUser.id}');
+
+      // First check if the workout exists and belongs to the user
+      final existingWorkout = await _supabaseService.supabaseClient
+          .from('workout_routines')
+          .select('id, name, created_by, is_custom')
+          .eq('id', id)
+          .single();
+
+      if (existingWorkout == null) {
+        debugPrint('Workout routine not found: $id');
+        return false;
+      }
+
+      debugPrint(
+          'Found workout: ${existingWorkout['name']}, created_by: ${existingWorkout['created_by']}, is_custom: ${existingWorkout['is_custom']}');
+
+      // Check if user can delete this workout (owns it or it's not custom)
+      final createdBy = existingWorkout['created_by'];
+      final isCustom = existingWorkout['is_custom'] ?? false;
+
+      if (isCustom && createdBy != currentUser.id) {
+        debugPrint(
+            'User ${currentUser.id} cannot delete custom workout created by $createdBy');
+        return false;
+      }
+
+      // Perform the deletion
+      final result = await _supabaseService.supabaseClient
           .from('workout_routines')
           .delete()
           .eq('id', id);
 
+      debugPrint('Delete operation completed successfully for workout: $id');
+
+      // Remove from cache
       _routineCache.remove(id);
       return true;
     } catch (e) {
       debugPrint('Error deleting workout routine: $e');
+      // Check if it's a specific RLS error
+      if (e.toString().contains('RLS') || e.toString().contains('policy')) {
+        debugPrint(
+            'RLS policy prevented deletion - user may not own this workout');
+      }
       return false;
     }
   }

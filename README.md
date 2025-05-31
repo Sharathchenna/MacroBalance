@@ -1,225 +1,213 @@
-# MacroBalance - Advanced Nutrition & Fitness Tracking
+# MacroTracker - AI-Powered Fitness App
 
-## Latest Updates
+A comprehensive fitness tracking application with AI-powered workout recommendations, real exercise data from ExerciseDB, and personalized nutrition guidance.
 
-### Workout Execution Screen Improvements ✨
+## 🚀 Features
 
-The workout execution screen has been completely redesigned with premium UX features and consistent design system integration:
+### 🤖 AI-Powered Workouts
+- **ExerciseDB Integration**: Access to 1000+ real exercises with GIF demonstrations
+- **Personalized Recommendations**: AI-curated workouts based on fitness level and available equipment
+- **Smart Exercise Alternatives**: Intelligent substitutions for equipment limitations or injuries
+- **Progressive Training**: AI adapts workouts based on your progress and performance
 
-#### 🎨 Design System Integration
-- **Premium Colors**: Consistent use of the app's color palette (PremiumColors.slate900, emerald500, etc.)
-- **Typography**: Proper use of PremiumTypography system for all text elements
-- **Animations**: Smooth transitions using PremiumAnimations timing and curves
-- **Shadows & Elevation**: Consistent with AppTheme shadow system
+### 💪 Exercise Database
+- Real exercise data with proper form instructions
+- GIF animations for visual guidance
+- Equipment-based filtering
+- Muscle group targeting
+- Difficulty progression
 
-#### 🚀 UX Enhancements Implemented
+### 📊 Nutrition Tracking
+- Macro counting with AI assistance
+- Personalized nutrition goals
+- Food database with barcode scanning
+- Progress tracking and analytics
 
-1. **Enhanced Progress Visualization**
-   - Dual progress bars: overall workout progress + current exercise set progress
-   - Real-time visual feedback with smooth animations
-   - Set completion tracking with emerald progress indicators
+### 🎯 Smart Features
+- Fitness profile assessment
+- Weekly workout scheduling
+- Progress analytics
+- Equipment-based workout customization
 
-2. **Advanced Haptic Feedback System**
-   - Light impact for navigation and minor actions
-   - Medium impact for set completions and transitions
-   - Heavy impact for exercise completion and workout finish
-   - Countdown alerts with haptic cues (10s warning, 3s final countdown)
-   - Celebration double-haptic on workout completion
-
-3. **Rest Period Customization**
-   - +15s / -15s adjustment buttons during rest
-   - Visual feedback for time modifications
-   - Smooth animations for rest circle progress
-
-4. **Exercise Instructions Toggle**
-   - Optional exercise instructions display
-   - Clean, readable instructions in overlay format
-   - Toggleable via info button in app bar
-
-5. **Swipe Gesture Controls**
-   - Swipe right to complete sets (velocity-based detection)
-   - Visual hint showing swipe gesture availability
-   - Immediate haptic feedback on gesture completion
-
-6. **Enhanced Rest Screen**
-   - Animated rest circle with countdown
-   - Color-coded urgency (amber → red for final countdown)
-   - "Get Ready" alerts for final 3 seconds
-   - Next exercise preview during rest periods
-
-7. **Improved Visual Hierarchy**
-   - Better contrast and readability
-   - Consistent spacing and padding
-   - Premium card designs with proper elevation
-   - Clean, modern button designs
-
-8. **Smart Pause States**
-   - Clear visual indicators when paused
-   - Proper timer state management
-   - Consistent pause/play controls
-
-#### 🔮 Additional UX Suggestions for Future Implementation
-
-1. **Audio & Voice Features**
-   - Optional voice coaching and countdown announcements
-   - Audio cues for rest periods and exercise transitions
-   - Background music integration with auto-ducking
-
-2. **Smart Watch Integration**
-   - Apple Watch/WearOS companion app
-   - Heart rate monitoring integration
-   - Haptic feedback on watch for hands-free operation
-
-3. **Advanced Analytics**
-   - Real-time calorie burn estimation
-   - Form analysis using device sensors
-   - Recovery time recommendations based on performance
-
-4. **Social & Gamification**
-   - Workout sharing with friends
-   - Achievement badges and milestones
-   - Leaderboards and challenges
-
-5. **Accessibility Enhancements**
-   - VoiceOver support for visually impaired users
-   - Larger touch targets option
-   - High contrast mode support
-   - Voice command integration
-
-6. **Smart Adaptations**
-   - Auto-adjust rest times based on performance
-   - Smart exercise substitutions based on available equipment
-   - Fatigue detection and workout modifications
-
-7. **Environmental Awareness**
-   - Auto-pause when phone is face down
-   - Ambient light sensor integration for UI brightness
-   - Noise level detection for audio cue adjustments
-
-8. **Recovery & Health Integration**
-   - Sleep quality integration affecting workout intensity
-   - Stress level monitoring integration
-   - Recovery recommendations between workouts
-
-9. **Advanced Customization**
-   - Custom rest period templates per exercise type
-   - Personalized motivation messages
-   - Custom haptic feedback patterns
-
-10. **Offline & Sync Features**
-    - Complete offline workout capability
-    - Cloud sync with conflict resolution
-    - Backup and restore workout data
-
-The current implementation focuses on the most impactful improvements that enhance the core workout experience while maintaining the app's premium design language.
-
-## Features
-
-- **Calorie Tracking**: Monitor daily caloric intake with precision
-- **Macro Balance**: Track proteins, carbohydrates, and fats
-- **Meal Planning**: AI-powered meal suggestions
-- **Recipe Management**: Custom recipes with nutritional analysis
-- **Workout Planning**: Comprehensive exercise routines
-- **Progress Analytics**: Detailed insights and trends
-- **Premium UI**: Modern, accessible design system
-
-## Getting Started
+## 🛠️ Setup Instructions
 
 ### Prerequisites
-- Flutter 3.0+
-- Dart 3.0+
-- iOS 12.0+ / Android API 21+
+- Flutter SDK (^3.6.0)
+- Firebase project setup
+- ExerciseDB API key (optional but recommended)
 
-### Installation
+### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/macrobalance.git
-cd macrobalance
+git clone <repository-url>
+cd macrotracker
+```
+
+### 2. Install Dependencies
+```bash
 flutter pub get
+```
+
+### 3. Configure ExerciseDB API (Recommended)
+
+#### Get Your API Key
+1. Visit [RapidAPI ExerciseDB](https://rapidapi.com/justin-WFnsXH_t6/api/exercisedb)
+2. Sign up for a free account
+3. Subscribe to the ExerciseDB API (free tier available)
+4. Copy your API key
+
+#### Configure the API Key
+Edit `lib/config/api_config.dart`:
+
+```dart
+class ApiConfig {
+  // Replace with your actual RapidAPI key
+  static const String exerciseDbApiKey = 'YOUR_ACTUAL_API_KEY_HERE';
+  
+  // ... rest of the configuration
+}
+```
+
+### 4. Firebase Setup
+
+#### Create Firebase Project
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project
+3. Enable Authentication and Firestore
+4. Download configuration files
+
+#### Configure Firebase
+- **Android**: Place `google-services.json` in `android/app/`
+- **iOS**: Place `GoogleService-Info.plist` in `ios/Runner/`
+
+#### Enable Vertex AI
+1. In Firebase Console, go to Vertex AI
+2. Enable the service
+3. Configure Gemini 2.0 Flash model
+
+### 5. Run the Application
+```bash
 flutter run
 ```
 
-## Architecture
+## 🔧 Configuration Options
 
-The app follows a clean architecture pattern with:
-- **Models**: Data structures and business logic
-- **Services**: API integrations and data processing
-- **Providers**: State management using Provider pattern
-- **Widgets**: Reusable UI components
-- **Screens**: App pages and navigation
-- **Theme**: Consistent design system
+### ExerciseDB Integration
+The app provides a fallback system:
+- **With API Key**: Full access to 1000+ exercises with GIFs
+- **Without API Key**: Uses built-in exercise database with static images
 
-## Contributing
+### AI Features
+- **Enhanced Mode**: Full AI integration with real exercise data
+- **Basic Mode**: Standard AI recommendations with local exercise database
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+## 📱 Usage
 
-## License
+### Setting Up Your Profile
+1. Complete the onboarding flow
+2. Set your fitness level and goals
+3. Specify available equipment
+4. Choose workout preferences
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Getting AI Workout Recommendations
+1. Navigate to Workouts tab
+2. Tap "Generate AI Workout"
+3. Customize muscle groups and duration
+4. Follow the generated workout plan
 
-# MacroTracker RevenueCat Hard Paywall Implementation
+### Using Exercise Alternatives
+1. During any workout, tap on an exercise
+2. Select "Find Alternatives"
+3. Choose based on equipment or difficulty
+4. AI will suggest appropriate substitutions
 
-## Overview
+## 🏗️ Architecture
 
-MacroTracker implements a hard paywall approach using RevenueCat. A hard paywall blocks access to the entire app until a subscription is purchased. This is different from a soft paywall, which would allow partial access to app features.
+### Services
+- **ExerciseImageService**: Manages exercise data and images from ExerciseDB
+- **FitnessAIService**: AI-powered workout generation and recommendations
+- **FitnessDataService**: User profile and progress tracking
 
-## Implementation Details
+### AI Integration
+```
+User Profile + Preferences
+        ↓
+ExerciseDB API (Real Exercises)
+        ↓
+AI Processing (Gemini 2.0)
+        ↓
+Personalized Workout Plan
+```
 
-### PaywallGate Component
+### Fallback System
+```
+ExerciseDB API → Local Database → Category Images → Placeholder
+```
 
-The implementation uses a `PaywallGate` component that wraps all routes in the app. This gate checks if the user has a valid subscription before allowing access to any screen.
+## 🔒 Privacy & Security
 
-Key features:
-- Blocks all app functionality until a subscription is purchased
-- No trial or free tier access
-- Clear subscription options with RevenueCat's PaywallView
-- Proper subscription status management
+- User data is stored securely in Firebase
+- API keys are managed through configuration files
+- No exercise data is cached beyond session limits
+- User preferences are encrypted locally
 
-### RevenueCat Integration
+## 🤝 Contributing
 
-RevenueCat is used for:
-1. In-app purchase management
-2. Subscription validation
-3. Cross-platform subscription handling
-4. Paywall presentation
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-## Code Structure
+## 📝 API Rate Limits
 
-### Key Components
+### ExerciseDB API
+- **Free Tier**: 50 requests/minute
+- **Pro Tier**: 500 requests/minute
+- **Cached Results**: Reduces API calls automatically
 
-1. **PaywallGate**: Wraps all routes and checks subscription status
-2. **PaywallScreen**: Handles displaying the RevenueCat paywall UI
-3. **SubscriptionProvider**: Manages subscription state throughout the app
+### Optimization Features
+- Intelligent caching system
+- Request rate limiting
+- Fallback to local data when needed
 
-### Configuration
+## 🐛 Troubleshooting
 
-The RevenueCat SDK is initialized in `main.dart` with the appropriate API keys for each platform.
+### Common Issues
 
-## App Store Submission Guidelines
+#### ExerciseDB API Not Working
+1. Verify your API key in `api_config.dart`
+2. Check your RapidAPI subscription status
+3. Ensure you haven't exceeded rate limits
+4. App will fallback to local database automatically
 
-When submitting an app with a hard paywall, ensure:
+#### Firebase Connection Issues
+1. Check your Firebase configuration files
+2. Verify project settings in Firebase Console
+3. Ensure Vertex AI is enabled
 
-1. The full billed amount is clearly shown
-2. Introductory offer details (if any) are clearly disclosed
-3. Opportunity to cancel is clearly stated
-4. Terms & conditions and privacy policy are accessible
-5. No misleading marketing text
+#### App Performance
+1. Clear app cache if experiencing slow loading
+2. Check internet connection for API features
+3. Restart app if AI features aren't responding
 
-## Testing
+## 📞 Support
 
-To test the paywall:
-1. Use RevenueCat sandbox mode for iOS
-2. Use Google Play testing tracks for Android
-3. Verify all subscription states are handled correctly
+For technical support or feature requests:
+- Create an issue in the repository
+- Check existing documentation
+- Review the troubleshooting section
 
-## Development Notes
+## 📄 License
 
-- The `allowDismissal: false` parameter ensures users cannot dismiss the paywall without subscribing
-- Subscription status is refreshed after any interaction with the paywall
-- A snackbar message informs users that subscription is required if they attempt to dismiss the paywall
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Resources
+## 🙏 Acknowledgments
 
-- [RevenueCat Documentation](https://www.revenuecat.com/docs/welcome/overview)
-- [RevenueCat Paywalls](https://www.revenuecat.com/docs/tools/paywalls)
-- [App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
-- [Google Play Policies](https://play.google.com/about/developer-content-policy/)
+- **ExerciseDB**: Comprehensive exercise database with professional demonstrations
+- **Firebase**: Backend infrastructure and AI services
+- **Flutter**: Cross-platform mobile development framework
+- **RapidAPI**: API marketplace and management platform
+
+---
+
+**Ready to transform your fitness journey with AI? Get started today!** 🚀💪

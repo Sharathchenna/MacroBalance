@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import '../models/workout_plan.dart';
 import '../models/exercise.dart';
@@ -12,6 +13,7 @@ import '../theme/app_theme.dart';
 import '../theme/workout_colors.dart';
 import 'package:uuid/uuid.dart';
 import 'workout_execution_screen.dart';
+import 'workout_details_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
 class WorkoutPlanningScreen extends StatefulWidget {
@@ -22,7 +24,7 @@ class WorkoutPlanningScreen extends StatefulWidget {
 }
 
 class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final WorkoutPlanningService _workoutService = WorkoutPlanningService();
   final FitnessAIService _aiService = FitnessAIService();
   final FitnessDataService _dataService = FitnessDataService();
@@ -37,159 +39,40 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
   bool _aiAvailable = false;
   String? _error;
   String _selectedFilter = 'All';
-  bool _isSearchFocused = false;
-
-  // Animation controllers
-  late AnimationController _mainAnimationController;
-  late AnimationController _fabAnimationController;
-  late AnimationController _searchAnimationController;
-  late AnimationController _statsAnimationController;
-
-  // Animations
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _fabScaleAnimation;
-  late Animation<double> _searchBorderAnimation;
-  late Animation<double> _statsSlideAnimation;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeAnimations();
-    _setupListeners();
-    _initializeAI();
-    _loadWorkoutRoutines();
-    _startInitialAnimations();
-  }
-
-  void _initializeAnimations() {
-    _mainAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300), // Faster
-      vsync: this,
-    );
-
-    _fabAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 400), // Faster
-      vsync: this,
-    );
-
-    _searchAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 200), // Faster
-      vsync: this,
-    );
-
-    _statsAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300), // Faster
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _mainAnimationController,
-        curve: Curves.easeOut, // Simpler curve
-      ),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1), // Less movement
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _mainAnimationController,
-      curve: Curves.easeOut, // Simpler curve
-    ));
-
-    _fabScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _fabAnimationController,
-        curve: Curves.easeOut, // Simpler curve
-      ),
-    );
-
-    _searchBorderAnimation = Tween<double>(begin: 1.0, end: 1.5).animate(
-      // Less dramatic
-      CurvedAnimation(
-        parent: _searchAnimationController,
-        curve: Curves.easeOut,
-      ),
-    );
-
-    _statsSlideAnimation = Tween<double>(begin: -0.5, end: 0.0).animate(
-      // Less movement
-      CurvedAnimation(
-        parent: _statsAnimationController,
-        curve: Curves.easeOut, // Simpler curve
-      ),
-    );
-  }
-
-  void _setupListeners() {
-    _searchController.addListener(() {
-      _filterRoutines();
-      setState(() {});
-    });
-  }
-
-  void _startInitialAnimations() {
-    _mainAnimationController.forward();
-
-    Future.delayed(const Duration(milliseconds: 100), () {
-      // Faster
-      if (mounted) {
-        _statsAnimationController.forward();
-      }
-    });
-
-    Future.delayed(const Duration(milliseconds: 200), () {
-      // Faster
-      if (mounted) {
-        _fabAnimationController.forward();
-      }
-    });
+    _initializeData();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _mainAnimationController.dispose();
-    _fabAnimationController.dispose();
-    _searchAnimationController.dispose();
-    _statsAnimationController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _filterRoutines() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      if (query.isEmpty && _selectedFilter == 'All') {
-        _filteredRoutines = _routines;
-      } else {
-        _filteredRoutines = _routines.where((routine) {
-          final matchesSearch = query.isEmpty ||
-              routine.name.toLowerCase().contains(query) ||
-              routine.description.toLowerCase().contains(query) ||
-              routine.targetMuscles
-                  .any((muscle) => muscle.toLowerCase().contains(query));
-
-          final matchesFilter = _selectedFilter == 'All' ||
-              _getWorkoutCategory(routine) == _selectedFilter;
-
-          return matchesSearch && matchesFilter;
-        }).toList();
-      }
-    });
+  void _initializeData() async {
+    _aiService.initialize();
+    await _checkAIAvailability();
+    await _loadWorkoutRoutines();
+    _searchController.addListener(_filterRoutines);
   }
 
-  String _getWorkoutCategory(WorkoutRoutine routine) {
-    final name = routine.name.toLowerCase();
-    if (name.contains('cardio') || name.contains('running')) return 'Cardio';
-    if (name.contains('strength') || name.contains('weight')) return 'Strength';
-    if (name.contains('yoga') || name.contains('flexibility'))
-      return 'Flexibility';
-    if (name.contains('hiit') || name.contains('interval')) return 'HIIT';
-    return 'Strength'; // Default
+  Future<void> _checkAIAvailability() async {
+    try {
+      final isReady = await _dataService.isReadyForAIRecommendations();
+      if (mounted) {
+        setState(() => _aiAvailable = isReady);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _aiAvailable = false);
+      }
+    }
   }
 
   Future<void> _loadWorkoutRoutines() async {
@@ -213,992 +96,324 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     }
   }
 
-  Future<void> _createNewWorkoutRoutine() async {
-    HapticFeedback.mediumImpact();
-    final result = await _showCreateWorkoutDialog();
-
-    if (result != null) {
-      setState(() => _isLoading = true);
-      try {
-        final routine = WorkoutRoutine(
-          name: result['name'],
-          description: result['description'],
-          exercises: [],
-          estimatedDurationMinutes: 45,
-          difficulty: 'beginner',
-          targetMuscles: [],
-          requiredEquipment: [],
-          isCustom: true,
-        );
-
-        final createdRoutine =
-            await _workoutService.createWorkoutRoutine(routine);
-        if (createdRoutine != null) {
-          setState(() {
-            _routines = [..._routines, createdRoutine];
-            _filteredRoutines = [..._filteredRoutines, createdRoutine];
-          });
-          _showEnhancedSnackBar('Workout created successfully! 🎉', true);
-        }
-      } catch (e) {
-        _showEnhancedSnackBar('Failed to create workout', false);
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _generateWorkoutRoutine() async {
-    HapticFeedback.heavyImpact();
-    setState(() => _isLoading = true);
-
-    try {
-      if (_aiAvailable) {
-        // Use AI generation
-        await _generateAIWorkout();
+  void _filterRoutines() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty && _selectedFilter == 'All') {
+        _filteredRoutines = _routines;
       } else {
-        // Fallback to basic generation
-        await _generateBasicWorkout();
+        _filteredRoutines = _routines.where((routine) {
+          final matchesSearch = query.isEmpty ||
+              routine.name.toLowerCase().contains(query) ||
+              routine.description.toLowerCase().contains(query);
+          final matchesFilter = _selectedFilter == 'All' ||
+              _getWorkoutCategory(routine) == _selectedFilter;
+          return matchesSearch && matchesFilter;
+        }).toList();
       }
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    });
   }
 
-  Future<void> _generateAIWorkout({
-    String? specificMuscleGroup,
-    int? customDuration,
-  }) async {
-    try {
-      final fitnessProfile = await _dataService.getCurrentFitnessProfile();
-      final macroData = await _dataService.getMacroData();
-
-      final aiWorkout = await _aiService.generateWorkoutPlan(
-        fitnessProfile: fitnessProfile,
-        macroData: macroData,
-        specificMuscleGroup: specificMuscleGroup,
-        customDuration: customDuration,
-      );
-
-      // Convert AI workout to WorkoutRoutine
-      final routine = _convertAIWorkoutToRoutine(aiWorkout);
-
-      if (routine != null) {
-        setState(() {
-          _routines = [..._routines, routine];
-          _filteredRoutines = [..._filteredRoutines, routine];
-        });
-        _showEnhancedSnackBar('AI workout generated successfully! 🤖✨', true);
-      }
-    } catch (e) {
-      _showEnhancedSnackBar(
-          'AI generation failed, using fallback workout', false);
-      await _generateBasicWorkout();
-    }
-  }
-
-  Future<void> _generateQuickAIWorkout(int minutes) async {
-    HapticFeedback.mediumImpact();
-    setState(() => _isLoading = true);
-
-    try {
-      if (_aiAvailable) {
-        final fitnessProfile = await _dataService.getCurrentFitnessProfile();
-
-        final aiWorkout = await _aiService.generateQuickWorkout(
-          fitnessProfile: fitnessProfile,
-          availableMinutes: minutes,
-          focusArea: 'full body',
-        );
-
-        final routine = _convertAIWorkoutToRoutine(aiWorkout, isQuick: true);
-
-        if (routine != null) {
-          setState(() {
-            _routines = [..._routines, routine];
-            _filteredRoutines = [..._filteredRoutines, routine];
-          });
-          _showEnhancedSnackBar('${minutes}-minute AI workout ready! ⚡', true);
-        }
-      } else {
-        _showEnhancedSnackBar(
-            'AI unavailable - complete fitness profile first', false);
-      }
-    } catch (e) {
-      _showEnhancedSnackBar('Quick workout generation failed', false);
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _generateWeeklySchedule() async {
-    HapticFeedback.heavyImpact();
-    setState(() => _isLoading = true);
-
-    try {
-      if (_aiAvailable) {
-        final fitnessProfile = await _dataService.getCurrentFitnessProfile();
-        final macroData = await _dataService.getMacroData();
-
-        final schedule = await _aiService.generateWeeklySchedule(
-          fitnessProfile: fitnessProfile,
-          macroData: macroData,
-        );
-
-        // Show weekly schedule dialog
-        _showWeeklyScheduleDialog(schedule);
-        _showEnhancedSnackBar('Weekly schedule generated! 📅', true);
-      } else {
-        _showEnhancedSnackBar('AI unavailable for weekly scheduling', false);
-      }
-    } catch (e) {
-      _showEnhancedSnackBar('Weekly schedule generation failed', false);
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _generateBasicWorkout() async {
-    // Original fallback method
-    final userPrefs = UserPreferences(
-      userId: _uuid.v4(),
-      targetCalories: 2000,
-      targetProtein: 150,
-      targetCarbohydrates: 200,
-      targetFat: 65,
-      equipment: EquipmentAvailability(
-        available: ['Dumbbells', 'Bodyweight'],
-        hasHomeEquipment: true,
-      ),
-      fitnessGoals: FitnessGoals(
-        primary: 'general_fitness',
-        secondary: ['strength', 'endurance'],
-        workoutsPerWeek: 3,
-      ),
-      dietaryPreferences: DietaryPreferences(
-        preferences: [],
-        allergies: [],
-        dislikedFoods: [],
-        mealsPerDay: 3,
-      ),
-    );
-
-    final routine = await _workoutService.generateWorkoutRoutine(
-      userPreferences: userPrefs,
-      name: 'Basic Workout ${DateTime.now().toString().substring(0, 10)}',
-      description: 'Template-based workout routine',
-      targetMuscles: ['chest', 'back', 'legs'],
-      durationMinutes: 45,
-    );
-
-    if (routine != null) {
-      setState(() {
-        _routines = [..._routines, routine];
-        _filteredRoutines = [..._filteredRoutines, routine];
-      });
-      _showEnhancedSnackBar('Basic workout generated successfully! 💪', true);
-    }
-  }
-
-  WorkoutRoutine? _convertAIWorkoutToRoutine(Map<String, dynamic> aiWorkout,
-      {bool isQuick = false}) {
-    try {
-      // Convert AI workout format to WorkoutRoutine
-      final exercises = <WorkoutExercise>[];
-
-      // Add warm-up exercises
-      if (aiWorkout['warm_up'] != null) {
-        for (final warmUp in aiWorkout['warm_up']) {
-          final exercise = Exercise(
-            name: warmUp['exercise'] ?? 'Warm-up',
-            description: warmUp['instructions'] ?? 'Warm-up exercise',
-            primaryMuscles: ['warm-up'],
-            equipment: ['bodyweight'],
-            type: 'cardio',
-            difficulty: 'beginner',
-            instructions: [
-              warmUp['instructions'] ?? 'Perform warm-up movement'
-            ],
-            isCompound: false,
-            defaultDurationSeconds:
-                _parseDurationFromString(warmUp['duration']),
-          );
-
-          exercises.add(WorkoutExercise(
-            exerciseId: exercise.id,
-            exercise: exercise,
-            sets: [
-              WorkoutSet(
-                  reps: 1, durationSeconds: exercise.defaultDurationSeconds)
-            ],
-            restSeconds: 30,
-          ));
-        }
-      }
-
-      // Add main exercises
-      if (aiWorkout['main_exercises'] != null) {
-        for (final exerciseData in aiWorkout['main_exercises']) {
-          final exercise = Exercise(
-            name: exerciseData['exercise'] ?? 'Unknown Exercise',
-            description: exerciseData['instructions'] ?? 'Exercise description',
-            primaryMuscles:
-                List<String>.from(exerciseData['muscle_groups'] ?? ['general']),
-            equipment: List<String>.from(
-                exerciseData['equipment_needed'] ?? ['bodyweight']),
-            type: 'strength',
-            difficulty: 'intermediate',
-            instructions: [
-              exerciseData['instructions'] ??
-                  'Perform exercise with proper form'
-            ],
-            isCompound: true,
-            defaultSets: exerciseData['sets'] ?? 3,
-            defaultReps: _parseRepsFromString(exerciseData['reps']),
-          );
-
-          final sets = <WorkoutSet>[];
-          final numSets = exerciseData['sets'] ?? 3;
-          final reps = _parseRepsFromString(exerciseData['reps']);
-
-          for (int i = 0; i < numSets; i++) {
-            sets.add(WorkoutSet(reps: reps));
-          }
-
-          exercises.add(WorkoutExercise(
-            exerciseId: exercise.id,
-            exercise: exercise,
-            sets: sets,
-            restSeconds: _parseRestPeriod(exerciseData['rest']),
-          ));
-        }
-      }
-
-      // Add cool-down exercises
-      if (aiWorkout['cool_down'] != null) {
-        for (final coolDown in aiWorkout['cool_down']) {
-          final exercise = Exercise(
-            name: coolDown['exercise'] ?? 'Cool-down',
-            description: coolDown['instructions'] ?? 'Cool-down stretch',
-            primaryMuscles: ['flexibility'],
-            equipment: ['bodyweight'],
-            type: 'flexibility',
-            difficulty: 'beginner',
-            instructions: [
-              coolDown['instructions'] ?? 'Hold stretch and breathe deeply'
-            ],
-            isCompound: false,
-            defaultDurationSeconds:
-                _parseDurationFromString(coolDown['duration']),
-          );
-
-          exercises.add(WorkoutExercise(
-            exerciseId: exercise.id,
-            exercise: exercise,
-            sets: [
-              WorkoutSet(
-                  reps: 1, durationSeconds: exercise.defaultDurationSeconds)
-            ],
-            restSeconds: 15,
-          ));
-        }
-      }
-
-      return WorkoutRoutine(
-        name:
-            aiWorkout['workout_name'] ?? '${isQuick ? 'Quick ' : ''}AI Workout',
-        description: aiWorkout['notes'] ?? 'AI-generated personalized workout',
-        exercises: exercises,
-        estimatedDurationMinutes: aiWorkout['estimated_duration'] ?? 45,
-        difficulty: aiWorkout['difficulty_level'] ?? 'intermediate',
-        targetMuscles:
-            List<String>.from(aiWorkout['muscle_groups_targeted'] ?? []),
-        requiredEquipment: _extractRequiredEquipment(exercises),
-        isCustom: false, // Mark as AI-generated
-      );
-    } catch (e) {
-      print('[AI Conversion] Error converting AI workout: $e');
-      return null;
-    }
-  }
-
-  int _parseRepsFromString(String? repsString) {
-    if (repsString == null) return 10;
-    final match = RegExp(r'(\d+)').firstMatch(repsString);
-    return match != null ? int.parse(match.group(1)!) : 10;
-  }
-
-  int _parseDurationFromString(String? durationString) {
-    if (durationString == null) return 30;
-    final match = RegExp(r'(\d+)').firstMatch(durationString);
-    return match != null
-        ? int.parse(match.group(1)!) * 60
-        : 30; // Convert minutes to seconds
-  }
-
-  int _parseRestPeriod(String? restString) {
-    if (restString == null) return 60;
-    final match = RegExp(r'(\d+)').firstMatch(restString);
-    return match != null ? int.parse(match.group(1)!) : 60;
-  }
-
-  List<String> _extractRequiredEquipment(List<WorkoutExercise> exercises) {
-    final equipment = <String>{};
-    for (final workoutExercise in exercises) {
-      if (workoutExercise.exercise != null) {
-        equipment.addAll(workoutExercise.exercise!.equipment);
-      }
-    }
-    return equipment.toList();
-  }
-
-  Future<void> _startWorkout(WorkoutRoutine routine) async {
-    HapticFeedback.lightImpact();
-
-    try {
-      final result = await Navigator.of(context).push(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              WorkoutExecutionScreen(routine: routine),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1.0, 0.0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInOutCubic,
-              )),
-              child: FadeTransition(opacity: animation, child: child),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 400),
-        ),
-      );
-
-      if (result == true && mounted) {
-        _showEnhancedSnackBar('Workout completed successfully! 💪', true);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showEnhancedSnackBar('Failed to start workout', false);
-      }
-    }
+  String _getWorkoutCategory(WorkoutRoutine routine) {
+    final name = routine.name.toLowerCase();
+    if (name.contains('cardio')) return 'Cardio';
+    if (name.contains('strength')) return 'Strength';
+    if (name.contains('yoga')) return 'Flexibility';
+    if (name.contains('hiit')) return 'HIIT';
+    return 'Strength';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PremiumColors.slate50,
-      body: RefreshIndicator(
-        onRefresh: () async {
-          HapticFeedback.mediumImpact();
-          await _loadWorkoutRoutines();
-        },
-        color: PremiumColors.vibrantOrange,
-        backgroundColor: Colors.white,
-        strokeWidth: 3.0,
-        displacement: 80.0,
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            _buildEnhancedAppBar(),
-            SliverToBoxAdapter(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: _buildBody(),
-                ),
-              ),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: _buildBody(),
             ),
           ],
         ),
       ),
-      floatingActionButton: _buildEnhancedFloatingActionButtons(),
+      floatingActionButton: _buildFAB(),
     );
   }
 
-  Widget _buildEnhancedAppBar() {
-    return SliverAppBar(
-      expandedHeight: 200,
-      floating: false,
-      pinned: true,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1E293B),
-                Color(0xFF334155),
-                Color(0xFF475569),
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-              child: Column(
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1E293B), Color(0xFF334155)],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Workouts',
-                              style: PremiumTypography.h1.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Transform your body, elevate your mind',
-                              style: PremiumTypography.subtitle.copyWith(
-                                color: Colors.white.withOpacity(0.8),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _buildAppBarActions(),
-                    ],
+                  const Text(
+                    'Workouts',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Transform your body, elevate your mind',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
                   ),
                 ],
               ),
-            ),
+              IconButton(
+                onPressed: _loadWorkoutRoutines,
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
+          const SizedBox(height: 24),
+          _buildStatsRow(),
+        ],
       ),
     );
   }
 
-  Widget _buildAppBarActions() {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () {
-            HapticFeedback.lightImpact();
-            _loadWorkoutRoutines();
-          },
-          child: const Icon(
-            Icons.refresh_rounded,
-            color: Colors.white,
-            size: 24,
+  Widget _buildStatsRow() {
+    return Row(
+      children: [
+        _buildStatCard('${_routines.length}', 'Workouts', Icons.fitness_center),
+        const SizedBox(width: 16),
+        _buildStatCard('3', 'This Week', Icons.calendar_today_outlined),
+        const SizedBox(width: 16),
+        _buildStatCard('7', 'Day Streak', Icons.local_fire_department_outlined),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(String value, String label, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
           ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              color: Colors.white.withOpacity(0.8),
+              size: 20,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withOpacity(0.7),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return _buildEnhancedLoadingState();
-    }
+    if (_isLoading) return _buildLoadingState();
+    if (_error != null) return _buildErrorState();
 
-    if (_error != null) {
-      return _buildEnhancedErrorState();
-    }
-
-    if (_routines.isEmpty) {
-      return _buildEnhancedEmptyState();
-    }
-
-    return Column(
-      children: [
-        _buildAIStatusBanner(),
-        _buildStatsOverview(),
-        _buildEnhancedSearchBar(),
-        _buildFilterChips(),
-        _buildWorkoutsList(),
-      ],
-    );
-  }
-
-  Widget _buildAIStatusBanner() {
-    if (_aiAvailable) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              PremiumColors.vibrantOrange.withOpacity(0.1),
-              PremiumColors.energeticBlue.withOpacity(0.1),
-            ],
+    return RefreshIndicator(
+      onRefresh: _loadWorkoutRoutines,
+      color: const Color(0xFFFF6B35),
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                if (!_aiAvailable) _buildAIBanner(),
+                const SizedBox(height: 24),
+                _buildSearchBar(),
+                const SizedBox(height: 20),
+                _buildFilterChips(),
+                const SizedBox(height: 24),
+                _buildWorkoutSection(),
+              ]),
+            ),
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: PremiumColors.vibrantOrange.withOpacity(0.3),
-            width: 1.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    PremiumColors.vibrantOrange,
-                    PremiumColors.energeticBlue
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.auto_awesome,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'AI Workouts Available',
-                    style: PremiumTypography.bodyLarge.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: PremiumColors.slate900,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Get personalized workouts powered by Gemini AI',
-                    style: PremiumTypography.bodyMedium.copyWith(
-                      color: PremiumColors.slate600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: PremiumColors.successGreen,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'ACTIVE',
-                style: PremiumTypography.caption.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-        decoration: BoxDecoration(
-          color: PremiumColors.pastelYellow.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: PremiumColors.pastelYellow.withOpacity(0.3),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  color: PremiumColors.pastelYellow,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Complete Fitness Profile',
-                        style: PremiumTypography.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: PremiumColors.slate900,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Complete onboarding to unlock AI-powered workouts',
-                        style: PremiumTypography.bodyMedium.copyWith(
-                          color: PremiumColors.slate600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      HapticFeedback.lightImpact();
-                      // Navigate to fitness profile setup
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const OnboardingScreen(),
-                        ),
-                      );
-
-                      // Always refresh AI availability when user returns
-                      if (mounted) {
-                        print(
-                            '[Navigation] Returned from onboarding, refreshing AI availability...');
-                        await _ensureDataCompatibility();
-                        await _checkAIAvailability();
-                        if (_aiAvailable) {
-                          _showEnhancedSnackBar(
-                              'Fitness profile completed! AI features are now available 🤖',
-                              true);
-                        } else {
-                          print(
-                              '[Navigation] AI still not available after onboarding');
-                          // Force refresh the data after a short delay
-                          await Future.delayed(
-                              const Duration(milliseconds: 1000));
-                          await _ensureDataCompatibility();
-                          await _checkAIAvailability();
-                          if (_aiAvailable) {
-                            _showEnhancedSnackBar(
-                                'AI features are now ready! 🤖✨', true);
-                          }
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PremiumColors.pastelYellow,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Complete Profile',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      HapticFeedback.lightImpact();
-                      await _fixMissingFields();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PremiumColors.successGreen,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Quick Fix',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  Widget _buildStatsOverview() {
-    return SlideTransition(
-      position: Tween<Offset>(
-        begin: Offset(_statsSlideAnimation.value, 0),
-        end: Offset.zero,
-      ).animate(_statsAnimationController),
-      child: Container(
-        height: 120,
-        margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        child: Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                'Total',
-                '${_routines.length}',
-                Icons.fitness_center,
-                PremiumColors.slate600,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                'This Week',
-                '3',
-                Icons.calendar_today,
-                PremiumColors.energeticBlue,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                'Streak',
-                '7 days',
-                Icons.local_fire_department,
-                PremiumColors.vibrantOrange,
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
+  Widget _buildAIBanner() {
     return Container(
-      // Remove heavy TweenAnimationBuilder
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFEF3C7).withOpacity(0.5),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.2), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 18),
+          Row(
+            children: [
+              const Icon(Icons.info_outline,
+                  color: Color(0xFFF59E0B), size: 24),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Complete Fitness Profile',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Complete onboarding to unlock AI-powered workouts',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: PremiumTypography.h3.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: PremiumTypography.caption.copyWith(
-              color: PremiumColors.slate500,
-              fontWeight: FontWeight.w600,
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildButton(
+                  text: 'Complete Profile',
+                  onPressed: () => _navigateToOnboarding(),
+                  isPrimary: true,
+                  color: const Color(0xFFF59E0B),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEnhancedSearchBar() {
-    return AnimatedBuilder(
-      animation: _searchBorderAnimation,
-      builder: (context, child) {
-        return Container(
-          margin: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-          child: AnimatedContainer(
-            duration: WorkoutAnimations.normalAnimation,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: _isSearchFocused
-                    ? PremiumColors.vibrantOrange
-                    : PremiumColors.slate200,
-                width: _isSearchFocused ? _searchBorderAnimation.value : 1,
-              ),
-              boxShadow: _isSearchFocused
-                  ? [
-                      BoxShadow(
-                        color: PremiumColors.vibrantOrange.withOpacity(0.2),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : [
-                      BoxShadow(
-                        color: PremiumColors.slate900.withOpacity(0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              onTap: () {
-                setState(() => _isSearchFocused = true);
-                _searchAnimationController.forward();
-                HapticFeedback.selectionClick();
-              },
-              onEditingComplete: () {
-                setState(() => _isSearchFocused = false);
-                _searchAnimationController.reverse();
-                FocusScope.of(context).unfocus();
-              },
-              style: PremiumTypography.bodyLarge.copyWith(
-                color: PremiumColors.slate700,
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Search workouts...',
-                prefixIcon: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: _searchController.text.isEmpty
-                      ? Icon(
-                          Icons.search_rounded,
-                          color: PremiumColors.slate400,
-                          size: 24,
-                          key: const ValueKey('search'),
-                        )
-                      : Icon(
-                          Icons.filter_list_rounded,
-                          color: PremiumColors.vibrantOrange,
-                          size: 24,
-                          key: const ValueKey('filter'),
-                        ),
-                ),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.clear_rounded,
-                          color: PremiumColors.slate400,
-                          size: 20,
-                        ),
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          _searchController.clear();
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                hintStyle: PremiumTypography.bodyMedium.copyWith(
-                  color: PremiumColors.slate400,
-                  fontWeight: FontWeight.w400,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 18,
-                ),
-              ),
-            ),
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E293B).withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-        );
-      },
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search workouts...',
+          prefixIcon:
+              const Icon(Icons.search, color: Color(0xFF9CA3AF), size: 20),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear,
+                      color: Color(0xFF9CA3AF), size: 20),
+                  onPressed: () => _searchController.clear(),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.all(16),
+          hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+        ),
+      ),
     );
   }
 
   Widget _buildFilterChips() {
     final filters = ['All', 'Strength', 'Cardio', 'Flexibility', 'HIIT'];
-
-    return Container(
-      height: 50,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: ListView.builder(
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final filter = filters[index];
           final isSelected = _selectedFilter == filter;
-
-          return Container(
-            margin: const EdgeInsets.only(right: 12),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(25),
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  setState(() => _selectedFilter = filter);
-                  _filterRoutines();
-                },
-                child: AnimatedContainer(
-                  duration: WorkoutAnimations.normalAnimation,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isSelected ? PremiumColors.slate900 : Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(
-                      color: isSelected
-                          ? PremiumColors.slate900
-                          : PremiumColors.slate300,
-                      width: 1.5,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: PremiumColors.slate900.withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    filter,
-                    style: PremiumTypography.bodyMedium.copyWith(
-                      color: isSelected ? Colors.white : PremiumColors.slate600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+          return GestureDetector(
+            onTap: () {
+              setState(() => _selectedFilter = filter);
+              _filterRoutines();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Text(
+                filter,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : const Color(0xFF64748B),
                 ),
               ),
             ),
@@ -1208,478 +423,263 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     );
   }
 
-  Widget _buildWorkoutsList() {
-    if (_filteredRoutines.isEmpty && _searchController.text.isNotEmpty) {
-      return _buildEmptySearchResults();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                _searchController.text.isEmpty
-                    ? 'Your Routines'
-                    : 'Search Results',
-                style: PremiumTypography.h3.copyWith(
-                  color: PremiumColors.slate900,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: PremiumColors.slate900,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${_filteredRoutines.length}',
-                  style: PremiumTypography.bodyMedium.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _filteredRoutines.length,
-            itemBuilder: (context, index) => _buildEnhancedWorkoutCard(
-              _filteredRoutines[index],
-              index,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEnhancedLoadingState() {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: PremiumColors.slate900,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: PremiumColors.slate900.withOpacity(0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Loading workouts...',
-              style: PremiumTypography.bodyLarge.copyWith(
-                color: PremiumColors.slate500,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEnhancedErrorState() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: PremiumColors.slate400.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Icon(
-                Icons.error_outline,
-                size: 40,
-                color: PremiumColors.slate500,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Something went wrong',
-              style: PremiumTypography.h3,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: PremiumTypography.bodyMedium.copyWith(
-                color: PremiumColors.slate500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            _buildPrimaryButton(
-              onPressed: _loadWorkoutRoutines,
-              text: 'Try Again',
-              icon: Icons.refresh,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEnhancedEmptyState() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: PremiumColors.slate400.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(32),
-              ),
-              child: Icon(
-                Icons.fitness_center,
-                size: 60,
-                color: PremiumColors.slate500,
-              ),
-            ),
-            const SizedBox(height: 40),
-            Text(
-              'Ready to begin?',
-              style: PremiumTypography.h2,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Create your first workout or let AI design the perfect routine for you',
-              style: PremiumTypography.bodyMedium.copyWith(
-                color: PremiumColors.slate500,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildPrimaryButton(
-                    onPressed: _createNewWorkoutRoutine,
-                    text: 'Create Workout',
-                    icon: Icons.add,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSecondaryButton(
-                    onPressed: _generateWorkoutRoutine,
-                    text: 'Generate AI Workout',
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptySearchResults() {
-    return Container(
-      padding: const EdgeInsets.all(48),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: PremiumColors.slate400.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Icon(
-                Icons.search_off_rounded,
-                size: 40,
-                color: PremiumColors.slate500,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No workouts found',
-              style: PremiumTypography.h3.copyWith(
-                color: PremiumColors.slate600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try adjusting your search terms or create a new workout routine',
-              style: PremiumTypography.bodyMedium.copyWith(
-                color: PremiumColors.slate500,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            _buildSecondaryButton(
-              onPressed: () {
-                _searchController.clear();
-                HapticFeedback.lightImpact();
-              },
-              text: 'Clear Search',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEnhancedWorkoutCard(WorkoutRoutine routine, int index) {
-    final workoutColor = WorkoutColors.getWorkoutCategoryColor(
-        routine.name, routine.targetMuscles);
-
-    return Container(
-      // Remove heavy animation
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            HapticFeedback.lightImpact();
-            _showWorkoutDetails(routine);
-          },
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: workoutColor.withOpacity(0.2),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: workoutColor.withOpacity(0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: _buildCardContent(routine, workoutColor),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCardContent(WorkoutRoutine routine, Color workoutColor) {
-    final isAIGenerated = !routine.isCustom && routine.name.contains('AI');
+  Widget _buildWorkoutSection() {
+    if (_routines.isEmpty) return _buildEmptyState();
+    if (_filteredRoutines.isEmpty) return _buildEmptySearchResults();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Color indicator
-            Container(
-              width: 4,
-              height: 56,
-              decoration: BoxDecoration(
-                color: workoutColor,
-                borderRadius: BorderRadius.circular(2),
+            const Text(
+              'Your Routines',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
               ),
             ),
-            const SizedBox(width: 16),
-            // Main content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          routine.name,
-                          style: PremiumTypography.h3.copyWith(
-                            color: PremiumColors.slate900,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.3,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      // AI Badge
-                      if (isAIGenerated)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                PremiumColors.vibrantOrange,
-                                PremiumColors.energeticBlue,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.auto_awesome,
-                                size: 10,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                'AI',
-                                style: PremiumTypography.caption.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 9,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: workoutColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            routine.isCustom ? 'CUSTOM' : 'TEMPLATE',
-                            style: PremiumTypography.caption.copyWith(
-                              color: workoutColor,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _buildInfoChip(
-                        routine.difficulty.toUpperCase(),
-                        _getDifficultyColor(routine.difficulty),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildInfoChip(
-                        '${routine.estimatedDurationMinutes}MIN',
-                        PremiumColors.slate500,
-                      ),
-                      const SizedBox(width: 8),
-                      _buildInfoChip(
-                        '${routine.exercises.length} EX',
-                        workoutColor,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // Action button with enhanced styling for AI workouts
             Container(
-              width: 52,
-              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                gradient: isAIGenerated
-                    ? LinearGradient(
-                        colors: [
-                          PremiumColors.vibrantOrange,
-                          PremiumColors.energeticBlue,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : LinearGradient(
-                        colors: [workoutColor, workoutColor.withOpacity(0.8)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isAIGenerated
-                            ? PremiumColors.vibrantOrange
-                            : workoutColor)
-                        .withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    HapticFeedback.mediumImpact();
-                    _startWorkout(routine);
-                  },
-                  child: const Icon(
-                    Icons.play_arrow,
-                    color: Colors.white,
-                    size: 24,
-                  ),
+              child: Text(
+                '${_filteredRoutines.length}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        Text(
-          routine.description,
-          style: PremiumTypography.bodyMedium.copyWith(
-            color: PremiumColors.slate500,
-            height: 1.5,
+        const SizedBox(height: 20),
+        ...List.generate(
+          _filteredRoutines.length,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildWorkoutCard(_filteredRoutines[index]),
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
-        if (routine.targetMuscles.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          _buildWorkoutProgress(routine, workoutColor),
-        ],
       ],
+    );
+  }
+
+  Widget _buildWorkoutCard(WorkoutRoutine routine) {
+    final workoutColor = WorkoutColors.getWorkoutCategoryColor(
+        routine.name, routine.targetMuscles);
+    final isAIGenerated = !routine.isCustom && routine.name.contains('AI');
+
+    return GestureDetector(
+      onTap: () => _showWorkoutDetails(routine),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: workoutColor.withOpacity(0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: workoutColor.withOpacity(0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 4,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: workoutColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final availableWidth = constraints.maxWidth;
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  routine.name,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1E293B),
+                                    height: 1.2,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: availableWidth * 0.3,
+                                ),
+                                child: isAIGenerated
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFFFF6B35),
+                                              Color(0xFF4F46E5)
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.auto_awesome,
+                                                size: 12, color: Colors.white),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'AI',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: workoutColor.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          routine.isCustom
+                                              ? 'CUSTOM'
+                                              : 'TEMPLATE',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: workoutColor,
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 28,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          clipBehavior: Clip.none,
+                          child: Row(
+                            children: [
+                              _buildInfoChip(routine.difficulty.toUpperCase(),
+                                  workoutColor),
+                              const SizedBox(width: 8),
+                              _buildInfoChip(
+                                  '${routine.estimatedDurationMinutes}MIN',
+                                  const Color(0xFF64748B)),
+                              const SizedBox(width: 8),
+                              _buildInfoChip('${routine.exercises.length} EX',
+                                  workoutColor),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 110,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _deleteWorkout(routine),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFEF4444).withOpacity(0.2),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.delete_outline,
+                            color: Color(0xFFEF4444),
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: () => _startWorkout(routine),
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: isAIGenerated
+                                ? const LinearGradient(colors: [
+                                    Color(0xFFFF6B35),
+                                    Color(0xFF4F46E5)
+                                  ])
+                                : LinearGradient(colors: [
+                                    workoutColor,
+                                    workoutColor.withOpacity(0.8)
+                                  ]),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(Icons.play_arrow,
+                              color: Colors.white, size: 24),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              routine.description,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF64748B),
+                height: 1.5,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1689,75 +689,33 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(
         text,
-        style: PremiumTypography.caption.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
+        style: TextStyle(
           fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
-  Color _getDifficultyColor(String difficulty) {
-    return WorkoutColors.getDifficultyColor(difficulty);
-  }
-
-  Widget _buildWorkoutProgress(WorkoutRoutine routine, Color workoutColor) {
-    final completionRate = 0.6; // Mock progress
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: PremiumColors.slate50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: PremiumColors.slate200, width: 1),
-      ),
-      child: Row(
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.trending_up,
-            size: 16,
-            color: workoutColor,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Progress',
-                      style: PremiumTypography.caption.copyWith(
-                        color: PremiumColors.slate600,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      '${(completionRate * 100).toInt()}%',
-                      style: PremiumTypography.caption.copyWith(
-                        color: workoutColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
-                  child: LinearProgressIndicator(
-                    value: completionRate,
-                    backgroundColor: PremiumColors.slate200,
-                    valueColor: AlwaysStoppedAnimation(workoutColor),
-                    minHeight: 4,
-                  ),
-                ),
-              ],
+          CircularProgressIndicator(color: Color(0xFF1E293B)),
+          SizedBox(height: 16),
+          Text(
+            'Loading workouts...',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF64748B),
             ),
           ),
         ],
@@ -1765,165 +723,38 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     );
   }
 
-  Widget _buildEnhancedFloatingActionButtons() {
-    return ScaleTransition(
-      scale: _fabScaleAnimation,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 20),
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // AI Quick Workouts (only show when AI is available)
-            if (_aiAvailable) ...[
-              // 15-minute AI workout
-              FloatingActionButton(
-                heroTag: "ai_quick_15",
-                onPressed: () => _generateQuickAIWorkout(15),
-                backgroundColor: PremiumColors.energeticBlue,
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '15',
-                      style: PremiumTypography.caption.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // 30-minute AI workout
-              FloatingActionButton(
-                heroTag: "ai_quick_30",
-                onPressed: () => _generateQuickAIWorkout(30),
-                backgroundColor: PremiumColors.desaturatedMagenta,
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '30',
-                      style: PremiumTypography.caption.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Weekly schedule generator
-              FloatingActionButton(
-                heroTag: "ai_weekly",
-                onPressed: _generateWeeklySchedule,
-                backgroundColor: PremiumColors.successGreen,
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.calendar_view_week,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Create custom workout FAB
-            FloatingActionButton(
-              heroTag: "create_custom",
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                _createNewWorkoutRoutine();
-              },
-              backgroundColor: Colors.white,
-              elevation: 8,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: PremiumColors.slate900.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.add,
-                  color: PremiumColors.slate900,
-                  size: 20,
-                ),
+            const Icon(Icons.error_outline, size: 48, color: Color(0xFF64748B)),
+            const SizedBox(height: 16),
+            const Text(
+              'Something went wrong',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // Main AI generation FAB
-            FloatingActionButton.extended(
-              heroTag: "generate_ai",
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                _generateWorkoutRoutine();
-              },
-              backgroundColor: _aiAvailable
-                  ? PremiumColors.vibrantOrange
-                  : PremiumColors.slate900,
-              elevation: 16,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(32),
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF64748B),
               ),
-              label: Text(
-                _aiAvailable ? 'Generate AI Workout' : 'Generate Workout',
-                style: PremiumTypography.button.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              icon: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  _aiAvailable ? Icons.auto_awesome : Icons.fitness_center,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            _buildButton(
+              text: 'Try Again',
+              onPressed: _loadWorkoutRoutines,
+              isPrimary: true,
+              color: const Color(0xFF1E293B),
             ),
           ],
         ),
@@ -1931,325 +762,190 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     );
   }
 
-  void _showEnhancedSnackBar(String message, bool isSuccess) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isSuccess
-                        ? [PremiumColors.successGreen, PremiumColors.emerald500]
-                        : [PremiumColors.softRed, PremiumColors.red500],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isSuccess ? Icons.check_rounded : Icons.close_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.fitness_center,
+                size: 64, color: Color(0xFF64748B)),
+            const SizedBox(height: 24),
+            const Text(
+              'Ready to begin?',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  message,
-                  style: PremiumTypography.bodyLarge.copyWith(
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                    color: PremiumColors.slate800,
-                  ),
-                ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Create your first workout or let AI design the perfect routine for you',
+              style: TextStyle(
+                fontSize: 16,
+                color: Color(0xFF64748B),
+                height: 1.5,
               ),
-            ],
-          ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            _buildButton(
+              text: 'Create Workout',
+              onPressed: _createNewWorkoutRoutine,
+              isPrimary: true,
+              color: const Color(0xFF1E293B),
+            ),
+          ],
         ),
-        backgroundColor: Colors.white,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: isSuccess
-                ? PremiumColors.successGreen.withOpacity(0.3)
-                : PremiumColors.softRed.withOpacity(0.3),
-            width: 1.5,
-          ),
-        ),
-        margin: const EdgeInsets.all(20),
-        elevation: 16,
-        duration: const Duration(seconds: 4),
       ),
     );
   }
 
-  Future<Map<String, dynamic>?> _showCreateWorkoutDialog() async {
-    final nameController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+  Widget _buildEmptySearchResults() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(48),
+        child: Column(
+          children: [
+            const Icon(Icons.search_off, size: 48, color: Color(0xFF64748B)),
+            const SizedBox(height: 16),
+            const Text(
+              'No workouts found',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Try adjusting your search terms',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildButton(
+              text: 'Clear Search',
+              onPressed: () => _searchController.clear(),
+              isPrimary: false,
+              color: const Color(0xFF64748B),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-    return showDialog<Map<String, dynamic>>(
+  Widget _buildFAB() {
+    return FloatingActionButton.extended(
+      onPressed: _showActionBottomSheet,
+      backgroundColor: const Color(0xFFFF6B35),
+      icon: const Icon(Icons.add, color: Colors.white),
+      label: const Text(
+        'New Workout',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildButton({
+    required String text,
+    required VoidCallback onPressed,
+    required bool isPrimary,
+    required Color color,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: isPrimary ? color : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color),
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isPrimary ? Colors.white : color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showActionBottomSheet() {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      barrierColor: PremiumColors.slate900.withOpacity(0.7),
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-        elevation: 24,
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: PremiumColors.slate900.withOpacity(0.1),
-                blurRadius: 40,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      gradient: WorkoutColors.strengthGradient,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.fitness_center,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Text(
-                      'Create Workout',
-                      style: PremiumTypography.h2.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              Form(
-                key: formKey,
-                child: Column(
-                  children: [
-                    _buildEnhancedTextField(
-                      controller: nameController,
-                      label: 'Workout Name',
-                      hint: 'Upper Body Strength',
-                      icon: Icons.title_outlined,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a workout name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    _buildEnhancedTextField(
-                      controller: descriptionController,
-                      label: 'Description',
-                      hint: 'Describe your workout goals',
-                      icon: Icons.description_outlined,
-                      maxLines: 3,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a description';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSecondaryButton(
-                      onPressed: () => Navigator.pop(context),
-                      text: 'Cancel',
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildPrimaryButton(
-                      onPressed: () {
-                        if (formKey.currentState!.validate()) {
-                          Navigator.pop(context, {
-                            'name': nameController.text,
-                            'description': descriptionController.text,
-                          });
-                        }
-                      },
-                      text: 'Create',
-                      icon: Icons.add,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildEnhancedTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    int maxLines = 1,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: PremiumTypography.bodyLarge.copyWith(
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          validator: validator,
-          style: PremiumTypography.bodyLarge.copyWith(
-            color: PremiumColors.slate700,
-            fontWeight: FontWeight.w500,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, color: PremiumColors.slate600, size: 22),
-            filled: true,
-            fillColor: PremiumColors.slate50,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: PremiumColors.slate300, width: 1.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: PremiumColors.slate900, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: PremiumColors.softRed, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: PremiumColors.softRed, width: 2),
-            ),
-            hintStyle: PremiumTypography.bodyMedium.copyWith(
-              color: PremiumColors.slate400,
-              fontWeight: FontWeight.w400,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPrimaryButton({
-    required VoidCallback onPressed,
-    required String text,
-    IconData? icon,
-  }) {
-    return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        color: PremiumColors.slate900,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: PremiumColors.slate900.withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onPressed,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  text,
-                  style: PremiumTypography.button.copyWith(
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSecondaryButton({
-    required VoidCallback onPressed,
-    required String text,
-  }) {
-    return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        border: Border.all(color: PremiumColors.slate300, width: 1.5),
-        borderRadius: BorderRadius.circular(16),
-        color: Colors.white,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onPressed,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Center(
-              child: Text(
-                text,
-                style: PremiumTypography.bodyMedium.copyWith(
-                  color: PremiumColors.slate500,
-                  letterSpacing: 0.3,
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
+            const SizedBox(height: 20),
+            const Text(
+              'Create New Workout',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 24),
+            _ActionTile(
+              icon: Icons.add,
+              title: 'Custom Workout',
+              subtitle: 'Create your own workout routine',
+              onTap: () {
+                Navigator.pop(context);
+                _createNewWorkoutRoutine();
+              },
+            ),
+            const SizedBox(height: 12),
+            _ActionTile(
+              icon: Icons.auto_awesome,
+              title: _aiAvailable ? 'AI Generated' : 'Basic Workout',
+              subtitle: _aiAvailable
+                  ? 'Let AI create a personalized workout'
+                  : 'Generate a template-based workout',
+              gradient: _aiAvailable
+                  ? const LinearGradient(
+                      colors: [Color(0xFFFF6B35), Color(0xFF4F46E5)])
+                  : null,
+              onTap: () {
+                Navigator.pop(context);
+                _generateWorkoutRoutine();
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
@@ -2259,395 +955,479 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     final workoutColor = WorkoutColors.getWorkoutCategoryColor(
         routine.name, routine.targetMuscles);
 
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WorkoutDetailsScreen(routine: routine),
+      ),
+    );
+  }
+
+  Future<void> _createNewWorkoutRoutine() async {
+    // Implementation for creating new workout
+    _showSnackBar('Feature coming soon!', false);
+  }
+
+  Future<void> _generateWorkoutRoutine() async {
+    if (!_aiAvailable) {
+      _showSnackBar(
+          'Complete your fitness profile first to use AI workouts', false);
+      return;
+    }
+
+    // Show loading dialog
     showDialog(
       context: context,
-      barrierDismissible: true,
-      barrierColor: PremiumColors.slate900.withOpacity(0.7),
+      barrierDismissible: false,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-        elevation: 24,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: PremiumColors.slate900.withOpacity(0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      gradient: WorkoutColors.getWorkoutGradient(
-                          routine.name, routine.targetMuscles),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Icon(
-                      routine.isCustom
-                          ? Icons.fitness_center
-                          : Icons.auto_awesome,
-                      color: Colors.white,
-                      size: 36,
-                    ),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF6B35), Color(0xFF4F46E5)],
                   ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          routine.name,
-                          style: PremiumTypography.h3.copyWith(
-                            color: PremiumColors.slate900,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: workoutColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: workoutColor.withOpacity(0.3)),
-                          ),
-                          child: Text(
-                            routine.isCustom
-                                ? 'CUSTOM WORKOUT'
-                                : 'AI GENERATED',
-                            style: PremiumTypography.caption.copyWith(
-                              color: workoutColor,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              Text(
-                routine.description,
-                style: PremiumTypography.bodyMedium.copyWith(
-                  color: PremiumColors.slate500,
-                  height: 1.6,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 32,
                 ),
               ),
-              const SizedBox(height: 32),
-              _buildDetailRow(Icons.signal_cellular_alt, 'Difficulty',
-                  routine.difficulty.toUpperCase()),
-              _buildDetailRow(Icons.schedule_outlined, 'Duration',
-                  '${routine.estimatedDurationMinutes} minutes'),
-              _buildDetailRow(Icons.list_alt_outlined, 'Exercises',
-                  '${routine.exercises.length} total'),
-              if (routine.targetMuscles.isNotEmpty)
-                _buildDetailRow(Icons.track_changes_outlined, 'Target Areas',
-                    routine.targetMuscles.join(', ')),
-              const SizedBox(height: 40),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSecondaryButton(
-                      onPressed: () => Navigator.pop(context),
-                      text: 'Close',
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: WorkoutColors.getWorkoutGradient(
-                            routine.name, routine.targetMuscles),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: workoutColor.withOpacity(0.3),
-                            blurRadius: 16,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _startWorkout(routine);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.play_arrow,
-                                    color: Colors.white, size: 20),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Start Workout',
-                                  style: PremiumTypography.button.copyWith(
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 24),
+              const Text(
+                'AI Creating Your Workout',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Our AI is analyzing your fitness profile and creating a personalized workout just for you...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF64748B),
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(
+                color: Color(0xFF4F46E5),
               ),
             ],
           ),
         ),
       ),
     );
+
+    try {
+      // Get user's fitness profile and macro data
+      final fitnessProfile = await _dataService.getCurrentFitnessProfile();
+      final macroData = await _dataService.getMacroData();
+
+      // Generate AI workout
+      final aiWorkoutData = await _aiService.generateWorkoutPlan(
+        fitnessProfile: fitnessProfile,
+        macroData: macroData,
+      );
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      if (aiWorkoutData.isNotEmpty) {
+        debugPrint('AI Workout Data: $aiWorkoutData');
+
+        // Convert AI workout data to WorkoutRoutine
+        final aiWorkoutRoutine = _convertAIWorkoutToRoutine(aiWorkoutData);
+
+        debugPrint(
+            'Converted Workout Routine - Name: ${aiWorkoutRoutine.name}');
+        debugPrint(
+            'Converted Workout Routine - Difficulty: ${aiWorkoutRoutine.difficulty}');
+        debugPrint(
+            'Converted Workout Routine - Equipment: ${aiWorkoutRoutine.requiredEquipment}');
+        debugPrint(
+            'Converted Workout Routine - Exercises: ${aiWorkoutRoutine.exercises.length}');
+
+        // Save the AI-generated workout
+        final savedRoutine =
+            await _workoutService.createWorkoutRoutine(aiWorkoutRoutine);
+
+        if (savedRoutine != null) {
+          // Refresh the workout list
+          await _loadWorkoutRoutines();
+
+          _showSnackBar('AI workout created successfully!', true);
+
+          // Show the new workout details
+          _showWorkoutDetails(savedRoutine);
+        } else {
+          _showSnackBar('Failed to save AI workout. Please try again.', false);
+        }
+      } else {
+        _showSnackBar(
+            'Failed to generate AI workout. Please try again.', false);
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (mounted) Navigator.pop(context);
+
+      debugPrint('Error generating AI workout: $e');
+      _showSnackBar('Failed to generate AI workout: $e', false);
+    }
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: PremiumColors.slate600),
-          const SizedBox(width: 12),
-          Text(
-            '$label:',
-            style: PremiumTypography.bodyMedium.copyWith(
-              color: PremiumColors.slate900,
-              fontWeight: FontWeight.w600,
-            ),
+  WorkoutRoutine _convertAIWorkoutToRoutine(
+      Map<String, dynamic> aiWorkoutData) {
+    // Convert AI-generated data to WorkoutRoutine format
+    final exercises = <WorkoutExercise>[];
+
+    // Only add main exercises - warm-up and cool-down will be in description
+    if (aiWorkoutData['main_exercises'] != null) {
+      for (final exerciseData in aiWorkoutData['main_exercises']) {
+        final numSets = exerciseData['sets'] ?? 3;
+        final repsStr = exerciseData['reps']?.toString() ?? '10-12';
+        final reps = _parseReps(repsStr);
+
+        final sets = List.generate(numSets, (index) => WorkoutSet(reps: reps));
+
+        exercises.add(WorkoutExercise(
+          id: _uuid.v4(),
+          exerciseId: _uuid.v4(),
+          sets: sets,
+          restSeconds: _parseRestSeconds(exerciseData['rest']),
+          notes: exerciseData['instructions'] ?? '',
+          isCompleted: false,
+          exercise: Exercise(
+            id: _uuid.v4(),
+            name: exerciseData['exercise'] ?? 'Exercise',
+            description: exerciseData['instructions'] ?? '',
+            instructions: [exerciseData['instructions'] ?? ''],
+            primaryMuscles:
+                List<String>.from(exerciseData['muscle_groups'] ?? ['general']),
+            secondaryMuscles: [],
+            equipment: List<String>.from(
+                exerciseData['equipment_needed'] ?? ['bodyweight']),
+            difficulty: _normalizeDifficulty(aiWorkoutData['difficulty_level']),
+            type: 'strength',
+            isCompound:
+                (exerciseData['muscle_groups'] as List?)?.length != null &&
+                    (exerciseData['muscle_groups'] as List).length > 1,
+            imageUrl: null,
+            videoUrl: null,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: PremiumTypography.bodyMedium.copyWith(
-                color: PremiumColors.slate500,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ));
+      }
+    }
+
+    // Build comprehensive description including warm-up and cool-down
+    final description = _buildWorkoutDescription(aiWorkoutData);
+
+    return WorkoutRoutine(
+      id: _uuid.v4(),
+      name: aiWorkoutData['workout_name'] ?? 'AI Generated Workout',
+      description: description,
+      difficulty: _normalizeDifficulty(aiWorkoutData['difficulty_level']),
+      estimatedDurationMinutes: aiWorkoutData['estimated_duration'] ?? 45,
+      targetMuscles: List<String>.from(
+          aiWorkoutData['muscle_groups_targeted'] ?? ['full body']),
+      requiredEquipment: _normalizeEquipment(aiWorkoutData),
+      exercises: exercises,
+      isCustom: false, // AI-generated workouts are not custom
+      createdBy: '', // Will be set by the service
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
   }
 
-  void _initializeAI() async {
-    _aiService.initialize();
-    await _ensureDataCompatibility();
+  String _buildWorkoutDescription(Map<String, dynamic> aiWorkoutData) {
+    final buffer = StringBuffer();
+
+    // Add main description
+    if (aiWorkoutData['notes'] != null) {
+      buffer.writeln(aiWorkoutData['notes']);
+      buffer.writeln();
+    } else {
+      buffer.writeln(
+          'Personalized workout created by AI based on your fitness profile.');
+      buffer.writeln();
+    }
+
+    // Add warm-up instructions
+    if (aiWorkoutData['warm_up'] != null &&
+        aiWorkoutData['warm_up'].isNotEmpty) {
+      buffer.writeln('🔥 WARM-UP:');
+      for (final warmUp in aiWorkoutData['warm_up']) {
+        buffer.writeln('• ${warmUp['exercise']}: ${warmUp['duration']}');
+        if (warmUp['instructions'] != null) {
+          buffer.writeln('  ${warmUp['instructions']}');
+        }
+      }
+      buffer.writeln();
+    }
+
+    // Add cool-down instructions
+    if (aiWorkoutData['cool_down'] != null &&
+        aiWorkoutData['cool_down'].isNotEmpty) {
+      buffer.writeln('❄️ COOL-DOWN:');
+      for (final coolDown in aiWorkoutData['cool_down']) {
+        buffer.writeln('• ${coolDown['exercise']}: ${coolDown['duration']}');
+        if (coolDown['instructions'] != null) {
+          buffer.writeln('  ${coolDown['instructions']}');
+        }
+      }
+      buffer.writeln();
+    }
+
+    // Add progression tips
+    if (aiWorkoutData['progression_tips'] != null) {
+      buffer.writeln('📈 PROGRESSION TIPS:');
+      buffer.writeln(aiWorkoutData['progression_tips']);
+    }
+
+    return buffer.toString().trim();
+  }
+
+  String _normalizeDifficulty(dynamic difficulty) {
+    if (difficulty == null) return 'intermediate';
+
+    final difficultyStr = difficulty.toString().toLowerCase().trim();
+
+    // Map various AI difficulty outputs to database constraints
+    switch (difficultyStr) {
+      case 'beginner':
+      case 'easy':
+      case 'novice':
+      case 'starter':
+        return 'beginner';
+      case 'intermediate':
+      case 'medium':
+      case 'moderate':
+      case 'regular':
+        return 'intermediate';
+      case 'advanced':
+      case 'hard':
+      case 'expert':
+      case 'difficult':
+      case 'challenging':
+        return 'advanced';
+      default:
+        debugPrint(
+            'Unknown difficulty level: $difficultyStr, defaulting to intermediate');
+        return 'intermediate';
+    }
+  }
+
+  int _parseReps(String repsStr) {
+    // Parse reps from strings like "8-12", "10", "15-20"
+    final match = RegExp(r'(\d+)(?:-\d+)?').firstMatch(repsStr);
+    return int.tryParse(match?.group(1) ?? '10') ?? 10;
+  }
+
+  int _parseRestSeconds(dynamic rest) {
+    if (rest == null) return 60;
+
+    final restStr = rest.toString().toLowerCase();
+    if (restStr.contains('minute')) {
+      final minutes = RegExp(r'(\d+)').firstMatch(restStr)?.group(1);
+      return (int.tryParse(minutes ?? '1') ?? 1) * 60;
+    } else if (restStr.contains('second')) {
+      final seconds = RegExp(r'(\d+)').firstMatch(restStr)?.group(1);
+      return int.tryParse(seconds ?? '60') ?? 60;
+    }
+
+    // Try to parse as just a number (assume seconds)
+    return int.tryParse(restStr) ?? 60;
+  }
+
+  List<String> _normalizeEquipment(Map<String, dynamic> aiWorkoutData) {
+    final Set<String> equipment = {};
+
+    // Get equipment from main exercises
+    if (aiWorkoutData['main_exercises'] != null) {
+      for (final exerciseData in aiWorkoutData['main_exercises']) {
+        if (exerciseData['equipment_needed'] != null) {
+          for (final item in exerciseData['equipment_needed']) {
+            equipment.add(_normalizeEquipmentItem(item.toString()));
+          }
+        }
+      }
+    }
+
+    // If no equipment found, default to bodyweight
+    if (equipment.isEmpty) {
+      equipment.add('bodyweight');
+    }
+
+    return equipment.toList();
+  }
+
+  String _normalizeEquipmentItem(String equipment) {
+    final equipmentStr = equipment.toLowerCase().trim();
+
+    // Map various AI equipment outputs to standardized values
+    switch (equipmentStr) {
+      case 'none':
+      case 'bodyweight':
+      case 'body weight':
+      case 'no equipment':
+        return 'bodyweight';
+      case 'dumbbells':
+      case 'dumbbell':
+      case 'weights':
+      case 'free weights':
+        return 'dumbbells';
+      case 'barbell':
+      case 'barbells':
+        return 'barbell';
+      case 'resistance bands':
+      case 'resistance band':
+      case 'bands':
+      case 'band':
+        return 'resistance_bands';
+      case 'pull-up bar':
+      case 'pullup bar':
+      case 'pull up bar':
+        return 'pull_up_bar';
+      case 'yoga mat':
+      case 'mat':
+      case 'exercise mat':
+        return 'yoga_mat';
+      case 'kettlebell':
+      case 'kettlebells':
+        return 'kettlebell';
+      default:
+        debugPrint(
+            'Unknown equipment: $equipmentStr, defaulting to bodyweight');
+        return 'bodyweight';
+    }
+  }
+
+  Future<void> _startWorkout(WorkoutRoutine routine) async {
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => WorkoutExecutionScreen(routine: routine),
+        ),
+      );
+    } catch (e) {
+      _showSnackBar('Failed to start workout', false);
+    }
+  }
+
+  void _navigateToOnboarding() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+    );
     await _checkAIAvailability();
   }
 
-  Future<void> _checkAIAvailability() async {
-    try {
-      print('[AI Check] Starting AI availability check...');
-
-      final profile = await _dataService.getCurrentFitnessProfile();
-      final macroData = await _dataService.getMacroData();
-      final isReady = await _dataService.isReadyForAIRecommendations();
-
-      // Debug: Print what we have vs what we need
-      print('=== AI AVAILABILITY DEBUG ===');
-      print('Profile exists: ${profile != null}');
-      if (profile != null) {
-        print(
-            'Fitness Level: "${profile.fitnessLevel}" (empty: ${profile.fitnessLevel.isEmpty})');
-        print(
-            'Workout Location: "${profile.workoutLocation}" (empty: ${profile.workoutLocation.isEmpty})');
-        print(
-            'Workout Space: "${profile.workoutSpace}" (empty: ${profile.workoutSpace.isEmpty})');
-        print(
-            'Workouts Per Week: ${profile.workoutsPerWeek} (>0: ${profile.workoutsPerWeek > 0})');
-        print(
-            'Max Duration: ${profile.maxWorkoutDuration} (>0: ${profile.maxWorkoutDuration > 0})');
-        print('Basic Profile Complete: ${profile.isBasicProfileComplete}');
-      }
-      print('Macro data exists: ${macroData != null}');
-      if (macroData != null) {
-        print(
-            'Has macro calories: ${macroData['target_calories'] != null} (value: ${macroData['target_calories']})');
-        print(
-            'Has goal type: ${macroData['goal_type'] != null} (value: ${macroData['goal_type']})');
-      }
-      print('AI Ready final result: $isReady');
-      print('============================');
-
-      if (mounted) {
-        setState(() {
-          _aiAvailable = isReady;
-        });
-        print('[AI Check] AI availability set to: $_aiAvailable');
-      }
-    } catch (e, stackTrace) {
-      print('[AI Check] Error checking AI availability: $e');
-      print('[AI Check] Stack trace: $stackTrace');
-      if (mounted) {
-        setState(() {
-          _aiAvailable = false;
-        });
-      }
-    }
-  }
-
-  void _showWeeklyScheduleDialog(List<Map<String, dynamic>> schedule) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: PremiumColors.slate900.withOpacity(0.7),
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-        elevation: 24,
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: PremiumColors.slate900.withOpacity(0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          PremiumColors.vibrantOrange,
-                          PremiumColors.energeticBlue
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.calendar_view_week,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Text(
-                      'Weekly Schedule',
-                      style: PremiumTypography.h2.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 400,
-                width: double.maxFinite,
-                child: ListView.builder(
-                  itemCount: schedule.length,
-                  itemBuilder: (context, index) {
-                    final day = schedule[index];
-                    final isRestDay = day['rest_day'] == true;
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isRestDay ? PremiumColors.slate50 : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isRestDay
-                              ? PremiumColors.slate200
-                              : PremiumColors.energeticBlue.withOpacity(0.3),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: isRestDay
-                                  ? PremiumColors.slate300
-                                  : PremiumColors.energeticBlue,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              isRestDay ? Icons.hotel : Icons.fitness_center,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${day['day']}: ${day['workout_type']}',
-                                  style: PremiumTypography.bodyLarge.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${day['primary_focus']} • ${day['estimated_duration']}min',
-                                  style: PremiumTypography.bodyMedium.copyWith(
-                                    color: PremiumColors.slate500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+  void _showSnackBar(String message, bool isSuccess) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isSuccess ? Icons.check_circle : Icons.error,
+              color:
+                  isSuccess ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF1E293B),
                 ),
               ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.white,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        elevation: 8,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _deleteWorkout(WorkoutRoutine routine) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: const Icon(
+                  Icons.delete_outline,
+                  color: Color(0xFFEF4444),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Delete Workout?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Are you sure you want to delete "${routine.name}"? This action cannot be undone.',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF64748B),
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
-                    child: _buildSecondaryButton(
+                    child: _buildButton(
+                      text: 'Cancel',
                       onPressed: () => Navigator.pop(context),
-                      text: 'Close',
+                      isPrimary: false,
+                      color: const Color(0xFF64748B),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: _buildPrimaryButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        // Could implement schedule saving here
-                        _showEnhancedSnackBar('Schedule saved! 📅', true);
-                      },
-                      text: 'Save Schedule',
-                      icon: Icons.save,
+                    child: _buildButton(
+                      text: 'Delete',
+                      onPressed: () => _confirmDeleteWorkout(routine),
+                      isPrimary: true,
+                      color: const Color(0xFFEF4444),
                     ),
                   ),
                 ],
@@ -2659,112 +1439,187 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     );
   }
 
-  Future<void> _fixMissingFields() async {
+  Future<void> _confirmDeleteWorkout(WorkoutRoutine routine) async {
+    Navigator.pop(context); // Close dialog
+
     try {
-      final profile = await _dataService.getCurrentFitnessProfile();
-      final macroData = await _dataService.getMacroData();
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E293B)),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Deleting workout...',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.white,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: EdgeInsets.all(16),
+          duration: Duration(seconds: 2),
+        ),
+      );
 
-      print('[Fix] Current macro data: $macroData');
+      debugPrint(
+          'Attempting to delete workout: ${routine.name} (ID: ${routine.id})');
+      debugPrint(
+          'Workout created_by: ${routine.createdBy}, is_custom: ${routine.isCustom}');
 
-      // Update macro data with required fields
-      final updatedMacroData = {
-        'target_calories': macroData['target_calories'] ?? 2200,
-        'protein_g': macroData['protein_g'] ?? 165,
-        'carb_g': macroData['carb_g'] ?? 220,
-        'fat_g': macroData['fat_g'] ?? 75,
-        'goal_type': macroData['goal_type'] ?? 'muscle_gain',
-        'current_weight_kg': macroData['current_weight_kg'] ?? 75,
-        'goal_weight_kg': macroData['goal_weight_kg'] ?? 80,
-      };
+      // Delete the workout using the service
+      final success = await _workoutService.deleteWorkoutRoutine(routine.id);
 
-      // Ensure profile has all required fields
-      final updatedProfileData = {
-        'fitnessLevel': profile.fitnessLevel.isEmpty
-            ? 'intermediate'
-            : profile.fitnessLevel,
-        'yearsOfExperience':
-            profile.yearsOfExperience <= 0 ? 2 : profile.yearsOfExperience,
-        'previousExerciseTypes': profile.previousExerciseTypes.isEmpty
-            ? ['strength', 'cardio']
-            : profile.previousExerciseTypes,
-        'workoutLocation':
-            profile.workoutLocation.isEmpty ? 'home' : profile.workoutLocation,
-        'availableEquipment': profile.availableEquipment.isEmpty
-            ? ['dumbbells', 'bodyweight']
-            : profile.availableEquipment,
-        'hasGymAccess': profile.hasGymAccess,
-        'workoutSpace':
-            profile.workoutSpace.isEmpty ? 'medium' : profile.workoutSpace,
-        'workoutsPerWeek':
-            profile.workoutsPerWeek <= 0 ? 4 : profile.workoutsPerWeek,
-        'maxWorkoutDuration':
-            profile.maxWorkoutDuration <= 0 ? 60 : profile.maxWorkoutDuration,
-        'preferredTimeOfDay': profile.preferredTimeOfDay.isEmpty
-            ? 'morning'
-            : profile.preferredTimeOfDay,
-        'preferredDays': profile.preferredDays.isEmpty
-            ? ['monday', 'wednesday', 'friday', 'sunday']
-            : profile.preferredDays,
-      };
+      if (success) {
+        // Remove from local lists immediately for better UX
+        setState(() {
+          _routines.removeWhere((r) => r.id == routine.id);
+          _filteredRoutines.removeWhere((r) => r.id == routine.id);
+        });
 
-      // Store updated data
-      await _storageService.put(
-          'fitness_profile', json.encode(updatedProfileData));
-      await _storageService.put('macro_results', json.encode(updatedMacroData));
+        _showSnackBar('Workout deleted successfully', true);
 
-      print('[Fix] Updated macro data: $updatedMacroData');
-      print('[Fix] Updated fitness profile data');
+        // Refresh the list to ensure consistency
+        await _loadWorkoutRoutines();
+      } else {
+        debugPrint('Delete operation returned false');
 
-      // Re-check AI availability
-      await _checkAIAvailability();
+        // Reload to check if it was actually deleted
+        await _loadWorkoutRoutines();
 
-      _showEnhancedSnackBar('AI data fixed! Check debug again 🤖✨', true);
-    } catch (e) {
-      print('[Fix] Error fixing missing fields: $e');
-      _showEnhancedSnackBar('Failed to fix missing fields: $e', false);
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed && mounted) {
-      print('[Lifecycle] App resumed, checking AI availability...');
-      _checkAIAvailability();
-    }
-  }
-
-  /// Ensures onboarding data is properly accessible for AI
-  Future<void> _ensureDataCompatibility() async {
-    try {
-      print('[Compatibility] Checking data compatibility...');
-
-      // Check if we have macro_results data but missing fitness_profile
-      final macroResultsJson = await _storageService.get('macro_results');
-      if (macroResultsJson != null) {
-        final macroResults = json.decode(macroResultsJson);
-
-        // If fitness_profile exists in macro_results, ensure it's also stored separately
-        if (macroResults['fitness_profile'] != null) {
-          await _storageService.put(
-              'fitness_profile', json.encode(macroResults['fitness_profile']));
-          print('[Compatibility] Copied fitness_profile from macro_results');
+        // Check if the workout still exists
+        final stillExists = _routines.any((r) => r.id == routine.id);
+        if (stillExists) {
+          _showSnackBar(
+            'Unable to delete this workout. You may not have permission to delete it.',
+            false,
+          );
+        } else {
+          // It was actually deleted, update UI
+          setState(() {
+            _routines.removeWhere((r) => r.id == routine.id);
+            _filteredRoutines.removeWhere((r) => r.id == routine.id);
+          });
+          _showSnackBar('Workout deleted successfully', true);
         }
-
-        // Ensure macro data has the expected structure
-        if (macroResults['target_calories'] == null &&
-            macroResults['calories'] != null) {
-          macroResults['target_calories'] = macroResults['calories'];
-        }
-        if (macroResults['goal_type'] == null) {
-          macroResults['goal_type'] = 'maintain'; // Default value
-        }
-
-        await _storageService.put('macro_results', json.encode(macroResults));
-        print('[Compatibility] Updated macro_results structure');
       }
     } catch (e) {
-      print('[Compatibility] Error ensuring data compatibility: $e');
+      debugPrint('Error deleting workout: $e');
+
+      // Refresh to see current state
+      await _loadWorkoutRoutines();
+
+      if (e.toString().contains('RLS') || e.toString().contains('policy')) {
+        _showSnackBar(
+          'Permission denied: You can only delete workouts you created.',
+          false,
+        );
+      } else {
+        _showSnackBar('Failed to delete workout: ${e.toString()}', false);
+      }
     }
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Gradient? gradient;
+
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: gradient == null ? const Color(0xFFF8FAFC) : null,
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color:
+                gradient != null ? Colors.transparent : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: gradient != null
+                    ? Colors.white.withOpacity(0.2)
+                    : const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: gradient != null
+                          ? Colors.white
+                          : const Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: gradient != null
+                          ? Colors.white.withOpacity(0.8)
+                          : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: gradient != null
+                  ? Colors.white.withOpacity(0.7)
+                  : const Color(0xFF64748B),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
