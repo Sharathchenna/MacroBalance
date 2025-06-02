@@ -362,14 +362,14 @@ class MealPlanningProvider with ChangeNotifier {
       );
 
       if (generatedPlan != null) {
-        _currentMealPlan = generatedPlan as DailyMealPlan;
+        _currentMealPlan = generatedPlan;
         _weeklyMealPlans =
-            _updateWeeklyMealPlans(generatedPlan as DailyMealPlan);
+            _updateWeeklyMealPlans(generatedPlan);
       }
 
       _isGeneratingMealPlan = false;
       notifyListeners();
-      return generatedPlan as DailyMealPlan?;
+      return generatedPlan;
     } catch (e) {
       _error = 'Failed to generate meal plan: $e';
       _isGeneratingMealPlan = false;
@@ -401,13 +401,13 @@ class MealPlanningProvider with ChangeNotifier {
       );
 
       if (updatedPlan != null) {
-        _currentMealPlan = updatedPlan as DailyMealPlan;
-        _weeklyMealPlans = _updateWeeklyMealPlans(updatedPlan as DailyMealPlan);
+        _currentMealPlan = updatedPlan;
+        _weeklyMealPlans = _updateWeeklyMealPlans(updatedPlan);
       }
 
       _isLoading = false;
       notifyListeners();
-      return updatedPlan as DailyMealPlan?;
+      return updatedPlan;
     } catch (e) {
       _error = 'Failed to log meal: $e';
       _isLoading = false;

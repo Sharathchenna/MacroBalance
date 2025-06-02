@@ -7,7 +7,6 @@ import '../models/user_preferences.dart';
 import 'supabase_service.dart';
 import 'storage_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MealPlanningService {
   static final MealPlanningService _instance = MealPlanningService._internal();
@@ -84,12 +83,9 @@ class MealPlanningService {
           .eq('id', id)
           .single();
 
-      if (response != null) {
-        final recipe = Recipe.fromJson(response);
-        _recipeCache[id] = recipe;
-        return recipe;
-      }
-      return null;
+      final recipe = Recipe.fromJson(response);
+      _recipeCache[id] = recipe;
+      return recipe;
     } catch (e) {
       debugPrint('Error fetching recipe $id: $e');
       return null;
@@ -104,12 +100,9 @@ class MealPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final createdRecipe = Recipe.fromJson(response);
-        _recipeCache[createdRecipe.id] = createdRecipe;
-        return createdRecipe;
-      }
-      return null;
+      final createdRecipe = Recipe.fromJson(response);
+      _recipeCache[createdRecipe.id] = createdRecipe;
+      return createdRecipe;
     } catch (e) {
       debugPrint('Error creating recipe: $e');
       return null;
@@ -125,12 +118,9 @@ class MealPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final updatedRecipe = Recipe.fromJson(response);
-        _recipeCache[recipe.id] = updatedRecipe;
-        return updatedRecipe;
-      }
-      return null;
+      final updatedRecipe = Recipe.fromJson(response);
+      _recipeCache[recipe.id] = updatedRecipe;
+      return updatedRecipe;
     } catch (e) {
       debugPrint('Error updating recipe: $e');
       return null;
@@ -197,8 +187,6 @@ class MealPlanningService {
           .lte('date', endDateStr)
           .order('date');
 
-      if (response == null) return [];
-
       final List<DailyMealPlan> mealPlans = [];
       for (final data in response) {
         try {
@@ -230,14 +218,11 @@ class MealPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final createdPlan = DailyMealPlan.fromJson(response);
-        final cacheKey =
-            '${createdPlan.userId}_${createdPlan.date.toIso8601String().split('T').first}';
-        _mealPlanCache[cacheKey] = createdPlan;
-        return createdPlan;
-      }
-      return null;
+      final createdPlan = DailyMealPlan.fromJson(response);
+      final cacheKey =
+          '${createdPlan.userId}_${createdPlan.date.toIso8601String().split('T').first}';
+      _mealPlanCache[cacheKey] = createdPlan;
+      return createdPlan;
     } catch (e) {
       debugPrint('Error creating meal plan: $e');
       return null;
@@ -253,14 +238,11 @@ class MealPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final updatedPlan = DailyMealPlan.fromJson(response);
-        final cacheKey =
-            '${updatedPlan.userId}_${updatedPlan.date.toIso8601String().split('T').first}';
-        _mealPlanCache[cacheKey] = updatedPlan;
-        return updatedPlan;
-      }
-      return null;
+      final updatedPlan = DailyMealPlan.fromJson(response);
+      final cacheKey =
+          '${updatedPlan.userId}_${updatedPlan.date.toIso8601String().split('T').first}';
+      _mealPlanCache[cacheKey] = updatedPlan;
+      return updatedPlan;
     } catch (e) {
       debugPrint('Error updating meal plan: $e');
       return null;
@@ -398,8 +380,7 @@ Format the response as a JSON array of recipe objects.
 
       // Create meal items from recipes
       final meals = <Meal>[];
-      final now = DateTime.now();
-      final uuid = _uuid.v4();
+      _uuid.v4();
 
       if (breakfastRecipes.isNotEmpty) {
         final breakfastItems = [

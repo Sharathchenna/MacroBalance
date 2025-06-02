@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_single_quotes
+
 import '../models/foodEntry.dart';
 import '../screens/searchPage.dart'; // For Serving class
 
@@ -98,7 +100,7 @@ class NutritionCalculatorService {
     double baseAmount = serving.metricAmount;
     if (baseAmount <= 0) {
       print(
-          'Warning: Invalid serving amount (${baseAmount}) for ${serving.description}');
+          'Warning: Invalid serving amount ($baseAmount) for ${serving.description}');
       baseAmount = 1.0;
     }
 

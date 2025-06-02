@@ -2,21 +2,17 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:macrotracker/providers/dateProvider.dart';
-import 'package:macrotracker/widgets/macro_progress_ring.dart';
+import 'package:macrotracker/providers/date_provider.dart';
 import 'package:macrotracker/widgets/quantity_selector.dart';
 import 'package:macrotracker/widgets/nutrient_row.dart';
-import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'searchPage.dart'; // This has the FoodItem class we need
 import 'package:provider/provider.dart';
 import '../providers/food_entry_provider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
-import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../theme/typography.dart';
-import 'dart:math'; // Add missing import for min function and pi constant
 import '../services/posthog_service.dart';
 
 class FoodDetailPage extends StatefulWidget {
@@ -35,12 +31,12 @@ class FoodDetailPage extends StatefulWidget {
 
 class _FoodDetailPageState extends State<FoodDetailPage>
     with SingleTickerProviderStateMixin {
-  final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
-  final List<String> unitOptions = ["g", "oz"];
+  final List<String> mealOptions = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
+  final List<String> unitOptions = ['g', 'oz'];
   final List<double> presetMultipliers = [0.5, 1.0, 1.5, 2.0];
 
   late String selectedMeal; // Remove initialization
-  String selectedUnit = "g";
+  String selectedUnit = 'g';
   double selectedMultiplier = 1.0;
   late TextEditingController quantityController;
   late AnimationController _animationController;
@@ -55,7 +51,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   void initState() {
     super.initState();
     // Initialize selectedMeal with widget parameter or default to "Breakfast"
-    selectedMeal = widget.selectedMeal ?? "Breakfast";
+    selectedMeal = widget.selectedMeal ?? 'Breakfast';
 
     if (widget.food.servings.isNotEmpty) {
       selectedServing = widget.food.servings.first;
@@ -115,7 +111,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     double qty = double.tryParse(quantityController.text) ?? 100;
 
     // Convert to grams if needed
-    if (selectedUnit == "oz") {
+    if (selectedUnit == 'oz') {
       return qty * 28.35; // Convert oz to g
     }
     return qty; // Already in grams
@@ -135,7 +131,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     // Prevent division by zero or using a zero/negative base amount
     if (baseAmount <= 0) {
       print(
-          "Warning: Selected serving base amount is invalid ($baseAmount), defaulting to 1.");
+          'Warning: Selected serving base amount is invalid ($baseAmount), defaulting to 1.');
       baseAmount = 1.0;
     }
 
@@ -167,16 +163,16 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       // Calculate based on selected serving's base nutrients
       double? baseValue;
       switch (nutrient.toLowerCase()) {
-        case "calories":
+        case 'calories':
           baseValue = selectedServing!.calories;
           break;
-        case "protein":
+        case 'protein':
           baseValue = selectedServing!.nutrients['Protein'];
           break;
-        case "carbohydrate":
+        case 'carbohydrate':
           baseValue = selectedServing!.nutrients['Carbohydrate, by difference'];
           break;
-        case "fat":
+        case 'fat':
           baseValue = selectedServing!.nutrients['Total lipid (fat)'];
           break;
       }
@@ -188,16 +184,16 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       // Note: multiplier here is already calculated based on 100g in _calculateMultiplier
       double? baseValue;
       switch (nutrient.toLowerCase()) {
-        case "calories":
+        case 'calories':
           baseValue = widget.food.calories;
           break;
-        case "protein":
+        case 'protein':
           baseValue = widget.food.nutrients['Protein'];
           break;
-        case "carbohydrate":
+        case 'carbohydrate':
           baseValue = widget.food.nutrients['Carbohydrate, by difference'];
           break;
-        case "fat":
+        case 'fat':
           baseValue = widget.food.nutrients['Total lipid (fat)'];
           break;
       }
@@ -208,19 +204,19 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   }
 
   Map<String, double> getMacroPercentages() {
-    double carbs = double.tryParse(getNutrientValue("carbohydrate")) ?? 0;
-    double protein = double.tryParse(getNutrientValue("protein")) ?? 0;
-    double fat = double.tryParse(getNutrientValue("fat")) ?? 0;
+    double carbs = double.tryParse(getNutrientValue('carbohydrate')) ?? 0;
+    double protein = double.tryParse(getNutrientValue('protein')) ?? 0;
+    double fat = double.tryParse(getNutrientValue('fat')) ?? 0;
 
     setState(() {});
 
     double total = carbs + protein + fat;
-    if (total <= 0) return {"carbs": 0.33, "protein": 0.33, "fat": 0.34};
+    if (total <= 0) return {'carbs': 0.33, 'protein': 0.33, 'fat': 0.34};
 
     return {
-      "carbs": carbs / total,
-      "protein": protein / total,
-      "fat": fat / total,
+      'carbs': carbs / total,
+      'protein': protein / total,
+      'fat': fat / total,
     };
   }
 
@@ -363,6 +359,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     // Add entry to provider
     await foodEntryProvider.addEntry(entry);
 
+    if (!mounted) return;
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -380,10 +377,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             ),
           ],
         ),
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
+        backgroundColor: const Color(0xFFFFC107).withValues(alpha: 1),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: EdgeInsets.all(8),
+        margin: const EdgeInsets.all(8),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -392,6 +389,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     // Navigator.pop(context);
 
     // With this - pop back to the first route in the stack (Dashboard)
+    if (!mounted) return;
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
@@ -399,7 +397,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final food = widget.food;
-    var macroPercentages = getMacroPercentages();
+    // var macroPercentages = getMacroPercentages(); // Unused
     // final convertedQty = getConvertedQuantity(); // No longer needed here
     // final caloriesPer100 = widget.food.calories; // No longer needed here
     // final calculatedCalories = caloriesPer100 * (convertedQty / 100); // Replaced by getNutrientValue
@@ -438,7 +436,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -474,7 +472,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.grey.withOpacity(0.2),
+                            Colors.grey.withValues(alpha: 0.2),
                             Theme.of(context).scaffoldBackgroundColor,
                           ],
                         ),
@@ -497,7 +495,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        "Food Nutrition",
+                                        'Food Nutrition',
                                         style: AppTypography.h1.copyWith(
                                           color: Theme.of(context)
                                               .extension<CustomColors>()!
@@ -550,7 +548,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
+                                  color: Colors.black.withValues(alpha: 0.06),
                                   blurRadius: 15,
                                   offset: const Offset(0, 5),
                                 ),
@@ -581,15 +579,15 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         // Calories
                                         Expanded(
                                           child: MacroInfoBox(
-                                            icon: "🔥",
+                                            icon: '🔥',
                                             iconColor: Colors.black,
                                             // Use getNutrientValue for consistency
                                             value: double.tryParse(
                                                         getNutrientValue(
-                                                            "calories"))
+                                                            'calories'))
                                                     ?.toStringAsFixed(0) ??
-                                                "0",
-                                            label: "Calories",
+                                                '0',
+                                            label: 'Calories',
                                           ),
                                         ),
 
@@ -598,10 +596,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         // Protein
                                         Expanded(
                                           child: MacroInfoBox(
-                                            icon: "🍗",
+                                            icon: '🍗',
                                             iconColor: Colors.black,
-                                            value: getNutrientValue("protein"),
-                                            label: "Protein (g)",
+                                            value: getNutrientValue('protein'),
+                                            label: 'Protein (g)',
                                           ),
                                         ),
                                       ],
@@ -615,11 +613,11 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         // Carbs
                                         Expanded(
                                           child: MacroInfoBox(
-                                            icon: "🟫",
+                                            icon: '🟫',
                                             iconColor: Colors.black,
                                             value: getNutrientValue(
-                                                "carbohydrate"),
-                                            label: "Carbs (g)",
+                                                'carbohydrate'),
+                                            label: 'Carbs (g)',
                                           ),
                                         ),
 
@@ -628,10 +626,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         // Fat
                                         Expanded(
                                           child: MacroInfoBox(
-                                            icon: "🥑",
+                                            icon: '🥑',
                                             iconColor: Colors.black,
-                                            value: getNutrientValue("fat"),
-                                            label: "Fat (g)",
+                                            value: getNutrientValue('fat'),
+                                            label: 'Fat (g)',
                                           ),
                                         ),
                                       ],
@@ -651,7 +649,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
+                                  color: Colors.black.withValues(alpha: 0.04),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -661,7 +659,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  "Add to Meal",
+                                  'Add to Meal',
                                   style: AppTypography.h3.copyWith(
                                     color: customColors.textPrimary,
                                     fontWeight: FontWeight.w600,
@@ -673,7 +671,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                   padding: const EdgeInsets.all(2),
                                   decoration: BoxDecoration(
                                     color: customColors.dateNavigatorBackground
-                                        .withOpacity(0.6),
+                                        .withValues(alpha: 0.6),
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Row(
@@ -682,7 +680,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       final mealColor =
                                           Theme.of(context).brightness ==
                                                   Brightness.dark
-                                              ? Color(0xFFFBBC05)
+                                              ? const Color(0xFFFBBC05)
                                                   .withValues(alpha: 0.8)
                                               : customColors.textPrimary;
 
@@ -730,7 +728,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                             padding: const EdgeInsets.symmetric(
                                 vertical: 16, horizontal: 4),
                             child: Text(
-                              "Serving Size",
+                              'Serving Size',
                               style: AppTypography.h2.copyWith(
                                 color: Theme.of(context)
                                     .extension<CustomColors>()!
@@ -749,7 +747,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
+                                    color: Colors.black.withValues(alpha: 0.04),
                                     blurRadius: 10,
                                     offset: const Offset(0, 4),
                                   ),
@@ -764,7 +762,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                         padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
                                           color: customColors.textSecondary
-                                              .withOpacity(0.15),
+                                              .withValues(alpha: 0.15),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                         ),
@@ -776,7 +774,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       ),
                                       const SizedBox(width: 14),
                                       Text(
-                                        "Select Serving",
+                                        'Select Serving',
                                         style: AppTypography.h3.copyWith(
                                           color: Theme.of(context).brightness ==
                                                   Brightness.dark
@@ -809,14 +807,14 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                             ? Theme.of(context).brightness ==
                                                     Brightness.dark
                                                 ? customColors.cardBackground
-                                                    .withOpacity(1)
+                                                    .withValues(alpha: 1)
                                                 : primaryColor
                                             : Theme.of(context).brightness ==
                                                     Brightness.dark
                                                 ? customColors.cardBackground
-                                                    .withOpacity(0.05)
-                                                : primaryColor
-                                                    .withOpacity(0.05);
+                                                    .withValues(alpha: 0.05)
+                                                : primaryColor.withValues(
+                                                    alpha: 0.05);
 
                                         final textColor = isSelected
                                             ? Theme.of(context).brightness ==
@@ -825,7 +823,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                 : Colors.white
                                             : Theme.of(context).brightness ==
                                                     Brightness.dark
-                                                ? Colors.white.withOpacity(0.87)
+                                                ? Colors.white
+                                                    .withValues(alpha: 0.87)
                                                 : Theme.of(context)
                                                     .primaryColor;
 
@@ -853,17 +852,20 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                     ? Theme.of(context)
                                                                 .brightness ==
                                                             Brightness.dark
-                                                        ? Color(
+                                                        ? const Color(
                                                             0xFF64748B) // Slate 500
                                                         : primaryColor
                                                     : Theme.of(context)
                                                                 .brightness ==
                                                             Brightness.dark
-                                                        ? Color(0xFF475569)
-                                                            .withOpacity(
-                                                                0.5) // Slate 600
+                                                        ? const Color(
+                                                                0xFF475569)
+                                                            .withValues(
+                                                                alpha:
+                                                                    0.5) // Slate 600
                                                         : primaryColor
-                                                            .withOpacity(0.2),
+                                                            .withValues(
+                                                                alpha: 0.2),
                                                 width: isSelected ? 2 : 1,
                                               ),
                                               boxShadow: isSelected
@@ -872,12 +874,14 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                         color: Theme.of(context)
                                                                     .brightness ==
                                                                 Brightness.dark
-                                                            ? Color(0xFF0F172A)
-                                                                .withOpacity(
-                                                                    0.5) // Slate 900
+                                                            ? const Color(
+                                                                    0xFF0F172A)
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.5) // Slate 900
                                                             : primaryColor
-                                                                .withOpacity(
-                                                                    0.2),
+                                                                .withValues(
+                                                                    alpha: 0.2),
                                                         blurRadius: 8,
                                                         offset:
                                                             const Offset(0, 3),
@@ -899,20 +903,20 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                                     .brightness ==
                                                                 Brightness.dark
                                                             ? Colors.white
-                                                                .withOpacity(
-                                                                    0.15)
+                                                                .withValues(
+                                                                    alpha: 0.15)
                                                             : Colors.white
-                                                                .withOpacity(
-                                                                    0.3)
+                                                                .withValues(
+                                                                    alpha: 0.3)
                                                         : Theme.of(context)
                                                                     .brightness ==
                                                                 Brightness.dark
                                                             ? Colors.white
-                                                                .withOpacity(
-                                                                    0.1)
+                                                                .withValues(
+                                                                    alpha: 0.1)
                                                             : primaryColor
-                                                                .withOpacity(
-                                                                    0.1),
+                                                                .withValues(
+                                                                    alpha: 0.1),
                                                     shape: BoxShape.circle,
                                                   ),
                                                   child: Center(
@@ -923,7 +927,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                             size: 18,
                                                           )
                                                         : Text(
-                                                            "${index + 1}",
+                                                            '${index + 1}',
                                                             style: TextStyle(
                                                               color: textColor,
                                                               fontWeight:
@@ -951,12 +955,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                 const Spacer(),
                                                 // Amount
                                                 Text(
-                                                  "${serving.metricAmount} ${serving.metricUnit}",
+                                                  '${serving.metricAmount} ${serving.metricUnit}',
                                                   style: AppTypography.caption
                                                       .copyWith(
                                                     color: isSelected
-                                                        ? textColor
-                                                            .withOpacity(0.9)
+                                                        ? textColor.withValues(
+                                                            alpha: 0.9)
                                                         : customColors
                                                             .textSecondary,
                                                     fontWeight: isSelected
@@ -967,7 +971,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                 const SizedBox(height: 4),
                                                 // Calories
                                                 Text(
-                                                  "${serving.calories.toStringAsFixed(0)} kcal",
+                                                  '${serving.calories.toStringAsFixed(0)} kcal',
                                                   style: AppTypography.caption
                                                       .copyWith(
                                                     color: isSelected
@@ -975,7 +979,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                         : Theme.of(context)
                                                                     .brightness ==
                                                                 Brightness.dark
-                                                            ? Color(
+                                                            ? const Color(
                                                                 0xFFFBBC05) // Amber color for calories in dark mode
                                                             : primaryColor,
                                                     fontWeight: FontWeight.w600,
@@ -1008,7 +1012,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                             size: 18,
                                           ),
                                           label: Text(
-                                            "View all servings",
+                                            'View all servings',
                                             style: AppTypography.body2.copyWith(
                                               color: Theme.of(context)
                                                           .brightness ==
@@ -1024,9 +1028,11 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                             backgroundColor: Theme.of(context)
                                                         .brightness ==
                                                     Brightness.dark
-                                                ? Color(0xFF334155).withOpacity(
-                                                    0.6) // Slate 700
-                                                : primaryColor.withOpacity(0.1),
+                                                ? const Color(0xFF334155)
+                                                    .withValues(
+                                                        alpha: 0.6) // Slate 700
+                                                : primaryColor.withValues(
+                                                    alpha: 0.1),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
                                                   BorderRadius.circular(20),
@@ -1068,7 +1074,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
+                                  color: Colors.black.withValues(alpha: 0.04),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -1086,9 +1092,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       flex: 3,
                                       child: TextField(
                                         controller: quantityController,
-                                        keyboardType:
-                                            TextInputType.numberWithOptions(
-                                                decimal: true),
+                                        keyboardType: const TextInputType
+                                            .numberWithOptions(decimal: true),
                                         textInputAction: TextInputAction
                                             .done, // Ensure "Done" button appears
                                         onEditingComplete: () {
@@ -1120,7 +1125,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                           fontWeight: FontWeight.w500,
                                         ),
                                         decoration: InputDecoration(
-                                          labelText: "Quantity",
+                                          labelText: 'Quantity',
                                           labelStyle: TextStyle(
                                             color: customColors.textSecondary,
                                           ),
@@ -1184,14 +1189,14 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                       0.0;
 
                                               setState(() {
-                                                if (val == "oz" &&
-                                                    selectedUnit == "g") {
+                                                if (val == 'oz' &&
+                                                    selectedUnit == 'g') {
                                                   // Convert g to oz (1 oz = 28.35g)
                                                   quantityController.text =
                                                       (currentQty / 28.35)
                                                           .toStringAsFixed(1);
-                                                } else if (val == "g" &&
-                                                    selectedUnit == "oz") {
+                                                } else if (val == 'g' &&
+                                                    selectedUnit == 'oz') {
                                                   // Convert oz to g
                                                   quantityController.text =
                                                       (currentQty * 28.35)
@@ -1206,7 +1211,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                               });
                                             },
                                             decoration: InputDecoration(
-                                              labelText: "Unit",
+                                              labelText: 'Unit',
                                               labelStyle: TextStyle(
                                                 color:
                                                     customColors.textSecondary,
@@ -1251,7 +1256,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                             padding: const EdgeInsets.symmetric(
                                 vertical: 16, horizontal: 4),
                             child: Text(
-                              "Nutrition Facts",
+                              'Nutrition Facts',
                               style: AppTypography.h2.copyWith(
                                 color: customColors.textPrimary,
                                 fontWeight: FontWeight.bold,
@@ -1266,7 +1271,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
+                                  color: Colors.black.withValues(alpha: 0.04),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -1277,8 +1282,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                               children: [
                                 Text(
                                   selectedServing != null
-                                      ? 'Values shown for ${selectedServing!.description} (${quantityController.text} ${selectedUnit})'
-                                      : 'Values shown for ${quantityController.text} ${selectedUnit}',
+                                      ? 'Values shown for ${selectedServing!.description} (${quantityController.text} $selectedUnit)'
+                                      : 'Values shown for ${quantityController.text} $selectedUnit',
                                   style: AppTypography.caption.copyWith(
                                     color: customColors.textSecondary,
                                   ),
@@ -1289,10 +1294,11 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: primaryColor.withOpacity(0.05),
+                                    color: primaryColor.withValues(alpha: 0.05),
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: primaryColor.withOpacity(0.2),
+                                      color:
+                                          primaryColor.withValues(alpha: 0.2),
                                       width: 1,
                                     ),
                                   ),
@@ -1346,7 +1352,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       'Monounsaturated fat'
                                     ].contains(entry.key)))
                                   _buildNutrientSection(
-                                    "Fat Breakdown",
+                                    'Fat Breakdown',
                                     additionalNutrients.entries
                                         .where((entry) => [
                                               'Saturated fat',
@@ -1364,7 +1370,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                 if (additionalNutrients.entries.any((entry) =>
                                     ['Fiber', 'Sugar'].contains(entry.key)))
                                   _buildNutrientSection(
-                                    "Carbohydrate Breakdown",
+                                    'Carbohydrate Breakdown',
                                     additionalNutrients.entries
                                         .where((entry) => ['Fiber', 'Sugar']
                                             .contains(entry.key))
@@ -1383,7 +1389,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       'Iron'
                                     ].contains(entry.key)))
                                   _buildNutrientSection(
-                                    "Minerals",
+                                    'Minerals',
                                     additionalNutrients.entries
                                         .where((entry) => [
                                               'Sodium',
@@ -1404,7 +1410,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       'Vitamin C'
                                     ].contains(entry.key)))
                                   _buildNutrientSection(
-                                    "Vitamins",
+                                    'Vitamins',
                                     additionalNutrients.entries
                                         .where((entry) => [
                                               'Vitamin A',
@@ -1440,11 +1446,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                               ].contains(entry.key))
                                           .toList();
 
-                                  if (otherNutrients.isEmpty)
+                                  if (otherNutrients.isEmpty) {
                                     return const SizedBox.shrink();
+                                  }
 
                                   return _buildNutrientSection(
-                                    "Other Nutrients",
+                                    'Other Nutrients',
                                     otherNutrients,
                                     customColors.dateNavigatorBackground,
                                     const Color(0xFF9C27B0), // purple
@@ -1475,7 +1482,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                     colors: [
                       Theme.of(context)
                           .scaffoldBackgroundColor
-                          .withOpacity(0.1),
+                          .withValues(alpha: 0.1),
                       Theme.of(context).scaffoldBackgroundColor,
                     ],
                   ),
@@ -1490,7 +1497,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                           : Colors.white.withValues(alpha: 0.3),
                       width: 0.5,
                     ),
-                    boxShadow: [
+                    boxShadow: const [
                       // BoxShadow(
                       //   color: customColors.textPrimary.withOpacity(0.3),
                       //   blurRadius: 5,
@@ -1599,7 +1606,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.05),
+            color: accentColor.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -1611,7 +1618,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                     value: entry.value,
                   ),
                   if (nutrients.last.key != entry.key)
-                    Divider(color: dividerColor.withOpacity(0.5)),
+                    Divider(color: dividerColor.withValues(alpha: 0.5)),
                 ],
               );
             }).toList(),
@@ -1621,36 +1628,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     );
   }
 
-  Widget _buildNutrientItem(
-      String label, String value, Color accentColor, IconData icon) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final serving = selectedServing ?? widget.food.servings.firstOrNull;
-    final servingText =
-        serving != null ? '${serving.description}' : '100g serving';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          // ...existing code...
-          ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-              // ...existing code...
-              ),
-          const SizedBox(height: 4),
-          Text(
-            'Per $servingText',
-            style: AppTypography.caption.copyWith(
-              color: customColors?.textSecondary,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Unused method _buildNutrientItem removed
 
   void _showServingSelector(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -1672,7 +1650,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                     const BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -5),
                   ),
@@ -1698,7 +1676,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.1),
+                            color: primaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
@@ -1709,7 +1687,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                         ),
                         const SizedBox(width: 16),
                         Text(
-                          "All Serving Options",
+                          'All Serving Options',
                           style: AppTypography.h2.copyWith(
                             color: Theme.of(context)
                                 .extension<CustomColors>()!
@@ -1737,7 +1715,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? primaryColor.withOpacity(0.08)
+                                ? primaryColor.withValues(alpha: 0.08)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
@@ -1776,7 +1754,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                       decoration: BoxDecoration(
                                         color: isSelected
                                             ? primaryColor
-                                            : primaryColor.withOpacity(0.07),
+                                            : primaryColor.withValues(
+                                                alpha: 0.07),
                                         shape: BoxShape.circle,
                                       ),
                                       child: Center(
@@ -1787,7 +1766,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                 size: 24,
                                               )
                                             : Text(
-                                                "${index + 1}",
+                                                '${index + 1}',
                                                 style: TextStyle(
                                                   color: primaryColor,
                                                   fontSize: 16,
@@ -1825,12 +1804,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                         vertical: 2),
                                                 decoration: BoxDecoration(
                                                   color: primaryColor
-                                                      .withOpacity(0.08),
+                                                      .withValues(alpha: 0.08),
                                                   borderRadius:
                                                       BorderRadius.circular(12),
                                                 ),
                                                 child: Text(
-                                                  "${serving.metricAmount} ${serving.metricUnit}",
+                                                  '${serving.metricAmount} ${serving.metricUnit}',
                                                   style: AppTypography.caption
                                                       .copyWith(
                                                     color: primaryColor,
@@ -1840,7 +1819,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                "•",
+                                                '•',
                                                 style: TextStyle(
                                                   color: customColors
                                                       .textSecondary,
@@ -1854,12 +1833,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                                         vertical: 2),
                                                 decoration: BoxDecoration(
                                                   color: const Color(0xFFFF9800)
-                                                      .withOpacity(0.08),
+                                                      .withValues(alpha: 0.08),
                                                   borderRadius:
                                                       BorderRadius.circular(12),
                                                 ),
                                                 child: Text(
-                                                  "${serving.calories.toStringAsFixed(0)} kcal",
+                                                  '${serving.calories.toStringAsFixed(0)} kcal',
                                                   style: AppTypography.caption
                                                       .copyWith(
                                                     color:
@@ -1877,7 +1856,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                                     Icon(
                                       Icons.arrow_forward_ios_rounded,
                                       color: customColors.textSecondary
-                                          .withOpacity(0.5),
+                                          .withValues(alpha: 0.5),
                                       size: 16,
                                     ),
                                   ],
@@ -1899,7 +1878,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                       color: customColors.cardBackground,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, -5),
                         ),
@@ -1923,7 +1902,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                         elevation: 0,
                       ),
                       child: Text(
-                        "Done",
+                        'Done',
                         style: AppTypography.button.copyWith(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -1956,12 +1935,12 @@ class MacroInfoBox extends StatelessWidget {
   final String label;
 
   const MacroInfoBox({
-    Key? key,
+    super.key,
     required this.icon,
     required this.iconColor,
     required this.value,
     required this.label,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1984,7 +1963,7 @@ class MacroInfoBox extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 2,
                   offset: const Offset(0, 1),
                 ),

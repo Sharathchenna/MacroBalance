@@ -7,13 +7,13 @@ import '../theme/app_theme.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart'; // Import Provider
 import '../providers/food_entry_provider.dart'; // Import FoodEntryProvider
 import '../models/nutrition_goals.dart'; // Import NutritionGoals
 import '../providers/weight_unit_provider.dart';
 import '../services/posthog_service.dart';
+import 'dart:async'; // Import dart:async for Timer
 
 // Weight data point model
 class WeightPoint {
@@ -35,9 +35,9 @@ class WeightTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
 
   const WeightTrackingScreen({
-    Key? key,
+    super.key,
     this.hideAppBar = false,
-  }) : super(key: key);
+  });
 
   @override
   State<WeightTrackingScreen> createState() => _WeightTrackingScreenState();
@@ -154,9 +154,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     } catch (e) {
       print('Error loading weight data: $e');
       // Ensure weightData is initialized even on error
-      if (_weightData == null) {
-        _weightData = [];
-      }
     } finally {
       // Ensure state update happens even if provider access fails initially
       if (mounted) {
@@ -165,35 +162,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         });
         _pageController.forward();
       }
-    }
-  }
-
-  double _getProgressPercentage() {
-    if (_targetWeight <= 0)
-      return 0.0; // Avoid division by zero or negative target
-    if (_currentWeight == _targetWeight) return 1.0;
-
-    // Assuming the initial weight is the first entry in history or current weight if no history
-    double initialWeight = _currentWeight;
-    if (_weightData.isNotEmpty) {
-      _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
-          .compareTo(DateTime.parse(b['date'] as String)));
-      initialWeight = _weightData.first['weight'] as double;
-    }
-
-    final totalTargetChange = (initialWeight - _targetWeight).abs();
-    if (totalTargetChange == 0) return 1.0; // Already at target
-
-    final progressMade = initialWeight - _currentWeight;
-    final targetDirection = initialWeight - _targetWeight;
-
-    // If moving towards the target
-    if ((progressMade >= 0 && targetDirection >= 0) ||
-        (progressMade <= 0 && targetDirection <= 0)) {
-      return (progressMade.abs() / totalTargetChange).clamp(0.0, 1.0);
-    } else {
-      // Moving away from the target
-      return 0.0;
     }
   }
 
@@ -293,8 +261,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
   Widget _buildWeightStatusCard(
       BuildContext context, CustomColors customColors) {
-    final progress = _getProgressPercentage();
-
     return AnimatedBuilder(
       animation: _pageController,
       builder: (context, child) {
@@ -310,13 +276,13 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                   end: Alignment.bottomRight,
                   colors: [
                     customColors.cardBackground,
-                    customColors.cardBackground.withOpacity(0.95),
+                    customColors.cardBackground.withAlpha((0.95 * 255).round()),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withAlpha((0.05 * 255).round()),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                   ),
@@ -385,7 +351,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
+                                      color: Colors.black
+                                          .withAlpha((0.05 * 255).round()),
                                       blurRadius: 10,
                                       offset: const Offset(0, 5),
                                     ),
@@ -407,16 +374,16 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                               //       Theme.of(context).brightness ==
                               //           Brightness.light
                               //         ? Colors.grey.shade200
-                              //           .withOpacity(0.5)
+                              //           .withAlpha((0.5 * 255).round())
                               //         : customColors
                               //           .dateNavigatorBackground
-                              //           .withOpacity(0.3),
+                              //           .withAlpha((0.3 * 255).round()),
                               //     valueColor:
                               //       AlwaysStoppedAnimation<Color>(
                               //       value >= 1.0
-                              //         ? Colors.green.withOpacity(0.8)
+                              //         ? Colors.green.withAlpha((0.8 * 255).round())
                               //         : customColors.accentPrimary
-                              //           .withOpacity(0.8),
+                              //           .withAlpha((0.8 * 255).round()),
                               //     ),
                               //     strokeWidth: 12,
                               //     strokeCap: StrokeCap.round,
@@ -446,7 +413,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                 builder: (context, value, child) {
                                   return Container(
                                     padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
+                                    decoration: const BoxDecoration(
                                       color: Colors.transparent,
                                       shape: BoxShape.circle,
                                     ),
@@ -523,7 +490,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: customColors.accentPrimary.withOpacity(0.1),
+            color: customColors.accentPrimary.withAlpha((0.1 * 255).round()),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -562,7 +529,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: customColors.accentPrimary.withOpacity(0.1),
+            color: customColors.accentPrimary.withAlpha((0.1 * 255).round()),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -612,7 +579,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withAlpha((0.05 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -635,22 +602,23 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                             });
                           },
                           style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(
+                            backgroundColor: WidgetStateProperty.all(
                               isSelected
                                   ? customColors.cardBackground
                                   : Colors.transparent,
                             ),
-                            shape: MaterialStateProperty.all(
+                            shape: WidgetStateProperty.all(
                               RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            padding: MaterialStateProperty.all(
+                            padding: WidgetStateProperty.all(
                               const EdgeInsets.symmetric(
                                   horizontal: 18, vertical: 10),
                             ),
-                            overlayColor: MaterialStateProperty.all(
-                              customColors.accentPrimary.withOpacity(0.1),
+                            overlayColor: WidgetStateProperty.all(
+                              customColors.accentPrimary
+                                  .withAlpha((0.1 * 255).round()),
                             ),
                           ),
                           child: Text(
@@ -732,7 +700,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
             opacity: _pageController.value,
             child: Card(
               elevation: 2,
-              shadowColor: Colors.black.withOpacity(0.1),
+              shadowColor: Colors.black.withAlpha((0.1 * 255).round()),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -743,7 +711,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withAlpha((0.05 * 255).round()),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -770,8 +738,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           icon: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color:
-                                  customColors.accentPrimary.withOpacity(0.1),
+                              color: customColors.accentPrimary
+                                  .withAlpha((0.1 * 255).round()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -936,7 +904,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withAlpha((0.05 * 255).round()),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1052,7 +1020,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withAlpha((0.05 * 255).round()),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1194,7 +1162,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                 children: [
                   TextField(
                     keyboardType:
-                        TextInputType.numberWithOptions(decimal: true),
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       hintText: 'Enter your weight',
                       suffix: Text(Provider.of<WeightUnitProvider>(context,
@@ -1306,7 +1274,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                     // Basic validation: ensure weight is positive
                     if (newWeight <= 0) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        const SnackBar(
                           content: Text('Please enter a valid weight.'),
                           backgroundColor: Colors.redAccent,
                         ),
@@ -1357,6 +1325,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                       },
                     );
 
+                    if (!mounted) return; // Add this check
                     Navigator.pop(context);
                     await _saveWeightChanges();
                   },
@@ -1394,7 +1363,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
           ),
         ),
         content: TextField(
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             hintText: 'Enter target weight',
             suffix: Text(Provider.of<WeightUnitProvider>(context, listen: false)
@@ -1428,6 +1397,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
               });
               // Save the changes
               await _saveWeightChanges();
+              // ignore: use_build_context_synchronously
+              if (!mounted) return; // Add this check
+              // ignore: use_build_context_synchronously
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
@@ -1454,13 +1426,13 @@ class CustomWeightChart extends StatefulWidget {
   final String timeFrame;
 
   const CustomWeightChart({
-    Key? key,
+    super.key,
     required this.weightPoints,
     required this.isMetric,
     required this.customColors,
     required this.targetWeight,
     required this.timeFrame,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomWeightChart> createState() => _CustomWeightChartState();
@@ -1471,6 +1443,7 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
   // late AnimationController _animationController; // Removed AnimationController
   TouchData? _touchData;
   // final List<Offset> _animatedPoints = []; // This is calculated in paint now
+  Timer? _hideDataTimer; // Add a timer for hiding touch data
 
   double _zoomLevel = 1.0; // Default zoom level
   double _zoomFactor = 1.0; // Current zoom factor
@@ -1483,6 +1456,12 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
   // Removed initState, dispose, and didUpdateWidget related to AnimationController
 
   @override
+  void dispose() {
+    _hideDataTimer?.cancel(); // Cancel timer when disposing
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(CustomWeightChart oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.weightPoints != widget.weightPoints ||
@@ -1491,6 +1470,17 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
       _zoomLevel = 1.0;
       _panOffset = 0.0;
     }
+  }
+
+  // Function to hide touch data with timer
+  void _hideDataWithDelay() {
+    _hideDataTimer?.cancel(); // Cancel any existing timer
+    // ignore: use_build_context_synchronously
+    _hideDataTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _touchData = null);
+      }
+    });
   }
 
   List<WeightPoint> _getFilteredData() {
@@ -1549,12 +1539,6 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
     return filteredPoints;
   }
 
-  String _formatWeight(double weight) {
-    return widget.isMetric
-        ? '${weight.toStringAsFixed(1)} kg'
-        : '${(weight * 2.20462).toStringAsFixed(1)} lbs';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -1598,9 +1582,7 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
           },
           onTapUp: (details) {
             // Optional: Hide touch data after a delay
-            Future.delayed(Duration(seconds: 2), () {
-              if (mounted) setState(() => _touchData = null);
-            });
+            _hideDataWithDelay();
           },
           child: CustomPaint(
             painter: _WeightChartPainter(
@@ -1628,11 +1610,12 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: widget.customColors.cardBackground.withOpacity(0.8),
+                color: widget.customColors.cardBackground
+                    .withAlpha((0.8 * 255).round()),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withAlpha((0.1 * 255).round()),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -1757,32 +1740,6 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
     end = math.min(totalPoints - 1, end);
 
     return _VisibleRange(start, end);
-  }
-
-  // Calculate x position for point at index, accounting for zoom and pan
-  double _getXPositionForIndex(
-      int index, int totalPoints, double chartWidth, Size size) {
-    final visibleRange = _getVisiblePointsIndices(totalPoints);
-    final visibleCount = visibleRange.end - visibleRange.start;
-
-    if (visibleCount <= 0 || totalPoints <= 1)
-      return _chartLeftPadding +
-          chartWidth / 2; // Center if no range or single point
-    if (totalPoints > 1 && visibleCount == 0 && index == 0)
-      return _chartLeftPadding; // Handle edge case for single visible point at start
-    if (totalPoints > 1 && visibleCount == 0 && index == totalPoints - 1)
-      return _chartLeftPadding +
-          chartWidth; // Handle edge case for single visible point at end
-
-    if (visibleCount <= 0)
-      return _chartLeftPadding +
-          (totalPoints > 1
-              ? (index / (totalPoints - 1)) * chartWidth
-              : chartWidth / 2);
-
-    // Map index to position within visible range
-    final relativeIndex = index - visibleRange.start;
-    return _chartLeftPadding + (relativeIndex / visibleCount) * chartWidth;
   }
 }
 
@@ -2037,8 +1994,8 @@ class _WeightChartPainter extends CustomPainter {
         Offset(size.width / 2,
             size.height - _chartBottomPadding), // Use bottom padding
         [
-          customColors.accentPrimary.withOpacity(0.5),
-          customColors.accentPrimary.withOpacity(0.01),
+          customColors.accentPrimary.withAlpha((0.5 * 255).round()),
+          customColors.accentPrimary.withAlpha((0.01 * 255).round()),
         ],
       )
       ..style = PaintingStyle.fill
@@ -2046,12 +2003,13 @@ class _WeightChartPainter extends CustomPainter {
 
     final TextStyle labelStyle = TextStyle(
       // Match style from Macro chart painter
-      color: customColors.textSecondary.withOpacity(0.7),
+      color: customColors.textSecondary.withAlpha((0.7 * 255).round()),
       fontSize: 10,
     );
 
     // Update colors for existing paints
-    gridPaint.color = customColors.textSecondary.withOpacity(0.12);
+    gridPaint.color =
+        customColors.textSecondary.withAlpha((0.12 * 255).round());
     linePaint.color = customColors.accentPrimary;
     pointPaint.color = customColors.cardBackground;
     pointBorderPaint.color = customColors.accentPrimary;
@@ -2191,7 +2149,7 @@ class _WeightChartPainter extends CustomPainter {
             text: formattedWeight,
             // Update label style to match MacroTrackingScreen
             style: TextStyle(
-              color: customColors.textSecondary.withOpacity(0.7),
+              color: customColors.textSecondary.withAlpha((0.7 * 255).round()),
               fontSize: 10,
             ),
           )
@@ -2280,7 +2238,7 @@ class _WeightChartPainter extends CustomPainter {
 
     // Target line
     final targetLinePaint = Paint()
-      ..color = customColors.accentPrimary.withOpacity(0.3)
+      ..color = customColors.accentPrimary.withAlpha((0.3 * 255).round())
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -2323,7 +2281,8 @@ class _WeightChartPainter extends CustomPainter {
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(labelRect, const Radius.circular(4)),
-      Paint()..color = customColors.cardBackground.withOpacity(0.8),
+      Paint()
+        ..color = customColors.cardBackground.withAlpha((0.8 * 255).round()),
     );
 
     labelPainter.paint(
@@ -2416,7 +2375,7 @@ class _WeightChartPainter extends CustomPainter {
       touchPoint,
       8,
       Paint()
-        ..color = customColors.accentPrimary.withOpacity(0.3)
+        ..color = customColors.accentPrimary.withAlpha((0.3 * 255).round())
         ..style = PaintingStyle.fill,
     );
 
@@ -2496,7 +2455,7 @@ class _WeightChartPainter extends CustomPainter {
     canvas.drawRRect(
       tooltipRect,
       Paint()
-        ..color = customColors.textSecondary.withOpacity(0.1)
+        ..color = customColors.textSecondary.withAlpha((0.1 * 255).round())
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
@@ -2528,7 +2487,7 @@ class _WeightChartPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = customColors.textSecondary.withOpacity(0.2)
+        ..color = customColors.textSecondary.withAlpha((0.2 * 255).round())
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );

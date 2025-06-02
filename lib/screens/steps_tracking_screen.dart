@@ -12,41 +12,16 @@ class StepTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
 
   const StepTrackingScreen({
-    Key? key,
+    super.key,
     this.hideAppBar = false,
-  }) : super(key: key);
+  });
 
   @override
   State<StepTrackingScreen> createState() => _StepTrackingScreenState();
 }
 
 // Helper class for monthly statistics
-class _MonthlyStats {
-  final DateTime date;
-  final String monthName;
-  final int year;
-  final int month;
-  int totalSteps = 0;
-  int daysTracked = 0;
 
-  _MonthlyStats({
-    required this.date,
-    required this.monthName,
-    required this.year,
-    required this.month,
-  });
-
-  void addDayStats(int steps) {
-    if (steps > 0) {
-      // Only count days with actual steps
-      totalSteps += steps;
-      daysTracked++;
-    }
-  }
-
-  int get averageDailySteps =>
-      daysTracked > 0 ? (totalSteps / daysTracked).round() : 0;
-}
 
 class _StepTrackingScreenState extends State<StepTrackingScreen>
     with AutomaticKeepAliveClientMixin {
@@ -116,8 +91,9 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
 
   double _getMaxSteps() {
     final currentData = _getTransformedStepsData(); // Use transformed data
-    if (currentData.isEmpty)
+    if (currentData.isEmpty) {
       return _stepGoal * 1.2; // Default value with padding
+    }
 
     // Get the maximum step value from the transformed data
     final maxSteps = currentData
@@ -233,63 +209,6 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         return 'W$weekOfMonth';
       default: // Week
         return DateFormat('d').format(date);
-    }
-  }
-
-  String _getTooltipText(Map<String, dynamic> data) {
-    final date = data['date'] as DateTime;
-
-    switch (_selectedTimeFrame) {
-      case 'Month':
-        // Enhanced tooltip for monthly (weekly average) view
-        final avgSteps = data['steps'] as int; // This is the weekly average
-        final totalSteps = data['totalSteps'] as int;
-        final daysCount = data['daysCount'] as int;
-        final weekNumber = data['weekNumber'] as int;
-        final weekEnd = date.add(const Duration(days: 6));
-
-        // Calculate the percentage relative to the goal
-        final goalPercentage = ((avgSteps / _stepGoal) * 100).round();
-
-        String percentageLabel;
-        if (goalPercentage >= 100) {
-          percentageLabel = 'Goal achieved! ($goalPercentage%)';
-        } else {
-          percentageLabel = '$goalPercentage% of daily goal';
-        }
-
-        return 'Week $weekNumber: ${DateFormat('MMM d').format(date)} - ${DateFormat('MMM d').format(weekEnd)}\n'
-            'Daily Average: ${NumberFormat.decimalPattern().format(avgSteps)} steps\n'
-            'Total: ${NumberFormat.decimalPattern().format(totalSteps)} steps\n'
-            'Active Days: $daysCount\n'
-            '$percentageLabel';
-
-      default: // Week
-        final steps = data['steps'] as int;
-        // Calculate the percentage relative to the goal
-        final goalPercentage = ((steps / _stepGoal) * 100).round();
-
-        String percentageLabel;
-        if (goalPercentage >= 100) {
-          percentageLabel = 'Goal achieved! ($goalPercentage%)';
-        } else {
-          percentageLabel = '$goalPercentage% of daily goal';
-        }
-
-        return '${DateFormat('EEEE, MMM d').format(date)}\n'
-            '${NumberFormat.decimalPattern().format(steps)} steps\n'
-            '$percentageLabel';
-    }
-  }
-
-  String _getChartTitle() {
-    switch (_selectedTimeFrame) {
-      case 'Year':
-        return 'Monthly Average Steps';
-      case 'Month':
-        return 'Weekly Average Steps';
-      default: // Week
-        return 'Daily Steps';
     }
   }
 
@@ -462,13 +381,13 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
           end: Alignment.bottomRight,
           colors: [
             customColors.cardBackground,
-            customColors.cardBackground.withOpacity(0.95),
+            customColors.cardBackground.withAlpha((0.95 * 255).round()),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha((0.05 * 255).round()),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -512,7 +431,8 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: customColors.accentPrimary.withOpacity(0.1),
+                      color: customColors.accentPrimary
+                          .withAlpha((0.1 * 255).round()),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -556,7 +476,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                                         Brightness.light
                                     ? Colors.grey.shade200
                                     : customColors.cardBackground
-                                        .withOpacity(0.1),
+                                        .withAlpha((0.1 * 255).round()),
                                 blurRadius: 5,
                                 spreadRadius: 2,
                                 offset: const Offset(0, 2),
@@ -595,7 +515,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                                         Brightness.light
                                     ? Colors.grey.shade200
                                     : customColors.cardBackground
-                                        .withOpacity(0.3),
+                                        .withAlpha((0.3 * 255).round()),
                                 blurRadius: 3,
                                 spreadRadius: 1,
                                 offset: const Offset(0, 1),
@@ -676,10 +596,10 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                         padding: const EdgeInsets.symmetric(
                             vertical: 10, horizontal: 16),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.15),
+                          color: Colors.green.withAlpha((0.15 * 255).round()),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.green.withOpacity(0.3),
+                            color: Colors.green.withAlpha((0.3 * 255).round()),
                             width: 1,
                           ),
                         ),
@@ -726,7 +646,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: customColors.accentPrimary.withOpacity(0.1),
+            color: customColors.accentPrimary.withAlpha((0.1 * 255).round()),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -769,7 +689,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withAlpha((0.04 * 255).round()),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -794,21 +714,22 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                     });
                   },
                   style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all(
+                    backgroundColor: WidgetStateProperty.all(
                       isSelected
                           ? customColors.cardBackground
                           : Colors.transparent,
                     ),
-                    shape: MaterialStateProperty.all(
+                    shape: WidgetStateProperty.all(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    padding: MaterialStateProperty.all(
+                    padding: WidgetStateProperty.all(
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     ),
-                    overlayColor: MaterialStateProperty.all(
-                      customColors.accentPrimary.withOpacity(0.05),
+                    overlayColor: WidgetStateProperty.all(
+                      customColors.accentPrimary
+                          .withAlpha((0.05 * 255).round()),
                     ),
                   ),
                   child: Text(
@@ -863,7 +784,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha((0.05 * 255).round()),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -911,7 +832,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   todayIndex: _getTodayIndex(),
                   showGoalLine: true,
                   goalValue: _getGoalValueForTimeFrame(),
-                  goalLineColor: Colors.red.withOpacity(0.6),
+                  goalLineColor: Colors.red.withAlpha((0.6 * 255).round()),
                   enableColorCoding: true,
                   timeFrame: _selectedTimeFrame,
                   goalLabel: _getGoalLabelForTimeFrame(),
@@ -954,254 +875,6 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildStepsHistoryList(CustomColors customColors) {
-    // Get the appropriate data based on selected timeframe
-    final List<Map<String, dynamic>> dataToDisplay = _getTransformedStepsData();
-
-    // Sort data to show most recent first
-    final sortedData = List<Map<String, dynamic>>.from(dataToDisplay)
-      ..sort(
-          (a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
-
-    // Set appropriate list title based on time frame
-    String listTitle;
-    switch (_selectedTimeFrame) {
-      case 'Week':
-        listTitle = 'Daily Activity';
-        break;
-      case 'Month':
-        listTitle = 'Weekly Average Activity';
-        break;
-      default:
-        listTitle = 'Activity History';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: customColors.cardBackground,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            listTitle,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: customColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (sortedData.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.directions_walk_outlined,
-                      size: 40,
-                      color: customColors.textSecondary.withOpacity(0.5),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No step data available for this period.',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: customColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ...sortedData.take(10).map((data) {
-              final date = data['date'] as DateTime;
-              final steps = data['steps'] as int;
-              final percentage = steps / _stepGoal;
-
-              final isToday = DateFormat('yyyy-MM-dd').format(date) ==
-                  DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-              // Format the date display based on the timeframe
-              Widget dateDisplay;
-              String periodLabel;
-              String stepsLabel;
-
-              if (_selectedTimeFrame == 'Month') {
-                // For monthly (weekly average) view
-                final weekEnd = date.add(const Duration(days: 6));
-                dateDisplay = Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      DateFormat('d').format(date),
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: customColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      DateFormat('MMM').format(date),
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: customColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                );
-                periodLabel =
-                    '${DateFormat('MMM d').format(date)} - ${DateFormat('d').format(weekEnd)}';
-                stepsLabel = 'avg/day';
-              } else {
-                // For week (daily) view
-                dateDisplay = Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      DateFormat('d').format(date),
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: customColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      DateFormat('MMM').format(date),
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: customColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                );
-                periodLabel =
-                    isToday ? 'Today' : DateFormat('EEEE').format(date);
-                stepsLabel = 'steps';
-              }
-
-              // Define color for progress bar
-              Color progressColor;
-              if (percentage >= 1.0) {
-                progressColor = Colors.green;
-              } else if (percentage >= 0.7) {
-                progressColor = Colors.orange;
-              } else {
-                progressColor = Colors.red.shade400;
-              }
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 45,
-                      height: 45,
-                      decoration: BoxDecoration(
-                        color: customColors.dateNavigatorBackground,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: dateDisplay,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            periodLabel,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: customColors.textPrimary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 6),
-                          LinearProgressIndicator(
-                            value: percentage > 1.0 ? 1.0 : percentage,
-                            backgroundColor: Colors.grey.withOpacity(0.15),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              progressColor,
-                            ),
-                            minHeight: 6,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          NumberFormat.decimalPattern().format(steps),
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: customColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          stepsLabel,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: customColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          if (sortedData.length > 10)
-            Align(
-              alignment: Alignment.center,
-              child: TextButton.icon(
-                onPressed: () {
-                  // TODO: Implement a "view all" screen or scrollable list
-                  HapticFeedback.selectionClick();
-                },
-                icon: Icon(
-                  Icons.visibility_outlined,
-                  size: 18,
-                  color: customColors.accentPrimary,
-                ),
-                label: Text(
-                  'View all ${sortedData.length} entries',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: customColors.accentPrimary,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 
@@ -1299,7 +972,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha((0.05 * 255).round()),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1322,7 +995,8 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: customColors.accentPrimary.withOpacity(0.12),
+                  color: customColors.accentPrimary
+                      .withAlpha((0.12 * 255).round()),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -1362,8 +1036,8 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: (trendingUp ?? false)
-                    ? Colors.green.withOpacity(0.12)
-                    : Colors.orange.withOpacity(0.12),
+                    ? Colors.green.withAlpha((0.12 * 255).round())
+                    : Colors.orange.withAlpha((0.12 * 255).round()),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -1468,13 +1142,15 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: customColors.accentPrimary.withOpacity(0.5),
+                      color: customColors.accentPrimary
+                          .withAlpha((0.5 * 255).round()),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: customColors.textSecondary.withOpacity(0.3),
+                      color: customColors.textSecondary
+                          .withAlpha((0.3 * 255).round()),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -1576,7 +1252,7 @@ class CustomBarChart extends StatefulWidget {
   final double barSpacing;
 
   const CustomBarChart({
-    Key? key,
+    super.key,
     required this.data,
     required this.primaryColor,
     required this.textColor,
@@ -1594,7 +1270,7 @@ class CustomBarChart extends StatefulWidget {
     this.goalLabel,
     this.barWidth = 20.0,
     this.barSpacing = 10.0,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomBarChart> createState() => _BarChartState();
@@ -1666,7 +1342,7 @@ class _BarChartState extends State<CustomBarChart>
 
   // Format large numbers with K suffix
   String _formatYAxisValue(double value) {
-    if (value.isNaN || value.isInfinite) return "0"; // Handle invalid values
+    if (value.isNaN || value.isInfinite) return '0'; // Handle invalid values
     if (value >= 10000) {
       return '${(value / 1000).toStringAsFixed(0)}k';
     } else if (value >= 1000) {
@@ -1678,8 +1354,6 @@ class _BarChartState extends State<CustomBarChart>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required by AutomaticKeepAliveClientMixin
-    final theme = Theme.of(context);
-    final customColors = theme.extension<CustomColors>()!;
 
     // Handle case where maxValue is zero or invalid
     final effectiveMaxValue = (widget.maxValue <= 0 ||
@@ -1693,7 +1367,6 @@ class _BarChartState extends State<CustomBarChart>
         final chartHeight =
             constraints.maxHeight - 65; // Space for x-axis labels
         final yAxisLabelWidth = 45.0;
-        final chartAreaWidth = constraints.maxWidth - yAxisLabelWidth;
 
         // Generate y-axis label values
         final yAxisSteps = 5;
@@ -1731,7 +1404,7 @@ class _BarChartState extends State<CustomBarChart>
                         Padding(
                           padding: const EdgeInsets.only(right: 8.0),
                           child: Text(
-                            "0",
+                            '0',
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -1816,7 +1489,8 @@ class _BarChartState extends State<CustomBarChart>
                                   chartHeight),
                               painter: GridPainter(
                                 maxValue: effectiveMaxValue,
-                                lineColor: Colors.grey.withOpacity(0.15),
+                                lineColor:
+                                    Colors.grey.withAlpha((0.15 * 255).round()),
                                 textColor: widget.secondaryTextColor,
                                 steps: yAxisSteps,
                                 showGoalLine: widget.showGoalLine,
@@ -1900,7 +1574,8 @@ class _BarChartState extends State<CustomBarChart>
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: barColor.withOpacity(0.2),
+                                            color: barColor
+                                                .withAlpha((0.2 * 255).round()),
                                             borderRadius:
                                                 BorderRadius.circular(12),
                                           ),
@@ -1934,7 +1609,8 @@ class _BarChartState extends State<CustomBarChart>
                                             // Tooltip shown above the bar with constrained height
                                             if (isHighlighted && _showTooltip)
                                               ConstrainedBox(
-                                                constraints: BoxConstraints(
+                                                constraints:
+                                                    const BoxConstraints(
                                                   maxHeight:
                                                       28.0, // Limit tooltip height
                                                 ),
@@ -1953,7 +1629,9 @@ class _BarChartState extends State<CustomBarChart>
                                                       boxShadow: [
                                                         BoxShadow(
                                                           color: Colors.black
-                                                              .withOpacity(0.2),
+                                                              .withAlpha(
+                                                                  (0.2 * 255)
+                                                                      .round()),
                                                           blurRadius: 4,
                                                           offset: const Offset(
                                                               0, 2),
@@ -2007,22 +1685,23 @@ class _BarChartState extends State<CustomBarChart>
                                                       : null, // Use solid color for tiny bars
                                                   borderRadius:
                                                       BorderRadius.circular(6),
-                                                  boxShadow:
-                                                      isHighlighted || isToday
-                                                          ? [
-                                                              BoxShadow(
-                                                                color: barColor
-                                                                    .withOpacity(
-                                                                        0.3),
-                                                                blurRadius: 8,
-                                                                offset:
-                                                                    const Offset(
-                                                                        0, 1),
-                                                              ),
-                                                            ]
-                                                          : null,
+                                                  boxShadow: isHighlighted ||
+                                                          isToday
+                                                      ? [
+                                                          BoxShadow(
+                                                            color: barColor
+                                                                .withValues(
+                                                                    alpha: 0.3),
+                                                            blurRadius: 8,
+                                                            offset:
+                                                                const Offset(
+                                                                    0, 1),
+                                                          ),
+                                                        ]
+                                                      : null,
                                                 ),
-                                                constraints: BoxConstraints(
+                                                constraints:
+                                                    const BoxConstraints(
                                                   minWidth: 2.0,
                                                   minHeight: 2.0,
                                                 ),
@@ -2063,7 +1742,8 @@ class _BarChartState extends State<CustomBarChart>
                                     (widget.barWidth + widget.barSpacing),
                                 child: Container(
                                   height: 1,
-                                  color: widget.textColor.withOpacity(0.15),
+                                  color: widget.textColor
+                                      .withAlpha((0.15 * 255).round()),
                                 ),
                               ),
                           ],
@@ -2131,9 +1811,10 @@ class _BarChartState extends State<CustomBarChart>
                                   style: GoogleFonts.inter(
                                     fontSize: 10,
                                     color: isHighlighted || isToday
-                                        ? widget.textColor.withOpacity(0.8)
+                                        ? widget.textColor
+                                            .withAlpha((0.8 * 255).round())
                                         : widget.secondaryTextColor
-                                            .withOpacity(0.6),
+                                            .withAlpha((0.6 * 255).round()),
                                   ),
                                 ),
                               ],
@@ -2205,8 +1886,9 @@ class GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (size.width <= 0 || size.height <= 0)
+    if (size.width <= 0 || size.height <= 0) {
       return; // Avoid painting on zero size
+    }
 
     final paint = Paint()
       ..color = lineColor
@@ -2236,7 +1918,7 @@ class GridPainter extends CustomPainter {
 
     // Draw vertical axis line (Y-axis)
     final axisLinePaint = Paint()
-      ..color = textColor.withOpacity(0.25) // Lighter axis line
+      ..color = textColor.withAlpha((0.25 * 255).round()) // Lighter axis line
       ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
     canvas.drawLine(const Offset(0, 0), Offset(0, size.height), axisLinePaint);

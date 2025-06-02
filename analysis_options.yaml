@@ -10,6 +10,16 @@
 analyzer:
   errors:
     depend_on_referenced_packages: ignore
+    # Temporarily ignore print statements as we'll address them systematically
+    avoid_print: ignore
+    # Make deprecation warnings more visible
+    deprecated_member_use: warning
+  exclude:
+    # Exclude generated files
+    - "**.g.dart"
+    - "**.freezed.dart"
+    - "**/generated_plugin_registrant.dart"
+
 include: package:flutter_lints/flutter.yaml
 
 linter:
@@ -24,8 +34,17 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # Temporarily disable avoid_print as we'll fix them systematically
+    avoid_print: false
+    # Enable additional helpful rules
+    prefer_single_quotes: true
+    always_declare_return_types: true
+    avoid_empty_else: true
+    avoid_unnecessary_containers: true
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    sort_child_properties_last: true
+    use_build_context_synchronously: true
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

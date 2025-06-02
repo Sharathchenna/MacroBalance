@@ -7,11 +7,11 @@ class TargetSummaryPage extends StatelessWidget {
   final VoidCallback onNext;
 
   const TargetSummaryPage({
-    Key? key,
+    super.key,
     required this.targetWeight,
     this.projectedEndDate,
     required this.onNext,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

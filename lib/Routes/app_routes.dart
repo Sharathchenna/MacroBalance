@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import '../screens/TrackingPagesScreen.dart';
+import '../screens/tracking_pages_screen.dart';
 
 class AppRoutes {
   static const String tracking = '/tracking';

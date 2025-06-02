@@ -7,14 +7,14 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
-import 'package:macrotracker/providers/themeProvider.dart';
+import 'package:macrotracker/providers/theme_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform;
 
 class DeleteAccountScreen extends StatefulWidget {
-  const DeleteAccountScreen({Key? key}) : super(key: key);
+  const DeleteAccountScreen({super.key});
 
   @override
   State<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
@@ -143,9 +143,11 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         await StorageService().clearAll(); // Clear Hive data
 
         // Clear local provider data (now synchronous)
-        final foodEntryProvider =
-            Provider.of<FoodEntryProvider>(context, listen: false);
-        foodEntryProvider.clearEntries();
+        if (mounted) {
+          final foodEntryProvider =
+              Provider.of<FoodEntryProvider>(context, listen: false);
+          foodEntryProvider.clearEntries();
+        }
 
         // Sign out regardless of outcome
         await _supabase.auth.signOut();
@@ -388,17 +390,17 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       // This URL opens the App Store subscriptions management page
       const url = 'itms-apps://apps.apple.com/account/subscriptions';
       try {
-        if (await canLaunch(url)) {
-          await launch(url);
+        if (await canLaunchUrl(Uri.parse(url))) {
+          await launchUrl(Uri.parse(url));
         } else {
           // Fallback to settings app if subscription URL can't be opened
-          await launch('App-Prefs:root=STORE');
+          await launchUrl(Uri.parse('App-Prefs:root=STORE'));
         }
       } catch (e) {
         print('Error opening subscription settings: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text('Could not open subscription settings'),
               backgroundColor: Colors.red,
             ),
@@ -443,7 +445,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
+                  color: colorScheme.primary.withAlpha((0.1 * 255).round()),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(CupertinoIcons.back,
@@ -469,16 +471,17 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withAlpha((0.1 * 255).round()),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    border: Border.all(
+                        color: Colors.red.withAlpha((0.3 * 255).round())),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             CupertinoIcons.exclamationmark_triangle_fill,
                             color: Colors.red,
                             size: 24,
@@ -587,13 +590,14 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: colorScheme.surfaceVariant,
+                            color: colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            'You signed in with ${currentUser?.appMetadata['provider'] ?? 'a third-party provider'}. No password is required to delete your account.',
+                            'You signed in with ${currentUser.appMetadata['provider'] ?? 'a third-party provider'}. No password is required to delete your account.',
                             style: GoogleFonts.poppins(
                               fontSize: 15,
+                              color: customColors!.textPrimary,
                             ),
                           ),
                         ),
@@ -637,7 +641,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                   'This action will permanently delete your account and all associated data. If you want to use the app again later, you will need to create a new account.',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: colorScheme.onSurface.withOpacity(0.6),
+                    color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
                   ),
                   textAlign: TextAlign.center,
                 ),

@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
-import 'dart:convert';
 import '../models/workout_plan.dart';
 import '../models/exercise.dart';
 import '../services/workout_planning_service.dart';
 import '../services/fitness_ai_service.dart';
 import '../services/fitness_data_service.dart';
-import '../services/storage_service.dart';
-import '../models/user_preferences.dart';
-import '../theme/app_theme.dart';
 import '../theme/workout_colors.dart';
 import 'package:uuid/uuid.dart';
 import 'workout_execution_screen.dart';
@@ -17,7 +11,7 @@ import 'workout_details_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
 class WorkoutPlanningScreen extends StatefulWidget {
-  const WorkoutPlanningScreen({Key? key}) : super(key: key);
+  const WorkoutPlanningScreen({super.key});
 
   @override
   State<WorkoutPlanningScreen> createState() => _WorkoutPlanningScreenState();
@@ -28,7 +22,6 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
   final WorkoutPlanningService _workoutService = WorkoutPlanningService();
   final FitnessAIService _aiService = FitnessAIService();
   final FitnessDataService _dataService = FitnessDataService();
-  final StorageService _storageService = StorageService();
   final Uuid _uuid = const Uuid();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -144,13 +137,13 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFF1E293B), Color(0xFF334155)],
         ),
-        borderRadius: const BorderRadius.only(
+        borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(32),
           bottomRight: Radius.circular(32),
         ),
@@ -177,7 +170,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
                     'Transform your body, elevate your mind',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withAlpha(((0.8) * 255).round()),
                     ),
                   ),
                 ],
@@ -186,7 +179,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
                 onPressed: _loadWorkoutRoutines,
                 icon: const Icon(Icons.refresh, color: Colors.white),
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.15),
+                  backgroundColor: Colors.white.withAlpha(((0.15) * 255).round()),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -218,10 +211,10 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.12),
+          color: Colors.white.withAlpha(((0.12) * 255).round()),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withAlpha(((0.1) * 255).round()),
             width: 1,
           ),
         ),
@@ -230,7 +223,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
           children: [
             Icon(
               icon,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withAlpha(((0.8) * 255).round()),
               size: 20,
             ),
             const SizedBox(height: 12),
@@ -249,7 +242,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withAlpha(((0.7) * 255).round()),
               ),
             ),
           ],
@@ -292,22 +285,22 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7).withOpacity(0.5),
+        color: const Color(0xFFFEF3C7).withAlpha(((0.5) * 255).round()),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFFF59E0B).withAlpha(((0.3) * 255).round())),
       ),
       child: Column(
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.info_outline,
+              Icon(Icons.info_outline,
                   color: Color(0xFFF59E0B), size: 24),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Complete Fitness Profile',
                       style: TextStyle(
                         fontSize: 16,
@@ -315,8 +308,8 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
                         color: Color(0xFF1E293B),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
+                    SizedBox(height: 4),
+                    Text(
                       'Complete onboarding to unlock AI-powered workouts',
                       style: TextStyle(
                         fontSize: 14,
@@ -354,7 +347,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E293B).withOpacity(0.04),
+            color: const Color(0xFF1E293B).withAlpha(((0.04) * 255).round()),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -482,10 +475,10 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: workoutColor.withOpacity(0.2)),
+          border: Border.all(color: workoutColor.withAlpha(((0.2) * 255).round())),
           boxShadow: [
             BoxShadow(
-              color: workoutColor.withOpacity(0.08),
+              color: workoutColor.withAlpha(((0.08) * 255).round()),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -570,7 +563,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: workoutColor.withOpacity(0.1),
+                                          color: workoutColor.withAlpha(((0.1) * 255).round()),
                                           borderRadius:
                                               BorderRadius.circular(8),
                                         ),
@@ -626,10 +619,10 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withOpacity(0.1),
+                            color: const Color(0xFFEF4444).withAlpha(((0.1) * 255).round()),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFFEF4444).withOpacity(0.2),
+                              color: const Color(0xFFEF4444).withAlpha(((0.2) * 255).round()),
                             ),
                           ),
                           child: const Icon(
@@ -653,7 +646,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
                                   ])
                                 : LinearGradient(colors: [
                                     workoutColor,
-                                    workoutColor.withOpacity(0.8)
+                                    workoutColor.withAlpha(((0.8) * 255).round())
                                   ]),
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -687,9 +680,9 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(((0.1) * 255).round()),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withAlpha(((0.3) * 255).round())),
       ),
       child: Text(
         text,
@@ -952,7 +945,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
   }
 
   void _showWorkoutDetails(WorkoutRoutine routine) {
-    final workoutColor = WorkoutColors.getWorkoutCategoryColor(
+    WorkoutColors.getWorkoutCategoryColor(
         routine.name, routine.targetMuscles);
 
     Navigator.push(
@@ -1382,7 +1375,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withOpacity(0.1),
+                  color: const Color(0xFFEF4444).withAlpha(((0.1) * 255).round()),
                   borderRadius: BorderRadius.circular(32),
                 ),
                 child: const Icon(
@@ -1446,7 +1439,7 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
       // Show loading indicator
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
+          content: const Row(
             children: [
               SizedBox(
                 width: 16,
@@ -1471,8 +1464,8 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: EdgeInsets.all(16),
-          duration: Duration(seconds: 2),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 2),
         ),
       );
 
@@ -1572,7 +1565,7 @@ class _ActionTile extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: gradient != null
-                    ? Colors.white.withOpacity(0.2)
+                    ? Colors.white.withAlpha(((0.2) * 255).round())
                     : const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -1603,7 +1596,7 @@ class _ActionTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       color: gradient != null
-                          ? Colors.white.withOpacity(0.8)
+                          ? Colors.white.withAlpha(((0.8) * 255).round())
                           : const Color(0xFF64748B),
                     ),
                   ),
@@ -1614,7 +1607,7 @@ class _ActionTile extends StatelessWidget {
               Icons.arrow_forward_ios,
               size: 16,
               color: gradient != null
-                  ? Colors.white.withOpacity(0.7)
+                  ? Colors.white.withAlpha(((0.7) * 255).round())
                   : const Color(0xFF64748B),
             ),
           ],

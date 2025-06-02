@@ -478,7 +478,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         'completed_workouts':
             filteredLogs.where((log) => log.isCompleted).length,
         'total_volume': filteredLogs.fold(
-            0.0, (sum, log) => sum + (log.totalVolume ?? 0.0)),
+            0.0, (sum, log) => sum + log.totalVolume),
         'total_duration': filteredLogs.fold(
             0, (sum, log) => sum + (log.actualDurationMinutes ?? 0)),
       };
@@ -602,7 +602,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         .length;
 
     final totalVolume = completedWorkouts.fold(
-        0.0, (sum, log) => sum + (log.totalVolume ?? 0.0));
+        0.0, (sum, log) => sum + log.totalVolume);
     final totalDuration = completedWorkouts.fold(
         0, (sum, log) => sum + (log.actualDurationMinutes ?? 0));
     final averageDuration = completedWorkouts.isNotEmpty

@@ -415,7 +415,7 @@ class FitnessAIService {
         focusArea,
       );
 
-      log('[FitnessAI] Generating ${availableMinutes}-minute quick workout');
+      log('[FitnessAI] Generating $availableMinutes-minute quick workout');
 
       final response = await _model.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
@@ -714,7 +714,7 @@ Create a balanced schedule that promotes consistency and sustainable progress.
     final focus = focusArea ?? 'full body';
 
     return '''
-Create a high-efficiency ${availableMinutes}-minute workout for:
+Create a high-efficiency $availableMinutes-minute workout for:
 
 PROFILE:
 - Fitness Level: ${profile.fitnessLevel}
@@ -723,7 +723,7 @@ PROFILE:
 - Space: ${profile.workoutSpace}
 
 REQUIREMENTS:
-- Exactly ${availableMinutes} minutes including warm-up and cool-down
+- Exactly $availableMinutes minutes including warm-up and cool-down
 - Focus area: $focus
 - High time efficiency - maximum results in minimum time
 - No equipment transitions if possible

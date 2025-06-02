@@ -4,8 +4,6 @@ class ApiConfig {
   static const String exerciseDbBaseUrl = 'https://exercisedb.p.rapidapi.com';
   static const String exerciseDbHost = 'exercisedb.p.rapidapi.com';
 
-  // TODO: Replace with your actual RapidAPI key
-  // Get your free key at: https://rapidapi.com/justin-WFnsXH_t6/api/exercisedb
   static const String exerciseDbApiKey =
       'ec90356fe3mshe9ac9aef598adffp1224e4jsnec34fe7e063e';
 

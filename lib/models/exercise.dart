@@ -27,9 +27,9 @@ enum EquipmentType {
   bench,
   machine,
   cable,
-  medicine_ball,
-  foam_roller,
-  yoga_mat
+  medicineBall,
+  foamRoller,
+  yogaMat
 }
 
 enum ExerciseType {
@@ -193,10 +193,10 @@ class Exercise {
 
   // Check if exercise can be performed with available equipment
   bool canPerformWith(List<EquipmentType> availableEquipment) {
-    if (equipment.isEmpty || equipment.contains(EquipmentType.bodyweight)) {
+    if (equipment.isEmpty || equipment.contains(EquipmentType.bodyweight.name)) {
       return true;
     }
-    return equipment.every((req) => availableEquipment.contains(req));
+    return equipment.every((req) => availableEquipment.any((availEq) => availEq.name == req));
   }
 
   // Check if exercise targets specific muscle groups

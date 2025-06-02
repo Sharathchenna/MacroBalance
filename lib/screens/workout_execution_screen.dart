@@ -9,9 +9,9 @@ class WorkoutExecutionScreen extends StatefulWidget {
   final WorkoutRoutine routine;
 
   const WorkoutExecutionScreen({
-    Key? key,
+    super.key,
     required this.routine,
-  }) : super(key: key);
+  });
 
   @override
   State<WorkoutExecutionScreen> createState() => _WorkoutExecutionScreenState();
@@ -174,7 +174,7 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
               Container(
                 width: 80,
                 height: 80,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: PremiumColors.successGreen,
                   shape: BoxShape.circle,
                 ),
@@ -303,7 +303,7 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
               Container(
                 width: 120,
                 height: 120,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: PremiumColors.successGreen,
                   shape: BoxShape.circle,
                 ),
@@ -346,7 +346,7 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
       backgroundColor: Colors.white,
       elevation: 0,
       leading: IconButton(
-        icon: Icon(Icons.close_rounded, color: PremiumColors.slate900),
+        icon: const Icon(Icons.close_rounded, color: PremiumColors.slate900),
         onPressed: () => _showExitDialog(),
       ),
       title: Text(
@@ -476,12 +476,12 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: workoutColor.withOpacity(0.2),
+          color: workoutColor.withAlpha(((0.2) * 255).round()),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: workoutColor.withOpacity(0.1),
+            color: workoutColor.withAlpha(((0.1) * 255).round()),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -533,7 +533,7 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: PremiumColors.pastelYellow.withOpacity(0.2),
+                color: PremiumColors.pastelYellow.withAlpha(((0.2) * 255).round()),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: PremiumColors.pastelYellow,
@@ -637,9 +637,9 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(((0.1) * 255).round()),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withAlpha(((0.3) * 255).round())),
       ),
       child: Column(
         children: [
@@ -742,7 +742,7 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
                   color: (_restTimeRemaining <= 3
                           ? PremiumColors.softRed
                           : PremiumColors.vibrantOrange)
-                      .withOpacity(0.3),
+                      .withAlpha(((0.3) * 255).round()),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -799,10 +799,10 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: PremiumColors.softRed.withOpacity(0.1),
+                color: PremiumColors.softRed.withAlpha(((0.1) * 255).round()),
                 borderRadius: BorderRadius.circular(20),
                 border:
-                    Border.all(color: PremiumColors.softRed.withOpacity(0.3)),
+                    Border.all(color: PremiumColors.softRed.withAlpha(((0.3) * 255).round())),
               ),
               child: Text(
                 'GET READY!',
@@ -948,7 +948,7 @@ class _WorkoutExecutionScreenState extends State<WorkoutExecutionScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.exit_to_app_rounded,
                 size: 48,
                 color: PremiumColors.softRed,

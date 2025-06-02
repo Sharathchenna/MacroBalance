@@ -45,7 +45,7 @@ class QuantitySelector extends StatelessWidget {
                 border: Border.all(
                   color: isSelected
                       ? Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFFFBBC05).withOpacity(0.8)
+                          ? const Color(0xFFFBBC05).withAlpha(((0.8) * 255).round())
                           : customColors.textPrimary
                       : customColors.dateNavigatorBackground,
                   width: 1.5,
@@ -53,7 +53,7 @@ class QuantitySelector extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                "${multiplier}x",
+                '${multiplier}x',
                 style: TextStyle(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? Colors.white

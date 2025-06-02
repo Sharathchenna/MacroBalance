@@ -35,7 +35,7 @@ class FeatureItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.shadow.withOpacity(0.1),
+                  color: theme.colorScheme.shadow.withValues(alpha: 0.1),
                   offset: const Offset(0, 4),
                   blurRadius: 8,
                 ),
@@ -54,8 +54,8 @@ class FeatureItem extends StatelessWidget {
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: customColors?.textPrimary ??
-                      theme.colorScheme.onBackground,
+                  color:
+                      customColors?.textPrimary ?? theme.colorScheme.onSurface,
                 ),
           ),
         ],

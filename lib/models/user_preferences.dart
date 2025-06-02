@@ -1,4 +1,3 @@
-import 'exercise.dart';
 import 'package:uuid/uuid.dart';
 
 class DietaryPreferences {

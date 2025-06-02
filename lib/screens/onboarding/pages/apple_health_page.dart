@@ -21,18 +21,24 @@ class AppleHealthPage extends StatelessWidget {
       bool granted = await healthService.requestPermissions();
       StorageService().put('healthConnected', granted);
       if (granted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Successfully connected to Health')),
         );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Health permissions were not granted')),
         );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error connecting to Health: ${e.toString()}')),
       );
+      }
     } finally {
       // Proceed to the next step regardless of connection success/failure for now
       // as per the original logic. Consider refining this based on UX requirements.
@@ -76,7 +82,7 @@ class AppleHealthPage extends StatelessWidget {
           'Connect to\nApple Health', // Use newline for two lines
           style: AppTypography.onboardingTitle.copyWith(
             // Use onboardingTitle style
-            color: customColors?.textPrimary ?? theme.colorScheme.onBackground,
+            color: customColors?.textPrimary ?? theme.colorScheme.surface,
             fontWeight: FontWeight.bold, // Make it bold
           ),
           textAlign: TextAlign.center,
@@ -151,7 +157,7 @@ class AppleHealthPage extends StatelessWidget {
     final illustrationHeight = size.height * 0.25;
     final illustrationWidth = size.width * 0.8; // Keep similar width
 
-    return Container(
+    return SizedBox(
       height: illustrationHeight,
       width: double.infinity, // Take full width for centering
       child: Center(
@@ -167,7 +173,7 @@ class AppleHealthPage extends StatelessWidget {
                 height: illustrationHeight,
                 decoration: BoxDecoration(
                   color: (theme.colorScheme.surface)
-                      .withOpacity(0.05), // Use theme surface color
+                      .withAlpha((0.05 * 255).round()), // Use theme surface color
                   shape: BoxShape.circle,
                 ),
               ),
@@ -189,7 +195,7 @@ class AppleHealthPage extends StatelessWidget {
               Positioned(
                 left: illustrationWidth * 0.02, // Further left
                 top: illustrationHeight * 0.55, // Slightly lower
-                child: _HealthIcon(
+                child: const _HealthIcon(
                   icon: Icons.favorite,
                   color: Colors.redAccent,
                   backgroundColor: Colors.white,
@@ -286,7 +292,7 @@ class _HealthIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(15), // Rounded corners
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05), // Softer shadow
+            color: Colors.black.withAlpha((0.05 * 255).round()), // Softer shadow
             spreadRadius: 1,
             blurRadius: 8,
             offset: const Offset(0, 2),
@@ -315,7 +321,7 @@ class _AppleIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(15), // Rounded corners
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1), // Slightly darker shadow
+            color: Colors.black.withAlpha((0.1 * 255).round()), // Slightly darker shadow
             spreadRadius: 1,
             blurRadius: 8,
             offset: const Offset(0, 3),
@@ -357,7 +363,7 @@ class _ActivityBubble extends StatelessWidget {
         borderRadius: BorderRadius.circular(20), // Pill shape
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05), // Softer shadow
+            color: Colors.black.withAlpha((0.05 * 255).round()), // Softer shadow
             spreadRadius: 0,
             blurRadius: 6,
             offset: const Offset(0, 1),
@@ -398,7 +404,7 @@ class _HealthConnectionsPainter extends CustomPainter {
       // Use a darker grey or primary color variant
       // Use textSecondary from theme for connection lines
       ..color = (customColors?.textSecondary ?? theme.colorScheme.outline)
-          .withOpacity(0.8)
+          .withAlpha((0.8 * 255).round())
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5 // Slightly thinner to match image better
       ..strokeCap = StrokeCap.round;

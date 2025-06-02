@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 class JsonHelper {
-  /// Parses a string to a Map<String, dynamic>
+  /// Parses a string to a `Map<String, dynamic>`
   /// If the string is not valid JSON, attempts to fix it
   static Map<String, dynamic> parseJsonString(String? inputJson) {
     if (inputJson == null || inputJson.isEmpty) {

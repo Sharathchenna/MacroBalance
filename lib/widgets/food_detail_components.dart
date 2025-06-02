@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import '../theme/typography.dart';
 import 'nutrient_row.dart';
 
@@ -48,7 +47,7 @@ class NutrientSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.05),
+            color: accentColor.withAlpha(((0.05) * 255).round()),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -60,7 +59,7 @@ class NutrientSection extends StatelessWidget {
                     value: entry.value,
                   ),
                   if (nutrients.last.key != entry.key)
-                    Divider(color: dividerColor.withOpacity(0.5)),
+                    Divider(color: dividerColor.withAlpha(((0.5) * 255).round())),
                 ],
               );
             }).toList(),

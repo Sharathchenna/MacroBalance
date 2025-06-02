@@ -26,7 +26,6 @@ class ExerciseImageService {
 
   // Cache for API responses
   final Map<String, dynamic> _exerciseCache = {};
-  final Map<String, List<dynamic>> _categoryCache = {};
   final Map<String, List<dynamic>> _muscleGroupCache = {};
   DateTime? _lastRequestTime;
   int _requestCount = 0;
@@ -277,8 +276,7 @@ class ExerciseImageService {
         );
 
         // Partial name match if no exact match
-        if (bestMatch == null) {
-          bestMatch = exercises.firstWhere(
+        bestMatch ??= exercises.firstWhere(
             (exercise) =>
                 _normalizeExerciseName(exercise['name'])
                     .contains(normalizedSearch) ||
@@ -286,7 +284,6 @@ class ExerciseImageService {
                     .contains(_normalizeExerciseName(exercise['name'])),
             orElse: () => null,
           );
-        }
 
         // Keyword match if no partial match
         if (bestMatch == null) {

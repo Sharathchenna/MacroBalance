@@ -214,7 +214,7 @@ class FitnessLevelPage extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: PremiumColors.slate900.withOpacity(0.1),
+                    color: PremiumColors.slate900.withAlpha((0.1 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

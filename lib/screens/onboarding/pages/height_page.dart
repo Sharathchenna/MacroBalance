@@ -4,7 +4,6 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/widgets/onboarding/tooltip_icon.dart';
 import 'package:macrotracker/widgets/onboarding/unit_selector.dart';
 import 'package:numberpicker/numberpicker.dart';
-import 'dart:math'; // For min/max
 
 class HeightPage extends StatelessWidget {
   final double currentHeightCm;
@@ -76,7 +75,7 @@ class HeightPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha((0.05 * 255).round()),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),

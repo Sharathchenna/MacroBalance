@@ -4,7 +4,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter/services.dart';
 import 'package:macrotracker/firebase_options.dart'; // Import firebase_options
 
 // Add this top-level function for the background handler
@@ -13,7 +12,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // If you're going to use other Firebase services in the background, like Firestore,
   // make sure you call `initializeApp` before using other Firebase services.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint("Handling a background message: ${message.messageId}");
+  debugPrint('Handling a background message: ${message.messageId}');
   // You can add custom logic here if needed in the future
 }
 
@@ -35,7 +34,7 @@ class NotificationService {
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
     final DarwinInitializationSettings iosSettings =
-        DarwinInitializationSettings(
+        const DarwinInitializationSettings(
       requestSoundPermission: true, // Request sound permission during init
       requestBadgePermission: true,  // Request badge permission during init
       requestAlertPermission: true, // Request alert permission during init

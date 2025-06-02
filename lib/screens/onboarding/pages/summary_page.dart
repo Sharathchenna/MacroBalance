@@ -162,7 +162,7 @@ class SummaryPage extends StatelessWidget {
             'Summary',
             style: AppTypography.onboardingSubtitle.copyWith(
               color:
-                  customColors?.textPrimary ?? theme.colorScheme.onBackground,
+                  customColors?.textPrimary ?? theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -170,7 +170,7 @@ class SummaryPage extends StatelessWidget {
             'Review your information before calculating.',
             style: AppTypography.onboardingBody.copyWith(
               color: customColors?.textSecondary ??
-                  theme.colorScheme.onBackground.withOpacity(0.7),
+                  theme.colorScheme.onSurface.withAlpha((0.7 * 255).round()),
             ),
           ),
           const SizedBox(height: 32),
@@ -205,7 +205,7 @@ class SummaryPage extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha((0.05 * 255).round()),
                 blurRadius: 10,
                 spreadRadius: 0,
                 offset: const Offset(0, 2))
@@ -219,7 +219,7 @@ class SummaryPage extends StatelessWidget {
                 Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        color: theme.colorScheme.primary.withAlpha((0.1 * 255).round()),
                         borderRadius: BorderRadius.circular(8)),
                     child:
                         Icon(icon, color: theme.colorScheme.primary, size: 20)),
@@ -227,10 +227,10 @@ class SummaryPage extends StatelessWidget {
                 Text(title,
                     style: AppTypography.h3.copyWith(
                       color: customColors?.textPrimary ??
-                          theme.colorScheme.onBackground,
+                          theme.colorScheme.onSurface,
                     ))
               ])),
-          Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.1)),
+          Divider(height: 1, thickness: 1, color: Colors.grey.withAlpha((0.1 * 255).round())),
           ...items.where((item) => item.containsKey('value')).map((item) =>
               _buildSummaryItem(context,
                   label: item['label'],
@@ -260,14 +260,14 @@ class SummaryPage extends StatelessWidget {
                 Text(label,
                     style: AppTypography.caption.copyWith(
                       color: customColors?.textSecondary ??
-                          theme.colorScheme.onBackground.withOpacity(0.7),
+                          theme.colorScheme.onSurface.withAlpha((0.7 * 255).round()),
                     )),
                 const SizedBox(height: 4),
                 Text(value,
                     style: AppTypography.body1.copyWith(
                       fontWeight: FontWeight.w600,
                       color: customColors?.textPrimary ??
-                          theme.colorScheme.onBackground,
+                          theme.colorScheme.onSurface,
                     ))
               ])),
           Icon(Icons.edit, size: 16, color: theme.colorScheme.primary)

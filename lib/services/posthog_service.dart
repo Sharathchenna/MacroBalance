@@ -11,7 +11,7 @@ class PostHogService {
   static bool _isInitialized = false;
 
   static Future<void> initialize() async {
-    debugPrint("[PostHogService] Starting initialization...");
+    debugPrint('[PostHogService] Starting initialization...');
     try {
       final config = PostHogConfig(_apiKey);
       config.host = _host;
@@ -21,27 +21,22 @@ class PostHogService {
       // Enable PostHog SDK debug logging
       config.debug = true;
 
-      debugPrint("[PostHogService] Calling Posthog().setup()...");
+      debugPrint('[PostHogService] Calling Posthog().setup()...');
       await _instance.setup(config);
-      debugPrint("[PostHogService] Posthog().setup() completed.");
+      debugPrint('[PostHogService] Posthog().setup() completed.');
 
       // Mark as initialized before any network calls
       _isInitialized = true;
 
-      // Add extra logging post-setup
-      debugPrint("[PostHogService] Configured Host: ${_instance.config?.host}");
-      debugPrint(
-          "[PostHogService] Session Replay Enabled in Config: ${_instance.config?.sessionReplay}");
-      debugPrint(
-          "[PostHogService] Debug Enabled in Config: ${_instance.config?.debug}");
-      debugPrint("[PostHogService] Forcing initial flush...");
+      debugPrint('[PostHogService] Configuration applied successfully');
+      debugPrint('[PostHogService] Forcing initial flush...');
       _instance.flush(); // Force an immediate flush after setup
     } catch (e, stackTrace) {
-      debugPrint("[PostHogService] ERROR during Posthog().setup(): $e");
-      debugPrint("[PostHogService] StackTrace: $stackTrace");
+      debugPrint('[PostHogService] ERROR during Posthog().setup(): $e');
+      debugPrint('[PostHogService] StackTrace: $stackTrace');
       // Don't rethrow - let the app continue without PostHog
     }
-    debugPrint("[PostHogService] Initialization finished.");
+    debugPrint('[PostHogService] Initialization finished.');
   }
 
   // Helper method to check if PostHog is ready
@@ -51,7 +46,7 @@ class PostHogService {
   static bool _isReady() {
     if (!_isInitialized) {
       debugPrint(
-          "[PostHogService] Service not initialized yet - skipping operation");
+          '[PostHogService] Service not initialized yet - skipping operation');
       return false;
     }
     return true;
@@ -81,7 +76,7 @@ class PostHogService {
   static void trackEvent(String eventName, {Map<String, dynamic>? properties}) {
     if (!_isReady()) return;
     debugPrint(
-        "[PostHogService] Capturing event: $eventName with properties: $properties"); // Added log
+        '[PostHogService] Capturing event: $eventName with properties: $properties'); // Added log
     _instance.capture(
       eventName: eventName,
       properties:
@@ -97,7 +92,7 @@ class PostHogService {
   }) {
     if (!_isReady()) return;
     debugPrint(
-        "[PostHogService] Identifying user: $userId with properties: $userProperties"); // Added log
+        '[PostHogService] Identifying user: $userId with properties: $userProperties'); // Added log
     _instance.identify(
       userId: userId,
       userProperties:
@@ -120,17 +115,17 @@ class PostHogService {
   // Reset user identification
   static void resetUser() {
     if (!_isReady()) return;
-    debugPrint("[PostHogService] Resetting user identification."); // Added log
+    debugPrint('[PostHogService] Resetting user identification.'); // Added log
     _instance.reset();
   }
 
   // Track screen views
   static void trackScreen(String screenName) {
     if (!_isReady()) return;
-    debugPrint("[PostHogService] Tracking screen: $screenName");
+    debugPrint('[PostHogService] Tracking screen: $screenName');
     _instance.screen(screenName: screenName);
     debugPrint(
-        "[PostHogService] Screen tracked. Forcing event flush."); // Slightly modified log
+        '[PostHogService] Screen tracked. Forcing event flush.'); // Slightly modified log
     _instance.flush(); // Force send events immediately
   }
 

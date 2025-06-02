@@ -7,8 +7,8 @@ import 'package:macrotracker/services/storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'dart:math'; // For min/max
-import 'package:intl/intl.dart'; // For date formatting
-import 'package:flutter/foundation.dart'; // For debugPrint
+// import 'package:intl/intl.dart'; // For date formatting
+// import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:macrotracker/theme/typography.dart';
 
 // Import Page Widgets
@@ -37,10 +37,10 @@ class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  _OnboardingScreenState createState() => _OnboardingScreenState();
+  OnboardingScreenState createState() => OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen>
+class OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
@@ -120,8 +120,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   // --- Helper Functions for Projected Date ---
   double _calculateWeeklyRate() {
-    if (_goal == MacroCalculatorService.GOAL_MAINTAIN || _deficit == 0)
+    if (_goal == MacroCalculatorService.GOAL_MAINTAIN || _deficit == 0) {
       return 0.0;
+    }
     const kcalPerKg = 7700.0;
     double weeklyKcalChange =
         _deficit * 7.0 * (_goal == MacroCalculatorService.GOAL_LOSE ? -1 : 1);
@@ -134,12 +135,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (weeklyRate.abs() < 0.01) return null;
     double weightDifference = _goalWeightKg - _weightKg;
     if ((_goal == MacroCalculatorService.GOAL_LOSE && weightDifference >= 0) ||
-        (_goal == MacroCalculatorService.GOAL_GAIN && weightDifference <= 0))
+        (_goal == MacroCalculatorService.GOAL_GAIN && weightDifference <= 0)) {
       return null;
+    }
     if (weightDifference.abs() < 0.1) return DateTime.now();
     if ((weeklyRate < 0 && _goal == MacroCalculatorService.GOAL_GAIN) ||
-        (weeklyRate > 0 && _goal == MacroCalculatorService.GOAL_LOSE))
+        (weeklyRate > 0 && _goal == MacroCalculatorService.GOAL_LOSE)) {
       return null;
+    }
     double numberOfWeeks = weightDifference / weeklyRate;
     if (numberOfWeeks <= 0) return DateTime.now();
     if (numberOfWeeks > 52 * 10) numberOfWeeks = 52 * 10;
@@ -147,7 +150,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     try {
       return DateTime.now().add(Duration(days: numberOfDays));
     } catch (e) {
-      debugPrint("Error calculating projected date: $e");
+      debugPrint('Error calculating projected date: $e');
       return null;
     }
   }
@@ -382,9 +385,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         };
         supabaseData
             .removeWhere((_, v) => v is double && (v.isNaN || v.isInfinite));
-        if (supabaseData['macro_targets'] != null)
+        if (supabaseData['macro_targets'] != null) {
           (supabaseData['macro_targets'] as Map<String, dynamic>)
               .removeWhere((_, v) => v is double && (v.isNaN || v.isInfinite));
+        }
 
         await Supabase.instance.client.from('user_macros').upsert(supabaseData);
 
@@ -488,7 +492,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     value: _progressAnimation.value,
                     backgroundColor: (customColors?.dateNavigatorBackground ??
                             theme.colorScheme.surface)
-                        .withOpacity(0.3),
+                        .withAlpha((0.3 * 255).round()),
                     valueColor: AlwaysStoppedAnimation<Color>(
                         customColors?.textPrimary ?? theme.colorScheme.primary),
                     minHeight: 4,
@@ -534,7 +538,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             ),
                           ),
                         )
-                      : SizedBox(width: 80), // Empty space for alignment
+                      : const SizedBox(width: 80), // Empty space for alignment
 
                   // Next button or Done
                   _buildNextButton(theme, customColors),
@@ -559,8 +563,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return ElevatedButton(
       onPressed: _nextPage,
       style: ElevatedButton.styleFrom(
-        backgroundColor:
-            customColors?.textPrimary ?? theme.colorScheme.onBackground,
+        backgroundColor: customColors?.textPrimary ?? theme.colorScheme.surface,
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),

@@ -8,7 +8,7 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
-import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/date_provider.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:provider/provider.dart';
@@ -164,7 +164,7 @@ Meal to analyze: ${_mealController.text}
     // Regex to find simple multiplications or divisions like number*number or number/number
     // It handles integers and decimals.
     final expRegex = RegExp(r'(\d+(\.\d+)?)\s*([\*\/])\s*(\d+(\.\d+)?)');
-    Parser p = Parser();
+    GrammarParser p = GrammarParser();
     ContextModel cm = ContextModel();
 
     // Replace found expressions with their calculated values
@@ -352,7 +352,7 @@ Meal to analyze: ${_mealController.text}
         unit: 'serving',
         date: dateProvider.selectedDate,
         servingDescription:
-            "$quantity x ${food.servingSizes[0]}", // Add proper serving description
+            '$quantity x ${food.servingSizes[0]}', // Add proper serving description
       );
 
       foodEntryProvider.addEntry(entry);
@@ -446,7 +446,7 @@ Meal to analyze: ${_mealController.text}
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Serving: ${defaultServing}',
+                              'Serving: $defaultServing',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 14,
@@ -457,8 +457,7 @@ Meal to analyze: ${_mealController.text}
                       ),
 
                       // Add button
-                      Container(
-                          child: Row(
+                      Row(
                         children: [
                           IconButton(
                             icon: Icon(
@@ -469,12 +468,12 @@ Meal to analyze: ${_mealController.text}
                                 _showQuickAddOptions(context, food),
                             tooltip: 'Add to meal',
                           ),
-                          SizedBox(width: 8),
-                          Icon(
+                          const SizedBox(width: 8),
+                          const Icon(
                             CupertinoIcons.chevron_right,
                           )
                         ],
-                      ))
+                      )
                     ],
                   ),
 
@@ -533,7 +532,7 @@ Meal to analyze: ${_mealController.text}
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: chipColor.withOpacity(0.1),
+        color: chipColor.withAlpha((0.1 * 255).round()),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -572,7 +571,7 @@ Meal to analyze: ${_mealController.text}
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -600,7 +599,7 @@ Meal to analyze: ${_mealController.text}
               'Lunch',
               'Snacks',
               'Dinner',
-            ].map((meal) => _buildMealOption(context, food, meal)).toList(),
+            ].map((meal) => _buildMealOption(context, food, meal)),
             const SizedBox(height: 16),
           ],
         ),
@@ -619,7 +618,7 @@ Meal to analyze: ${_mealController.text}
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withAlpha((0.2 * 255).round()),
               width: 1,
             ),
           ),
@@ -654,7 +653,8 @@ Meal to analyze: ${_mealController.text}
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: CupertinoColors.systemGrey.withOpacity(0.0),
+        backgroundColor:
+            CupertinoColors.systemGrey.withAlpha((0.0 * 255).round()),
         leading: CupertinoNavigationBarBackButton(
           onPressed: () => Navigator.of(context).pop(),
           color: customColors?.textPrimary,
@@ -741,7 +741,7 @@ Meal to analyze: ${_mealController.text}
                                 BoxShadow(
                                   color: Theme.of(context)
                                       .primaryColor
-                                      .withOpacity(0.1),
+                                      .withAlpha((0.1 * 255).round()),
                                   blurRadius: 10,
                                   spreadRadius: 2,
                                 ),
@@ -781,11 +781,12 @@ Meal to analyze: ${_mealController.text}
                                     padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
                                       color: customColors?.cardBackground
-                                          .withOpacity(0.7),
+                                          .withAlpha((0.7 * 255).round()),
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
+                                          color: Colors.black
+                                              .withAlpha((0.05 * 255).round()),
                                           blurRadius: 10,
                                           spreadRadius: 1,
                                         ),
@@ -798,7 +799,7 @@ Meal to analyze: ${_mealController.text}
                                           : CupertinoIcons.doc_text_search,
                                       size: 80,
                                       color: customColors?.textPrimary
-                                          .withOpacity(0.8),
+                                          .withAlpha((0.8 * 255).round()),
                                     ),
                                   ),
                                   const SizedBox(height: 24),

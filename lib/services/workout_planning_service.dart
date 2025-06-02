@@ -6,7 +6,6 @@ import '../models/exercise.dart';
 import '../models/workout_plan.dart';
 import '../models/user_preferences.dart';
 import 'supabase_service.dart';
-import 'storage_service.dart';
 
 class WorkoutPlanningService {
   static final WorkoutPlanningService _instance =
@@ -16,15 +15,11 @@ class WorkoutPlanningService {
 
   WorkoutPlanningService._internal()
       : _supabaseService = SupabaseService(),
-        _storageService = StorageService(),
         _uuid = const Uuid(),
-        _apiKey = null,
         _model = null;
 
   final SupabaseService _supabaseService;
-  final StorageService _storageService;
   final Uuid _uuid;
-  String? _apiKey;
   GenerativeModel? _model;
 
   // Cache for exercises and workout plans
@@ -105,12 +100,9 @@ class WorkoutPlanningService {
           .eq('id', id)
           .single();
 
-      if (response != null) {
-        final exercise = Exercise.fromJson(response);
-        _exerciseCache[id] = exercise;
-        return exercise;
-      }
-      return null;
+      final exercise = Exercise.fromJson(response);
+      _exerciseCache[id] = exercise;
+      return exercise;
     } catch (e) {
       debugPrint('Error fetching exercise $id: $e');
       return null;
@@ -125,12 +117,9 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final createdExercise = Exercise.fromJson(response);
-        _exerciseCache[createdExercise.id] = createdExercise;
-        return createdExercise;
-      }
-      return null;
+      final createdExercise = Exercise.fromJson(response);
+      _exerciseCache[createdExercise.id] = createdExercise;
+      return createdExercise;
     } catch (e) {
       debugPrint('Error creating exercise: $e');
       return null;
@@ -146,12 +135,9 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final updatedExercise = Exercise.fromJson(response);
-        _exerciseCache[exercise.id] = updatedExercise;
-        return updatedExercise;
-      }
-      return null;
+      final updatedExercise = Exercise.fromJson(response);
+      _exerciseCache[exercise.id] = updatedExercise;
+      return updatedExercise;
     } catch (e) {
       debugPrint('Error updating exercise: $e');
       return null;
@@ -217,8 +203,6 @@ class WorkoutPlanningService {
           .limit(limit)
           .range(offset, offset + limit - 1);
 
-      if (response == null) return [];
-
       final List<WorkoutRoutine> routines = [];
       for (final data in response) {
         try {
@@ -251,25 +235,22 @@ class WorkoutPlanningService {
           .eq('id', id)
           .single();
 
-      if (response != null) {
-        final routine = WorkoutRoutine.fromJson(response);
+      final routine = WorkoutRoutine.fromJson(response);
 
-        // Load exercise details for each exercise in the routine
-        final updatedExercises = <WorkoutExercise>[];
-        for (final workoutExercise in routine.exercises) {
-          final exercise = await getExerciseById(workoutExercise.exerciseId);
-          if (exercise != null) {
-            updatedExercises.add(workoutExercise.copyWith(exercise: exercise));
-          } else {
-            updatedExercises.add(workoutExercise);
-          }
+      // Load exercise details for each exercise in the routine
+      final updatedExercises = <WorkoutExercise>[];
+      for (final workoutExercise in routine.exercises) {
+        final exercise = await getExerciseById(workoutExercise.exerciseId);
+        if (exercise != null) {
+          updatedExercises.add(workoutExercise.copyWith(exercise: exercise));
+        } else {
+          updatedExercises.add(workoutExercise);
         }
-
-        final updatedRoutine = routine.copyWith(exercises: updatedExercises);
-        _routineCache[id] = updatedRoutine;
-        return updatedRoutine;
       }
-      return null;
+
+      final updatedRoutine = routine.copyWith(exercises: updatedExercises);
+      _routineCache[id] = updatedRoutine;
+      return updatedRoutine;
     } catch (e) {
       debugPrint('Error fetching workout routine $id: $e');
       return null;
@@ -297,12 +278,9 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final createdRoutine = WorkoutRoutine.fromJson(response);
-        _routineCache[createdRoutine.id] = createdRoutine;
-        return createdRoutine;
-      }
-      return null;
+      final createdRoutine = WorkoutRoutine.fromJson(response);
+      _routineCache[createdRoutine.id] = createdRoutine;
+      return createdRoutine;
     } catch (e) {
       debugPrint('Error creating workout routine: $e');
       return null;
@@ -330,12 +308,9 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final updatedRoutine = WorkoutRoutine.fromJson(response);
-        _routineCache[routine.id] = updatedRoutine;
-        return updatedRoutine;
-      }
-      return null;
+      final updatedRoutine = WorkoutRoutine.fromJson(response);
+      _routineCache[routine.id] = updatedRoutine;
+      return updatedRoutine;
     } catch (e) {
       debugPrint('Error updating workout routine: $e');
       return null;
@@ -361,11 +336,6 @@ class WorkoutPlanningService {
           .eq('id', id)
           .single();
 
-      if (existingWorkout == null) {
-        debugPrint('Workout routine not found: $id');
-        return false;
-      }
-
       debugPrint(
           'Found workout: ${existingWorkout['name']}, created_by: ${existingWorkout['created_by']}, is_custom: ${existingWorkout['is_custom']}');
 
@@ -380,10 +350,6 @@ class WorkoutPlanningService {
       }
 
       // Perform the deletion
-      final result = await _supabaseService.supabaseClient
-          .from('workout_routines')
-          .delete()
-          .eq('id', id);
 
       debugPrint('Delete operation completed successfully for workout: $id');
 
@@ -473,12 +439,9 @@ class WorkoutPlanningService {
           .eq('id', id)
           .single();
 
-      if (response != null) {
-        final plan = WorkoutPlan.fromJson(response);
-        _planCache[id] = plan;
-        return plan;
-      }
-      return null;
+      final plan = WorkoutPlan.fromJson(response);
+      _planCache[id] = plan;
+      return plan;
     } catch (e) {
       debugPrint('Error fetching workout plan $id: $e');
       return null;
@@ -506,12 +469,9 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final createdPlan = WorkoutPlan.fromJson(response);
-        _planCache[createdPlan.id] = createdPlan;
-        return createdPlan;
-      }
-      return null;
+      final createdPlan = WorkoutPlan.fromJson(response);
+      _planCache[createdPlan.id] = createdPlan;
+      return createdPlan;
     } catch (e) {
       debugPrint('Error creating workout plan: $e');
       return null;
@@ -539,12 +499,9 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        final updatedPlan = WorkoutPlan.fromJson(response);
-        _planCache[plan.id] = updatedPlan;
-        return updatedPlan;
-      }
-      return null;
+      final updatedPlan = WorkoutPlan.fromJson(response);
+      _planCache[plan.id] = updatedPlan;
+      return updatedPlan;
     } catch (e) {
       debugPrint('Error updating workout plan: $e');
       return null;
@@ -588,10 +545,7 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        return WorkoutLog.fromJson(response);
-      }
-      return null;
+      return WorkoutLog.fromJson(response);
     } catch (e) {
       debugPrint('Error starting workout: $e');
       return null;
@@ -607,10 +561,7 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        return WorkoutLog.fromJson(response);
-      }
-      return null;
+      return WorkoutLog.fromJson(response);
     } catch (e) {
       debugPrint('Error updating workout log: $e');
       return null;
@@ -631,10 +582,7 @@ class WorkoutPlanningService {
           .select()
           .single();
 
-      if (response != null) {
-        return WorkoutLog.fromJson(response);
-      }
-      return null;
+      return WorkoutLog.fromJson(response);
     } catch (e) {
       debugPrint('Error completing workout: $e');
       return null;
@@ -649,11 +597,8 @@ class WorkoutPlanningService {
           .eq('id', logId)
           .single();
 
-      if (response != null) {
-        final startTime = DateTime.parse(response['start_time']);
-        return endTime.difference(startTime).inMinutes;
-      }
-      return 0;
+      final startTime = DateTime.parse(response['start_time']);
+      return endTime.difference(startTime).inMinutes;
     } catch (e) {
       debugPrint('Error calculating workout duration: $e');
       return 0;

@@ -1,8 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:macrotracker/models/foodEntry.dart';
-import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/date_provider.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
@@ -30,7 +30,7 @@ class ResultsPage extends StatelessWidget {
         title: Text(
           'Detected Foods',
           style: TextStyle(
-            color: customColors!.textPrimary,
+            color: customColors.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -132,7 +132,7 @@ class ResultsPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Serving: ${defaultServing}',
+                              'Serving: $defaultServing',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 14,
@@ -143,8 +143,7 @@ class ResultsPage extends StatelessWidget {
                       ),
 
                       // Add button
-                      Container(
-                          child: Row(
+                      Row(
                         children: [
                           IconButton(
                             icon: Icon(
@@ -157,12 +156,12 @@ class ResultsPage extends StatelessWidget {
                             },
                             tooltip: 'Add to meal',
                           ),
-                          SizedBox(width: 8),
-                          Icon(
+                          const SizedBox(width: 8),
+                          const Icon(
                             CupertinoIcons.chevron_right,
                           )
                         ],
-                      ))
+                      )
                     ],
                   ),
 
@@ -221,7 +220,8 @@ class ResultsPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: chipColor.withOpacity(0.1),
+        color: chipColor
+            .withAlpha((0.1 * 255).round()), // Use withAlpha for clarity
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -265,7 +265,7 @@ class ResultsPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -293,7 +293,7 @@ class ResultsPage extends StatelessWidget {
               'Lunch',
               'Snacks',
               'Dinner',
-            ].map((meal) => _buildMealOption(context, food, meal)).toList(),
+            ].map((meal) => _buildMealOption(context, food, meal)),
             const SizedBox(height: 16),
           ],
         ),
@@ -313,7 +313,8 @@ class ResultsPage extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey
+                  .withAlpha((0.2 * 255).round()), // Use withAlpha for clarity
               width: 1,
             ),
           ),
@@ -390,17 +391,17 @@ class ResultsPage extends StatelessWidget {
           children: [
             Icon(Icons.check_circle_outline,
                 color: Theme.of(context).colorScheme.onPrimary),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
               'Added to $meal',
               style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
             ),
           ],
         ),
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
+        backgroundColor: const Color(0xFFFFC107),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: EdgeInsets.all(8),
+        margin: const EdgeInsets.all(8),
         duration: const Duration(seconds: 2),
       ),
     );

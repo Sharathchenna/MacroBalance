@@ -10,7 +10,6 @@ import 'package:macrotracker/screens/signup.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:io';
-import 'package:macrotracker/services/auth_service.dart';
 import 'package:macrotracker/screens/forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _supabase = Supabase.instance.client;
-  final AuthService _authService = AuthService();
+  // final AuthService _authService = AuthService();
   bool isPasswordVisible = false;
   bool isLoading = false;
   late AnimationController _animationController;
@@ -155,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (error) {
       print('Google sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('There was a problem signing in with google'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -200,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (error) {
       print('Apple sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('There was a problem signing in with Apple'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -248,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen>
                       'Login to continue tracking your fitness journey',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: customColors!.textPrimary.withOpacity(0.7),
+                        color: customColors!.textPrimary.withAlpha(((0.7) * 255).round()),
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -328,7 +327,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             )
                           : Text(
-                              "Login",
+                              'Login',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -344,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen>
                       children: [
                         Expanded(
                           child: Divider(
-                            color: customColors.textPrimary.withOpacity(0.2),
+                            color: customColors.textPrimary.withAlpha(((0.2) * 255).round()),
                             thickness: 1,
                           ),
                         ),
@@ -353,14 +352,14 @@ class _LoginScreenState extends State<LoginScreen>
                           child: Text(
                             'OR',
                             style: TextStyle(
-                              color: customColors.textPrimary.withOpacity(0.6),
+                              color: customColors.textPrimary.withAlpha(((0.6) * 255).round()),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
                         Expanded(
                           child: Divider(
-                            color: theme.primaryColor.withOpacity(0.2),
+                            color: theme.primaryColor.withAlpha(((0.2) * 255).round()),
                             thickness: 1,
                           ),
                         ),
@@ -374,21 +373,21 @@ class _LoginScreenState extends State<LoginScreen>
                       onPressed: isLoading ? null : _nativeGoogleSignIn,
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
-                            color: customColors.textPrimary.withOpacity(0.3)),
+                            color: customColors.textPrimary.withAlpha(((0.3) * 255).round())),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       icon: SvgPicture.asset(
-                        "assets/icons/Google.svg",
+                        'assets/icons/Google.svg',
                         width: 20,
                         height: 20,
                       ),
                       label: Text(
                         'Continue with Google',
                         style: TextStyle(
-                          color: customColors.textPrimary.withOpacity(0.8),
+                          color: customColors.textPrimary.withAlpha(((0.8) * 255).round()),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -402,21 +401,21 @@ class _LoginScreenState extends State<LoginScreen>
                         onPressed: isLoading ? null : _signInWithApple,
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
-                              color: customColors.textPrimary.withOpacity(0.3)),
+                              color: customColors.textPrimary.withAlpha(((0.3) * 255).round())),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        icon: Icon(
+                        icon: const Icon(
                           Icons.apple,
                           size: 22,
-                          color: theme.primaryColor,
+                          color: Colors.black,
                         ),
                         label: Text(
                           'Continue with Apple',
                           style: TextStyle(
-                            color: customColors.textPrimary.withOpacity(0.8),
+                            color: customColors.textPrimary.withAlpha(((0.8) * 255).round()),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -431,7 +430,7 @@ class _LoginScreenState extends State<LoginScreen>
                         Text(
                           'Don\'t have an account? ',
                           style: TextStyle(
-                            color: customColors.textPrimary.withOpacity(0.7),
+                            color: customColors.textPrimary.withAlpha(((0.7) * 255).round()),
                           ),
                         ),
                         GestureDetector(
@@ -494,14 +493,14 @@ class _LoginScreenState extends State<LoginScreen>
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: AppTypography.inputHint.copyWith(
-          color: customColors.textPrimary.withOpacity(0.5),
+          color: customColors.textPrimary.withAlpha(((0.5) * 255).round()),
         ),
         filled: true,
         fillColor: Theme.of(context).cardColor,
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: customColors.textPrimary.withOpacity(0.5),
+                color: customColors.textPrimary.withAlpha((0.5 * 255).round()),
                 size: 22,
               )
             : null,
@@ -509,7 +508,7 @@ class _LoginScreenState extends State<LoginScreen>
             ? IconButton(
                 icon: Icon(
                   isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                  color: Theme.of(context).primaryColor.withOpacity(0.5),
+                  color: Theme.of(context).primaryColor.withAlpha((0.5 * 255).round()),
                   size: 22,
                 ),
                 onPressed: () {
@@ -529,7 +528,7 @@ class _LoginScreenState extends State<LoginScreen>
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             width: 1,
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: Theme.of(context).primaryColor.withAlpha((0.1 * 255).round()),
           ),
         ),
         focusedBorder: OutlineInputBorder(

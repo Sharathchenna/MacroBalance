@@ -37,7 +37,7 @@ class ActivityLevelPage extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 theme.scaffoldBackgroundColor,
-                theme.scaffoldBackgroundColor.withOpacity(0.95),
+                theme.scaffoldBackgroundColor.withAlpha((0.95 * 255).round()),
               ],
             ),
           ),
@@ -156,8 +156,8 @@ class ActivityLevelPage extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isSelected
               ? [
-                  theme.colorScheme.primary.withOpacity(0.1),
-                  theme.colorScheme.primary.withOpacity(0.2),
+                  theme.colorScheme.primary.withAlpha((0.1 * 255).round()),
+                  theme.colorScheme.primary.withAlpha((0.2 * 255).round()),
                 ]
               : [
                   customColors?.cardBackground ?? theme.cardColor,
@@ -168,14 +168,14 @@ class ActivityLevelPage extends StatelessWidget {
         border: Border.all(
           color: isSelected
               ? theme.colorScheme.primary
-              : theme.dividerColor.withOpacity(0.1),
+              : theme.dividerColor.withAlpha((0.1 * 255).round()),
           width: isSelected ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: isSelected
-                ? theme.colorScheme.primary.withOpacity(0.2)
-                : Colors.black.withOpacity(0.05),
+                ? theme.colorScheme.primary.withAlpha((0.2 * 255).round())
+                : Colors.black.withAlpha((0.05 * 255).round()),
             blurRadius: isSelected ? 8 : 4,
             offset: Offset(0, isSelected ? 4 : 2),
           ),
@@ -208,13 +208,13 @@ class ActivityLevelPage extends StatelessWidget {
                             end: Alignment.bottomRight,
                             colors: [
                               Color.lerp(
-                                theme.colorScheme.primary.withOpacity(0.1),
+                                theme.colorScheme.primary.withAlpha((0.1 * 255).round()),
                                 theme.colorScheme.primary,
                                 value,
                               )!,
                               Color.lerp(
-                                theme.colorScheme.primary.withOpacity(0.05),
-                                theme.colorScheme.primary.withOpacity(0.8),
+                                theme.colorScheme.primary.withAlpha((0.05 * 255).round()),
+                                theme.colorScheme.primary.withAlpha((0.8 * 255).round()),
                                 value,
                               )!,
                             ],

@@ -4,10 +4,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
-import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/date_provider.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
-import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
 import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
 import 'package:macrotracker/AI/gemini.dart';
@@ -18,7 +17,7 @@ import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
 import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/services/widget_service.dart';
-import 'package:macrotracker/providers/themeProvider.dart';
+import 'package:macrotracker/providers/theme_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'providers/meal_provider.dart';
@@ -33,12 +32,13 @@ import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
-import 'package:macrotracker/screens/MacroTrackingScreen.dart';
-import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for date formatting
-import 'package:macrotracker/screens/StepsTrackingScreen.dart';
+import 'package:macrotracker/screens/macro_tracking_screen.dart';
+import 'package:macrotracker/screens/weight_tracking_screen.dart'; // Needed for date formatting
+import 'package:macrotracker/screens/steps_tracking_screen.dart';
 import 'package:macrotracker/screens/expenditure_screen.dart'; // Added ExpenditureScreen
 import 'package:macrotracker/services/subscription_service.dart';
 import 'package:macrotracker/services/paywall_manager.dart';
+import 'package:macrotracker/services/superwall_service.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
@@ -51,6 +51,7 @@ import 'package:lottie/lottie.dart';
 import 'package:macrotracker/services/meal_planning_service.dart';
 import 'package:macrotracker/services/workout_planning_service.dart';
 import 'package:macrotracker/config/api_config.dart';
+import 'package:macrotracker/utils/performance_monitor.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -88,6 +89,9 @@ Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Start performance monitoring
+  PerformanceMonitor().startOperation('app_startup');
+
   // Initialize Hive (must be done before opening boxes)
   await Hive.initFlutter();
 
@@ -97,71 +101,64 @@ Future<void> main() async {
   );
 
   // Initialize Supabase - make sure this completes before accessing Supabase.instance
-  debugPrint("[Startup Timing] Before Supabase.initialize: ${DateTime.now()}");
+  debugPrint('[Startup Timing] Before Supabase.initialize: ${DateTime.now()}');
   try {
     await Supabase.initialize(
       anonKey:
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
-      url: "https://mdivtblabmnftdqlgysv.supabase.co",
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU',
+      url: 'https://mdivtblabmnftdqlgysv.supabase.co',
     ).timeout(
       const Duration(
           seconds: 15), // 15 second timeout for Supabase initialization
       onTimeout: () {
         debugPrint(
-            "Supabase initialization timeout - continuing with offline mode");
+            'Supabase initialization timeout - continuing with offline mode');
         throw Exception('Supabase initialization timed out');
       },
     );
-    debugPrint("[Startup Timing] After Supabase.initialize: ${DateTime.now()}");
+    debugPrint('[Startup Timing] After Supabase.initialize: ${DateTime.now()}');
   } catch (e) {
     debugPrint(
-        "[Startup] Supabase initialization failed: $e - continuing in offline mode");
+        '[Startup] Supabase initialization failed: $e - continuing in offline mode');
     // Continue app startup even if Supabase fails - app should work offline
   }
 
   // Initialize PostHog in background to avoid blocking startup
-  debugPrint("[PostHog] Initializing PostHogService in background...");
+  debugPrint('[PostHog] Initializing PostHogService in background...');
   _initializePostHogInBackground();
 
-  // Initialize Storage Service (opens Hive box, handles migration)
-  await StorageService().initialize();
+  // Initialize Storage Service in background to avoid blocking startup
+  _initializeStorageServiceInBackground();
 
   // Setup Firebase Messaging service in background to avoid blocking startup
   _setupFirebaseMessagingInBackground();
 
-  // Initialize RevenueCat synchronously with timeout to ensure it's configured before providers
+  // Initialize RevenueCat SYNCHRONOUSLY to ensure it's configured before providers
   try {
-    debugPrint("[RevenueCat] Starting synchronous initialization...");
-    await _initializePlatformState().timeout(
-      const Duration(seconds: 8), // 8 second timeout
-      onTimeout: () {
-        debugPrint(
-            "[RevenueCat] Initialization timeout - continuing without in-app purchases");
-        throw Exception('RevenueCat initialization timed out');
-      },
-    );
+    debugPrint('[RevenueCat] Starting synchronous initialization...');
+    await _initializePlatformState();
     debugPrint(
-        "[RevenueCat] Synchronous initialization completed successfully");
+        '[RevenueCat] Synchronous initialization completed successfully');
   } catch (e) {
     debugPrint(
-        "[RevenueCat] Synchronous initialization failed: $e - in-app purchases disabled");
-    // Continue app execution even if RevenueCat fails
+        '[RevenueCat] Synchronous initialization failed: $e - in-app purchases disabled');
+    // Continue app startup even if RevenueCat fails
   }
 
   // Initialize subscription service in background to avoid blocking startup
   _initializeSubscriptionServiceInBackground();
 
-  // Increment app session count for paywall logic (now synchronous)
-  PaywallManager().incrementAppSession();
+  // Initialize Superwall service in background to avoid blocking startup
+  _initializeSuperwallServiceInBackground();
+
+  // Increment app session count for paywall logic (background)
+  Future.microtask(() => PaywallManager().incrementAppSession());
 
   // Initialize widget service in background to avoid blocking startup
   _initializeWidgetServiceInBackground();
 
-  // Initialize AI services
-  debugPrint("[AI Services] Initializing AI services...");
-  MealPlanningService().initializeAI(ApiConfig.geminiApiKey);
-  WorkoutPlanningService().initializeAI(ApiConfig.geminiApiKey);
-  debugPrint("[AI Services] AI services initialized successfully.");
+  // Initialize AI services in background to avoid blocking startup
+  _initializeAIServicesInBackground();
 
   // Register error handlers
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -178,10 +175,10 @@ Future<void> main() async {
           .map((data) => data.session?.user), // Provide the User? object
       initialData: () {
         debugPrint(
-            "[Startup Timing] Before Supabase.instance.client.auth.currentUser: ${DateTime.now()}");
+            '[Startup Timing] Before Supabase.instance.client.auth.currentUser: ${DateTime.now()}');
         final currentUser = Supabase.instance.client.auth.currentUser;
         debugPrint(
-            "[Startup Timing] After Supabase.instance.client.auth.currentUser: ${DateTime.now()}");
+            '[Startup Timing] After Supabase.instance.client.auth.currentUser: ${DateTime.now()}');
         return currentUser;
       }(), // Immediately invoke the function to get the value
       child: MultiProvider(
@@ -194,7 +191,7 @@ Future<void> main() async {
               if (user == null) {
                 // User logged out, return a NEW empty provider
                 debugPrint(
-                    "[ProxyProvider] User is null. Creating new empty FoodEntryProvider.");
+                    '[ProxyProvider] User is null. Creating new empty FoodEntryProvider.');
                 // Ensure previous provider data is cleared if necessary (though disposal should handle it)
                 // previousProvider?.clearEntries(); // Optional: Explicit clear before returning new one
                 return FoodEntryProvider();
@@ -205,12 +202,12 @@ Future<void> main() async {
                   // If previous was null or empty (likely just logged in or first load)
                   // Create a new provider instance and trigger loading
                   debugPrint(
-                      "[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.");
+                      '[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.');
                   final newProvider = FoodEntryProvider();
                   // Don't await here, let it load in background
                   // Wrap in addPostFrameCallback to prevent setState during build
                   debugPrint(
-                      "[Startup Timing] Scheduling loadEntriesForCurrentUser: ${DateTime.now()}");
+                      '[Startup Timing] Scheduling loadEntriesForCurrentUser: ${DateTime.now()}');
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     newProvider.loadEntriesForCurrentUser();
                   });
@@ -218,7 +215,7 @@ Future<void> main() async {
                 } else {
                   // User is the same, reuse the existing provider
                   debugPrint(
-                      "[ProxyProvider] User (${user.id}) remains. Reusing existing FoodEntryProvider.");
+                      '[ProxyProvider] User (${user.id}) remains. Reusing existing FoodEntryProvider.');
                   return previousProvider;
                 }
               }
@@ -256,7 +253,7 @@ void _setupStatsChannelHandler() {
     final context = navigatorKey.currentContext;
     if (context == null) {
       debugPrint(
-          "[Stats Handler] Error: Cannot get context to access FoodEntryProvider.");
+          '[Stats Handler] Error: Cannot get context to access FoodEntryProvider.');
       // Return an empty list or throw an error, depending on desired behavior
       return []; // Return empty list to avoid crashing the widget
     }
@@ -319,19 +316,19 @@ void _setupStatsChannelHandler() {
 
             for (var entry in entries) {
               final carbs =
-                  entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-              final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-              final protein = entry.food.nutrients["Protein"] ?? 0;
+                  entry.food.nutrients['Carbohydrate, by difference'] ?? 0;
+              final fat = entry.food.nutrients['Total lipid (fat)'] ?? 0;
+              final protein = entry.food.nutrients['Protein'] ?? 0;
 
               double quantityInGrams = entry.quantity;
               switch (entry.unit) {
-                case "oz":
+                case 'oz':
                   quantityInGrams *= 28.35;
                   break;
-                case "kg":
+                case 'kg':
                   quantityInGrams *= 1000;
                   break;
-                case "lbs":
+                case 'lbs':
                   quantityInGrams *= 453.59;
                   break;
               }
@@ -509,14 +506,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // When app resumes, reset any stale presentation state
-      NativeStatsScreen.resetState();
-    }
-  }
-
-  @override
   void didChangePlatformBrightness() {
     super.didChangePlatformBrightness();
     // Update theme when system brightness changes
@@ -591,9 +580,9 @@ Future<void> ensureAIServicesInitialized() async {
     MealPlanningService().initializeAI(ApiConfig.geminiApiKey);
     WorkoutPlanningService().initializeAI(ApiConfig.geminiApiKey);
     _aiInitialized = true;
-    debugPrint("[AI] AI services initialized on demand");
+    debugPrint('[AI] AI services initialized on demand');
   } catch (e) {
-    debugPrint("[AI] Error initializing AI services: $e");
+    debugPrint('[AI] Error initializing AI services: $e');
   }
 }
 
@@ -601,20 +590,20 @@ Future<void> ensureAIServicesInitialized() async {
 void _setupFirebaseMessagingInBackground() {
   Future.microtask(() async {
     try {
-      debugPrint("[Firebase Messaging] Starting background initialization...");
+      debugPrint('[Firebase Messaging] Starting background initialization...');
       await _setupFirebaseMessaging().timeout(
         const Duration(seconds: 10), // 10 second timeout
         onTimeout: () {
           debugPrint(
-              "[Firebase Messaging] Initialization timeout - continuing without push notifications");
+              '[Firebase Messaging] Initialization timeout - continuing without push notifications');
           throw Exception('Firebase Messaging initialization timed out');
         },
       );
       debugPrint(
-          "[Firebase Messaging] Background initialization completed successfully");
+          '[Firebase Messaging] Background initialization completed successfully');
     } catch (e) {
       debugPrint(
-          "[Firebase Messaging] Background initialization failed: $e - push notifications disabled");
+          '[Firebase Messaging] Background initialization failed: $e - push notifications disabled');
       // Continue app execution even if Firebase Messaging fails
     }
   });
@@ -646,7 +635,7 @@ Future<void> _initializePlatformState() async {
       // Android Implementation
     } else if (Platform.isIOS) {
       configuration =
-          PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
+          PurchasesConfiguration('appl_itDEUEEPnBRPlETERrSOFVFDMvZ');
     }
 
     if (configuration != null) {
@@ -662,14 +651,30 @@ void _initializeSubscriptionServiceInBackground() {
   Future.microtask(() async {
     try {
       debugPrint(
-          "[Subscription Service] Starting background initialization...");
+          '[Subscription Service] Starting background initialization...');
       await SubscriptionService().initialize();
       debugPrint(
-          "[Subscription Service] Background initialization completed successfully");
+          '[Subscription Service] Background initialization completed successfully');
     } catch (e) {
       debugPrint(
-          "[Subscription Service] Background initialization failed: $e - subscription service disabled");
+          '[Subscription Service] Background initialization failed: $e - subscription service disabled');
       // Continue app execution even if subscription service fails
+    }
+  });
+}
+
+// Initialize Superwall service in background to avoid blocking startup
+void _initializeSuperwallServiceInBackground() {
+  Future.microtask(() async {
+    try {
+      debugPrint('[Superwall Service] Starting background initialization...');
+      await SuperwallService().initialize();
+      debugPrint(
+          '[Superwall Service] Background initialization completed successfully');
+    } catch (e) {
+      debugPrint(
+          '[Superwall Service] Background initialization failed: $e - Superwall service disabled');
+      // Continue app execution even if Superwall fails
     }
   });
 }
@@ -678,13 +683,13 @@ void _initializeSubscriptionServiceInBackground() {
 void _initializeWidgetServiceInBackground() {
   Future.microtask(() async {
     try {
-      debugPrint("[Widget Service] Starting background initialization...");
+      debugPrint('[Widget Service] Starting background initialization...');
       await WidgetService.initWidgetService();
       debugPrint(
-          "[Widget Service] Background initialization completed successfully");
+          '[Widget Service] Background initialization completed successfully');
     } catch (e) {
       debugPrint(
-          "[Widget Service] Background initialization failed: $e - widget service disabled");
+          '[Widget Service] Background initialization failed: $e - widget service disabled');
       // Continue app execution even if widget service fails
     }
   });
@@ -694,20 +699,54 @@ void _initializeWidgetServiceInBackground() {
 void _initializePostHogInBackground() {
   Future.microtask(() async {
     try {
-      debugPrint("[PostHog] Starting background initialization...");
+      debugPrint('[PostHog] Starting background initialization...');
       await PostHogService.initialize().timeout(
         const Duration(seconds: 10), // 10 second timeout
         onTimeout: () {
           debugPrint(
-              "[PostHog] Initialization timeout - continuing without PostHog");
+              '[PostHog] Initialization timeout - continuing without PostHog');
           throw Exception('PostHog initialization timed out');
         },
       );
-      debugPrint("[PostHog] Background initialization completed successfully");
+      debugPrint('[PostHog] Background initialization completed successfully');
     } catch (e) {
       debugPrint(
-          "[PostHog] Background initialization failed: $e - analytics disabled");
+          '[PostHog] Background initialization failed: $e - analytics disabled');
       // Continue app execution even if PostHog fails
+    }
+  });
+}
+
+// Initialize AI services in background to avoid blocking startup
+void _initializeAIServicesInBackground() {
+  Future.microtask(() async {
+    try {
+      debugPrint('[AI Services] Starting background initialization...');
+      MealPlanningService().initializeAI(ApiConfig.geminiApiKey);
+      WorkoutPlanningService().initializeAI(ApiConfig.geminiApiKey);
+      _aiInitialized = true;
+      debugPrint(
+          '[AI Services] Background initialization completed successfully');
+    } catch (e) {
+      debugPrint(
+          '[AI Services] Background initialization failed: $e - AI services disabled');
+      // Continue app execution even if AI services fail
+    }
+  });
+}
+
+// Initialize Storage Service in background to avoid blocking startup
+void _initializeStorageServiceInBackground() {
+  Future.microtask(() async {
+    try {
+      debugPrint('[Storage Service] Starting background initialization...');
+      await StorageService().initialize();
+      debugPrint(
+          '[Storage Service] Background initialization completed successfully');
+    } catch (e) {
+      debugPrint(
+          '[Storage Service] Background initialization failed: $e - storage service disabled');
+      // Continue app execution even if storage service fails
     }
   });
 }

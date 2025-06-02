@@ -3,7 +3,7 @@
 
 import 'dart:convert';
 import 'dart:io'; // For Platform check and File operations
-import 'dart:typed_data'; // For Uint8List
+// For Uint8List
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -33,7 +33,7 @@ typedef CameraResult = Map<String, dynamic>;
 class FoodSearchPage extends StatefulWidget {
   final String? selectedMeal;
 
-  const FoodSearchPage({Key? key, this.selectedMeal}) : super(key: key);
+  const FoodSearchPage({super.key, this.selectedMeal});
 
   @override
   _FoodSearchPageState createState() => _FoodSearchPageState();
@@ -445,10 +445,11 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
       if (mounted) {
         try {
-          if (Navigator.of(safeContext, rootNavigator: true).canPop())
+          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
             Navigator.of(safeContext, rootNavigator: true).pop();
+          }
         } catch (e) {
-          print("[Flutter SearchPage] Error dismissing loading dialog: $e");
+          print('[Flutter SearchPage] Error dismissing loading dialog: $e');
         }
       }
       if (!mounted) return;
@@ -468,11 +469,12 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           '[Flutter SearchPage] Error processing photo result: ${e.toString()}');
       if (mounted) {
         try {
-          if (Navigator.of(safeContext, rootNavigator: true).canPop())
+          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
             Navigator.of(safeContext, rootNavigator: true).pop();
+          }
         } catch (e) {
           print(
-              "[Flutter SearchPage] Error dismissing loading dialog in catch: $e");
+              '[Flutter SearchPage] Error dismissing loading dialog in catch: $e');
         }
         _showErrorSnackbar('Something went wrong, try again');
       }
@@ -499,7 +501,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     showDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.3),
+      barrierColor: Colors.black.withAlpha(((0.3) * 255).round()),
       builder: (BuildContext dialogContext) {
         return Dialog(
           backgroundColor: Theme.of(context).brightness == Brightness.light
@@ -541,61 +543,59 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
+    Theme.of(context).extension<CustomColors>();
 
     return GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: Container(
-            child: SafeArea(
-              child: Column(
-                children: [
-                  SearchHeader(
-                    controller: _searchController,
-                    onSearch: (query) =>
-                        _searchFood(query, fromSearchButton: true),
-                    onChanged: _onSearchChanged,
-                    onBack: () => Navigator.pop(context),
-                    onCameraTap: _showNativeCamera, // Pass the method here
+          body: SafeArea(
+            child: Column(
+              children: [
+                SearchHeader(
+                  controller: _searchController,
+                  onSearch: (query) =>
+                      _searchFood(query, fromSearchButton: true),
+                  onChanged: _onSearchChanged,
+                  onBack: () => Navigator.pop(context),
+                  onCameraTap: _showNativeCamera, // Pass the method here
+                ),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
+                      final offsetAnimation = Tween<Offset>(
+                        begin: const Offset(0, 0.05),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ));
+          
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: offsetAnimation,
+                          child: child,
+                        ),
+                      );
+                    },
+                    layoutBuilder: (currentChild, previousChildren) {
+                      return Stack(
+                        alignment: Alignment.topCenter,
+                        children: <Widget>[
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      );
+                    },
+                    child: _buildContent(),
                   ),
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 500),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder:
-                          (Widget child, Animation<double> animation) {
-                        final offsetAnimation = Tween<Offset>(
-                          begin: const Offset(0, 0.05),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOutCubic,
-                        ));
-
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: offsetAnimation,
-                            child: child,
-                          ),
-                        );
-                      },
-                      layoutBuilder: (currentChild, previousChildren) {
-                        return Stack(
-                          alignment: Alignment.topCenter,
-                          children: <Widget>[
-                            ...previousChildren,
-                            if (currentChild != null) currentChild,
-                          ],
-                        );
-                      },
-                      child: _buildContent(),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           // Add a floating action button to scroll to top that appears when scrolled down
@@ -658,7 +658,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(((0.05) * 255).round()),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -765,13 +765,13 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withAlpha(((0.06) * 255).round()),
             offset: const Offset(0, 3),
             blurRadius: 10,
             spreadRadius: 0,
           ),
           BoxShadow(
-            color: accentColor.withOpacity(0.025),
+            color: accentColor.withAlpha(((0.025) * 255).round()),
             offset: const Offset(0, 1),
             blurRadius: 8,
             spreadRadius: 0,
@@ -779,8 +779,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         ],
         border: Border.all(
           color: isDarkMode
-              ? Colors.grey.withOpacity(0.1)
-              : Colors.grey.withOpacity(0.08),
+              ? Colors.grey.withAlpha(((0.1) * 255).round())
+              : Colors.grey.withAlpha(((0.08) * 255).round()),
           width: 0.5,
         ),
       ),
@@ -790,8 +790,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: () => _onFoodItemTap(food),
-          splashColor: accentColor.withOpacity(0.1),
-          highlightColor: accentColor.withOpacity(0.05),
+          splashColor: accentColor.withAlpha(((0.1) * 255).round()),
+          highlightColor: accentColor.withAlpha(((0.05) * 255).round()),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
             child: Column(
@@ -809,14 +809,14 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            accentColor.withOpacity(0.15),
-                            accentColor.withOpacity(0.05),
+                            accentColor.withAlpha(((0.15) * 255).round()),
+                            accentColor.withAlpha(((0.05) * 255).round()),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: accentColor.withOpacity(0.15),
+                            color: accentColor.withAlpha(((0.15) * 255).round()),
                             offset: const Offset(0, 2),
                             blurRadius: 6,
                             spreadRadius: -2,
@@ -856,7 +856,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                               style: GoogleFonts.onest(
                                 fontSize: 13,
                                 color: customColors?.textSecondary
-                                    ?.withOpacity(0.9),
+                                    .withAlpha(((0.9) * 255).round()),
                                 letterSpacing: 0.1,
                               ),
                             ),
@@ -869,7 +869,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                 style: GoogleFonts.onest(
                                   color: Theme.of(context)
                                       .primaryColor
-                                      .withOpacity(0.8),
+                                      .withAlpha(((0.8) * 255).round()),
                                   fontSize: 12,
                                   // fontStyle: FontStyle.italic,
                                   letterSpacing: 0.1,
@@ -941,7 +941,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(((0.1) * 255).round()),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -982,14 +982,14 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Theme.of(context).primaryColor.withOpacity(0.1),
-                    Theme.of(context).primaryColor.withOpacity(0.05),
+                    Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
+                    Theme.of(context).primaryColor.withAlpha(((0.05) * 255).round()),
                   ],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).primaryColor.withOpacity(0.15),
+                    color: Theme.of(context).primaryColor.withAlpha(((0.15) * 255).round()),
                     blurRadius: 30,
                     spreadRadius: 0,
                   ),
@@ -1004,14 +1004,14 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                       begin: Alignment.topRight,
                       end: Alignment.bottomLeft,
                       colors: [
-                        Theme.of(context).primaryColor.withOpacity(0.2),
-                        Theme.of(context).primaryColor.withOpacity(0.1),
+                        Theme.of(context).primaryColor.withAlpha(((0.2) * 255).round()),
+                        Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
                       ],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        color: Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
                         blurRadius: 20,
                         spreadRadius: 0,
                       ),
@@ -1026,7 +1026,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withAlpha(((0.05) * 255).round()),
                             blurRadius: 15,
                             spreadRadius: 0,
                             offset: const Offset(0, 5),
@@ -1082,60 +1082,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  Widget _buildQuickSearchChip(String text, IconData icon) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          _searchController.text = text;
-          _searchFood(text);
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: _categoryColor(text).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 16,
-                  color: _categoryColor(text),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                text,
-                style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? Colors.black87
-                      : Colors.white70,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildSuggestions() {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -1155,7 +1101,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: customColors!.cardBackground!.withOpacity(0.1),
+                  color: customColors!.cardBackground.withAlpha(((0.1) * 255).round()),
                   width: 1,
                 ),
               ),
@@ -1165,7 +1111,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 Icon(
                   Icons.lightbulb_outline,
                   size: 18,
-                  color: Theme.of(context).primaryColor.withOpacity(0.8),
+                  color: Theme.of(context).primaryColor.withAlpha(((0.8) * 255).round()),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -1207,12 +1153,12 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                             margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
                               color: isDarkMode
-                                  ? Theme.of(context).cardColor.withOpacity(0.9)
+                                  ? Theme.of(context).cardColor.withAlpha(((0.9) * 255).round())
                                   : Theme.of(context).cardColor,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
+                                  color: Colors.black.withAlpha(((0.04) * 255).round()),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                   spreadRadius: 0,
@@ -1221,7 +1167,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                               border: Border.all(
                                 color: Theme.of(context)
                                     .dividerColor
-                                    .withOpacity(0.08),
+                                    .withAlpha(((0.08) * 255).round()),
                                 width: 1,
                               ),
                             ),
@@ -1231,8 +1177,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                 color: Colors.transparent,
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(16),
-                                  splashColor: accentColor.withOpacity(0.1),
-                                  highlightColor: accentColor.withOpacity(0.05),
+                                  splashColor: accentColor.withAlpha(((0.1) * 255).round()),
+                                  highlightColor: accentColor.withAlpha(((0.05) * 255).round()),
                                   onTap: () {
                                     HapticFeedback.lightImpact();
                                     FocusScope.of(context).unfocus();
@@ -1251,8 +1197,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                accentColor.withOpacity(0.12),
-                                                accentColor.withOpacity(0.05),
+                                                accentColor.withAlpha(((0.12) * 255).round()),
+                                                accentColor.withAlpha(((0.05) * 255).round()),
                                               ],
                                             ),
                                             borderRadius:
@@ -1286,7 +1232,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                                     .copyWith(
                                                   color: customColors
                                                       .textSecondary
-                                                      ?.withOpacity(0.7),
+                                                      .withAlpha(((0.7) * 255).round()),
                                                   fontSize: 11,
                                                 ),
                                               ),
@@ -1296,7 +1242,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                         Icon(
                                           Icons.chevron_right_rounded,
                                           color: customColors.textSecondary
-                                              ?.withOpacity(0.4),
+                                              .withAlpha(((0.4) * 255).round()),
                                           size: 20,
                                         ),
                                       ],
@@ -1318,28 +1264,28 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   // Simplified helper methods for colors and icons based on categories
   Color _categoryColor(String text) {
-    final text_lc = text.toLowerCase();
-    if (text_lc.contains('chicken') ||
-        text_lc.contains('meat') ||
-        text_lc.contains('beef')) {
+    final textLc = text.toLowerCase();
+    if (textLc.contains('chicken') ||
+        textLc.contains('meat') ||
+        textLc.contains('beef')) {
       return Colors.redAccent;
-    } else if (text_lc.contains('vegetable') ||
-        text_lc.contains('broccoli') ||
-        text_lc.contains('spinach')) {
+    } else if (textLc.contains('vegetable') ||
+        textLc.contains('broccoli') ||
+        textLc.contains('spinach')) {
       return Colors.green;
-    } else if (text_lc.contains('rice') ||
-        text_lc.contains('bread') ||
-        text_lc.contains('pasta')) {
+    } else if (textLc.contains('rice') ||
+        textLc.contains('bread') ||
+        textLc.contains('pasta')) {
       return Colors.amber;
-    } else if (text_lc.contains('fruit') ||
-        text_lc.contains('apple') ||
-        text_lc.contains('banana')) {
+    } else if (textLc.contains('fruit') ||
+        textLc.contains('apple') ||
+        textLc.contains('banana')) {
       return Colors.orange;
-    } else if (text_lc.contains('fish') || text_lc.contains('seafood')) {
+    } else if (textLc.contains('fish') || textLc.contains('seafood')) {
       return Colors.lightBlue;
-    } else if (text_lc.contains('dairy') ||
-        text_lc.contains('milk') ||
-        text_lc.contains('cheese')) {
+    } else if (textLc.contains('dairy') ||
+        textLc.contains('milk') ||
+        textLc.contains('cheese')) {
       return Colors.purple;
     } else {
       // Simple hash-based color that's consistent for the same text
@@ -1353,28 +1299,28 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   IconData _categoryIcon(String text) {
-    final text_lc = text.toLowerCase();
-    if (text_lc.contains('chicken') ||
-        text_lc.contains('meat') ||
-        text_lc.contains('beef')) {
+    final textLc = text.toLowerCase();
+    if (textLc.contains('chicken') ||
+        textLc.contains('meat') ||
+        textLc.contains('beef')) {
       return Icons.restaurant;
-    } else if (text_lc.contains('vegetable') ||
-        text_lc.contains('broccoli') ||
-        text_lc.contains('spinach')) {
+    } else if (textLc.contains('vegetable') ||
+        textLc.contains('broccoli') ||
+        textLc.contains('spinach')) {
       return Icons.eco;
-    } else if (text_lc.contains('rice') ||
-        text_lc.contains('bread') ||
-        text_lc.contains('pasta')) {
+    } else if (textLc.contains('rice') ||
+        textLc.contains('bread') ||
+        textLc.contains('pasta')) {
       return Icons.grain;
-    } else if (text_lc.contains('fruit') ||
-        text_lc.contains('apple') ||
-        text_lc.contains('banana')) {
+    } else if (textLc.contains('fruit') ||
+        textLc.contains('apple') ||
+        textLc.contains('banana')) {
       return Icons.apple;
-    } else if (text_lc.contains('fish') || text_lc.contains('seafood')) {
+    } else if (textLc.contains('fish') || textLc.contains('seafood')) {
       return Icons.water;
-    } else if (text_lc.contains('dairy') ||
-        text_lc.contains('milk') ||
-        text_lc.contains('cheese')) {
+    } else if (textLc.contains('dairy') ||
+        textLc.contains('milk') ||
+        textLc.contains('cheese')) {
       return Icons.coffee;
     } else {
       return Icons.fastfood;
@@ -1391,7 +1337,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           Icon(
             Icons.search_off_rounded,
             size: 64,
-            color: customColors?.textSecondary.withOpacity(0.5),
+            color: customColors?.textSecondary.withAlpha(((0.5) * 255).round()),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1435,7 +1381,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(((0.05) * 255).round()),
             offset: const Offset(0, 3),
             blurRadius: 10,
             spreadRadius: 0,
@@ -1443,8 +1389,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         ],
         border: Border.all(
           color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey.withOpacity(0.1)
-              : Colors.grey.withOpacity(0.08),
+              ? Colors.grey.withAlpha(((0.1) * 255).round())
+              : Colors.grey.withAlpha(((0.08) * 255).round()),
           width: 0.5,
         ),
       ),
@@ -1461,7 +1407,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   width: 54,
                   height: 54,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.2),
+                    color: Colors.grey.withAlpha(((0.2) * 255).round()),
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
@@ -1475,7 +1421,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         height: 16,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.2),
+                          color: Colors.grey.withAlpha(((0.2) * 255).round()),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -1484,7 +1430,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         height: 12,
                         width: 120,
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.15),
+                          color: Colors.grey.withAlpha(((0.15) * 255).round()),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -1493,7 +1439,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         height: 10,
                         width: 80,
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: Colors.grey.withAlpha(((0.1) * 255).round()),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -1510,7 +1456,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   height: 22,
                   width: 70,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.15),
+                    color: Colors.grey.withAlpha(((0.15) * 255).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -1519,7 +1465,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   height: 22,
                   width: 60,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.15),
+                    color: Colors.grey.withAlpha(((0.15) * 255).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -1528,7 +1474,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   height: 22,
                   width: 65,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.15),
+                    color: Colors.grey.withAlpha(((0.15) * 255).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -1565,7 +1511,7 @@ class SearchBar extends StatelessWidget {
         hintStyle: TextStyle(
           color: customColors?.textSecondary,
         ),
-        prefixIcon: Icon(Icons.search),
+        prefixIcon: const Icon(Icons.search),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
         ),
@@ -1731,35 +1677,7 @@ class FoodItem {
     );
   }
 
-  static Map<String, double> _parseFatSecretNutrients(String description) {
-    final regex = RegExp(
-      r'Calories:\s*(\d+).*?Fat:\s*(\d+).*?Carbs:\s*(\d+).*?Protein:\s*(\d+)',
-      caseSensitive: false,
-    );
-    final match = regex.firstMatch(description);
-    if (match != null) {
-      return {
-        'calories': double.parse(match.group(1) ?? '0'),
-        'fat': double.parse(match.group(2) ?? '0'),
-        'carbs': double.parse(match.group(3) ?? '0'),
-        'protein': double.parse(match.group(4) ?? '0'),
-      };
-    }
-    return {};
-  }
 
-  static Map<String, double> _parseServingInfo(String description) {
-    // Try to find serving size in grams
-    final servingSizeRegex =
-        RegExp(r'Per\s+(\d+)\s*g\s+serving', caseSensitive: false);
-    final match = servingSizeRegex.firstMatch(description);
-    if (match != null) {
-      return {
-        'size': double.parse(match.group(1) ?? '100'),
-      };
-    }
-    return {'size': 100.0}; // Default to 100g if no serving size found
-  }
 }
 
 // Class to represent a single serving option
@@ -1870,7 +1788,7 @@ class Serving {
 }
 
 class NoResultsFoundWidget extends StatelessWidget {
-  const NoResultsFoundWidget({Key? key}) : super(key: key);
+  const NoResultsFoundWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1898,7 +1816,7 @@ class NoResultsFoundWidget extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              "Try a different search term or ask AI for help",
+              'Try a different search term or ask AI for help',
               style: AppTypography.body2.copyWith(
                 color: customColors?.textSecondary,
               ),

@@ -1,17 +1,16 @@
 import 'dart:ui'; // Added for ImageFilter
-import 'package:flutter/cupertino.dart'; // Added for CupertinoIcons, HapticFeedback
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
-import 'package:macrotracker/screens/StepsTrackingScreen.dart';
+import 'package:macrotracker/screens/steps_tracking_screen.dart';
 import '../theme/app_theme.dart';
-import 'WeightTrackingScreen.dart';
-import 'MacroTrackingScreen.dart';
+import 'weight_tracking_screen.dart';
+import 'macro_tracking_screen.dart';
 
 class TrackingPagesScreen extends StatefulWidget {
-  const TrackingPagesScreen({Key? key}) : super(key: key);
+  const TrackingPagesScreen({super.key});
 
   @override
   State<TrackingPagesScreen> createState() => _TrackingPagesScreenState();
@@ -22,8 +21,6 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
   late PageController _pageController;
   int _currentPage = 0;
   final List<String> _titles = ['Weight', 'Calories', 'Steps'];
-  bool _showSwipeHint = true;
-  bool _isInitialLoad = true;
 
   @override
   bool get wantKeepAlive => true; // Keep the state alive
@@ -32,25 +29,6 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentPage);
-
-    // Show swipe hint after a short delay
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted && _isInitialLoad) {
-        setState(() {
-          _isInitialLoad = false;
-          _showSwipeHint = true;
-        });
-
-        // Hide the hint after 3 seconds
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) {
-            setState(() {
-              _showSwipeHint = false;
-            });
-          }
-        });
-      }
-    });
   }
 
   @override
@@ -117,7 +95,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           //   child: Icon(
           //     Icons.swipe,
           //     size: 20,
-          //     color: customColors.textSecondary.withOpacity(0.6),
+          //     color: customColors.textSecondary.withAlpha((0.6 * 255).round()),
           //   ),
           // ),
         ],
@@ -133,10 +111,9 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
             onPageChanged: (index) {
               setState(() {
                 _currentPage = index;
-                _showSwipeHint = false; // Hide hint when user swipes
               });
             },
-            children: [
+            children: const [
               KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
@@ -168,126 +145,6 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
 
   // --- Helper Methods (Defined ONCE) ---
 
-  Widget _buildEdgeGradient(CustomColors customColors, bool isLeft) {
-    return Positioned(
-      top: 0,
-      bottom: 0,
-      left: isLeft ? 0 : null,
-      right: isLeft ? null : 0,
-      child: Container(
-        width: 40,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: isLeft ? Alignment.centerRight : Alignment.centerLeft,
-            end: isLeft ? Alignment.centerLeft : Alignment.centerRight,
-            colors: [
-              Colors.transparent,
-              customColors.cardBackground.withOpacity(0.02),
-              customColors.cardBackground.withOpacity(0.05),
-            ],
-          ),
-        ),
-        child: Center(
-          child: Container(
-            height: 50,
-            width: 24,
-            decoration: BoxDecoration(
-              color: customColors.cardBackground.withOpacity(0.5),
-              borderRadius: BorderRadius.horizontal(
-                left: Radius.circular(isLeft ? 0 : 4),
-                right: Radius.circular(isLeft ? 4 : 0),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Icon(
-                isLeft ? Icons.chevron_left : Icons.chevron_right,
-                size: 18,
-                color: customColors.accentPrimary.withOpacity(0.7),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwipeHint(CustomColors customColors, Size size) {
-    return Positioned(
-      bottom: 100, // Keep this above the floating nav bar
-      left: 0,
-      right: 0,
-      child: Center(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 1000),
-          curve: Curves.easeOutCubic,
-          builder: (context, value, child) {
-            return Opacity(
-              opacity: value,
-              child: Transform.translate(
-                offset: Offset(0, 20 * (1 - value)),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: customColors.cardBackground,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: customColors.accentPrimary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.swipe,
-                          size: 18,
-                          color: customColors.accentPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Swipe between tracking pages',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: customColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 12,
-                        color: customColors.textSecondary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
   // This function builds the floating bar content
   Widget _buildPageIndicator(ThemeData theme, CustomColors customColors) {
     final List<IconData> icons = [
@@ -306,19 +163,19 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14.0),
             color: theme.brightness == Brightness.light
-                ? Colors.grey.shade50.withOpacity(0.4)
-                : Colors.black.withOpacity(0.4),
+                ? Colors.grey.shade50.withAlpha((0.4 * 255).round())
+                : Colors.black.withAlpha((0.4 * 255).round()),
             border: Border.all(
               color: theme.brightness == Brightness.light
-                  ? Colors.grey.withOpacity(0.2)
-                  : Colors.white.withOpacity(0.1),
+                  ? Colors.grey.withAlpha((0.2 * 255).round())
+                  : Colors.white.withAlpha((0.1 * 255).round()),
               width: 0.5,
             ),
             boxShadow: [
               BoxShadow(
                 color: theme.brightness == Brightness.light
-                    ? Colors.black.withOpacity(0.05)
-                    : Colors.black.withOpacity(0.2),
+                    ? Colors.black.withAlpha((0.05 * 255).round())
+                    : Colors.black.withAlpha((0.2 * 255).round()),
                 blurRadius: 10,
                 spreadRadius: 0,
               ),
@@ -364,7 +221,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFFFFC107).withOpacity(0.2)
+                ? const Color(0xFFFFC107).withAlpha((0.2 * 255).round())
                 : Colors.transparent,
             shape: BoxShape.circle,
           ),
@@ -384,9 +241,9 @@ class KeepAlivePage extends StatefulWidget {
   final Widget child;
 
   const KeepAlivePage({
-    Key? key,
+    super.key,
     required this.child,
-  }) : super(key: key);
+  });
 
   @override
   State<KeepAlivePage> createState() => _KeepAlivePageState();

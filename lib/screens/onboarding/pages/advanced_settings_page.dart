@@ -110,12 +110,14 @@ class AdvancedSettingsPage extends StatelessWidget {
                 onBodyFatChanged(value);
               },
               onDecrement: () {
-                if (bodyFatPercentage > 5)
+                if (bodyFatPercentage > 5) {
                   onBodyFatChanged(bodyFatPercentage - 1);
+                }
               },
               onIncrement: () {
-                if (bodyFatPercentage < 50)
+                if (bodyFatPercentage < 50) {
                   onBodyFatChanged(bodyFatPercentage + 1);
+                }
               },
               rangeText: gender == MacroCalculatorService.MALE
                   ? 'Athletic: 6-13% | Healthy: 14-24%'
@@ -139,14 +141,16 @@ class AdvancedSettingsPage extends StatelessWidget {
               onProteinRatioChanged(value);
             },
             onDecrement: () {
-              if (proteinRatio > 1.2)
+              if (proteinRatio > 1.2) {
                 onProteinRatioChanged(
                     double.parse((proteinRatio - 0.1).toStringAsFixed(1)));
+              }
             },
             onIncrement: () {
-              if (proteinRatio < 2.4)
+              if (proteinRatio < 2.4) {
                 onProteinRatioChanged(
                     double.parse((proteinRatio + 0.1).toStringAsFixed(1)));
+              }
             },
             rangeText: 'Recommended: 1.6-2.2 g/kg',
           ),
@@ -167,14 +171,16 @@ class AdvancedSettingsPage extends StatelessWidget {
               onFatRatioChanged(value);
             },
             onDecrement: () {
-              if (fatRatio > 0.20)
+              if (fatRatio > 0.20) {
                 onFatRatioChanged(
                     double.parse((fatRatio - 0.01).toStringAsFixed(2)));
+              }
             },
             onIncrement: () {
-              if (fatRatio < 0.40)
+              if (fatRatio < 0.40) {
                 onFatRatioChanged(
                     double.parse((fatRatio + 0.01).toStringAsFixed(2)));
+              }
             },
             rangeText: 'Recommended: 20-35%',
           ),
@@ -213,7 +219,7 @@ class AdvancedSettingsPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: customColors?.cardBackground ?? theme.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border.all(color: Colors.grey.withAlpha((0.2 * 255).round())),
       ),
       child: Row(children: children),
     );
@@ -254,7 +260,7 @@ class AdvancedSettingsPage extends StatelessWidget {
                       color: isSelected
                           ? (customColors?.textPrimary ??
                               theme.colorScheme.primary)
-                          : Colors.grey.withOpacity(0.5),
+                          : Colors.grey.withAlpha((0.5 * 255).round()),
                       width: 2),
                 ),
                 child: isSelected
@@ -299,7 +305,7 @@ class AdvancedSettingsPage extends StatelessWidget {
       decoration: BoxDecoration(
         color: customColors?.cardBackground ?? theme.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border.all(color: Colors.grey.withAlpha((0.2 * 255).round())),
       ),
       child: Column(
         children: [
@@ -311,7 +317,7 @@ class AdvancedSettingsPage extends StatelessWidget {
                   icon: Icon(Icons.remove_circle_outline,
                       color: value > min
                           ? primaryColor
-                          : Colors.grey.withOpacity(0.3))),
+                          : Colors.grey.withAlpha((0.3 * 255).round()))),
               Text(label,
                   style: theme.textTheme.headlineSmall?.copyWith(
                       color: customColors?.textPrimary ??
@@ -322,7 +328,7 @@ class AdvancedSettingsPage extends StatelessWidget {
                   icon: Icon(Icons.add_circle_outline,
                       color: value < max
                           ? primaryColor
-                          : Colors.grey.withOpacity(0.3))),
+                          : Colors.grey.withAlpha((0.3 * 255).round()))),
             ],
           ),
           Slider(
@@ -333,7 +339,7 @@ class AdvancedSettingsPage extends StatelessWidget {
               onChanged(newValue);
             },
             activeColor: primaryColor,
-            inactiveColor: primaryColor.withOpacity(0.3),
+            inactiveColor: primaryColor.withAlpha((0.3 * 255).round()),
           ),
           if (rangeText != null)
             Padding(

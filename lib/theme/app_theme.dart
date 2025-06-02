@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:ui';
 
 // Premium Color System based on sophisticated slate palette
 class PremiumColors {
@@ -193,7 +192,7 @@ class PremiumTypography {
     fontWeight: FontWeight.w700,
     letterSpacing: -0.5,
     height: 1.2,
-    fontFeatures: [FontFeature.tabularFigures()], // Monospaced numbers
+    fontFeatures: [const FontFeature.tabularFigures()], // Monospaced numbers
   );
 }
 
@@ -220,7 +219,7 @@ class AppTheme {
     cardColor: PremiumColors.slate50,
     primaryColor: PremiumColors.slate900,
 
-    colorScheme: ColorScheme.light(
+    colorScheme: const ColorScheme.light(
       primary: PremiumColors.slate900,
       secondary: PremiumColors.slate600,
       surface: PremiumColors.slate50,
@@ -254,11 +253,11 @@ class AppTheme {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: PremiumColors.slate200.withOpacity(0.6),
+          color: PremiumColors.slate200.withValues(alpha: 0.6),
           width: 1,
         ),
       ),
-      shadowColor: PremiumColors.slate900.withOpacity(0.04),
+      shadowColor: PremiumColors.slate900.withValues(alpha: 0.04),
     ),
 
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -266,7 +265,7 @@ class AppTheme {
         backgroundColor: PremiumColors.blue400, // Blue accent instead of white
         foregroundColor: PremiumColors.slate900, // Dark text on blue
         elevation: 2,
-        shadowColor: PremiumColors.blue400.withOpacity(0.3),
+        shadowColor: PremiumColors.blue400.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -278,7 +277,7 @@ class AppTheme {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: PremiumColors.slate700,
-        side: BorderSide(
+        side: const BorderSide(
           color: PremiumColors.slate300,
           width: 1.5,
         ),
@@ -306,28 +305,28 @@ class AppTheme {
       fillColor: PremiumColors.slate100,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: PremiumColors.slate200,
           width: 1,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: PremiumColors.slate200,
           width: 1,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: PremiumColors.blue500,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: PremiumColors.red500,
           width: 1,
         ),
@@ -341,8 +340,8 @@ class AppTheme {
     ),
 
     // Enhanced theme extensions
-    extensions: [
-      const CustomColors(
+    extensions: const [
+      CustomColors(
         cardBackground: Colors.white,
         dateNavigatorBackground: PremiumColors.slate100,
         calorieTrackerBackground: Colors.white,
@@ -376,7 +375,7 @@ class AppTheme {
         PremiumColors.trueDarkBackground, // Near black with warmth
     cardColor: PremiumColors.trueDarkCard, // Dark charcoal
     primaryColor: PremiumColors.blue400, // Blue accent instead of white
-    colorScheme: ColorScheme.dark(
+    colorScheme: const ColorScheme.dark(
       primary: PremiumColors.blue400, // Primary accent - blue instead of white
       secondary: PremiumColors.slate300, // Secondary actions
       surface: PremiumColors.trueDarkSurface, // True dark surface
@@ -414,18 +413,18 @@ class AppTheme {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: PremiumColors.slate800.withOpacity(0.6), // Dark borders
+          color: PremiumColors.slate800.withValues(alpha: 0.6), // Dark borders
           width: 1,
         ),
       ),
-      shadowColor: Colors.black.withOpacity(0.4),
+      shadowColor: Colors.black.withValues(alpha: 0.4),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: PremiumColors.blue400, // Blue accent for visibility
         foregroundColor: PremiumColors.slate900, // Dark text on blue
         elevation: 2,
-        shadowColor: PremiumColors.blue400.withOpacity(0.3),
+        shadowColor: PremiumColors.blue400.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -436,7 +435,7 @@ class AppTheme {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: PremiumColors.slate300, // Secondary actions
-        side: BorderSide(
+        side: const BorderSide(
           color: PremiumColors.slate700, // Clear borders
           width: 1.5,
         ),
@@ -462,28 +461,28 @@ class AppTheme {
       fillColor: PremiumColors.slate900, // Input fill color
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: PremiumColors.slate700, // Default border
           width: 1,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: PremiumColors.slate700, // Default border
           width: 1,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: PremiumColors.blue400, // Focused border
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: PremiumColors.red400, // Error border
           width: 1,
         ),
@@ -495,8 +494,8 @@ class AppTheme {
         color: PremiumColors.slate500, // Hint text
       ),
     ),
-    extensions: [
-      const CustomColors(
+    extensions: const [
+      CustomColors(
         cardBackground: PremiumColors.trueDarkCard, // Dark charcoal cards
         dateNavigatorBackground: PremiumColors.slate900, // Background sections
         calorieTrackerBackground: PremiumColors.trueDarkCard, // Match cards
@@ -536,13 +535,13 @@ class AppTheme {
   // Premium box shadow system
   static List<BoxShadow> get cardShadow => [
         BoxShadow(
-          color: PremiumColors.slate900.withOpacity(0.04),
+          color: PremiumColors.slate900.withValues(alpha: 0.04),
           blurRadius: 24,
           offset: const Offset(0, 8),
           spreadRadius: 0,
         ),
         BoxShadow(
-          color: PremiumColors.slate900.withOpacity(0.02),
+          color: PremiumColors.slate900.withValues(alpha: 0.02),
           blurRadius: 6,
           offset: const Offset(0, 2),
           spreadRadius: 0,
@@ -551,13 +550,13 @@ class AppTheme {
 
   static List<BoxShadow> get elevatedShadow => [
         BoxShadow(
-          color: PremiumColors.slate900.withOpacity(0.08),
+          color: PremiumColors.slate900.withValues(alpha: 0.08),
           blurRadius: 32,
           offset: const Offset(0, 12),
           spreadRadius: 0,
         ),
         BoxShadow(
-          color: PremiumColors.slate900.withOpacity(0.04),
+          color: PremiumColors.slate900.withValues(alpha: 0.04),
           blurRadius: 8,
           offset: const Offset(0, 4),
           spreadRadius: 0,
@@ -566,7 +565,7 @@ class AppTheme {
 
   static List<BoxShadow> get subtleShadow => [
         BoxShadow(
-          color: PremiumColors.slate900.withOpacity(0.02),
+          color: PremiumColors.slate900.withValues(alpha: 0.02),
           blurRadius: 12,
           offset: const Offset(0, 4),
           spreadRadius: 0,
@@ -576,13 +575,13 @@ class AppTheme {
   // Dark theme shadows
   static List<BoxShadow> get darkCardShadow => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.4),
+          color: Colors.black.withValues(alpha: 0.4),
           blurRadius: 24,
           offset: const Offset(0, 8),
           spreadRadius: 0,
         ),
         BoxShadow(
-          color: Colors.black.withOpacity(0.2),
+          color: Colors.black.withValues(alpha: 0.2),
           blurRadius: 6,
           offset: const Offset(0, 2),
           spreadRadius: 0,
@@ -591,13 +590,13 @@ class AppTheme {
 
   static List<BoxShadow> get darkElevatedShadow => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.6),
+          color: Colors.black.withValues(alpha: 0.6),
           blurRadius: 32,
           offset: const Offset(0, 12),
           spreadRadius: 0,
         ),
         BoxShadow(
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black.withValues(alpha: 0.3),
           blurRadius: 8,
           offset: const Offset(0, 4),
           spreadRadius: 0,
@@ -606,7 +605,7 @@ class AppTheme {
 
   static List<BoxShadow> get darkSubtleShadow => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black.withValues(alpha: 0.3),
           blurRadius: 12,
           offset: const Offset(0, 4),
           spreadRadius: 0,

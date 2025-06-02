@@ -10,19 +10,18 @@ class NutritionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const NutritionCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.consumed,
     required this.goal,
     required this.color,
     required this.icon,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     final double progress = (consumed / goal).clamp(0.0, 1.0);
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final customColors = Theme.of(context).extension<CustomColors>();
 
     return GestureDetector(
@@ -34,7 +33,7 @@ class NutritionCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withAlpha(((0.05) * 255).round()),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -51,7 +50,7 @@ class NutritionCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                        color: color.withAlpha(((0.1) * 255).round()),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -75,7 +74,7 @@ class NutritionCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withAlpha(((0.1) * 255).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -116,7 +115,7 @@ class NutritionCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 8,
-                backgroundColor: color.withOpacity(0.1),
+                backgroundColor: color.withAlpha(((0.1) * 255).round()),
                 valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),

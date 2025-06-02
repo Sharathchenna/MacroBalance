@@ -241,7 +241,7 @@ class _PremiumButtonState extends State<PremiumButton>
           foregroundColor: Colors.white,
           borderColor: PremiumColors.slate900,
           elevation: 2,
-          shadowColor: PremiumColors.slate900.withOpacity(0.2),
+          shadowColor: PremiumColors.slate900.withAlpha(((0.2) * 255).round()),
         );
 
       case PremiumButtonStyle.secondary:
@@ -252,7 +252,7 @@ class _PremiumButtonState extends State<PremiumButton>
               isDark ? PremiumColors.slate100 : PremiumColors.slate700,
           borderColor: isDark ? PremiumColors.slate600 : PremiumColors.slate200,
           elevation: 1,
-          shadowColor: PremiumColors.slate900.withOpacity(0.1),
+          shadowColor: PremiumColors.slate900.withAlpha(((0.1) * 255).round()),
         );
 
       case PremiumButtonStyle.outlined:
@@ -279,7 +279,7 @@ class _PremiumButtonState extends State<PremiumButton>
           foregroundColor: Colors.white,
           borderColor: PremiumColors.red500,
           elevation: 2,
-          shadowColor: PremiumColors.red500.withOpacity(0.2),
+          shadowColor: PremiumColors.red500.withAlpha(((0.2) * 255).round()),
         );
 
       case PremiumButtonStyle.success:
@@ -288,7 +288,8 @@ class _PremiumButtonState extends State<PremiumButton>
           foregroundColor: Colors.white,
           borderColor: PremiumColors.emerald500,
           elevation: 2,
-          shadowColor: PremiumColors.emerald500.withOpacity(0.2),
+          shadowColor:
+              PremiumColors.emerald500.withAlpha(((0.2) * 255).round()),
         );
     }
   }
@@ -393,12 +394,12 @@ class _PremiumButtonState extends State<PremiumButton>
             decoration: BoxDecoration(
               color: isEnabled
                   ? config.backgroundColor
-                  : config.backgroundColor.withOpacity(0.5),
+                  : config.backgroundColor.withAlpha(((0.5) * 255).round()),
               borderRadius: BorderRadius.circular(_getBorderRadius()),
               border: Border.all(
                 color: isEnabled
                     ? config.borderColor
-                    : config.borderColor.withOpacity(0.5),
+                    : config.borderColor.withAlpha(((0.5) * 255).round()),
                 width: widget.style == PremiumButtonStyle.outlined ? 1.5 : 0,
               ),
               boxShadow: config.elevation > 0 && isEnabled
@@ -470,7 +471,7 @@ class PremiumFloatingActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    Theme.of(context);
     final finalSize = mini ? 40.0 : size;
 
     return Container(
@@ -483,7 +484,8 @@ class PremiumFloatingActionButton extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             backgroundColor ?? PremiumColors.slate900,
-            (backgroundColor ?? PremiumColors.slate900).withOpacity(0.8),
+            (backgroundColor ?? PremiumColors.slate900)
+                .withAlpha(((0.8) * 255).round()),
           ],
         ),
         boxShadow: AppTheme.elevatedShadow,
@@ -494,8 +496,8 @@ class PremiumFloatingActionButton extends StatelessWidget {
         child: InkWell(
           onTap: onPressed,
           customBorder: const CircleBorder(),
-          splashColor: Colors.white.withOpacity(0.2),
-          highlightColor: Colors.white.withOpacity(0.1),
+          splashColor: Colors.white.withAlpha(((0.2) * 255).round()),
+          highlightColor: Colors.white.withAlpha(((0.1) * 255).round()),
           child: Center(
             child: Icon(
               icon,

@@ -5,15 +5,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:macrotracker/main.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/models/nutrition_goals.dart'; // Import NutritionGoals
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
-import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Add this import
-import 'package:macrotracker/screens/editGoals.dart'; // Add this import
+import 'package:macrotracker/screens/edit_goals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
 import 'package:provider/provider.dart';
-import 'package:macrotracker/providers/themeProvider.dart';
+import 'package:macrotracker/providers/theme_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/Health/Health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,15 +22,13 @@ import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
-import 'package:macrotracker/screens/privacy_policy_screen.dart'; // Added import
-import 'package:macrotracker/screens/terms_screen.dart'; // Added import
 import 'package:macrotracker/screens/feedback_screen.dart'
     as fb_screen; // Added import for feedback with prefix
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
-import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart'; // Import Paywall Screen
+import 'package:macrotracker/auth/paywall_gate.dart'; // Import PaywallGate
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -49,7 +45,7 @@ class _AccountDashboardState extends State<AccountDashboard>
 
   // State variables
   bool _healthConnected = false;
-  String _selectedUnit = 'Metric'; // 'Metric' or 'Imperial'
+// 'Metric' or 'Imperial'
   Map<String, dynamic> userData = {
     'name': 'John Doe',
     'email': 'john.doe@example.com',
@@ -196,12 +192,14 @@ class _AccountDashboardState extends State<AccountDashboard>
       // Add haptic feedback
       HapticFeedback.mediumImpact();
 
+      // Get provider reference before any async operations
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
+
       // Clear user data from SharedPreferences first
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('macro_results');
       // Clear food entries (now synchronous)
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
       foodEntryProvider.clearEntries();
       // Other user-related data can be removed here as well
 
@@ -229,7 +227,7 @@ class _AccountDashboardState extends State<AccountDashboard>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
             )),
         behavior: SnackBarBehavior.floating,
@@ -317,7 +315,7 @@ class _AccountDashboardState extends State<AccountDashboard>
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
+                  color: colorScheme.primary.withAlpha((0.1 * 255).round()),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(CupertinoIcons.back,
@@ -406,7 +404,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                       // If goals were saved (result is true), refresh provider data
                       if (result == true && context.mounted) {
                         debugPrint(
-                            "Goals saved, refreshing FoodEntryProvider state...");
+                            'Goals saved, refreshing FoodEntryProvider state...');
                         // Access the provider and trigger a reload of goals from storage
                         // Note: _loadNutritionGoals is private, but we can call notifyListeners
                         // or create a public refresh method. Let's try notifyListeners first.
@@ -419,7 +417,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                             listen: false);
 
                         // Create NutritionGoals object with default values
-                        final defaultGoals = NutritionGoals(
+                        final defaultGoals = const NutritionGoals(
                           calories: 2000.0,
                           protein: 150.0,
                           carbs: 225.0,
@@ -712,9 +710,11 @@ class _AccountDashboardState extends State<AccountDashboard>
                                   TextButton(
                                     onPressed: () async {
                                       Navigator.of(context).pop();
+                                      final messenger =
+                                          ScaffoldMessenger.of(context);
+
                                       // Show toast/snackbar
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      messenger.showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                               'Sending local notification...'),
@@ -727,8 +727,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                             .scheduleTestLocalNotification();
 
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                   'Local notification sent!'),
@@ -739,13 +738,13 @@ class _AccountDashboardState extends State<AccountDashboard>
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                   'Error: ${e.toString()}'),
                                               backgroundColor: Colors.red,
-                                              duration: Duration(seconds: 3),
+                                              duration:
+                                                  const Duration(seconds: 3),
                                             ),
                                           );
                                         }
@@ -761,9 +760,11 @@ class _AccountDashboardState extends State<AccountDashboard>
                                   TextButton(
                                     onPressed: () async {
                                       Navigator.of(context).pop();
+                                      final messenger =
+                                          ScaffoldMessenger.of(context);
+
                                       // Show toast/snackbar
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      messenger.showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                               'Sending FCM/APN notification...'),
@@ -776,8 +777,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                             .testFirebaseCloudMessaging();
 
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                   'FCM/APN notification sent! Check device notifications.'),
@@ -788,13 +788,13 @@ class _AccountDashboardState extends State<AccountDashboard>
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                   'Error: ${e.toString()}'),
                                               backgroundColor: Colors.red,
-                                              duration: Duration(seconds: 3),
+                                              duration:
+                                                  const Duration(seconds: 3),
                                             ),
                                           );
                                         }
@@ -836,13 +836,14 @@ class _AccountDashboardState extends State<AccountDashboard>
                       trailing: ElevatedButton(
                         child: const Text('Copy'),
                         onPressed: () async {
+                          final messenger = ScaffoldMessenger.of(context);
                           try {
                             final fcmToken =
                                 await NotificationService1().getFcmToken();
                             if (fcmToken != null) {
                               await Clipboard.setData(
                                   ClipboardData(text: fcmToken));
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content:
                                       Text('FCM token copied to clipboard!'),
@@ -850,7 +851,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                 ),
                               );
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content:
                                       Text('Failed to retrieve FCM token.'),
@@ -859,7 +860,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                               );
                             }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text('Error: $e'),
                                 backgroundColor: Colors.red,
@@ -931,33 +932,17 @@ class _AccountDashboardState extends State<AccountDashboard>
                               ? 'Pro Subscription Active'
                               : 'No Subscription',
                           trailing: ElevatedButton(
-                            onPressed: () async {
+                            onPressed: () {
                               HapticFeedback.mediumImpact();
-                              // Toggle the subscription status (for testing only)
-                              final prefs =
-                                  await SharedPreferences.getInstance();
-                              final isCurrentlyPro =
-                                  subscriptionProvider.isProUser;
-                              await prefs.setBool(
-                                  'is_pro_user', !isCurrentlyPro);
-                              await subscriptionProvider
-                                  .refreshSubscriptionStatus();
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(!isCurrentlyPro
-                                      ? 'Pro access enabled (DEBUG)'
-                                      : 'Pro access disabled (DEBUG)'),
-                                  duration: Duration(seconds: 2),
-                                  behavior: SnackBarBehavior.fixed,
-                                ),
-                              );
+                              // Extract the method to a separate function to avoid async gaps
+                              _toggleProSubscription(subscriptionProvider);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: subscriptionProvider.isProUser
                                   ? Colors.red.shade200
                                   : Colors.green.shade200,
-                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                             ),
                             child: Text(
                               subscriptionProvider.isProUser
@@ -991,8 +976,20 @@ class _AccountDashboardState extends State<AccountDashboard>
                         Navigator.push(
                           context,
                           CupertinoPageRoute(
-                            builder: (context) => CustomPaywallScreen(
-                              onDismiss: () {}, // Add required onDismiss
+                            builder: (context) => PaywallGate(
+                              child: Scaffold(
+                                appBar: AppBar(
+                                  title: const Text('Paywall Test'),
+                                  leading: IconButton(
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () => Navigator.pop(context),
+                                  ),
+                                ),
+                                body: const Center(
+                                  child: Text(
+                                      'This screen would show after subscription'),
+                                ),
+                              ),
                             ),
                           ),
                         );
@@ -1006,35 +1003,6 @@ class _AccountDashboardState extends State<AccountDashboard>
           ),
         );
       },
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar(ColorScheme colorScheme, bool isDarkMode) {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      leading: IconButton(
-        icon: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: colorScheme.primary.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child:
-              Icon(CupertinoIcons.back, color: colorScheme.primary, size: 18),
-        ),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: Text(
-        'Settings',
-        style: GoogleFonts.poppins(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w600,
-          fontSize: 20,
-        ),
-      ),
-      centerTitle: false,
     );
   }
 
@@ -1199,20 +1167,6 @@ class _AccountDashboardState extends State<AccountDashboard>
     );
   }
 
-  Widget _buildSectionTitle(String title, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-      child: Text(
-        title,
-        style: GoogleFonts.poppins(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: colorScheme.secondary,
-        ),
-      ),
-    );
-  }
-
   Widget _buildSection({
     required String title,
     required IconData icon,
@@ -1247,7 +1201,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: colorScheme.onBackground,
+                    color: colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -1255,7 +1209,7 @@ class _AccountDashboardState extends State<AccountDashboard>
           ),
           Container(
             decoration: BoxDecoration(
-              color: customColors?.cardBackground ?? colorScheme.surface,
+              color: customColors.cardBackground,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -1348,7 +1302,7 @@ class _AccountDashboardState extends State<AccountDashboard>
             fontSize: 15,
             color: enabled
                 ? colorScheme.onSurface
-                : colorScheme.onSurface.withOpacity(0.5),
+                : colorScheme.onSurface.withAlpha((0.5 * 255).round()),
           ),
         ),
         subtitle: Text(
@@ -1441,40 +1395,6 @@ class _AccountDashboardState extends State<AccountDashboard>
     }
   }
 
-  void _showUnitPicker() {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: const Text('Select Unit System'),
-        message: const Text('Choose your preferred measurement system'),
-        actions: [
-          CupertinoActionSheetAction(
-            child: const Text('Metric (kg, cm)'),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              setState(() => _selectedUnit = 'Metric');
-              Navigator.pop(context);
-            },
-          ),
-          CupertinoActionSheetAction(
-            child: const Text('Imperial (lb, in)'),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              setState(() => _selectedUnit = 'Imperial');
-              Navigator.pop(context);
-            },
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-            child: const Text('Cancel'),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              Navigator.pop(context);
-            }),
-      ),
-    );
-  }
-
   Widget _buildHealthAppTile(
       ColorScheme colorScheme, CustomColors? customColors) {
     if (_healthConnected) {
@@ -1483,7 +1403,7 @@ class _AccountDashboardState extends State<AccountDashboard>
         iconColor: Colors.red,
         title: 'Health App',
         subtitle: 'Connected',
-        trailing: Icon(Icons.check_circle, color: Colors.green),
+        trailing: const Icon(Icons.check_circle, color: Colors.green),
         onTap: () {
           HapticFeedback.lightImpact();
           Navigator.push(
@@ -1590,7 +1510,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       await foodEntryProvider.initialize();
 
       // Since resetGoalsToDefault doesn't exist, use the updateNutritionGoals with default values
-      final defaultGoals = NutritionGoals(
+      final defaultGoals = const NutritionGoals(
         calories: 2000.0,
         protein: 150.0,
         carbs: 225.0,
@@ -1644,7 +1564,7 @@ class _AccountDashboardState extends State<AccountDashboard>
               'fat_percent': 25,
               'carb_percent': 55,
               'weekly_weight_change': 0.0,
-              'formula_used': "Mifflin-St Jeor",
+              'formula_used': 'Mifflin-St Jeor',
               'formula_code': 1,
               'updated_at': DateTime.now().toIso8601String()
             },
@@ -1665,19 +1585,14 @@ class _AccountDashboardState extends State<AccountDashboard>
               .eq('id', currentUser.id)
               .single();
 
-          if (verification != null) {
-            debugPrint('Sync verification successful');
-            debugPrint(
-                'Verified calories goal: ${verification['calories_goal']}');
-            debugPrint(
-                'Verified protein goal: ${verification['protein_goal']}');
-            if (verification['macro_results'] != null) {
-              debugPrint('Verified macro_results exists in Supabase');
-            } else {
-              debugPrint('Warning: macro_results field is null in Supabase');
-            }
+          debugPrint('Sync verification successful');
+          debugPrint(
+              'Verified calories goal: ${verification['calories_goal']}');
+          debugPrint('Verified protein goal: ${verification['protein_goal']}');
+          if (verification['macro_results'] != null) {
+            debugPrint('Verified macro_results exists in Supabase');
           } else {
-            debugPrint('Warning: Could not verify sync - no record returned');
+            debugPrint('Warning: macro_results field is null in Supabase');
           }
 
           debugPrint(
@@ -1774,16 +1689,16 @@ class _AccountDashboardState extends State<AccountDashboard>
       // This URL opens the App Store subscriptions management page
       const url = 'itms-apps://apps.apple.com/account/subscriptions';
       try {
-        if (await canLaunch(url)) {
-          await launch(url);
+        if (await canLaunchUrl(Uri.parse(url))) {
+          await launchUrl(Uri.parse(url));
         } else {
           // Fallback to settings app if subscription URL can't be opened
-          await launch('App-Prefs:root=STORE');
+          await launchUrl(Uri.parse('App-Prefs:root=STORE'));
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text('Could not open subscription settings'),
               backgroundColor: Colors.red,
             ),
@@ -1811,6 +1726,34 @@ class _AccountDashboardState extends State<AccountDashboard>
       context,
       CupertinoPageRoute(
         builder: (context) => const DeleteAccountScreen(),
+      ),
+    );
+  }
+
+  // Toggle Pro subscription status (for debugging)
+  Future<void> _toggleProSubscription(
+      SubscriptionProvider subscriptionProvider) async {
+    // Get current subscription status
+    final isCurrentlyPro = subscriptionProvider.isProUser;
+
+    // Toggle the value in shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_pro_user', !isCurrentlyPro);
+
+    // Refresh the subscription status
+    await subscriptionProvider.refreshSubscriptionStatus();
+
+    // Check if still mounted before showing the snackbar
+    if (!mounted) return;
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(!isCurrentlyPro
+            ? 'Pro access enabled (DEBUG)'
+            : 'Pro access disabled (DEBUG)'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.fixed,
       ),
     );
   }

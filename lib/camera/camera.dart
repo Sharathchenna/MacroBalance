@@ -2,9 +2,6 @@
 
 import 'dart:convert';
 import 'dart:io'; // For Platform check and File operations
-import 'dart:typed_data'; // For Uint8List
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart'; // Import Lottie package
@@ -37,7 +34,7 @@ class _CameraScreenState extends State<CameraScreen> {
   static const MethodChannel _nativeCameraViewChannel =
       MethodChannel('com.macrotracker/native_camera_view');
 
-  bool _isLoading = true; // Show loading initially
+  // bool _isLoading = true; // Show loading initially
   String? _error;
   CameraMode _currentMode = CameraMode.camera; // Default mode
 
@@ -104,7 +101,7 @@ class _CameraScreenState extends State<CameraScreen> {
       print('[Flutter Camera] Native camera view only supported on iOS.');
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          // _isLoading = false;
           _error = 'Camera feature is only available on iOS.';
         });
       }
@@ -126,7 +123,7 @@ class _CameraScreenState extends State<CameraScreen> {
       print('[Flutter Camera] Error showing native camera: ${e.message}');
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          // _isLoading = false;
           _error = 'Failed to open camera: ${e.message}';
         });
         // Pop after showing error
@@ -224,7 +221,7 @@ class _CameraScreenState extends State<CameraScreen> {
           }
         } catch (e) {
           print(
-              "[Flutter Camera] Error dismissing loading dialog in finally: $e");
+              '[Flutter Camera] Error dismissing loading dialog in finally: $e');
         }
 
         // Pop CameraScreen with the result (or null on error)
@@ -263,7 +260,7 @@ class _CameraScreenState extends State<CameraScreen> {
         // Improved Loading Dialog Layout
         return Dialog(
           backgroundColor:
-              Colors.white, // Changed from black.withOpacity(0.8) to white
+              Colors.white, // Changed from black.withAlpha((0.8 * 255).round()) to white
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: Padding(

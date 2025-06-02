@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:macrotracker/theme/app_theme.dart';
 
 /// Custom painter for drawing the weight journey line chart.
 ///
@@ -75,55 +74,7 @@ class ChartPainter extends CustomPainter {
     _drawDataLines(canvas, minWeight, maxWeight);
   }
 
-  void _drawHorizontalLinesAndLabels(
-      Canvas canvas, Size size, double minWeight, double maxWeight) {
-    final paint = Paint()
-      ..color = Colors.grey.shade300
-      ..strokeWidth = 0.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.0)
-      ..shader = ui.Gradient.linear(
-        Offset(0, 0),
-        Offset(10, 0),
-        [Colors.grey.shade300, Colors.transparent],
-        [0, 1],
-        TileMode.repeated,
-      );
 
-    // Calculate weight step
-    int lineStep =
-        ((maxWeight - minWeight) / (NUMBER_OF_HORIZONTAL_LINES - 1)).round();
-    double offsetStep = drawingHeight / (NUMBER_OF_HORIZONTAL_LINES - 1);
-
-    for (int i = 0; i < NUMBER_OF_HORIZONTAL_LINES; i++) {
-      double yOffset = 10 + i * offsetStep; // starting 10 for some top margin
-      // Left label: weight value (from top = max to bottom = min)
-      double labelWeight = maxWeight - i * lineStep;
-      _drawHorizontalLabel(canvas, yOffset, labelWeight);
-
-      // Draw the line from leftOffsetStart to right edge
-      canvas.drawLine(
-        Offset(leftOffsetStart, yOffset),
-        Offset(size.width - 10, yOffset),
-        paint,
-      );
-    }
-  }
-
-  void _drawHorizontalLabel(Canvas canvas, double yOffset, double labelWeight) {
-    final ui.ParagraphBuilder builder = ui.ParagraphBuilder(
-      ui.ParagraphStyle(
-        fontSize: 10.0,
-        textAlign: TextAlign.right,
-      ),
-    )
-      ..pushStyle(ui.TextStyle(color: Colors.grey.shade600))
-      ..addText(labelWeight.toStringAsFixed(0));
-    final ui.Paragraph paragraph = builder.build()
-      ..layout(ui.ParagraphConstraints(width: leftOffsetStart - 4));
-    canvas.drawParagraph(paragraph, Offset(0.0, yOffset - 6));
-  }
 
   void _drawBottomLabels(Canvas canvas, Size size) {
     if (entries.isEmpty) return;
@@ -153,7 +104,7 @@ class ChartPainter extends CustomPainter {
         ..addText(DateFormat('MMM d').format(labelDate));
 
       final ui.Paragraph paragraph = builder.build()
-        ..layout(ui.ParagraphConstraints(width: 50.0));
+        ..layout(const ui.ParagraphConstraints(width: 50.0));
 
       canvas.drawParagraph(
         paragraph,
@@ -198,7 +149,7 @@ class ChartPainter extends CustomPainter {
     double dayWidth = drawingWidth / NUMBER_OF_DAYS;
 
     // Helper to convert entry to canvas coordinate
-    Offset _getEntryOffset(WeightEntry entry) {
+    Offset getEntryOffset(WeightEntry entry) {
       int daysFromStart = entry.dateTime.difference(startDate).inDays;
       double relativeX = daysFromStart.clamp(0, NUMBER_OF_DAYS).toDouble();
       double x = leftOffsetStart + relativeX * dayWidth;
@@ -208,7 +159,7 @@ class ChartPainter extends CustomPainter {
     }
 
     // Get all data points
-    final List<Offset> points = validEntries.map(_getEntryOffset).toList();
+    final List<Offset> points = validEntries.map(getEntryOffset).toList();
 
     // Build a smooth path using quadratic Bézier curves.
     final Path linePath = Path();

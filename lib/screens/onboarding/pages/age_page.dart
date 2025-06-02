@@ -119,10 +119,10 @@ class _AgePageState extends State<AgePage> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
       decoration: BoxDecoration(
-        color: primaryColor.withOpacity(0.08),
+        color: primaryColor.withAlpha((0.08 * 255).round()),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: primaryColor.withOpacity(0.2),
+          color: primaryColor.withAlpha((0.2 * 255).round()),
           width: 1.5,
         ),
       ),
@@ -142,8 +142,7 @@ class _AgePageState extends State<AgePage> {
           Text(
             'years',
             style: TextStyle(
-              color: customColors?.textPrimary?.withOpacity(0.8) ??
-                  theme.textTheme.bodyLarge?.color?.withOpacity(0.8),
+              color: (customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color)?.withAlpha((0.8 * 255).round()),
               fontSize: 20,
               fontWeight: FontWeight.w400,
             ),
@@ -165,7 +164,7 @@ class _AgePageState extends State<AgePage> {
         boxShadow: Theme.of(context).brightness == Brightness.light
             ? [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
+                  color: Colors.grey.withAlpha((0.2 * 255).round()),
                   spreadRadius: 1,
                   blurRadius: 6,
                   offset: const Offset(0, 2),

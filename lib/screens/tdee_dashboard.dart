@@ -174,7 +174,7 @@
 //         borderRadius: BorderRadius.circular(24),
 //         boxShadow: [
 //           BoxShadow(
-//             color: Colors.black.withOpacity(0.06),
+//             color: Colors.black.withAlpha((0.06 * 255).round()),
 //             blurRadius: 12,
 //             offset: const Offset(0, 5),
 //           ),
@@ -214,7 +214,7 @@
 //           Container(
 //             padding: const EdgeInsets.all(24),
 //             decoration: BoxDecoration(
-//               color: customColors.dateNavigatorBackground.withOpacity(0.2),
+//               color: customColors.dateNavigatorBackground.withAlpha((0.2 * 255).round()),
 //               borderRadius: BorderRadius.circular(20),
 //             ),
 //             child: Center(
@@ -306,7 +306,7 @@
 //     return Container(
 //       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
 //       decoration: BoxDecoration(
-//         color: color.withOpacity(0.2),
+//         color: color.withAlpha((0.2 * 255).round()),
 //         borderRadius: BorderRadius.circular(12),
 //       ),
 //       child: Row(
@@ -361,7 +361,7 @@
 //         borderRadius: BorderRadius.circular(24),
 //         boxShadow: [
 //           BoxShadow(
-//             color: Colors.black.withOpacity(0.06),
+//             color: Colors.black.withAlpha((0.06 * 255).round()),
 //             blurRadius: 12,
 //             offset: const Offset(0, 5),
 //           ),
@@ -398,7 +398,7 @@
 //             height: 220,
 //             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
 //             decoration: BoxDecoration(
-//               color: customColors.dateNavigatorBackground.withOpacity(0.2),
+//               color: customColors.dateNavigatorBackground.withAlpha((0.2 * 255).round()),
 //               borderRadius: BorderRadius.circular(16),
 //             ),
 //             child: Row(
@@ -476,7 +476,7 @@
 //                             padding: const EdgeInsets.symmetric(
 //                                 horizontal: 4, vertical: 2),
 //                             decoration: BoxDecoration(
-//                               color: data.color.withOpacity(0.2),
+//                               color: data.color.withAlpha((0.2 * 255).round()),
 //                               borderRadius: BorderRadius.circular(4),
 //                             ),
 //                             child: Text(
@@ -543,7 +543,7 @@
 //           Container(
 //             padding: const EdgeInsets.all(16),
 //             decoration: BoxDecoration(
-//               color: customColors.dateNavigatorBackground.withOpacity(0.2),
+//               color: customColors.dateNavigatorBackground.withAlpha((0.2 * 255).round()),
 //               borderRadius: BorderRadius.circular(16),
 //             ),
 //             child: Column(
@@ -706,7 +706,7 @@
 //             Container(
 //               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
 //               decoration: BoxDecoration(
-//                 color: color.withOpacity(0.1),
+//                 color: color.withAlpha((0.1 * 255).round()),
 //                 borderRadius: BorderRadius.circular(12),
 //               ),
 //               child: Text(
@@ -730,7 +730,7 @@
 //           showLabels: false,
 //           enableTooltip: true,
 //           activeColor: color,
-//           inactiveColor: color.withOpacity(0.2),
+//           inactiveColor: color.withAlpha((0.2 * 255).round()),
 //           onChanged: (dynamic newValue) {
 //             onChanged(newValue as double);
 //           },
@@ -839,7 +839,7 @@
 //                       'Weight',
 //                       style: GoogleFonts.poppins(
 //                         fontSize: 14,
-//                         color: colorScheme.onSurface.withOpacity(0.7),
+//                         color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
 //                       ),
 //                     ),
 //                     const SizedBox(height: 4),
@@ -858,7 +858,7 @@
 //                       'Body Fat',
 //                       style: GoogleFonts.poppins(
 //                         fontSize: 14,
-//                         color: colorScheme.onSurface.withOpacity(0.7),
+//                         color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
 //                       ),
 //                     ),
 //                     const SizedBox(height: 4),
@@ -916,7 +916,7 @@
 //                         'Lean Body Mass',
 //                         style: GoogleFonts.poppins(
 //                           fontSize: 12,
-//                           color: colorScheme.onSurface.withOpacity(0.7),
+//                           color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
 //                         ),
 //                       ),
 //                       Text(
@@ -938,7 +938,7 @@
 //             Container(
 //               padding: const EdgeInsets.all(12),
 //               decoration: BoxDecoration(
-//                 color: colorScheme.primary.withOpacity(0.1),
+//                 color: colorScheme.primary.withAlpha((0.1 * 255).round()),
 //                 borderRadius: BorderRadius.circular(8),
 //               ),
 //               child: Row(
@@ -965,7 +965,7 @@
 //                           '${proteinRecommendation.round()} g daily based on your lean body mass',
 //                           style: GoogleFonts.poppins(
 //                             fontSize: 12,
-//                             color: colorScheme.onSurface.withOpacity(0.7),
+//                             color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
 //                           ),
 //                         ),
 //                       ],
@@ -1047,7 +1047,7 @@
 //                 borderRadius: BorderRadius.circular(12),
 //                 boxShadow: [
 //                   BoxShadow(
-//                     color: Colors.black.withOpacity(0.03),
+//                     color: Colors.black.withAlpha((0.03 * 255).round()),
 //                     blurRadius: 8,
 //                     spreadRadius: 0,
 //                     offset: const Offset(0, 2),
@@ -1065,7 +1065,7 @@
 //                   axisLine: const AxisLine(width: 0.5, color: Colors.grey),
 //                   labelStyle: GoogleFonts.poppins(
 //                     fontSize: 10,
-//                     color: colorScheme.onSurface.withOpacity(0.6),
+//                     color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
 //                   ),
 //                 ),
 //                 primaryYAxis: NumericAxis(
@@ -1074,11 +1074,11 @@
 //                   majorTickLines: const MajorTickLines(size: 0),
 //                   labelStyle: GoogleFonts.poppins(
 //                     fontSize: 10,
-//                     color: colorScheme.onSurface.withOpacity(0.6),
+//                     color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
 //                   ),
 //                   majorGridLines: MajorGridLines(
 //                     width: 0.5,
-//                     color: Colors.grey.withOpacity(0.3),
+//                     color: Colors.grey.withAlpha((0.3 * 255).round()),
 //                     dashArray: const [5, 5],
 //                   ),
 //                 ),
@@ -1091,7 +1091,7 @@
 //                     majorTickLines: const MajorTickLines(size: 0),
 //                     labelStyle: GoogleFonts.poppins(
 //                       fontSize: 10,
-//                       color: colorScheme.onSurface.withOpacity(0.6),
+//                       color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
 //                     ),
 //                   ),
 //                 ],
@@ -1113,13 +1113,13 @@
 //                     ),
 //                     borderColor: colorScheme.primary,
 //                     borderWidth: 2,
-//                     color: colorScheme.primary.withOpacity(0.2),
+//                     color: colorScheme.primary.withAlpha((0.2 * 255).round()),
 //                     gradient: LinearGradient(
 //                       begin: Alignment.topCenter,
 //                       end: Alignment.bottomCenter,
 //                       colors: [
-//                         colorScheme.primary.withOpacity(0.2),
-//                         colorScheme.primary.withOpacity(0.05),
+//                         colorScheme.primary.withAlpha((0.2 * 255).round()),
+//                         colorScheme.primary.withAlpha((0.05 * 255).round()),
 //                       ],
 //                     ),
 //                   ),
@@ -1164,7 +1164,7 @@
 //                   textStyle: GoogleFonts.poppins(
 //                     color: colorScheme.onSurface,
 //                   ),
-//                   borderColor: Colors.grey.withOpacity(0.3),
+//                   borderColor: Colors.grey.withAlpha((0.3 * 255).round()),
 //                   borderWidth: 1,
 //                 ),
 //               ),
@@ -1180,13 +1180,13 @@
 //                 borderRadius: BorderRadius.circular(12),
 //                 boxShadow: [
 //                   BoxShadow(
-//                     color: Colors.black.withOpacity(0.03),
+//                     color: Colors.black.withAlpha((0.03 * 255).round()),
 //                     blurRadius: 8,
 //                     spreadRadius: 0,
 //                     offset: const Offset(0, 2),
 //                   ),
 //                 ],
-//                 border: Border.all(color: Colors.grey.withOpacity(0.1)),
+//                 border: Border.all(color: Colors.grey.withAlpha((0.1 * 255).round())),
 //               ),
 //               child: Column(
 //                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1202,7 +1202,7 @@
 //                             decoration: BoxDecoration(
 //                               color:
 //                                   (weightTrend < 0 ? Colors.green : Colors.red)
-//                                       .withOpacity(0.1),
+//                                       .withAlpha((0.1 * 255).round()),
 //                               borderRadius: BorderRadius.circular(8),
 //                             ),
 //                             child: Icon(
@@ -1222,7 +1222,7 @@
 //                                 'Current Trend',
 //                                 style: GoogleFonts.poppins(
 //                                   fontSize: 12,
-//                                   color: colorScheme.onSurface.withOpacity(0.6),
+//                                   color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
 //                                 ),
 //                               ),
 //                               Text(
@@ -1246,7 +1246,7 @@
 //                             'Projected in 4 weeks',
 //                             style: GoogleFonts.poppins(
 //                               fontSize: 12,
-//                               color: colorScheme.onSurface.withOpacity(0.6),
+//                               color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
 //                             ),
 //                           ),
 //                           Text(
@@ -1297,7 +1297,7 @@
 //                             height: 8,
 //                             width: double.infinity,
 //                             decoration: BoxDecoration(
-//                               color: Colors.grey.withOpacity(0.1),
+//                               color: Colors.grey.withAlpha((0.1 * 255).round()),
 //                               borderRadius: BorderRadius.circular(4),
 //                             ),
 //                           ),
@@ -1319,7 +1319,7 @@
 //                               borderRadius: BorderRadius.circular(4),
 //                               boxShadow: [
 //                                 BoxShadow(
-//                                   color: Colors.green.withOpacity(0.3),
+//                                   color: Colors.green.withAlpha((0.3 * 255).round()),
 //                                   blurRadius: 4,
 //                                   offset: const Offset(0, 1),
 //                                 ),
@@ -1377,7 +1377,7 @@
 //                 Container(
 //                   padding: const EdgeInsets.all(8),
 //                   decoration: BoxDecoration(
-//                     color: colorScheme.primary.withOpacity(0.1),
+//                     color: colorScheme.primary.withAlpha((0.1 * 255).round()),
 //                     borderRadius: BorderRadius.circular(8),
 //                   ),
 //                   child: Icon(
@@ -1402,7 +1402,7 @@
 //               'Personalized insights based on your data',
 //               style: GoogleFonts.poppins(
 //                 fontSize: 12,
-//                 color: colorScheme.onSurface.withOpacity(0.6),
+//                 color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
 //                 fontStyle: FontStyle.italic,
 //               ),
 //             ),
@@ -1464,14 +1464,14 @@
 //               decoration: BoxDecoration(
 //                 gradient: LinearGradient(
 //                   colors: [
-//                     colorScheme.primary.withOpacity(0.1),
-//                     colorScheme.primaryContainer.withOpacity(0.2),
+//                     colorScheme.primary.withAlpha((0.1 * 255).round()),
+//                     colorScheme.primaryContainer.withAlpha((0.2 * 255).round()),
 //                   ],
 //                   begin: Alignment.topLeft,
 //                   end: Alignment.bottomRight,
 //                 ),
 //                 borderRadius: BorderRadius.circular(12),
-//                 border: Border.all(color: colorScheme.primary.withOpacity(0.2)),
+//                 border: Border.all(color: colorScheme.primary.withAlpha((0.2 * 255).round())),
 //               ),
 //               child: Column(
 //                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1524,7 +1524,7 @@
 //                     style: GoogleFonts.poppins(
 //                       fontSize: 12,
 //                       fontStyle: FontStyle.italic,
-//                       color: colorScheme.onSurface.withOpacity(0.7),
+//                       color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
 //                     ),
 //                   ),
 //                 ],
@@ -1551,17 +1551,17 @@
 //     return Container(
 //       padding: const EdgeInsets.all(16),
 //       decoration: BoxDecoration(
-//         color: priority ? accentColor.withOpacity(0.15) : colorScheme.surface,
+//         color: priority ? accentColor.withAlpha((0.15 * 255).round()) : colorScheme.surface,
 //         borderRadius: BorderRadius.circular(12),
 //         border: Border.all(
 //           color: priority
-//               ? accentColor.withOpacity(0.5)
-//               : Colors.grey.withOpacity(0.2),
+//               ? accentColor.withAlpha((0.5 * 255).round())
+//               : Colors.grey.withAlpha((0.2 * 255).round()),
 //         ),
 //         boxShadow: priority
 //             ? [
 //                 BoxShadow(
-//                   color: accentColor.withOpacity(0.1),
+//                   color: accentColor.withAlpha((0.1 * 255).round()),
 //                   blurRadius: 8,
 //                   offset: const Offset(0, 2),
 //                 ),
@@ -1577,7 +1577,7 @@
 //               Container(
 //                 padding: const EdgeInsets.all(8),
 //                 decoration: BoxDecoration(
-//                   color: accentColor.withOpacity(0.1),
+//                   color: accentColor.withAlpha((0.1 * 255).round()),
 //                   borderRadius: BorderRadius.circular(8),
 //                 ),
 //                 child: Icon(
@@ -1608,7 +1608,7 @@
 //                             padding: const EdgeInsets.symmetric(
 //                                 horizontal: 8, vertical: 2),
 //                             decoration: BoxDecoration(
-//                               color: accentColor.withOpacity(0.2),
+//                               color: accentColor.withAlpha((0.2 * 255).round()),
 //                               borderRadius: BorderRadius.circular(12),
 //                             ),
 //                             child: Text(
@@ -1627,7 +1627,7 @@
 //                       description,
 //                       style: GoogleFonts.poppins(
 //                         fontSize: 12,
-//                         color: colorScheme.onSurface.withOpacity(0.7),
+//                         color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
 //                       ),
 //                     ),
 //                   ],
@@ -1649,7 +1649,7 @@
 //                   shape: RoundedRectangleBorder(
 //                     borderRadius: BorderRadius.circular(8),
 //                   ),
-//                   backgroundColor: accentColor.withOpacity(0.1),
+//                   backgroundColor: accentColor.withAlpha((0.1 * 255).round()),
 //                 ),
 //                 child: Row(
 //                   mainAxisSize: MainAxisSize.min,
@@ -1690,7 +1690,7 @@
 //         Container(
 //           padding: const EdgeInsets.all(10),
 //           decoration: BoxDecoration(
-//             color: color.withOpacity(0.1),
+//             color: color.withAlpha((0.1 * 255).round()),
 //             shape: BoxShape.circle,
 //           ),
 //           child: Icon(
@@ -1795,7 +1795,7 @@
 //                         child: LinearProgressIndicator(
 //                           value: dataCompleteness,
 //                           minHeight: 8,
-//                           backgroundColor: Colors.grey.withOpacity(0.2),
+//                           backgroundColor: Colors.grey.withAlpha((0.2 * 255).round()),
 //                           valueColor: AlwaysStoppedAnimation<Color>(
 //                               _getQualityColor(dataCompleteness)),
 //                         ),
@@ -1805,7 +1805,7 @@
 //                         '$daysWithData days logged',
 //                         style: GoogleFonts.poppins(
 //                           fontSize: 12,
-//                           color: colorScheme.onSurface.withOpacity(0.6),
+//                           color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
 //                         ),
 //                       ),
 //                     ],
@@ -1836,7 +1836,7 @@
 //                         child: LinearProgressIndicator(
 //                           value: dataConsistency,
 //                           minHeight: 8,
-//                           backgroundColor: Colors.grey.withOpacity(0.2),
+//                           backgroundColor: Colors.grey.withAlpha((0.2 * 255).round()),
 //                           valueColor: AlwaysStoppedAnimation<Color>(
 //                               _getQualityColor(dataConsistency)),
 //                         ),
@@ -1846,7 +1846,7 @@
 //                         'Few missing days',
 //                         style: GoogleFonts.poppins(
 //                           fontSize: 12,
-//                           color: colorScheme.onSurface.withOpacity(0.6),
+//                           color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
 //                         ),
 //                       ),
 //                     ],
@@ -1877,7 +1877,7 @@
 //                             horizontal: 12, vertical: 4),
 //                         decoration: BoxDecoration(
 //                           color: _getQualityColor(confidenceLevel)
-//                               .withOpacity(0.2),
+//                               .withAlpha((0.2 * 255).round()),
 //                           borderRadius: BorderRadius.circular(12),
 //                         ),
 //                         child: Text(
@@ -1901,7 +1901,7 @@
 //               style: GoogleFonts.poppins(
 //                 fontSize: 12,
 //                 fontStyle: FontStyle.italic,
-//                 color: colorScheme.onSurface.withOpacity(0.5),
+//                 color: colorScheme.onSurface.withAlpha((0.5 * 255).round()),
 //               ),
 //             ),
 //           ],

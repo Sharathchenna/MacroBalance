@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart';
 import 'package:macrotracker/services/subscription_service.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
+import 'package:macrotracker/services/superwall_service.dart';
 
 /// Class to manage paywall presentation throughout the app
 class PaywallManager {
@@ -25,7 +25,8 @@ class PaywallManager {
   void incrementAppSession() {
     try {
       // Assuming StorageService is initialized
-      final currentCount = StorageService().get(_appSessionCountKey, defaultValue: 0);
+      final currentCount =
+          StorageService().get(_appSessionCountKey, defaultValue: 0);
       StorageService().put(_appSessionCountKey, currentCount + 1);
     } catch (e) {
       debugPrint('Error incrementing app session count: $e');
@@ -44,7 +45,6 @@ class PaywallManager {
 
       // Get last shown timestamp
       final lastShownTimestamp = StorageService().get(_lastPaywallShownKey);
-      final now = DateTime.now().millisecondsSinceEpoch;
 
       // Check if minimum time has passed since last shown
       if (lastShownTimestamp != null) {
@@ -60,14 +60,16 @@ class PaywallManager {
       // Check monthly show count
       final currentMonthYear = '${DateTime.now().month}-${DateTime.now().year}';
       final monthlyShowCountKey = '${_paywallShowCountKey}_$currentMonthYear';
-      final monthlyShowCount = StorageService().get(monthlyShowCountKey, defaultValue: 0);
+      final monthlyShowCount =
+          StorageService().get(monthlyShowCountKey, defaultValue: 0);
 
       if (monthlyShowCount >= _maxPaywallShowPerMonth) {
         return false;
       }
 
       // Check app session count for showing on specific sessions
-      final sessionCount = StorageService().get(_appSessionCountKey, defaultValue: 0);
+      final sessionCount =
+          StorageService().get(_appSessionCountKey, defaultValue: 0);
 
       // Show on 3rd session, 7th session, and every 5th session thereafter
       return sessionCount == 3 ||
@@ -99,24 +101,22 @@ class PaywallManager {
         final currentMonthYear =
             '${DateTime.now().month}-${DateTime.now().year}';
         final monthlyShowCountKey = '${_paywallShowCountKey}_$currentMonthYear';
-        final monthlyShowCount = StorageService().get(monthlyShowCountKey, defaultValue: 0);
+        final monthlyShowCount =
+            StorageService().get(monthlyShowCountKey, defaultValue: 0);
         StorageService().put(monthlyShowCountKey, monthlyShowCount + 1);
       }
 
-      // Show the custom paywall
-      return showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        isDismissible: forcedShow,
-        enableDrag: forcedShow,
-        builder: (BuildContext context) {
-          return CustomPaywallScreen(
-            onDismiss: () => Navigator.of(context).pop(),
-            allowDismissal: forcedShow,
-          );
-        },
-      );
+      // Try Superwall first, fallback to custom paywall
+      final superwallService = SuperwallService();
+      if (superwallService.isInitialized) {
+        debugPrint('Using Superwall paywall');
+        await superwallService.showMainPaywall();
+      } else {
+        debugPrint('Superwall not available - initializing...');
+        // Try to initialize Superwall and show paywall
+        await superwallService.initialize();
+        await superwallService.showMainPaywall();
+      }
     } catch (e) {
       debugPrint('Error showing paywall: $e');
     }

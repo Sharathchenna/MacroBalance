@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -14,13 +13,13 @@ class SearchHeader extends StatefulWidget {
   final VoidCallback onCameraTap; // Added camera tap callback
 
   const SearchHeader({
-    Key? key,
+    super.key,
     required this.controller,
     required this.onSearch,
     required this.onChanged,
     required this.onBack,
     required this.onCameraTap, // Make it required
-  }) : super(key: key);
+  });
 
   @override
   State<SearchHeader> createState() => _SearchHeaderState();
@@ -139,7 +138,7 @@ class _SearchHeaderState extends State<SearchHeader> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha(((0.05) * 255).round()),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -158,16 +157,16 @@ class _SearchHeaderState extends State<SearchHeader> {
               decoration: InputDecoration(
                 hintText: 'Search foods, recipes, brands...',
                 hintStyle: AppTypography.body1.copyWith(
-                  color: customColors.textPrimary.withOpacity(0.5),
+                  color: customColors.textPrimary.withAlpha(((0.5) * 255).round()),
                 ),
                 prefixIcon: Icon(
                   Icons.search_rounded,
-                  color: customColors.textPrimary.withOpacity(0.7),
+                  color: customColors.textPrimary.withAlpha(((0.7) * 255).round()),
                 ),
                 suffixIcon: widget.controller.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(Icons.close_rounded,
-                            color: customColors.textPrimary.withOpacity(0.7)),
+                            color: customColors.textPrimary.withAlpha(((0.7) * 255).round())),
                         onPressed: () {
                           widget.controller.clear();
                           // Use the search function with empty string to clear results

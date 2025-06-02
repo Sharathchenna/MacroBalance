@@ -7,8 +7,7 @@ import '../services/exercise_image_service.dart';
 class WorkoutDetailsScreen extends StatefulWidget {
   final WorkoutRoutine routine;
 
-  const WorkoutDetailsScreen({Key? key, required this.routine})
-      : super(key: key);
+  const WorkoutDetailsScreen({super.key, required this.routine});
 
   @override
   State<WorkoutDetailsScreen> createState() => _WorkoutDetailsScreenState();
@@ -19,7 +18,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
   bool _hasPreloadedImages = false;
   late final ExerciseImageService _imageService;
   bool _showEnhancedData = false;
-  Map<String, Map<String, dynamic>?> _exerciseDataCache = {};
+  final Map<String, Map<String, dynamic>?> _exerciseDataCache = {};
 
   @override
   void initState() {
@@ -60,6 +59,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
 
         if (imageUrl.isNotEmpty && !_preloadedImages.contains(imageUrl)) {
           _preloadedImages.add(imageUrl);
+          if (!mounted) return;
           precacheImage(NetworkImage(imageUrl), context).catchError((error) {
             // Silently handle preload failures
             print('Failed to preload image for $exerciseName: $imageUrl');
@@ -113,7 +113,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
       leading: Container(
         margin: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.2),
+          color: Colors.black.withAlpha(((0.2) * 255).round()),
           borderRadius: BorderRadius.circular(12),
         ),
         child: IconButton(
@@ -127,7 +127,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
           Container(
             margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withAlpha(((0.2) * 255).round()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
@@ -154,7 +154,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
               end: Alignment.bottomCenter,
               colors: [
                 workoutColor,
-                workoutColor.withOpacity(0.9),
+                workoutColor.withAlpha(((0.9) * 255).round()),
               ],
             ),
           ),
@@ -192,13 +192,13 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                               ]),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.auto_awesome,
+                                Icon(Icons.auto_awesome,
                                     size: 14, color: Colors.white),
-                                const SizedBox(width: 6),
-                                const Text(
+                                SizedBox(width: 6),
+                                Text(
                                   'AI Generated',
                                   style: TextStyle(
                                     fontSize: 12,
@@ -214,7 +214,8 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.25),
+                              color: Colors.white
+                                  .withAlpha(((0.25) * 255).round()),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -235,16 +236,17 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withOpacity(0.9),
+                              color: const Color(0xFF10B981)
+                                  .withAlpha(((0.9) * 255).round()),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.science,
+                                Icon(Icons.science,
                                     size: 14, color: Colors.white),
-                                const SizedBox(width: 6),
-                                const Text(
+                                SizedBox(width: 6),
+                                Text(
                                   'ExerciseDB',
                                   style: TextStyle(
                                     fontSize: 12,
@@ -274,7 +276,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                       '${widget.routine.exercises.length} exercises • ${widget.routine.estimatedDurationMinutes} min',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withAlpha(((0.9) * 255).round()),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -284,7 +286,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                         'Powered by professional exercise database',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withAlpha(((0.7) * 255).round()),
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -382,7 +384,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(((0.05) * 255).round()),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -450,7 +452,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(((0.05) * 255).round()),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -565,7 +567,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withAlpha(((0.08) * 255).round()),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -582,7 +584,8 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    _getCategoryColor(category).withOpacity(0.8),
+                    _getCategoryColor(category)
+                        .withAlpha(((0.8) * 255).round()),
                     _getCategoryColor(category),
                   ],
                 ),
@@ -597,7 +600,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(0.7),
+                    Colors.black.withAlpha(((0.7) * 255).round()),
                   ],
                 ),
               ),
@@ -610,7 +613,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withAlpha(((0.9) * 255).round()),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Center(
@@ -634,7 +637,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.9),
+                    color: Colors.green.withAlpha(((0.9) * 255).round()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -653,7 +656,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withAlpha(((0.9) * 255).round()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -695,7 +698,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.black.withAlpha(((0.6) * 255).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -794,14 +797,14 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
   }
 
   Widget _buildImageLoadingState() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       height: double.infinity,
       child: Center(
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          valueColor:
-              AlwaysStoppedAnimation<Color>(Colors.white.withOpacity(0.8)),
+          valueColor: AlwaysStoppedAnimation<Color>(
+              Colors.white.withAlpha(((0.8) * 255).round())),
         ),
       ),
     );
@@ -816,7 +819,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            _getCategoryColor(category).withOpacity(0.8),
+            _getCategoryColor(category).withAlpha(((0.8) * 255).round()),
             _getCategoryColor(category),
           ],
         ),
@@ -828,7 +831,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withAlpha(((0.2) * 255).round()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -926,12 +929,14 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
         gradient: isAIGenerated
             ? const LinearGradient(
                 colors: [Color(0xFFFF6B35), Color(0xFF4F46E5)])
-            : LinearGradient(
-                colors: [workoutColor, workoutColor.withOpacity(0.8)]),
+            : LinearGradient(colors: [
+                workoutColor,
+                workoutColor.withAlpha(((0.8) * 255).round())
+              ]),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: workoutColor.withOpacity(0.3),
+            color: workoutColor.withAlpha(((0.3) * 255).round()),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -1030,7 +1035,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                           decoration: BoxDecoration(
                             color: _getCategoryColor(_imageService
                                     .getExerciseCategory(exerciseName))
-                                .withOpacity(0.1),
+                                .withAlpha(((0.1) * 255).round()),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
@@ -1059,7 +1064,8 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black
+                                      .withAlpha(((0.1) * 255).round()),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -1160,9 +1166,9 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen> {
                           (exerciseData['instructions'] as List)
                               .isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        Text(
+                        const Text(
                           'Exercise Instructions',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF1a1a1a),
@@ -1350,7 +1356,6 @@ class _ModernPatternPainter extends CustomPainter {
   void _drawHexagon(Canvas canvas, Offset center, double radius, Paint paint) {
     final path = Path();
     for (int i = 0; i < 6; i++) {
-      final angle = (i * 60) * (3.14159 / 180);
       final x = center.dx +
           radius * (i == 0 ? 1 : (i < 3 ? 0.5 : (i == 3 ? -1 : -0.5)));
       final y = center.dy +

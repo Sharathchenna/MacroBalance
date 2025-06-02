@@ -137,7 +137,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
           'Enter your email address and we\'ll send you a link to reset your password',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: customColors?.textPrimary.withOpacity(0.7),
+            color: customColors?.textPrimary.withAlpha((0.7 * 255).round()),
           ),
         ),
         const SizedBox(height: 40),
@@ -177,7 +177,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                   ),
                 )
               : Text(
-                  "Reset Password",
+                  'Reset Password',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -214,7 +214,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
           'We\'ve sent a password reset link to:\n${_emailController.text}',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: customColors?.textPrimary.withOpacity(0.8),
+            color: customColors?.textPrimary.withAlpha((0.8 * 255).round()),
           ),
         ),
         const SizedBox(height: 32),
@@ -222,14 +222,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
           'Please check your inbox and follow the instructions to reset your password.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: customColors?.textPrimary.withOpacity(0.7),
+            color: customColors?.textPrimary.withAlpha((0.7 * 255).round()),
           ),
         ),
         const SizedBox(height: 40),
         OutlinedButton(
           onPressed: () => Navigator.of(context).pop(),
           style: OutlinedButton.styleFrom(
-            side: BorderSide(color: customColors!.textPrimary.withOpacity(0.3)),
+            side: BorderSide(color: customColors!.textPrimary.withAlpha((0.3 * 255).round())),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -238,7 +238,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
           child: Text(
             'Return to Login',
             style: TextStyle(
-              color: customColors.textPrimary.withOpacity(0.8),
+              color: customColors.textPrimary.withAlpha((0.8 * 255).round()),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -276,7 +276,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: TextStyle(
-          color: customColors.textPrimary.withOpacity(0.5),
+          color: customColors.textPrimary.withAlpha((0.5 * 255).round()),
           fontSize: 14,
         ),
         filled: true,
@@ -284,7 +284,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: customColors.textPrimary.withOpacity(0.5),
+                color: customColors.textPrimary.withAlpha((0.5 * 255).round()),
               )
             : null,
         contentPadding:
@@ -297,7 +297,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             width: 1,
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: Theme.of(context).primaryColor.withAlpha((0.1 * 255).round()),
           ),
         ),
         focusedBorder: OutlineInputBorder(

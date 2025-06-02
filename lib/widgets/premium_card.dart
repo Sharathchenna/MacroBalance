@@ -35,12 +35,12 @@ class PremiumCard extends StatelessWidget {
     VoidCallback? onTap,
   }) {
     return PremiumCard(
-      child: child,
       padding: padding,
       backgroundColor: backgroundColor,
       elevated: false,
       onTap: onTap,
       customShadow: AppTheme.subtleShadow,
+      child: child,
     );
   }
 
@@ -51,11 +51,11 @@ class PremiumCard extends StatelessWidget {
     VoidCallback? onTap,
   }) {
     return PremiumCard(
-      child: child,
       padding: padding,
       glassmorphism: true,
       elevated: false,
       onTap: onTap,
+      child: child,
     );
   }
 
@@ -67,12 +67,12 @@ class PremiumCard extends StatelessWidget {
     VoidCallback? onTap,
   }) {
     return PremiumCard(
-      child: child,
       padding: padding,
       backgroundColor: backgroundColor,
       elevated: true,
       onTap: onTap,
       customShadow: AppTheme.elevatedShadow,
+      child: child,
     );
   }
 
@@ -85,8 +85,8 @@ class PremiumCard extends StatelessWidget {
     Color finalBackgroundColor;
     if (glassmorphism) {
       finalBackgroundColor = isDark
-          ? Colors.white.withOpacity(0.05)
-          : Colors.white.withOpacity(0.1);
+          ? Colors.white.withAlpha(((0.05) * 255).round())
+          : Colors.white.withAlpha(((0.1) * 255).round());
     } else {
       finalBackgroundColor =
           backgroundColor ?? (isDark ? PremiumColors.slate800 : Colors.white);
@@ -107,11 +107,11 @@ class PremiumCard extends StatelessWidget {
         Border.all(
           color: glassmorphism
               ? (isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.white.withOpacity(0.2))
+                  ? Colors.white.withAlpha(((0.1) * 255).round())
+                  : Colors.white.withAlpha(((0.2) * 255).round()))
               : (isDark
-                  ? PremiumColors.slate600.withOpacity(0.3)
-                  : PremiumColors.slate200.withOpacity(0.6)),
+                  ? PremiumColors.slate600.withAlpha(((0.3) * 255).round())
+                  : PremiumColors.slate200.withAlpha(((0.6) * 255).round())),
           width: glassmorphism ? 1.5 : 1,
         );
 
@@ -138,8 +138,8 @@ class PremiumCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(borderRadius),
-          splashColor: theme.colorScheme.primary.withOpacity(0.1),
-          highlightColor: theme.colorScheme.primary.withOpacity(0.05),
+          splashColor: theme.colorScheme.primary.withAlpha(((0.1) * 255).round()),
+          highlightColor: theme.colorScheme.primary.withAlpha(((0.05) * 255).round()),
           child: cardContent,
         ),
       );
@@ -189,7 +189,7 @@ class PremiumSectionCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    color: theme.colorScheme.primary.withAlpha(((0.1) * 255).round()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -262,7 +262,7 @@ class PremiumSectionCard extends StatelessWidget {
                 ? Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      color: theme.colorScheme.primary.withAlpha(((0.1) * 255).round()),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:macrotracker/screens/Dashboard.dart';
-import 'package:macrotracker/screens/StepsTrackingScreen.dart';
-import 'package:macrotracker/screens/WeightTrackingScreen.dart';
-import 'package:macrotracker/screens/MacroTrackingScreen.dart';
+import 'package:macrotracker/screens/dashboard.dart';
+import 'package:macrotracker/screens/steps_tracking_screen.dart';
+import 'package:macrotracker/screens/weight_tracking_screen.dart';
+import 'package:macrotracker/screens/macro_tracking_screen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/camera/camera.dart';

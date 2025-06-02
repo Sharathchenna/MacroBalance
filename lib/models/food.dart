@@ -124,18 +124,24 @@ class FoodItem {
       };
 
       // Add optional nutrients if they exist
-      if (firstServing.polyunsaturatedFat != null)
+      if (firstServing.polyunsaturatedFat != null) {
         nutrients['Polyunsaturated Fat'] = firstServing.polyunsaturatedFat!;
-      if (firstServing.monounsaturatedFat != null)
+      }
+      if (firstServing.monounsaturatedFat != null) {
         nutrients['Monounsaturated Fat'] = firstServing.monounsaturatedFat!;
-      if (firstServing.transFat != null)
+      }
+      if (firstServing.transFat != null) {
         nutrients['Trans Fat'] = firstServing.transFat!;
-      if (firstServing.cholesterol != null)
+      }
+      if (firstServing.cholesterol != null) {
         nutrients['Cholesterol'] = firstServing.cholesterol!;
-      if (firstServing.sodium != null)
+      }
+      if (firstServing.sodium != null) {
         nutrients['Sodium'] = firstServing.sodium!;
-      if (firstServing.potassium != null)
+      }
+      if (firstServing.potassium != null) {
         nutrients['Potassium'] = firstServing.potassium!;
+      }
       if (firstServing.fiber != null) nutrients['Fiber'] = firstServing.fiber!;
       if (firstServing.sugar != null) nutrients['Sugar'] = firstServing.sugar!;
     }

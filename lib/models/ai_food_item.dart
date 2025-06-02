@@ -1,5 +1,3 @@
-import 'package:macrotracker/screens/searchPage.dart';
-
 class AIFoodItem {
   final String name;
   final List<String> servingSizes;

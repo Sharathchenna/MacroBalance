@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/Health/Health.dart';
 import 'package:provider/provider.dart';
-import 'package:macrotracker/providers/themeProvider.dart';
+import 'package:macrotracker/providers/theme_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:async';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
@@ -20,12 +20,12 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
   final HealthService _healthService = HealthService();
   bool _isHealthConnected = false;
   bool _isLoading = true;
-  String _healthDataStatus = "Checking connection...";
+  String _healthDataStatus = 'Checking connection...';
 
   // Health data
   int _steps = 0;
   double _calories = 0;
-  String _heightWeight = "No data";
+  String _heightWeight = 'No data';
 
   // Permission statuses
   final Map<String, bool> _permissions = {
@@ -47,8 +47,8 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
       _isHealthConnected =
           StorageService().get('healthConnected', defaultValue: false);
       _healthDataStatus = _isHealthConnected
-          ? "Connected to Health App"
-          : "Not connected to Health App";
+          ? 'Connected to Health App'
+          : 'Not connected to Health App';
     });
     if (_isHealthConnected) {
       _fetchHealthData(); // Keep this async as it fetches data
@@ -65,7 +65,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
   Future<void> _connectHealthApp() async {
     setState(() {
       _isLoading = true;
-      _healthDataStatus = "Requesting permissions...";
+      _healthDataStatus = 'Requesting permissions...';
     });
 
     try {
@@ -73,25 +73,25 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
       setState(() {
         _isHealthConnected = granted;
         _healthDataStatus = granted
-            ? "Successfully connected to Health App"
-            : "Permission denied for Health App";
+            ? 'Successfully connected to Health App'
+            : 'Permission denied for Health App';
       });
       _saveConnectionStatus(
           _isHealthConnected); // Save the status (now synchronous)
 
       if (granted) {
         await _fetchHealthData();
-        _showSuccessSnackbar("Successfully connected to Health App");
+        _showSuccessSnackbar('Successfully connected to Health App');
       } else {
         _showErrorSnackbar(
-            "Failed to connect to Health App: Permission denied");
+            'Failed to connect to Health App: Permission denied');
       }
     } catch (e) {
       setState(() {
-        _healthDataStatus = "Error connecting to Health App";
+        _healthDataStatus = 'Error connecting to Health App';
       });
       debugPrint('Failed to connect to Health App: $e');
-      _showErrorSnackbar("Failed to connect to Health App");
+      _showErrorSnackbar('Failed to connect to Health App');
     } finally {
       setState(() {
         _isLoading = false;
@@ -118,12 +118,12 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
         // Update permissions based on successful data retrieval
         _permissions['Steps'] = steps > 0;
         _permissions['Calories'] = calories > 0;
-        _permissions['Height & Weight'] = heightWeight != "Error" &&
-            heightWeight != "Height or weight data not available";
+        _permissions['Height & Weight'] = heightWeight != 'Error' &&
+            heightWeight != 'Height or weight data not available';
       });
     } catch (e) {
       debugPrint('Failed to fetch health data: $e');
-      _showErrorSnackbar("Failed to fetch health data");
+      _showErrorSnackbar('Failed to fetch health data');
     }
   }
 
@@ -153,13 +153,12 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
-        final isDarkMode = themeProvider.isDarkMode;
         final colorScheme = Theme.of(context).colorScheme;
         final customColors = Theme.of(context).extension<CustomColors>();
 
         return Scaffold(
           backgroundColor:
-              customColors?.cardBackground ?? colorScheme.background,
+              customColors?.cardBackground ?? colorScheme.surface,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -168,7 +167,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
+                  color: colorScheme.primary.withAlpha((0.1 * 255).round()),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(CupertinoIcons.back,
@@ -179,7 +178,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
             title: Text(
               'Health Integration',
               style: GoogleFonts.poppins(
-                color: colorScheme.onBackground,
+                color: colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
                 fontSize: 20,
               ),
@@ -247,7 +246,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.1),
+            color: colorScheme.shadow.withAlpha((0.1 * 255).round()),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -258,7 +257,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withAlpha((0.2 * 255).round()),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -275,7 +274,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _isHealthConnected ? "Connected" : "Not Connected",
+                  _isHealthConnected ? 'Connected' : 'Not Connected',
                   style: GoogleFonts.poppins(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -285,11 +284,11 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
                 const SizedBox(height: 4),
                 Text(
                   _isHealthConnected
-                      ? "Your health data is being synced"
-                      : "Connect to sync your health data",
+                      ? 'Your health data is being synced'
+                      : 'Connect to sync your health data',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withAlpha((0.9 * 255).round()),
                   ),
                 ),
               ],
@@ -314,7 +313,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
         'icon': CupertinoIcons.flame_fill,
         'color': Colors.orange,
         'title': 'Calories Burned',
-        'value': '${_calories.toStringAsFixed(0)}',
+        'value': _calories.toStringAsFixed(0),
         'subtitle': 'calories',
       },
       {
@@ -332,11 +331,11 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
         Padding(
           padding: const EdgeInsets.only(left: 8, bottom: 12),
           child: Text(
-            "Health Data",
+            'Health Data',
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: colorScheme.onBackground,
+              color: colorScheme.onSurface,
             ),
           ),
         ),
@@ -370,7 +369,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
+            color: colorScheme.shadow.withAlpha((0.05 * 255).round()),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -382,7 +381,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withAlpha((0.1 * 255).round()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -396,7 +395,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
                   title,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: colorScheme.onSurface.withOpacity(0.7),
+                    color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -425,10 +424,10 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
                       ),
                       if (subtitle.isNotEmpty)
                         Text(
-                          " $subtitle",
+                          ' $subtitle',
                           style: GoogleFonts.poppins(
                             fontSize: 16,
-                            color: colorScheme.onSurface.withOpacity(0.7),
+                            color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
                           ),
                         ),
                     ],
@@ -449,7 +448,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
         Padding(
           padding: const EdgeInsets.only(left: 8, bottom: 12),
           child: Text(
-            "Health Permissions",
+            'Health Permissions',
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -463,7 +462,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: colorScheme.shadow.withOpacity(0.05),
+                color: colorScheme.shadow.withAlpha((0.05 * 255).round()),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -496,8 +495,8 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: granted
-              ? Colors.green.withOpacity(0.1)
-              : Colors.grey.withOpacity(0.1),
+              ? Colors.green.withAlpha((0.1 * 255).round())
+              : Colors.grey.withAlpha((0.1 * 255).round()),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
@@ -513,10 +512,10 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
         ),
       ),
       subtitle: Text(
-        granted ? "Permission granted" : "Permission not granted",
+        granted ? 'Permission granted' : 'Permission not granted',
         style: GoogleFonts.poppins(
           fontSize: 14,
-          color: colorScheme.onSurface.withOpacity(0.6),
+          color: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
         ),
       ),
     );
@@ -532,7 +531,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
               onPressed: _connectHealthApp,
               icon: const Icon(CupertinoIcons.link),
               label: Text(
-                "Connect to Health App",
+                'Connect to Health App',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -555,7 +554,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
               onPressed: _fetchHealthData,
               icon: const Icon(CupertinoIcons.refresh),
               label: Text(
-                "Refresh Health Data",
+                'Refresh Health Data',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

@@ -6,14 +6,14 @@ class ShimmerLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildShimmerBox(height: 200),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           _buildShimmerBox(height: 24, width: 200),
-          SizedBox(height: 32),
+          const SizedBox(height: 32),
           ...List.generate(5, (index) => _buildShimmerRow()),
         ],
       ),
@@ -41,7 +41,7 @@ class ShimmerLoading extends StatelessWidget {
 
   Widget _buildShimmerRow() {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -62,9 +62,9 @@ class ShimmerLoading extends StatelessWidget {
             Colors.grey[350]!,
             Colors.grey[200]!,
           ],
-          stops: [0.0, 0.5, 1.0],
-          begin: Alignment(-1.0, -0.3),
-          end: Alignment(1.0, 0.3),
+          stops: const [0.0, 0.5, 1.0],
+          begin: const Alignment(-1.0, -0.3),
+          end: const Alignment(1.0, 0.3),
           tileMode: TileMode.clamp,
         ).createShader(bounds);
       },

@@ -7,11 +7,11 @@ class CaloriesCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const CaloriesCard({
-    Key? key,
+    super.key,
     required this.consumedCalories,
     required this.goalCalories,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +28,7 @@ class CaloriesCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withAlpha(((0.05) * 255).round()),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -37,7 +37,7 @@ class CaloriesCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Theme.of(context).primaryColor.withOpacity(0.6),
+              Theme.of(context).primaryColor.withAlpha(((0.6) * 255).round()),
               Theme.of(context).primaryColor,
             ],
           ),
@@ -53,7 +53,7 @@ class CaloriesCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withAlpha(((0.2) * 255).round()),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
@@ -63,7 +63,7 @@ class CaloriesCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Text(
+                    const Text(
                       'Calories',
                       style: TextStyle(
                         fontSize: 16,
@@ -77,7 +77,7 @@ class CaloriesCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withAlpha(((0.2) * 255).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -105,7 +105,7 @@ class CaloriesCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withAlpha(((0.8) * 255).round()),
               ),
             ),
             const SizedBox(height: 10),
@@ -114,7 +114,7 @@ class CaloriesCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 8,
-                backgroundColor: Colors.white.withOpacity(0.2),
+                backgroundColor: Colors.white.withAlpha(((0.2) * 255).round()),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
@@ -124,7 +124,7 @@ class CaloriesCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withAlpha(((0.8) * 255).round()),
               ),
             ),
           ],

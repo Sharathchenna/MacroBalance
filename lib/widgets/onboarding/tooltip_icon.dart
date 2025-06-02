@@ -16,7 +16,7 @@ class TooltipIcon extends StatelessWidget {
       triggerMode: TooltipTriggerMode.tap,
       showDuration: const Duration(seconds: 3),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withOpacity(0.9),
+        color: theme.colorScheme.primary.withAlpha(((0.9) * 255).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       textStyle: TextStyle(

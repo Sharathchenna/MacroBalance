@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 import 'dart:async';
@@ -13,7 +12,8 @@ import 'package:macrotracker/services/auth_service.dart'; // Import AuthService
 import 'package:firebase_messaging/firebase_messaging.dart'; // Import FirebaseMessaging
 import 'dart:io' show Platform; // Import Platform
 import 'package:device_info_plus/device_info_plus.dart'; // Import DeviceInfoPlugin
-
+import '../../widgets/referral_code_dialog.dart'; // Import ReferralCodeDialog
+import 'package:macrotracker/services/superwall_service.dart'; // Import SuperwallService
 
 class CustomPaywallScreen extends StatefulWidget {
   final VoidCallback
@@ -23,11 +23,11 @@ class CustomPaywallScreen extends StatefulWidget {
   final bool allowDismissal;
 
   const CustomPaywallScreen({
-    Key? key,
+    super.key,
     required this.onDismiss,
     this.onBackPressedOverride, // Add to constructor
     this.allowDismissal = true,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomPaywallScreen> createState() => _CustomPaywallScreenState();
@@ -41,7 +41,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
   bool _isPurchasing = false;
   // bool _isTrialMode = true; // No longer needed, rely on introductoryPrice
   bool _isReturningUser = false; // Flag to identify returning users
-  bool _showDismissButton = false; // Initially hide dismiss button
+  // Initially hide dismiss button
   bool _showScrollIndicator = true; // Control scroll indicator visibility
 
   // UI Controllers
@@ -52,7 +52,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
   Timer? _dismissButtonTimer;
   int _currentPage = 0;
   final AuthService _authService = AuthService(); // Instantiate AuthService
-  final DeviceInfoPlugin _deviceInfoPlugin = DeviceInfoPlugin(); // Instantiate DeviceInfoPlugin
+  final DeviceInfoPlugin _deviceInfoPlugin =
+      DeviceInfoPlugin(); // Instantiate DeviceInfoPlugin
 
   // Features for carousel with enhanced descriptions
   final List<Map<String, dynamic>> _features = [
@@ -97,6 +98,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       vsync: this,
       duration: const Duration(seconds: 5),
     )..repeat(reverse: false);
+
+    // Check for stored referral code and apply it if found
+    _checkForStoredReferralCode();
     _pageController.addListener(() {
       int nextPage = _pageController.page!.round();
       if (_currentPage != nextPage) {
@@ -128,9 +132,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     // Delay showing dismiss button
     _dismissButtonTimer = Timer(const Duration(seconds: 5), () {
       if (mounted) {
-        setState(() {
-          _showDismissButton = true;
-        });
+        setState(() {});
       }
     });
   }
@@ -209,19 +211,24 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       try {
         await Purchases.setEmail(user.email!);
         // Attempt to get name from metadata, checking common keys
-        final displayName = user.userMetadata?['full_name'] ?? user.userMetadata?['name'];
-        if (displayName != null && displayName is String && displayName.isNotEmpty) {
+        final displayName =
+            user.userMetadata?['full_name'] ?? user.userMetadata?['name'];
+        if (displayName != null &&
+            displayName is String &&
+            displayName.isNotEmpty) {
           await Purchases.setDisplayName(displayName);
         }
-        debugPrint('Set RevenueCat attributes: email=${user.email}, name=$displayName');
+        debugPrint(
+            'Set RevenueCat attributes: email=${user.email}, name=$displayName');
       } catch (e) {
         debugPrint('Error setting RevenueCat attributes: $e');
         // Decide if you want to proceed with purchase even if attributes fail
         // For now, we'll proceed. Consider adding error handling if setting attributes is critical.
       }
     } else {
-       debugPrint('User not logged in or email missing, cannot set RevenueCat attributes.');
-       // Consider showing an error or preventing purchase if user must be logged in
+      debugPrint(
+          'User not logged in or email missing, cannot set RevenueCat attributes.');
+      // Consider showing an error or preventing purchase if user must be logged in
     }
 
     // Set push token before purchase
@@ -236,7 +243,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           debugPrint('Could not get push token to set in RevenueCat.');
         }
       } else {
-         debugPrint('Push notifications not supported on this platform.');
+        debugPrint('Push notifications not supported on this platform.');
       }
     } catch (e) {
       debugPrint('Error setting RevenueCat push token: $e');
@@ -248,10 +255,11 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       String? osVersion;
       if (Platform.isAndroid) {
         final androidInfo = await _deviceInfoPlugin.androidInfo;
-        osVersion = "Android ${androidInfo.version.release}"; // e.g., "Android 14"
+        osVersion =
+            'Android ${androidInfo.version.release}'; // e.g., "Android 14"
       } else if (Platform.isIOS) {
         final iosInfo = await _deviceInfoPlugin.iosInfo;
-        osVersion = "iOS ${iosInfo.systemVersion}"; // e.g., "iOS 17.4"
+        osVersion = 'iOS ${iosInfo.systemVersion}'; // e.g., "iOS 17.4"
       }
 
       if (osVersion != null) {
@@ -265,17 +273,18 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       // Decide if you want to proceed with purchase even if attribute setting fails
     }
 
-
     try {
       final customerInfo = await Purchases.purchasePackage(package);
       if (customerInfo.entitlements.active.isNotEmpty) {
         // Navigate to Dashboard and clear the stack
+        if (!mounted) return; // Check mounted before using context
         Navigator.pushNamedAndRemoveUntil(
             context,
             RouteNames.dashboard,
             (Route<dynamic> route) =>
                 false); // Corrected class name and route name
       } else {
+        if (!mounted) return; // Check mounted before using context
         _showError(
             'Purchase completed but your subscription could not be activated. Please contact support.');
       }
@@ -326,6 +335,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     });
     try {
       final customerInfo = await Purchases.restorePurchases();
+      if (!mounted) return; // Check mounted before using context
       if (customerInfo.entitlements.active.isNotEmpty) {
         // Navigate to Dashboard and clear the stack
         Navigator.pushNamedAndRemoveUntil(
@@ -334,6 +344,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
             (Route<dynamic> route) =>
                 false); // Corrected class name and route name
       } else {
+        if (!mounted) return; // Check mounted before using context
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No previous purchases found'),
@@ -430,6 +441,28 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     _startCarouselTimer();
   }
 
+  /// Check for stored referral code and apply special pricing if found
+  void _checkForStoredReferralCode() {
+    final storedCode = SuperwallService().storedReferralCode;
+    if (storedCode != null) {
+      debugPrint('Found stored referral code: $storedCode');
+      // You could modify pricing or show special messaging here
+      // For now, we'll just show a debug message
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Referral code "$storedCode" applied! Special pricing active.'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      });
+    }
+  }
+
   // Check if the user is returning based on RevenueCat data
   Future<void> _checkIfReturningUser() async {
     try {
@@ -440,8 +473,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           customerInfo.nonSubscriptionTransactions.isNotEmpty;
 
       // Check for any previous subscription history (active or expired)
-      final bool hasEntitlementHistory = customerInfo.entitlements.all.values
-          .any((entitlement) => entitlement.originalPurchaseDate != null);
+      final bool hasEntitlementHistory =
+          customerInfo.entitlements.all.isNotEmpty;
 
       // Check if they had any past subscription periods (more comprehensive)
       final bool hasSubscriptionHistory =
@@ -640,7 +673,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                   child: IconButton(
                     icon: Icon(
                       Icons.arrow_back_ios,
-                      color: textColor.withOpacity(0.8),
+                      color: textColor.withAlpha((0.8 * 255).round()),
                       size: 20,
                     ),
                     onPressed: widget.allowDismissal
@@ -766,7 +799,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: accentColor.withOpacity(0.4),
+                                        color: accentColor
+                                            .withAlpha((0.4 * 255).round()),
                                         blurRadius: 12,
                                         offset: const Offset(0, 4),
                                       ),
@@ -794,8 +828,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                       backgroundColor: Colors.transparent,
                                       disabledBackgroundColor:
                                           Colors.transparent,
-                                      disabledForegroundColor:
-                                          Colors.white.withOpacity(0.5),
+                                      disabledForegroundColor: Colors.white
+                                          .withAlpha((0.5 * 255).round()),
                                       shadowColor: Colors.transparent,
                                       elevation: 0,
                                       shape: RoundedRectangleBorder(
@@ -818,8 +852,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                               Text(
                                                 // Show "Start Free Trial" only if trial is available
                                                 isTrialAvailable
-                                                    ? "Start Free Trial"
-                                                    : "Subscribe Now",
+                                                    ? 'Start Free Trial'
+                                                    : 'Subscribe Now',
                                                 style: const TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.bold,
@@ -845,7 +879,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               ),
                             ),
 
-                            // Restore/Redeem buttons
+                            // Restore/Redeem/Referral buttons
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -859,20 +893,19 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                               _restorePurchases();
                                             },
                                       style: TextButton.styleFrom(
-                                        foregroundColor:
-                                            textColor.withOpacity(0.6),
+                                        foregroundColor: textColor
+                                            .withAlpha((0.6 * 255).round()),
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 8),
+                                            horizontal: 8, vertical: 8),
                                       ),
                                       child: const Row(
-                                        // Added const
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.restore, size: 14),
-                                          SizedBox(width: 6),
+                                          Icon(Icons.restore, size: 12),
+                                          SizedBox(width: 4),
                                           Text(
-                                            "Restore",
-                                            style: TextStyle(fontSize: 13),
+                                            'Restore',
+                                            style: TextStyle(fontSize: 11),
                                           ),
                                         ],
                                       ),
@@ -882,7 +915,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                 Container(
                                   height: 16,
                                   width: 1,
-                                  color: textColor.withOpacity(0.2),
+                                  color:
+                                      textColor.withAlpha((0.2 * 255).round()),
                                 ),
                                 Expanded(
                                   child: Center(
@@ -890,8 +924,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                       onPressed: _isPurchasing
                                           ? null
                                           : () async {
-                                              if (_isPurchasing)
+                                              if (_isPurchasing) {
                                                 return; // Prevent double taps
+                                              }
                                               HapticFeedback.mediumImpact();
                                               setState(() {
                                                 _isPurchasing = true;
@@ -908,28 +943,41 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                                 const String
                                                     premiumEntitlementId =
                                                     'pro';
-                                                if (customerInfo
-                                                    .entitlements.active
-                                                    .containsKey(
-                                                        premiumEntitlementId)) {
-                                                  // Redemption successful, navigate to dashboard
-                                                  Navigator
-                                                      .pushNamedAndRemoveUntil(
-                                                          context,
-                                                          RouteNames.dashboard,
-                                                          (Route<dynamic>
-                                                                  route) =>
-                                                              false);
+
+                                                final bool hasEntitlement =
+                                                    customerInfo
+                                                        .entitlements.active
+                                                        .containsKey(
+                                                            premiumEntitlementId);
+
+                                                // Safe to use context only if widget is still mounted
+                                                if (mounted && hasEntitlement) {
+                                                  // Use a post-frame callback to avoid build context issues
+                                                  WidgetsBinding.instance
+                                                      .addPostFrameCallback(
+                                                          (_) {
+                                                    Navigator
+                                                        .pushNamedAndRemoveUntil(
+                                                            context,
+                                                            RouteNames
+                                                                .dashboard,
+                                                            (Route<dynamic>
+                                                                    route) =>
+                                                                false);
+                                                  });
+                                                } else if (!mounted) {
+                                                  // Widget was disposed, do nothing
+                                                  return;
                                                 } else {
                                                   // Optional: Show a message if redemption didn't grant access
                                                   debugPrint(
-                                                      "Redemption sheet closed, but no active premium entitlement found.");
+                                                      'Redemption sheet closed, but no active premium entitlement found.');
                                                 }
                                               } catch (e) {
                                                 debugPrint(
-                                                    "Error presenting code redemption sheet or checking info: $e");
+                                                    'Error presenting code redemption sheet or checking info: $e');
                                                 _showError(
-                                                    "Could not open the redeem code screen. Please try again later.");
+                                                    'Could not open the redeem code screen. Please try again later.');
                                               } finally {
                                                 if (mounted) {
                                                   setState(() {
@@ -939,20 +987,69 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                               }
                                             },
                                       style: TextButton.styleFrom(
-                                        foregroundColor:
-                                            textColor.withOpacity(0.6),
+                                        foregroundColor: textColor
+                                            .withAlpha((0.6 * 255).round()),
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 8),
+                                            horizontal: 8, vertical: 8),
                                       ),
                                       child: const Row(
-                                        // Added const
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(Icons.card_giftcard, size: 14),
-                                          SizedBox(width: 6),
+                                          Icon(Icons.card_giftcard, size: 12),
+                                          SizedBox(width: 4),
                                           Text(
-                                            "Redeem",
-                                            style: TextStyle(fontSize: 13),
+                                            'Redeem',
+                                            style: TextStyle(fontSize: 11),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  height: 16,
+                                  width: 1,
+                                  color:
+                                      textColor.withAlpha((0.2 * 255).round()),
+                                ),
+                                Expanded(
+                                  child: Center(
+                                    child: TextButton(
+                                      onPressed: _isPurchasing
+                                          ? null
+                                          : () {
+                                              HapticFeedback.mediumImpact();
+                                              showDialog<void>(
+                                                context: context,
+                                                builder: (context) =>
+                                                    ReferralCodeDialog(
+                                                  onSuccess: () {
+                                                    // Referral code was successfully applied
+                                                    // The dialog will handle showing the Superwall paywall
+                                                    debugPrint(
+                                                        'Referral code applied successfully');
+                                                  },
+                                                  onCancel: () {
+                                                    debugPrint(
+                                                        'Referral code dialog cancelled');
+                                                  },
+                                                ),
+                                              );
+                                            },
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: textColor
+                                            .withAlpha((0.6 * 255).round()),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 8),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.local_offer, size: 12),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Promo',
+                                            style: TextStyle(fontSize: 11),
                                           ),
                                         ],
                                       ),
@@ -975,10 +1072,11 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 6),
                                     minimumSize: const Size(50, 30),
-                                    foregroundColor: textColor.withOpacity(0.6),
+                                    foregroundColor: textColor
+                                        .withAlpha((0.6 * 255).round()),
                                   ),
                                   child: const Text(
-                                    "Terms",
+                                    'Terms',
                                     style: TextStyle(
                                       fontSize: 12,
                                       decoration: TextDecoration.underline,
@@ -986,10 +1084,11 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                   ),
                                 ),
                                 Text(
-                                  "•",
+                                  '•',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: textColor.withOpacity(0.4),
+                                    color: textColor
+                                        .withAlpha((0.4 * 255).round()),
                                   ),
                                 ),
                                 TextButton(
@@ -1001,10 +1100,11 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 6),
                                     minimumSize: const Size(50, 30),
-                                    foregroundColor: textColor.withOpacity(0.6),
+                                    foregroundColor: textColor
+                                        .withAlpha((0.6 * 255).round()),
                                   ),
                                   child: const Text(
-                                    "Privacy Policy",
+                                    'Privacy Policy',
                                     style: TextStyle(
                                       fontSize: 12,
                                       decoration: TextDecoration.underline,
@@ -1031,8 +1131,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           Positioned.fill(
             child: Container(
               color: isDark
-                  ? Colors.black.withOpacity(0.7)
-                  : Colors.white.withOpacity(0.7),
+                  ? Colors.black.withAlpha((0.7 * 255).round())
+                  : Colors.white.withAlpha((0.7 * 255).round()),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1044,7 +1144,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withAlpha((0.1 * 255).round()),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -1063,7 +1163,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           ),
                           const SizedBox(height: 24),
                           Text(
-                            "Processing your premium upgrade...",
+                            'Processing your premium upgrade...',
                             style: TextStyle(
                               color: textColor,
                               fontSize: 16,
@@ -1072,9 +1172,9 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "This will only take a moment",
+                            'This will only take a moment',
                             style: TextStyle(
-                              color: textColor.withOpacity(0.6),
+                              color: textColor.withAlpha((0.6 * 255).round()),
                               fontSize: 14,
                             ),
                           ),
@@ -1121,7 +1221,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       if (monthlyPrice > 0) {
         int savingsPercentage =
             ((1 - (annualPricePerMonth / monthlyPrice)) * 100).round();
-        savingsText = "$savingsPercentage%";
+        savingsText = '$savingsPercentage%';
       }
     }
 
@@ -1157,33 +1257,33 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
       switch (package.packageType) {
         case PackageType.monthly:
-          title = "Monthly";
+          title = 'Monthly';
           description = isTrialAvailableForPackage
-              ? "Free Trial Available" // Static text if trial exists
-              : "Auto-renewing plan";
-          billingInfo = "Billed monthly";
+              ? 'Free Trial Available' // Static text if trial exists
+              : 'Auto-renewing plan';
+          billingInfo = 'Billed monthly';
           break;
         case PackageType.annual:
-          title = "Annual";
+          title = 'Annual';
           description = isTrialAvailableForPackage
-              ? "Free Trial Available" // Static text if trial exists
-              : "Auto-renewing plan";
-          billingInfo = "Billed yearly";
+              ? 'Free Trial Available' // Static text if trial exists
+              : 'Auto-renewing plan';
+          billingInfo = 'Billed yearly';
           if (package.storeProduct.price > 0) {
             double monthlyEquivalent = package.storeProduct.price / 12;
             perMonthPrice =
-                "${package.storeProduct.currencyCode} ${monthlyEquivalent.toStringAsFixed(2)}/mo";
+                '${package.storeProduct.currencyCode} ${monthlyEquivalent.toStringAsFixed(2)}/mo';
           }
           break;
         case PackageType.lifetime:
-          title = "Lifetime";
-          description = "One-time payment";
-          billingInfo = "No recurring charges";
+          title = 'Lifetime';
+          description = 'One-time payment';
+          billingInfo = 'No recurring charges';
           break;
         default:
           title = package.packageType.name;
-          description = "Premium subscription";
-          billingInfo = "";
+          description = 'Premium subscription';
+          billingInfo = '';
       }
 
       cards.add(
@@ -1209,16 +1309,18 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
               decoration: BoxDecoration(
                 color: isSelected
                     ? highlightColor
-                    : const Color(0xFF1A1E33).withOpacity(0.7),
+                    : const Color(0xFF1A1E33).withAlpha((0.7 * 255).round()),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isSelected ? accentColor : textColor.withOpacity(0.1),
+                  color: isSelected
+                      ? accentColor
+                      : textColor.withAlpha((0.1 * 255).round()),
                   width: isSelected ? 2 : 1,
                 ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: accentColor.withOpacity(0.2),
+                          color: accentColor.withAlpha((0.2 * 255).round()),
                           blurRadius: 8,
                           spreadRadius: 1,
                           offset: const Offset(0, 2),
@@ -1243,7 +1345,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                             border: Border.all(
                               color: isSelected
                                   ? accentColor
-                                  : textColor.withOpacity(0.3),
+                                  : textColor.withAlpha((0.3 * 255).round()),
                               width: 2,
                             ),
                             color:
@@ -1286,7 +1388,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.normal,
-                                          color: textColor.withOpacity(0.7),
+                                          color: textColor
+                                              .withAlpha((0.7 * 255).round()),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -1294,7 +1397,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                   ],
                                 ],
                               ),
-                              if (description != null) ...[
+                              ...[
                                 const SizedBox(height: 4),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -1310,14 +1413,14 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color:
-                                                accentColor.withOpacity(0.15),
+                                            color: accentColor.withAlpha(
+                                                (0.15 * 255).round()),
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                           ),
                                           child: Text(
                                             // Static text for trial badge
-                                            "FREE TRIAL",
+                                            'FREE TRIAL',
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
@@ -1333,7 +1436,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                           description, // Show regular description if no trial
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: textColor.withOpacity(0.6),
+                                            color: textColor
+                                                .withAlpha((0.6 * 255).round()),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
@@ -1362,8 +1466,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                               billingInfo, // e.g., "Billed yearly"
                               style: TextStyle(
                                 fontSize: 12, // Slightly larger for clarity
-                                color: textColor.withOpacity(
-                                    0.7), // Consistent secondary color
+                                color: textColor.withValues(
+                                    alpha: 0.7), // Consistent secondary color
                               ),
                             ),
                           ],
@@ -1384,7 +1488,10 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [accentColor, goldAccent.withOpacity(0.8)],
+                            colors: [
+                              accentColor,
+                              goldAccent.withAlpha((0.8 * 255).round())
+                            ],
                           ),
                           borderRadius: const BorderRadius.only(
                             bottomLeft: Radius.circular(8),
@@ -1392,7 +1499,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: goldAccent.withOpacity(0.3),
+                              color: goldAccent.withAlpha((0.3 * 255).round()),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -1408,7 +1515,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              "SAVE $savingsText",
+                              'SAVE $savingsText',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
@@ -1446,11 +1553,11 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
           width: 65, // Even smaller
           height: 65, // Even smaller
           decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.05),
+            color: accentColor.withAlpha((0.05 * 255).round()),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: accentColor.withOpacity(0.1),
+                color: accentColor.withAlpha((0.1 * 255).round()),
                 blurRadius: 10,
                 spreadRadius: 1,
               ),
@@ -1501,19 +1608,13 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11, // Even smaller
-              color: textColor.withOpacity(0.7),
+              color: textColor.withAlpha((0.7 * 255).round()),
               height: 1.2, // Reduced line height
             ),
           ),
         ),
       ],
     );
-  }
-
-  String _calculateTrialEndDate() {
-    final DateTime now = DateTime.now();
-    final DateTime trialEndDate = now.add(const Duration(days: 14));
-    return "${trialEndDate.month}/${trialEndDate.day}/${trialEndDate.year}";
   }
 }
 
@@ -1557,9 +1658,9 @@ class NutritionBackgroundPainter extends CustomPainter {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        primaryColor.withOpacity(0.03),
-        secondaryColor.withOpacity(0.04),
-        goldColor.withOpacity(0.02),
+        primaryColor.withAlpha((0.03 * 255).round()),
+        secondaryColor.withAlpha((0.04 * 255).round()),
+        goldColor.withAlpha((0.02 * 255).round()),
       ],
     );
 
@@ -1574,7 +1675,7 @@ class NutritionBackgroundPainter extends CustomPainter {
 
   void _drawPremiumPatterns(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = primaryColor.withOpacity(0.03)
+      ..color = primaryColor.withAlpha((0.03 * 255).round())
       ..style = PaintingStyle.fill;
 
     // Draw floating hexagons
@@ -1690,7 +1791,7 @@ class NutritionBackgroundPainter extends CustomPainter {
 
   void _drawConnectingLines(Canvas canvas, Size size, Paint paint) {
     final linePaint = Paint()
-      ..color = primaryColor.withOpacity(0.02)
+      ..color = primaryColor.withAlpha((0.02 * 255).round())
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 

@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart'; // Import Cupertino widgets
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -52,7 +51,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         });
       }
     } catch (e) {
-      print("Error picking screenshot: $e");
+      print('Error picking screenshot: $e');
       setState(() {
         _errorMessage = 'Failed to pick screenshot.';
       });
@@ -77,13 +76,13 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
         osVersion = 'iOS ${iosInfo.systemVersion}';
         deviceModel =
-            iosInfo.utsname.machine ?? 'Unknown iOS Device'; // Use machine name
+            iosInfo.utsname.machine; // Use machine name
       } else {
         osVersion = Platform.operatingSystem;
         // Device model might be harder to get reliably on desktop/web
       }
     } catch (e) {
-      print("Error getting device info: $e");
+      print('Error getting device info: $e');
       osVersion = 'Unknown OS';
       deviceModel = 'Unknown Device';
     }
@@ -189,7 +188,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
 
     // Add this InputDecoration builder
     InputDecoration getInputDecoration(String hintText) {
-      final brightness = Theme.of(context).brightness;
       return InputDecoration(
         hintText: hintText,
         hintStyle: AppTypography.body1.copyWith(color: appColors.textSecondary),
@@ -257,7 +255,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                         if (!value) _screenshotFile = null;
                       });
                     },
-                    activeColor: theme.primaryColor,
+                    activeTrackColor: theme.colorScheme.primary,
                   ),
                 ),
                 Text(
@@ -313,7 +311,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   boxShadow: theme.brightness == Brightness.light
                       ? [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withAlpha((0.1 * 255).round()),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -342,7 +340,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   boxShadow: theme.brightness == Brightness.light
                       ? [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withAlpha((0.1 * 255).round()),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -445,8 +443,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                             ? 'Submit Feedback'
                             : 'Submit Bug Report',
                         style: AppTypography.button.copyWith(
-                            color: theme.colorScheme.onPrimary
-                                .withValues(alpha: 0.8)),
+                            color: theme.colorScheme.onPrimary.withValues(alpha: 0.8)),
                       ),
                     ),
             ),

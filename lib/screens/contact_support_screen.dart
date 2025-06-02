@@ -114,16 +114,16 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final customColors = theme.extension<CustomColors>(); // Get custom colors
-    final isDarkMode = theme.brightness == Brightness.dark;
+    // final isDarkMode = theme.brightness == Brightness.dark; // Unused variable
 
     // Define input decoration theme based on current theme
     final inputDecorationTheme = InputDecoration(
       filled: true,
       fillColor: customColors?.cardBackground ?? colorScheme.surface,
       hintStyle:
-          GoogleFonts.poppins(color: colorScheme.onSurface.withOpacity(0.5)),
+          GoogleFonts.poppins(color: colorScheme.onSurface.withAlpha((0.5 * 255).round())),
       labelStyle:
-          GoogleFonts.poppins(color: colorScheme.onSurface.withOpacity(0.7)),
+          GoogleFonts.poppins(color: colorScheme.onSurface.withAlpha((0.7 * 255).round())),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12.0),
         borderSide: BorderSide.none, // No border by default
@@ -131,7 +131,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12.0),
         borderSide: BorderSide(
-          color: colorScheme.onSurface.withOpacity(0.1), // Subtle border
+          color: colorScheme.onSurface.withAlpha((0.1 * 255).round()), // Subtle border
           width: 1.0,
         ),
       ),
@@ -156,7 +156,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
           width: 1.5,
         ),
       ),
-      prefixIconColor: colorScheme.onSurface.withOpacity(0.6),
+      prefixIconColor: colorScheme.onSurface.withAlpha((0.6 * 255).round()),
       contentPadding:
           const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
     );
@@ -179,7 +179,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.1),
+              color: colorScheme.primary.withAlpha((0.1 * 255).round()),
               shape: BoxShape.circle,
             ),
             child:
@@ -214,7 +214,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                 //   'Have questions or feedback? Send us a message!',
                 //   style: GoogleFonts.poppins(
                 //     fontSize: 14,
-                //     color: colorScheme.onSurface.withOpacity(0.7),
+                //     color: colorScheme.onSurface.withAlpha((0.7 * 255).round()),
                 //   ),
                 // ),
                 const SizedBox(height: 24.0),
@@ -244,10 +244,10 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                   decoration: inputDecorationTheme.copyWith(
                     labelText: 'Message',
                     hintText: 'Describe your issue or question...',
-                    prefixIcon: Padding(
+                    prefixIcon: const Padding(
                       // Align icon better for multiline
                       padding:
-                          const EdgeInsets.only(bottom: 80), // Adjust as needed
+                          EdgeInsets.only(bottom: 80), // Adjust as needed
                       child: Icon(CupertinoIcons.bubble_left),
                     ),
                     alignLabelWithHint: true,

@@ -228,7 +228,7 @@ class WorkoutSchedulePage extends StatelessWidget {
                 gradient: LinearGradient(
                   colors: [
                     PremiumColors.slate50,
-                    PremiumColors.slate100.withOpacity(0.5),
+                    PremiumColors.slate100.withAlpha((0.5 * 255).round()),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -305,7 +305,7 @@ class WorkoutSchedulePage extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: PremiumColors.slate900.withOpacity(0.1),
+                    color: PremiumColors.slate900.withAlpha((0.1 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -328,7 +328,7 @@ class WorkoutSchedulePage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 color: isSelected
-                    ? Colors.white.withOpacity(0.8)
+                    ? Colors.white.withAlpha((0.8 * 255).round())
                     : PremiumColors.slate500,
               ),
               textAlign: TextAlign.center,
@@ -363,7 +363,7 @@ class WorkoutSchedulePage extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: PremiumColors.slate900.withOpacity(0.1),
+                    color: PremiumColors.slate900.withAlpha((0.1 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -377,7 +377,7 @@ class WorkoutSchedulePage extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Colors.white.withOpacity(0.2)
+                    ? Colors.white.withAlpha((0.2 * 255).round())
                     : PremiumColors.slate100,
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -406,7 +406,7 @@ class WorkoutSchedulePage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       color: isSelected
-                          ? Colors.white.withOpacity(0.8)
+                          ? Colors.white.withAlpha((0.8 * 255).round())
                           : PremiumColors.slate500,
                     ),
                   ),
@@ -460,7 +460,7 @@ class WorkoutSchedulePage extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: PremiumColors.slate900.withOpacity(0.1),
+                    color: PremiumColors.slate900.withAlpha((0.1 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -486,7 +486,7 @@ class WorkoutSchedulePage extends StatelessWidget {
                   height: 4,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Colors.white.withOpacity(0.6)
+                        ? Colors.white.withAlpha((0.6 * 255).round())
                         : PremiumColors.slate400,
                     shape: BoxShape.circle,
                   ),
@@ -512,7 +512,7 @@ class WorkoutSchedulePage extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             '$label:',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: PremiumColors.slate600,
@@ -522,7 +522,7 @@ class WorkoutSchedulePage extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: PremiumColors.slate900,

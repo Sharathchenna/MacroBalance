@@ -235,13 +235,13 @@ class HealthService {
 
       if (heightValue != null && weightValue != null) {
         // Adjust units if needed; here we're assuming height is in centimeters and weight in kilograms.
-        return "Height: ${heightValue.toStringAsFixed(1)} cm, Weight: ${weightValue.toStringAsFixed(1)} kg";
+        return 'Height: ${heightValue.toStringAsFixed(1)} cm, Weight: ${weightValue.toStringAsFixed(1)} kg';
       } else {
-        return "Height or weight data not available";
+        return 'Height or weight data not available';
       }
     } catch (error) {
       print('Error fetching height and weight: $error');
-      return "Error";
+      return 'Error';
     }
   }
 
@@ -323,7 +323,7 @@ class HealthService {
           startTime: startTime,
           endTime: endTime).catchError((error) {
         print('Error fetching health data: $error');
-        return [];
+        return <HealthDataPoint>[];
       });
 
       double totalCalories = 0;

@@ -70,10 +70,10 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
         date: _selectedDate,
         userPreferences: userPrefs,
       );
-      Navigator.of(context).pop(); // Close loading dialog
+      if (mounted) Navigator.of(context).pop(); // Close loading dialog
       _showSuccessSnackBar();
     } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
+      if (mounted) Navigator.of(context).pop(); // Close loading dialog
       _showErrorSnackBar(e.toString());
     }
   }
@@ -193,7 +193,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(((0.05) * 255).round()),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -294,15 +294,15 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            customColors.accentPrimary.withOpacity(0.1),
-            customColors.accentPrimary.withOpacity(0.05),
+            customColors.accentPrimary.withAlpha((0.1 * 255).round()),
+            customColors.accentPrimary.withAlpha((0.05 * 255).round()),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: customColors.accentPrimary.withOpacity(0.2),
+          color: customColors.accentPrimary.withAlpha((0.2 * 255).round()),
           width: 1,
         ),
       ),
@@ -400,7 +400,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withAlpha((0.03 * 255).round()),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -433,7 +433,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
           const SizedBox(height: 8),
           LinearProgressIndicator(
             value: progress,
-            backgroundColor: color.withOpacity(0.1),
+            backgroundColor: color.withAlpha((0.1 * 255).round()),
             valueColor: AlwaysStoppedAnimation<Color>(color),
             borderRadius: BorderRadius.circular(2),
           ),
@@ -500,14 +500,14 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha((0.05 * 255).round()),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
         border: isLogged
             ? Border.all(
-                color: customColors.accentPrimary.withOpacity(0.3),
+                color: customColors.accentPrimary.withAlpha((0.3 * 255).round()),
                 width: 1,
               )
             : null,
@@ -529,7 +529,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: mealIcon.color.withOpacity(0.1),
+                          color: mealIcon.color.withAlpha((0.1 * 255).round()),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -589,7 +589,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: customColors.textSecondary.withOpacity(0.05),
+                        color: customColors.textSecondary.withAlpha((0.05 * 255).round()),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -745,13 +745,13 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
         color: customColors.cardBackground,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.red.withOpacity(0.2),
+          color: Colors.red.withAlpha((0.2 * 255).round()),
           width: 1,
         ),
       ),
       child: Column(
         children: [
-          Icon(
+          const Icon(
             Icons.error_outline,
             size: 48,
             color: Colors.red,
@@ -801,7 +801,7 @@ class _MealPlanningScreenState extends State<MealPlanningScreen>
           Icon(
             Icons.restaurant_menu,
             size: 64,
-            color: customColors.textSecondary.withOpacity(0.5),
+            color: customColors.textSecondary.withAlpha((0.5 * 255).round()),
           ),
           const SizedBox(height: 24),
           Text(
@@ -1052,7 +1052,7 @@ class _MealDetailsSheet extends StatelessWidget {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: customColors.textSecondary.withOpacity(0.3),
+                      color: customColors.textSecondary.withAlpha((0.3 * 255).round()),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1098,7 +1098,7 @@ class _MealDetailsSheet extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: customColors.textSecondary.withOpacity(0.05),
+        color: customColors.textSecondary.withAlpha((0.05 * 255).round()),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

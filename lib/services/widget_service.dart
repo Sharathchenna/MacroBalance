@@ -1,35 +1,28 @@
 import 'dart:convert';
-import 'dart:convert'; // Ensure dart:convert is imported
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:macrotracker/main.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:macrotracker/models/foodEntry.dart';
-import 'package:macrotracker/providers/food_entry_provider.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import '../screens/Dashboard.dart';
-import '../main.dart';
 
 // Constants for app group and widget kinds
-const String APP_GROUP = 'group.app.macrobalance.com';
-const String MACRO_DATA_KEY = 'macro_data';
-const String DAILY_MEALS_KEY = 'daily_meals';
+const String appGroup = 'group.app.macrobalance.com';
+const String macroDataKey = 'macro_data';
+const String dailyMealsKey = 'daily_meals';
 
 class WidgetService {
-  static const String WIDGET_UPDATE_ACTION =
-      "app.macrobalance.com.WIDGET_UPDATE";
+  static const String widgetUpdateAction = 'app.macrobalance.com.WIDGET_UPDATE';
 
   /// Initialize the widget service
   static Future<void> initWidgetService() async {
     try {
       // Set up the app group identifier for sharing data with widgets
-      await HomeWidget.setAppGroupId(APP_GROUP);
+      await HomeWidget.setAppGroupId(appGroup);
 
       // Listen for widget launcher taps (when user taps on widget to open app)
       HomeWidget.widgetClicked.listen(_handleWidgetClick);
 
-      debugPrint('WidgetService initialized with app group: $APP_GROUP');
+      debugPrint('WidgetService initialized with app group: $appGroup');
     } catch (e) {
       debugPrint('Error initializing widget service: $e');
     }
@@ -79,7 +72,7 @@ class WidgetService {
       final jsonData = jsonEncode(data);
 
       // Save data using HomeWidget plugin
-      await _saveWithHomeWidget(MACRO_DATA_KEY, jsonData);
+      await _saveWithHomeWidget(macroDataKey, jsonData);
       // Backup save method removed as it used the wrong container
 
       debugPrint(
@@ -114,7 +107,7 @@ class WidgetService {
       final jsonData = jsonEncode(meals);
 
       // Save using HomeWidget plugin
-      await _saveWithHomeWidget(DAILY_MEALS_KEY, jsonData);
+      await _saveWithHomeWidget(dailyMealsKey, jsonData);
       // Backup save method removed as it used the wrong container
 
       debugPrint('Widget meal data updated with ${meals.length} meals');
@@ -157,7 +150,7 @@ class WidgetService {
 
       // Get current data from StorageService (synchronous)
       try {
-        final keysToRefresh = [MACRO_DATA_KEY, DAILY_MEALS_KEY];
+        final keysToRefresh = [macroDataKey, dailyMealsKey];
         final currentData = <String, String>{};
         for (final key in keysToRefresh) {
           // Use StorageService().get - it returns dynamic, cast if needed or handle null

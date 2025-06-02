@@ -1,12 +1,10 @@
-import 'package:flutter/cupertino.dart';
+// ignore_for_file: prefer_single_quotes
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:macrotracker/screens/Dashboard.dart';
+import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
-import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
-import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/auth/paywall_gate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
@@ -47,12 +45,14 @@ class _AuthGateState extends State<AuthGate> {
               .timeout(
             const Duration(seconds: 10), // 10 second timeout
             onTimeout: () {
-              debugPrint('Supabase user data check timeout - using local data');
+              debugPrint(
+                  'Supabase user data check timeout - checking local data');
               return null; // Return null on timeout to check local storage
             },
           );
 
           if (response != null) {
+            // User has data in Supabase - sync to local storage and return true
             await StorageService().put('macro_results', jsonEncode(response));
             await StorageService()
                 .put('calories_goal', response['calories_goal']);
@@ -61,96 +61,28 @@ class _AuthGateState extends State<AuthGate> {
             await StorageService().put('carbs_goal', response['carbs_goal']);
             await StorageService().put('fat_goal', response['fat_goal']);
             return true;
+          } else {
+            // No data in Supabase for authenticated user - trigger onboarding
+            debugPrint(
+                'No user data found in Supabase - triggering onboarding');
+            return false;
           }
         } catch (e) {
           debugPrint('Error checking Supabase data: $e');
-          // Fall through to check local storage instead of failing
+          // On error, check local storage as fallback
+          String? macroResults = StorageService().get('macro_results');
+          return macroResults != null;
         }
+      } else {
+        // No authenticated user - check local storage only
+        String? macroResults = StorageService().get('macro_results');
+        return macroResults != null;
       }
     } catch (e) {
       debugPrint('Supabase not available: $e - using local storage only');
       // Continue with local storage if Supabase is not available
-    }
-
-    String? macroResults = StorageService().get('macro_results');
-    return macroResults != null;
-  }
-
-  String _fixJsonFormat(String? inputJson) {
-    if (inputJson == null || inputJson.isEmpty) {
-      return '{}';
-    }
-
-    if (inputJson.trim().startsWith('{') && !inputJson.contains('"')) {
-      try {
-        String fixedJson = inputJson;
-
-        RegExp keyRegex = RegExp(r'([a-zA-Z_][a-zA-Z0-9_]*):');
-        fixedJson = fixedJson.replaceAllMapped(keyRegex, (match) {
-          return '"${match.group(1)}":';
-        });
-
-        jsonDecode(fixedJson);
-        return fixedJson;
-      } catch (e) {
-        print('Could not fix JSON format: $e');
-        return '{}';
-      }
-    }
-
-    return inputJson;
-  }
-
-  Future<void> _syncMacroResultsToSupabase(
-      String macroResultsString, User currentUser) async {
-    try {
-      Map<String, dynamic> parsedMacroResults;
-      try {
-        parsedMacroResults = jsonDecode(macroResultsString);
-      } catch (e) {
-        final fixedJson = _fixJsonFormat(macroResultsString);
-        parsedMacroResults = jsonDecode(fixedJson);
-      }
-
-      final caloriesGoal =
-          StorageService().get('calories_goal', defaultValue: 2000.0);
-      final proteinGoal =
-          StorageService().get('protein_goal', defaultValue: 150.0);
-      final carbsGoal = StorageService().get('carbs_goal', defaultValue: 225.0);
-      final fatGoal = StorageService().get('fat_goal', defaultValue: 65.0);
-
-      final existingRecord = await Supabase.instance.client
-          .from('user_macros')
-          .select('id')
-          .eq('id', currentUser.id)
-          .limit(1)
-          .maybeSingle();
-
-      if (existingRecord != null) {
-        await Supabase.instance.client.from('user_macros').update({
-          'email': currentUser.email ?? '',
-          'macro_results': parsedMacroResults,
-          'calories_goal': caloriesGoal,
-          'protein_goal': proteinGoal,
-          'carbs_goal': carbsGoal,
-          'fat_goal': fatGoal,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', currentUser.id);
-      } else {
-        await Supabase.instance.client.from('user_macros').insert({
-          'id': currentUser.id,
-          'email': currentUser.email ?? '',
-          'macro_results': parsedMacroResults,
-          'calories_goal': caloriesGoal,
-          'protein_goal': proteinGoal,
-          'carbs_goal': carbsGoal,
-          'fat_goal': fatGoal,
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-      }
-      print('Nutrition goals synced to Supabase');
-    } catch (e) {
-      print('Error syncing macro results to Supabase: $e');
+      String? macroResults = StorageService().get('macro_results');
+      return macroResults != null;
     }
   }
 
@@ -239,21 +171,20 @@ class _AuthGateState extends State<AuthGate> {
               WidgetsBinding.instance.addPostFrameCallback((_) async {
                 await _loadUserDataAfterLogin();
 
-                if (session?.user != null) {
-                  PostHogService.identifyUser(
-                    session!.user.id,
-                    userProperties: {
-                      'email': session.user.email,
-                    },
-                  );
-                  print(
-                      "[AuthGate] PostHog user identified: ${session.user.id}");
-                }
+                PostHogService.identifyUser(
+                  session.user.id,
+                  userProperties: {
+                    'email': session.user.email,
+                  },
+                );
+                print("[AuthGate] PostHog user identified: ${session.user.id}");
               });
             }
 
             if (!hasLocalData) {
-              return const OnboardingScreen();
+              return const PaywallGate(
+                child: OnboardingScreen(),
+              );
             }
 
             return const Dashboard();

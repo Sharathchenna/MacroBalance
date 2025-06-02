@@ -47,15 +47,15 @@ class OnboardingSelectionCard extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? primaryColor.withOpacity(0.2)
-                  : Colors.black.withOpacity(0.05),
+                  ? primaryColor.withAlpha(((0.2) * 255).round())
+                  : Colors.black.withAlpha(((0.05) * 255).round()),
               blurRadius: isSelected ? 8 : 3,
               offset: Offset(0, isSelected ? 3 : 1),
               spreadRadius: isSelected ? 1 : 0,
             ),
           ],
           border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.withOpacity(0.2),
+            color: isSelected ? primaryColor : Colors.grey.withAlpha(((0.2) * 255).round()),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -77,7 +77,7 @@ class OnboardingSelectionCard extends StatelessWidget {
   // Layout similar to original _buildSelectionCard (for Gender)
   Widget _buildSimpleLayout(BuildContext context, Color primaryColor,
       Color textColor, Color iconColor) {
-    final theme = Theme.of(context);
+    Theme.of(context);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -88,8 +88,8 @@ class OnboardingSelectionCard extends StatelessWidget {
           width: isCompact ? 60 : 80,
           decoration: BoxDecoration(
             color: isSelected
-                ? primaryColor.withOpacity(0.1)
-                : Colors.grey.withOpacity(0.05),
+                ? primaryColor.withAlpha(((0.1) * 255).round())
+                : Colors.grey.withAlpha(((0.05) * 255).round()),
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -120,7 +120,7 @@ class OnboardingSelectionCard extends StatelessWidget {
   // Layout similar to original _buildActivityLevelCard / _buildGoalCard
   Widget _buildDetailedLayout(BuildContext context, Color primaryColor,
       Color textColor, Color secondaryTextColor, Color iconColor) {
-    final theme = Theme.of(context);
+    Theme.of(context);
     return Row(
       children: [
         // Optional: Radio button style indicator if preferred over border highlight
@@ -131,7 +131,7 @@ class OnboardingSelectionCard extends StatelessWidget {
            decoration: BoxDecoration(
              shape: BoxShape.circle,
              color: isSelected ? primaryColor : Colors.transparent,
-             border: Border.all(color: isSelected ? primaryColor : Colors.grey.withOpacity(0.5), width: 2),
+             border: Border.all(color: isSelected ? primaryColor : Colors.grey.withAlpha(((0.5) * 255).round()), width: 2),
            ),
            child: isSelected ? Center(child: Icon(Icons.check, size: 16, color: theme.colorScheme.onPrimary)) : null,
          ),
@@ -145,8 +145,8 @@ class OnboardingSelectionCard extends StatelessWidget {
           height: isCompact ? 44 : 56,
           decoration: BoxDecoration(
             color: isSelected
-                ? primaryColor.withOpacity(0.15)
-                : Colors.grey.withOpacity(0.08),
+                ? primaryColor.withAlpha(((0.15) * 255).round())
+                : Colors.grey.withAlpha(((0.08) * 255).round()),
             borderRadius: BorderRadius.circular(isCompact ? 12 : 16),
           ),
           child: Center(

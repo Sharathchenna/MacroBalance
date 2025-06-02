@@ -1,26 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:macrotracker/widgets/shimmer_loading.dart';
 import 'package:macrotracker/widgets/nutrient_row.dart';
-import 'package:macrotracker/widgets/macro_progress_ring.dart';
 import '../theme/app_theme.dart';
 import '../theme/typography.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_entry_provider.dart';
-import '../providers/dateProvider.dart';
+import '../providers/date_provider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import '../services/camera_service.dart';
 
-// Extension to add withValues method to Color, similar to withOpacity
 extension ColorExtension on Color {
-  Color withValues({double? alpha}) {
-    return withOpacity(alpha ?? opacity);
+  Color withValues({
+    double? alpha,
+    double? red,
+    double? green,
+    double? blue,
+  }) {
+    return Color.fromARGB(
+      (alpha ?? a.toDouble()).round().clamp(0, 255),
+      (red ?? r.toDouble()).round().clamp(0, 255),
+      (green ?? g.toDouble()).round().clamp(0, 255),
+      (blue ?? b.toDouble()).round().clamp(0, 255),
+    );
   }
 }
 
@@ -49,22 +56,22 @@ class _BarcodeResultsState extends State<BarcodeResults>
   late Animation<double> _slideAnimation;
 
   // Add new state variables for serving selection
-  final List<String> unitOptions = ["g", "oz"];
-  String selectedUnit = "g";
+  final List<String> unitOptions = ['g', 'oz'];
+  String selectedUnit = 'g';
   double selectedMultiplier = 1.0;
   late TextEditingController quantityController;
   List<Serving> servings = [];
   Serving? selectedServing;
 
   // Add shared meal selection state
-  final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
-  String selectedMeal = "Breakfast"; // Default to Breakfast
+  final List<String> mealOptions = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
+  String selectedMeal = 'Breakfast'; // Default to Breakfast
 
   @override
   void initState() {
     super.initState();
     _searchBarcode(widget.barcode);
-    quantityController = TextEditingController(text: "100");
+    quantityController = TextEditingController(text: '100');
 
     // Add listener to quantityController
     quantityController.addListener(() {
@@ -232,7 +239,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
           results.add(
             Serving(
-              description: 'Serving (${servingSizeText})',
+              description: 'Serving ($servingSizeText)',
               metricAmount: servingAmount,
               metricUnit: 'g',
               calories: ((nutriments['energy-kcal_100g'] as num?)?.toDouble() ??
@@ -286,7 +293,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
           results.add(
             Serving(
-              description: 'Package (${quantityText})',
+              description: 'Package ($quantityText)',
               metricAmount: packageSize,
               metricUnit: 'g',
               calories: ((nutriments['energy-kcal_100g'] as num?)?.toDouble() ??
@@ -333,9 +340,9 @@ class _BarcodeResultsState extends State<BarcodeResults>
     double qty = double.tryParse(quantityController.text) ?? 100;
 
     switch (selectedUnit) {
-      case "oz":
+      case 'oz':
         return qty * 28.35; // Convert to grams
-      case "g":
+      case 'g':
       default:
         return qty;
     }
@@ -376,22 +383,18 @@ class _BarcodeResultsState extends State<BarcodeResults>
       }
 
       final adjustedValue = (servingValue ?? 0.0) * multiplier;
-      // Trigger UI refresh when nutrient values change
-      setState(() {});
       return '${adjustedValue.toStringAsFixed(1)}$unit';
     } else {
       // If no specific serving is selected, calculate based on quantity
       final convertedQty = getConvertedQuantity();
       final adjustedValue = (value as num).toDouble() * (convertedQty / 100);
-      // Trigger UI refresh when nutrient values change
-      setState(() {});
       return '${adjustedValue.toStringAsFixed(1)}$unit';
     }
   }
 
   String _getNutrientValue(String nutrient) {
     final nutriments = _productData?['nutriments'];
-    if (nutriments == null) return "0.0";
+    if (nutriments == null) return '0.0';
 
     if (selectedServing != null) {
       double multiplier = selectedMultiplier;
@@ -404,24 +407,24 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
       double? value;
       switch (nutrient.toLowerCase()) {
-        case "calories":
+        case 'calories':
           value = selectedServing!.calories * multiplier;
           break;
-        case "protein":
+        case 'protein':
           value = (selectedServing!.nutrients['Protein'] ?? 0.0) * multiplier;
           break;
-        case "carbohydrate":
+        case 'carbohydrate':
           value = (selectedServing!.nutrients['Carbohydrate, by difference'] ??
                   0.0) *
               multiplier;
           break;
-        case "fat":
+        case 'fat':
           value = (selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) *
               multiplier;
           break;
       }
 
-      if (value == null) return "0.0";
+      if (value == null) return '0.0';
       return value.toStringAsFixed(1);
     } else {
       // Calculate based on 100g values and current quantity
@@ -429,39 +432,24 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
       double? value;
       switch (nutrient.toLowerCase()) {
-        case "calories":
+        case 'calories':
           value = (nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0;
           break;
-        case "protein":
+        case 'protein':
           value = (nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0;
           break;
-        case "carbohydrate":
+        case 'carbohydrate':
           value = (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0;
           break;
-        case "fat":
+        case 'fat':
           value = (nutriments['fat_100g'] as num?)?.toDouble() ?? 0.0;
           break;
       }
 
-      if (value == null) return "0.0";
+      if (value == null) return '0.0';
       value = value * (convertedQty / 100);
       return value.toStringAsFixed(1);
     }
-  }
-
-  Map<String, double> _getMacroPercentages() {
-    double carbs = double.tryParse(_getNutrientValue("carbohydrate")) ?? 0;
-    double protein = double.tryParse(_getNutrientValue("protein")) ?? 0;
-    double fat = double.tryParse(_getNutrientValue("fat")) ?? 0;
-
-    double total = carbs + protein + fat;
-    if (total <= 0) return {"carbs": 0.33, "protein": 0.33, "fat": 0.34};
-
-    return {
-      "carbs": carbs / total,
-      "protein": protein / total,
-      "fat": fat / total,
-    };
   }
 
   void _addToMeal(String meal) {
@@ -516,7 +504,6 @@ class _BarcodeResultsState extends State<BarcodeResults>
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
-    final primaryColor = Theme.of(context).primaryColor;
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
@@ -592,7 +579,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       ),
                       child: SafeArea(
                         child: Padding(
-                          padding: EdgeInsets.fromLTRB(24, 60, 24, 0),
+                          padding: const EdgeInsets.fromLTRB(24, 60, 24, 0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -632,7 +619,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       );
                     },
                     child: _isLoading
-                        ? ShimmerLoading()
+                        ? const ShimmerLoading()
                         : _error != null
                             ? _buildErrorState()
                             : _buildProductDetails(),
@@ -655,7 +642,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       colors: [
                         Theme.of(context)
                             .scaffoldBackgroundColor
-                            .withOpacity(0.1),
+                            .withValues(alpha: 0.1),
                         Theme.of(context).scaffoldBackgroundColor,
                       ],
                     ),
@@ -671,7 +658,6 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
   Widget _buildAddToDiaryButton() {
     final customColors = Theme.of(context).extension<CustomColors>();
-    final primaryColor = Theme.of(context).primaryColor;
 
     return Container(
       height: 60,
@@ -679,8 +665,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
         borderRadius: BorderRadius.circular(30),
         border: Border.all(
           color: Theme.of(context).brightness == Brightness.light
-              ? Colors.black.withOpacity(0.3)
-              : Colors.white.withOpacity(0.3),
+              ? Colors.black.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -715,8 +701,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     Icon(
                       Icons.add_circle_outline,
                       color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black.withOpacity(0.8)
-                          : const Color(0xFFFFC107).withOpacity(0.9),
+                          ? Colors.black.withValues(alpha: 0.8)
+                          : const Color(0xFFFFC107).withValues(alpha: 0.9),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -724,46 +710,13 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       style: AppTypography.button.copyWith(
                         color: Theme.of(context).brightness == Brightness.light
                             ? Colors.black
-                            : const Color(0xFFFFC107).withOpacity(0.9),
+                            : const Color(0xFFFFC107).withValues(alpha: 0.9),
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                         letterSpacing: 0.5,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Show which meal is selected
-                    // Container(
-                    //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    //   decoration: BoxDecoration(
-                    //     color: Theme.of(context).brightness == Brightness.light
-                    //         ? Colors.black.withOpacity(0.05)
-                    //         : Colors.white.withOpacity(0.1),
-                    //     borderRadius: BorderRadius.circular(12),
-                    //   ),
-                    //   child: Row(
-                    //     mainAxisSize: MainAxisSize.min,
-                    //     children: [
-                    //       Text(
-                    //         selectedMeal,
-                    //         style: TextStyle(
-                    //           color: Theme.of(context).brightness == Brightness.light
-                    //               ? Colors.black.withOpacity(0.7)
-                    //               : const Color(0xFFFFC107).withOpacity(0.9),
-                    //           fontWeight: FontWeight.bold,
-                    //           fontSize: 12,
-                    //         ),
-                    //       ),
-                    //       const SizedBox(width: 2),
-                    //       Icon(
-                    //         Icons.arrow_drop_down,
-                    //         size: 16,
-                    //         color: Theme.of(context).brightness == Brightness.light
-                    //             ? Colors.black.withOpacity(0.7)
-                    //             : const Color(0xFFFFC107).withOpacity(0.9),
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
                   ],
                 ),
               ),
@@ -790,7 +743,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
               size: 64,
               color: primaryColor,
             ),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             Text(
               _error!,
               textAlign: TextAlign.center,
@@ -799,14 +752,14 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 height: 1.5,
               ),
             ),
-            SizedBox(height: 32),
+            const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () async {
                 Navigator.of(context).pop();
                 try {
                   await cameraService.showNativeCamera();
                 } catch (e) {
-                  print("Error reopening camera from BarcodeResults: $e");
+                  print('Error reopening camera from BarcodeResults: $e');
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -814,7 +767,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               ),
               child: Text(
                 'Try Again',
@@ -833,11 +787,6 @@ class _BarcodeResultsState extends State<BarcodeResults>
   Widget _buildProductDetails() {
     final customColors = Theme.of(context).extension<CustomColors>();
     final primaryColor = Theme.of(context).primaryColor;
-
-    // Calculate calories and macro percentages
-    final calculatedCalories =
-        double.tryParse(_getNutrientValue("calories")) ?? 0;
-    final macroPercentages = _getMacroPercentages();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -858,7 +807,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -893,7 +842,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                           child: Icon(
                             Icons.broken_image_rounded,
                             size: 64,
-                            color: primaryColor.withOpacity(0.5),
+                            color: primaryColor.withValues(alpha: 0.5),
                           ),
                         ),
                       );
@@ -912,7 +861,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 15,
                   offset: const Offset(0, 5),
                 ),
@@ -951,10 +900,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
                         // Calories
                         Expanded(
                           child: MacroInfoBox(
-                            icon: "🔥",
+                            icon: '🔥',
                             iconColor: Colors.black,
-                            value: _getNutrientValue("calories"),
-                            label: "Calories",
+                            value: _getNutrientValue('calories'),
+                            label: 'Calories',
                           ),
                         ),
 
@@ -963,10 +912,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
                         // Protein
                         Expanded(
                           child: MacroInfoBox(
-                            icon: "🍗",
+                            icon: '🍗',
                             iconColor: Colors.black,
-                            value: _getNutrientValue("protein"),
-                            label: "Protein (g)",
+                            value: _getNutrientValue('protein'),
+                            label: 'Protein (g)',
                           ),
                         ),
                       ],
@@ -980,10 +929,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
                         // Carbs
                         Expanded(
                           child: MacroInfoBox(
-                            icon: "🟫",
+                            icon: '🟫',
                             iconColor: Colors.black,
-                            value: _getNutrientValue("carbohydrate"),
-                            label: "Carbs (g)",
+                            value: _getNutrientValue('carbohydrate'),
+                            label: 'Carbs (g)',
                           ),
                         ),
 
@@ -992,10 +941,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
                         // Fat
                         Expanded(
                           child: MacroInfoBox(
-                            icon: "🥑",
+                            icon: '🥑',
                             iconColor: Colors.black,
-                            value: _getNutrientValue("fat"),
-                            label: "Fat (g)",
+                            value: _getNutrientValue('fat'),
+                            label: 'Fat (g)',
                           ),
                         ),
                       ],
@@ -1006,104 +955,6 @@ class _BarcodeResultsState extends State<BarcodeResults>
             ),
           ),
 
-          // Add Macro Progress Rings after the image
-          // Container(
-          //   margin: const EdgeInsets.only(bottom: 24),
-          //   padding: const EdgeInsets.fromLTRB(
-          //       16, 24, 16, 40), // Increased bottom padding
-          //   decoration: BoxDecoration(
-          //     color: customColors.cardBackground,
-          //     borderRadius: BorderRadius.circular(24),
-          //     boxShadow: [
-          //       BoxShadow(
-          //         color: Colors.black.withOpacity(0.06),
-          //         blurRadius: 15,
-          //         offset: const Offset(0, 5),
-          //       ),
-          //     ],
-          //   ),
-          //   child: Column(
-          //     children: [
-          //       Row(
-          //         mainAxisAlignment: MainAxisAlignment.center,
-          //         crossAxisAlignment: CrossAxisAlignment.start,
-          //         children: [
-          //           Text(
-          //             calculatedCalories.toStringAsFixed(0),
-          //             style: AppTypography.h1.copyWith(
-          //               color: customColors.textPrimary,
-          //               fontWeight: FontWeight.bold,
-          //               height: 0.9,
-          //               fontSize: 40, // Increased font size
-          //             ),
-          //           ),
-          //           Text(
-          //             " kcal",
-          //             style: AppTypography.h3.copyWith(
-          //               color: customColors.textSecondary,
-          //               fontWeight: FontWeight.w300,
-          //             ),
-          //           ),
-          //         ],
-          //       ),
-          //       const SizedBox(height: 36), // Increased spacing
-          //       Row(
-          //         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          //         children: [
-          //           Expanded(
-          //             child: Padding(
-          //               padding: const EdgeInsets.symmetric(horizontal: 4),
-          //               child: SizedBox(
-          //                 height: 140, // Increased height for larger rings
-          //                 child: MacroProgressRing(
-          //                   key: ValueKey(
-          //                       'carbs-${quantityController.text}-$selectedUnit'),
-          //                   label: 'Carbs',
-          //                   value: _getNutrientValue("carbohydrate"),
-          //                   color: const Color(0xFF4285F4), // Google blue
-          //                   percentage: macroPercentages["carbs"] ?? 0.33,
-          //                 ),
-          //               ),
-          //             ),
-          //           ),
-          //           Expanded(
-          //             child: Padding(
-          //               padding: const EdgeInsets.symmetric(horizontal: 4),
-          //               child: SizedBox(
-          //                 height: 140, // Increased height for larger rings
-          //                 child: MacroProgressRing(
-          //                   key: ValueKey(
-          //                       'protein-${quantityController.text}-$selectedUnit}'),
-          //                   label: 'Protein',
-          //                   value: _getNutrientValue("protein"),
-          //                   color: const Color(0xFFEA4335), // Google red
-          //                   percentage: macroPercentages["protein"] ?? 0.33,
-          //                 ),
-          //               ),
-          //             ),
-          //           ),
-          //           Expanded(
-          //             child: Padding(
-          //               padding: const EdgeInsets.symmetric(horizontal: 4),
-          //               child: SizedBox(
-          //                 height: 140, // Increased height for larger rings
-          //                 child: MacroProgressRing(
-          //                   key: ValueKey(
-          //                       'fat-${quantityController.text}-$selectedUnit'),
-          //                   label: 'Fat',
-          //                   value: _getNutrientValue("fat"),
-          //                   color: const Color(0xFFFBBC05), // Google yellow
-          //                   percentage: macroPercentages["fat"] ?? 0.34,
-          //                 ),
-          //               ),
-          //             ),
-          //           ),
-          //         ],
-          //       ),
-          //     ],
-          //   ),
-          // ),
-
           // Add meal selector right after the image
           Container(
             margin: const EdgeInsets.only(bottom: 24),
@@ -1113,7 +964,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black
+                      .withValues(alpha: 0.04 * 255), // 0.04 opacity
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1127,7 +979,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: customColors.textSecondary.withOpacity(0.15),
+                        color:
+                            customColors.textSecondary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -1138,7 +991,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     ),
                     const SizedBox(width: 14),
                     Text(
-                      "Add to Meal",
+                      'Add to Meal',
                       style: AppTypography.h3.copyWith(
                         color: Theme.of(context).brightness == Brightness.dark
                             ? Colors.white
@@ -1160,16 +1013,17 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         color: customColors.dateNavigatorBackground
-                            .withOpacity(0.6),
+                            .withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         children: mealOptions.map((meal) {
                           final isSelected = meal == selectedMeal;
-                          final mealColor =
-                              Theme.of(context).brightness == Brightness.dark
-                                  ? Color(0xFFFBBC05).withValues(alpha: 0.8)
-                                  : customColors.textPrimary;
+                          final mealColor = Theme.of(context).brightness ==
+                                  Brightness.dark
+                              ? const Color(0xFFFBBC05)
+                                  .withValues(alpha: 0.8 * 255) // 0.8 opacity
+                              : customColors.textPrimary;
 
                           return Expanded(
                             child: GestureDetector(
@@ -1210,59 +1064,12 @@ class _BarcodeResultsState extends State<BarcodeResults>
             ),
           ),
 
-          // Product Name Card
-          // Container(
-          //   margin: const EdgeInsets.only(bottom: 24),
-          //   padding: const EdgeInsets.all(24),
-          //   decoration: BoxDecoration(
-          //     color: customColors.cardBackground,
-          //     borderRadius: BorderRadius.circular(24),
-          //     boxShadow: [
-          //       BoxShadow(
-          //         color: Colors.black.withOpacity(0.06),
-          //         blurRadius: 15,
-          //         offset: const Offset(0, 5),
-          //       ),
-          //     ],
-          //   ),
-          //   child: Column(
-          //     crossAxisAlignment: CrossAxisAlignment.start,
-          //     children: [
-          //       if (_productData?['brands'] != null)
-          //         Text(
-          //           _productData!['brands'],
-          //           style: AppTypography.body2.copyWith(
-          //             color: customColors.textSecondary,
-          //             fontWeight: FontWeight.w500,
-          //           ),
-          //         ),
-          //       SizedBox(height: 8),
-          //       Text(
-          //         _productData?['product_name'] ?? 'Unknown Product',
-          //         style: AppTypography.h2.copyWith(
-          //           color: customColors.textPrimary,
-          //           fontWeight: FontWeight.bold,
-          //         ),
-          //       ),
-          //       if (_productData?['quantity'] != null) ...[
-          //         SizedBox(height: 8),
-          //         Text(
-          //           _productData!['quantity'],
-          //           style: AppTypography.body2.copyWith(
-          //             color: customColors.textSecondary,
-          //           ),
-          //         ),
-          //       ]
-          //     ],
-          //   ),
-          // ),
-
           // Serving Size Section (New)
           if (servings.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
               child: Text(
-                "Serving Size",
+                'Serving Size',
                 style: AppTypography.h2.copyWith(
                   color: customColors.textPrimary,
                   fontWeight: FontWeight.bold,
@@ -1277,7 +1084,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black
+                        .withValues(alpha: 0.04 * 255), // 0.04 opacity
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1291,7 +1099,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: customColors.textSecondary.withOpacity(0.15),
+                          color: customColors.textSecondary
+                              .withValues(alpha: 0.15 * 255), // 0.15 opacity
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -1302,7 +1111,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       ),
                       const SizedBox(width: 14),
                       Text(
-                        "Select Serving",
+                        'Select Serving',
                         style: AppTypography.h3.copyWith(
                           color: Theme.of(context).brightness == Brightness.dark
                               ? Colors.white
@@ -1330,18 +1139,22 @@ class _BarcodeResultsState extends State<BarcodeResults>
                         // Create a more neutral color scheme for dark mode
                         final cardColor = isSelected
                             ? Theme.of(context).brightness == Brightness.dark
-                                ? customColors.cardBackground.withOpacity(1)
+                                ? customColors.cardBackground
+                                    .withValues(alpha: 1.0 * 255) // 1.0 opacity
                                 : primaryColor
                             : Theme.of(context).brightness == Brightness.dark
-                                ? customColors.cardBackground.withOpacity(0.05)
-                                : primaryColor.withOpacity(0.05);
+                                ? customColors.cardBackground.withValues(
+                                    alpha: 0.05 * 255) // 0.05 opacity
+                                : primaryColor.withValues(
+                                    alpha: 0.05 * 255); // 0.05 opacity
 
                         final textColor = isSelected
                             ? Theme.of(context).brightness == Brightness.dark
                                 ? Colors.white
                                 : Colors.white
                             : Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white.withOpacity(0.87)
+                                ? Colors.white.withValues(
+                                    alpha: 0.87 * 255) // 0.87 opacity
                                 : Theme.of(context).primaryColor;
 
                         return GestureDetector(
@@ -1365,13 +1178,14 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                 color: isSelected
                                     ? Theme.of(context).brightness ==
                                             Brightness.dark
-                                        ? Color(0xFF64748B) // Slate 500
+                                        ? const Color(0xFF64748B) // Slate 500
                                         : primaryColor
                                     : Theme.of(context).brightness ==
                                             Brightness.dark
-                                        ? Color(0xFF475569)
-                                            .withOpacity(0.5) // Slate 600
-                                        : primaryColor.withOpacity(0.2),
+                                        ? const Color(0xFF475569).withValues(
+                                            alpha: 0.5 * 255) // 0.5 opacity
+                                        : primaryColor.withValues(
+                                            alpha: 0.2 * 255), // 0.2 opacity
                                 width: isSelected ? 2 : 1,
                               ),
                               boxShadow: isSelected
@@ -1379,9 +1193,13 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                       BoxShadow(
                                         color: Theme.of(context).brightness ==
                                                 Brightness.dark
-                                            ? Color(0xFF0F172A)
-                                                .withOpacity(0.5) // Slate 900
-                                            : primaryColor.withOpacity(0.2),
+                                            ? const Color(0xFF0F172A)
+                                                .withValues(
+                                                    alpha: 0.5 *
+                                                        255) // 0.5 opacity
+                                            : primaryColor.withValues(
+                                                alpha:
+                                                    0.2 * 255), // 0.2 opacity
                                         blurRadius: 8,
                                         offset: const Offset(0, 3),
                                       )
@@ -1399,12 +1217,18 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                     color: isSelected
                                         ? Theme.of(context).brightness ==
                                                 Brightness.dark
-                                            ? Colors.white.withOpacity(0.15)
-                                            : Colors.white.withOpacity(0.3)
+                                            ? Colors.white.withValues(
+                                                alpha:
+                                                    0.15 * 255) // 0.15 opacity
+                                            : Colors.white.withValues(
+                                                alpha: 0.3 * 255) // 0.3 opacity
                                         : Theme.of(context).brightness ==
                                                 Brightness.dark
-                                            ? Colors.white.withOpacity(0.1)
-                                            : primaryColor.withOpacity(0.1),
+                                            ? Colors.white.withValues(
+                                                alpha: 0.1 * 255) // 0.1 opacity
+                                            : primaryColor.withValues(
+                                                alpha:
+                                                    0.1 * 255), // 0.1 opacity
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
@@ -1415,7 +1239,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                             size: 18,
                                           )
                                         : Text(
-                                            "${index + 1}",
+                                            '${index + 1}',
                                             style: TextStyle(
                                               color: textColor,
                                               fontWeight: FontWeight.bold,
@@ -1439,10 +1263,11 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                 const Spacer(),
                                 // Amount
                                 Text(
-                                  "${serving.metricAmount} ${serving.metricUnit}",
+                                  '${serving.metricAmount} ${serving.metricUnit}',
                                   style: AppTypography.caption.copyWith(
                                     color: isSelected
-                                        ? textColor.withOpacity(0.9)
+                                        ? textColor.withValues(
+                                            alpha: 0.9 * 255) // 0.9 opacity
                                         : customColors.textSecondary,
                                     fontWeight: isSelected
                                         ? FontWeight.w600
@@ -1452,13 +1277,13 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                 const SizedBox(height: 4),
                                 // Calories
                                 Text(
-                                  "${serving.calories.toStringAsFixed(0)} kcal",
+                                  '${serving.calories.toStringAsFixed(0)} kcal',
                                   style: AppTypography.caption.copyWith(
                                     color: isSelected
                                         ? textColor
                                         : Theme.of(context).brightness ==
                                                 Brightness.dark
-                                            ? Color(
+                                            ? const Color(
                                                 0xFFFBBC05) // Amber color for calories in dark mode
                                             : primaryColor,
                                     fontWeight: FontWeight.w600,
@@ -1485,7 +1310,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black
+                      .withValues(alpha: 0.04 * 255), // 0.04 opacity
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1508,8 +1334,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       flex: 3,
                       child: TextField(
                         controller: quantityController,
-                        keyboardType:
-                            TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         textInputAction: TextInputAction.done,
                         onEditingComplete: () {
                           FocusScope.of(context).unfocus();
@@ -1527,7 +1353,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                           fontWeight: FontWeight.w500,
                         ),
                         decoration: InputDecoration(
-                          labelText: "Quantity",
+                          labelText: 'Quantity',
                           labelStyle: TextStyle(
                             color: customColors.textSecondary,
                           ),
@@ -1577,11 +1403,11 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
                             setState(() {
                               // Convert between g and oz
-                              if (val == "oz" && selectedUnit == "g") {
+                              if (val == 'oz' && selectedUnit == 'g') {
                                 // Convert g to oz (1 oz = 28.35g)
                                 quantityController.text =
                                     (currentQty / 28.35).toStringAsFixed(1);
-                              } else if (val == "g" && selectedUnit == "oz") {
+                              } else if (val == 'g' && selectedUnit == 'oz') {
                                 // Convert oz to g
                                 quantityController.text =
                                     (currentQty * 28.35).toStringAsFixed(0);
@@ -1591,7 +1417,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                             });
                           },
                           decoration: InputDecoration(
-                            labelText: "Unit",
+                            labelText: 'Unit',
                             labelStyle: TextStyle(
                               color: customColors.textSecondary,
                             ),
@@ -1624,7 +1450,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
             child: Text(
-              "Nutrition Facts",
+              'Nutrition Facts',
               style: AppTypography.h2.copyWith(
                 color: customColors.textPrimary,
                 fontWeight: FontWeight.bold,
@@ -1639,7 +1465,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black
+                      .withValues(alpha: 0.04 * 255), // 0.04 opacity
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1650,8 +1477,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
               children: [
                 Text(
                   selectedServing != null
-                      ? 'Values shown for ${selectedServing!.description} (${quantityController.text} ${selectedUnit})'
-                      : 'Values shown for ${quantityController.text} ${selectedUnit}',
+                      ? 'Values shown for ${selectedServing!.description} (${quantityController.text} $selectedUnit)'
+                      : 'Values shown for ${quantityController.text} $selectedUnit',
                   style: AppTypography.caption.copyWith(
                     color: customColors.textSecondary,
                   ),
@@ -1662,10 +1489,12 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.05),
+                    color: primaryColor.withValues(
+                        alpha: 0.05 * 255), // 0.05 opacity
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: primaryColor.withOpacity(0.2),
+                      color: primaryColor.withValues(
+                          alpha: 0.2 * 255), // 0.2 opacity
                       width: 1,
                     ),
                   ),
@@ -1702,7 +1531,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
                 // Carbs Breakdown
                 _buildNutrientSection(
-                  "Carbohydrate Breakdown",
+                  'Carbohydrate Breakdown',
                   [
                     MapEntry('Fiber', _formatNutrientValue('fiber_100g', 'g')),
                     MapEntry(
@@ -1716,7 +1545,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
                 // Fats Breakdown
                 _buildNutrientSection(
-                  "Fat Breakdown",
+                  'Fat Breakdown',
                   [
                     MapEntry('Saturated Fat',
                         _formatNutrientValue('saturated-fat_100g', 'g')),
@@ -1731,7 +1560,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
                 // Other nutrients
                 _buildNutrientSection(
-                  "Other Nutrients",
+                  'Other Nutrients',
                   [
                     MapEntry(
                         'Sodium', _formatNutrientValue('sodium_100g', 'mg')),
@@ -1751,7 +1580,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
               child: Text(
-                "Ingredients",
+                'Ingredients',
                 style: AppTypography.h2.copyWith(
                   color: customColors.textPrimary,
                   fontWeight: FontWeight.bold,
@@ -1766,7 +1595,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black
+                        .withValues(alpha: 0.04 * 255), // 0.04 opacity
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1825,7 +1655,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.05),
+            color: accentColor.withValues(alpha: 0.05 * 255), // 0.05 opacity
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -1840,7 +1670,9 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     value: entry.value,
                   ),
                   if (nutrients.last.key != entry.key)
-                    Divider(color: dividerColor.withOpacity(0.5)),
+                    Divider(
+                        color: dividerColor.withValues(
+                            alpha: 0.5 * 255)), // 0.5 opacity
                 ],
               );
             }).toList(),
@@ -1861,10 +1693,11 @@ class _BarcodeResultsState extends State<BarcodeResults>
   void _showSuccessSnackbar(String meal) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
+        backgroundColor:
+            const Color(0xFFFFC107).withValues(alpha: 1.0 * 255), // 1.0 opacity
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: EdgeInsets.all(8),
+        margin: const EdgeInsets.all(8),
         duration: const Duration(seconds: 2),
         content: Row(
           children: [

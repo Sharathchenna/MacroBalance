@@ -115,8 +115,9 @@ class FoodEntryProvider with ChangeNotifier {
 
   /// Optimized load entries for current user
   Future<void> loadEntriesForCurrentUser() async {
-    if (_isLoading || _disposed)
+    if (_isLoading || _disposed) {
       return; // Prevent concurrent loads and disposed access
+    }
 
     _isLoading = true;
     _safeNotifyListeners();

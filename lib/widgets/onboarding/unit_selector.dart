@@ -19,7 +19,7 @@ class UnitSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.1),
+        color: Colors.grey.withAlpha(((0.1) * 255).round()),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

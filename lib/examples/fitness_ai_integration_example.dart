@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:developer';
 import '../services/fitness_ai_service.dart';
 import '../services/fitness_data_service.dart';
-import '../models/fitness_profile.dart';
 
 /// Example integration of Gemini Flash AI for fitness recommendations
 /// This shows how to integrate the AI service with your existing workout planning screen
@@ -133,7 +132,7 @@ class _FitnessAIIntegrationExampleState
         _isLoading = false;
       });
 
-      log('[AI Integration] Generated ${minutes}-minute quick workout');
+      log('[AI Integration] Generated $minutes-minute quick workout');
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to generate quick workout: $e';
@@ -307,9 +306,9 @@ class _FitnessAIIntegrationExampleState
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              const Text(
                 'Summary',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(analysis['progress_summary'] ?? 'No analysis available'),
               const SizedBox(height: 16),

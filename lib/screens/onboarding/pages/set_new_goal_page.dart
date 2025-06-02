@@ -165,7 +165,7 @@ class SetNewGoalPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withAlpha((0.05 * 255).round()),
                           blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
@@ -301,7 +301,7 @@ class SetNewGoalPage extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: customColors?.cardBackground ?? theme.cardColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.withOpacity(0.1)),
+                      border: Border.all(color: Colors.grey.withAlpha((0.1 * 255).round())),
                     ),
                     child: Column(
                       children: [
@@ -315,12 +315,12 @@ class SetNewGoalPage extends StatelessWidget {
                                 theme.colorScheme.primary,
                             inactiveTrackColor: (customColors?.accentPrimary ??
                                     theme.colorScheme.primary)
-                                .withOpacity(0.2),
+                                .withAlpha((0.2 * 255).round()),
                             thumbColor: customColors?.accentPrimary ??
                                 theme.colorScheme.primary,
                             overlayColor: (customColors?.accentPrimary ??
                                     theme.colorScheme.primary)
-                                .withOpacity(0.12),
+                                .withAlpha((0.12 * 255).round()),
                           ),
                           child: SfSlider(
                             min: 250.0,
@@ -371,7 +371,7 @@ class SetNewGoalPage extends StatelessWidget {
         fontWeight: FontWeight.bold,
       ),
       textStyle: TextStyle(
-        color: (customColors?.textSecondary ?? Colors.grey).withOpacity(0.5),
+        color: (customColors?.textSecondary ?? Colors.grey).withAlpha((0.5 * 255).round()),
         fontSize: isLarge ? 20 : 18,
       ),
     );
@@ -473,7 +473,7 @@ class SetNewGoalPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha((0.05 * 255).round()),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -540,7 +540,7 @@ class _RateValueBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: (customColors?.accentPrimary ?? theme.colorScheme.primary)
-            .withOpacity(0.1),
+            .withAlpha((0.1 * 255).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

@@ -98,7 +98,7 @@ class SupabaseService {
 
   Future<void> syncFoodEntries(String userId) async {
     try {
-      final foodEntries = await _getFoodEntriesFromLocal();
+      final foodEntries = _getFoodEntriesFromLocal();
 
       // Fetch current Supabase entries using supabaseClient
       final supabaseEntries = await supabaseClient
@@ -152,7 +152,7 @@ class SupabaseService {
     try {
       return json.decode(entriesJson) as List<dynamic>;
     } catch (e) {
-      print("Error decoding local food entries: $e");
+      print('Error decoding local food entries: $e');
       StorageService().delete('food_entries'); // Clear corrupted data
       return [];
     }
@@ -162,12 +162,8 @@ class SupabaseService {
   void _updateLocalFoodEntries(List<dynamic> supabaseEntries) {
     // Assuming StorageService is initialized
     // Ensure entries are not null before encoding
-    if (supabaseEntries != null) {
-       StorageService().put('food_entries', json.encode(supabaseEntries));
-    } else {
-       StorageService().delete('food_entries'); // Clear if null
+     StorageService().put('food_entries', json.encode(supabaseEntries));
     }
-  }
 
   Future<void> verifySync(String userId) async {
     try {
@@ -186,9 +182,9 @@ class SupabaseService {
           .eq('user_id', userId);
 
       // Parse nutrition goals response safely
-      if (nutritionGoalsResponse != null && nutritionGoalsResponse.isNotEmpty) {
+      if (nutritionGoalsResponse.isNotEmpty) {
         final goalData = nutritionGoalsResponse[0];
-        if (goalData != null && goalData['macro_targets'] != null) {
+        if (goalData['macro_targets'] != null) {
           final macroData = goalData['macro_targets'];
           // Assuming JsonHelper.safelyParseJson exists and works correctly
           final macroTargets = JsonHelper.safelyParseJson(macroData);
@@ -200,8 +196,8 @@ class SupabaseService {
         print('Nutrition goals response is null or empty.');
       }
 
-      int totalFoodEntries = foodEntryResponse?.length ?? 0;
-      int totalGoalsEntries = nutritionGoalsResponse?.length ?? 0;
+      int totalFoodEntries = foodEntryResponse.length;
+      int totalGoalsEntries = nutritionGoalsResponse.length;
       print(
           'Verification successful: $totalFoodEntries food entries and $totalGoalsEntries goals entries found in Supabase');
     } catch (e) {

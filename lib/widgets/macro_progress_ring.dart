@@ -73,8 +73,8 @@ class _MacroProgressRingState extends State<MacroProgressRing>
 
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final bgColor = widget.color.withOpacity(0.12);
+    Theme.of(context).extension<CustomColors>();
+    final bgColor = widget.color.withAlpha(((0.12) * 255).round());
     final highlightColor = HSLColor.fromColor(widget.color)
         .withLightness(
             (HSLColor.fromColor(widget.color).lightness + 0.2).clamp(0.0, 1.0))
@@ -165,7 +165,7 @@ class _MacroProgressRingState extends State<MacroProgressRing>
                     Text(
                       widget.unit,
                       style: AppTypography.caption.copyWith(
-                        color: widget.color.withOpacity(0.8),
+                        color: widget.color.withAlpha(((0.8) * 255).round()),
                         fontWeight: FontWeight.w500,
                         height: 1,
                       ),
@@ -237,7 +237,7 @@ class CircleProgressPainter extends CustomPainter {
         stops: [0.0, progress, 1.0],
         startAngle: -pi / 2,
         endAngle: 3 * pi / 2,
-        transform: GradientRotation(-pi / 2),
+        transform: const GradientRotation(-pi / 2),
       );
       paint.shader = gradient.createShader(rect);
     } else {

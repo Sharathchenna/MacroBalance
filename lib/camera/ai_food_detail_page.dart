@@ -1,5 +1,6 @@
+// ignore_for_file: prefer_single_quotes
+
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -7,13 +8,10 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
-import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'dart:math';
 import 'package:macrotracker/widgets/quantity_selector.dart';
 import 'package:macrotracker/widgets/food_detail_components.dart';
-import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/date_provider.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'dart:ui';
 
@@ -158,7 +156,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: Colors.black
+                                      .withAlpha(((0.1) * 255).round()),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -194,7 +193,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.grey.withOpacity(0.2),
+                            Colors.grey.withAlpha(((0.2) * 255).round()),
                             Theme.of(context).scaffoldBackgroundColor,
                           ],
                         ),
@@ -261,7 +260,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
+                                  color: Colors.black
+                                      .withAlpha(((0.06) * 255).round()),
                                   blurRadius: 15,
                                   offset: const Offset(0, 5),
                                 ),
@@ -372,7 +372,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
+                                  color: Colors.black
+                                      .withAlpha(((0.04) * 255).round()),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -387,7 +388,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
                                         color: customColors.textSecondary
-                                            .withOpacity(0.15),
+                                            .withAlpha(((0.15) * 255).round()),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(
@@ -446,23 +447,26 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                                         Brightness.dark
                                                     ? customColors
                                                         .cardBackground
-                                                        .withOpacity(1)
+                                                        .withAlpha(
+                                                            (1 * 255).round())
                                                     : primaryColor
                                                 : Theme.of(context)
                                                             .brightness ==
                                                         Brightness.dark
                                                     ? customColors
                                                         .cardBackground
-                                                        .withOpacity(0.05)
-                                                    : primaryColor
-                                                        .withOpacity(0.05),
+                                                        .withAlpha(
+                                                            ((0.05) * 255)
+                                                                .round())
+                                                    : primaryColor.withAlpha(
+                                                        ((0.05) * 255).round()),
                                             borderRadius:
                                                 BorderRadius.circular(16),
                                             border: Border.all(
                                               color: isSelected
                                                   ? primaryColor
-                                                  : primaryColor
-                                                      .withOpacity(0.2),
+                                                  : primaryColor.withAlpha(
+                                                      ((0.2) * 255).round()),
                                               width: isSelected ? 2 : 1,
                                             ),
                                           ),
@@ -475,15 +479,16 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                                 height: 32,
                                                 decoration: BoxDecoration(
                                                   color: isSelected
-                                                      ? Colors.white
-                                                          .withOpacity(0.3)
-                                                      : primaryColor
-                                                          .withOpacity(0.1),
+                                                      ? Colors.white.withAlpha(
+                                                          ((0.3) * 255).round())
+                                                      : primaryColor.withAlpha(
+                                                          ((0.1) * 255)
+                                                              .round()),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: Center(
                                                   child: isSelected
-                                                      ? Icon(
+                                                      ? const Icon(
                                                           Icons.check_rounded,
                                                           color: Colors.white,
                                                           size: 18,
@@ -519,9 +524,9 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                                 style: AppTypography.caption
                                                     .copyWith(
                                                   color: isSelected
-                                                      ? Colors.white
-                                                          .withOpacity(0.9)
-                                                      : Color(0xFFFBBC05),
+                                                      ? Colors.white.withAlpha(
+                                                          ((0.9) * 255).round())
+                                                      : const Color(0xFFFBBC05),
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
@@ -557,7 +562,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
+                                  color: Colors.black
+                                      .withAlpha(((0.04) * 255).round()),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -572,9 +578,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                       flex: 3,
                                       child: TextField(
                                         controller: quantityController,
-                                        keyboardType:
-                                            TextInputType.numberWithOptions(
-                                                decimal: true),
+                                        keyboardType: const TextInputType
+                                            .numberWithOptions(decimal: true),
                                         textInputAction: TextInputAction.done,
                                         onEditingComplete: () {
                                           FocusScope.of(context).unfocus();
@@ -603,7 +608,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                             borderRadius:
                                                 BorderRadius.circular(12),
                                             borderSide: BorderSide(
-                                              color: customColors!
+                                              color: customColors
                                                   .dateNavigatorBackground,
                                             ),
                                           ),
@@ -637,7 +642,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               Text(
                                 "Add to Meal",
                                 style: AppTypography.body2.copyWith(
-                                  color: customColors!.textSecondary,
+                                  color: customColors.textSecondary,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -646,8 +651,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                 height: 60,
                                 padding: const EdgeInsets.all(2),
                                 decoration: BoxDecoration(
-                                  color: customColors!.dateNavigatorBackground
-                                      .withOpacity(0.6),
+                                  color: customColors.dateNavigatorBackground
+                                      .withAlpha((0.6 * 255).round()),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Row(
@@ -656,7 +661,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                     final mealColor =
                                         Theme.of(context).brightness ==
                                                 Brightness.dark
-                                            ? Color(0xFFFBBC05).withOpacity(0.8)
+                                            ? const Color(0xFFFBBC05)
+                                                .withAlpha((0.8 * 255).round())
                                             : customColors.textPrimary;
 
                                     return Expanded(
@@ -722,9 +728,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                   "${nutrition.fiber.toStringAsFixed(1)}g"),
                             ],
                             accentColor: primaryColor,
-                            dividerColor:
-                                customColors?.dateNavigatorBackground ??
-                                    Colors.grey,
+                            dividerColor: customColors.dateNavigatorBackground,
                           ),
                           const SizedBox(height: 100),
                         ],
@@ -747,7 +751,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                     colors: [
                       Theme.of(context)
                           .scaffoldBackgroundColor
-                          .withOpacity(0.1),
+                          .withAlpha(((0.1) * 255).round()),
                       Theme.of(context).scaffoldBackgroundColor,
                     ],
                   ),
@@ -879,7 +883,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
       unit: 'serving', // Unit reflects the selected serving size
       date: dateProvider.selectedDate,
       servingDescription:
-          "$quantity x $servingDescription", // Combine quantity and original description
+          '$quantity x $servingDescription', // Combine quantity and original description
     );
     print('Created FoodEntry object:'); // Log FoodEntry Object
     print('  ID: ${entry.id}');

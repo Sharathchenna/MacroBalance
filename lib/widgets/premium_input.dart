@@ -64,8 +64,6 @@ class PremiumInput extends StatefulWidget {
 class _PremiumInputState extends State<PremiumInput>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  late Animation<double> _labelAnimation;
-  late Animation<Color?> _borderColorAnimation;
   late FocusNode _focusNode;
   bool _hasValue = false;
 
@@ -76,14 +74,6 @@ class _PremiumInputState extends State<PremiumInput>
       duration: PremiumAnimations.medium,
       vsync: this,
     );
-
-    _labelAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: PremiumAnimations.smooth,
-    ));
 
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_handleFocusChange);
@@ -204,7 +194,8 @@ class _PremiumInputState extends State<PremiumInput>
                 boxShadow: _focusNode.hasFocus && widget.errorText == null
                     ? [
                         BoxShadow(
-                          color: PremiumColors.blue500.withOpacity(0.1),
+                          color: PremiumColors.blue500
+                              .withAlpha(((0.1) * 255).round()),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -232,7 +223,8 @@ class _PremiumInputState extends State<PremiumInput>
                 decoration: InputDecoration(
                   hintText: widget.hint,
                   hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                    color: customColors?.textSecondary?.withOpacity(0.6),
+                    color: customColors?.textSecondary
+                        .withAlpha(((0.6) * 255).round()),
                   ),
                   filled: true,
                   fillColor: widget.fillColor ??
@@ -321,7 +313,7 @@ class _PremiumInputState extends State<PremiumInput>
             child: Row(
               children: [
                 if (widget.errorText != null)
-                  Icon(
+                  const Icon(
                     Icons.error_outline,
                     size: 16,
                     color: PremiumColors.red500,
@@ -509,7 +501,7 @@ class _NumberButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    Theme.of(context);
     final isEnabled = onTap != null;
 
     return GestureDetector(
@@ -521,12 +513,12 @@ class _NumberButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: isEnabled
               ? PremiumColors.slate100
-              : PremiumColors.slate100.withOpacity(0.5),
+              : PremiumColors.slate100.withAlpha(((0.5) * 255).round()),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isEnabled
                 ? PremiumColors.slate300
-                : PremiumColors.slate300.withOpacity(0.5),
+                : PremiumColors.slate300.withAlpha(((0.5) * 255).round()),
           ),
         ),
         child: Icon(
@@ -534,7 +526,7 @@ class _NumberButton extends StatelessWidget {
           size: 18,
           color: isEnabled
               ? PremiumColors.slate700
-              : PremiumColors.slate700.withOpacity(0.5),
+              : PremiumColors.slate700.withAlpha(((0.5) * 255).round()),
         ),
       ),
     );

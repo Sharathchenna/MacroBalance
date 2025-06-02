@@ -6,14 +6,14 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SubscriptionSettingsScreen extends StatefulWidget {
-  const SubscriptionSettingsScreen({Key? key}) : super(key: key);
+  const SubscriptionSettingsScreen({super.key});
 
   @override
-  _SubscriptionSettingsScreenState createState() =>
-      _SubscriptionSettingsScreenState();
+  SubscriptionSettingsScreenState createState() =>
+      SubscriptionSettingsScreenState();
 }
 
-class _SubscriptionSettingsScreenState
+class SubscriptionSettingsScreenState
     extends State<SubscriptionSettingsScreen> {
   final SubscriptionService _subscriptionService = SubscriptionService();
   bool _isLoading = true;
@@ -73,7 +73,7 @@ class _SubscriptionSettingsScreenState
       debugPrint('Error restoring purchases: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Error restoring purchases'),
             backgroundColor: Colors.red,
           ),
@@ -126,7 +126,7 @@ class _SubscriptionSettingsScreenState
       debugPrint('Error opening subscription settings: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Error opening subscription settings'),
             backgroundColor: Colors.red,
           ),
@@ -461,7 +461,7 @@ class _SubscriptionSettingsScreenState
             isPremium ? Icons.check_circle : Icons.check_circle_outline,
             color: isPremium
                 ? customColors?.accentPrimary
-                : customColors?.textSecondary?.withOpacity(0.5),
+                : customColors?.textSecondary.withAlpha((0.5 * 255).round()),
             size: 20,
           ),
           const SizedBox(width: 12),

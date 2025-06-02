@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'dart:io' show Platform;
 
 class NativeChartService {
-  static const MethodChannel _channel =
-      MethodChannel('app.macrobalance.com/nativecharts');
-
   // Weight chart
   static Future<Widget> createWeightChart(
       List<Map<String, dynamic>> data) async {
@@ -40,9 +35,9 @@ class NativeChartService {
       height: 300,
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.1),
+        color: Colors.grey.withAlpha(((0.1) * 255).round()),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        border: Border.all(color: Colors.grey.withAlpha(((0.2) * 255).round())),
       ),
       child: Center(
         child: Text(

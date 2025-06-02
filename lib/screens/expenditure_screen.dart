@@ -68,7 +68,7 @@
 //                       'Estimated TDEE:',
 //                       style: GoogleFonts.poppins(
 //                         fontSize: 18,
-//                         color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
+//                         color: Theme.of(context).textTheme.bodyMedium?.color?.withAlpha((0.8 * 255).round()),
 //                       ),
 //                       textAlign: TextAlign.center,
 //                     ),
@@ -86,12 +86,12 @@
 //                       'kcal / day',
 //                       style: GoogleFonts.poppins(
 //                         fontSize: 14, // Slightly smaller
-//                         color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+//                         color: Theme.of(context).textTheme.bodyMedium?.color?.withAlpha((0.7 * 255).round()),
 //                       ),
 //                       textAlign: TextAlign.center,
 //                     ),
 //                     const SizedBox(height: 25),
-//                     Divider(color: Colors.grey.withOpacity(0.3)),
+//                     Divider(color: Colors.grey.withAlpha((0.3 * 255).round())),
 //                     const SizedBox(height: 25),
 
 //                     // Dynamic Goals Section
@@ -99,7 +99,7 @@
 //                       'Your Dynamic Goals:',
 //                       style: GoogleFonts.poppins(
 //                         fontSize: 18,
-//                         color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
+//                         color: Theme.of(context).textTheme.bodyMedium?.color?.withAlpha((0.8 * 255).round()),
 //                       ),
 //                       textAlign: TextAlign.center,
 //                     ),
@@ -223,7 +223,7 @@
 //           unit,
 //           style: GoogleFonts.poppins(
 //             fontSize: 14,
-//             color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+//             color: Theme.of(context).textTheme.bodyMedium?.color?.withAlpha((0.7 * 255).round()),
 //           ),
 //         ),
 //       ],

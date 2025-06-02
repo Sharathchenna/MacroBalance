@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
+import 'package:macrotracker/services/superwall_service.dart'; // Import SuperwallService
 
 /// A provider class that manages subscription status throughout the app
 class SubscriptionProvider extends ChangeNotifier {
@@ -10,7 +11,7 @@ class SubscriptionProvider extends ChangeNotifier {
   bool _revenueCatConfigured = false;
 
   // Hard paywall configuration
-  static const bool _ENFORCE_HARD_PAYWALL = false;
+  static const bool _enforceHardPaywall = false;
 
   // Getters
   bool get isProUser => _isProUser;
@@ -21,23 +22,28 @@ class SubscriptionProvider extends ChangeNotifier {
   // Constructor - loads from local cache and sets up RevenueCat integration
   SubscriptionProvider() {
     _loadFromPrefs();
-    // Try to set up RevenueCat integration immediately, with fallback
-    _initializeRevenueCatIntegration();
+    // Delay RevenueCat integration to next frame to avoid blocking widget creation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeRevenueCatIntegration();
+    });
   }
 
   // Initialize RevenueCat integration with fallback handling
   void _initializeRevenueCatIntegration() async {
     try {
       // Test if RevenueCat is configured
-      await Purchases.getCustomerInfo();
+      await Purchases.getCustomerInfo().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw Exception('RevenueCat timeout'),
+      );
       _revenueCatConfigured = true;
-      print("RevenueCat is configured, setting up subscription provider");
+      print('RevenueCat is configured, setting up subscription provider');
 
       // Set up listener and check status
       _setupPurchaseListener();
       checkSubscriptionStatus();
     } catch (e) {
-      print("RevenueCat not yet configured: $e");
+      print('RevenueCat not yet configured: $e');
       // Fallback with retry logic for edge cases where RevenueCat might still be initializing
       _waitForRevenueCatAndInitialize();
     }
@@ -54,7 +60,7 @@ class SubscriptionProvider extends ChangeNotifier {
         // Test if RevenueCat is configured by trying to get customer info
         await Purchases.getCustomerInfo();
         _revenueCatConfigured = true;
-        print("RevenueCat is now configured, setting up subscription provider");
+        print('RevenueCat is now configured, setting up subscription provider');
 
         // Now safe to set up listener and check status
         _setupPurchaseListener();
@@ -65,14 +71,14 @@ class SubscriptionProvider extends ChangeNotifier {
         final delay = Duration(
             milliseconds: 100 * (1 << retryCount)); // Exponential backoff
         print(
-            "RevenueCat not yet configured (attempt $retryCount/$maxRetries), retrying in ${delay.inMilliseconds}ms");
+            'RevenueCat not yet configured (attempt $retryCount/$maxRetries), retrying in ${delay.inMilliseconds}ms');
         await Future.delayed(delay);
       }
     }
 
     if (!_revenueCatConfigured) {
       print(
-          "Warning: RevenueCat failed to configure after $maxRetries attempts. Operating in offline mode.");
+          'Warning: RevenueCat failed to configure after $maxRetries attempts. Operating in offline mode.');
       // Mark as initialized even if RevenueCat failed
       _isInitialized = true;
       notifyListeners();
@@ -94,15 +100,19 @@ class SubscriptionProvider extends ChangeNotifier {
     try {
       Purchases.addCustomerInfoUpdateListener((customerInfo) {
         print(
-            "RevenueCat customer info updated: ${customerInfo.entitlements.active.keys}");
+            'RevenueCat customer info updated: ${customerInfo.entitlements.active.keys}');
         // Check if the pro entitlement is now active and update state
         final hasProEntitlement = _hasProEntitlement(customerInfo);
 
         if (hasProEntitlement != _isProUser) {
-          print("Subscription status changed via listener: $hasProEntitlement");
+          print('Subscription status changed via listener: $hasProEntitlement');
           _isProUser = hasProEntitlement;
           _lastChecked = DateTime.now();
           _saveToPrefs();
+
+          // Update Superwall with the new subscription status
+          SuperwallService().updateSubscriptionStatus(_isProUser);
+
           notifyListeners();
         }
       });
@@ -150,7 +160,7 @@ class SubscriptionProvider extends ChangeNotifier {
     try {
       final customerInfo = await Purchases.getCustomerInfo();
       print(
-          "Checking subscription status: ${customerInfo.entitlements.active.keys}");
+          'Checking subscription status: ${customerInfo.entitlements.active.keys}');
 
       final bool wasProUser = _isProUser;
 
@@ -161,12 +171,19 @@ class SubscriptionProvider extends ChangeNotifier {
 
       // If status changed, notify listeners
       if (wasProUser != _isProUser) {
-        print("Subscription status changed: $_isProUser");
+        print('Subscription status changed: $_isProUser');
+
+        // Update Superwall with the new subscription status
+        SuperwallService().updateSubscriptionStatus(_isProUser);
+
         notifyListeners();
       }
 
       // Save the updated status (now synchronous)
       _saveToPrefs();
+
+      // Update Superwall with the subscription status
+      SuperwallService().updateSubscriptionStatus(_isProUser);
 
       return _isProUser;
     } catch (e) {
@@ -177,7 +194,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // Force refresh the subscription status (e.g., after a purchase)
   Future<bool> refreshSubscriptionStatus() async {
-    print("Forcing subscription status refresh");
+    print('Forcing subscription status refresh');
 
     try {
       // Try to invalidate cache in RevenueCat to ensure fresh data
@@ -186,14 +203,14 @@ class SubscriptionProvider extends ChangeNotifier {
       // Now get latest customer info
       return await checkSubscriptionStatus();
     } catch (e) {
-      print("Error during forced refresh: $e");
+      print('Error during forced refresh: $e');
       return await checkSubscriptionStatus();
     }
   }
 
   // Check if a specific feature is available - with hard paywall, requires subscription
   bool canAccessFeature(String featureName) {
-    if (_ENFORCE_HARD_PAYWALL) {
+    if (_enforceHardPaywall) {
       return _isProUser; // With hard paywall, all features require subscription
     }
 
@@ -203,7 +220,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // Check if the user can access app content at all
   bool canAccessApp() {
-    if (_ENFORCE_HARD_PAYWALL) {
+    if (_enforceHardPaywall) {
       return _isProUser; // With hard paywall, app access requires subscription
     }
 
@@ -213,7 +230,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // Check if the user can add any food entries
   bool canAddEntries() {
-    if (_ENFORCE_HARD_PAYWALL) {
+    if (_enforceHardPaywall) {
       return _isProUser; // With hard paywall, entries require subscription
     }
 
@@ -225,28 +242,28 @@ class SubscriptionProvider extends ChangeNotifier {
   // Can be called from anywhere for troubleshooting
   Future<void> debugSubscriptionStatus() async {
     try {
-      print("===== SUBSCRIPTION DEBUG INFO =====");
+      print('===== SUBSCRIPTION DEBUG INFO =====');
       final customerInfo = await Purchases.getCustomerInfo();
 
-      print("Active entitlements: ${customerInfo.entitlements.active.keys}");
-      print("All entitlements: ${customerInfo.entitlements.all.keys}");
-      print("Active subscriptions: ${customerInfo.activeSubscriptions}");
+      print('Active entitlements: ${customerInfo.entitlements.active.keys}');
+      print('All entitlements: ${customerInfo.entitlements.all.keys}');
+      print('Active subscriptions: ${customerInfo.activeSubscriptions}');
       print(
-          "All purchased product IDs: ${customerInfo.allPurchasedProductIdentifiers}");
-      print("Latest expiration date: ${customerInfo.latestExpirationDate}");
+          'All purchased product IDs: ${customerInfo.allPurchasedProductIdentifiers}');
+      print('Latest expiration date: ${customerInfo.latestExpirationDate}');
       print(
           "Provider: ${customerInfo.managementURL != null ? 'Apple/Google' : 'Unknown'}");
-      print("Cached provider status: isProUser = $_isProUser");
-      print("===== END DEBUG INFO =====");
+      print('Cached provider status: isProUser = $_isProUser');
+      print('===== END DEBUG INFO =====');
     } catch (e) {
-      print("Error getting debug subscription info: $e");
+      print('Error getting debug subscription info: $e');
     }
   }
 
   // Force a complete reset of subscription state and refresh from the server
   // This is a last resort if the subscription status gets stuck
   Future<bool> resetSubscriptionState() async {
-    print("==== PERFORMING COMPLETE SUBSCRIPTION RESET ====");
+    print('==== PERFORMING COMPLETE SUBSCRIPTION RESET ====');
 
     try {
       // 1. Clear local cache (now synchronous)
@@ -271,12 +288,12 @@ class SubscriptionProvider extends ChangeNotifier {
       // 7. Notify listeners
       notifyListeners();
 
-      print("Subscription reset complete. Pro status: $_isProUser");
-      print("Active entitlements: ${customerInfo.entitlements.active.keys}");
+      print('Subscription reset complete. Pro status: $_isProUser');
+      print('Active entitlements: ${customerInfo.entitlements.active.keys}');
 
       return _isProUser;
     } catch (e) {
-      print("Error during subscription reset: $e");
+      print('Error during subscription reset: $e');
       return false;
     }
   }
@@ -300,7 +317,7 @@ class SubscriptionProvider extends ChangeNotifier {
       Purchases.setLogLevel(LogLevel.debug); // This is a no-op that won't throw
       // RevenueCat SDK handles listener cleanup internally
     } catch (e) {
-      print("Error removing RevenueCat listeners: $e");
+      print('Error removing RevenueCat listeners: $e');
     }
     super.dispose();
   }

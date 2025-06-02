@@ -198,7 +198,7 @@ class EquipmentPreferencesPage extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.fitness_center,
                     color: PremiumColors.slate600,
                     size: 24,
@@ -264,7 +264,7 @@ class EquipmentPreferencesPage extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: PremiumColors.slate900.withOpacity(0.1),
+                    color: PremiumColors.slate900.withAlpha((0.1 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -293,7 +293,7 @@ class EquipmentPreferencesPage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 color: isSelected
-                    ? Colors.white.withOpacity(0.8)
+                    ? Colors.white.withAlpha((0.8 * 255).round())
                     : PremiumColors.slate500,
               ),
               textAlign: TextAlign.center,
@@ -332,7 +332,7 @@ class EquipmentPreferencesPage extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: PremiumColors.slate900.withOpacity(0.1),
+                    color: PremiumColors.slate900.withAlpha((0.1 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

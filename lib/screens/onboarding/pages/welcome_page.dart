@@ -35,15 +35,15 @@ class WelcomePage extends StatelessWidget {
                         end: Alignment.bottomRight,
                         colors: [
                           customColors?.dateNavigatorBackground
-                                  .withOpacity(0.8) ??
+                                  .withAlpha((0.8 * 255).round()) ??
                               theme.colorScheme.primaryContainer,
-                          theme.colorScheme.onSecondary.withOpacity(0.8),
+                          theme.colorScheme.onSecondary.withAlpha((0.8 * 255).round()),
                         ],
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.shadow.withOpacity(0.3),
+                          color: theme.colorScheme.shadow.withAlpha((0.3 * 255).round()),
                           blurRadius: 12,
                           spreadRadius: 2,
                           offset: const Offset(0, 4),
@@ -79,7 +79,7 @@ class WelcomePage extends StatelessWidget {
                       child: Text('Welcome to MacroBalance',
                           style: AppTypography.onboardingTitle.copyWith(
                             color: customColors?.textPrimary ??
-                                theme.colorScheme.onBackground,
+                                theme.colorScheme.onSurface,
                           ),
                           textAlign: TextAlign.center)));
             },
@@ -100,7 +100,7 @@ class WelcomePage extends StatelessWidget {
                           'Let\'s personalize your experience by calculating your optimal macronutrients intake.',
                           style: AppTypography.onboardingBody.copyWith(
                             color: customColors?.textPrimary ??
-                                theme.colorScheme.onBackground,
+                                theme.colorScheme.onSurface,
                           ),
                           textAlign: TextAlign.center)));
             },
@@ -127,17 +127,17 @@ class WelcomePage extends StatelessWidget {
                                 icon: Icons.calculate_outlined,
                                 label: 'Calculate',
                                 iconColor: customColors?.textPrimary ??
-                                    theme.colorScheme.onBackground),
+                                    theme.colorScheme.onSurface),
                             FeatureItem(
                                 icon: Icons.track_changes_outlined,
                                 label: 'Track',
                                 iconColor: customColors?.textPrimary ??
-                                    theme.colorScheme.onBackground),
+                                    theme.colorScheme.onSurface),
                             FeatureItem(
                                 icon: Icons.trending_up_outlined,
                                 label: 'Progress',
                                 iconColor: customColors?.textPrimary ??
-                                    theme.colorScheme.onBackground)
+                                    theme.colorScheme.onSurface)
                           ])));
             },
           ),

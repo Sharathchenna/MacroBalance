@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'dart:ui';
 import '../theme/app_theme.dart';
 
 /// Premium macro progress ring with sophisticated animations and styling
@@ -134,7 +133,7 @@ class _PremiumMacroRingState extends State<PremiumMacroRing>
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: widget.color.withOpacity(0.15),
+                          color: widget.color.withAlpha(((0.15) * 255).round()),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -168,7 +167,7 @@ class _PremiumMacroRingState extends State<PremiumMacroRing>
                     boxShadow: _progressAnimation.value > 0.8
                         ? [
                             BoxShadow(
-                              color: widget.color.withOpacity(0.3),
+                              color: widget.color.withAlpha(((0.3) * 255).round()),
                               blurRadius: 20,
                               spreadRadius: 2,
                             ),
@@ -182,8 +181,8 @@ class _PremiumMacroRingState extends State<PremiumMacroRing>
                       CustomPaint(
                         painter: _RingPainter(
                           color: isDark
-                              ? widget.color.withOpacity(0.15)
-                              : widget.color.withOpacity(0.1),
+                              ? widget.color.withAlpha(((0.15) * 255).round())
+                              : widget.color.withAlpha(((0.1) * 255).round()),
                           progress: 1.0,
                           strokeWidth: 8,
                           useGradient: false,
@@ -215,7 +214,7 @@ class _PremiumMacroRingState extends State<PremiumMacroRing>
                               color: widget.color,
                               fontWeight: FontWeight.w800,
                               height: 1.0,
-                              fontFeatures: [FontFeature.tabularFigures()],
+                              fontFeatures: [const FontFeature.tabularFigures()],
                             ),
                             child: Text(
                               widget.current.toString(),
@@ -227,7 +226,7 @@ class _PremiumMacroRingState extends State<PremiumMacroRing>
                               style: (theme.textTheme.labelSmall ??
                                       const TextStyle())
                                   .copyWith(
-                                color: widget.color.withOpacity(0.7),
+                                color: widget.color.withAlpha(((0.7) * 255).round()),
                                 fontWeight: FontWeight.w500,
                                 height: 1.0,
                               ),
@@ -246,7 +245,7 @@ class _PremiumMacroRingState extends State<PremiumMacroRing>
                     '${(_progressAnimation.value * 100).round()}%',
                     style: (theme.textTheme.labelSmall ?? const TextStyle())
                         .copyWith(
-                      color: widget.color.withOpacity(0.8),
+                      color: widget.color.withAlpha(((0.8) * 255).round()),
                       fontWeight: FontWeight.w500,
                     ),
                   )
@@ -266,7 +265,7 @@ class _PremiumMacroRingState extends State<PremiumMacroRing>
                                         .extension<CustomColors>()
                                         ?.textSecondary ??
                                     Colors.grey)
-                                .withOpacity(0.6),
+                                .withAlpha(((0.6) * 255).round()),
                           ),
                         ),
                         TextSpan(text: '${widget.target}'),
@@ -320,7 +319,7 @@ class _RingPainter extends CustomPainter {
       if (sweepAngle > 0) {
         final gradient = SweepGradient(
           colors: gradientColors!,
-          stops: [0.0, 1.0],
+          stops: const [0.0, 1.0],
           startAngle: -pi / 2,
           endAngle: -pi / 2 + sweepAngle,
         );

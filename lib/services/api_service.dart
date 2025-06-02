@@ -1,5 +1,3 @@
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -9,7 +7,6 @@ class ApiService {
   // Removed FatSecret credentials and token logic.
   // API calls will now be proxied through the Supabase Edge Function.
 
-  // TODO: This service might become redundant or need significant refactoring
   // depending on how the calling code (e.g., searchPage.dart) is updated
   // to use the Supabase Edge Function directly.
 }

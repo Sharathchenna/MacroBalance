@@ -17,9 +17,9 @@ class MacroTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
 
   const MacroTrackingScreen({
-    Key? key,
+    super.key,
     this.hideAppBar = false,
-  }) : super(key: key);
+  });
 
   @override
   State<MacroTrackingScreen> createState() => _MacroTrackingScreenState();
@@ -111,13 +111,13 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
         for (var entry in entries) {
           double multiplier = entry.quantity;
           switch (entry.unit) {
-            case "oz":
+            case 'oz':
               multiplier *= 28.35;
               break;
-            case "kg":
+            case 'kg':
               multiplier *= 1000;
               break;
-            case "lbs":
+            case 'lbs':
               multiplier *= 453.59;
               break;
           }
@@ -342,10 +342,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: PremiumColors.blue500.withOpacity(0.1),
+              color: PremiumColors.blue500.withAlpha(((0.1) * 255).round()),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.analytics_outlined,
               color: PremiumColors.blue500,
               size: 24,
@@ -407,8 +407,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: progress >= 1.0
-                      ? PremiumColors.emerald500.withOpacity(0.1)
-                      : PremiumColors.blue500.withOpacity(0.1),
+                      ? PremiumColors.emerald500.withAlpha(((0.1) * 255).round())
+                      : PremiumColors.blue500.withAlpha(((0.1) * 255).round()),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -442,7 +442,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                       color: customColors.cardBackground,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withAlpha(((0.05) * 255).round()),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -500,7 +500,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                       Text(
                         'of ${targetCalories.round()}',
                         style: PremiumTypography.caption.copyWith(
-                          color: customColors.textSecondary.withOpacity(0.7),
+                          color: customColors.textSecondary.withAlpha(((0.7) * 255).round()),
                         ),
                       ),
                     ],
@@ -517,7 +517,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: PremiumColors.emerald500.withOpacity(0.3),
+                              color: PremiumColors.emerald500.withAlpha(((0.3) * 255).round()),
                               blurRadius: 8,
                               spreadRadius: 2,
                             ),
@@ -580,7 +580,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
           width: 40,
           height: 4,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withAlpha(((0.2) * 255).round()),
             borderRadius: BorderRadius.circular(2),
           ),
           child: FractionallySizedBox(
@@ -1101,7 +1101,7 @@ class _GoalsDialogState extends State<_GoalsDialog> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: PremiumColors.blue500.withOpacity(0.1),
+                color: PremiumColors.blue500.withAlpha(((0.1) * 255).round()),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(

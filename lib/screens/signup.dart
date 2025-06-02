@@ -194,7 +194,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     } catch (error) {
       print('Google sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('There was a problem signing in with Google'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -239,7 +239,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     } catch (error) {
       print('Apple sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('There was a problem signing in with Apple'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -288,7 +288,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       'Start your fitness journey today',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: customColors!.textPrimary.withOpacity(0.7),
+                        color: customColors!.textPrimary.withAlpha(((0.7) * 255).round()),
                       ),
                     ),
                     const SizedBox(height: 24), // Reduced from 40
@@ -407,7 +407,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                               ),
                             )
                           : Text(
-                              "Sign Up",
+                              'Sign Up',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -423,7 +423,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       children: [
                         Expanded(
                           child: Divider(
-                            color: customColors.textPrimary.withOpacity(0.2),
+                            color: customColors.textPrimary.withAlpha(((0.2) * 255).round()),
                             thickness: 1,
                           ),
                         ),
@@ -433,7 +433,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                           child: Text(
                             'OR',
                             style: TextStyle(
-                              color: customColors.textPrimary.withOpacity(0.6),
+                              color: customColors.textPrimary.withAlpha(((0.6) * 255).round()),
                               fontWeight: FontWeight.w500,
                               fontSize: 13, // Slightly smaller font
                             ),
@@ -441,7 +441,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         ),
                         Expanded(
                           child: Divider(
-                            color: customColors.textPrimary.withOpacity(0.2),
+                            color: customColors.textPrimary.withAlpha(((0.2) * 255).round()),
                             thickness: 1,
                           ),
                         ),
@@ -455,7 +455,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       onPressed: isLoading ? null : _nativeGoogleSignIn,
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
-                            color: customColors.textPrimary.withOpacity(0.3)),
+                            color: customColors.textPrimary.withAlpha(((0.3) * 255).round())),
                         padding: const EdgeInsets.symmetric(
                             vertical: 12), // Reduced from 14
                         shape: RoundedRectangleBorder(
@@ -463,14 +463,14 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         ),
                       ),
                       icon: SvgPicture.asset(
-                        "assets/icons/Google.svg",
+                        'assets/icons/Google.svg',
                         width: 20,
                         height: 20,
                       ),
                       label: Text(
                         'Continue with Google',
                         style: TextStyle(
-                          color: customColors.textPrimary.withOpacity(0.8),
+                          color: customColors.textPrimary.withAlpha(((0.8) * 255).round()),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -484,7 +484,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         onPressed: isLoading ? null : _signInWithApple,
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
-                              color: customColors.textPrimary.withOpacity(0.3)),
+                              color: customColors.textPrimary.withAlpha(((0.3) * 255).round())),
                           padding: const EdgeInsets.symmetric(
                               vertical: 12), // Reduced from 14
                           shape: RoundedRectangleBorder(
@@ -499,7 +499,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         label: Text(
                           'Continue with Apple',
                           style: TextStyle(
-                            color: customColors.textPrimary.withOpacity(0.8),
+                            color: customColors.textPrimary.withAlpha(((0.8) * 255).round()),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -515,7 +515,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         Text(
                           'Already have an account? ',
                           style: TextStyle(
-                            color: customColors.textPrimary.withOpacity(0.7),
+                            color: customColors.textPrimary.withAlpha(((0.7) * 255).round()),
                             fontSize: 13, // Slightly smaller font
                           ),
                         ),
@@ -582,14 +582,14 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: AppTypography.inputHint.copyWith(
-          color: customColors.textPrimary.withOpacity(0.5),
+          color: customColors.textPrimary.withAlpha(((0.5) * 255).round()),
         ),
         filled: true,
         fillColor: Theme.of(context).cardColor,
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: customColors.textPrimary.withOpacity(0.5),
+                color: customColors.textPrimary.withAlpha(((0.5) * 255).round()),
                 size: 22,
               )
             : null,
@@ -599,7 +599,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                   (passwordVisibility ?? false)
                       ? Icons.visibility
                       : Icons.visibility_off,
-                  color: Theme.of(context).primaryColor.withOpacity(0.5),
+                  color: Theme.of(context).primaryColor.withAlpha(((0.5) * 255).round()),
                   size: 22,
                 ),
                 onPressed: () {
@@ -618,7 +618,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             width: 1,
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
           ),
         ),
         focusedBorder: OutlineInputBorder(

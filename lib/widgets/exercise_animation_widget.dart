@@ -8,12 +8,12 @@ class ExerciseAnimationWidget extends StatefulWidget {
   final Color secondaryColor;
 
   const ExerciseAnimationWidget({
-    Key? key,
+    super.key,
     required this.exerciseName,
     this.isPlaying = true,
     this.primaryColor = Colors.blue,
     this.secondaryColor = Colors.blueAccent,
-  }) : super(key: key);
+  });
 
   @override
   State<ExerciseAnimationWidget> createState() =>
@@ -260,7 +260,7 @@ class _ExerciseAnimationWidgetState extends State<ExerciseAnimationWidget>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  widget.primaryColor.withOpacity(0.8),
+                  widget.primaryColor.withAlpha(((0.8) * 255).round()),
                   widget.primaryColor,
                   widget.secondaryColor,
                 ],
@@ -268,7 +268,7 @@ class _ExerciseAnimationWidgetState extends State<ExerciseAnimationWidget>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: widget.primaryColor.withOpacity(0.4),
+                  color: widget.primaryColor.withAlpha(((0.4) * 255).round()),
                   blurRadius: 20,
                   spreadRadius: 5,
                 ),
@@ -318,7 +318,7 @@ class ModernPushUpPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final shadowPaint = Paint()
-      ..color = primaryColor.withOpacity(0.2)
+      ..color = primaryColor.withAlpha(((0.2) * 255).round())
       ..style = PaintingStyle.fill;
 
     final centerX = size.width / 2;
@@ -381,7 +381,7 @@ class ModernPushUpPainter extends CustomPainter {
     // Motion lines for effect
     if (bodyHeight > 10) {
       final motionPaint = Paint()
-        ..color = primaryColor.withOpacity(0.4)
+        ..color = primaryColor.withAlpha(((0.4) * 255).round())
         ..strokeWidth = 2;
 
       for (int i = 0; i < 3; i++) {
@@ -495,7 +495,7 @@ class ModernSquatPainter extends CustomPainter {
       Offset(0, baseY + 5),
       Offset(size.width, baseY + 5),
       Paint()
-        ..color = primaryColor.withOpacity(0.3)
+        ..color = primaryColor.withAlpha(((0.3) * 255).round())
         ..strokeWidth = 2,
     );
   }
@@ -579,13 +579,13 @@ class ModernPlankPainter extends CustomPainter {
       Offset(0, centerY + 40),
       Offset(size.width, centerY + 40),
       Paint()
-        ..color = primaryColor.withOpacity(0.3)
+        ..color = primaryColor.withAlpha(((0.3) * 255).round())
         ..strokeWidth = 2,
     );
 
     // Stability indicators
     final stabilityPaint = Paint()
-      ..color = primaryColor.withOpacity(0.6)
+      ..color = primaryColor.withAlpha(((0.6) * 255).round())
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(Offset(centerX - 65, centerY + 35), 3, stabilityPaint);
@@ -693,7 +693,7 @@ class ModernLungePainter extends CustomPainter {
     // Movement arrows for direction
     if (lungeDepth > 15) {
       final arrowPaint = Paint()
-        ..color = primaryColor.withOpacity(0.5)
+        ..color = primaryColor.withAlpha(((0.5) * 255).round())
         ..strokeWidth = 3;
 
       canvas.drawLine(
@@ -806,7 +806,7 @@ class ModernPullPainter extends CustomPainter {
     // Effort indicators
     if (pullHeight > 20) {
       final effortPaint = Paint()
-        ..color = primaryColor.withOpacity(0.4)
+        ..color = primaryColor.withAlpha(((0.4) * 255).round())
         ..style = PaintingStyle.fill;
 
       // Sweat drops
@@ -925,7 +925,7 @@ class ModernCurlPainter extends CustomPainter {
     // Motion arc
     if (curlProgress > 0.3) {
       final arcPaint = Paint()
-        ..color = primaryColor.withOpacity(0.3)
+        ..color = primaryColor.withAlpha(((0.3) * 255).round())
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
 
@@ -1051,7 +1051,7 @@ class ModernBurpeePainter extends CustomPainter {
     // Motion lines
     if (jumpHeight > 10) {
       final motionPaint = Paint()
-        ..color = primaryColor.withOpacity(0.4)
+        ..color = primaryColor.withAlpha(((0.4) * 255).round())
         ..strokeWidth = 2;
       for (int i = 0; i < 3; i++) {
         canvas.drawLine(
@@ -1146,7 +1146,7 @@ class ModernJumpPainter extends CustomPainter {
     // Ground impact indicators
     if (jumpHeight < 5 && jumpHeight > 0) {
       final impactPaint = Paint()
-        ..color = primaryColor.withOpacity(0.5)
+        ..color = primaryColor.withAlpha(((0.5) * 255).round())
         ..style = PaintingStyle.fill;
 
       canvas.drawOval(
@@ -1162,7 +1162,7 @@ class ModernJumpPainter extends CustomPainter {
     // Air time effects
     if (jumpHeight > 15) {
       final airPaint = Paint()
-        ..color = primaryColor.withOpacity(0.3)
+        ..color = primaryColor.withAlpha(((0.3) * 255).round())
         ..strokeWidth = 2;
 
       for (int i = 0; i < 4; i++) {

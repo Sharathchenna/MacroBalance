@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 enum FeedbackType { feedback, bug }
 
 extension FeedbackTypeExtension on FeedbackType {

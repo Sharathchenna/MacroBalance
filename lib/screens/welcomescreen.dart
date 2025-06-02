@@ -8,7 +8,7 @@ import 'package:macrotracker/theme/typography.dart';
 import 'dart:io' show Platform;
 
 class Welcomescreen extends StatefulWidget {
-  const Welcomescreen({Key? key}) : super(key: key);
+  const Welcomescreen({super.key});
 
   @override
   State<Welcomescreen> createState() => _WelcomescreenState();
@@ -107,8 +107,8 @@ class _WelcomescreenState extends State<Welcomescreen>
                           boxShadow: [
                             BoxShadow(
                               color: isDark
-                                  ? Colors.black.withOpacity(0.3)
-                                  : Colors.black.withOpacity(0.08),
+                                  ? Colors.black.withAlpha(((0.3) * 255).round())
+                                  : Colors.black.withAlpha(((0.08) * 255).round()),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                               spreadRadius: 0,
@@ -259,8 +259,8 @@ class _WelcomescreenState extends State<Welcomescreen>
                           foregroundColor: customColors.textPrimary,
                           side: BorderSide(
                             color: isDark
-                                ? Colors.white.withOpacity(0.2)
-                                : Colors.black.withOpacity(0.1),
+                                ? Colors.white.withAlpha(((0.2) * 255).round())
+                                : Colors.black.withAlpha(((0.1) * 255).round()),
                             width: 1,
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -305,8 +305,8 @@ class _WelcomescreenState extends State<Welcomescreen>
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.1)
-              : Colors.black.withOpacity(0.05),
+              ? Colors.white.withAlpha(((0.1) * 255).round())
+              : Colors.black.withAlpha(((0.05) * 255).round()),
         ),
       ),
       child: Row(
@@ -315,7 +315,7 @@ class _WelcomescreenState extends State<Welcomescreen>
             height: 50,
             width: 50,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.15),
+              color: iconColor.withAlpha(((0.15) * 255).round()),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

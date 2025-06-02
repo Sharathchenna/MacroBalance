@@ -7,13 +7,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  const EditProfileScreen({Key? key, required this.userData}) : super(key: key);
+  const EditProfileScreen({super.key, required this.userData});
 
   @override
-  _EditProfileScreenState createState() => _EditProfileScreenState();
+  EditProfileScreenState createState() => EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
+class EditProfileScreenState extends State<EditProfileScreen> {
   final _supabase = Supabase.instance.client;
   final _nameController = TextEditingController();
   bool _isLoading = false;
@@ -114,7 +114,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                colorScheme.primary.withOpacity(0.8),
+                colorScheme.primary.withAlpha((0.8 * 255).round()),
                 colorScheme.surface,
               ],
               stops: const [0.3, 0.3],
@@ -134,7 +134,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withAlpha((0.1 * 255).round()),
                           blurRadius: 10,
                           spreadRadius: 2,
                         ),
@@ -183,12 +183,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                  color: colorScheme.outline.withOpacity(0.3)),
+                                  color: colorScheme.outline.withAlpha((0.3 * 255).round())),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                  color: colorScheme.outline.withOpacity(0.3)),
+                                  color: colorScheme.outline.withAlpha((0.3 * 255).round())),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -199,7 +199,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 color: colorScheme.primary),
                             filled: true,
                             fillColor:
-                                colorScheme.surfaceVariant.withOpacity(0.3),
+                                colorScheme.surfaceContainerHighest.withAlpha((0.3 * 255).round()),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -219,18 +219,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                  color: colorScheme.outline.withOpacity(0.3)),
+                                  color: colorScheme.outline.withAlpha((0.3 * 255).round())),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                  color: colorScheme.outline.withOpacity(0.3)),
+                                  color: colorScheme.outline.withAlpha((0.3 * 255).round())),
                             ),
                             prefixIcon: Icon(CupertinoIcons.mail,
                                 color: colorScheme.secondary),
                             filled: true,
                             fillColor:
-                                colorScheme.surfaceVariant.withOpacity(0.3),
+                                colorScheme.surfaceContainerHighest.withAlpha((0.3 * 255).round()),
                           ),
                         ),
                       ],
@@ -250,7 +250,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       backgroundColor: colorScheme.primary,
                       foregroundColor: colorScheme.onPrimary,
                       elevation: 4,
-                      shadowColor: colorScheme.primary.withOpacity(0.4),
+                      shadowColor: colorScheme.primary.withAlpha((0.4 * 255).round()),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

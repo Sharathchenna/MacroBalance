@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/models/nutrition_goals.dart'; // Import NutritionGoals
-import 'dart:ui';
 import 'package:macrotracker/Health/Health.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditGoalsScreen extends StatefulWidget {
   const EditGoalsScreen({super.key});
@@ -123,12 +120,21 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       if (mounted) {
         setState(() {
           // Only use storage values if provider values were not loaded
-          if (calorieGoal == 2000)
+          if (calorieGoal == 2000) {
             calorieGoal = goals['calories'] ?? calorieGoal;
-          if (proteinGoal == 150) proteinGoal = goals['protein'] ?? proteinGoal;
-          if (carbGoal == 75) carbGoal = goals['carbs'] ?? carbGoal;
-          if (fatGoal == 80) fatGoal = goals['fat'] ?? fatGoal;
-          if (stepsGoal == 9000) stepsGoal = goals['steps'] ?? stepsGoal;
+          }
+          if (proteinGoal == 150) {
+            proteinGoal = goals['protein'] ?? proteinGoal;
+          }
+          if (carbGoal == 75) {
+            carbGoal = goals['carbs'] ?? carbGoal;
+          }
+          if (fatGoal == 80) {
+            fatGoal = goals['fat'] ?? fatGoal;
+          }
+          if (stepsGoal == 9000) {
+            stepsGoal = goals['steps'] ?? stepsGoal;
+          }
         });
       }
     }
@@ -190,20 +196,20 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
 
         for (var entry in entries) {
           final carbs =
-              entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-          final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-          final protein = entry.food.nutrients["Protein"] ?? 0;
+              entry.food.nutrients['Carbohydrate, by difference'] ?? 0;
+          final fat = entry.food.nutrients['Total lipid (fat)'] ?? 0;
+          final protein = entry.food.nutrients['Protein'] ?? 0;
 
           // Convert quantity to grams
           double quantityInGrams = entry.quantity;
           switch (entry.unit) {
-            case "oz":
+            case 'oz':
               quantityInGrams *= 28.35;
               break;
-            case "kg":
+            case 'kg':
               quantityInGrams *= 1000;
               break;
-            case "lbs":
+            case 'lbs':
               quantityInGrams *= 453.59;
               break;
           }
@@ -324,7 +330,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withAlpha((0.2 * 255).round()),
                 blurRadius: 15,
                 spreadRadius: 0,
                 offset: const Offset(0, 8),
@@ -346,7 +352,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: dialogColor.withOpacity(0.2),
+                        color: dialogColor.withAlpha((0.2 * 255).round()),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -378,7 +384,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     borderRadius: BorderRadius.circular(15),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withAlpha((0.05 * 255).round()),
                         blurRadius: 10,
                         spreadRadius: 0,
                         offset: const Offset(0, 2),
@@ -411,7 +417,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15),
                         borderSide: BorderSide(
-                          color: dialogColor.withOpacity(0.3),
+                          color: dialogColor.withAlpha((0.3 * 255).round()),
                           width: 1.5,
                         ),
                       ),
@@ -533,7 +539,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withAlpha((0.08 * 255).round()),
             blurRadius: 10,
             spreadRadius: 0,
             offset: const Offset(0, 4),
@@ -547,7 +553,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           child: InkWell(
             onTap: data['onEdit'],
             splashColor: isEditable
-                ? data['color'].withOpacity(0.1)
+                ? data['color'].withAlpha((0.1 * 255).round())
                 : Colors.transparent, // No splash if not editable
             highlightColor: Colors.transparent,
             child: Padding(
@@ -561,11 +567,12 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: data['color'].withOpacity(0.2),
+                          color: data['color'].withAlpha((0.2 * 255).round()),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: data['color'].withOpacity(0.1),
+                              color:
+                                  data['color'].withAlpha((0.1 * 255).round()),
                               blurRadius: 8,
                               spreadRadius: 2,
                             )
@@ -591,7 +598,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: data['color'].withOpacity(0.1),
+                            color: data['color'].withAlpha((0.1 * 255).round()),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(Icons.edit_rounded,
@@ -619,7 +626,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: data['color'].withOpacity(0.2),
+                                color: data['color']
+                                    .withAlpha((0.2 * 255).round()),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -644,7 +652,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                             Container(
                               height: 12,
                               decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.15),
+                                color:
+                                    Colors.grey.withAlpha((0.15 * 255).round()),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
@@ -659,7 +668,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: data['color'].withOpacity(0.3),
+                                    color: data['color']
+                                        .withAlpha((0.3 * 255).round()),
                                     blurRadius: 4,
                                     offset: const Offset(0, 2),
                                   ),
@@ -812,85 +822,4 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   }
 
   // Add this new method somewhere within the _EditGoalsScreenState class
-
-  Widget _buildMacroPercentageCard() {
-    final theme = Theme.of(context);
-    final customColors = theme.extension<CustomColors>()!;
-
-    // Calculate total grams for percentage calculation
-    final totalGrams = proteinGoal + carbGoal + fatGoal;
-    double proteinPercent =
-        totalGrams > 0 ? (proteinGoal / totalGrams * 100) : 0;
-    double carbPercent = totalGrams > 0 ? (carbGoal / totalGrams * 100) : 0;
-    double fatPercent = totalGrams > 0 ? (fatGoal / totalGrams * 100) : 0;
-
-    // Ensure percentages sum roughly to 100, handle potential rounding issues if needed
-    // For simplicity, we'll just display the calculated values for now.
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Target Macro Ratio (by Grams)',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                Tooltip(
-                  message:
-                      'These percentages show how your daily macro goals are distributed:\n\n'
-                      '• Protein: ${proteinPercent.toStringAsFixed(0)}% (${proteinGoal}g)\n'
-                      '• Carbs: ${carbPercent.toStringAsFixed(0)}% (${carbGoal}g)\n'
-                      '• Fat: ${fatPercent.toStringAsFixed(0)}% (${fatGoal}g)\n\n'
-                      'Based on total grams: ${totalGrams}g',
-                  textStyle: const TextStyle(color: Colors.white, fontSize: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: Icon(
-                    Icons.info_outline,
-                    size: 20,
-                    color: customColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildPercentItem('Protein', proteinPercent, Colors.red),
-                _buildPercentItem('Carbs', carbPercent, Colors.blue),
-                _buildPercentItem('Fat', fatPercent, Colors.amber),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPercentItem(String label, double percent, Color color) {
-    return Column(
-      children: [
-        Text(
-          '${percent.toStringAsFixed(0)}%',
-          style: TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, color: color),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
 }
