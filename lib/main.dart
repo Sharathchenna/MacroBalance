@@ -27,7 +27,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
-import 'dart:async';
+import 'dart:async' show TimeoutException, StreamSubscription;
 import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:io' show Platform;
@@ -100,27 +100,30 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Initialize Supabase - make sure this completes before accessing Supabase.instance
+  // Initialize Supabase - NON-BLOCKING with faster timeout
   debugPrint('[Startup Timing] Before Supabase.initialize: ${DateTime.now()}');
+  bool supabaseInitialized = false;
   try {
     await Supabase.initialize(
       anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU',
       url: 'https://mdivtblabmnftdqlgysv.supabase.co',
     ).timeout(
-      const Duration(
-          seconds: 15), // 15 second timeout for Supabase initialization
+      const Duration(seconds: 5), // Reduced from 15 to 5 seconds
       onTimeout: () {
         debugPrint(
             'Supabase initialization timeout - continuing with offline mode');
-        throw Exception('Supabase initialization timed out');
+        throw TimeoutException(
+            'Supabase initialization timed out', const Duration(seconds: 5));
       },
     );
+    supabaseInitialized = true;
     debugPrint('[Startup Timing] After Supabase.initialize: ${DateTime.now()}');
   } catch (e) {
     debugPrint(
         '[Startup] Supabase initialization failed: $e - continuing in offline mode');
     // Continue app startup even if Supabase fails - app should work offline
+    supabaseInitialized = false;
   }
 
   // Initialize PostHog in background to avoid blocking startup
@@ -133,15 +136,22 @@ Future<void> main() async {
   // Setup Firebase Messaging service in background to avoid blocking startup
   _setupFirebaseMessagingInBackground();
 
-  // Initialize RevenueCat SYNCHRONOUSLY to ensure it's configured before providers
+  // Initialize RevenueCat with faster timeout - NON-BLOCKING
   try {
-    debugPrint('[RevenueCat] Starting synchronous initialization...');
-    await _initializePlatformState();
-    debugPrint(
-        '[RevenueCat] Synchronous initialization completed successfully');
+    debugPrint('[RevenueCat] Starting initialization with timeout...');
+    await _initializePlatformState().timeout(
+      const Duration(seconds: 3), // 3 second timeout
+      onTimeout: () {
+        debugPrint(
+            'RevenueCat initialization timeout - continuing without in-app purchases');
+        throw TimeoutException(
+            'RevenueCat initialization timed out', const Duration(seconds: 3));
+      },
+    );
+    debugPrint('[RevenueCat] Initialization completed successfully');
   } catch (e) {
     debugPrint(
-        '[RevenueCat] Synchronous initialization failed: $e - in-app purchases disabled');
+        '[RevenueCat] Initialization failed: $e - in-app purchases disabled');
     // Continue app startup even if RevenueCat fails
   }
 
@@ -171,9 +181,16 @@ Future<void> main() async {
   runApp(
     // Wrap MultiProvider with a StreamProvider for AuthState
     StreamProvider<User?>.value(
-      value: Supabase.instance.client.auth.onAuthStateChange
-          .map((data) => data.session?.user), // Provide the User? object
+      value: supabaseInitialized
+          ? Supabase.instance.client.auth.onAuthStateChange
+              .map((data) => data.session?.user)
+          : Stream.value(null), // Provide null stream if Supabase failed
       initialData: () {
+        if (!supabaseInitialized) {
+          debugPrint(
+              '[Startup] Supabase not initialized - returning null user');
+          return null;
+        }
         debugPrint(
             '[Startup Timing] Before Supabase.instance.client.auth.currentUser: ${DateTime.now()}');
         final currentUser = Supabase.instance.client.auth.currentUser;
@@ -192,8 +209,6 @@ Future<void> main() async {
                 // User logged out, return a NEW empty provider
                 debugPrint(
                     '[ProxyProvider] User is null. Creating new empty FoodEntryProvider.');
-                // Ensure previous provider data is cleared if necessary (though disposal should handle it)
-                // previousProvider?.clearEntries(); // Optional: Explicit clear before returning new one
                 return FoodEntryProvider();
               } else {
                 // User logged in
@@ -209,7 +224,9 @@ Future<void> main() async {
                   debugPrint(
                       '[Startup Timing] Scheduling loadEntriesForCurrentUser: ${DateTime.now()}');
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    newProvider.loadEntriesForCurrentUser();
+                    // Use Future.microtask to make it completely non-blocking
+                    Future.microtask(
+                        () => newProvider.loadEntriesForCurrentUser());
                   });
                   return newProvider;
                 } else {
@@ -230,10 +247,6 @@ Future<void> main() async {
           // Meal and Workout Planning Providers - Using empty constructors
           ChangeNotifierProvider(create: (_) => MealPlanningProvider()),
           ChangeNotifierProvider(create: (_) => WorkoutPlanningProvider()),
-          // Pass FoodEntryProvider instance to ExpenditureProvider
-          // ChangeNotifierProvider(
-          //     create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
-          // Removed duplicate WeightUnitProvider entry if it existed
         ],
         child: const MyApp(),
       ),

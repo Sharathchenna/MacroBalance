@@ -1,6 +1,8 @@
 import 'package:camera/camera.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'dart:io';
+import '../widgets/camera/flutter_camera_screen.dart';
+import '../widgets/camera/camera_controls.dart';
 
 class CameraService {
   static final CameraService _instance = CameraService._internal();
@@ -9,10 +11,6 @@ class CameraService {
 
   CameraController? _controller;
   bool _isStreaming = false;
-
-  // Keep the same channel name as used in Dashboard and native code
-  static const MethodChannel _nativeCameraViewChannel =
-      MethodChannel('com.macrotracker/native_camera_view');
 
   Future<CameraController?> get controller async {
     if (_controller != null) return _controller;
@@ -66,30 +64,32 @@ class CameraService {
     _isStreaming = false;
   }
 
-  // Method to show the native camera view
-  Future<void> showNativeCamera() async {
-    if (!Platform.isIOS) {
-      print('[CameraService] Native camera view only supported on iOS.');
-      // Consider showing a platform-specific error message or handling differently
-      throw PlatformException(
-          code: 'UNSUPPORTED_PLATFORM',
-          message: 'Camera feature is only available on iOS.');
-    }
-
-    try {
-      print('[CameraService] Invoking showNativeCamera...');
-      await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
-      print('[CameraService] showNativeCamera invoked successfully.');
-    } on PlatformException catch (e) {
-      print('[CameraService] Error showing native camera: ${e.message}');
-      // Rethrow the exception so the caller can handle it (e.g., show UI feedback)
-      rethrow;
-    }
+  // Method to show Flutter camera
+  Future<Map<String, dynamic>?> showCamera({
+    CameraMode initialMode = CameraMode.camera,
+    required BuildContext context,
+  }) async {
+    // Use Flutter camera implementation
+    return await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlutterCameraScreen(
+          initialMode: initialMode,
+        ),
+      ),
+    );
   }
 
-  // Method to set up the handler (can still be called from Dashboard)
-  void setupMethodCallHandler(Future<dynamic> Function(MethodCall call) handler) {
-     _nativeCameraViewChannel.setMethodCallHandler(handler);
-     print('[CameraService] Method call handler set.');
+  // Legacy methods for backward compatibility (now use Flutter camera)
+  @Deprecated('Use showCamera instead')
+  Future<void> showNativeCamera() async {
+    throw UnsupportedError(
+        'Native camera has been replaced with Flutter camera implementation. Use showCamera() instead.');
+  }
+
+  @Deprecated('Native camera handlers are no longer needed')
+  void setupMethodCallHandler(Function handler) {
+    print(
+        '[CameraService] Native camera handlers are deprecated. Flutter camera handles its own results.');
   }
 }

@@ -1,12 +1,9 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lottie/lottie.dart';
 import 'package:macrotracker/camera/barcode_results.dart' hide Serving;
 import 'package:macrotracker/camera/results_page.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
@@ -20,16 +17,15 @@ import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/meal_planning_screen.dart';
 import 'package:macrotracker/screens/workout_planning_screen.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Import Hive
 
-import '../AI/gemini.dart';
 import '../Health/Health.dart';
 import '../services/camera_service.dart'; // Import CameraService
 import '../services/storage_service.dart'; // Import StorageService
 import '../services/nutrition_calculator_service.dart'; // Import NutritionCalculatorService
 import '../utils/performance_monitor.dart';
+import '../widgets/camera/camera_controls.dart'; // Import CameraMode
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -50,7 +46,6 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
     super.initState();
 
     trackOperation('dashboard_setup');
-    _setupNativeCameraHandler(); // Set up the handler when the dashboard initializes
 
     // Load local data immediately (fast), then sync in background
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,69 +70,42 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
     endTracking('dashboard_setup');
   }
 
-  // --- Native Camera Handling (Moved from CameraScreen) ---
+  // --- Flutter Camera Handling ---
 
-  void _setupNativeCameraHandler() {
-    // Use CameraService to set the handler
-    _cameraService.setupMethodCallHandler((call) async {
-      print('[Flutter Dashboard] Received method call: ${call.method}');
-      switch (call.method) {
-        case 'cameraResult':
-          // Use addPostFrameCallback to ensure state is stable before navigating or showing dialogs
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) {
-              print(
-                  '[Flutter Dashboard] Post-frame callback: Widget is unmounted. Ignoring result.');
-              return;
-            }
-
-            final Map<dynamic, dynamic> result = call.arguments as Map;
-            final String type = result['type'] as String;
-            final currentContext = context; // Capture context safely
-
-            if (type == 'barcode') {
-              final String barcode = result['value'] as String;
-              print(
-                  '[Flutter Dashboard] Post-frame: Handling barcode: $barcode');
-              _handleBarcodeResult(currentContext, barcode);
-            } else if (type == 'photo') {
-              final Uint8List photoData = result['value'] as Uint8List;
-              print(
-                  '[Flutter Dashboard] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-              // Don't await, let it process in the background
-              _handlePhotoResult(currentContext, photoData);
-            } else if (type == 'cancel') {
-              print('[Flutter Dashboard] Post-frame: Handling cancel.');
-              // No action needed on cancel in Dashboard, just log.
-            } else {
-              print(
-                  '[Flutter Dashboard] Post-frame: Unknown camera result type: $type');
-              if (mounted) {
-                _showErrorSnackbar('Received unknown result from camera.');
-              }
-            }
-          });
-          break;
-        default:
-          print(
-              '[Flutter Dashboard] Unknown method call from native: ${call.method}');
-      }
-    });
-  }
-
-  Future<void> _showNativeCamera() async {
+  Future<void> _showFlutterCamera() async {
     try {
-      // Use CameraService to show the camera
-      await _cameraService.showNativeCamera();
-    } on PlatformException catch (e) {
-      print('[Flutter Dashboard] Error showing native camera: ${e.message}');
+      // Use CameraService to show the Flutter camera
+      final result = await _cameraService.showCamera(
+        context: context,
+        initialMode: CameraMode.camera,
+      );
+
+      if (result != null && mounted) {
+        final String type = result['type'] as String;
+        if (type == 'barcode') {
+          final String barcode = result['value'] as String;
+          _handleBarcodeResult(context, barcode);
+        } else if (type == 'photo') {
+          final List<AIFoodItem> foods = result['value'] as List<AIFoodItem>;
+          if (foods.isNotEmpty) {
+            Navigator.push(
+              context,
+              CupertinoPageRoute(builder: (ctx) => ResultsPage(foods: foods)),
+            );
+          } else {
+            _showErrorSnackbar('Unable to identify food, try again');
+          }
+        }
+      }
+    } catch (e) {
+      print('[Flutter Dashboard] Error showing camera: ${e.toString()}');
       if (mounted) {
-        _showErrorSnackbar('Failed to open camera: ${e.message}');
+        _showErrorSnackbar('Failed to open camera');
       }
     }
   }
 
-  // --- Result Handling (Adapted from CameraScreen) ---
+  // --- Helper Methods for Navigation ---
 
   void _handleBarcodeResult(BuildContext safeContext, String barcode) {
     print('[Flutter Dashboard] Navigating to BarcodeResults');
@@ -148,91 +116,7 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
     );
   }
 
-  Future<void> _handlePhotoResult(
-      BuildContext safeContext, Uint8List photoData) async {
-    if (!mounted) return;
-
-    _showLoadingDialog('Analyzing Image...'); // Show loading for Gemini
-
-    try {
-      // --- Gemini Processing ---
-      final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath =
-          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final File tempFile = File(tempPath);
-      await tempFile.writeAsBytes(photoData);
-      print('[Flutter Dashboard] Photo saved to temporary file: $tempPath');
-      String jsonResponse = await processImageWithGemini(tempFile.path);
-      print('[Flutter Dashboard] Gemini response received.');
-      // try { await tempFile.delete(); } catch (e) { print('[Flutter Dashboard] Warn: Could not delete temp file: $e'); }
-      jsonResponse =
-          jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
-      dynamic decodedJson = json.decode(jsonResponse);
-      List<dynamic> mealData;
-      if (decodedJson is Map<String, dynamic> &&
-          decodedJson.containsKey('meal') &&
-          decodedJson['meal'] is List) {
-        mealData = decodedJson['meal'] as List;
-      } else if (decodedJson is List) {
-        mealData = decodedJson;
-      } else if (decodedJson is Map<String, dynamic>) {
-        mealData = [decodedJson];
-      } else {
-        throw Exception('Unexpected JSON structure from Gemini');
-      }
-      final List<AIFoodItem> foods = mealData
-          .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
-          .toList();
-      // --- End Gemini Processing ---
-
-      // Dismiss loading dialog *before* navigating or showing snackbar
-      if (mounted) {
-        try {
-          final navigator = Navigator.of(context, rootNavigator: true);
-          if (navigator.canPop()) {
-            navigator.pop(); // Dismiss dialog
-          }
-        } catch (e) {
-          print('[Flutter Dashboard] Error dismissing loading dialog: $e');
-        }
-      }
-      if (!mounted) return; // Check again after async gap
-
-      // Check if Gemini identified any food
-      if (foods.isEmpty) {
-        print('[Flutter Dashboard] Gemini returned an empty food list.');
-        _showErrorSnackbar('Unable to identify food, try again');
-      } else {
-        // Navigate to results page
-        print('[Flutter Dashboard] Navigating to ResultsPage');
-        Navigator.push(
-          context,
-          CupertinoPageRoute(builder: (ctx) => ResultsPage(foods: foods)),
-        );
-      }
-    } catch (e) {
-      print(
-          '[Flutter Dashboard] Error processing photo result: ${e.toString()}');
-      if (mounted) {
-        // Dismiss loading dialog in case of error
-        try {
-          final navigator = Navigator.of(context, rootNavigator: true);
-          if (navigator.canPop()) {
-            navigator.pop(); // Dismiss dialog
-          }
-        } catch (e) {
-          print(
-              '[Flutter Dashboard] Error dismissing loading dialog in catch: $e');
-        }
-
-        // Show generic error message
-        _showErrorSnackbar('Something went wrong, try again');
-      }
-    }
-    // No finally block needed here as dialog dismissal is handled within try/catch
-  }
-
-  // --- UI Helper Methods (Moved from CameraScreen) ---
+  // --- UI Helper Methods ---
 
   void _showErrorSnackbar(String message) {
     if (!mounted) return;
@@ -244,53 +128,6 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
         backgroundColor: Colors.redAccent,
         duration: const Duration(seconds: 3),
       ),
-    );
-  }
-
-  void _showLoadingDialog(String message) {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      // Use a slightly transparent barrier
-      barrierColor: Colors.black.withAlpha(((0.3) * 255).round()),
-      builder: (BuildContext dialogContext) {
-        // Improved Loading Dialog Layout
-        return Dialog(
-          backgroundColor: Theme.of(context).brightness == Brightness.light
-              ? Colors.white
-              : Colors.grey[850], // Dark mode background
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-                vertical: 30, horizontal: 24), // More padding
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center, // Center vertically
-              children: [
-                // Lottie animation
-                Lottie.asset(
-                  'assets/animations/food_loading.json', // Ensure this path is correct
-                  width: 150, // Adjusted size
-                  height: 150,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 20), // Adjusted spacing
-                Text(
-                  message,
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black87
-                          : Colors.white, // Adjust text color for theme
-                      fontSize: 17),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -403,9 +240,8 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
                 icon: CupertinoIcons.camera,
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  // Directly invoke the native camera view
-                  _showNativeCamera();
-                  // Result handling is now done in _setupNativeCameraHandler
+                  // Use Flutter camera implementation
+                  _showFlutterCamera();
                 },
               ),
               _buildNavItemCompact(

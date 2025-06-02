@@ -14,6 +14,7 @@ import '../providers/date_provider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import '../services/camera_service.dart';
+import '../widgets/camera/camera_controls.dart';
 
 extension ColorExtension on Color {
   Color withValues({
@@ -757,7 +758,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
               onPressed: () async {
                 Navigator.of(context).pop();
                 try {
-                  await cameraService.showNativeCamera();
+                  await cameraService.showCamera(
+                    initialMode: CameraMode.barcode,
+                    context: context,
+                  );
                 } catch (e) {
                   print('Error reopening camera from BarcodeResults: $e');
                 }

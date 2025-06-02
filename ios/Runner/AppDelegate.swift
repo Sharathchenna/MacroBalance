@@ -30,6 +30,11 @@ import home_widget // Import home_widget
     private var statsChannel: FlutterMethodChannel?
     private let statsChannelName = "app.macrobalance.com/stats"
     
+    // Add native barcode scanner
+    private var nativeBarcodeScanner: NativeBarcodeScanner?
+    private var nativeBarcodeChannel: FlutterMethodChannel?
+    private let nativeBarcodeChannelName = "com.macrotracker/native_barcode_scanner"
+    
     override func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -58,6 +63,13 @@ import home_widget // Import home_widget
         statsChannel = FlutterMethodChannel(name: statsChannelName,
                                           binaryMessenger: controller.binaryMessenger)
         statsChannel?.setMethodCallHandler(handleStatsMethodCall)
+
+        // Initialize native barcode scanner
+        nativeBarcodeChannel = FlutterMethodChannel(name: nativeBarcodeChannelName,
+                                                   binaryMessenger: controller.binaryMessenger)
+        if let channel = nativeBarcodeChannel {
+            nativeBarcodeScanner = NativeBarcodeScanner(methodChannel: channel)
+        }
 
         // Explicitly configure Firebase here BEFORE registering plugins
         FirebaseApp.configure()

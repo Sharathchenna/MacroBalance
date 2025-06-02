@@ -29,6 +29,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
 import 'package:macrotracker/auth/paywall_gate.dart'; // Import PaywallGate
+import 'package:macrotracker/test_flutter_camera.dart'; // Import test camera screen
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -870,6 +871,27 @@ class _AccountDashboardState extends State<AccountDashboard>
                         },
                       ),
                       onTap: () {}, // No additional action on tap
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                  // Add camera test button in debug mode
+                  if (kDebugMode)
+                    _buildListTile(
+                      icon: CupertinoIcons.camera_fill,
+                      iconColor: Colors.green,
+                      title: 'Test Flutter Camera',
+                      subtitle: 'Platform-specific barcode detection',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder: (context) =>
+                                const TestFlutterCameraScreen(),
+                          ),
+                        );
+                      },
                       colorScheme: colorScheme,
                       customColors: customColors,
                     ),

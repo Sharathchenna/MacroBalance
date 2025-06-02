@@ -5,7 +5,7 @@ import 'package:macrotracker/screens/weight_tracking_screen.dart';
 import 'package:macrotracker/screens/macro_tracking_screen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/searchPage.dart';
-import 'package:macrotracker/camera/camera.dart';
+import 'package:macrotracker/widgets/camera/flutter_camera_screen.dart';
 import 'route_constants.dart';
 
 class Routes {
@@ -37,7 +37,7 @@ class AppRouter {
       case RouteNames.search:
         return MaterialPageRoute(builder: (_) => const FoodSearchPage());
       case RouteNames.camera:
-        return MaterialPageRoute(builder: (_) => const CameraScreen());
+        return MaterialPageRoute(builder: (_) => const FlutterCameraScreen());
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(
