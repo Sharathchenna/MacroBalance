@@ -4,197 +4,154 @@ import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 
-/// Platform-specific barcode detection service
-///
-/// - Android: Uses Google ML Kit for barcode detection
-/// - iOS: Uses native iOS Vision framework through method channels
-///
-/// This provides optimal performance and native integration on each platform.
-
+/// Simplified barcode detection service with focus on reliability
+/// Uses Google ML Kit for both Android and iOS (unified approach)
 class BarcodeDetectionService {
   static final BarcodeDetectionService _instance =
       BarcodeDetectionService._internal();
   factory BarcodeDetectionService() => _instance;
   BarcodeDetectionService._internal();
 
-  // Google ML Kit scanner (for Android)
-  late BarcodeScanner _barcodeScanner;
-
-  // iOS Native method channel
-  static const MethodChannel _nativeBarcodeChannel =
-      MethodChannel('com.macrotracker/native_barcode_scanner');
-
+  // ML Kit scanner for all platforms
+  BarcodeScanner? _barcodeScanner;
   bool _isProcessing = false;
   StreamController<String>? _barcodeStreamController;
 
   // Configuration
   bool _isEnabled = false;
   Rect? _scanArea;
-  double _overlapThreshold = 0.5; // Minimum overlap percentage required
+  double _overlapThreshold = 0.3; // Lowered threshold for better detection
 
   // Getters
   bool get isEnabled => _isEnabled;
   Stream<String>? get barcodeStream => _barcodeStreamController?.stream;
 
   void initialize() {
-    _barcodeStreamController = StreamController<String>.broadcast();
-
-    if (Platform.isAndroid) {
-      _initializeAndroidMLKit();
-    } else if (Platform.isIOS) {
-      _initializeiOSNative();
-    }
-
-    print(
-        'Barcode Detection Service initialized for ${Platform.operatingSystem}');
-  }
-
-  void _initializeAndroidMLKit() {
-    // Initialize Google ML Kit barcode scanner for Android
-    final List<BarcodeFormat> formats = [
-      BarcodeFormat.all, // This includes all supported formats
-    ];
-
-    _barcodeScanner = BarcodeScanner(formats: formats);
-    print('Google ML Kit barcode scanner initialized for Android');
-  }
-
-  void _initializeiOSNative() {
-    // Set up method channel for iOS native barcode detection
-    _nativeBarcodeChannel.setMethodCallHandler(_handleiOSNativeCall);
-    print('iOS native barcode scanner initialized');
-  }
-
-  Future<dynamic> _handleiOSNativeCall(MethodCall call) async {
-    switch (call.method) {
-      case 'onBarcodeDetected':
-        final String barcode = call.arguments['barcode'] as String;
-        final Map<String, dynamic> boundingBox =
-            call.arguments['boundingBox'] as Map<String, dynamic>;
-
-        print('iOS Native barcode detected: $barcode');
-
-        // Check if barcode is in scan area (if specified)
-        if (_scanArea != null &&
-            !_isiOSBarcodeInScanArea(boundingBox, _scanArea!)) {
-          return;
-        }
-
-        // Add to stream
-        if (_barcodeStreamController != null &&
-            !_barcodeStreamController!.isClosed) {
-          _barcodeStreamController!.add(barcode);
-        }
-        break;
-
-      case 'onBarcodeError':
-        final String error = call.arguments['error'] as String;
-        print('iOS Native barcode error: $error');
-        break;
-
-      default:
-        print('Unknown method call from iOS: ${call.method}');
-    }
-  }
-
-  bool _isiOSBarcodeInScanArea(
-      Map<String, dynamic> boundingBox, Rect scanArea) {
     try {
-      final double x = (boundingBox['x'] as num).toDouble();
-      final double y = (boundingBox['y'] as num).toDouble();
-      final double width = (boundingBox['width'] as num).toDouble();
-      final double height = (boundingBox['height'] as num).toDouble();
+      print('BarcodeDetectionService: Starting initialization...');
 
-      final Rect barcodeRect = Rect.fromLTWH(x, y, width, height);
-      final intersection = barcodeRect.intersect(scanArea);
+      // Force dispose first to ensure clean state
+      _forceDispose();
 
-      if (intersection.isEmpty) return false;
+      // Reset all state
+      _isEnabled = false;
+      _isProcessing = false;
+      _scanArea = null;
 
-      final overlapArea = intersection.width * intersection.height;
-      final barcodeArea = barcodeRect.width * barcodeRect.height;
+      // Initialize fresh broadcast stream controller
+      _barcodeStreamController = StreamController<String>.broadcast();
 
-      if (barcodeArea == 0) return false;
+      // Initialize ML Kit scanner with all supported formats
+      final List<BarcodeFormat> formats = [
+        BarcodeFormat.all, // Support all barcode formats
+      ];
 
-      final overlapPercentage = overlapArea / barcodeArea;
-
-      print(
-          'iOS Barcode overlap: ${(overlapPercentage * 100).toStringAsFixed(1)}%');
-
-      return overlapPercentage >= _overlapThreshold;
+      _barcodeScanner = BarcodeScanner(formats: formats);
+      print('BarcodeDetectionService: Initialized successfully');
     } catch (e) {
-      print('Error checking iOS barcode overlap: $e');
-      return true; // Allow detection if we can't determine overlap
+      print('BarcodeDetectionService: Initialization error: $e');
+    }
+  }
+
+  /// Force dispose without try-catch to ensure cleanup
+  void _forceDispose() {
+    _isEnabled = false;
+    _isProcessing = false;
+
+    // Close ML Kit scanner
+    if (_barcodeScanner != null) {
+      try {
+        _barcodeScanner!.close();
+      } catch (e) {
+        print(
+            'BarcodeDetectionService: Error closing scanner during force dispose: $e');
+      }
+      _barcodeScanner = null;
+    }
+
+    // Close stream controller
+    if (_barcodeStreamController != null) {
+      try {
+        if (!_barcodeStreamController!.isClosed) {
+          _barcodeStreamController!.close();
+        }
+      } catch (e) {
+        print(
+            'BarcodeDetectionService: Error closing stream during force dispose: $e');
+      }
+      _barcodeStreamController = null;
     }
   }
 
   void setScanArea(Rect scanArea) {
     _scanArea = scanArea;
-    print('Scan area set to: $scanArea');
-
-    // Send scan area to iOS native if needed
-    if (Platform.isIOS) {
-      _nativeBarcodeChannel.invokeMethod('setScanArea', {
-        'x': scanArea.left,
-        'y': scanArea.top,
-        'width': scanArea.width,
-        'height': scanArea.height,
-      });
-    }
+    print('BarcodeDetectionService: Scan area set to: $scanArea');
   }
 
   void setOverlapThreshold(double threshold) {
     _overlapThreshold = threshold.clamp(0.0, 1.0);
-    print('Overlap threshold set to: $_overlapThreshold');
-
-    // Send threshold to iOS native if needed
-    if (Platform.isIOS) {
-      _nativeBarcodeChannel.invokeMethod('setOverlapThreshold', threshold);
-    }
+    print(
+        'BarcodeDetectionService: Overlap threshold set to: $_overlapThreshold');
   }
 
   void startDetection() {
     _isEnabled = true;
-    print('Barcode detection started');
+    _isProcessing = false; // Reset processing flag
 
-    // Start iOS native detection if needed
-    if (Platform.isIOS) {
-      _nativeBarcodeChannel.invokeMethod('startDetection');
+    // Ensure stream controller is available
+    if (_barcodeStreamController == null ||
+        _barcodeStreamController!.isClosed) {
+      _barcodeStreamController = StreamController<String>.broadcast();
+      print('BarcodeDetectionService: Created new stream controller');
     }
+
+    print('BarcodeDetectionService: Detection started');
   }
 
   void stopDetection() {
     _isEnabled = false;
-    print('Barcode detection stopped');
-
-    // Stop iOS native detection if needed
-    if (Platform.isIOS) {
-      _nativeBarcodeChannel.invokeMethod('stopDetection');
-    }
+    _isProcessing = false;
+    print('BarcodeDetectionService: Detection stopped');
   }
 
+  /// Reset the detection state for a clean restart
+  void resetDetection() {
+    print('BarcodeDetectionService: Resetting detection state...');
+    _isEnabled = false;
+    _isProcessing = false;
+
+    // Close and recreate stream controller
+    try {
+      if (_barcodeStreamController != null &&
+          !_barcodeStreamController!.isClosed) {
+        _barcodeStreamController!.close();
+      }
+    } catch (e) {
+      print(
+          'BarcodeDetectionService: Error closing stream controller during reset: $e');
+    }
+
+    _barcodeStreamController = StreamController<String>.broadcast();
+    print('BarcodeDetectionService: Detection state reset complete');
+  }
+
+  /// Main method for detecting barcodes from camera images
   Future<String?> detectBarcode(CameraImage image) async {
-    if (!_isEnabled || _isProcessing) {
+    if (!_isEnabled || _isProcessing || _barcodeScanner == null) {
       return null;
     }
 
-    if (Platform.isAndroid) {
-      return await _detectBarcodeAndroid(image);
-    } else if (Platform.isIOS) {
-      // For iOS, we send the image to native code for processing
-      return await _detectBarcodeiOS(image);
-    }
-
-    return null;
-  }
-
-  Future<String?> _detectBarcodeAndroid(CameraImage image) async {
     _isProcessing = true;
 
     try {
+      // Convert CameraImage to InputImage
       final InputImage inputImage = _convertCameraImageToInputImage(image);
-      final List<Barcode> barcodes =
-          await _barcodeScanner.processImage(inputImage);
 
+      // Process with ML Kit
+      final List<Barcode> barcodes =
+          await _barcodeScanner!.processImage(inputImage);
+
+      // Find first valid barcode in scan area
       for (final Barcode barcode in barcodes) {
         if (barcode.displayValue != null && barcode.displayValue!.isNotEmpty) {
           // Check if barcode is in scan area (if specified)
@@ -204,204 +161,190 @@ class BarcodeDetectionService {
           }
 
           final String barcodeValue = barcode.displayValue!;
-          print('Android ML Kit barcode detected: $barcodeValue');
+          print('BarcodeDetectionService: Barcode detected: $barcodeValue');
 
           // Add to stream
-          if (_barcodeStreamController != null &&
-              !_barcodeStreamController!.isClosed) {
-            _barcodeStreamController!.add(barcodeValue);
-          }
-
+          _addToStream(barcodeValue);
           return barcodeValue;
         }
       }
 
       return null;
     } catch (e) {
-      print('Error detecting barcode with ML Kit: $e');
+      print('BarcodeDetectionService: Error detecting barcode: $e');
       return null;
     } finally {
       _isProcessing = false;
     }
   }
 
-  Future<String?> _detectBarcodeiOS(CameraImage image) async {
+  /// Detect barcode from file path (for manual capture)
+  Future<String?> detectBarcodeFromFile(String imagePath) async {
+    if (_isProcessing || _barcodeScanner == null) {
+      return null;
+    }
+
     _isProcessing = true;
 
     try {
-      // Convert CameraImage to a format iOS can understand
-      final WriteBuffer allBytes = WriteBuffer();
-      for (final Plane plane in image.planes) {
-        allBytes.putUint8List(plane.bytes);
-      }
-      final bytes = allBytes.done().buffer.asUint8List();
+      // Create InputImage from file path
+      final InputImage inputImage = InputImage.fromFilePath(imagePath);
+      final List<Barcode> barcodes =
+          await _barcodeScanner!.processImage(inputImage);
 
-      // Send image data to iOS for native processing
-      final result = await _nativeBarcodeChannel.invokeMethod('processImage', {
-        'imageData': bytes,
-        'width': image.width,
-        'height': image.height,
-        'format': 'bgra8888', // iOS typically uses BGRA format
-      });
+      // Return first valid barcode found
+      for (final Barcode barcode in barcodes) {
+        if (barcode.displayValue != null && barcode.displayValue!.isNotEmpty) {
+          final String barcodeValue = barcode.displayValue!;
+          print(
+              'BarcodeDetectionService: Barcode detected from file: $barcodeValue');
 
-      if (result != null && result is String && result.isNotEmpty) {
-        print('iOS Native barcode detected: $result');
-
-        // Add to stream
-        if (_barcodeStreamController != null &&
-            !_barcodeStreamController!.isClosed) {
-          _barcodeStreamController!.add(result);
+          // Add to stream
+          _addToStream(barcodeValue);
+          return barcodeValue;
         }
-
-        return result;
       }
 
+      print('BarcodeDetectionService: No barcode found in image file');
       return null;
     } catch (e) {
-      print('Error detecting barcode with iOS native: $e');
+      print('BarcodeDetectionService: Error detecting barcode from file: $e');
       return null;
     } finally {
       _isProcessing = false;
     }
   }
 
-  // Process stream of camera images
-  void processImageStream(Stream<CameraImage> imageStream) {
-    if (_barcodeStreamController == null ||
-        _barcodeStreamController!.isClosed) {
-      _barcodeStreamController = StreamController<String>.broadcast();
-    }
-
-    imageStream.listen((CameraImage image) async {
-      if (_isEnabled && !_isProcessing) {
-        await detectBarcode(image);
+  /// Add barcode to stream safely
+  void _addToStream(String barcode) {
+    try {
+      if (_barcodeStreamController != null &&
+          !_barcodeStreamController!.isClosed) {
+        _barcodeStreamController!.add(barcode);
       }
-    });
+    } catch (e) {
+      print('BarcodeDetectionService: Error adding to stream: $e');
+    }
   }
 
-  // Android ML Kit specific methods
+  /// Convert CameraImage to InputImage for ML Kit
   InputImage _convertCameraImageToInputImage(CameraImage image) {
-    // Convert CameraImage to InputImage for ML Kit (Android only)
+    // Handle different platforms
     final WriteBuffer allBytes = WriteBuffer();
     for (final Plane plane in image.planes) {
       allBytes.putUint8List(plane.bytes);
     }
     final bytes = allBytes.done().buffer.asUint8List();
 
-    // For Android, typically YUV420 format
-    const inputImageFormat = InputImageFormat.yuv420;
-    const inputImageRotation = InputImageRotation.rotation90deg;
+    // Determine format and rotation based on platform
+    InputImageFormat format;
+    InputImageRotation rotation;
+
+    if (Platform.isAndroid) {
+      format = InputImageFormat.yuv420;
+      rotation = InputImageRotation.rotation90deg;
+    } else {
+      format = InputImageFormat.bgra8888;
+      rotation = InputImageRotation.rotation90deg;
+    }
+
+    final Size imageSize =
+        Size(image.width.toDouble(), image.height.toDouble());
+    final int bytesPerRow =
+        image.planes.isNotEmpty ? image.planes[0].bytesPerRow : image.width;
 
     return InputImage.fromBytes(
       bytes: bytes,
       metadata: InputImageMetadata(
-        size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: inputImageRotation,
-        format: inputImageFormat,
-        bytesPerRow:
-            image.planes.isNotEmpty ? image.planes[0].bytesPerRow : image.width,
+        size: imageSize,
+        rotation: rotation,
+        format: format,
+        bytesPerRow: bytesPerRow,
       ),
     );
   }
 
+  /// Check if barcode bounding box overlaps with scan area
   bool _isBarcodeInScanArea(Rect? boundingBox, Rect scanArea) {
-    if (boundingBox == null) return false;
+    if (boundingBox == null) return true; // Allow if no bounding box
 
-    final intersection = boundingBox.intersect(scanArea);
-    if (intersection.isEmpty) return false;
+    try {
+      final intersection = boundingBox.intersect(scanArea);
+      if (intersection.isEmpty) return false;
 
-    final overlapArea = intersection.width * intersection.height;
-    final barcodeArea = boundingBox.width * boundingBox.height;
+      final overlapArea = intersection.width * intersection.height;
+      final barcodeArea = boundingBox.width * boundingBox.height;
 
-    if (barcodeArea == 0) return false;
+      if (barcodeArea <= 0) return true; // Allow if area calculation fails
 
-    final overlapPercentage = overlapArea / barcodeArea;
+      final overlapPercentage = overlapArea / barcodeArea;
+      final meetsThreshold = overlapPercentage >= _overlapThreshold;
 
-    print(
-        'Android Barcode overlap: ${(overlapPercentage * 100).toStringAsFixed(1)}%');
+      print(
+          'BarcodeDetectionService: Overlap ${(overlapPercentage * 100).toStringAsFixed(1)}% (threshold: ${(_overlapThreshold * 100).toStringAsFixed(1)}%)');
 
-    return overlapPercentage >= _overlapThreshold;
-  }
-
-  // Convert screen coordinates to camera coordinates
-  Rect convertScreenToImageCoordinates(
-      Rect screenRect, Size screenSize, Size imageSize) {
-    final double scaleX = imageSize.width / screenSize.width;
-    final double scaleY = imageSize.height / screenSize.height;
-
-    return Rect.fromLTWH(
-      screenRect.left * scaleX,
-      screenRect.top * scaleY,
-      screenRect.width * scaleX,
-      screenRect.height * scaleY,
-    );
-  }
-
-  // Get supported barcode formats (cross-platform)
-  List<String> getSupportedFormats() {
-    if (Platform.isAndroid) {
-      return [
-        'aztec',
-        'codabar',
-        'code39',
-        'code93',
-        'code128',
-        'dataMatrix',
-        'ean8',
-        'ean13',
-        'itf',
-        'pdf417',
-        'qrCode',
-        'upca',
-        'upce'
-      ];
-    } else if (Platform.isIOS) {
-      return [
-        'aztec',
-        'code39',
-        'code93',
-        'code128',
-        'dataMatrix',
-        'ean8',
-        'ean13',
-        'face',
-        'itf14',
-        'pdf417',
-        'qr',
-        'upce'
-      ];
+      return meetsThreshold;
+    } catch (e) {
+      print('BarcodeDetectionService: Error checking overlap: $e');
+      return true; // Allow detection if overlap check fails
     }
-    return [];
   }
 
-  // Validate barcode format
+  /// Get list of supported barcode formats
+  List<String> getSupportedFormats() {
+    return [
+      'aztec',
+      'codabar',
+      'code39',
+      'code93',
+      'code128',
+      'dataMatrix',
+      'ean8',
+      'ean13',
+      'itf',
+      'pdf417',
+      'qrCode',
+      'upca',
+      'upce'
+    ];
+  }
+
+  /// Validate barcode format
   bool isValidBarcodeFormat(String barcode) {
-    // Basic validation - check if it's not empty and has reasonable length
     if (barcode.isEmpty || barcode.length < 4) {
       return false;
     }
 
-    // Additional validation can be added here based on expected formats
-    // For example, UPC codes should be 12 digits, EAN13 should be 13 digits, etc.
-
+    // Additional format-specific validation can be added here
     return true;
   }
 
+  /// Clean disposal of resources
   void dispose() {
+    print('BarcodeDetectionService: Disposing...');
+
     _isEnabled = false;
+    _isProcessing = false;
 
-    if (Platform.isAndroid) {
-      _barcodeScanner.close();
-    } else if (Platform.isIOS) {
-      _nativeBarcodeChannel.invokeMethod('dispose');
+    // Close ML Kit scanner
+    try {
+      _barcodeScanner?.close();
+      _barcodeScanner = null;
+    } catch (e) {
+      print('BarcodeDetectionService: Error closing scanner: $e');
     }
 
-    if (_barcodeStreamController != null &&
-        !_barcodeStreamController!.isClosed) {
-      _barcodeStreamController!.close();
+    // Close stream controller
+    try {
+      if (_barcodeStreamController != null &&
+          !_barcodeStreamController!.isClosed) {
+        _barcodeStreamController!.close();
+      }
       _barcodeStreamController = null;
+    } catch (e) {
+      print('BarcodeDetectionService: Error closing stream: $e');
     }
 
-    print('Barcode Detection Service disposed');
+    print('BarcodeDetectionService: Disposed successfully');
   }
 }

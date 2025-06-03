@@ -25,6 +25,8 @@ import 'package:macrotracker/widgets/search_header.dart';
 import 'dart:async';
 import 'package:lottie/lottie.dart';
 import 'package:macrotracker/services/posthog_service.dart';
+import 'package:macrotracker/services/camera_service.dart';
+import 'package:macrotracker/widgets/camera/camera_controls.dart';
 // import 'package:macrotracker/camera/camera.dart'; // No longer needed
 
 // Define the expected result structure at the top level
@@ -41,9 +43,7 @@ class FoodSearchPage extends StatefulWidget {
 
 class _FoodSearchPageState extends State<FoodSearchPage>
     with SingleTickerProviderStateMixin {
-  // Method Channel for the native camera view
-  static const MethodChannel _nativeCameraViewChannel =
-      MethodChannel('com.macrotracker/native_camera_view');
+  // Note: Native camera method channel removed - using Flutter camera now
 
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
@@ -65,7 +65,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   @override
   void initState() {
     super.initState();
-    _setupNativeCameraHandler(); // Set up the handler
+    // Removed native camera handler setup - using Flutter camera now
     // _initializeApi(); // Remove API initialization
     _loadingController = AnimationController(
       vsync: this,
@@ -325,60 +325,13 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  // --- Native Camera Handling (Adapted from Dashboard) ---
+  // --- Native Camera Handling (DEPRECATED - using Flutter camera now) ---
 
-  void _setupNativeCameraHandler() {
-    _nativeCameraViewChannel.setMethodCallHandler((call) async {
-      print('[Flutter SearchPage] Received method call: ${call.method}');
-      switch (call.method) {
-        case 'cameraResult':
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) {
-              print(
-                  '[Flutter SearchPage] Post-frame callback: Widget is unmounted. Ignoring result.');
-              return;
-            }
-            final Map<dynamic, dynamic> result = call.arguments as Map;
-            final String type = result['type'] as String;
-            final currentContext = context;
+  // Note: These methods are kept for reference but no longer used
+  // The search page now uses the Flutter camera implementation directly
 
-            if (type == 'barcode') {
-              final String barcode = result['value'] as String;
-              print(
-                  '[Flutter SearchPage] Post-frame: Handling barcode: $barcode');
-              _handleBarcodeResult(currentContext, barcode);
-            } else if (type == 'photo') {
-              final Uint8List photoData = result['value'] as Uint8List;
-              print(
-                  '[Flutter SearchPage] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-              _handlePhotoResult(currentContext, photoData);
-            } else if (type == 'cancel') {
-              print('[Flutter SearchPage] Post-frame: Handling cancel.');
-            } else {
-              print(
-                  '[Flutter SearchPage] Post-frame: Unknown camera result type: $type');
-              if (mounted) {
-                _showErrorSnackbar('Received unknown result from camera.');
-              }
-            }
-          });
-          break;
-        default:
-          print(
-              '[Flutter SearchPage] Unknown method call from native: ${call.method}');
-      }
-    });
-  }
-
-  Future<void> _showNativeCamera() async {
+  Future<void> _showFlutterCamera() async {
     FocusScope.of(context).unfocus();
-    if (!Platform.isIOS) {
-      print('[Flutter SearchPage] Native camera view only supported on iOS.');
-      if (mounted) {
-        _showErrorSnackbar('Camera feature is only available on iOS.');
-      }
-      return;
-    }
 
     // Track camera usage
     PostHogService.trackFeatureUsage(
@@ -389,13 +342,46 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
 
     try {
-      print('[Flutter SearchPage] Invoking showNativeCamera...');
-      await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
-      print('[Flutter SearchPage] showNativeCamera invoked successfully.');
-    } on PlatformException catch (e) {
-      print('[Flutter SearchPage] Error showing native camera: ${e.message}');
+      print(
+          '[Flutter SearchPage] Invoking Flutter camera with barcode mode...');
+
+      // Use CameraService to show the Flutter camera with barcode mode
+      final CameraService cameraService = CameraService();
+      final result = await cameraService.showCamera(
+        context: context,
+        initialMode: CameraMode.barcode, // Start in barcode mode for search
+      );
+
+      print('[Flutter SearchPage] Camera result received: $result');
+      print('[Flutter SearchPage] Widget mounted after camera: $mounted');
+
+      if (result != null && mounted) {
+        final String type = result['type'] as String;
+        print('[Flutter SearchPage] Camera result type: $type');
+
+        if (type == 'barcode') {
+          final String barcode = result['value'] as String;
+          print('[Flutter SearchPage] Barcode value detected: $barcode');
+          _handleBarcodeResult(context, barcode);
+        } else if (type == 'photo') {
+          final imageBytes = result['value'];
+          print(
+              '[Flutter SearchPage] Photo captured: ${imageBytes.runtimeType}');
+          // For now, just show a message since photo analysis isn't implemented yet
+          _showErrorSnackbar(
+              'Photo analysis not yet implemented. Please use barcode scanning.');
+        }
+      } else {
+        print('[Flutter SearchPage] No result or widget not mounted');
+        if (result == null) {
+          print('[Flutter SearchPage] Result was null - camera was cancelled');
+        }
+      }
+    } catch (e) {
+      print(
+          '[Flutter SearchPage] Error showing Flutter camera: ${e.toString()}');
       if (mounted) {
-        _showErrorSnackbar('Failed to open camera: ${e.message}');
+        _showErrorSnackbar('Failed to open camera: ${e.toString()}');
       }
     }
   }
@@ -403,83 +389,38 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   // --- Result Handling (Adapted from Dashboard) ---
 
   void _handleBarcodeResult(BuildContext safeContext, String barcode) {
-    print('[Flutter SearchPage] Navigating to BarcodeResults');
-    if (!mounted) return;
-    Navigator.push(
-      safeContext,
-      MaterialPageRoute(builder: (context) => BarcodeResults(barcode: barcode)),
-    );
-  }
+    print(
+        '[Flutter SearchPage] Navigating to BarcodeResults with barcode: $barcode');
+    print('[Flutter SearchPage] Widget mounted: $mounted');
+    print('[Flutter SearchPage] Context valid: ${safeContext.mounted}');
 
-  Future<void> _handlePhotoResult(
-      BuildContext safeContext, Uint8List photoData) async {
-    if (!mounted) return;
-    _showLoadingDialog('Analyzing Image...');
+    if (!mounted) {
+      print('[Flutter SearchPage] Widget not mounted, aborting navigation');
+      return;
+    }
+
     try {
-      final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath =
-          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final File tempFile = File(tempPath);
-      await tempFile.writeAsBytes(photoData);
-      print('[Flutter SearchPage] Photo saved to temporary file: $tempPath');
-      String jsonResponse = await processImageWithGemini(tempFile.path);
-      print('[Flutter SearchPage] Gemini response received.');
-      jsonResponse =
-          jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
-      dynamic decodedJson = json.decode(jsonResponse);
-      List<dynamic> mealData;
-      if (decodedJson is Map<String, dynamic> &&
-          decodedJson.containsKey('meal') &&
-          decodedJson['meal'] is List) {
-        mealData = decodedJson['meal'] as List;
-      } else if (decodedJson is List) {
-        mealData = decodedJson;
-      } else if (decodedJson is Map<String, dynamic>) {
-        mealData = [decodedJson];
-      } else {
-        throw Exception('Unexpected JSON structure from Gemini');
-      }
-      final List<AIFoodItem> foods = mealData
-          .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
-          .toList();
-
-      if (mounted) {
-        try {
-          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
-            Navigator.of(safeContext, rootNavigator: true).pop();
-          }
-        } catch (e) {
-          print('[Flutter SearchPage] Error dismissing loading dialog: $e');
-        }
-      }
-      if (!mounted) return;
-
-      if (foods.isEmpty) {
-        print('[Flutter SearchPage] Gemini returned an empty food list.');
-        _showErrorSnackbar('Unable to identify food, try again');
-      } else {
-        print('[Flutter SearchPage] Navigating to ResultsPage');
-        Navigator.push(
-          safeContext,
-          CupertinoPageRoute(builder: (context) => ResultsPage(foods: foods)),
-        );
-      }
+      print('[Flutter SearchPage] Attempting navigation to BarcodeResults...');
+      Navigator.push(
+        safeContext,
+        MaterialPageRoute(builder: (context) {
+          print('[Flutter SearchPage] Building BarcodeResults widget');
+          return BarcodeResults(barcode: barcode);
+        }),
+      ).then((value) {
+        print('[Flutter SearchPage] Navigation to BarcodeResults completed');
+      }).catchError((error) {
+        print('[Flutter SearchPage] Navigation error: $error');
+      });
+      print('[Flutter SearchPage] Navigation call made successfully');
     } catch (e) {
-      print(
-          '[Flutter SearchPage] Error processing photo result: ${e.toString()}');
-      if (mounted) {
-        try {
-          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
-            Navigator.of(safeContext, rootNavigator: true).pop();
-          }
-        } catch (e) {
-          print(
-              '[Flutter SearchPage] Error dismissing loading dialog in catch: $e');
-        }
-        _showErrorSnackbar('Something went wrong, try again');
-      }
+      print('[Flutter SearchPage] Error during navigation: $e');
+      _showErrorSnackbar('Failed to open product details: $e');
     }
   }
+
+  // Note: Photo analysis removed for now - focusing on barcode scanning
+  // The search page camera will primarily be used for barcode detection
 
   // --- UI Helper Methods (Adapted from Dashboard) ---
 
@@ -496,48 +437,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  void _showLoadingDialog(String message) {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withAlpha(((0.3) * 255).round()),
-      builder: (BuildContext dialogContext) {
-        return Dialog(
-          backgroundColor: Theme.of(context).brightness == Brightness.light
-              ? Colors.white
-              : Colors.grey[850],
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Lottie.asset(
-                  'assets/animations/food_loading.json',
-                  width: 150,
-                  height: 150,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  message,
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black87
-                          : Colors.white,
-                      fontSize: 17),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
+  // Note: Loading dialog method removed - not needed for barcode scanning
 
   // --- Original Methods ---
 
@@ -558,7 +458,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                       _searchFood(query, fromSearchButton: true),
                   onChanged: _onSearchChanged,
                   onBack: () => Navigator.pop(context),
-                  onCameraTap: _showNativeCamera, // Pass the method here
+                  onCameraTap: _showFlutterCamera, // Pass the method here
                 ),
                 Expanded(
                   child: AnimatedSwitcher(
@@ -574,7 +474,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         parent: animation,
                         curve: Curves.easeOutCubic,
                       ));
-          
+
                       return FadeTransition(
                         opacity: animation,
                         child: SlideTransition(
@@ -816,7 +716,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: accentColor.withAlpha(((0.15) * 255).round()),
+                            color:
+                                accentColor.withAlpha(((0.15) * 255).round()),
                             offset: const Offset(0, 2),
                             blurRadius: 6,
                             spreadRadius: -2,
@@ -982,14 +883,20 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
-                    Theme.of(context).primaryColor.withAlpha(((0.05) * 255).round()),
+                    Theme.of(context)
+                        .primaryColor
+                        .withAlpha(((0.1) * 255).round()),
+                    Theme.of(context)
+                        .primaryColor
+                        .withAlpha(((0.05) * 255).round()),
                   ],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Theme.of(context).primaryColor.withAlpha(((0.15) * 255).round()),
+                    color: Theme.of(context)
+                        .primaryColor
+                        .withAlpha(((0.15) * 255).round()),
                     blurRadius: 30,
                     spreadRadius: 0,
                   ),
@@ -1004,14 +911,20 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                       begin: Alignment.topRight,
                       end: Alignment.bottomLeft,
                       colors: [
-                        Theme.of(context).primaryColor.withAlpha(((0.2) * 255).round()),
-                        Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
+                        Theme.of(context)
+                            .primaryColor
+                            .withAlpha(((0.2) * 255).round()),
+                        Theme.of(context)
+                            .primaryColor
+                            .withAlpha(((0.1) * 255).round()),
                       ],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
+                        color: Theme.of(context)
+                            .primaryColor
+                            .withAlpha(((0.1) * 255).round()),
                         blurRadius: 20,
                         spreadRadius: 0,
                       ),
@@ -1026,7 +939,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withAlpha(((0.05) * 255).round()),
+                            color:
+                                Colors.black.withAlpha(((0.05) * 255).round()),
                             blurRadius: 15,
                             spreadRadius: 0,
                             offset: const Offset(0, 5),
@@ -1082,7 +996,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-
   Widget _buildSuggestions() {
     final customColors = Theme.of(context).extension<CustomColors>();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1101,7 +1014,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: customColors!.cardBackground.withAlpha(((0.1) * 255).round()),
+                  color: customColors!.cardBackground
+                      .withAlpha(((0.1) * 255).round()),
                   width: 1,
                 ),
               ),
@@ -1111,7 +1025,9 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 Icon(
                   Icons.lightbulb_outline,
                   size: 18,
-                  color: Theme.of(context).primaryColor.withAlpha(((0.8) * 255).round()),
+                  color: Theme.of(context)
+                      .primaryColor
+                      .withAlpha(((0.8) * 255).round()),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -1153,12 +1069,15 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                             margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
                               color: isDarkMode
-                                  ? Theme.of(context).cardColor.withAlpha(((0.9) * 255).round())
+                                  ? Theme.of(context)
+                                      .cardColor
+                                      .withAlpha(((0.9) * 255).round())
                                   : Theme.of(context).cardColor,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withAlpha(((0.04) * 255).round()),
+                                  color: Colors.black
+                                      .withAlpha(((0.04) * 255).round()),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                   spreadRadius: 0,
@@ -1177,8 +1096,10 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                 color: Colors.transparent,
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(16),
-                                  splashColor: accentColor.withAlpha(((0.1) * 255).round()),
-                                  highlightColor: accentColor.withAlpha(((0.05) * 255).round()),
+                                  splashColor: accentColor
+                                      .withAlpha(((0.1) * 255).round()),
+                                  highlightColor: accentColor
+                                      .withAlpha(((0.05) * 255).round()),
                                   onTap: () {
                                     HapticFeedback.lightImpact();
                                     FocusScope.of(context).unfocus();
@@ -1197,8 +1118,10 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                accentColor.withAlpha(((0.12) * 255).round()),
-                                                accentColor.withAlpha(((0.05) * 255).round()),
+                                                accentColor.withAlpha(
+                                                    ((0.12) * 255).round()),
+                                                accentColor.withAlpha(
+                                                    ((0.05) * 255).round()),
                                               ],
                                             ),
                                             borderRadius:
@@ -1232,7 +1155,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                                                     .copyWith(
                                                   color: customColors
                                                       .textSecondary
-                                                      .withAlpha(((0.7) * 255).round()),
+                                                      .withAlpha(((0.7) * 255)
+                                                          .round()),
                                                   fontSize: 11,
                                                 ),
                                               ),
@@ -1676,8 +1600,6 @@ class FoodItem {
       servings: allServings,
     );
   }
-
-
 }
 
 // Class to represent a single serving option

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/barcode_results.dart' hide Serving;
 import 'package:macrotracker/camera/results_page.dart';
+import 'package:macrotracker/camera/ai_food_detail_page.dart'; // Added for AI processed results
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/providers/date_provider.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
@@ -26,6 +27,7 @@ import '../services/storage_service.dart'; // Import StorageService
 import '../services/nutrition_calculator_service.dart'; // Import NutritionCalculatorService
 import '../utils/performance_monitor.dart';
 import '../widgets/camera/camera_controls.dart'; // Import CameraMode
+import '../test_barcode_navigation.dart'; // Import test navigation
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -74,27 +76,49 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
 
   Future<void> _showFlutterCamera() async {
     try {
+      print('[Flutter Dashboard] Showing camera with camera mode');
       // Use CameraService to show the Flutter camera
       final result = await _cameraService.showCamera(
         context: context,
         initialMode: CameraMode.camera,
       );
 
+      print('[Flutter Dashboard] Camera result received: $result');
+      print('[Flutter Dashboard] Widget mounted after camera: $mounted');
+
       if (result != null && mounted) {
         final String type = result['type'] as String;
+        print('[Flutter Dashboard] Result type: $type');
+        
+        final dynamic value = result['value']; // Get value dynamically first
+
         if (type == 'barcode') {
-          final String barcode = result['value'] as String;
+          final String barcode = value as String;
+          print('[Flutter Dashboard] Barcode value received: $barcode');
           _handleBarcodeResult(context, barcode);
-        } else if (type == 'photo') {
-          final List<AIFoodItem> foods = result['value'] as List<AIFoodItem>;
+        } else if (type == 'ai_processed_photo' || type == 'ai_processed_label') {
+          final List<AIFoodItem> foods = value as List<AIFoodItem>;
+          print('[Flutter Dashboard] AI Processed data with ${foods.length} foods received');
           if (foods.isNotEmpty) {
             Navigator.push(
               context,
-              CupertinoPageRoute(builder: (ctx) => ResultsPage(foods: foods)),
+              CupertinoPageRoute(builder: (ctx) => AIFoodDetailPage(food: foods.first)),
             );
           } else {
-            _showErrorSnackbar('Unable to identify food, try again');
+            _showErrorSnackbar('AI processing returned no food items.');
           }
+        } else if (type == 'photo') { // This is from gallery, value is Uint8List
+          final Uint8List imageBytes = value as Uint8List; // Correctly cast to Uint8List
+          print('[Flutter Dashboard] Raw photo (gallery) Uint8List received: ${imageBytes.length} bytes.');
+          // TODO: Implement AI processing for gallery images.
+          // This could be done here by calling Gemini, or _pickFromGallery in FlutterCameraScreen
+          // could be modified to do the processing before popping, similar to _takePicture.
+          _showErrorSnackbar('Gallery image selected. Displaying/processing this image type is not yet fully implemented here.');
+        }
+      } else {
+        print('[Flutter Dashboard] No result or widget not mounted');
+        if (result == null) {
+          print('[Flutter Dashboard] Result was null - camera was cancelled');
         }
       }
     } catch (e) {
@@ -108,12 +132,35 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
   // --- Helper Methods for Navigation ---
 
   void _handleBarcodeResult(BuildContext safeContext, String barcode) {
-    print('[Flutter Dashboard] Navigating to BarcodeResults');
-    if (!mounted) return;
-    Navigator.push(
-      safeContext,
-      MaterialPageRoute(builder: (context) => BarcodeResults(barcode: barcode)),
-    );
+    print('[Flutter Dashboard] Navigating to BarcodeResults with barcode: $barcode');
+    print('[Flutter Dashboard] Widget mounted: $mounted');
+    print('[Flutter Dashboard] Context valid: ${safeContext.mounted}');
+    
+    if (!mounted) {
+      print('[Flutter Dashboard] Widget not mounted, aborting navigation');
+      return;
+    }
+    
+    try {
+      print('[Flutter Dashboard] Attempting navigation to BarcodeResults...');
+      Navigator.push(
+        safeContext,
+        MaterialPageRoute(
+          builder: (context) {
+            print('[Flutter Dashboard] Building BarcodeResults widget');
+            return BarcodeResults(barcode: barcode);
+          }
+        ),
+      ).then((value) {
+        print('[Flutter Dashboard] Navigation to BarcodeResults completed');
+      }).catchError((error) {
+        print('[Flutter Dashboard] Navigation error: $error');
+      });
+      print('[Flutter Dashboard] Navigation call made successfully');
+    } catch (e) {
+      print('[Flutter Dashboard] Error during navigation: $e');
+      _showErrorSnackbar('Failed to open product details: $e');
+    }
   }
 
   // --- UI Helper Methods ---
@@ -143,6 +190,19 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody:
           true, // Allows body to go behind bottom nav bar if transparent
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const TestBarcodeNavigation(),
+            ),
+          );
+        },
+        backgroundColor: Colors.red.shade400,
+        child: const Icon(Icons.bug_report, color: Colors.white),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.miniStartTop,
       body: Stack(
         children: [
           // Main Content Area
