@@ -12,6 +12,9 @@ import '../widgets/premium_card.dart';
 import '../widgets/premium_macro_ring.dart';
 import '../widgets/premium_button.dart';
 import '../widgets/premium_input.dart';
+import '../screens/searchPage.dart'; // For FoodItem and navigation
+import '../widgets/food_suggestion_tile.dart'; // For FoodSuggestionTile
+import 'package:flutter/cupertino.dart'; // For CupertinoPageRoute
 
 class MacroTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -840,13 +843,119 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     );
   }
 
-  void _showAddFoodDialog() {
-    // Implement add food dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Add food feature coming soon!'),
-        behavior: SnackBarBehavior.floating,
+  Widget _buildAddFoodDialogContent(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>()!;
+    final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
       ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Add Food',
+            style: PremiumTypography.h3.copyWith(color: customColors.textPrimary),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Frequently Logged',
+            style: PremiumTypography.subtitle.copyWith(
+                color: customColors.textSecondary, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<List<FoodItem>>(
+            future: foodEntryProvider.getFrequentlyLoggedItems(limit: 3),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator.adaptive());
+              }
+              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
+                    'No frequent items yet. Start logging!',
+                    style: PremiumTypography.bodyMedium.copyWith(color: customColors.textSecondary),
+                  ),
+                );
+              }
+              final frequentItems = snapshot.data!;
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: frequentItems.length,
+                itemBuilder: (context, index) {
+                  final item = frequentItems[index];
+                  return FoodSuggestionTile(
+                    suggestion: item.name,
+                    onTap: () {
+                      Navigator.of(context).pop(); // Close dialog
+                      // TODO: Implement quick log functionality or navigate to food detail
+                      // For now, navigate to search page with prefill
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => FoodSearchPage(selectedMeal: /* widget.selectedMeal ?? */ 'Breakfast'), // Placeholder meal
+                        ),
+                      ).then((_) {
+                        // Potentially prefill search on SearchPage if needed
+                        // This might require passing the item.name to SearchPage
+                        // and having SearchPage handle it in initState or similar.
+                      });
+                    },
+                  );
+                },
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+          PremiumButton.primary(
+            text: 'Search All Foods',
+            icon: Icons.search_rounded,
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+              Navigator.push(
+                context,
+                CupertinoPageRoute(
+                  builder: (context) => FoodSearchPage(selectedMeal: /* widget.selectedMeal ?? */ 'Breakfast'), // Placeholder meal
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          PremiumButton.outlined(
+            text: 'Cancel',
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showAddFoodDialog() {
+    HapticFeedback.mediumImpact();
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        // Use a Builder to get a context that is a descendant of the Dialog
+        return Builder(
+          builder: (context) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: _buildAddFoodDialogContent(context),
+            );
+          }
+        );
+      },
     );
   }
 }

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import '../models/workout_plan.dart';
-import '../models/exercise.dart';
-import '../services/workout_planning_service.dart';
-import '../services/fitness_ai_service.dart';
-import '../services/fitness_data_service.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // For User
+import '../theme/app_theme.dart';
 import '../theme/workout_colors.dart';
-import 'package:uuid/uuid.dart';
-import 'workout_execution_screen.dart';
-import 'workout_details_screen.dart';
-import 'onboarding/onboarding_screen.dart';
+import '../models/workout_plan.dart';
+import '../models/fitness_profile.dart'; // Import FitnessProfile
+import '../services/fitness_ai_service.dart'; // Import FitnessAIService
+import '../screens/workout_details_screen.dart';
+import '../screens/ai_workout_creator_screen.dart';
 
 class WorkoutPlanningScreen extends StatefulWidget {
   const WorkoutPlanningScreen({super.key});
@@ -18,697 +19,574 @@ class WorkoutPlanningScreen extends StatefulWidget {
 }
 
 class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
-    with WidgetsBindingObserver {
-  final WorkoutPlanningService _workoutService = WorkoutPlanningService();
-  final FitnessAIService _aiService = FitnessAIService();
-  final FitnessDataService _dataService = FitnessDataService();
-  final Uuid _uuid = const Uuid();
-  final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late AnimationController _scaleController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
 
-  List<WorkoutRoutine> _routines = [];
-  List<WorkoutRoutine> _filteredRoutines = [];
-  bool _isLoading = false;
-  bool _aiAvailable = false;
-  String? _error;
-  String _selectedFilter = 'All';
+  final FitnessAIService _fitnessAIService =
+      FitnessAIService(); // Add service instance
+  FitnessProfile? _currentProfile;
+  bool _isLoadingProfile = true;
+
+  // Sample data - in real app this would come from a provider/service
+  List<WorkoutRoutine> _sampleRoutines = [
+    WorkoutRoutine(
+      name: 'Beginner Bodyweight Workout',
+      description: 'A complete bodyweight workout perfect for beginners',
+      estimatedDurationMinutes: 25,
+      difficulty: 'Beginner',
+      targetMuscles: ['Chest', 'Arms'],
+      requiredEquipment: [],
+      isCustom: false,
+    ),
+    WorkoutRoutine(
+      name: 'HIIT Cardio Blast',
+      description: 'High-intensity interval training for maximum burn',
+      estimatedDurationMinutes: 30,
+      difficulty: 'Intermediate',
+      targetMuscles: ['Full Body'],
+      requiredEquipment: [],
+      isCustom: false,
+    ),
+  ];
+
+  // Mock stats
+  int totalRoutines = 0; // Start with 0 AI workouts
+  int thisWeekWorkouts = 3;
+  int streakDays = 7;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _initializeData();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
+    );
+
+    _loadFitnessProfileAndData(); // Load profile and then data
+
+    // Start animations
+    _fadeController.forward();
+    Future.delayed(const Duration(milliseconds: 200), () {
+      _scaleController.forward();
+    });
+  }
+
+  Future<void> _loadFitnessProfileAndData() async {
+    setState(() {
+      _isLoadingProfile = true;
+    });
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      _currentProfile = await _fitnessAIService.getFitnessProfile(user.id);
+      // TODO: Once workout plans are stored in Supabase, fetch them here
+      // For now, we'll keep using sample routines if profile is loaded
+      // or clear them if profile loading fails (or no profile)
+      if (_currentProfile != null) {
+        // Potentially update totalRoutines based on profile or fetched routines
+        // For now, just log that profile was loaded.
+        print('Fitness profile loaded for user: ${user.id}');
+      } else {
+        print(
+            'No fitness profile found for user: ${user.id} or error loading.');
+        // _sampleRoutines = []; // Optionally clear routines if no profile
+      }
+    } else {
+      print('User not logged in. Cannot load fitness profile.');
+      // _sampleRoutines = []; // Optionally clear routines if no user
+    }
+    setState(() {
+      _isLoadingProfile = false;
+      // Update totalRoutines based on actual data if available
+      totalRoutines = _sampleRoutines.where((r) => r.isCustom).length;
+    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _searchController.dispose();
-    _scrollController.dispose();
+    _fadeController.dispose();
+    _scaleController.dispose();
     super.dispose();
-  }
-
-  void _initializeData() async {
-    _aiService.initialize();
-    await _checkAIAvailability();
-    await _loadWorkoutRoutines();
-    _searchController.addListener(_filterRoutines);
-  }
-
-  Future<void> _checkAIAvailability() async {
-    try {
-      final isReady = await _dataService.isReadyForAIRecommendations();
-      if (mounted) {
-        setState(() => _aiAvailable = isReady);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _aiAvailable = false);
-      }
-    }
-  }
-
-  Future<void> _loadWorkoutRoutines() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final routines = await _workoutService.getWorkoutRoutines();
-      setState(() {
-        _routines = routines;
-        _filteredRoutines = routines;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = 'Failed to load workout routines: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _filterRoutines() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      if (query.isEmpty && _selectedFilter == 'All') {
-        _filteredRoutines = _routines;
-      } else {
-        _filteredRoutines = _routines.where((routine) {
-          final matchesSearch = query.isEmpty ||
-              routine.name.toLowerCase().contains(query) ||
-              routine.description.toLowerCase().contains(query);
-          final matchesFilter = _selectedFilter == 'All' ||
-              _getWorkoutCategory(routine) == _selectedFilter;
-          return matchesSearch && matchesFilter;
-        }).toList();
-      }
-    });
-  }
-
-  String _getWorkoutCategory(WorkoutRoutine routine) {
-    final name = routine.name.toLowerCase();
-    if (name.contains('cardio')) return 'Cardio';
-    if (name.contains('strength')) return 'Strength';
-    if (name.contains('yoga')) return 'Flexibility';
-    if (name.contains('hiit')) return 'HIIT';
-    return 'Strength';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: _buildBody(),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: _buildFAB(),
-    );
-  }
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1E293B), Color(0xFF334155)],
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Workouts',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Transform your body, elevate your mind',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white.withAlpha(((0.8) * 255).round()),
+    return Scaffold(
+      backgroundColor: isDark ? PremiumColors.darkBackground : Colors.white,
+      body: _isLoadingProfile
+          ? Center(
+              child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  isDark ? Colors.white : Colors.black),
+            ))
+          : FadeTransition(
+              opacity: _fadeAnimation,
+              child: CustomScrollView(
+                slivers: [
+                  _buildAppBar(context, isDark),
+                  SliverToBoxAdapter(
+                    child: ScaleTransition(
+                      scale: _scaleAnimation,
+                      child: Column(
+                        children: [
+                          _buildStatsSection(context, isDark),
+                          _buildRoutinesSection(context, isDark),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-              IconButton(
-                onPressed: _loadWorkoutRoutines,
-                icon: const Icon(Icons.refresh, color: Colors.white),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withAlpha(((0.15) * 255).round()),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildStatsRow(),
-        ],
-      ),
+            ),
+      floatingActionButton: _buildFloatingActionButton(context, isDark),
     );
   }
 
-  Widget _buildStatsRow() {
-    return Row(
-      children: [
-        _buildStatCard('${_routines.length}', 'Workouts', Icons.fitness_center),
-        const SizedBox(width: 16),
-        _buildStatCard('3', 'This Week', Icons.calendar_today_outlined),
-        const SizedBox(width: 16),
-        _buildStatCard('7', 'Day Streak', Icons.local_fire_department_outlined),
+  Widget _buildAppBar(BuildContext context, bool isDark) {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: false,
+      pinned: true,
+      backgroundColor: isDark ? PremiumColors.darkBackground : Colors.white,
+      foregroundColor: isDark ? Colors.white : Colors.black,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        title: Text(
+          'My Workouts',
+          style: PremiumTypography.h1.copyWith(
+            color: isDark ? Colors.white : Colors.black,
+            fontSize: 28,
+          ),
+        ),
+        centerTitle: false,
+        titlePadding: const EdgeInsets.only(left: 24, bottom: 16),
+      ),
+      actions: [
+        IconButton(
+          onPressed: () => _refreshWorkouts(),
+          icon: Icon(
+            CupertinoIcons.refresh,
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
+        ),
+        const SizedBox(width: 8),
       ],
     );
   }
 
-  Widget _buildStatCard(String value, String label, IconData icon) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white.withAlpha(((0.12) * 255).round()),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withAlpha(((0.1) * 255).round()),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              icon,
-              color: Colors.white.withAlpha(((0.8) * 255).round()),
-              size: 20,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                height: 1,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withAlpha(((0.7) * 255).round()),
-              ),
-            ),
-          ],
-        ),
+  Widget _buildStatsSection(BuildContext context, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? PremiumColors.darkCard : PremiumColors.slate50,
+        borderRadius: BorderRadius.circular(24),
+        border: isDark
+            ? Border.all(color: PremiumColors.darkBorder, width: 1)
+            : null,
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) return _buildLoadingState();
-    if (_error != null) return _buildErrorState();
-
-    return RefreshIndicator(
-      onRefresh: _loadWorkoutRoutines,
-      color: const Color(0xFFFF6B35),
-      child: CustomScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(24),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                if (!_aiAvailable) _buildAIBanner(),
-                const SizedBox(height: 24),
-                _buildSearchBar(),
-                const SizedBox(height: 20),
-                _buildFilterChips(),
-                const SizedBox(height: 24),
-                _buildWorkoutSection(),
-              ]),
-            ),
+      child: Row(
+        children: [
+          _buildStatItem(
+            context,
+            isDark,
+            CupertinoIcons.chart_bar_alt_fill,
+            totalRoutines.toString(),
+            'Total Routines',
+            isDark ? Colors.white : Colors.black,
+          ),
+          const SizedBox(width: 32),
+          _buildStatItem(
+            context,
+            isDark,
+            CupertinoIcons.calendar,
+            thisWeekWorkouts.toString(),
+            'This Week',
+            isDark ? Colors.white : Colors.black,
+          ),
+          const SizedBox(width: 32),
+          _buildStatItem(
+            context,
+            isDark,
+            CupertinoIcons.flame_fill,
+            '$streakDays days',
+            'Streak',
+            isDark ? Colors.white : Colors.black,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAIBanner() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7).withAlpha(((0.5) * 255).round()),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF59E0B).withAlpha(((0.3) * 255).round())),
-      ),
+  Widget _buildStatItem(
+    BuildContext context,
+    bool isDark,
+    IconData icon,
+    String value,
+    String label,
+    Color accentColor,
+  ) {
+    return Expanded(
       child: Column(
         children: [
-          const Row(
-            children: [
-              Icon(Icons.info_outline,
-                  color: Color(0xFFF59E0B), size: 24),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Complete Fitness Profile',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Complete onboarding to unlock AI-powered workouts',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildButton(
-                  text: 'Complete Profile',
-                  onPressed: () => _navigateToOnboarding(),
-                  isPrimary: true,
-                  color: const Color(0xFFF59E0B),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E293B).withAlpha(((0.04) * 255).round()),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Search workouts...',
-          prefixIcon:
-              const Icon(Icons.search, color: Color(0xFF9CA3AF), size: 20),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear,
-                      color: Color(0xFF9CA3AF), size: 20),
-                  onPressed: () => _searchController.clear(),
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.all(16),
-          hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterChips() {
-    final filters = ['All', 'Strength', 'Cardio', 'Flexibility', 'HIIT'];
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final filter = filters[index];
-          final isSelected = _selectedFilter == filter;
-          return GestureDetector(
-            onTap: () {
-              setState(() => _selectedFilter = filter);
-              _filterRoutines();
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF1E293B)
-                      : const Color(0xFFE2E8F0),
-                ),
-              ),
-              child: Text(
-                filter,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : const Color(0xFF64748B),
-                ),
-              ),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.black.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
             ),
-          );
-        },
+            child: Icon(
+              icon,
+              color: isDark ? Colors.white : Colors.black,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: PremiumTypography.h3.copyWith(
+              color: isDark ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: PremiumTypography.caption.copyWith(
+              color: isDark
+                  ? PremiumColors.darkTextSecondary
+                  : PremiumColors.slate500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildWorkoutSection() {
-    if (_routines.isEmpty) return _buildEmptyState();
-    if (_filteredRoutines.isEmpty) return _buildEmptySearchResults();
-
+  Widget _buildRoutinesSection(BuildContext context, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Your Routines',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Your Routines',
+                style: PremiumTypography.h3.copyWith(
+                  color: isDark ? Colors.white : Colors.black,
+                ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(12),
+              TextButton.icon(
+                onPressed: () => _refreshWorkouts(),
+                icon: Icon(
+                  CupertinoIcons.refresh,
+                  size: 16,
+                  color: isDark
+                      ? PremiumColors.darkTextSecondary
+                      : PremiumColors.slate500,
+                ),
+                label: Text(
+                  'Refresh',
+                  style: PremiumTypography.caption.copyWith(
+                    color: isDark
+                        ? PremiumColors.darkTextSecondary
+                        : PremiumColors.slate500,
+                  ),
+                ),
               ),
-              child: Text(
-                '${_filteredRoutines.length}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        ..._sampleRoutines.asMap().entries.map((entry) {
+          final index = entry.key;
+          final routine = entry.value;
+          return AnimatedBuilder(
+            animation: _scaleAnimation,
+            builder: (context, child) {
+              return Transform.translate(
+                offset:
+                    Offset(0, (1 - _scaleAnimation.value) * 20 * (index + 1)),
+                child: Opacity(
+                  opacity: _scaleAnimation.value.clamp(0.0, 1.0),
+                  child: _buildWorkoutCard(context, routine, isDark),
+                ),
+              );
+            },
+          );
+        }),
+        const SizedBox(height: 100), // Space for FAB
+      ],
+    );
+  }
+
+  Widget _buildWorkoutCard(
+      BuildContext context, WorkoutRoutine routine, bool isDark) {
+    final accentColor = isDark ? Colors.white : Colors.black;
+
+    return Container(
+      margin: const EdgeInsets.only(left: 24, right: 24, bottom: 16),
+      child: Dismissible(
+        key: Key(routine.id),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (direction) async {
+          return await _showDeleteConfirmation(context, routine, isDark);
+        },
+        onDismissed: (direction) {
+          _deleteWorkout(routine);
+        },
+        background: _buildDismissBackground(isDark),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? PremiumColors.darkCard : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: isDark
+                ? Border.all(color: PremiumColors.darkBorder, width: 1)
+                : null,
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _openWorkoutDetails(routine),
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      _buildWorkoutIcon(accentColor),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildWorkoutInfo(context, routine, isDark),
+                      ),
+                      _buildPlayButton(isDark),
+                    ],
+                  ),
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkoutIcon(Color accentColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.black.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Icon(
+        CupertinoIcons.flame_fill,
+        color: isDark ? Colors.white : Colors.black,
+        size: 28,
+      ),
+    );
+  }
+
+  Widget _buildWorkoutInfo(
+      BuildContext context, WorkoutRoutine routine, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          routine.name,
+          style: PremiumTypography.h4.copyWith(
+            color: isDark ? Colors.white : Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          routine.description,
+          style: PremiumTypography.bodySmall.copyWith(
+            color: isDark
+                ? PremiumColors.darkTextSecondary
+                : PremiumColors.slate500,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _buildInfoChip(
+              routine.difficulty.toUpperCase(),
+              isDark ? Colors.white : Colors.black,
+              isDark,
+            ),
+            const SizedBox(width: 8),
+            _buildInfoChip(
+              '${routine.estimatedDurationMinutes} MIN',
+              isDark ? PremiumColors.darkTextSecondary : PremiumColors.slate500,
+              isDark,
+            ),
           ],
         ),
-        const SizedBox(height: 20),
-        ...List.generate(
-          _filteredRoutines.length,
-          (index) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _buildWorkoutCard(_filteredRoutines[index]),
-          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            ...routine.targetMuscles.take(2).map((muscle) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildMuscleChip(muscle, isDark),
+                )),
+            if (routine.targetMuscles.length > 2)
+              Text(
+                '+${routine.targetMuscles.length - 2} more',
+                style: PremiumTypography.caption.copyWith(
+                  color: isDark
+                      ? PremiumColors.darkTextSecondary
+                      : PremiumColors.slate400,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Icon(
+              CupertinoIcons.checkmark_circle_fill,
+              size: 16,
+              color: isDark
+                  ? PremiumColors.darkTextSecondary
+                  : PremiumColors.slate400,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${routine.exercises.length} exercises',
+              style: PremiumTypography.caption.copyWith(
+                color: isDark
+                    ? PremiumColors.darkTextSecondary
+                    : PremiumColors.slate400,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildWorkoutCard(WorkoutRoutine routine) {
-    final workoutColor = WorkoutColors.getWorkoutCategoryColor(
-        routine.name, routine.targetMuscles);
-    final isAIGenerated = !routine.isCustom && routine.name.contains('AI');
-
-    return GestureDetector(
-      onTap: () => _showWorkoutDetails(routine),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: workoutColor.withAlpha(((0.2) * 255).round())),
-          boxShadow: [
-            BoxShadow(
-              color: workoutColor.withAlpha(((0.08) * 255).round()),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 4,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: workoutColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final availableWidth = constraints.maxWidth;
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  routine.name,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1E293B),
-                                    height: 1.2,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth: availableWidth * 0.3,
-                                ),
-                                child: isAIGenerated
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFFFF6B35),
-                                              Color(0xFF4F46E5)
-                                            ],
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.auto_awesome,
-                                                size: 12, color: Colors.white),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              'AI',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    : Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: workoutColor.withAlpha(((0.1) * 255).round()),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          routine.isCustom
-                                              ? 'CUSTOM'
-                                              : 'TEMPLATE',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            color: workoutColor,
-                                          ),
-                                        ),
-                                      ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 28,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          clipBehavior: Clip.none,
-                          child: Row(
-                            children: [
-                              _buildInfoChip(routine.difficulty.toUpperCase(),
-                                  workoutColor),
-                              const SizedBox(width: 8),
-                              _buildInfoChip(
-                                  '${routine.estimatedDurationMinutes}MIN',
-                                  const Color(0xFF64748B)),
-                              const SizedBox(width: 8),
-                              _buildInfoChip('${routine.exercises.length} EX',
-                                  workoutColor),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 110,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      GestureDetector(
-                        onTap: () => _deleteWorkout(routine),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withAlpha(((0.1) * 255).round()),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFFEF4444).withAlpha(((0.2) * 255).round()),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline,
-                            color: Color(0xFFEF4444),
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      GestureDetector(
-                        onTap: () => _startWorkout(routine),
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            gradient: isAIGenerated
-                                ? const LinearGradient(colors: [
-                                    Color(0xFFFF6B35),
-                                    Color(0xFF4F46E5)
-                                  ])
-                                : LinearGradient(colors: [
-                                    workoutColor,
-                                    workoutColor.withAlpha(((0.8) * 255).round())
-                                  ]),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Icon(Icons.play_arrow,
-                              color: Colors.white, size: 24),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              routine.description,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF64748B),
-                height: 1.5,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoChip(String text, Color color) {
+  Widget _buildInfoChip(String text, Color color, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withAlpha(((0.1) * 255).round()),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.black.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withAlpha(((0.3) * 255).round())),
       ),
       child: Text(
         text,
-        style: TextStyle(
+        style: PremiumTypography.caption.copyWith(
+          color: isDark ? Colors.white : Colors.black,
+          fontWeight: FontWeight.w600,
           fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: color,
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
-  Widget _buildLoadingState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildMuscleChip(String muscle, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isDark ? PremiumColors.darkContainer : PremiumColors.slate100,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        muscle.toUpperCase(),
+        style: PremiumTypography.caption.copyWith(
+          color:
+              isDark ? PremiumColors.darkTextSecondary : PremiumColors.slate600,
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayButton(bool isDark) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: isDark ? PremiumColors.darkContainer : PremiumColors.slate100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(
+        CupertinoIcons.play_fill,
+        color: isDark ? Colors.white : Colors.black,
+        size: 20,
+      ),
+    );
+  }
+
+  Widget _buildFloatingActionButton(BuildContext context, bool isDark) {
+    return FloatingActionButton.extended(
+      onPressed: () => _createAIWorkout(),
+      backgroundColor: isDark ? Colors.white : Colors.black,
+      foregroundColor: isDark ? Colors.black : Colors.white,
+      elevation: 8,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: Color(0xFF1E293B)),
-          SizedBox(height: 16),
+          const Icon(
+            CupertinoIcons.sparkles,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
           Text(
-            'Loading workouts...',
-            style: TextStyle(
+            'AI Workout',
+            style: PremiumTypography.button.copyWith(
+              color: isDark ? Colors.black : Colors.white,
               fontSize: 16,
-              color: Color(0xFF64748B),
             ),
           ),
         ],
@@ -716,903 +594,270 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     );
   }
 
-  Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Color(0xFF64748B)),
-            const SizedBox(height: 16),
-            const Text(
-              'Something went wrong',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF64748B),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            _buildButton(
-              text: 'Try Again',
-              onPressed: _loadWorkoutRoutines,
-              isPrimary: true,
-              color: const Color(0xFF1E293B),
-            ),
-          ],
-        ),
+  void _refreshWorkouts() async {
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
+
+    // Show loading state briefly
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Refreshing workouts...'),
+        duration: Duration(milliseconds: 800),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: PremiumColors.slate700,
       ),
     );
-  }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.fitness_center,
-                size: 64, color: Color(0xFF64748B)),
-            const SizedBox(height: 24),
-            const Text(
-              'Ready to begin?',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Create your first workout or let AI design the perfect routine for you',
-              style: TextStyle(
-                fontSize: 16,
-                color: Color(0xFF64748B),
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            _buildButton(
-              text: 'Create Workout',
-              onPressed: _createNewWorkoutRoutine,
-              isPrimary: true,
-              color: const Color(0xFF1E293B),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    // Reload profile and data
+    await _loadFitnessProfileAndData();
+    // In a real app, this would re-fetch workout routines from Supabase
+    // For now, it re-evaluates _sampleRoutines or clears them based on profile status
 
-  Widget _buildEmptySearchResults() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(48),
-        child: Column(
-          children: [
-            const Icon(Icons.search_off, size: 48, color: Color(0xFF64748B)),
-            const SizedBox(height: 16),
-            const Text(
-              'No workouts found',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Try adjusting your search terms',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildButton(
-              text: 'Clear Search',
-              onPressed: () => _searchController.clear(),
-              isPrimary: false,
-              color: const Color(0xFF64748B),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFAB() {
-    return FloatingActionButton.extended(
-      onPressed: _showActionBottomSheet,
-      backgroundColor: const Color(0xFFFF6B35),
-      icon: const Icon(Icons.add, color: Colors.white),
-      label: const Text(
-        'New Workout',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildButton({
-    required String text,
-    required VoidCallback onPressed,
-    required bool isPrimary,
-    required Color color,
-  }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        height: 48,
-        decoration: BoxDecoration(
-          color: isPrimary ? color : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color),
-        ),
-        child: Center(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: isPrimary ? Colors.white : color,
-            ),
+    // If still using sample data after profile load, reset it here or fetch from Supabase
+    // This part needs to be adapted once workout routines are stored in Supabase
+    if (_currentProfile != null) {
+      // TODO: Fetch actual routines from Supabase based on _currentProfile
+      // For now, resetting to sample if needed, or ideally, routines are fetched in _loadFitnessProfileAndData
+      setState(() {
+        // This is a placeholder. Actual routines should come from Supabase.
+        _sampleRoutines = [
+          WorkoutRoutine(
+            name: 'Beginner Bodyweight Workout (Refreshed)',
+            description: 'A complete bodyweight workout perfect for beginners',
+            estimatedDurationMinutes: 25,
+            difficulty: 'Beginner',
+            targetMuscles: ['Chest', 'Arms'],
+            requiredEquipment: [],
+            isCustom: false,
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showActionBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
+          WorkoutRoutine(
+            name: 'HIIT Cardio Blast (Refreshed)',
+            description: 'High-intensity interval training for maximum burn',
+            estimatedDurationMinutes: 30,
+            difficulty: 'Intermediate',
+            targetMuscles: ['Full Body'],
+            requiredEquipment: [],
+            isCustom: false,
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2E8F0),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Create New Workout',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _ActionTile(
-              icon: Icons.add,
-              title: 'Custom Workout',
-              subtitle: 'Create your own workout routine',
-              onTap: () {
-                Navigator.pop(context);
-                _createNewWorkoutRoutine();
-              },
-            ),
-            const SizedBox(height: 12),
-            _ActionTile(
-              icon: Icons.auto_awesome,
-              title: _aiAvailable ? 'AI Generated' : 'Basic Workout',
-              subtitle: _aiAvailable
-                  ? 'Let AI create a personalized workout'
-                  : 'Generate a template-based workout',
-              gradient: _aiAvailable
-                  ? const LinearGradient(
-                      colors: [Color(0xFFFF6B35), Color(0xFF4F46E5)])
-                  : null,
-              onTap: () {
-                Navigator.pop(context);
-                _generateWorkoutRoutine();
-              },
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
+        ];
+        totalRoutines = _sampleRoutines.where((r) => r.isCustom).length;
+      });
+      print(
+          'Refreshed workouts - ideally from Supabase, currently sample data reloaded.');
+    } else {
+      print('Profile not loaded, cannot refresh workouts from Supabase.');
+      // Optionally clear routines or show an error
+      setState(() {
+        _sampleRoutines = [];
+        totalRoutines = 0;
+      });
+    }
   }
 
-  void _showWorkoutDetails(WorkoutRoutine routine) {
-    WorkoutColors.getWorkoutCategoryColor(
-        routine.name, routine.targetMuscles);
+  void _openWorkoutDetails(WorkoutRoutine routine) {
+    // Add haptic feedback
+    HapticFeedback.selectionClick();
 
+    // Navigate to workout details
+    print('Opening workout: ${routine.name}');
     Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => WorkoutDetailsScreen(routine: routine),
-      ),
-    );
+        context,
+        MaterialPageRoute(
+            builder: (context) => WorkoutDetailsScreen(routine: routine)));
   }
 
-  Future<void> _createNewWorkoutRoutine() async {
-    // Implementation for creating new workout
-    _showSnackBar('Feature coming soon!', false);
-  }
+  void _createAIWorkout() async {
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
 
-  Future<void> _generateWorkoutRoutine() async {
-    if (!_aiAvailable) {
-      _showSnackBar(
-          'Complete your fitness profile first to use AI workouts', false);
+    if (_currentProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Please complete your fitness profile to create AI workouts.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      // Optionally, navigate to onboarding or show a dialog
       return;
     }
 
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFF6B35), Color(0xFF4F46E5)],
-                  ),
-                  borderRadius: BorderRadius.circular(32),
-                ),
-                child: const Icon(
-                  Icons.auto_awesome,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'AI Creating Your Workout',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Our AI is analyzing your fitness profile and creating a personalized workout just for you...',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF64748B),
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator(
-                color: Color(0xFF4F46E5),
-              ),
-            ],
-          ),
+    // Navigate to AI workout creator
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AIWorkoutCreatorScreen(
+          // Pass the current fitness profile to the creator screen
+          // This assumes AIWorkoutCreatorScreen is updated to accept it.
+          fitnessProfile: _currentProfile!,
         ),
       ),
     );
 
-    try {
-      // Get user's fitness profile and macro data
-      final fitnessProfile = await _dataService.getCurrentFitnessProfile();
-      final macroData = await _dataService.getMacroData();
-
-      // Generate AI workout
-      final aiWorkoutData = await _aiService.generateWorkoutPlan(
-        fitnessProfile: fitnessProfile,
-        macroData: macroData,
-      );
-
-      // Close loading dialog
-      if (mounted) Navigator.pop(context);
-
-      if (aiWorkoutData.isNotEmpty) {
-        debugPrint('AI Workout Data: $aiWorkoutData');
-
-        // Convert AI workout data to WorkoutRoutine
-        final aiWorkoutRoutine = _convertAIWorkoutToRoutine(aiWorkoutData);
-
-        debugPrint(
-            'Converted Workout Routine - Name: ${aiWorkoutRoutine.name}');
-        debugPrint(
-            'Converted Workout Routine - Difficulty: ${aiWorkoutRoutine.difficulty}');
-        debugPrint(
-            'Converted Workout Routine - Equipment: ${aiWorkoutRoutine.requiredEquipment}');
-        debugPrint(
-            'Converted Workout Routine - Exercises: ${aiWorkoutRoutine.exercises.length}');
-
-        // Save the AI-generated workout
-        final savedRoutine =
-            await _workoutService.createWorkoutRoutine(aiWorkoutRoutine);
-
-        if (savedRoutine != null) {
-          // Refresh the workout list
-          await _loadWorkoutRoutines();
-
-          _showSnackBar('AI workout created successfully!', true);
-
-          // Show the new workout details
-          _showWorkoutDetails(savedRoutine);
-        } else {
-          _showSnackBar('Failed to save AI workout. Please try again.', false);
-        }
-      } else {
-        _showSnackBar(
-            'Failed to generate AI workout. Please try again.', false);
-      }
-    } catch (e) {
-      // Close loading dialog if still open
-      if (mounted) Navigator.pop(context);
-
-      debugPrint('Error generating AI workout: $e');
-      _showSnackBar('Failed to generate AI workout: $e', false);
+    // If a workout was created, add it to the list
+    if (result != null && result is WorkoutRoutine) {
+      setState(() {
+        _sampleRoutines.insert(0, result); // Add to beginning of list
+        totalRoutines++; // Update stats
+        // TODO: Save the new AI workout routine to Supabase
+        // if (_currentProfile != null) {
+        //   _fitnessAIService.saveWorkoutRoutine(_currentProfile!.userId, result);
+        // }
+      });
     }
   }
 
-  WorkoutRoutine _convertAIWorkoutToRoutine(
-      Map<String, dynamic> aiWorkoutData) {
-    // Convert AI-generated data to WorkoutRoutine format
-    final exercises = <WorkoutExercise>[];
-
-    // Only add main exercises - warm-up and cool-down will be in description
-    if (aiWorkoutData['main_exercises'] != null) {
-      for (final exerciseData in aiWorkoutData['main_exercises']) {
-        final numSets = exerciseData['sets'] ?? 3;
-        final repsStr = exerciseData['reps']?.toString() ?? '10-12';
-        final reps = _parseReps(repsStr);
-
-        final sets = List.generate(numSets, (index) => WorkoutSet(reps: reps));
-
-        exercises.add(WorkoutExercise(
-          id: _uuid.v4(),
-          exerciseId: _uuid.v4(),
-          sets: sets,
-          restSeconds: _parseRestSeconds(exerciseData['rest']),
-          notes: exerciseData['instructions'] ?? '',
-          isCompleted: false,
-          exercise: Exercise(
-            id: _uuid.v4(),
-            name: exerciseData['exercise'] ?? 'Exercise',
-            description: exerciseData['instructions'] ?? '',
-            instructions: [exerciseData['instructions'] ?? ''],
-            primaryMuscles:
-                List<String>.from(exerciseData['muscle_groups'] ?? ['general']),
-            secondaryMuscles: [],
-            equipment: List<String>.from(
-                exerciseData['equipment_needed'] ?? ['bodyweight']),
-            difficulty: _normalizeDifficulty(aiWorkoutData['difficulty_level']),
-            type: 'strength',
-            isCompound:
-                (exerciseData['muscle_groups'] as List?)?.length != null &&
-                    (exerciseData['muscle_groups'] as List).length > 1,
-            imageUrl: null,
-            videoUrl: null,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
+  Widget _buildDismissBackground(bool isDark) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 32),
+      margin: const EdgeInsets.only(left: 24, right: 24, bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF8B0000) : const Color(0xFFDC2626),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            CupertinoIcons.trash_fill,
+            color: Colors.white,
+            size: 28,
           ),
-        ));
-      }
-    }
-
-    // Build comprehensive description including warm-up and cool-down
-    final description = _buildWorkoutDescription(aiWorkoutData);
-
-    return WorkoutRoutine(
-      id: _uuid.v4(),
-      name: aiWorkoutData['workout_name'] ?? 'AI Generated Workout',
-      description: description,
-      difficulty: _normalizeDifficulty(aiWorkoutData['difficulty_level']),
-      estimatedDurationMinutes: aiWorkoutData['estimated_duration'] ?? 45,
-      targetMuscles: List<String>.from(
-          aiWorkoutData['muscle_groups_targeted'] ?? ['full body']),
-      requiredEquipment: _normalizeEquipment(aiWorkoutData),
-      exercises: exercises,
-      isCustom: false, // AI-generated workouts are not custom
-      createdBy: '', // Will be set by the service
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-  }
-
-  String _buildWorkoutDescription(Map<String, dynamic> aiWorkoutData) {
-    final buffer = StringBuffer();
-
-    // Add main description
-    if (aiWorkoutData['notes'] != null) {
-      buffer.writeln(aiWorkoutData['notes']);
-      buffer.writeln();
-    } else {
-      buffer.writeln(
-          'Personalized workout created by AI based on your fitness profile.');
-      buffer.writeln();
-    }
-
-    // Add warm-up instructions
-    if (aiWorkoutData['warm_up'] != null &&
-        aiWorkoutData['warm_up'].isNotEmpty) {
-      buffer.writeln('🔥 WARM-UP:');
-      for (final warmUp in aiWorkoutData['warm_up']) {
-        buffer.writeln('• ${warmUp['exercise']}: ${warmUp['duration']}');
-        if (warmUp['instructions'] != null) {
-          buffer.writeln('  ${warmUp['instructions']}');
-        }
-      }
-      buffer.writeln();
-    }
-
-    // Add cool-down instructions
-    if (aiWorkoutData['cool_down'] != null &&
-        aiWorkoutData['cool_down'].isNotEmpty) {
-      buffer.writeln('❄️ COOL-DOWN:');
-      for (final coolDown in aiWorkoutData['cool_down']) {
-        buffer.writeln('• ${coolDown['exercise']}: ${coolDown['duration']}');
-        if (coolDown['instructions'] != null) {
-          buffer.writeln('  ${coolDown['instructions']}');
-        }
-      }
-      buffer.writeln();
-    }
-
-    // Add progression tips
-    if (aiWorkoutData['progression_tips'] != null) {
-      buffer.writeln('📈 PROGRESSION TIPS:');
-      buffer.writeln(aiWorkoutData['progression_tips']);
-    }
-
-    return buffer.toString().trim();
-  }
-
-  String _normalizeDifficulty(dynamic difficulty) {
-    if (difficulty == null) return 'intermediate';
-
-    final difficultyStr = difficulty.toString().toLowerCase().trim();
-
-    // Map various AI difficulty outputs to database constraints
-    switch (difficultyStr) {
-      case 'beginner':
-      case 'easy':
-      case 'novice':
-      case 'starter':
-        return 'beginner';
-      case 'intermediate':
-      case 'medium':
-      case 'moderate':
-      case 'regular':
-        return 'intermediate';
-      case 'advanced':
-      case 'hard':
-      case 'expert':
-      case 'difficult':
-      case 'challenging':
-        return 'advanced';
-      default:
-        debugPrint(
-            'Unknown difficulty level: $difficultyStr, defaulting to intermediate');
-        return 'intermediate';
-    }
-  }
-
-  int _parseReps(String repsStr) {
-    // Parse reps from strings like "8-12", "10", "15-20"
-    final match = RegExp(r'(\d+)(?:-\d+)?').firstMatch(repsStr);
-    return int.tryParse(match?.group(1) ?? '10') ?? 10;
-  }
-
-  int _parseRestSeconds(dynamic rest) {
-    if (rest == null) return 60;
-
-    final restStr = rest.toString().toLowerCase();
-    if (restStr.contains('minute')) {
-      final minutes = RegExp(r'(\d+)').firstMatch(restStr)?.group(1);
-      return (int.tryParse(minutes ?? '1') ?? 1) * 60;
-    } else if (restStr.contains('second')) {
-      final seconds = RegExp(r'(\d+)').firstMatch(restStr)?.group(1);
-      return int.tryParse(seconds ?? '60') ?? 60;
-    }
-
-    // Try to parse as just a number (assume seconds)
-    return int.tryParse(restStr) ?? 60;
-  }
-
-  List<String> _normalizeEquipment(Map<String, dynamic> aiWorkoutData) {
-    final Set<String> equipment = {};
-
-    // Get equipment from main exercises
-    if (aiWorkoutData['main_exercises'] != null) {
-      for (final exerciseData in aiWorkoutData['main_exercises']) {
-        if (exerciseData['equipment_needed'] != null) {
-          for (final item in exerciseData['equipment_needed']) {
-            equipment.add(_normalizeEquipmentItem(item.toString()));
-          }
-        }
-      }
-    }
-
-    // If no equipment found, default to bodyweight
-    if (equipment.isEmpty) {
-      equipment.add('bodyweight');
-    }
-
-    return equipment.toList();
-  }
-
-  String _normalizeEquipmentItem(String equipment) {
-    final equipmentStr = equipment.toLowerCase().trim();
-
-    // Map various AI equipment outputs to standardized values
-    switch (equipmentStr) {
-      case 'none':
-      case 'bodyweight':
-      case 'body weight':
-      case 'no equipment':
-        return 'bodyweight';
-      case 'dumbbells':
-      case 'dumbbell':
-      case 'weights':
-      case 'free weights':
-        return 'dumbbells';
-      case 'barbell':
-      case 'barbells':
-        return 'barbell';
-      case 'resistance bands':
-      case 'resistance band':
-      case 'bands':
-      case 'band':
-        return 'resistance_bands';
-      case 'pull-up bar':
-      case 'pullup bar':
-      case 'pull up bar':
-        return 'pull_up_bar';
-      case 'yoga mat':
-      case 'mat':
-      case 'exercise mat':
-        return 'yoga_mat';
-      case 'kettlebell':
-      case 'kettlebells':
-        return 'kettlebell';
-      default:
-        debugPrint(
-            'Unknown equipment: $equipmentStr, defaulting to bodyweight');
-        return 'bodyweight';
-    }
-  }
-
-  Future<void> _startWorkout(WorkoutRoutine routine) async {
-    try {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => WorkoutExecutionScreen(routine: routine),
-        ),
-      );
-    } catch (e) {
-      _showSnackBar('Failed to start workout', false);
-    }
-  }
-
-  void _navigateToOnboarding() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-    );
-    await _checkAIAvailability();
-  }
-
-  void _showSnackBar(String message, bool isSuccess) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isSuccess ? Icons.check_circle : Icons.error,
-              color:
-                  isSuccess ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-              size: 20,
+          const SizedBox(height: 4),
+          Text(
+            'Delete',
+            style: PremiumTypography.caption.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(width: 12),
-            Expanded(
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _showDeleteConfirmation(
+      BuildContext context, WorkoutRoutine routine, bool isDark) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: isDark ? PremiumColors.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Delete Workout',
+            style: PremiumTypography.h4.copyWith(
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${routine.name}"? This action cannot be undone.',
+            style: PremiumTypography.bodyMedium.copyWith(
+              color: isDark
+                  ? PremiumColors.darkTextSecondary
+                  : PremiumColors.slate600,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
               child: Text(
-                message,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF1E293B),
+                'Cancel',
+                style: PremiumTypography.button.copyWith(
+                  color: isDark
+                      ? PremiumColors.darkTextSecondary
+                      : PremiumColors.slate600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                backgroundColor:
+                    isDark ? const Color(0xFF8B0000) : const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Delete',
+                style: PremiumTypography.button.copyWith(
+                  color: Colors.white,
                 ),
               ),
             ),
           ],
-        ),
-        backgroundColor: Colors.white,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-        elevation: 8,
-        duration: const Duration(seconds: 3),
-      ),
+        );
+      },
     );
   }
 
   void _deleteWorkout(WorkoutRoutine routine) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withAlpha(((0.1) * 255).round()),
-                  borderRadius: BorderRadius.circular(32),
-                ),
-                child: const Icon(
-                  Icons.delete_outline,
-                  color: Color(0xFFEF4444),
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Delete Workout?',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Are you sure you want to delete "${routine.name}"? This action cannot be undone.',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF64748B),
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildButton(
-                      text: 'Cancel',
-                      onPressed: () => Navigator.pop(context),
-                      isPrimary: false,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildButton(
-                      text: 'Delete',
-                      onPressed: () => _confirmDeleteWorkout(routine),
-                      isPrimary: true,
-                      color: const Color(0xFFEF4444),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+    // Add haptic feedback
+    HapticFeedback.mediumImpact();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Remove from sample routines list
+    setState(() {
+      _sampleRoutines.removeWhere((r) => r.id == routine.id);
+      if (routine.name.contains('AI')) {
+        // Update stats if it was an AI workout
+        if (totalRoutines > 0) totalRoutines--;
+      }
+    });
+
+    // Show confirmation snackbar with undo option
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${routine.name} deleted'),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor:
+            isDark ? PremiumColors.slate700 : PremiumColors.slate800,
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: Colors.white,
+          onPressed: () => _undoDeleteWorkout(routine),
         ),
       ),
     );
+
+    // In real app, this would delete from the database/service
+    print('Deleted workout: ${routine.name}');
   }
 
-  Future<void> _confirmDeleteWorkout(WorkoutRoutine routine) async {
-    Navigator.pop(context); // Close dialog
+  void _undoDeleteWorkout(WorkoutRoutine routine) {
+    // Add haptic feedback
+    HapticFeedback.lightImpact();
 
-    try {
-      // Show loading indicator
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1E293B)),
-                ),
-              ),
-              SizedBox(width: 12),
-              Text(
-                'Deleting workout...',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.white,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-      debugPrint(
-          'Attempting to delete workout: ${routine.name} (ID: ${routine.id})');
-      debugPrint(
-          'Workout created_by: ${routine.createdBy}, is_custom: ${routine.isCustom}');
-
-      // Delete the workout using the service
-      final success = await _workoutService.deleteWorkoutRoutine(routine.id);
-
-      if (success) {
-        // Remove from local lists immediately for better UX
-        setState(() {
-          _routines.removeWhere((r) => r.id == routine.id);
-          _filteredRoutines.removeWhere((r) => r.id == routine.id);
-        });
-
-        _showSnackBar('Workout deleted successfully', true);
-
-        // Refresh the list to ensure consistency
-        await _loadWorkoutRoutines();
-      } else {
-        debugPrint('Delete operation returned false');
-
-        // Reload to check if it was actually deleted
-        await _loadWorkoutRoutines();
-
-        // Check if the workout still exists
-        final stillExists = _routines.any((r) => r.id == routine.id);
-        if (stillExists) {
-          _showSnackBar(
-            'Unable to delete this workout. You may not have permission to delete it.',
-            false,
-          );
-        } else {
-          // It was actually deleted, update UI
-          setState(() {
-            _routines.removeWhere((r) => r.id == routine.id);
-            _filteredRoutines.removeWhere((r) => r.id == routine.id);
-          });
-          _showSnackBar('Workout deleted successfully', true);
-        }
+    // Add back to sample routines list
+    setState(() {
+      _sampleRoutines.add(routine);
+      if (routine.name.contains('AI')) {
+        totalRoutines++;
       }
-    } catch (e) {
-      debugPrint('Error deleting workout: $e');
+    });
 
-      // Refresh to see current state
-      await _loadWorkoutRoutines();
-
-      if (e.toString().contains('RLS') || e.toString().contains('policy')) {
-        _showSnackBar(
-          'Permission denied: You can only delete workouts you created.',
-          false,
-        );
-      } else {
-        _showSnackBar('Failed to delete workout: ${e.toString()}', false);
-      }
-    }
-  }
-}
-
-class _ActionTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final Gradient? gradient;
-
-  const _ActionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.gradient,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: gradient == null ? const Color(0xFFF8FAFC) : null,
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color:
-                gradient != null ? Colors.transparent : const Color(0xFFE2E8F0),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: gradient != null
-                    ? Colors.white.withAlpha(((0.2) * 255).round())
-                    : const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: gradient != null
-                          ? Colors.white
-                          : const Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: gradient != null
-                          ? Colors.white.withAlpha(((0.8) * 255).round())
-                          : const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: gradient != null
-                  ? Colors.white.withAlpha(((0.7) * 255).round())
-                  : const Color(0xFF64748B),
-            ),
-          ],
-        ),
+    // Show restored confirmation
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${routine.name} restored'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor:
+            isDark ? PremiumColors.slate700 : PremiumColors.slate800,
       ),
     );
+
+    print('Restored workout: ${routine.name}');
   }
 }

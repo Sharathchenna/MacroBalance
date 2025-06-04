@@ -11,7 +11,7 @@ class SubscriptionProvider extends ChangeNotifier {
   bool _revenueCatConfigured = false;
 
   // Hard paywall configuration
-  static const bool _enforceHardPaywall = false;
+  static const bool _enforceHardPaywall = true;
 
   // Getters
   bool get isProUser => _isProUser;

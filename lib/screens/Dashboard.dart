@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/camera/barcode_results.dart' hide Serving;
-import 'package:macrotracker/camera/results_page.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart'; // Added for AI processed results
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/providers/date_provider.dart';
@@ -89,31 +88,38 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
       if (result != null && mounted) {
         final String type = result['type'] as String;
         print('[Flutter Dashboard] Result type: $type');
-        
+
         final dynamic value = result['value']; // Get value dynamically first
 
         if (type == 'barcode') {
           final String barcode = value as String;
           print('[Flutter Dashboard] Barcode value received: $barcode');
           _handleBarcodeResult(context, barcode);
-        } else if (type == 'ai_processed_photo' || type == 'ai_processed_label') {
+        } else if (type == 'ai_processed_photo' ||
+            type == 'ai_processed_label') {
           final List<AIFoodItem> foods = value as List<AIFoodItem>;
-          print('[Flutter Dashboard] AI Processed data with ${foods.length} foods received');
+          print(
+              '[Flutter Dashboard] AI Processed data with ${foods.length} foods received');
           if (foods.isNotEmpty) {
             Navigator.push(
               context,
-              CupertinoPageRoute(builder: (ctx) => AIFoodDetailPage(food: foods.first)),
+              CupertinoPageRoute(
+                  builder: (ctx) => AIFoodDetailPage(food: foods.first)),
             );
           } else {
             _showErrorSnackbar('AI processing returned no food items.');
           }
-        } else if (type == 'photo') { // This is from gallery, value is Uint8List
-          final Uint8List imageBytes = value as Uint8List; // Correctly cast to Uint8List
-          print('[Flutter Dashboard] Raw photo (gallery) Uint8List received: ${imageBytes.length} bytes.');
+        } else if (type == 'photo') {
+          // This is from gallery, value is Uint8List
+          final Uint8List imageBytes =
+              value as Uint8List; // Correctly cast to Uint8List
+          print(
+              '[Flutter Dashboard] Raw photo (gallery) Uint8List received: ${imageBytes.length} bytes.');
           // TODO: Implement AI processing for gallery images.
           // This could be done here by calling Gemini, or _pickFromGallery in FlutterCameraScreen
           // could be modified to do the processing before popping, similar to _takePicture.
-          _showErrorSnackbar('Gallery image selected. Displaying/processing this image type is not yet fully implemented here.');
+          _showErrorSnackbar(
+              'Gallery image selected. Displaying/processing this image type is not yet fully implemented here.');
         }
       } else {
         print('[Flutter Dashboard] No result or widget not mounted');
@@ -132,25 +138,24 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
   // --- Helper Methods for Navigation ---
 
   void _handleBarcodeResult(BuildContext safeContext, String barcode) {
-    print('[Flutter Dashboard] Navigating to BarcodeResults with barcode: $barcode');
+    print(
+        '[Flutter Dashboard] Navigating to BarcodeResults with barcode: $barcode');
     print('[Flutter Dashboard] Widget mounted: $mounted');
     print('[Flutter Dashboard] Context valid: ${safeContext.mounted}');
-    
+
     if (!mounted) {
       print('[Flutter Dashboard] Widget not mounted, aborting navigation');
       return;
     }
-    
+
     try {
       print('[Flutter Dashboard] Attempting navigation to BarcodeResults...');
       Navigator.push(
         safeContext,
-        MaterialPageRoute(
-          builder: (context) {
-            print('[Flutter Dashboard] Building BarcodeResults widget');
-            return BarcodeResults(barcode: barcode);
-          }
-        ),
+        MaterialPageRoute(builder: (context) {
+          print('[Flutter Dashboard] Building BarcodeResults widget');
+          return BarcodeResults(barcode: barcode);
+        }),
       ).then((value) {
         print('[Flutter Dashboard] Navigation to BarcodeResults completed');
       }).catchError((error) {

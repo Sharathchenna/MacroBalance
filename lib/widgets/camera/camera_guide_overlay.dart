@@ -222,15 +222,15 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
   }
 
   List<Widget> _buildEnhancedCornerAccents() {
-    final cornerSize = 24.0 * _cornerAnimation.value;
-    const cornerThickness = 3.0;
+    final cornerSize = 28.0 * _cornerAnimation.value;
+    const cornerThickness = 4.0;
     final cornerColor = _colorAnimation.value ?? CameraTheme.premiumGold;
 
     return [
-      // Top-left corner
+      // Top-left corner with enhanced styling
       Positioned(
-        top: -1.5,
-        left: -1.5,
+        top: -2,
+        left: -2,
         child: Transform.scale(
           scale: _cornerAnimation.value,
           child: Container(
@@ -247,21 +247,47 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
                   width: cornerThickness,
                 ),
               ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: cornerColor.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  spreadRadius: 1,
+                  color: cornerColor.withValues(alpha: 0.5),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: cornerColor.withValues(alpha: 0.2),
+                  blurRadius: 16,
+                  spreadRadius: 4,
                 ),
               ],
+            ),
+            child: Positioned(
+              top: 2,
+              left: 2,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cornerColor.withValues(alpha: 0.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cornerColor.withValues(alpha: 0.6),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
-      // Top-right corner
+      // Top-right corner with enhanced styling
       Positioned(
-        top: -1.5,
-        right: -1.5,
+        top: -2,
+        right: -2,
         child: Transform.scale(
           scale: _cornerAnimation.value,
           child: Container(
@@ -278,21 +304,47 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
                   width: cornerThickness,
                 ),
               ),
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(16),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: cornerColor.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  spreadRadius: 1,
+                  color: cornerColor.withValues(alpha: 0.5),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: cornerColor.withValues(alpha: 0.2),
+                  blurRadius: 16,
+                  spreadRadius: 4,
                 ),
               ],
+            ),
+            child: Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cornerColor.withValues(alpha: 0.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cornerColor.withValues(alpha: 0.6),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
-      // Bottom-left corner
+      // Bottom-left corner with enhanced styling
       Positioned(
-        bottom: -1.5,
-        left: -1.5,
+        bottom: -2,
+        left: -2,
         child: Transform.scale(
           scale: _cornerAnimation.value,
           child: Container(
@@ -309,21 +361,47 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
                   width: cornerThickness,
                 ),
               ),
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(16),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: cornerColor.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  spreadRadius: 1,
+                  color: cornerColor.withValues(alpha: 0.5),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: cornerColor.withValues(alpha: 0.2),
+                  blurRadius: 16,
+                  spreadRadius: 4,
                 ),
               ],
+            ),
+            child: Positioned(
+              bottom: 2,
+              left: 2,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cornerColor.withValues(alpha: 0.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cornerColor.withValues(alpha: 0.6),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
-      // Bottom-right corner
+      // Bottom-right corner with enhanced styling
       Positioned(
-        bottom: -1.5,
-        right: -1.5,
+        bottom: -2,
+        right: -2,
         child: Transform.scale(
           scale: _cornerAnimation.value,
           child: Container(
@@ -340,13 +418,39 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
                   width: cornerThickness,
                 ),
               ),
+              borderRadius: const BorderRadius.only(
+                bottomRight: Radius.circular(16),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: cornerColor.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  spreadRadius: 1,
+                  color: cornerColor.withValues(alpha: 0.5),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: cornerColor.withValues(alpha: 0.2),
+                  blurRadius: 16,
+                  spreadRadius: 4,
                 ),
               ],
+            ),
+            child: Positioned(
+              bottom: 2,
+              right: 2,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cornerColor.withValues(alpha: 0.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cornerColor.withValues(alpha: 0.6),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -357,61 +461,150 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
   Widget _buildPremiumBarcodeAnimation() {
     final scanProgress = _scanLineAnimation.value;
     final lineColor = _colorAnimation.value ?? CameraTheme.premiumGold;
+    final guideHeight = _getGuideHeight();
 
     return Stack(
       children: [
-        // Main scanning beam
+        // Main scanning beam with enhanced gradient
         Positioned(
-          left: 8,
-          right: 8,
-          top: scanProgress * (_getGuideHeight() - 24) + 8,
+          left: 6,
+          right: 6,
+          top: scanProgress * (guideHeight - 28) + 12,
           child: Container(
-            height: 3,
+            height: 4,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  lineColor.withValues(alpha: 0.3),
+                  lineColor.withValues(alpha: 0.2),
+                  lineColor.withValues(alpha: 0.6),
                   lineColor,
-                  lineColor.withValues(alpha: 0.3),
+                  lineColor.withValues(alpha: 0.9),
+                  lineColor,
+                  lineColor.withValues(alpha: 0.6),
+                  lineColor.withValues(alpha: 0.2),
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
+                stops: const [0.0, 0.1, 0.3, 0.45, 0.5, 0.55, 0.7, 0.9, 1.0],
               ),
-              borderRadius: BorderRadius.circular(1.5),
+              borderRadius: BorderRadius.circular(2),
               boxShadow: [
                 BoxShadow(
-                  color: lineColor.withValues(alpha: 0.6),
-                  blurRadius: 8,
-                  spreadRadius: 1,
+                  color: lineColor.withValues(alpha: 0.8),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: lineColor.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  spreadRadius: 4,
                 ),
               ],
             ),
           ),
         ),
-        // Scanning particles effect
-        ...List.generate(3, (index) {
-          final delay = index * 0.3;
-          final particleProgress = ((scanProgress + delay) % 1.0);
-          return Positioned(
-            left: 12 + (index * 4.0),
-            top: particleProgress * (_getGuideHeight() - 16) + 6,
-            child: Container(
-              width: 2,
-              height: 2,
-              decoration: BoxDecoration(
-                color: lineColor.withValues(alpha: 0.8),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: lineColor.withValues(alpha: 0.4),
-                    blurRadius: 3,
-                  ),
+
+        // Secondary beam for depth effect
+        Positioned(
+          left: 8,
+          right: 8,
+          top: scanProgress * (guideHeight - 26) + 13,
+          child: Container(
+            height: 2,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  Colors.white.withValues(alpha: 0.3),
+                  Colors.white.withValues(alpha: 0.8),
+                  Colors.white.withValues(alpha: 0.3),
+                  Colors.transparent,
                 ],
+                stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+              ),
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+        ),
+
+        // Animated scanning particles with trails
+        ...List.generate(6, (index) {
+          final delay = index * 0.15;
+          final particleProgress = ((scanProgress + delay) % 1.0);
+          final particleOpacity = (1.0 - (index * 0.15)).clamp(0.2, 1.0);
+
+          return Positioned(
+            left: 14 + (index * 8.0),
+            top: particleProgress * (guideHeight - 20) + 8,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: particleOpacity,
+              child: Container(
+                width: 3,
+                height: 8,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      lineColor.withValues(alpha: 0.6 * particleOpacity),
+                      lineColor.withValues(alpha: 0.9 * particleOpacity),
+                      Colors.transparent,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: lineColor.withValues(alpha: 0.4 * particleOpacity),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
               ),
             ),
           );
         }),
+
+        // Edge glow effects
+        Positioned(
+          left: 0,
+          right: 0,
+          top: scanProgress * (guideHeight - 24) + 10,
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      lineColor.withValues(alpha: 0.8),
+                      lineColor.withValues(alpha: 0.3),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      lineColor.withValues(alpha: 0.8),
+                      lineColor.withValues(alpha: 0.3),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -423,64 +616,220 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
 
     return Stack(
       children: [
-        // Horizontal scanning grid
-        ...List.generate(4, (index) {
-          final linePosition = (guideHeight / 5) * (index + 1);
+        // Animated scanning grid with shimmer effect
+        ...List.generate(6, (index) {
+          final linePosition = (guideHeight / 7) * (index + 1);
           final animatedOpacity =
-              (0.3 + 0.4 * ((scanProgress + index * 0.2) % 1.0))
-                  .clamp(0.0, 1.0);
+              (0.2 + 0.6 * ((scanProgress + index * 0.15) % 1.0))
+                  .clamp(0.1, 0.8);
+          final shimmerOffset = ((scanProgress * 2 + index * 0.2) % 1.0) - 0.5;
 
           return Positioned(
-            left: 12,
-            right: 12,
+            left: 16,
+            right: 16,
             top: linePosition,
             child: Opacity(
               opacity: animatedOpacity,
               child: Container(
-                height: 1,
+                height: 1.5,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                     colors: [
                       Colors.transparent,
-                      lineColor.withValues(alpha: 0.6),
+                      lineColor.withValues(alpha: 0.3),
+                      lineColor.withValues(alpha: 0.7),
+                      lineColor.withValues(alpha: 0.9),
+                      lineColor.withValues(alpha: 0.7),
+                      lineColor.withValues(alpha: 0.3),
                       Colors.transparent,
                     ],
-                    stops: const [0.0, 0.5, 1.0],
+                    stops: [
+                      0.0,
+                      (0.2 + shimmerOffset * 0.3).clamp(0.0, 1.0),
+                      (0.35 + shimmerOffset * 0.3).clamp(0.0, 1.0),
+                      (0.5 + shimmerOffset * 0.3).clamp(0.0, 1.0),
+                      (0.65 + shimmerOffset * 0.3).clamp(0.0, 1.0),
+                      (0.8 + shimmerOffset * 0.3).clamp(0.0, 1.0),
+                      1.0,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(0.75),
+                  boxShadow: [
+                    BoxShadow(
+                      color: lineColor.withValues(alpha: 0.3 * animatedOpacity),
+                      blurRadius: 3,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+
+        // Main vertical scanning sweep
+        Positioned(
+          left: 12,
+          right: 12,
+          top: scanProgress * (guideHeight - 36) + 18,
+          child: Container(
+            height: 6,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  lineColor.withValues(alpha: 0.3),
+                  lineColor.withValues(alpha: 0.7),
+                  lineColor,
+                  lineColor.withValues(alpha: 0.9),
+                  lineColor,
+                  lineColor.withValues(alpha: 0.7),
+                  lineColor.withValues(alpha: 0.3),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.15, 0.3, 0.45, 0.5, 0.55, 0.7, 0.85, 1.0],
+              ),
+              borderRadius: BorderRadius.circular(3),
+              boxShadow: [
+                BoxShadow(
+                  color: lineColor.withValues(alpha: 0.7),
+                  blurRadius: 15,
+                  spreadRadius: 3,
+                ),
+                BoxShadow(
+                  color: lineColor.withValues(alpha: 0.3),
+                  blurRadius: 25,
+                  spreadRadius: 6,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Trailing glow effect
+        Positioned(
+          left: 14,
+          right: 14,
+          top: scanProgress * (guideHeight - 34) + 19,
+          child: Container(
+            height: 4,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  Colors.white.withValues(alpha: 0.4),
+                  Colors.white.withValues(alpha: 0.8),
+                  Colors.white.withValues(alpha: 0.4),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+
+        // Scanning focus points
+        ...List.generate(4, (verticalIndex) {
+          final verticalPosition = (guideHeight / 5) * (verticalIndex + 1);
+          return Row(
+            children: List.generate(3, (horizontalIndex) {
+              final horizontalOffset = (horizontalIndex + 1) * 0.25;
+              final focusOpacity = (0.4 +
+                      0.4 *
+                          ((scanProgress +
+                                  verticalIndex * 0.2 +
+                                  horizontalIndex * 0.1) %
+                              1.0))
+                  .clamp(0.2, 0.8);
+
+              return Expanded(
+                child: Align(
+                  alignment: Alignment(horizontalOffset - 1.0, 0.0),
+                  child: Positioned(
+                    top: verticalPosition,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 300),
+                      opacity: focusOpacity,
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              lineColor.withValues(alpha: 0.9 * focusOpacity),
+                              lineColor.withValues(alpha: 0.4 * focusOpacity),
+                              Colors.transparent,
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: lineColor.withValues(
+                                  alpha: 0.5 * focusOpacity),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          );
+        }),
+
+        // Corner focus indicators
+        ...List.generate(4, (index) {
+          final isLeft = index % 2 == 0;
+          final isTop = index < 2;
+          final indicatorOpacity =
+              (0.5 + 0.3 * ((scanProgress + index * 0.25) % 1.0))
+                  .clamp(0.3, 0.8);
+
+          return Positioned(
+            left: isLeft ? 8 : null,
+            right: isLeft ? null : 8,
+            top: isTop ? 8 : null,
+            bottom: isTop ? null : 8,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 400),
+              opacity: indicatorOpacity,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: lineColor.withValues(alpha: 0.8 * indicatorOpacity),
+                    width: 2,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          lineColor.withValues(alpha: 0.4 * indicatorOpacity),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color:
+                          lineColor.withValues(alpha: 0.9 * indicatorOpacity),
+                    ),
                   ),
                 ),
               ),
             ),
           );
         }),
-        // Vertical highlight line
-        Positioned(
-          left: 16,
-          right: 16,
-          top: scanProgress * (guideHeight - 32) + 16,
-          child: Container(
-            height: 2,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  lineColor.withValues(alpha: 0.4),
-                  lineColor,
-                  lineColor.withValues(alpha: 0.4),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
-              ),
-              borderRadius: BorderRadius.circular(1),
-              boxShadow: [
-                BoxShadow(
-                  color: lineColor.withValues(alpha: 0.5),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }

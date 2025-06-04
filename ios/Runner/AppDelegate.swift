@@ -64,6 +64,18 @@ import home_widget // Import home_widget
                                           binaryMessenger: controller.binaryMessenger)
         statsChannel?.setMethodCallHandler(handleStatsMethodCall)
 
+        // Initialize notification channel
+        let notificationChannel = FlutterMethodChannel(name: "app.macrobalance.com/notifications",
+                                                      binaryMessenger: controller.binaryMessenger)
+        notificationChannel.setMethodCallHandler { (call, result) in
+            if call.method == "registerForRemoteNotifications" {
+                application.registerForRemoteNotifications()
+                result(nil)
+            } else {
+                result(FlutterMethodNotImplemented)
+            }
+        }
+
         // Initialize native barcode scanner
         nativeBarcodeChannel = FlutterMethodChannel(name: nativeBarcodeChannelName,
                                                    binaryMessenger: controller.binaryMessenger)
@@ -87,14 +99,10 @@ import home_widget // Import home_widget
         
         if #available(iOS 10.0, *) {
             UNUserNotificationCenter.current().delegate = self
-            let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-            UNUserNotificationCenter.current().requestAuthorization(
-                options: authOptions,
-                 completionHandler: { _, _ in }
-             )
-         }
+            // Removed automatic notification permission request - now handled in onboarding
+        }
 
-         application.registerForRemoteNotifications()
+        // Removed automatic registerForRemoteNotifications - now handled when permissions are granted
 
          return super.application(application, didFinishLaunchingWithOptions: launchOptions)
      }

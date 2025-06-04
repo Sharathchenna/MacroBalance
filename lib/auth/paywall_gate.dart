@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/services/superwall_service.dart';
 
-/// A component that forces users to subscribe before they can access the app
-/// This implements a hard paywall approach where no features are accessible without payment
+/// A hard paywall component that forces users to subscribe before they can access the app
+/// This implements a strict paywall approach where no features are accessible without payment
 class PaywallGate extends StatelessWidget {
   final Widget child;
 
@@ -20,8 +20,23 @@ class PaywallGate extends StatelessWidget {
         // If the provider is still initializing, show a loading screen
         if (!subscriptionProvider.isInitialized) {
           return const Scaffold(
+            backgroundColor: Colors.black,
             body: Center(
-              child: CircularProgressIndicator(),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Colors.white),
+                  SizedBox(height: 24),
+                  Text(
+                    'Loading...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -31,18 +46,11 @@ class PaywallGate extends StatelessWidget {
           return child;
         }
 
-        // If the user doesn't have a subscription, show the paywall
-        return _SuperwallPaywallGate(
-          onDismiss: () async {
-            // Check if subscription status changed
-            final hasSubscription =
-                await subscriptionProvider.refreshSubscriptionStatus();
-
-            // If we now have a subscription, force a rebuild of this widget
-            // This ensures we immediately show the app content after purchase
-            if (hasSubscription) {
-              debugPrint('Subscription detected - refreshing PaywallGate');
-            }
+        // If the user doesn't have a subscription, show the hard paywall
+        return _HardSuperwallPaywall(
+          onSubscriptionDetected: () {
+            // Refresh subscription status when purchase is detected
+            subscriptionProvider.refreshSubscriptionStatus();
           },
         );
       },
@@ -50,167 +58,155 @@ class PaywallGate extends StatelessWidget {
   }
 }
 
-/// Internal widget that tries Superwall first, then falls back to custom paywall
-class _SuperwallPaywallGate extends StatefulWidget {
-  final VoidCallback onDismiss;
+/// Internal widget that shows only Superwall paywall - no fallback, no dismiss option
+class _HardSuperwallPaywall extends StatefulWidget {
+  final VoidCallback onSubscriptionDetected;
 
-  const _SuperwallPaywallGate({
-    required this.onDismiss,
+  const _HardSuperwallPaywall({
+    required this.onSubscriptionDetected,
   });
 
   @override
-  State<_SuperwallPaywallGate> createState() => _SuperwallPaywallGateState();
+  State<_HardSuperwallPaywall> createState() => _HardSuperwallPaywallState();
 }
 
-class _SuperwallPaywallGateState extends State<_SuperwallPaywallGate> {
-  bool _showFallback = false;
+class _HardSuperwallPaywallState extends State<_HardSuperwallPaywall>
+    with WidgetsBindingObserver {
+  bool _superwallShown = false;
 
   @override
   void initState() {
     super.initState();
-    _tryShowSuperwallPaywall();
-
-    // Set a timeout to show fallback if Superwall doesn't respond
-    Future.delayed(const Duration(seconds: 8), () {
-      if (mounted && !_showFallback) {
-        debugPrint('PaywallGate timeout - showing fallback UI');
-        setState(() {
-          _showFallback = true;
-        });
-      }
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _initializeAndShowSuperwall();
   }
 
-  void _tryShowSuperwallPaywall() {
-    // Try to show Superwall paywall after the widget is built
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // When app becomes active again, check subscription status
+    // This handles the case where user completes purchase outside the app
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('App resumed - checking subscription status');
+      widget.onSubscriptionDetected();
+    }
+  }
+
+  void _initializeAndShowSuperwall() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         final superwallService = SuperwallService();
 
-        // Add detailed debug logging
-        debugPrint('=== PAYWALL GATE DEBUG ===');
-        debugPrint('Superwall initialized: ${superwallService.isInitialized}');
+        debugPrint('=== HARD PAYWALL GATE ===');
+        debugPrint('Initializing Superwall for hard paywall...');
 
-        if (superwallService.isInitialized) {
-          debugPrint('✅ PaywallGate: Using Superwall paywall for onboarding');
-          await superwallService.showMainPaywall().timeout(
-            const Duration(seconds: 5),
-            onTimeout: () {
-              debugPrint('Superwall showMainPaywall timeout');
-              if (mounted) {
-                setState(() {
-                  _showFallback = true;
-                });
-              }
-            },
-          );
+        // Initialize Superwall if not already done
+        if (!superwallService.isInitialized) {
+          await superwallService.initialize();
+        }
+
+        if (superwallService.isInitialized && !_superwallShown) {
+          debugPrint('✅ Showing Superwall hard paywall');
+          _superwallShown = true;
+
+          // Show the hard paywall - use app_install placement for first-time users
+          await superwallService.showHardPaywall();
         } else {
-          debugPrint(
-              '❌ PaywallGate: Superwall not available, using custom paywall');
-          debugPrint('This means either:');
-          debugPrint('1. API key not set correctly');
-          debugPrint('2. Superwall failed to initialize');
-          debugPrint('3. Network connection issue');
-
-          if (mounted) {
-            setState(() {
-              _showFallback = true;
-            });
-          }
+          debugPrint('❌ Superwall failed to initialize');
+          // Show error message instead of fallback
+          _showSuperwallError();
         }
-        debugPrint('=== END PAYWALL GATE DEBUG ===');
       } catch (e) {
-        debugPrint('Error in _tryShowSuperwallPaywall: $e');
-        if (mounted) {
-          setState(() {
-            _showFallback = true;
-          });
-        }
+        debugPrint('Error in hard paywall: $e');
+        _showSuperwallError();
       }
     });
   }
 
+  void _showSuperwallError() {
+    if (mounted) {
+      setState(() {
+        // Will show error UI in build method
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_showFallback) {
-      // Show a fallback UI instead of hanging
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.star,
-                color: Colors.yellow,
-                size: 64,
+              // App logo or icon
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  Icons.restaurant_menu,
+                  color: Colors.white,
+                  size: 40,
+                ),
               ),
-              const SizedBox(height: 24),
+
+              const SizedBox(height: 32),
+
+              // App name
               const Text(
-                'Premium Features Unavailable',
+                'MacroBalance',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 20,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
-                textAlign: TextAlign.center,
               ),
+
               const SizedBox(height: 16),
+
+              // Loading message
               const Text(
-                'Continue with basic features',
+                'Loading premium features...',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 16,
                 ),
-                textAlign: TextAlign.center,
               ),
+
               const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: () {
-                  // Allow access even without premium
-                  widget.onDismiss();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                ),
-                child: const Text(
-                  'Continue',
+
+              const CircularProgressIndicator(
+                color: Colors.white,
+              ),
+
+              const SizedBox(height: 32),
+
+              // Small disclaimer
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  'A subscription is required to use this app',
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    color: Colors.white60,
+                    fontSize: 14,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ],
           ),
-        ),
-      );
-    }
-
-    // Show a simple loading screen while Superwall loads
-    // Superwall will overlay on top when ready
-    return const Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            CircularProgressIndicator(
-              color: Colors.white,
-            ),
-            SizedBox(height: 24),
-            Text(
-              'Loading Premium Features...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
         ),
       ),
     );

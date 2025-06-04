@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart';
 import 'package:macrotracker/services/subscription_service.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:macrotracker/services/superwall_service.dart';
 
 class SubscriptionSettingsScreen extends StatefulWidget {
   const SubscriptionSettingsScreen({super.key});
@@ -91,21 +91,27 @@ class SubscriptionSettingsScreenState
     }
   }
 
-  void _showUpgradePrompt() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return CustomPaywallScreen(
-          onDismiss: () => Navigator.of(context).pop(),
-          allowDismissal: true,
-        );
-      },
-    ).then((_) {
-      // Refresh data when returning from paywall
+  void _showUpgradePrompt() async {
+    try {
+      // Use Superwall service directly
+      final superwallService = SuperwallService();
+      await superwallService.showMainPaywall();
+
+      // Refresh data after potential purchase
       _fetchSubscriptionInfo();
-    });
+    } catch (e) {
+      debugPrint('Error showing Superwall paywall: $e');
+
+      // Show error message if Superwall fails
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to load upgrade options'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _manageBilling() async {

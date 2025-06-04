@@ -165,6 +165,81 @@ class TestReferralScreen extends StatelessWidget {
               ),
             ),
 
+            const SizedBox(height: 16),
+
+            ElevatedButton.icon(
+              onPressed: () async {
+                final success = await SuperwallService().restorePurchases();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success
+                        ? 'Restore successful - active subscription found!'
+                        : 'No previous purchases found'),
+                    backgroundColor: success ? Colors.green : Colors.orange,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.restore),
+              label: const Text('Test Restore Purchases'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(fontSize: 16),
+                backgroundColor: Colors.green,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            ElevatedButton.icon(
+              onPressed: () {
+                SuperwallService().handleCustomAction('restore');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Custom restore action triggered!'),
+                    backgroundColor: Colors.teal,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.touch_app),
+              label: const Text('Test Custom Action: restore'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(fontSize: 16),
+                backgroundColor: Colors.teal,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            ElevatedButton.icon(
+              onPressed: () async {
+                final service = SuperwallService();
+                if (service.isInitialized) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Superwall delegate is properly set up!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('❌ Superwall not initialized'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.check_circle),
+              label: const Text('Check Delegate Status'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(fontSize: 16),
+                backgroundColor: Colors.purple,
+              ),
+            ),
+
             const Spacer(),
 
             // Status info

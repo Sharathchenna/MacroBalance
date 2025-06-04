@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/fitness_profile.dart';
 import '../services/storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/fitness_ai_service.dart'; // Import FitnessAIService
 
 class FitnessDataService {
   static final FitnessDataService _instance = FitnessDataService._internal();
@@ -11,33 +12,61 @@ class FitnessDataService {
   FitnessDataService._internal();
 
   final StorageService _storage = StorageService();
+  final FitnessAIService _fitnessAIService =
+      FitnessAIService(); // Add FitnessAIService instance
 
   // ================== DATA RETRIEVAL ==================
 
-  /// Get the current user's fitness profile from storage
+  /// Get the current user's fitness profile.
+  /// It attempts to refresh the local cache from Supabase if a user is logged in,
+  /// and then always tries to load from the local cache.
   Future<FitnessProfile> getCurrentFitnessProfile() async {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+
+    if (currentUser != null) {
+      try {
+        // Attempt to fetch from Supabase to refresh local cache
+        final supabaseProfile =
+            await _fitnessAIService.getFitnessProfile(currentUser.id);
+        if (supabaseProfile != null) {
+          // Update local storage (Hive) with the fresh profile from Supabase
+          await _storage.put(
+              'fitness_profile', json.encode(supabaseProfile.toJson()));
+          log('[FitnessData] Refreshed local profile cache from Supabase for user ${currentUser.id}');
+        }
+      } catch (e) {
+        log('[FitnessData] Error refreshing profile from Supabase, will use existing local cache if available: $e');
+        // Proceed to try loading from local cache even if Supabase refresh failed
+      }
+    }
+
+    // Always try to load from local storage (Hive) after attempting Supabase refresh
     try {
-      // Try to get from macro results first (latest data)
+      final fitnessProfileJson = await _storage.get('fitness_profile');
+      if (fitnessProfileJson != null) {
+        log('[FitnessData] Loaded profile from local storage cache.');
+        return FitnessProfile.fromJson(json.decode(fitnessProfileJson));
+      }
+
+      // Legacy fallback: Try to get from macro results if 'fitness_profile' key is empty
+      // This might be relevant if data was stored under 'macro_results' previously.
+      // Consider phasing this out if 'fitness_profile' becomes the sole local key.
       final macroResultsJson = await _storage.get('macro_results');
       if (macroResultsJson != null) {
         final macroResults = json.decode(macroResultsJson);
         if (macroResults['fitness_profile'] != null) {
+          log('[FitnessData] Loaded profile from legacy local macro_results.');
+          // Optionally, migrate this to the 'fitness_profile' key here
+          // await _storage.put('fitness_profile', json.encode(macroResults['fitness_profile']));
           return FitnessProfile.fromJson(macroResults['fitness_profile']);
         }
       }
-
-      // Fallback to separate fitness profile storage
-      final fitnessProfileJson = await _storage.get('fitness_profile');
-      if (fitnessProfileJson != null) {
-        return FitnessProfile.fromJson(json.decode(fitnessProfileJson));
-      }
-
-      log('[FitnessData] No fitness profile found, returning empty profile');
-      return FitnessProfile.empty;
     } catch (e) {
-      log('[FitnessData] Error retrieving fitness profile: $e');
-      return FitnessProfile.empty;
+      log('[FitnessData] Error retrieving fitness profile from local storage: $e');
     }
+
+    log('[FitnessData] No fitness profile found in local cache (after Supabase check), returning empty profile');
+    return FitnessProfile.empty;
   }
 
   /// Get macro and nutrition data for AI context
@@ -325,24 +354,42 @@ class FitnessDataService {
 
   /// Update fitness profile
   Future<bool> updateFitnessProfile(FitnessProfile profile) async {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    bool success = false;
+
+    if (currentUser != null) {
+      try {
+        // Save to Supabase first
+        await _fitnessAIService.saveFitnessProfile(currentUser.id, profile);
+        log('[FitnessData] Fitness profile saved to Supabase for user ${currentUser.id}');
+        success = true;
+      } catch (e) {
+        log('[FitnessData] Error saving fitness profile to Supabase: $e');
+        // Continue to save locally even if Supabase fails for now
+      }
+    } else {
+      log('[FitnessData] User not logged in, cannot save profile to Supabase.');
+    }
+
+    // Always update local storage
     try {
-      // Update in macro results
+      await _storage.put('fitness_profile', json.encode(profile.toJson()));
+      log('[FitnessData] Fitness profile updated in local storage.');
+
+      // Update in macro results (legacy, consider removing if fitness_profile is primary local source)
       final macroResultsJson = await _storage.get('macro_results');
       if (macroResultsJson != null) {
         final macroResults = json.decode(macroResultsJson);
         macroResults['fitness_profile'] = profile.toJson();
         await _storage.put('macro_results', json.encode(macroResults));
       }
-
-      // Also store separately for backup
-      await _storage.put('fitness_profile', json.encode(profile.toJson()));
-
-      log('[FitnessData] Fitness profile updated successfully');
-      return true;
+      success = true; // Local save was successful
     } catch (e) {
-      log('[FitnessData] Error updating fitness profile: $e');
-      return false;
+      log('[FitnessData] Error updating fitness profile in local storage: $e');
+      if (currentUser == null)
+        return false; // If Supabase also failed (no user)
     }
+    return success;
   }
 
   /// Record workout completion for performance tracking

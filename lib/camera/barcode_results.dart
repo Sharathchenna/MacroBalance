@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
@@ -654,7 +653,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       colors: [
                         Theme.of(context)
                             .scaffoldBackgroundColor
-                            .withOpacity(0.1),
+                            .withValues(alpha: 0.1),
                         Theme.of(context).scaffoldBackgroundColor,
                       ],
                     ),
@@ -678,8 +677,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
         borderRadius: BorderRadius.circular(30),
         border: Border.all(
           color: Theme.of(context).brightness == Brightness.light
-              ? Colors.black.withOpacity(0.3)
-              : Colors.white.withOpacity(0.3),
+              ? Colors.black.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -714,8 +713,8 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     Icon(
                       Icons.add_circle_outline,
                       color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black.withOpacity(0.8)
-                          : const Color(0xFFFFC107).withOpacity(0.9),
+                          ? Colors.black.withValues(alpha: 0.8)
+                          : const Color(0xFFFFC107).withValues(alpha: 0.9),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -723,7 +722,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       style: AppTypography.button.copyWith(
                         color: Theme.of(context).brightness == Brightness.light
                             ? Colors.black
-                            : const Color(0xFFFFC107).withOpacity(0.9),
+                            : const Color(0xFFFFC107).withValues(alpha: 0.9),
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                         letterSpacing: 0.5,
@@ -858,7 +857,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -893,7 +892,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                           child: Icon(
                             Icons.broken_image_rounded,
                             size: 64,
-                            color: primaryColor.withOpacity(0.5),
+                            color: primaryColor.withValues(alpha: 0.5),
                           ),
                         ),
                       );
@@ -912,7 +911,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 15,
                   offset: const Offset(0, 5),
                 ),
@@ -1113,7 +1112,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1127,7 +1126,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: customColors.textSecondary.withOpacity(0.15),
+                        color: customColors.textSecondary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -1160,7 +1159,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         color: customColors.dateNavigatorBackground
-                            .withOpacity(0.6),
+                            .withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
@@ -1277,7 +1276,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1291,7 +1290,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: customColors.textSecondary.withOpacity(0.15),
+                            color: customColors.textSecondary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -1493,7 +1492,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1647,7 +1646,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1670,10 +1669,10 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.05),
+                    color: primaryColor.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: primaryColor.withOpacity(0.2),
+                      color: primaryColor.withValues(alpha: 0.2),
                       width: 1,
                     ),
                   ),
@@ -1774,7 +1773,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1833,7 +1832,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: accentColor.withOpacity(0.05),
+            color: accentColor.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -1848,7 +1847,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     value: entry.value,
                   ),
                   if (nutrients.last.key != entry.key)
-                    Divider(color: dividerColor.withOpacity(0.5)),
+                    Divider(color: dividerColor.withValues(alpha: 0.5)),
                 ],
               );
             }).toList(),

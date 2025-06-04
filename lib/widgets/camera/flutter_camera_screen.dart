@@ -898,27 +898,273 @@ class _FlutterCameraScreenState extends State<FlutterCameraScreen>
   }
 
   void _showLoadingDialogWithAnimation(String message) {
+    // Add premium haptic feedback
+    HapticFeedback.selectionClick();
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black.withOpacity(0.8),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Lottie.asset(
-              'assets/animations/food_loading.json',
-              width: 150,
-              height: 150,
+      barrierColor: Colors.black.withValues(alpha: 0.85),
+      builder: (context) => TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 600),
+        tween: Tween(begin: 0.0, end: 1.0),
+        curve: Curves.elasticOut,
+        builder: (context, scale, child) {
+          return Transform.scale(
+            scale: scale,
+            child: AlertDialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              content: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.95),
+                      Colors.grey.shade900.withValues(alpha: 0.95),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: CameraTheme.premiumGold.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: CameraTheme.premiumGold.withValues(alpha: 0.2),
+                      blurRadius: 25,
+                      spreadRadius: 5,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.8),
+                      blurRadius: 40,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Premium animation stack with multiple layers
+                    SizedBox(
+                      width: 180,
+                      height: 180,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Background glow effect
+                          TweenAnimationBuilder<double>(
+                            duration: const Duration(milliseconds: 2000),
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            curve: Curves.easeInOut,
+                            builder: (context, glow, _) {
+                              return AnimatedBuilder(
+                                animation: _modeTransitionController,
+                                builder: (context, _) {
+                                  return Container(
+                                    width: 160 + (glow * 20),
+                                    height: 160 + (glow * 20),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: RadialGradient(
+                                        colors: [
+                                          CameraTheme.premiumGold
+                                              .withValues(alpha: 0.1 * glow),
+                                          CameraTheme.premiumGold
+                                              .withValues(alpha: 0.05 * glow),
+                                          Colors.transparent,
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+
+                          // Rotating ring animation
+                          TweenAnimationBuilder<double>(
+                            duration: const Duration(milliseconds: 3000),
+                            tween: Tween(
+                                begin: 0.0, end: 6.28), // 2π for full rotation
+                            builder: (context, rotation, _) {
+                              return Transform.rotate(
+                                angle: rotation,
+                                child: Container(
+                                  width: 140,
+                                  height: 140,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: CameraTheme.premiumGold
+                                          .withValues(alpha: 0.4),
+                                      width: 2,
+                                    ),
+                                    gradient: SweepGradient(
+                                      colors: [
+                                        Colors.transparent,
+                                        CameraTheme.premiumGold
+                                            .withValues(alpha: 0.7),
+                                        Colors.transparent,
+                                      ],
+                                      stops: const [0.0, 0.3, 1.0],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          // Main nutrition animation - enhanced
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: CameraTheme.premiumGold
+                                      .withValues(alpha: 0.3),
+                                  blurRadius: 15,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Lottie.asset(
+                              'assets/animations/nutrition.json',
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.contain,
+                              repeat: true,
+                              animate: true,
+                            ),
+                          ),
+
+                          // Pulsing overlay dots
+                          ...List.generate(8, (index) {
+                            final angle =
+                                (index * 0.785398); // π/4 radians = 45 degrees
+                            return TweenAnimationBuilder<double>(
+                              duration:
+                                  Duration(milliseconds: 1500 + (index * 200)),
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              builder: (context, pulse, _) {
+                                return Transform.translate(
+                                  offset: Offset(
+                                    60 *
+                                        (1 + pulse * 0.2) *
+                                        (index.isEven ? 1 : -1) *
+                                        (index.isOdd ? 0.7 : 1.0),
+                                    60 *
+                                        (1 + pulse * 0.2) *
+                                        (index > 3 ? -1 : 1) *
+                                        (index.isEven ? 0.7 : 1.0),
+                                  ),
+                                  child: AnimatedOpacity(
+                                    duration: Duration(
+                                        milliseconds: 800 + (index * 100)),
+                                    opacity: 0.3 + (pulse * 0.4),
+                                    child: Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: CameraTheme.premiumGold,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: CameraTheme.premiumGold
+                                                .withValues(alpha: 0.5),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Enhanced text with animation
+                    TweenAnimationBuilder<double>(
+                      duration: const Duration(milliseconds: 800),
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      curve: Curves.easeOut,
+                      builder: (context, textOpacity, _) {
+                        return AnimatedOpacity(
+                          duration: const Duration(milliseconds: 300),
+                          opacity: textOpacity,
+                          child: Column(
+                            children: [
+                              Text(
+                                message,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                  shadows: [
+                                    Shadow(
+                                      color: CameraTheme.premiumGold
+                                          .withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              // Animated progress dots
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(3, (index) {
+                                  return TweenAnimationBuilder<double>(
+                                    duration: Duration(
+                                        milliseconds: 600 + (index * 200)),
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    builder: (context, dotScale, _) {
+                                      return AnimatedContainer(
+                                        duration: Duration(
+                                            milliseconds: 400 + (index * 100)),
+                                        margin: const EdgeInsets.symmetric(
+                                            horizontal: 4),
+                                        width: 8 * dotScale,
+                                        height: 8 * dotScale,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: CameraTheme.premiumGold
+                                              .withValues(
+                                            alpha: 0.4 + (dotScale * 0.6),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: CameraTheme.premiumGold
+                                                  .withValues(alpha: 0.3),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

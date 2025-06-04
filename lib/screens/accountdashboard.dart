@@ -30,6 +30,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
 import 'package:macrotracker/auth/paywall_gate.dart'; // Import PaywallGate
 import 'package:macrotracker/test_flutter_camera.dart'; // Import test camera screen
+import 'package:macrotracker/services/superwall_service.dart'; // Added import for SuperwallService
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -991,30 +992,24 @@ class _AccountDashboardState extends State<AccountDashboard>
                       icon: CupertinoIcons.money_dollar_circle_fill,
                       iconColor: Colors.purple,
                       title: 'Show Paywall (Debug)',
-                      subtitle: 'Navigate to the paywall screen',
+                      subtitle: 'Test Superwall paywall',
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
+                      onTap: () async {
                         HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (context) => PaywallGate(
-                              child: Scaffold(
-                                appBar: AppBar(
-                                  title: const Text('Paywall Test'),
-                                  leading: IconButton(
-                                    icon: const Icon(Icons.close),
-                                    onPressed: () => Navigator.pop(context),
-                                  ),
-                                ),
-                                body: const Center(
-                                  child: Text(
-                                      'This screen would show after subscription'),
-                                ),
+                        try {
+                          final superwallService = SuperwallService();
+                          await superwallService.showMainPaywall();
+                        } catch (e) {
+                          debugPrint('Error showing Superwall paywall: $e');
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Error showing paywall'),
+                                backgroundColor: Colors.red,
                               ),
-                            ),
-                          ),
-                        );
+                            );
+                          }
+                        }
                       },
                       colorScheme: colorScheme,
                       customColors: customColors,

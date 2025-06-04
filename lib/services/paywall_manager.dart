@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/services/subscription_service.dart';
-import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
+import 'package:macrotracker/services/storage_service.dart';
 import 'package:macrotracker/services/superwall_service.dart';
 
-/// Class to manage paywall presentation throughout the app
+/// Simplified paywall manager that only uses Superwall
 class PaywallManager {
   static final PaywallManager _instance = PaywallManager._internal();
   factory PaywallManager() => _instance;
@@ -13,112 +13,60 @@ class PaywallManager {
   final SubscriptionService _subscriptionService = SubscriptionService();
 
   // Keys for shared preferences
-  static const String _lastPaywallShownKey = 'last_paywall_shown_timestamp';
-  static const String _paywallShowCountKey = 'paywall_show_count';
   static const String _appSessionCountKey = 'app_session_count';
 
-  // Time limits
-  static const Duration _minTimeBetweenPaywalls = Duration(days: 3);
-  static const int _maxPaywallShowPerMonth = 5;
-
-  // Increment app session count (now synchronous)
+  // Increment app session count
   void incrementAppSession() {
     try {
-      // Assuming StorageService is initialized
       final currentCount =
           StorageService().get(_appSessionCountKey, defaultValue: 0);
       StorageService().put(_appSessionCountKey, currentCount + 1);
+      debugPrint('App session count: ${currentCount + 1}');
     } catch (e) {
       debugPrint('Error incrementing app session count: $e');
     }
   }
 
-  // Check if it's appropriate to show the paywall (now synchronous)
-  bool shouldShowPaywall() {
-    // Don't show paywall if user already has premium
-    if (_subscriptionService.hasPremiumAccess()) {
-      return false;
-    }
-
-    try {
-      // Assuming StorageService is initialized
-
-      // Get last shown timestamp
-      final lastShownTimestamp = StorageService().get(_lastPaywallShownKey);
-
-      // Check if minimum time has passed since last shown
-      if (lastShownTimestamp != null) {
-        final lastShown =
-            DateTime.fromMillisecondsSinceEpoch(lastShownTimestamp);
-        final timeSinceLastShown = DateTime.now().difference(lastShown);
-
-        if (timeSinceLastShown < _minTimeBetweenPaywalls) {
-          return false;
-        }
-      }
-
-      // Check monthly show count
-      final currentMonthYear = '${DateTime.now().month}-${DateTime.now().year}';
-      final monthlyShowCountKey = '${_paywallShowCountKey}_$currentMonthYear';
-      final monthlyShowCount =
-          StorageService().get(monthlyShowCountKey, defaultValue: 0);
-
-      if (monthlyShowCount >= _maxPaywallShowPerMonth) {
-        return false;
-      }
-
-      // Check app session count for showing on specific sessions
-      final sessionCount =
-          StorageService().get(_appSessionCountKey, defaultValue: 0);
-
-      // Show on 3rd session, 7th session, and every 5th session thereafter
-      return sessionCount == 3 ||
-          sessionCount == 7 ||
-          (sessionCount > 7 && (sessionCount - 7) % 5 == 0);
-    } catch (e) {
-      debugPrint('Error checking if should show paywall: $e');
-      return false;
-    }
+  // Check if user has premium access
+  bool hasPremiumAccess() {
+    return _subscriptionService.hasPremiumAccess();
   }
 
-  // Show paywall and record the event
-  Future<void> showPaywall(BuildContext context,
-      {bool forcedShow = false}) async {
-    if (!forcedShow && _subscriptionService.hasPremiumAccess()) {
+  // Show Superwall paywall
+  Future<void> showPaywall({bool isHardPaywall = false}) async {
+    // Don't show paywall if user already has premium
+    if (_subscriptionService.hasPremiumAccess()) {
+      debugPrint('User already has premium access - skipping paywall');
       return;
     }
 
     try {
-      // Update paywall shown timestamp and count (now synchronous)
-      if (!forcedShow) {
-        // Assuming StorageService is initialized
+      final superwallService = SuperwallService();
 
-        // Update last shown timestamp
-        final now = DateTime.now().millisecondsSinceEpoch;
-        StorageService().put(_lastPaywallShownKey, now);
-
-        // Update monthly show count
-        final currentMonthYear =
-            '${DateTime.now().month}-${DateTime.now().year}';
-        final monthlyShowCountKey = '${_paywallShowCountKey}_$currentMonthYear';
-        final monthlyShowCount =
-            StorageService().get(monthlyShowCountKey, defaultValue: 0);
-        StorageService().put(monthlyShowCountKey, monthlyShowCount + 1);
+      if (!superwallService.isInitialized) {
+        await superwallService.initialize();
       }
 
-      // Try Superwall first, fallback to custom paywall
-      final superwallService = SuperwallService();
-      if (superwallService.isInitialized) {
-        debugPrint('Using Superwall paywall');
-        await superwallService.showMainPaywall();
+      if (isHardPaywall) {
+        debugPrint('Showing hard Superwall paywall');
+        await superwallService.showHardPaywall();
       } else {
-        debugPrint('Superwall not available - initializing...');
-        // Try to initialize Superwall and show paywall
-        await superwallService.initialize();
+        debugPrint('Showing regular Superwall paywall');
         await superwallService.showMainPaywall();
       }
     } catch (e) {
-      debugPrint('Error showing paywall: $e');
+      debugPrint('Error showing Superwall paywall: $e');
+      throw e;
+    }
+  }
+
+  // Get app session count for analytics
+  int getAppSessionCount() {
+    try {
+      return StorageService().get(_appSessionCountKey, defaultValue: 0);
+    } catch (e) {
+      debugPrint('Error getting app session count: $e');
+      return 0;
     }
   }
 }

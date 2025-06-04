@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/firebase_options.dart'; // Import firebase_options
@@ -36,7 +37,7 @@ class NotificationService {
     final DarwinInitializationSettings iosSettings =
         const DarwinInitializationSettings(
       requestSoundPermission: true, // Request sound permission during init
-      requestBadgePermission: true,  // Request badge permission during init
+      requestBadgePermission: true, // Request badge permission during init
       requestAlertPermission: true, // Request alert permission during init
       // onDidReceiveLocalNotification is deprecated here, handled in initialize()
     );
@@ -50,7 +51,8 @@ class NotificationService {
       initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         // Handle notification tap when app is in foreground/background
-        debugPrint('Local notification tapped with payload: ${response.payload}');
+        debugPrint(
+            'Local notification tapped with payload: ${response.payload}');
         selectNotificationSubject.value = response.payload;
       },
     );
@@ -63,13 +65,27 @@ class NotificationService {
       sound: true,
     );
 
-    // Request permission for iOS (redundant if requested in iosSettings, but safe)
+    // Request permission for iOS and register for remote notifications if granted
     if (Platform.isIOS) {
-      await _messaging.requestPermission(
+      final notificationSettings = await _messaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
+
+      // Register for remote notifications if permission was granted
+      if (notificationSettings.authorizationStatus ==
+              AuthorizationStatus.authorized ||
+          notificationSettings.authorizationStatus ==
+              AuthorizationStatus.provisional) {
+        try {
+          await const MethodChannel('app.macrobalance.com/notifications')
+              .invokeMethod('registerForRemoteNotifications');
+          debugPrint('Successfully registered for remote notifications');
+        } catch (e) {
+          debugPrint('Error registering for remote notifications: $e');
+        }
+      }
     }
 
     // Configure notification channels for Android
@@ -89,8 +105,10 @@ class NotificationService {
 
     // Handle messages when app is in foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-       debugPrint('Foreground FCM message received: ${message.notification?.title}');
-      _showNotification(message); // Use local notifications to display foreground FCM
+      debugPrint(
+          'Foreground FCM message received: ${message.notification?.title}');
+      _showNotification(
+          message); // Use local notifications to display foreground FCM
     });
 
     // Set the background messaging handler
@@ -99,18 +117,19 @@ class NotificationService {
     // Handle notification tap when app is opened from terminated state
     final RemoteMessage? initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
-       debugPrint('App opened from terminated state via FCM: ${initialMessage.notification?.title}');
-       // Handle initial message payload if needed, e.g., navigate
-       // selectNotificationSubject.value = initialMessage.data['type']; // Example
+      debugPrint(
+          'App opened from terminated state via FCM: ${initialMessage.notification?.title}');
+      // Handle initial message payload if needed, e.g., navigate
+      // selectNotificationSubject.value = initialMessage.data['type']; // Example
     }
 
     // Handle notification tap when app is opened from background state
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-       debugPrint('App opened from background state via FCM: ${message.notification?.title}');
-       // Handle message payload if needed, e.g., navigate
-       // selectNotificationSubject.value = message.data['type']; // Example
+      debugPrint(
+          'App opened from background state via FCM: ${message.notification?.title}');
+      // Handle message payload if needed, e.g., navigate
+      // selectNotificationSubject.value = message.data['type']; // Example
     });
-
 
     // Get FCM token and save to Supabase
     final token = await _messaging.getToken();
@@ -139,17 +158,16 @@ class NotificationService {
   void onDidReceiveLocalNotification(
       int id, String? title, String? body, String? payload) async {
     // display a dialog with the notification details, tap ok to go to another page
-     debugPrint('Received local notification on older iOS: $title');
-     selectNotificationSubject.value = payload;
+    debugPrint('Received local notification on older iOS: $title');
+    selectNotificationSubject.value = payload;
   }
-
 
   Future<void> _saveFcmToken(String token) async {
     try {
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) {
-         debugPrint('Cannot save FCM token: User not logged in.');
-         return;
+        debugPrint('Cannot save FCM token: User not logged in.');
+        return;
       }
 
       await Supabase.instance.client.from('user_notification_tokens').upsert(
@@ -170,36 +188,37 @@ class NotificationService {
   }
 
   // Renamed to reflect it's showing local notifications (also used for foreground FCM)
-  Future<void> _showLocalNotification({
-      required int id,
+  Future<void> _showLocalNotification(
+      {required int id,
       required String title,
       required String body,
       String? payload,
       NotificationDetails? details // Allow custom details
-  }) async {
-     await _localNotifications.show(
-        id,
-        title,
-        body,
-        details ?? // Use default details if none provided
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'meal_reminders', // Use your channel ID
-            'Meal Reminders', // Use your channel name
-            channelDescription: 'Notifications to remind you to log your meals',
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: '@mipmap/ic_launcher', // Ensure this icon exists
+      }) async {
+    await _localNotifications.show(
+      id,
+      title,
+      body,
+      details ?? // Use default details if none provided
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'meal_reminders', // Use your channel ID
+              'Meal Reminders', // Use your channel name
+              channelDescription:
+                  'Notifications to remind you to log your meals',
+              importance: Importance.high,
+              priority: Priority.high,
+              icon: '@mipmap/ic_launcher', // Ensure this icon exists
+            ),
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+              // You can add categoryIdentifier here for actions
+            ),
           ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-            // You can add categoryIdentifier here for actions
-          ),
-        ),
-        payload: payload,
-      );
+      payload: payload,
+    );
   }
 
   // Handles displaying FCM messages received while the app is in the foreground
@@ -207,15 +226,16 @@ class NotificationService {
     final notification = message.notification;
 
     if (notification != null) {
-       debugPrint('Displaying foreground FCM as local notification: ${notification.title}');
-       await _showLocalNotification(
-          id: notification.hashCode, // Use a unique ID
-          title: notification.title ?? 'New Message',
-          body: notification.body ?? '',
-          payload: message.data['type'], // Example payload extraction
-          // Use platform-specific details from the FCM message if available
-          // details: NotificationDetails(...)
-       );
+      debugPrint(
+          'Displaying foreground FCM as local notification: ${notification.title}');
+      await _showLocalNotification(
+        id: notification.hashCode, // Use a unique ID
+        title: notification.title ?? 'New Message',
+        body: notification.body ?? '',
+        payload: message.data['type'], // Example payload extraction
+        // Use platform-specific details from the FCM message if available
+        // details: NotificationDetails(...)
+      );
     }
   }
 
@@ -230,7 +250,7 @@ class NotificationService {
       body: 'This is a test local notification scheduled from the app.',
       payload: 'test_local_payload',
     );
-     debugPrint('Test local notification displayed/scheduled.');
+    debugPrint('Test local notification displayed/scheduled.');
   }
 
   /// Tests a Firebase Cloud Messaging (FCM) notification through the server.
@@ -253,13 +273,13 @@ class NotificationService {
       }
 
       debugPrint('Sending test notification for user: ${currentUser.id}');
-      
+
       // Define request body
       final requestBody = {
         'type': 'test_notification',
         'userId': currentUser.id,
       };
-      
+
       debugPrint('Request body: ${requestBody.toString()}');
 
       // Call the Supabase Edge Function to send a test notification

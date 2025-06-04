@@ -1,20 +1,27 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:firebase_vertexai/firebase_vertexai.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // For potential AuthException, etc.
 import '../models/fitness_profile.dart';
 import '../services/storage_service.dart';
 import '../services/exercise_image_service.dart';
+import '../services/supabase_service.dart'; // Added SupabaseService import
 
 class FitnessAIService {
   static final FitnessAIService _instance = FitnessAIService._internal();
   factory FitnessAIService() => _instance;
   FitnessAIService._internal();
 
-  late final GenerativeModel _model;
+  GenerativeModel? _model; // Changed to nullable
   final StorageService _storage = StorageService();
   final ExerciseImageService _exerciseService = ExerciseImageService();
+  final SupabaseService _supabaseService = SupabaseService(); // Added SupabaseService instance
 
   void initialize() {
+    if (_model != null) {
+      log('[FitnessAI] Model already initialized.');
+      return;
+    }
     _model = FirebaseVertexAI.instance.generativeModel(
       model: 'gemini-2.0-flash',
       generationConfig: GenerationConfig(
@@ -24,6 +31,47 @@ class FitnessAIService {
         maxOutputTokens: 2048,
       ),
     );
+  }
+
+  // ================== FITNESS PROFILE DATA (Supabase Integration) ==================
+
+  Future<FitnessProfile?> getFitnessProfile(String userId) async {
+    try {
+      final response = await _supabaseService.supabaseClient
+          .from('fitness_profiles')
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (response != null && response is Map<String, dynamic>) {
+        return FitnessProfile.fromJson(response);
+      }
+      return null;
+    } catch (e) {
+      log('[FitnessAI] Error fetching fitness profile from Supabase: $e');
+      return null;
+    }
+  }
+
+  Future<void> saveFitnessProfile(String userId, FitnessProfile profile) async {
+    try {
+      final profileJson = profile.toJson();
+      // Ensure user_id and lastUpdated are correctly set for Supabase
+      profileJson['user_id'] = userId;
+      profileJson['last_updated'] = DateTime.now().toIso8601String();
+      // 'updated_at' is usually handled by Supabase default/trigger,
+      // but 'last_updated' in the model should reflect app-side update time.
+      // The table also has an 'updated_at' which Supabase might manage.
+      // The model's 'lastUpdated' field maps to 'last_updated' in the table.
+
+      await _supabaseService.supabaseClient
+          .from('fitness_profiles')
+          .upsert(profileJson);
+      log('[FitnessAI] Fitness profile saved to Supabase for user $userId');
+    } catch (e) {
+      log('[FitnessAI] Error saving fitness profile to Supabase: $e');
+      rethrow;
+    }
   }
 
   // ================== ENHANCED WORKOUT RECOMMENDATIONS ==================
@@ -52,7 +100,7 @@ class FitnessAIService {
 
       log('[FitnessAI] Generating enhanced workout plan for ${fitnessProfile.fitnessLevel} user');
 
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
 
       // Parse and validate the JSON response
@@ -348,7 +396,7 @@ class FitnessAIService {
       final prompt = _buildSmartWeeklySchedulePrompt(
           fitnessProfile, macroData, exercisesByMuscleGroup);
 
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
 
       final scheduleData = _parseWeeklyScheduleResponse(responseText);
@@ -390,7 +438,7 @@ class FitnessAIService {
 
       log('[FitnessAI] Generating weekly schedule for ${fitnessProfile.workoutsPerWeek} workouts');
 
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
 
       final scheduleData = _parseWeeklyScheduleResponse(responseText);
@@ -417,7 +465,7 @@ class FitnessAIService {
 
       log('[FitnessAI] Generating $availableMinutes-minute quick workout');
 
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
 
       return _parseWorkoutResponse(responseText);
@@ -441,7 +489,11 @@ class FitnessAIService {
         reason,
       );
 
-      final response = await _model.generateContent([Content.text(prompt)]);
+      if (_model == null) {
+        log('[FitnessAI] Error: GenerativeModel not initialized.');
+        throw Exception('FitnessAIService not initialized. Call initialize() first.');
+      }
+      final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
 
       return _parseExerciseAlternativesResponse(responseText);
@@ -458,7 +510,7 @@ class FitnessAIService {
     try {
       final prompt = _buildExerciseGuidancePrompt(exerciseName, fitnessProfile);
 
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
 
       return _parseExerciseGuidanceResponse(responseText);
@@ -482,7 +534,7 @@ class FitnessAIService {
         performanceData,
       );
 
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
 
       return _parseProgressAnalysisResponse(responseText);

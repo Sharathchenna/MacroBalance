@@ -4,6 +4,7 @@ import '../models/nutrition_goals.dart';
 import '../repositories/food_entry_repository.dart';
 import '../repositories/nutrition_goals_repository.dart';
 import '../services/macro_calculator_service.dart';
+import '../screens/searchPage.dart'; // For FoodItem
 
 class FoodEntryProvider with ChangeNotifier {
   final FoodEntryRepository _entryRepository = FoodEntryRepository();
@@ -418,6 +419,73 @@ class FoodEntryProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading entries from Supabase: $e');
     }
+  }
+
+  Future<List<FoodItem>> getFrequentlyLoggedItems({
+    int limit = 5,
+    Duration lookbackPeriod = const Duration(days: 30),
+  }) async {
+    if (_disposed || _entries.isEmpty) {
+      return [];
+    }
+
+    final now = DateTime.now();
+    final cutoffDate = now.subtract(lookbackPeriod);
+
+    // Filter entries that have a valid date and are after the cutoffDate
+    final relevantEntries = _entries.where((entry) {
+      // Assuming entry.date is non-null as per FoodEntry model
+      return entry.date.isAfter(cutoffDate);
+    }).toList();
+
+    if (relevantEntries.isEmpty) {
+      return [];
+    }
+
+    Map<String, int> frequencyMap = {};
+    Map<String, FoodItem> foodItemMap = {}; // To store the representative FoodItem
+
+    for (final entry in relevantEntries) {
+      final food = entry.food; // FoodItem object
+      String key;
+
+      // Prioritize fdcId for uniqueness if available and not empty
+      if (food.fdcId.isNotEmpty) {
+        key = food.fdcId;
+      } else {
+        // Fallback to name and brandName combination, normalized
+        key = (food.name + (food.brandName)).toLowerCase().trim();
+      }
+
+      // Skip if a unique key cannot be determined or is empty
+      if (key.isEmpty) {
+        continue;
+      }
+
+      frequencyMap[key] = (frequencyMap[key] ?? 0) + 1;
+      // Store the first encountered FoodItem for this key
+      foodItemMap.putIfAbsent(key, () => food);
+    }
+
+    if (frequencyMap.isEmpty) {
+      // This case should ideally be covered by relevantEntries.isEmpty,
+      // but good for robustness if key generation fails for all.
+      return [];
+    }
+
+    // Sort keys by frequency in descending order
+    var sortedKeys = frequencyMap.keys.toList(growable: false)
+      ..sort((k1, k2) => frequencyMap[k2]!.compareTo(frequencyMap[k1]!));
+
+    List<FoodItem> frequentItems = [];
+    for (var i = 0; i < limit && i < sortedKeys.length; i++) {
+      final itemKey = sortedKeys[i];
+      // Ensure the FoodItem exists in our map (it should, due to putIfAbsent)
+      if (foodItemMap.containsKey(itemKey)) {
+        frequentItems.add(foodItemMap[itemKey]!);
+      }
+    }
+    return frequentItems;
   }
 
   // Cache management methods

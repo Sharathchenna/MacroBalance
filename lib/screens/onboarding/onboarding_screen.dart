@@ -23,6 +23,7 @@ import 'pages/set_new_goal_page.dart'; // Import the new goal details page
 // Removed TargetSummaryPage import
 import 'pages/advanced_settings_page.dart';
 import 'pages/apple_health_page.dart'; // Import the new Apple Health page
+import 'pages/notification_permission_page.dart'; // Import the notification permission page
 import 'pages/summary_page.dart';
 
 // Import new fitness onboarding pages
@@ -44,9 +45,9 @@ class OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  // Total pages is now 14, adding 3 new fitness pages
+  // Total pages is now 15, adding notification permission page
   final int _totalPages =
-      14; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+Fitness(8)+Equipment(9)+Schedule(10)+Advanced(11)+AppleHealth(12)+Summary(13)
+      15; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+Fitness(8)+Equipment(9)+Schedule(10)+Advanced(11)+AppleHealth(12)+Notifications(13)+Summary(14)
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
@@ -552,8 +553,8 @@ class OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
-    // Hide the button on the Apple Health page (index 12)
-    if (_currentPage == 12) {
+    // Hide the button on the Apple Health page (index 12) and Notification Permission page (index 13)
+    if (_currentPage == 12 || _currentPage == 13) {
       // Return an empty SizedBox to maintain layout spacing if needed,
       // or just an empty Container if no space is required.
       // Match the width of the back button for alignment.
@@ -709,8 +710,13 @@ class OnboardingScreenState extends State<OnboardingScreen>
         onNext: _nextPage,
         onSkip: _nextPage,
       ),
+      // Add Notification Permission page (index 13)
+      NotificationPermissionPage(
+        onNext: _nextPage,
+        onSkip: _nextPage,
+      ),
       SummaryPage(
-        // Now at index 13
+        // Now at index 14
         gender: _gender, weightKg: _weightKg, heightCm: _heightCm,
         age: _age,
         activityLevel: _activityLevel, goal: _goal,

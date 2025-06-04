@@ -27,6 +27,9 @@ import 'package:lottie/lottie.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
 import 'package:macrotracker/widgets/camera/camera_controls.dart';
+import 'package:provider/provider.dart'; // Added for Provider
+import '../providers/food_entry_provider.dart'; // Added for FoodEntryProvider
+import '../widgets/food_suggestion_tile.dart'; // Added for FoodSuggestionTile
 // import 'package:macrotracker/camera/camera.dart'; // No longer needed
 
 // Define the expected result structure at the top level
@@ -863,134 +866,469 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  Widget _buildEmptyState() {
-    final customColors = Theme.of(context).extension<CustomColors>();
+  Widget _buildMiniNutrientChip(String text, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withAlpha(((0.08) * 255).round()),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 3),
+          Text(
+            text,
+            style: GoogleFonts.onest(
+              color: color,
+              fontWeight: FontWeight.w500,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // Enhanced premium empty state
-    return SingleChildScrollView(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 40),
-            // Premium visual element - layered containers with gradient
-            Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Theme.of(context)
-                        .primaryColor
-                        .withAlpha(((0.1) * 255).round()),
-                    Theme.of(context)
-                        .primaryColor
-                        .withAlpha(((0.05) * 255).round()),
+  Widget _buildFrequentlyLoggedSection(
+      List<FoodItem> frequentItems, CustomColors? customColors) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with better visual distinction
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: isDarkMode
+                ? Theme.of(context)
+                    .primaryColor
+                    .withAlpha(((0.1) * 255).round())
+                : Theme.of(context)
+                    .primaryColor
+                    .withAlpha(((0.05) * 255).round()),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Theme.of(context)
+                  .primaryColor
+                  .withAlpha(((0.2) * 255).round()),
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .primaryColor
+                      .withAlpha(((0.15) * 255).round()),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.history_rounded,
+                  color: Theme.of(context).primaryColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Frequently Logged',
+                      style: GoogleFonts.onest(
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Your most tracked foods',
+                      style: GoogleFonts.onest(
+                        color: customColors?.textSecondary,
+                        fontSize: 12,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
                   ],
                 ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context)
-                        .primaryColor
-                        .withAlpha(((0.15) * 255).round()),
-                    blurRadius: 30,
-                    spreadRadius: 0,
-                  ),
-                ],
               ),
-              child: Center(
-                child: Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topRight,
-                      end: Alignment.bottomLeft,
-                      colors: [
-                        Theme.of(context)
-                            .primaryColor
-                            .withAlpha(((0.2) * 255).round()),
-                        Theme.of(context)
-                            .primaryColor
-                            .withAlpha(((0.1) * 255).round()),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context)
-                            .primaryColor
-                            .withAlpha(((0.1) * 255).round()),
-                        blurRadius: 20,
-                        spreadRadius: 0,
-                      ),
-                    ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: customColors?.textSecondary
+                      .withAlpha(((0.08) * 255).round()),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${frequentItems.length}',
+                  style: GoogleFonts.onest(
+                    color: customColors?.textSecondary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 11,
                   ),
-                  child: Center(
-                    child: Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                Colors.black.withAlpha(((0.05) * 255).round()),
-                            blurRadius: 15,
-                            spreadRadius: 0,
-                            offset: const Offset(0, 5),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Add a divider for better visual separation
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Divider(
+            color: Theme.of(context).dividerColor.withOpacity(0.5),
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Simplified frequent items list
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: frequentItems.length,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemBuilder: (context, index) {
+            final item = frequentItems[index];
+
+            return AnimatedOpacity(
+              opacity: 1.0,
+              duration: Duration(milliseconds: 200 + (index * 50)),
+              curve: Curves.easeOutCubic,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDarkMode
+                        ? Colors.grey.withAlpha(((0.15) * 255).round())
+                        : Colors.grey.withAlpha(((0.1) * 255).round()),
+                    width: 0.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(((0.03) * 255).round()),
+                      blurRadius: 6,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    splashColor: customColors?.textSecondary
+                        .withAlpha(((0.05) * 255).round()),
+                    highlightColor: customColors?.textSecondary
+                        .withAlpha(((0.03) * 255).round()),
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      FocusScope.of(context).unfocus();
+
+                      // Track frequent item usage
+                      PostHogService.trackFeatureUsage(
+                        'frequent_item_selected',
+                        properties: {
+                          'food_name': item.name,
+                          'position': index,
+                        },
+                      );
+
+                      // Navigate directly to food detail page
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FoodDetailPage(
+                            food: item,
+                            selectedMeal: widget.selectedMeal,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          // Simple food icon
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: _categoryColor(item.name)
+                                  .withAlpha(((0.12) * 255).round()),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                _categoryIcon(item.name),
+                                color: _categoryColor(item.name),
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+
+                          // Food name and details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.name,
+                                  style: GoogleFonts.onest(
+                                    color: customColors?.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 15,
+                                    height: 1.2,
+                                    letterSpacing: -0.1,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange
+                                            .withAlpha(((0.15) * 255).round()),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '${item.calories.toStringAsFixed(0)} cal',
+                                        style: GoogleFonts.onest(
+                                          color: Colors.orange.shade700,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue
+                                            .withAlpha(((0.15) * 255).round()),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '${(item.nutrients['Protein'] ?? 0.0).toStringAsFixed(1)}g protein',
+                                        style: GoogleFonts.onest(
+                                          color: Colors.blue.shade700,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Simple action indicator
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: customColors?.textSecondary
+                                  .withAlpha(((0.05) * 255).round()),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: customColors?.textSecondary
+                                  ?.withAlpha(((0.6) * 255).round()),
+                              size: 14,
+                            ),
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.search_rounded,
-                          size: 40,
-                          color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final customColors = Theme.of(context).extension<CustomColors>();
+
+    Widget buildDiscoverFoodsSectionWidget() {
+      return Column(
+        children: [
+          // Premium visual element - layered containers with gradient
+          Container(
+            width: 180,
+            height: 180,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context)
+                      .primaryColor
+                      .withAlpha(((0.1) * 255).round()),
+                  Theme.of(context)
+                      .primaryColor
+                      .withAlpha(((0.05) * 255).round()),
+                ],
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context)
+                      .primaryColor
+                      .withAlpha(((0.15) * 255).round()),
+                  blurRadius: 30,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                    colors: [
+                      Theme.of(context)
+                          .primaryColor
+                          .withAlpha(((0.2) * 255).round()),
+                      Theme.of(context)
+                          .primaryColor
+                          .withAlpha(((0.1) * 255).round()),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context)
+                          .primaryColor
+                          .withAlpha(((0.1) * 255).round()),
+                      blurRadius: 20,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(((0.05) * 255).round()),
+                          blurRadius: 15,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 5),
                         ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.search_rounded,
+                        size: 40,
+                        color: Theme.of(context).primaryColor,
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-            Text(
-              'Discover Foods',
-              style: AppTypography.h2.copyWith(
-                color: customColors?.textPrimary,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Discover Foods',
+            style: AppTypography.h2.copyWith(
+              color: customColors?.textPrimary,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Search for any food to see detailed nutrition information and track your daily macros.',
-              style: AppTypography.body1.copyWith(
-                color: customColors?.textSecondary,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Search for any food to see detailed nutrition information and track your daily macros.',
+            style: AppTypography.body1.copyWith(
+              color: customColors?.textSecondary,
+              height: 1.5,
             ),
-            // const SizedBox(height: 32),
-            // Enhanced quick search chips
-            // Wrap(
-            //   spacing: 12,
-            //   runSpacing: 12,
-            //   alignment: WrapAlignment.center,
-            //   children: [
-            //     _buildQuickSearchChip('Chicken', Icons.egg_alt),
-            //     _buildQuickSearchChip('Rice', Icons.grain),
-            //     _buildQuickSearchChip('Broccoli', Icons.eco),
-            //     _buildQuickSearchChip('Apple', Icons.apple),
-            //   ],
-            // ),
-          ],
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: Consumer<FoodEntryProvider>(
+          builder: (context, foodEntryProvider, child) {
+            return FutureBuilder<List<FoodItem>>(
+              future: foodEntryProvider.getFrequentlyLoggedItems(limit: 5),
+              builder: (context, snapshot) {
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (snapshot.hasData && snapshot.data!.isNotEmpty) ...[
+                      // CASE 1: Frequent items loaded and available
+                      _buildFrequentlyLoggedSection(
+                          snapshot.data!, customColors),
+                    ] else ...[
+                      // CASE 2: No frequent items (loading, error, or empty list after load)
+                      const SizedBox(
+                          height: 40), // Top spacing for Discover section
+                      buildDiscoverFoodsSectionWidget(), // The "Discover Foods" UI
+                      const SizedBox(
+                          height:
+                              24), // Spacing after Discover, before list's state
+
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Center(
+                              child: CircularProgressIndicator.adaptive()),
+                        )
+                      else if (snapshot.hasError)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            'Could not load frequent items.', // User-friendly error
+                            style: AppTypography.body2
+                                .copyWith(color: customColors?.textSecondary),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                      // If snapshot.data is empty (and not loading/error), no further message for the list.
+                    ]
+                  ],
+                );
+              },
+            );
+          },
         ),
       ),
     );

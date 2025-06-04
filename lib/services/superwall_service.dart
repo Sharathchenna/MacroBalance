@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:superwallkit_flutter/superwallkit_flutter.dart' as sw;
 import 'package:macrotracker/services/subscription_service.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// Superwall service for handling paywalls and referral codes
-class SuperwallService {
+class SuperwallService implements sw.SuperwallDelegate {
   static final SuperwallService _instance = SuperwallService._internal();
   factory SuperwallService() => _instance;
   SuperwallService._internal();
@@ -20,9 +21,13 @@ class SuperwallService {
       debugPrint('Initializing Superwall service...');
 
       // Configure Superwall with RevenueCat integration
-      // For Flutter, we use the simpler configuration that integrates with RevenueCat automatically
       sw.Superwall.configure(
           'pk_92e7caae027e3213de436b66d1fb25996245e09c3415ef9b');
+
+      // Set this SuperwallService instance as the delegate
+      sw.Superwall.shared.setDelegate(this);
+
+      debugPrint('Superwall delegate set successfully');
 
       _isInitialized = true;
       debugPrint(
@@ -64,6 +69,44 @@ class SuperwallService {
       debugPrint('onboarding_paywall campaign registration completed');
     } catch (e) {
       debugPrint('Error showing main paywall: $e');
+    }
+  }
+
+  /// Show hard paywall for app install - no bypass option
+  Future<void> showHardPaywall() async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    try {
+      debugPrint('Showing hard paywall for app install');
+
+      final params = <String, String>{
+        'paywall_type': 'hard',
+        'trigger': 'app_install',
+      };
+
+      // Add referral code if available
+      if (_storedReferralCode != null) {
+        params['referral_code'] = _storedReferralCode!;
+        params['has_referral'] = 'true';
+      }
+
+      // Use app_install placement for hard paywall
+      debugPrint('Attempting to show app_install hard paywall');
+
+      sw.Superwall.shared.registerPlacement(
+        'app_install',
+        params: params,
+        feature: () {
+          debugPrint('User has premium access - hard paywall bypassed');
+        },
+      );
+
+      debugPrint('Hard paywall registration completed');
+    } catch (e) {
+      debugPrint('Error showing hard paywall: $e');
+      throw e; // Re-throw to handle in PaywallGate
     }
   }
 
@@ -320,5 +363,164 @@ class SuperwallService {
       debugPrint('Error in validateAndShowReferralPaywall: $e');
       return false;
     }
+  }
+
+  /// Restore purchases through RevenueCat and update Superwall
+  Future<bool> restorePurchases() async {
+    try {
+      debugPrint('Superwall: Starting restore purchases process');
+
+      // Use RevenueCat to restore purchases
+      final customerInfo = await Purchases.restorePurchases();
+
+      debugPrint('Superwall: RevenueCat restore completed');
+
+      // Check if user now has active entitlements
+      final hasActiveSubscription = customerInfo.entitlements.active.isNotEmpty;
+
+      if (hasActiveSubscription) {
+        debugPrint('Superwall: Active subscription found after restore');
+
+        // Update Superwall subscription status
+        await updateSubscriptionStatus(true);
+
+        // Update local subscription service
+        await _subscriptionService.refreshPurchaserInfo();
+
+        return true;
+      } else {
+        debugPrint('Superwall: No active subscriptions found after restore');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Superwall: Error during restore purchases: $e');
+      return false;
+    }
+  }
+
+  /// Handle Superwall custom actions - DEPRECATED - Use delegate method instead
+  void handleCustomAction(String actionName) {
+    debugPrint('Superwall: Handling custom action: $actionName');
+
+    switch (actionName.toLowerCase()) {
+      case 'restore':
+        restorePurchases();
+        break;
+      default:
+        debugPrint('Superwall: Unknown custom action: $actionName');
+    }
+  }
+
+  // MARK: - SuperwallDelegate Implementation
+
+  @override
+  void handleCustomPaywallAction(String name) {
+    debugPrint('Superwall Delegate: Handling custom paywall action: $name');
+
+    switch (name.toLowerCase()) {
+      case 'restore':
+        debugPrint('Superwall Delegate: Processing restore action');
+        _handleRestoreAction();
+        break;
+      case 'restore_purchases':
+        debugPrint('Superwall Delegate: Processing restore_purchases action');
+        _handleRestoreAction();
+        break;
+      default:
+        debugPrint('Superwall Delegate: Unknown custom action: $name');
+    }
+  }
+
+  /// Handle restore action from paywall
+  Future<void> _handleRestoreAction() async {
+    try {
+      final success = await restorePurchases();
+      debugPrint('Superwall Delegate: Restore completed with result: $success');
+
+      // You could show a user message here if needed
+      // The paywall should automatically dismiss if subscription is found
+    } catch (e) {
+      debugPrint('Superwall Delegate: Error in restore action: $e');
+    }
+  }
+
+  @override
+  void didDismissPaywall(sw.PaywallInfo paywallInfo) {
+    debugPrint('Superwall Delegate: Paywall dismissed');
+  }
+
+  @override
+  void didPresentPaywall(sw.PaywallInfo paywallInfo) {
+    debugPrint('Superwall Delegate: Paywall presented');
+  }
+
+  @override
+  void handleLog(String level, String scope, String? message,
+      Map<dynamic, dynamic>? info, String? error) {
+    // Handle Superwall logs if needed
+    // debugPrint('Superwall Log: [$level] $scope: $message');
+  }
+
+  @override
+  Future<void> handleSuperwallEvent(sw.SuperwallEventInfo eventInfo) async {
+    // Handle Superwall events if needed for analytics
+    debugPrint('Superwall Event: ${eventInfo.event.type}');
+  }
+
+  @override
+  void paywallWillOpenDeepLink(Uri url) {
+    debugPrint('Superwall Delegate: Will open deep link: $url');
+  }
+
+  @override
+  void paywallWillOpenURL(Uri url) {
+    debugPrint('Superwall Delegate: Will open URL: $url');
+  }
+
+  @override
+  void subscriptionStatusDidChange(sw.SubscriptionStatus newValue) {
+    debugPrint('Superwall Delegate: Subscription status changed: $newValue');
+  }
+
+  @override
+  void willDismissPaywall(sw.PaywallInfo paywallInfo) {
+    debugPrint('Superwall Delegate: Will dismiss paywall');
+
+    // For hard paywall, we need to check subscription status when paywall is dismissed
+    Future.microtask(() async {
+      try {
+        // Refresh subscription status to see if user purchased
+        await _subscriptionService.refreshPurchaserInfo();
+        final hasSubscription = _subscriptionService.hasPremiumAccess();
+
+        debugPrint('Paywall dismissed - subscription status: $hasSubscription');
+
+        // If this was a hard paywall and user still doesn't have subscription,
+        // they should not be able to proceed (Superwall should handle this)
+        if (!hasSubscription) {
+          debugPrint(
+              'Hard paywall dismissed without purchase - Superwall should handle blocking');
+        }
+      } catch (e) {
+        debugPrint('Error checking subscription after paywall dismiss: $e');
+      }
+    });
+  }
+
+  @override
+  void willPresentPaywall(sw.PaywallInfo paywallInfo) {
+    debugPrint('Superwall Delegate: Will present paywall');
+    debugPrint('Paywall ID: ${paywallInfo.identifier}');
+    debugPrint('Paywall URL: ${paywallInfo.url}');
+  }
+
+  @override
+  void willRedeemLink() {
+    debugPrint('Superwall Delegate: Will redeem link');
+  }
+
+  @override
+  void didRedeemLink(sw.RedemptionResult result) {
+    debugPrint('Superwall Delegate: Did redeem link with result: $result');
   }
 }

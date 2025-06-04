@@ -1,3 +1,133 @@
+# Superwall Hard Paywall Setup
+
+This document describes the hard paywall implementation using Superwall in MacroBalance.
+
+## Overview
+
+MacroBalance now uses a **hard paywall** approach where:
+- Users MUST subscribe to access any app features
+- No fallback to custom paywall
+- Superwall handles all paywall presentation
+- No bypass options available
+
+## Implementation Details
+
+### Hard Paywall Gate
+The `PaywallGate` component:
+1. Checks subscription status via `SubscriptionProvider`
+2. If no subscription: Shows Superwall hard paywall
+3. If subscription active: Allows access to app content
+4. Handles app lifecycle events to detect external purchases
+
+### Superwall Integration
+
+#### Key Placements
+- `app_install` - Hard paywall shown on first app launch
+- `onboarding_paywall` - Regular paywall for upgrade prompts
+
+#### Hard Paywall Features
+- Uses `app_install` placement for new users
+- No dismiss/close option (configured in Superwall dashboard)
+- Automatically refreshes subscription status after purchase
+- Monitors app lifecycle for external purchase completion
+
+### Required Superwall Dashboard Configuration
+
+#### 1. Create Hard Paywall Campaign
+```
+Campaign Name: Hard Paywall
+Placement: app_install
+Audience: All Users
+Paywall: [Your hard paywall design]
+```
+
+#### 2. Paywall Settings
+```
+Feature Gating: GATED
+Allow Dismissal: NO
+Show Close Button: NO
+```
+
+#### 3. Audience Rules
+```
+- Include: All users
+- Exclude: Users with active subscription
+```
+
+## Key Changes Made
+
+### Removed Components
+- ❌ `CustomPaywallScreen` - Completely removed
+- ❌ Old paywall timing logic in `PaywallManager`
+- ❌ Fallback paywall UI in `PaywallGate`
+
+### Updated Components
+- ✅ `PaywallGate` - Now only uses Superwall
+- ✅ `SuperwallService` - Added `showHardPaywall()` method
+- ✅ `SubscriptionProvider` - Enabled hard paywall enforcement
+- ✅ `PaywallManager` - Simplified to only use Superwall
+
+### New Behavior
+1. **App Install**: Immediately shows hard paywall
+2. **No Bypass**: Users cannot access app without subscription
+3. **External Purchases**: Automatically detected via app lifecycle monitoring
+4. **Debug Testing**: Account dashboard includes Superwall paywall test
+
+## Testing Checklist
+
+### Required Superwall Dashboard Setup
+- [ ] `app_install` placement exists
+- [ ] Hard paywall campaign is active
+- [ ] Paywall is set to GATED mode
+- [ ] Close button is disabled
+- [ ] Products are properly configured
+
+### App Testing
+- [ ] Fresh install shows hard paywall immediately
+- [ ] Cannot dismiss paywall without purchase
+- [ ] Purchase completes successfully
+- [ ] App unlocks after successful purchase
+- [ ] Subscription status persists across app restarts
+- [ ] External purchase detection works
+
+## Troubleshooting
+
+### Paywall Not Showing
+1. Check Superwall API key in `SuperwallService`
+2. Verify `app_install` placement exists in dashboard
+3. Check campaign is active and has traffic allocation
+4. Ensure user is not already subscribed
+
+### Paywall Can Be Dismissed
+1. Check paywall settings in Superwall dashboard
+2. Ensure Feature Gating is set to "GATED"
+3. Verify "Allow Dismissal" is disabled
+
+### Purchase Not Detected
+1. Check RevenueCat integration
+2. Verify Superwall delegate methods are called
+3. Check subscription status refresh logic
+4. Test app lifecycle state changes
+
+## Benefits
+
+### For Users
+- Clear subscription requirement
+- No confusing free/premium distinctions
+- Streamlined onboarding experience
+
+### For Business
+- Higher conversion rates
+- Reduced support complexity
+- Clear monetization strategy
+- Better user value alignment
+
+### For Development
+- Simplified codebase
+- No complex paywall timing logic
+- Centralized paywall management via Superwall
+- A/B testing capabilities without app updates
+
 # Superwall Hybrid Integration Setup Guide
 
 This guide walks you through setting up Superwall with your existing RevenueCat infrastructure using a hybrid approach.
