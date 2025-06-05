@@ -1,36 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:macrotracker/widgets/onboarding/onboarding_selection_card.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 
-class EquipmentPreferencesPage extends StatefulWidget {
-  final String workoutLocation;
-  final List<String> availableEquipment;
-  final bool hasGymAccess;
+class WorkoutSpaceEquipmentPage extends StatefulWidget {
   final String workoutSpace;
-  final ValueChanged<String> onWorkoutLocationChanged;
-  final ValueChanged<List<String>> onAvailableEquipmentChanged;
-  final ValueChanged<bool> onGymAccessChanged;
+  final List<String> availableEquipment;
   final ValueChanged<String> onWorkoutSpaceChanged;
+  final ValueChanged<List<String>> onAvailableEquipmentChanged;
 
-  const EquipmentPreferencesPage({
+  const WorkoutSpaceEquipmentPage({
     super.key,
-    required this.workoutLocation,
-    required this.availableEquipment,
-    required this.hasGymAccess,
     required this.workoutSpace,
-    required this.onWorkoutLocationChanged,
-    required this.onAvailableEquipmentChanged,
-    required this.onGymAccessChanged,
+    required this.availableEquipment,
     required this.onWorkoutSpaceChanged,
+    required this.onAvailableEquipmentChanged,
   });
 
   @override
-  State<EquipmentPreferencesPage> createState() =>
-      _EquipmentPreferencesPageState();
+  State<WorkoutSpaceEquipmentPage> createState() =>
+      _WorkoutSpaceEquipmentPageState();
 }
 
-class _EquipmentPreferencesPageState extends State<EquipmentPreferencesPage> {
+class _WorkoutSpaceEquipmentPageState extends State<WorkoutSpaceEquipmentPage> {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollIndicator = true;
 
@@ -39,9 +30,6 @@ class _EquipmentPreferencesPageState extends State<EquipmentPreferencesPage> {
     super.initState();
     // Set default selections if none are made
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.workoutLocation.isEmpty) {
-        widget.onWorkoutLocationChanged('home');
-      }
       if (widget.workoutSpace.isEmpty) {
         widget.onWorkoutSpaceChanged('medium');
       }
@@ -50,7 +38,6 @@ class _EquipmentPreferencesPageState extends State<EquipmentPreferencesPage> {
       }
     });
 
-    // Listen to scroll to hide indicator when user starts scrolling
     _scrollController.addListener(() {
       if (_showScrollIndicator && _scrollController.offset > 20) {
         setState(() {
@@ -81,67 +68,19 @@ class _EquipmentPreferencesPageState extends State<EquipmentPreferencesPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Where do you prefer to work out?',
+                'Tell us about your workout space',
                 style: PremiumTypography.h2.copyWith(
                   color: customColors?.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'This helps us recommend workouts that fit your environment',
+                'This helps us recommend suitable exercises',
                 style: PremiumTypography.bodyMedium.copyWith(
                   color: customColors?.textSecondary,
                 ),
               ),
               const SizedBox(height: 32),
-
-              // Workout Location Selection
-              OnboardingSelectionCard(
-                isSelected: widget.workoutLocation == 'home',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  widget.onWorkoutLocationChanged('home');
-                },
-                icon: Icons.home,
-                label: 'At Home',
-                description: 'Convenience and privacy in your own space',
-              ),
-              const SizedBox(height: 16),
-              OnboardingSelectionCard(
-                isSelected: widget.workoutLocation == 'gym',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  widget.onWorkoutLocationChanged('gym');
-                  widget.onGymAccessChanged(true);
-                },
-                icon: Icons.fitness_center,
-                label: 'At the Gym',
-                description: 'Full equipment access and gym atmosphere',
-              ),
-              const SizedBox(height: 16),
-              OnboardingSelectionCard(
-                isSelected: widget.workoutLocation == 'outdoor',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  widget.onWorkoutLocationChanged('outdoor');
-                },
-                icon: Icons.park,
-                label: 'Outdoors',
-                description: 'Parks, trails, and fresh air workouts',
-              ),
-              const SizedBox(height: 16),
-              OnboardingSelectionCard(
-                isSelected: widget.workoutLocation == 'mixed',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  widget.onWorkoutLocationChanged('mixed');
-                },
-                icon: Icons.shuffle,
-                label: 'Mixed',
-                description: 'Variety of locations depending on the day',
-              ),
-
-              const SizedBox(height: 40),
 
               // Available Space
               Text(
@@ -234,70 +173,6 @@ class _EquipmentPreferencesPageState extends State<EquipmentPreferencesPage> {
                   _buildEquipmentChip('Full Gym', Icons.business, isDark),
                 ],
               ),
-
-              const SizedBox(height: 32),
-
-              // Gym Access Toggle
-              if (widget.workoutLocation != 'gym') ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? PremiumColors.trueDarkCard
-                        : PremiumColors.slate50,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isDark
-                          ? PremiumColors.slate700
-                          : PremiumColors.slate200,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.fitness_center,
-                        color: isDark
-                            ? PremiumColors.slate300
-                            : PremiumColors.slate600,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Do you have gym access?',
-                              style: PremiumTypography.subtitle.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: customColors?.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'For occasional gym-based workouts',
-                              style: PremiumTypography.bodySmall.copyWith(
-                                color: customColors?.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: widget.hasGymAccess,
-                        onChanged: (value) {
-                          HapticFeedback.lightImpact();
-                          widget.onGymAccessChanged(value);
-                        },
-                        activeColor: isDark
-                            ? PremiumColors.blue400
-                            : PremiumColors.slate900,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               // Add extra padding at bottom for scroll indicator
               const SizedBox(height: 60),
             ],

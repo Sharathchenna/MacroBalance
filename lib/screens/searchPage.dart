@@ -31,7 +31,7 @@ import 'package:provider/provider.dart'; // Added for Provider
 import '../providers/food_entry_provider.dart'; // Added for FoodEntryProvider
 import '../providers/saved_food_provider.dart'; // Added for SavedFoodProvider
 import '../widgets/food_suggestion_tile.dart'; // Added for FoodSuggestionTile
-// import 'package:macrotracker/camera/camera.dart'; // No longer needed
+import '../providers/search_provider.dart';
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -57,6 +57,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   bool _searchButtonClicked = false;
   // final ApiService _apiService = ApiService(); // Remove ApiService instance
   Timer? _debouncer;
+  late SearchProvider _searchProvider;
 
   // Supabase Edge Function URL
   final String _fatSecretProxyUrl =
@@ -65,29 +66,20 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   late AnimationController _loadingController;
   final _scrollController = ScrollController();
+  final _foodListKey = GlobalKey<AnimatedListState>();
 
   @override
   void initState() {
     super.initState();
     // Removed native camera handler setup - using Flutter camera now
     // _initializeApi(); // Remove API initialization
+    _searchProvider = Provider.of<SearchProvider>(context, listen: false);
     _loadingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
 
-    // Add listener to the search controller to detect when it's cleared
-    _searchController.addListener(() {
-      // Check if the search text is empty and clear results
-      if (_searchController.text.isEmpty) {
-        setState(() {
-          _searchResults = [];
-          _autoCompleteResults = [];
-          _isLoading = false;
-          _searchButtonClicked = false;
-        });
-      }
-    });
+    _searchController.addListener(_onSearchTextChanged);
   }
 
   @override
@@ -213,30 +205,31 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
   */
 
-  void _onSearchChanged(String query) {
-    if (_debouncer?.isActive ?? false) _debouncer!.cancel();
-    // Only trigger search if we're not already loading search results and query isn't empty
-    if (!_isLoading && query.isNotEmpty) {
-      _debouncer = Timer(const Duration(milliseconds: 300), () {
-        _searchFood(query);
-      });
-    } else if (query.isEmpty) {
-      // Clear results if query is empty
+  void _onSearchTextChanged() {
+    if (_searchController.text.isEmpty) {
       setState(() {
         _searchResults = [];
         _autoCompleteResults = [];
+        _searchButtonClicked = false;
       });
+    } else {
+      _debouncedSearch();
     }
+  }
+
+  void _debouncedSearch() {
+    if (_debouncer?.isActive ?? false) _debouncer!.cancel();
+    _debouncer = Timer(const Duration(milliseconds: 300), () {
+      _searchFood(_searchController.text);
+    });
   }
 
   Future<void> _searchFood(String query,
       {bool fromSearchButton = false}) async {
-    // If query is empty, just clear results without loading indicator
     if (query.isEmpty) {
       setState(() {
         _searchResults = [];
         _autoCompleteResults = [];
-        _isLoading = false;
         _searchButtonClicked = false;
       });
       return;
@@ -252,58 +245,23 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
 
     setState(() {
-      _isLoading = true;
       _searchButtonClicked = fromSearchButton;
       _autoCompleteResults = [];
     });
 
-    // Call the proxy function
-    final proxyResponse = await _callFatSecretProxy(
-      endpoint: 'search',
-      query: query,
-    );
+    try {
+      final results = await _searchProvider.searchFood(query);
 
-    if (proxyResponse != null) {
-      // Assuming the Edge Function returns the same structure FatSecret did
-      // Adjust parsing based on your Edge Function's actual response format
-      print('Food Search Proxy Response:');
-      print(const JsonEncoder.withIndent('  ').convert(proxyResponse));
-
-      // Example parsing (adjust based on actual response)
-      final searchData = proxyResponse['foods_search'];
-      if (searchData != null &&
-          searchData['results'] != null &&
-          searchData['results']['food'] != null) {
-        final foods = searchData['results']['food'] as List;
+      if (mounted) {
         setState(() {
-          _searchResults =
-              foods.map((food) => FoodItem.fromFatSecretJson(food)).toList();
-          // Make sure autocomplete results remain empty when showing search results
-          _autoCompleteResults = [];
-        });
-      } else {
-        setState(() {
-          _searchResults = [];
-          // Make sure autocomplete results remain empty when showing search results
+          _searchResults = results;
           _autoCompleteResults = [];
         });
       }
-    } else {
-      // Error handled in _callFatSecretProxy
-      setState(() {
-        _searchResults = [];
-        // Make sure autocomplete results remain empty when showing search results
-        _autoCompleteResults = [];
-      });
-    }
-
-    // Ensure loading state is turned off regardless of success/failure
-    if (mounted) {
-      // Check if the widget is still in the tree
-      setState(() {
-        _isLoading = false;
-        // Don't reset _searchButtonClicked here to keep animation state consistent
-      });
+    } catch (e) {
+      if (mounted) {
+        _showError('Failed to search: ${e.toString()}');
+      }
     }
   }
 
@@ -447,105 +405,106 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   @override
   Widget build(BuildContext context) {
-    Theme.of(context).extension<CustomColors>();
+    return Consumer<SearchProvider>(
+      builder: (context, searchProvider, child) {
+        final isLoading = searchProvider.isLoading;
 
-    return GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: SafeArea(
-            child: Column(
-              children: [
-                SearchHeader(
-                  controller: _searchController,
-                  onSearch: (query) =>
-                      _searchFood(query, fromSearchButton: true),
-                  onChanged: _onSearchChanged,
-                  onBack: () => Navigator.pop(context),
-                  onCameraTap: _showFlutterCamera, // Pass the method here
-                ),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) {
-                      final offsetAnimation = Tween<Offset>(
-                        begin: const Offset(0, 0.05),
-                        end: Offset.zero,
-                      ).animate(CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOutCubic,
-                      ));
-
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: offsetAnimation,
-                          child: child,
-                        ),
-                      );
-                    },
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        alignment: Alignment.topCenter,
-                        children: <Widget>[
-                          ...previousChildren,
-                          if (currentChild != null) currentChild,
-                        ],
-                      );
-                    },
-                    child: _buildContent(),
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  SearchHeader(
+                    controller: _searchController,
+                    onSearch: (query) =>
+                        _searchFood(query, fromSearchButton: true),
+                    onChanged: (query) {}, // Handled by listener
+                    onBack: () => Navigator.pop(context),
+                    onCameraTap: _showFlutterCamera,
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: _buildOptimizedContent(isLoading),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            floatingActionButton: _buildScrollToTopButton(),
           ),
-          // Add a floating action button to scroll to top that appears when scrolled down
-          floatingActionButton: _searchResults.isNotEmpty &&
-                  _scrollController.hasClients &&
-                  _scrollController.offset > 200
-              ? FloatingActionButton.small(
-                  onPressed: () {
-                    _scrollController.animateTo(
-                      0,
-                      duration: const Duration(milliseconds: 800),
-                      curve: Curves.easeOutCubic,
-                    );
-                    // Add haptic feedback for a nice touch
-                    HapticFeedback.lightImpact();
-                  },
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  child: const Icon(Icons.arrow_upward_rounded),
-                )
-              : null,
-        ));
+        );
+      },
+    );
   }
 
-  Widget _buildContent() {
-    // Show Lottie animation only when search button is clicked
-    if (_isLoading && _searchButtonClicked) {
+  Widget _buildOptimizedContent(bool isLoading) {
+    if (isLoading && _searchButtonClicked) {
       return _buildLoadingState();
     }
-    // Show placeholder cards during debounced loading (typing)
-    if (_isLoading && !_searchButtonClicked) {
+    if (isLoading && !_searchButtonClicked) {
       return _buildPlaceholderCards();
     }
-    // Important: Show search results with priority over suggestions
     if (_searchResults.isNotEmpty) {
-      return _buildSearchResults();
+      return _buildOptimizedSearchResults();
     }
     if (_autoCompleteResults.isNotEmpty) {
-      return _buildSuggestions();
+      return _buildOptimizedSuggestions();
     }
     if (_searchResults.isEmpty && _searchController.text.isNotEmpty) {
       return const NoResultsFoundWidget();
     }
 
-    // Show saved foods and empty state together when no search is active
     return _buildSavedFoodsWithEmptyState();
+  }
+
+  Widget _buildOptimizedSearchResults() {
+    return RefreshIndicator(
+      onRefresh: () => _searchFood(_searchController.text),
+      color: Theme.of(context).primaryColor,
+      backgroundColor: Theme.of(context).cardColor,
+      displacement: 20,
+      edgeOffset: 20,
+      child: ListView.builder(
+        key: _foodListKey,
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          if (index < 0 || index >= _searchResults.length) {
+            return const SizedBox.shrink();
+          }
+
+          return KeepAliveWidget(
+            child: _buildFoodCard(_searchResults[index]),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildScrollToTopButton() {
+    if (_searchResults.isNotEmpty &&
+        _scrollController.hasClients &&
+        _scrollController.offset > 200) {
+      return FloatingActionButton.small(
+        onPressed: () {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+          );
+          HapticFeedback.lightImpact();
+        },
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.arrow_upward_rounded),
+      );
+    }
+    return const SizedBox.shrink(); // Return an empty widget instead of null
   }
 
   Widget _buildLoadingState() {
@@ -590,37 +549,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSearchResults() {
-    return RefreshIndicator(
-      onRefresh: () => _searchFood(_searchController.text),
-      color: Theme.of(context).primaryColor,
-      backgroundColor: Theme.of(context).cardColor,
-      displacement: 20,
-      edgeOffset: 20,
-      child: _searchResults.isEmpty
-          ? const NoResultsFoundWidget()
-          : ListView.builder(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              itemCount: _searchResults.length,
-              itemBuilder: (context, index) {
-                // Safety check to avoid index out of range errors
-                if (index < 0 || index >= _searchResults.length) {
-                  return const SizedBox.shrink();
-                }
-
-                // Simplify animation to improve performance
-                return AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: 1.0,
-                  child: _buildFoodCard(_searchResults[index]),
-                );
-              },
-            ),
     );
   }
 
@@ -1215,7 +1143,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  Widget _buildSuggestions() {
+  Widget _buildOptimizedSuggestions() {
     final customColors = Theme.of(context).extension<CustomColors>();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
@@ -1995,4 +1923,29 @@ class NoResultsFoundWidget extends StatelessWidget {
       ),
     );
   }
+}
+
+// Add this new widget to optimize list performance
+class KeepAliveWidget extends StatefulWidget {
+  final Widget child;
+
+  const KeepAliveWidget({
+    Key? key,
+    required this.child,
+  }) : super(key: key);
+
+  @override
+  _KeepAliveWidgetState createState() => _KeepAliveWidgetState();
+}
+
+class _KeepAliveWidgetState extends State<KeepAliveWidget>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 }

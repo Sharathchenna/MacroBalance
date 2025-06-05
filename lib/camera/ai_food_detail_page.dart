@@ -1,22 +1,18 @@
-// ignore_for_file: prefer_single_quotes
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
-import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
-import 'package:macrotracker/models/foodEntry.dart';
-import 'package:macrotracker/models/food.dart';
-import 'package:macrotracker/providers/food_entry_provider.dart';
-import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:macrotracker/widgets/quantity_selector.dart';
 import 'package:macrotracker/widgets/food_detail_components.dart';
+import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/date_provider.dart';
+import 'package:macrotracker/providers/food_entry_provider.dart';
+import 'package:macrotracker/models/foodEntry.dart';
+import 'package:uuid/uuid.dart';
+import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
-import 'package:macrotracker/services/posthog_service.dart';
 import 'dart:ui';
+import 'package:macrotracker/providers/saved_food_provider.dart';
 
 class AIFoodDetailPage extends StatefulWidget {
   final AIFoodItem food;
@@ -118,92 +114,6 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     };
   }
 
-  void _saveFoodToLibrary() {
-    final savedFoodProvider =
-        Provider.of<SavedFoodProvider>(context, listen: false);
-
-    // Create a FoodItem from AIFoodItem
-    final foodItem = FoodItem(
-      id: widget.food.name.hashCode
-          .toString(), // Use name hash as ID since AI food doesn't have FDC ID
-      name: widget.food.name,
-      brandName: 'AI Detected',
-      foodType: '',
-      servings: widget.food.servingSizes.asMap().entries.map((entry) {
-        final index = entry.key;
-        final description = entry.value;
-        return ServingInfo(
-          description: description,
-          amount: 1.0,
-          unit: 'serving',
-          metricAmount: 1.0,
-          metricUnit: 'serving',
-          calories: widget.food.calories[index],
-          protein: widget.food.protein[index],
-          carbohydrate: widget.food.carbohydrates[index],
-          fat: widget.food.fat[index],
-          fiber: widget.food.fiber[index],
-          saturatedFat: 0.0, // Default value since AI doesn't detect this
-          polyunsaturatedFat: null,
-          monounsaturatedFat: null,
-          transFat: null,
-          cholesterol: null,
-          sodium: null,
-          potassium: null,
-          sugar: null,
-          vitaminA: null,
-          vitaminC: null,
-          calcium: null,
-          iron: null,
-        );
-      }).toList(),
-      nutrients: {
-        'Protein': widget.food.protein[selectedServingIndex],
-        'Total lipid (fat)': widget.food.fat[selectedServingIndex],
-        'Carbohydrate, by difference':
-            widget.food.carbohydrates[selectedServingIndex],
-        'Fiber': widget.food.fiber[selectedServingIndex],
-      },
-    );
-
-    // Check if already saved
-    if (savedFoodProvider.isFoodSaved(foodItem.id)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This food is already saved'),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    // Add to saved foods
-    savedFoodProvider.addSavedFood(foodItem);
-
-    // Track with PostHog
-    PostHogService.trackEvent('save_food', properties: {
-      'food_name': foodItem.name,
-      'brand_name': foodItem.brandName,
-      'source': 'ai_detection',
-    });
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${foodItem.name} added to saved foods'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-        action: SnackBarAction(
-          label: 'VIEW',
-          onPressed: () {
-            Navigator.pushNamed(context, '/savedFoods');
-          },
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -245,8 +155,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black
-                                      .withAlpha(((0.1) * 255).round()),
+                                  color: Colors.black.withOpacity(0.1),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -276,36 +185,79 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                     ),
                   ),
                   actions: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _saveFoodToLibrary,
-                          customBorder: const CircleBorder(),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: customColors.cardBackground,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black
-                                      .withAlpha(((0.1) * 255).round()),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              Icons.bookmark_border_rounded,
-                              color: customColors.textPrimary,
-                              size: 20,
-                            ),
+                    Consumer<SavedFoodProvider>(
+                      builder: (context, savedFoodProvider, child) {
+                        final isSaved = savedFoodProvider
+                            .isFoodSaved(widget.food.name.hashCode.toString());
+                        return IconButton(
+                          icon: Icon(
+                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            color: isSaved
+                                ? const Color(0xFFFBBC05)
+                                : customColors!.textPrimary,
                           ),
-                        ),
-                      ),
+                          onPressed: () async {
+                            try {
+                              if (isSaved) {
+                                // Get the saved food and remove it
+                                final savedFood =
+                                    savedFoodProvider.getSavedFoodByFoodId(
+                                        widget.food.name.hashCode.toString());
+                                if (savedFood != null) {
+                                  await savedFoodProvider
+                                      .removeSavedFood(savedFood.id);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Food removed from saved foods')),
+                                    );
+                                  }
+                                }
+                              } else {
+                                // Convert AIFoodItem to FoodItem
+                                final foodItem = FoodEntry.createFood(
+                                  fdcId: widget.food.name.hashCode.toString(),
+                                  name: widget.food.name,
+                                  brandName: 'AI Detected',
+                                  calories: widget
+                                      .food.calories[selectedServingIndex],
+                                  nutrients: {
+                                    'Protein': widget
+                                        .food.protein[selectedServingIndex],
+                                    'Carbohydrate, by difference': widget.food
+                                        .carbohydrates[selectedServingIndex],
+                                    'Total lipid (fat)':
+                                        widget.food.fat[selectedServingIndex],
+                                    'Fiber':
+                                        widget.food.fiber[selectedServingIndex],
+                                  },
+                                  mealType: selectedMeal,
+                                );
+
+                                // Save the food
+                                await savedFoodProvider.addSavedFood(foodItem);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Food saved for quick access')),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text('Error: ${e.toString()}')),
+                                );
+                              }
+                            }
+                          },
+                        );
+                      },
                     ),
+                    const SizedBox(width: 8),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     background: Container(
@@ -314,7 +266,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.grey.withAlpha(((0.2) * 255).round()),
+                            Colors.grey.withOpacity(0.2),
                             Theme.of(context).scaffoldBackgroundColor,
                           ],
                         ),
@@ -381,8 +333,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black
-                                      .withAlpha(((0.06) * 255).round()),
+                                  color: Colors.black.withOpacity(0.06),
                                   blurRadius: 15,
                                   offset: const Offset(0, 5),
                                 ),
@@ -471,19 +422,89 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               ],
                             ),
                           ),
-
-                          // Add Serving Size Section here
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 4),
-                            child: Text(
-                              "Serving Size",
-                              style: AppTypography.h2.copyWith(
-                                color: customColors.textPrimary,
-                                fontWeight: FontWeight.bold,
+                          // Add Meal Type Section here
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4),
+                                child: Text(
+                                  "Add to Meal",
+                                  style: AppTypography.body2.copyWith(
+                                    color: customColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 10),
+                              Container(
+                                height: 60,
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: customColors!.dateNavigatorBackground
+                                      .withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: mealOptions.map((meal) {
+                                    final isSelected = meal == selectedMeal;
+                                    final mealColor =
+                                        Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Color(0xFFFBBC05).withOpacity(0.8)
+                                            : customColors.textPrimary;
+
+                                    return Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          HapticFeedback.lightImpact();
+                                          setState(() => selectedMeal = meal);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration:
+                                              const Duration(milliseconds: 200),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? mealColor
+                                                : Colors.transparent,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              meal,
+                                              style: TextStyle(
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : customColors
+                                                        .textSecondary,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
                           ),
+                          // Add Serving Size Section here
+                          // Padding(
+                          //   padding: const EdgeInsets.symmetric(
+                          //       vertical: 16, horizontal: 4),
+                          //   child: Text(
+                          //     "Serving Size",
+                          //     style: AppTypography.h2.copyWith(
+                          //       color: customColors.textPrimary,
+                          //       fontWeight: FontWeight.bold,
+                          //     ),
+                          //   ),
+                          // ),
+                          const SizedBox(height: 24),
 
                           Container(
                             margin: const EdgeInsets.only(bottom: 24),
@@ -493,8 +514,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black
-                                      .withAlpha(((0.04) * 255).round()),
+                                  color: Colors.black.withOpacity(0.04),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -509,7 +529,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
                                         color: customColors.textSecondary
-                                            .withAlpha(((0.15) * 255).round()),
+                                            .withOpacity(0.15),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(
@@ -568,26 +588,23 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                                         Brightness.dark
                                                     ? customColors
                                                         .cardBackground
-                                                        .withAlpha(
-                                                            (1 * 255).round())
+                                                        .withOpacity(1)
                                                     : primaryColor
                                                 : Theme.of(context)
                                                             .brightness ==
                                                         Brightness.dark
                                                     ? customColors
                                                         .cardBackground
-                                                        .withAlpha(
-                                                            ((0.05) * 255)
-                                                                .round())
-                                                    : primaryColor.withAlpha(
-                                                        ((0.05) * 255).round()),
+                                                        .withOpacity(0.05)
+                                                    : primaryColor
+                                                        .withOpacity(0.05),
                                             borderRadius:
                                                 BorderRadius.circular(16),
                                             border: Border.all(
                                               color: isSelected
                                                   ? primaryColor
-                                                  : primaryColor.withAlpha(
-                                                      ((0.2) * 255).round()),
+                                                  : primaryColor
+                                                      .withOpacity(0.2),
                                               width: isSelected ? 2 : 1,
                                             ),
                                           ),
@@ -600,16 +617,15 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                                 height: 32,
                                                 decoration: BoxDecoration(
                                                   color: isSelected
-                                                      ? Colors.white.withAlpha(
-                                                          ((0.3) * 255).round())
-                                                      : primaryColor.withAlpha(
-                                                          ((0.1) * 255)
-                                                              .round()),
+                                                      ? Colors.white
+                                                          .withOpacity(0.3)
+                                                      : primaryColor
+                                                          .withOpacity(0.1),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: Center(
                                                   child: isSelected
-                                                      ? const Icon(
+                                                      ? Icon(
                                                           Icons.check_rounded,
                                                           color: Colors.white,
                                                           size: 18,
@@ -645,9 +661,9 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                                 style: AppTypography.caption
                                                     .copyWith(
                                                   color: isSelected
-                                                      ? Colors.white.withAlpha(
-                                                          ((0.9) * 255).round())
-                                                      : const Color(0xFFFBBC05),
+                                                      ? Colors.white
+                                                          .withOpacity(0.9)
+                                                      : Color(0xFFFBBC05),
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
@@ -683,8 +699,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black
-                                      .withAlpha(((0.04) * 255).round()),
+                                  color: Colors.black.withOpacity(0.04),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -699,8 +714,9 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                       flex: 3,
                                       child: TextField(
                                         controller: quantityController,
-                                        keyboardType: const TextInputType
-                                            .numberWithOptions(decimal: true),
+                                        keyboardType:
+                                            TextInputType.numberWithOptions(
+                                                decimal: true),
                                         textInputAction: TextInputAction.done,
                                         onEditingComplete: () {
                                           FocusScope.of(context).unfocus();
@@ -729,7 +745,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                             borderRadius:
                                                 BorderRadius.circular(12),
                                             borderSide: BorderSide(
-                                              color: customColors
+                                              color: customColors!
                                                   .dateNavigatorBackground,
                                             ),
                                           ),
@@ -757,73 +773,6 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
 
                           const SizedBox(height: 10),
 
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Add to Meal",
-                                style: AppTypography.body2.copyWith(
-                                  color: customColors.textSecondary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Container(
-                                height: 60,
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: customColors.dateNavigatorBackground
-                                      .withAlpha((0.6 * 255).round()),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: mealOptions.map((meal) {
-                                    final isSelected = meal == selectedMeal;
-                                    final mealColor =
-                                        Theme.of(context).brightness ==
-                                                Brightness.dark
-                                            ? const Color(0xFFFBBC05)
-                                                .withAlpha((0.8 * 255).round())
-                                            : customColors.textPrimary;
-
-                                    return Expanded(
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          HapticFeedback.lightImpact();
-                                          setState(() => selectedMeal = meal);
-                                        },
-                                        child: AnimatedContainer(
-                                          duration:
-                                              const Duration(milliseconds: 200),
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? mealColor
-                                                : Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(14),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              meal,
-                                              style: TextStyle(
-                                                color: isSelected
-                                                    ? Colors.white
-                                                    : customColors
-                                                        .textSecondary,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.bold
-                                                    : FontWeight.normal,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 24),
                           Text(
                             "Nutrition Facts",
@@ -849,7 +798,9 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                   "${nutrition.fiber.toStringAsFixed(1)}g"),
                             ],
                             accentColor: primaryColor,
-                            dividerColor: customColors.dateNavigatorBackground,
+                            dividerColor:
+                                customColors?.dateNavigatorBackground ??
+                                    Colors.grey,
                           ),
                           const SizedBox(height: 100),
                         ],
@@ -872,7 +823,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                     colors: [
                       Theme.of(context)
                           .scaffoldBackgroundColor
-                          .withAlpha(((0.1) * 255).round()),
+                          .withOpacity(0.1),
                       Theme.of(context).scaffoldBackgroundColor,
                     ],
                   ),
@@ -1004,7 +955,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
       unit: 'serving', // Unit reflects the selected serving size
       date: dateProvider.selectedDate,
       servingDescription:
-          '$quantity x $servingDescription', // Combine quantity and original description
+          "$quantity x $servingDescription", // Combine quantity and original description
     );
     print('Created FoodEntry object:'); // Log FoodEntry Object
     print('  ID: ${entry.id}');

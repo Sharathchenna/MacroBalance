@@ -33,6 +33,7 @@ dependencies:
   cached_network_image: ^3.4.1
   camera: ^0.11.1
   camerawesome: ^2.1.0
+  connectivity_plus: ^5.0.2  # Added for network connectivity monitoring
   crypto: ^3.0.6
   cupertino_icons: ^1.0.8
   device_info_plus: ^9.1.2 # Added for feedback screen

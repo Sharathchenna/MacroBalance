@@ -360,7 +360,12 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
                 subtitle: 'Quick access to your favorites',
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.pushNamed(context, '/savedFoods');
+                  Navigator.pushNamed(context, '/savedFoods').then((result) {
+                    // Check if we got back a request to show the add food menu
+                    if (result == 'SHOW_ADD_FOOD_MENU') {
+                      _showAddFoodMenu(context);
+                    }
+                  });
                 },
               ),
               const SizedBox(height: 12),

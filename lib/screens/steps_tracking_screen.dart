@@ -22,7 +22,6 @@ class StepTrackingScreen extends StatefulWidget {
 
 // Helper class for monthly statistics
 
-
 class _StepTrackingScreenState extends State<StepTrackingScreen>
     with AutomaticKeepAliveClientMixin {
   final HealthService _healthService = HealthService();
@@ -596,18 +595,27 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                         padding: const EdgeInsets.symmetric(
                             vertical: 10, horizontal: 16),
                         decoration: BoxDecoration(
-                          color: Colors.green.withAlpha((0.15 * 255).round()),
+                          color: Theme.of(context).brightness ==
+                                  Brightness.light
+                              ? Colors.black.withOpacity(0.08)
+                              : Colors.green.withAlpha((0.15 * 255).round()),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.green.withAlpha((0.3 * 255).round()),
+                            color: Theme.of(context).brightness ==
+                                    Brightness.light
+                                ? Colors.black.withOpacity(0.2)
+                                : Colors.green.withAlpha((0.3 * 255).round()),
                             width: 1,
                           ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.emoji_events_rounded,
-                              color: Colors.green,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? Colors.black
+                                  : Colors.green,
                               size: 24,
                             ),
                             const SizedBox(width: 12),
@@ -616,7 +624,10 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                                 'Congratulations! You\'ve reached your step goal today!',
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
-                                  color: Colors.green,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                      ? Colors.black
+                                      : Colors.green,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -832,7 +843,10 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   todayIndex: _getTodayIndex(),
                   showGoalLine: true,
                   goalValue: _getGoalValueForTimeFrame(),
-                  goalLineColor: Colors.red.withAlpha((0.6 * 255).round()),
+                  goalLineColor:
+                      Theme.of(context).brightness == Brightness.light
+                          ? Colors.black.withOpacity(0.6)
+                          : Colors.red.withAlpha((0.6 * 255).round()),
                   enableColorCoding: true,
                   timeFrame: _selectedTimeFrame,
                   goalLabel: _getGoalLabelForTimeFrame(),
@@ -1035,9 +1049,11 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: (trendingUp ?? false)
-                    ? Colors.green.withAlpha((0.12 * 255).round())
-                    : Colors.orange.withAlpha((0.12 * 255).round()),
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.black.withOpacity(0.08)
+                    : (trendingUp ?? false)
+                        ? Colors.green.withAlpha((0.12 * 255).round())
+                        : Colors.orange.withAlpha((0.12 * 255).round()),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -1046,7 +1062,11 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                     (trendingUp ?? false)
                         ? Icons.trending_up
                         : Icons.trending_down,
-                    color: (trendingUp ?? false) ? Colors.green : Colors.orange,
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.black
+                        : (trendingUp ?? false)
+                            ? Colors.green
+                            : Colors.orange,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -1056,9 +1076,11 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: (trendingUp ?? false)
-                            ? Colors.green
-                            : Colors.orange,
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.black
+                            : (trendingUp ?? false)
+                                ? Colors.green
+                                : Colors.orange,
                       ),
                     ),
                   ),
@@ -1543,38 +1565,81 @@ class _BarChartState extends State<CustomBarChart>
                                           widget.goalValue > 0) {
                                         final percentOfGoal =
                                             safeValue / widget.goalValue;
-                                        if (percentOfGoal >= 1.0) {
-                                          barColor = Colors.green;
-                                          gradientEndColor =
-                                              Colors.green.shade700;
-                                        } else if (percentOfGoal >= 0.7) {
-                                          barColor = Colors.orange;
-                                          gradientEndColor =
-                                              Colors.orange.shade800;
+
+                                        // Check if we're in dark mode
+                                        final isDarkMode =
+                                            Theme.of(context).brightness ==
+                                                Brightness.dark;
+
+                                        if (isDarkMode) {
+                                          // Keep the existing color scheme for dark mode
+                                          if (percentOfGoal >= 1.0) {
+                                            barColor = Colors.green;
+                                            gradientEndColor =
+                                                Colors.green.shade700;
+                                          } else if (percentOfGoal >= 0.7) {
+                                            barColor = Colors.orange;
+                                            gradientEndColor =
+                                                Colors.orange.shade800;
+                                          } else {
+                                            barColor = Colors.red.shade400;
+                                            gradientEndColor =
+                                                Colors.red.shade700;
+                                          }
                                         } else {
-                                          barColor = Colors.red.shade400;
-                                          gradientEndColor =
-                                              Colors.red.shade700;
+                                          // Black and white scheme for light mode
+                                          if (percentOfGoal >= 1.0) {
+                                            barColor = Colors.black;
+                                            gradientEndColor =
+                                                Colors.black.withOpacity(0.7);
+                                          } else if (percentOfGoal >= 0.7) {
+                                            barColor =
+                                                Colors.black.withOpacity(0.7);
+                                            gradientEndColor =
+                                                Colors.black.withOpacity(0.5);
+                                          } else {
+                                            barColor =
+                                                Colors.black.withOpacity(0.5);
+                                            gradientEndColor =
+                                                Colors.black.withOpacity(0.3);
+                                          }
                                         }
                                       } else {
-                                        barColor = widget.primaryColor;
-                                        gradientEndColor = Color.lerp(
-                                            widget.primaryColor,
-                                            Colors.black,
-                                            0.3)!;
+                                        // Default colors when not using color coding
+                                        final isDarkMode =
+                                            Theme.of(context).brightness ==
+                                                Brightness.dark;
+                                        if (isDarkMode) {
+                                          barColor = widget.primaryColor;
+                                          gradientEndColor = Color.lerp(
+                                              widget.primaryColor,
+                                              Colors.black,
+                                              0.3)!;
+                                        } else {
+                                          barColor = Colors.black;
+                                          gradientEndColor =
+                                              Colors.black.withOpacity(0.7);
+                                        }
                                       }
 
                                       // Add week number indicator for month view
                                       Widget weekIndicator;
                                       if (widget.timeFrame == 'Month' &&
                                           isHighlighted) {
+                                        // Use black in light mode, barColor in dark mode
+                                        final indicatorColor =
+                                            Theme.of(context).brightness ==
+                                                    Brightness.light
+                                                ? Colors.black
+                                                : barColor;
+
                                         weekIndicator = Container(
                                           margin:
                                               const EdgeInsets.only(bottom: 8),
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: barColor
+                                            color: indicatorColor
                                                 .withAlpha((0.2 * 255).round()),
                                             borderRadius:
                                                 BorderRadius.circular(12),
@@ -1586,7 +1651,7 @@ class _BarChartState extends State<CustomBarChart>
                                             style: GoogleFonts.inter(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
-                                              color: barColor,
+                                              color: indicatorColor,
                                             ),
                                           ),
                                         );
@@ -1644,7 +1709,14 @@ class _BarChartState extends State<CustomBarChart>
                                                       fontSize: 11,
                                                       fontWeight:
                                                           FontWeight.w600,
-                                                      color: Colors.white,
+                                                      color: Theme.of(context)
+                                                                      .brightness ==
+                                                                  Brightness
+                                                                      .light &&
+                                                              barColor ==
+                                                                  Colors.black
+                                                          ? Colors.white
+                                                          : Colors.white,
                                                     ),
                                                   ),
                                                 ),
@@ -1719,7 +1791,11 @@ class _BarChartState extends State<CustomBarChart>
                                                   height: 6,
                                                   decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
-                                                    color: barColor,
+                                                    color: Theme.of(context)
+                                                                .brightness ==
+                                                            Brightness.light
+                                                        ? Colors.black
+                                                        : barColor,
                                                   ),
                                                 ),
                                               ),
@@ -1949,7 +2025,7 @@ class GridPainter extends CustomPainter {
         // Add a small label for the goal line
         final TextPainter textPainter = TextPainter(
           text: TextSpan(
-            text: 'Goal',
+            text: goalLabel ?? 'Goal',
             style: TextStyle(
               color: goalLineColor,
               fontSize: 10,

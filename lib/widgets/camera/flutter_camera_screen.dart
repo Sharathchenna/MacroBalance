@@ -1253,8 +1253,8 @@ class _FlutterCameraScreenState extends State<FlutterCameraScreen>
           if (_isInitialized)
             Positioned(
               bottom: safeAreaBottom + 20,
-              left: 20,
-              right: 20,
+              left: 0,
+              right: 0,
               child: SizedBox(
                 height: 80,
                 child: CameraControls(

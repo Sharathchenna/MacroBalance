@@ -465,8 +465,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             Icon(
                               Icons.calendar_today_rounded,
                               size: 14,
-                              color:
-                                  customColors.accentPrimary.withValues(alpha: 0.8),
+                              color: customColors.accentPrimary
+                                  .withValues(alpha: 0.8),
                             ),
                             const SizedBox(width: 6),
                             Flexible(
@@ -553,7 +553,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   color: customColors.cardBackground,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.05),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.05),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -1134,7 +1135,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: customColors.dateNavigatorBackground.withValues(alpha: 0.3),
+              color:
+                  customColors.dateNavigatorBackground.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -1372,7 +1374,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: customColors.accentPrimary.withValues(alpha: 0.1),
+                            color: customColors.accentPrimary
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Column(
@@ -1485,7 +1488,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.grey.shade200,
                                   foregroundColor: Colors.black87,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1505,7 +1509,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: customColors.accentPrimary,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1549,8 +1554,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                   // Show success message
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content:
-                                          const Text('Goals updated successfully!'),
+                                      content: const Text(
+                                          'Goals updated successfully!'),
                                       backgroundColor: Colors.green,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
@@ -1682,7 +1687,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: customColors.accentPrimary.withOpacity(0.1),
+                            color: customColors.accentPrimary
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Column(
@@ -1791,7 +1797,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.grey.shade200,
                                   foregroundColor: Colors.black87,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1811,7 +1818,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: customColors.accentPrimary,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1856,8 +1864,8 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                     // Show success message
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content:
-                                            const Text('Goals updated successfully!'),
+                                        content: const Text(
+                                            'Goals updated successfully!'),
                                         backgroundColor: Colors.green,
                                         behavior: SnackBarBehavior.floating,
                                         shape: RoundedRectangleBorder(
@@ -1914,10 +1922,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: color.withOpacity(0.15),
+          color: color.withValues(alpha: 0.15),
           width: 1.5,
         ),
       ),
@@ -1927,7 +1935,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(

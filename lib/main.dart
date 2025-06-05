@@ -57,6 +57,7 @@ import 'package:macrotracker/services/meal_planning_service.dart';
 import 'package:macrotracker/services/workout_planning_service.dart';
 import 'package:macrotracker/config/api_config.dart';
 import 'package:macrotracker/utils/performance_monitor.dart';
+import 'package:macrotracker/providers/search_provider.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -213,6 +214,9 @@ Future<void> main() async {
       }(), // Immediately invoke the function to get the value
       child: MultiProvider(
         providers: [
+          // Add SearchProvider
+          ChangeNotifierProvider(create: (_) => SearchProvider()),
+
           // Use ChangeNotifierProxyProvider linked to the User? stream
           ChangeNotifierProxyProvider<User?, FoodEntryProvider>(
             create: (_) => FoodEntryProvider(), // Initial empty provider

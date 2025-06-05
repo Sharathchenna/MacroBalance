@@ -55,10 +55,6 @@ class _CameraControlsState extends State<CameraControls>
     return Container(
       decoration: const BoxDecoration(
         gradient: CameraTheme.bottomControlsGradient,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(32),
-          topRight: Radius.circular(32),
-        ),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),

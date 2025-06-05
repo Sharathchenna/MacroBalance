@@ -203,7 +203,7 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
       case CameraMode.barcode:
         return screenWidth * 0.7;
       case CameraMode.label:
-        return screenWidth * 0.85;
+        return screenWidth * 0.9; // Increased to better fit nutrition labels
       default:
         return 0;
     }
@@ -215,7 +215,7 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
       case CameraMode.barcode:
         return screenHeight * 0.12; // Reduced for better positioning
       case CameraMode.label:
-        return screenHeight * 0.35; // Reduced to prevent overlap with top bar
+        return screenHeight * 0.45; // Increased to better fit nutrition labels
       default:
         return 0;
     }
@@ -835,53 +835,7 @@ class _CameraGuideOverlayState extends State<CameraGuideOverlay>
   }
 
   Widget _buildCenterHint() {
-    String hintText = '';
-    IconData hintIcon = Icons.info;
-
-    switch (widget.currentMode) {
-      case CameraMode.barcode:
-        hintText = 'Position barcode here';
-        hintIcon = Icons.qr_code;
-        break;
-      case CameraMode.label:
-        hintText = 'Position nutrition label here';
-        hintIcon = Icons.text_fields;
-        break;
-      default:
-        return const SizedBox.shrink();
-    }
-
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: CameraTheme.premiumGold.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              hintIcon,
-              color: CameraTheme.premiumGold,
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              hintText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    // Don't show any hint text for any mode
+    return const SizedBox.shrink();
   }
 }

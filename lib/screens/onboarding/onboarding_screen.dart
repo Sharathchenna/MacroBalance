@@ -26,10 +26,12 @@ import 'pages/apple_health_page.dart'; // Import the new Apple Health page
 import 'pages/notification_permission_page.dart'; // Import the notification permission page
 import 'pages/summary_page.dart';
 
-// Import new fitness onboarding pages
-import 'pages/fitness_level_page.dart';
-import 'pages/equipment_preferences_page.dart';
-import 'pages/workout_schedule_page.dart';
+// Import new split fitness onboarding pages
+import 'pages/basic_fitness_assessment_page.dart';
+import 'pages/exercise_history_page.dart';
+import 'pages/workout_location_page.dart';
+import 'pages/workout_space_equipment_page.dart';
+import 'pages/workout_schedule_preferences_page.dart';
 
 // Import fitness profile model
 import '../../models/fitness_profile.dart';
@@ -45,9 +47,9 @@ class OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  // Total pages is now 15, adding notification permission page
+  // Total pages is now 17, adding two more fitness pages
   final int _totalPages =
-      15; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+Fitness(8)+Equipment(9)+Schedule(10)+Advanced(11)+AppleHealth(12)+Notifications(13)+Summary(14)
+      17; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+BasicFitness(8)+ExerciseHistory(9)+WorkoutLocation(10)+WorkoutSpaceEquipment(11)+WorkoutSchedule(12)+Advanced(13)+AppleHealth(14)+Notifications(15)+Summary(16)
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
@@ -198,19 +200,18 @@ class OnboardingScreenState extends State<OnboardingScreen>
 
     // Validate ranges before moving from SetNewGoal page (index 7)
     if (currentPageIndex == 7) {
-      _validateRanges(); // Keep validation, now triggered after setting goal details
+      _validateRanges();
     }
 
     // Skip SetNewGoalPage (index 7) if goal is Maintain
     if (currentPageIndex == 6 &&
         _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      nextPage = 8; // Skip to Fitness Level (index 8)
+      nextPage = 8; // Skip to Basic Fitness Assessment (index 8)
     }
 
     if (nextPage < _totalPages) {
       _goToPage(nextPage);
     } else if (nextPage == _totalPages) {
-      // Check if we are at the last logical step
       _calculateAndShowResults();
     }
   }
@@ -220,7 +221,7 @@ class OnboardingScreenState extends State<OnboardingScreen>
     int currentPageIndex = _currentPage;
     int prevPage = currentPageIndex - 1;
 
-    // Skip SetNewGoalPage (index 7) if goal is Maintain when going back from Fitness Level (index 8)
+    // Skip SetNewGoalPage (index 7) if goal is Maintain when going back from Basic Fitness Assessment (index 8)
     if (currentPageIndex == 8 &&
         _goal == MacroCalculatorService.GOAL_MAINTAIN) {
       prevPage = 6; // Go back to Goal Page (index 6)
@@ -234,17 +235,14 @@ class OnboardingScreenState extends State<OnboardingScreen>
   void _goToPage(int page) {
     HapticFeedback.selectionClick();
     int targetPage = page;
-    bool isSkippingForwardMaintain = false; // Flag for the specific skip
+    bool isSkippingForwardMaintain = false;
 
     // Adjust target page if skipping SetNewGoalPage (index 7) for Maintain goal
-    // This handles cases where _goToPage might be called with 7 directly
     if (targetPage == 7 && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
       if (_currentPage < 7) {
-        // Moving forward from a page before 7
-        targetPage = 8; // Skip forward to Fitness Level
-        isSkippingForwardMaintain = true; // Mark this specific skip
+        targetPage = 8; // Skip forward to Basic Fitness Assessment
+        isSkippingForwardMaintain = true;
       } else {
-        // Moving backward from a page after 7
         targetPage = 6; // Skip backward to Goal
       }
     }
@@ -252,14 +250,13 @@ class OnboardingScreenState extends State<OnboardingScreen>
     else if (targetPage == 8 &&
         _currentPage == 6 &&
         _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      isSkippingForwardMaintain = true; // Mark this specific skip
+      isSkippingForwardMaintain = true;
     }
 
     if (targetPage >= 0 &&
         targetPage < _totalPages &&
         targetPage != _currentPage) {
       // Validate if jumping past SetNewGoal page (index 7)
-      // This validation might still be relevant even with jumpToPage
       if (_currentPage < 7 && targetPage > 7) _validateRanges();
 
       if (isSkippingForwardMaintain) {
@@ -570,8 +567,8 @@ class OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
-    // Hide the button on the Apple Health page (index 12) and Notification Permission page (index 13)
-    if (_currentPage == 12 || _currentPage == 13) {
+    // Hide the button on the Apple Health page (index 14) and Notification Permission page (index 15)
+    if (_currentPage == 14 || _currentPage == 15) {
       return const SizedBox(width: 80);
     }
 
@@ -627,34 +624,21 @@ class OnboardingScreenState extends State<OnboardingScreen>
             setState(() => _activityLevel = newLevel),
       ),
       GoalPage(
-        // Removed parameters: currentWeightKg, goalWeightKg, deficit, isMetricWeight, projectedDate, onGoalWeightChanged, onDeficitChanged, onWeightUnitChanged
         currentGoal: _goal,
         onGoalChanged: (newGoal) => setState(() {
           _goal = newGoal;
-          // Logic to reset goal weight/deficit when goal changes remains here
           if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
             _goalWeightKg = _weightKg;
             _deficit = 0;
-            // // Navigate immediately if Maintain is selected
-            // // Need WidgetsBinding.instance.addPostFrameCallback to avoid calling
-            // // _goToPage during build/setState.
-            // WidgetsBinding.instance.addPostFrameCallback((_) {
-            //   // Check mounted again inside the callback for safety
-            //   if (mounted && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-            //     _goToPage(8); // Go directly to Advanced Settings (index 8)
-            //   }
-            // });
           } else {
             _deficit = 500;
             _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
                 ? max(40.0, _weightKg * 0.9)
                 : min(150.0, _weightKg * 1.1);
-            _validateRanges(); // Keep validation logic here
+            _validateRanges();
           }
         }),
-        // Removed onGoalWeightChanged, onDeficitChanged, onWeightUnitChanged callbacks
       ),
-      // Replace TargetSummaryPage with SetNewGoalPage (index 7)
       SetNewGoalPage(
         currentGoal: _goal,
         currentWeightKg: _weightKg,
@@ -672,49 +656,52 @@ class OnboardingScreenState extends State<OnboardingScreen>
             setState(() => _isMetricWeight = isMetric),
       ),
 
-      // NEW FITNESS ONBOARDING PAGES (index 8, 9, 10)
-      FitnessLevelPage(
+      // NEW SPLIT FITNESS ONBOARDING PAGES
+      BasicFitnessAssessmentPage(
         currentFitnessLevel: _fitnessLevel,
+        onFitnessLevelChanged: (level) => setState(() => _fitnessLevel = level),
+      ),
+      ExerciseHistoryPage(
         yearsOfExperience: _yearsOfExperience,
         previousExerciseTypes: _previousExerciseTypes,
-        onFitnessLevelChanged: (level) => setState(() => _fitnessLevel = level),
         onYearsOfExperienceChanged: (years) =>
             setState(() => _yearsOfExperience = years),
         onPreviousExerciseTypesChanged: (types) =>
             setState(() => _previousExerciseTypes = types),
       ),
-      EquipmentPreferencesPage(
+      WorkoutLocationPage(
         workoutLocation: _workoutLocation,
-        availableEquipment: _availableEquipment,
         hasGymAccess: _hasGymAccess,
-        workoutSpace: _workoutSpace,
         onWorkoutLocationChanged: (location) =>
             setState(() => _workoutLocation = location),
-        onAvailableEquipmentChanged: (equipment) =>
-            setState(() => _availableEquipment = equipment),
         onGymAccessChanged: (hasAccess) =>
             setState(() => _hasGymAccess = hasAccess),
-        onWorkoutSpaceChanged: (space) => setState(() => _workoutSpace = space),
       ),
-      WorkoutSchedulePage(
+      WorkoutSpaceEquipmentPage(
+        workoutSpace: _workoutSpace,
+        availableEquipment: _availableEquipment,
+        onWorkoutSpaceChanged: (space) => setState(() => _workoutSpace = space),
+        onAvailableEquipmentChanged: (equipment) =>
+            setState(() => _availableEquipment = equipment),
+      ),
+      WorkoutSchedulePreferencesPage(
         workoutsPerWeek: _workoutsPerWeek,
-        maxWorkoutDuration: _maxWorkoutDuration,
-        preferredTimeOfDay: _preferredTimeOfDay,
-        preferredDays: _preferredDays,
+        workoutDuration: _maxWorkoutDuration,
+        preferredTime: _preferredTimeOfDay,
         onWorkoutsPerWeekChanged: (count) =>
             setState(() => _workoutsPerWeek = count),
-        onMaxWorkoutDurationChanged: (duration) =>
+        onWorkoutDurationChanged: (duration) =>
             setState(() => _maxWorkoutDuration = duration),
-        onPreferredTimeOfDayChanged: (time) =>
+        onPreferredTimeChanged: (time) =>
             setState(() => _preferredTimeOfDay = time),
-        onPreferredDaysChanged: (days) => setState(() => _preferredDays = days),
       ),
 
       AdvancedSettingsPage(
-        // Now at index 11
-        isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
+        isAthlete: _isAthlete,
+        showBodyFatInput: _showBodyFatInput,
         bodyFatPercentage: _bodyFatPercentage,
-        proteinRatio: _proteinRatio, fatRatio: _fatRatio,
+        proteinRatio: _proteinRatio,
+        fatRatio: _fatRatio,
         gender: _gender,
         onAthleteChanged: (isAthlete) => setState(() => _isAthlete = isAthlete),
         onShowBodyFatChanged: (show) =>
@@ -723,12 +710,10 @@ class OnboardingScreenState extends State<OnboardingScreen>
         onProteinRatioChanged: (ratio) => setState(() => _proteinRatio = ratio),
         onFatRatioChanged: (ratio) => setState(() => _fatRatio = ratio),
       ),
-      // Add Apple Health integration page (index 12)
       AppleHealthPage(
         onNext: _nextPage,
         onSkip: _nextPage,
       ),
-      // Add Notification Permission page (index 13)
       NotificationPermissionPage(
         onNext: _nextPage,
         onSkip: _nextPage,
@@ -752,12 +737,10 @@ class OnboardingScreenState extends State<OnboardingScreen>
         fitnessLevel: _fitnessLevel,
         yearsOfExperience: _yearsOfExperience,
         previousExerciseTypes: _previousExerciseTypes,
-        // Equipment Information
         workoutLocation: _workoutLocation,
         availableEquipment: _availableEquipment,
         hasGymAccess: _hasGymAccess,
         workoutSpace: _workoutSpace,
-        // Schedule Information
         workoutsPerWeek: _workoutsPerWeek,
         maxWorkoutDuration: _maxWorkoutDuration,
         preferredTimeOfDay: _preferredTimeOfDay,

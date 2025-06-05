@@ -352,7 +352,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                 children: [
                   _buildListTile(
                     icon: CupertinoIcons.profile_circled,
-                    iconColor: customColors!.accentPrimary,
+                    iconColor: Colors.blue,
                     title: 'Edit Profile',
                     subtitle: 'Update your personal information',
                     trailing: const Icon(Icons.chevron_right),
@@ -387,7 +387,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                 children: [
                   _buildListTile(
                     icon: CupertinoIcons.chart_bar_alt_fill,
-                    iconColor: colorScheme.primary,
+                    iconColor: Colors.green,
                     title: 'Macro Goals',
                     subtitle: 'Set your daily macro targets',
                     trailing: const Icon(Icons.chevron_right),

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/food.dart';
 import '../models/saved_food.dart';
 import '../repositories/saved_food_repository.dart';
@@ -7,16 +8,53 @@ import '../screens/searchPage.dart' as search;
 
 class SavedFoodProvider with ChangeNotifier {
   final SavedFoodRepository _repository = SavedFoodRepository();
+  final Connectivity _connectivity = Connectivity();
 
   List<SavedFood> _savedFoods = [];
   bool _isInitialized = false;
   bool _isLoading = false;
   bool _disposed = false;
+  bool _isLoadingMore = false;
+  DateTime? _lastSyncTime;
+  bool _hasNetworkConnection = true;
+  int _failedSyncAttempts = 0;
+  static const int _maxSyncRetries = 3;
+  static const Duration _syncThreshold = Duration(minutes: 15);
+  static const Duration _retryDelay = Duration(minutes: 1);
+
+  // Cache settings
+  static const int _maxCacheSize = 100;
+  final Map<String, SavedFood> _foodCache = {};
+  final Map<String, DateTime> _cacheTimestamps = {};
+  static const Duration _cacheExpiry = Duration(hours: 24);
+
+  // Pagination settings
+  static const int _pageSize = 20;
+  int _currentPage = 0;
+  bool _hasMoreData = true;
 
   // Getters
   List<SavedFood> get savedFoods => List.unmodifiable(_savedFoods);
   bool get isInitialized => _isInitialized;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get hasMoreData => _hasMoreData;
+
+  SavedFoodProvider() {
+    _setupConnectivityListener();
+  }
+
+  void _setupConnectivityListener() {
+    _connectivity.onConnectivityChanged.listen((ConnectivityResult result) {
+      final hasConnection = result != ConnectivityResult.none;
+      if (hasConnection != _hasNetworkConnection) {
+        _hasNetworkConnection = hasConnection;
+        if (hasConnection && _failedSyncAttempts > 0) {
+          _retryFailedSync();
+        }
+      }
+    });
+  }
 
   // Safe notify listeners method
   void _safeNotifyListeners() {
@@ -29,7 +67,7 @@ class SavedFoodProvider with ChangeNotifier {
     });
   }
 
-  // Initialize and load saved foods
+  // Initialize and load saved foods with optimizations
   Future<void> initialize() async {
     if (_isInitialized || _isLoading) return;
 
@@ -37,38 +75,178 @@ class SavedFoodProvider with ChangeNotifier {
     _safeNotifyListeners();
 
     try {
-      // First try to load from local storage
+      // First try to load from cache
+      _loadFromCache();
+
+      // Then try to load from local storage
       final localFoods = await _repository.loadFromLocal();
+      _updateFoodsList(localFoods);
 
-      // Update the list with local foods first
-      _savedFoods = localFoods;
-      _safeNotifyListeners();
+      // Check network connectivity
+      final connectivityResult = await _connectivity.checkConnectivity();
+      _hasNetworkConnection = connectivityResult != ConnectivityResult.none;
 
-      // Then try to load from cloud
-      try {
-        final cloudFoods = await _repository.loadFromCloud();
-
-        // If cloud data exists, use it (it's more authoritative)
-        if (cloudFoods.isNotEmpty) {
-          _savedFoods = cloudFoods;
-          // Save to local storage for offline access
-          await _repository.saveToLocal(_savedFoods);
-        } else if (localFoods.isNotEmpty) {
-          // If we have local data but no cloud data, sync local to cloud
-          await _repository.saveToCloud(localFoods);
-        }
-      } catch (e) {
-        // Cloud sync failed, but we still have local data
-        debugPrint('Cloud sync failed: $e');
+      // Start background sync if network is available
+      if (_hasNetworkConnection) {
+        await _startBackgroundSync();
       }
+
+      _isInitialized = true;
     } catch (e) {
       debugPrint('Failed to initialize saved foods: $e');
       _savedFoods = [];
     } finally {
       _isLoading = false;
-      _isInitialized = true;
       _safeNotifyListeners();
     }
+  }
+
+  // Retry failed sync operations
+  Future<void> _retryFailedSync() async {
+    if (!_hasNetworkConnection || _failedSyncAttempts >= _maxSyncRetries)
+      return;
+
+    try {
+      await _startBackgroundSync();
+      _failedSyncAttempts = 0;
+    } catch (e) {
+      _failedSyncAttempts++;
+      if (_failedSyncAttempts < _maxSyncRetries) {
+        Future.delayed(_retryDelay, _retryFailedSync);
+      }
+    }
+  }
+
+  // Background sync with improved error handling
+  Future<void> _startBackgroundSync() async {
+    if (_lastSyncTime != null &&
+        DateTime.now().difference(_lastSyncTime!) < _syncThreshold) {
+      return;
+    }
+
+    try {
+      final cloudFoods = await _repository.loadFromCloud(
+        page: 0,
+        pageSize: _pageSize,
+      );
+
+      if (!_disposed) {
+        // Merge cloud and local data
+        final mergedFoods = _mergeFoodLists(_savedFoods, cloudFoods);
+        _updateFoodsList(mergedFoods);
+        _lastSyncTime = DateTime.now();
+        await _repository.saveToLocal(_savedFoods);
+        _safeNotifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Background sync failed: $e');
+      if (_hasNetworkConnection) {
+        _failedSyncAttempts++;
+        if (_failedSyncAttempts < _maxSyncRetries) {
+          Future.delayed(_retryDelay, _retryFailedSync);
+        }
+      }
+    }
+  }
+
+  // Merge food lists with conflict resolution
+  List<SavedFood> _mergeFoodLists(
+      List<SavedFood> local, List<SavedFood> cloud) {
+    final Map<String, SavedFood> merged = {};
+
+    // Add all local foods
+    for (final food in local) {
+      merged[food.id] = food;
+    }
+
+    // Add or update with cloud foods (cloud takes precedence for conflicts)
+    for (final food in cloud) {
+      merged[food.id] = food;
+    }
+
+    return merged.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  // Cache management with expiry
+  void _loadFromCache() {
+    final now = DateTime.now();
+    _savedFoods = _foodCache.entries
+        .where((entry) =>
+            now.difference(_cacheTimestamps[entry.key]!) < _cacheExpiry)
+        .map((entry) => entry.value)
+        .toList();
+
+    // Remove expired cache entries
+    _cleanExpiredCache();
+  }
+
+  void _cleanExpiredCache() {
+    final now = DateTime.now();
+    final expiredKeys = _cacheTimestamps.entries
+        .where((entry) => now.difference(entry.value) >= _cacheExpiry)
+        .map((entry) => entry.key)
+        .toList();
+
+    for (final key in expiredKeys) {
+      _foodCache.remove(key);
+      _cacheTimestamps.remove(key);
+    }
+  }
+
+  // Load more items (pagination)
+  Future<void> loadMore() async {
+    if (_isLoadingMore || !_hasMoreData || _disposed) return;
+
+    _isLoadingMore = true;
+    _safeNotifyListeners();
+
+    try {
+      final nextPage = await _repository.loadFromCloud(
+        page: _currentPage + 1,
+        pageSize: _pageSize,
+      );
+
+      if (nextPage.isEmpty) {
+        _hasMoreData = false;
+      } else {
+        _currentPage++;
+        _updateFoodsList([..._savedFoods, ...nextPage]);
+      }
+    } catch (e) {
+      debugPrint('Error loading more saved foods: $e');
+    } finally {
+      _isLoadingMore = false;
+      _safeNotifyListeners();
+    }
+  }
+
+  void _updateCache(List<SavedFood> foods) {
+    final now = DateTime.now();
+
+    // Add new items to cache
+    for (final food in foods) {
+      _foodCache[food.id] = food;
+      _cacheTimestamps[food.id] = now;
+    }
+
+    // Remove old items if cache is too large
+    if (_foodCache.length > _maxCacheSize) {
+      final oldestEntries = _cacheTimestamps.entries.toList()
+        ..sort((a, b) => a.value.compareTo(b.value));
+
+      final entriesToRemove =
+          oldestEntries.take(_foodCache.length - _maxCacheSize);
+      for (final entry in entriesToRemove) {
+        _foodCache.remove(entry.key);
+        _cacheTimestamps.remove(entry.key);
+      }
+    }
+  }
+
+  void _updateFoodsList(List<SavedFood> newFoods) {
+    _savedFoods = newFoods;
+    _updateCache(newFoods);
   }
 
   // Add a food item to saved foods
@@ -90,48 +268,21 @@ class SavedFoodProvider with ChangeNotifier {
           carbohydrate: serving.nutrients['Carbohydrate, by difference'] ?? 0,
           fat: serving.nutrients['Total lipid (fat)'] ?? 0,
           saturatedFat: serving.nutrients['Saturated fat'] ?? 0,
-          polyunsaturatedFat:
-              serving.nutrients.containsKey('Polyunsaturated fat')
-                  ? serving.nutrients['Polyunsaturated fat']
-                  : null,
-          monounsaturatedFat:
-              serving.nutrients.containsKey('Monounsaturated fat')
-                  ? serving.nutrients['Monounsaturated fat']
-                  : null,
-          transFat: serving.nutrients.containsKey('Trans fat')
-              ? serving.nutrients['Trans fat']
-              : null,
-          cholesterol: serving.nutrients.containsKey('Cholesterol')
-              ? serving.nutrients['Cholesterol']
-              : null,
-          sodium: serving.nutrients.containsKey('Sodium')
-              ? serving.nutrients['Sodium']
-              : null,
-          potassium: serving.nutrients.containsKey('Potassium')
-              ? serving.nutrients['Potassium']
-              : null,
-          fiber: serving.nutrients.containsKey('Fiber')
-              ? serving.nutrients['Fiber']
-              : null,
-          sugar: serving.nutrients.containsKey('Sugar')
-              ? serving.nutrients['Sugar']
-              : null,
-          vitaminA: serving.nutrients.containsKey('Vitamin A')
-              ? serving.nutrients['Vitamin A']
-              : null,
-          vitaminC: serving.nutrients.containsKey('Vitamin C')
-              ? serving.nutrients['Vitamin C']
-              : null,
-          calcium: serving.nutrients.containsKey('Calcium')
-              ? serving.nutrients['Calcium']
-              : null,
-          iron: serving.nutrients.containsKey('Iron')
-              ? serving.nutrients['Iron']
-              : null,
+          polyunsaturatedFat: serving.nutrients['Polyunsaturated fat'],
+          monounsaturatedFat: serving.nutrients['Monounsaturated fat'],
+          transFat: serving.nutrients['Trans fat'],
+          cholesterol: serving.nutrients['Cholesterol'],
+          sodium: serving.nutrients['Sodium'],
+          potassium: serving.nutrients['Potassium'],
+          fiber: serving.nutrients['Fiber'],
+          sugar: serving.nutrients['Sugar'],
+          vitaminA: serving.nutrients['Vitamin A'],
+          vitaminC: serving.nutrients['Vitamin C'],
+          calcium: serving.nutrients['Calcium'],
+          iron: serving.nutrients['Iron'],
         );
       }).toList();
 
-      // Create a map of nutrients
       Map<String, double> nutrients = {
         'Protein': food.nutrients['Protein'] ?? 0,
         'Total lipid (fat)': food.nutrients['Total lipid (fat)'] ?? 0,
@@ -170,8 +321,9 @@ class SavedFoodProvider with ChangeNotifier {
       food: foodItem,
     );
 
-    // Add to the list
+    // Add to the list and cache
     _savedFoods.add(savedFood);
+    _updateCache([savedFood]);
     _safeNotifyListeners();
 
     // Save to local and cloud
@@ -180,8 +332,10 @@ class SavedFoodProvider with ChangeNotifier {
       await _repository.saveToCloud([savedFood]); // Only save the new one
     } catch (e) {
       debugPrint('Failed to save food: $e');
-      // Remove from list if saving failed
+      // Remove from list and cache if saving failed
       _savedFoods.remove(savedFood);
+      _foodCache.remove(savedFood.id);
+      _cacheTimestamps.remove(savedFood.id);
       _safeNotifyListeners();
       rethrow;
     }
@@ -200,6 +354,8 @@ class SavedFoodProvider with ChangeNotifier {
 
     final savedFood = _savedFoods[savedFoodIndex];
     _savedFoods.removeAt(savedFoodIndex);
+    _foodCache.remove(savedFoodId);
+    _cacheTimestamps.remove(savedFoodId);
     _safeNotifyListeners();
 
     try {
@@ -209,6 +365,7 @@ class SavedFoodProvider with ChangeNotifier {
       debugPrint('Failed to remove saved food: $e');
       // Add back if deletion failed
       _savedFoods.insert(savedFoodIndex, savedFood);
+      _updateCache([savedFood]);
       _safeNotifyListeners();
       rethrow;
     }
@@ -216,24 +373,32 @@ class SavedFoodProvider with ChangeNotifier {
 
   // Update a saved food
   Future<void> updateSavedFood(SavedFood updatedSavedFood) async {
-    // Find the index of the saved food
     final index = _savedFoods.indexWhere((sf) => sf.id == updatedSavedFood.id);
     if (index == -1) return;
 
-    // Update in the list
+    // Update in the list and cache
     _savedFoods[index] = updatedSavedFood;
-
-    // Save locally
-    await _repository.saveToLocal(_savedFoods);
-
-    // Sync to Supabase
-    _repository.saveToCloud([updatedSavedFood]);
-
+    _updateCache([updatedSavedFood]);
     _safeNotifyListeners();
+
+    // Save locally and to cloud
+    try {
+      await _repository.saveToLocal(_savedFoods);
+      await _repository.saveToCloud([updatedSavedFood]);
+    } catch (e) {
+      debugPrint('Failed to update saved food: $e');
+      rethrow;
+    }
   }
 
   // Get a saved food by ID
   SavedFood? getSavedFoodByFoodId(String foodId) {
+    // Check cache first
+    if (_foodCache.containsKey(foodId)) {
+      return _foodCache[foodId];
+    }
+
+    // Fall back to list search
     try {
       return _savedFoods.firstWhere((savedFood) => savedFood.food.id == foodId);
     } catch (_) {
@@ -241,9 +406,38 @@ class SavedFoodProvider with ChangeNotifier {
     }
   }
 
+  // Force refresh data
+  Future<void> refresh() async {
+    if (_isLoading || _disposed) return;
+
+    _isLoading = true;
+    _currentPage = 0;
+    _hasMoreData = true;
+    _safeNotifyListeners();
+
+    try {
+      final cloudFoods = await _repository.loadFromCloud(
+        page: 0,
+        pageSize: _pageSize,
+      );
+
+      _updateFoodsList(cloudFoods);
+      await _repository.saveToLocal(_savedFoods);
+      _lastSyncTime = DateTime.now();
+    } catch (e) {
+      debugPrint('Failed to refresh saved foods: $e');
+    } finally {
+      _isLoading = false;
+      _safeNotifyListeners();
+    }
+  }
+
   @override
   void dispose() {
     _disposed = true;
+    _foodCache.clear();
+    _cacheTimestamps.clear();
+    _savedFoods.clear();
     super.dispose();
   }
 }

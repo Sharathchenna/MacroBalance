@@ -434,9 +434,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                         if (newValue != null && newValue > 0) {
                           // Determine which macro is being changed
                           String macroType = '';
-                          if (title.contains('Protein'))
+                          if (title.contains('Protein')) {
                             macroType = 'protein';
-                          else if (title.contains('Carbohydrate'))
+                          } else if (title.contains('Carbohydrate'))
                             macroType = 'carbs';
                           else if (title.contains('Fat'))
                             macroType = 'fat';

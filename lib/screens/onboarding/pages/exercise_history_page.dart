@@ -1,45 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:macrotracker/widgets/onboarding/onboarding_selection_card.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 
-class FitnessLevelPage extends StatefulWidget {
-  final String currentFitnessLevel;
+class ExerciseHistoryPage extends StatefulWidget {
   final int yearsOfExperience;
   final List<String> previousExerciseTypes;
-  final ValueChanged<String> onFitnessLevelChanged;
   final ValueChanged<int> onYearsOfExperienceChanged;
   final ValueChanged<List<String>> onPreviousExerciseTypesChanged;
 
-  const FitnessLevelPage({
+  const ExerciseHistoryPage({
     super.key,
-    required this.currentFitnessLevel,
     required this.yearsOfExperience,
     required this.previousExerciseTypes,
-    required this.onFitnessLevelChanged,
     required this.onYearsOfExperienceChanged,
     required this.onPreviousExerciseTypesChanged,
   });
 
   @override
-  State<FitnessLevelPage> createState() => _FitnessLevelPageState();
+  State<ExerciseHistoryPage> createState() => _ExerciseHistoryPageState();
 }
 
-class _FitnessLevelPageState extends State<FitnessLevelPage> {
+class _ExerciseHistoryPageState extends State<ExerciseHistoryPage> {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollIndicator = true;
 
   @override
   void initState() {
     super.initState();
-    // Set default selection to beginner if no selection has been made
-    if (widget.currentFitnessLevel.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onFitnessLevelChanged('beginner');
-      });
-    }
-
-    // Listen to scroll to hide indicator when user starts scrolling
     _scrollController.addListener(() {
       if (_showScrollIndicator && _scrollController.offset > 20) {
         setState(() {
@@ -70,55 +57,19 @@ class _FitnessLevelPageState extends State<FitnessLevelPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'What\'s your fitness level?',
+                'Tell us about your exercise history',
                 style: PremiumTypography.h2.copyWith(
                   color: customColors?.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'This helps us create workouts that match your current abilities',
+                'This helps us understand your experience level',
                 style: PremiumTypography.bodyMedium.copyWith(
                   color: customColors?.textSecondary,
                 ),
               ),
               const SizedBox(height: 32),
-
-              // Fitness Level Selection
-              OnboardingSelectionCard(
-                isSelected: widget.currentFitnessLevel == 'beginner',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  widget.onFitnessLevelChanged('beginner');
-                },
-                icon: Icons.directions_walk,
-                label: 'Beginner',
-                description: 'New to exercise or getting back into it',
-              ),
-              const SizedBox(height: 16),
-              OnboardingSelectionCard(
-                isSelected: widget.currentFitnessLevel == 'intermediate',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  widget.onFitnessLevelChanged('intermediate');
-                },
-                icon: Icons.directions_run,
-                label: 'Intermediate',
-                description: 'Regular exercise routine for 6+ months',
-              ),
-              const SizedBox(height: 16),
-              OnboardingSelectionCard(
-                isSelected: widget.currentFitnessLevel == 'advanced',
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  widget.onFitnessLevelChanged('advanced');
-                },
-                icon: Icons.fitness_center,
-                label: 'Advanced',
-                description: 'Consistent training for 2+ years',
-              ),
-
-              const SizedBox(height: 40),
 
               // Years of Experience
               Text(

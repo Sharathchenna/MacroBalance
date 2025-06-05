@@ -171,11 +171,11 @@ class SummaryPage extends StatelessWidget {
         'value': '${(fatRatio * 100).round()}% of calories',
         'page': advancedSettingsPageIndex
       },
-      {
-        'label': 'Carbs',
-        'value': 'Calculated',
-        'page': advancedSettingsPageIndex
-      }, // Indicate carbs are calculated
+      // {
+      //   'label': 'Carbs',
+      //   'value': 'Calculated',
+      //   'page': advancedSettingsPageIndex
+      // }, // Indicate carbs are calculated
     ];
 
     final List<Map<String, dynamic>> fitnessItems = [

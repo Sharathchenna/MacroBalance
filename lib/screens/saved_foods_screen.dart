@@ -58,6 +58,9 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
       _isLoading = false;
     });
 
+    // Start the fade animation
+    _animationController.forward();
+
     // Track screen view
     PostHogService.trackScreen('saved_foods_screen');
   }
@@ -183,82 +186,15 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
       body: Consumer<SavedFoodProvider>(
         builder: (context, savedFoodProvider, child) {
           if (_isLoading || savedFoodProvider.isLoading) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Loading your saved foods...',
-                    style: PremiumTypography.bodyMedium.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                  ),
-                ],
-              ),
+            return const Center(
+              child: CircularProgressIndicator(),
             );
           }
 
           _filterSavedFoods();
 
           if (_filteredSavedFoods.isEmpty) {
-            return FadeTransition(
-              opacity: _fadeAnimation,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.bookmark_border,
-                        size: 80,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        _searchQuery.isEmpty
-                            ? 'No saved foods yet'
-                            : 'No saved foods match "$_searchQuery"',
-                        style: PremiumTypography.h4.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      if (_searchQuery.isEmpty) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'Save your favorite foods for quick access while logging meals',
-                          style: PremiumTypography.bodyMedium.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            // Navigate to search foods screen
-                            Navigator.pop(context);
-                          },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add Foods'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            );
+            return _buildEmptyState();
           }
 
           return AnimatedSwitcher(
@@ -410,6 +346,76 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Simple icon
+            Icon(
+              Icons.bookmark_border,
+              size: 80,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+
+            const SizedBox(height: 16),
+
+            // Title text
+            Text(
+              _searchQuery.isEmpty
+                  ? 'No Saved Foods Yet'
+                  : 'No foods match "$_searchQuery"',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            const SizedBox(height: 8),
+
+            // Description text
+            if (_searchQuery.isEmpty)
+              Text(
+                'Save your favorite foods for quick access while logging meals',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+            const SizedBox(height: 24),
+
+            // Action button
+            // if (_searchQuery.isEmpty)
+            //   ElevatedButton.icon(
+            //     onPressed: () {
+            //       // Return a result that tells Dashboard to show the add food menu
+            //       Navigator.of(context).pop('SHOW_ADD_FOOD_MENU');
+            //     },
+            //     icon: const Icon(Icons.add),
+            //     label: const Text('Add Foods'),
+            //     style: ElevatedButton.styleFrom(
+            //       padding: const EdgeInsets.symmetric(
+            //         horizontal: 24,
+            //         vertical: 12,
+            //       ),
+            //     ),
+            //   ),
+          ],
+        ),
       ),
     );
   }
