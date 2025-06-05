@@ -26,7 +26,7 @@ class _FitnessAIIntegrationExampleState
   @override
   void initState() {
     super.initState();
-    _aiService.initialize();
+    // _aiService.initialize(); // Removed as FitnessAIService initializes in its constructor
     _checkAIReadiness();
   }
 
@@ -573,7 +573,7 @@ class _FitnessAIIntegrationExampleState
 ///    @override
 ///    void initState() {
 ///      super.initState();
-///      _aiService.initialize();
+///      // _aiService.initialize(); // Removed as FitnessAIService initializes in its constructor
 ///    }
 ///    ```
 /// 

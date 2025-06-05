@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
-import 'package:macrotracker/screens/signup.dart';
+import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
@@ -107,8 +107,10 @@ class _WelcomescreenState extends State<Welcomescreen>
                           boxShadow: [
                             BoxShadow(
                               color: isDark
-                                  ? Colors.black.withAlpha(((0.3) * 255).round())
-                                  : Colors.black.withAlpha(((0.08) * 255).round()),
+                                  ? Colors.black
+                                      .withAlpha(((0.3) * 255).round())
+                                  : Colors.black
+                                      .withAlpha(((0.08) * 255).round()),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                               spreadRadius: 0,
@@ -216,64 +218,104 @@ class _WelcomescreenState extends State<Welcomescreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Sign In Button
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LoginScreen(),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.primaryColor,
-                          foregroundColor: theme.colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      // Prominent Get Started Button with gradient and animation
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.primaryColor,
+                              theme.primaryColor.withValues(alpha: 0.8),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                           ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.primaryColor.withValues(alpha: 0.4),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          'Sign In',
-                          style: AppTypography.onboardingButton.copyWith(
-                            color: theme.colorScheme.onPrimary,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const OnboardingScreen(),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.rocket_launch,
+                                size: 24,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Get Started',
+                                style: AppTypography.onboardingButton.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 24),
 
-                      // Create Account Button
-                      OutlinedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            CupertinoPageRoute(
-                              builder: (context) => const Signup(),
+                      // Already have an account? link
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Already have an account? ',
+                            style: TextStyle(
+                              color: customColors.textPrimary
+                                  .withValues(alpha: 0.7),
+                              fontSize: 15,
                             ),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: customColors.textPrimary,
-                          side: BorderSide(
-                            color: isDark
-                                ? Colors.white.withAlpha(((0.2) * 255).round())
-                                : Colors.black.withAlpha(((0.1) * 255).round()),
-                            width: 1,
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              'Sign In',
+                              style: TextStyle(
+                                color: theme.primaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                decoration: TextDecoration.underline,
+                                decorationColor: theme.primaryColor,
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          'Create Account',
-                          style: AppTypography.onboardingButton.copyWith(
-                            color: customColors.textPrimary,
-                          ),
-                        ),
+                        ],
                       ),
 
                       const SizedBox(height: 32),

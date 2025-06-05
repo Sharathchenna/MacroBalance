@@ -1,4 +1,7 @@
+import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
+
+part 'exercise.g.dart';
 
 enum MuscleGroup {
   chest,
@@ -41,24 +44,45 @@ enum ExerciseType {
   isometric
 }
 
-class Exercise {
+@HiveType(typeId: 0)
+class Exercise extends HiveObject {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   final String name;
+  @HiveField(2)
   final String description;
+  @HiveField(3)
   final List<String> primaryMuscles;
+  @HiveField(4)
   final List<String> secondaryMuscles;
+  @HiveField(5)
   final List<String> equipment;
+  @HiveField(6)
   final String type;
+  @HiveField(7)
   final String difficulty;
+  @HiveField(8)
   final List<String> instructions;
+  @HiveField(9)
   final String? videoUrl;
+  @HiveField(10)
   final String? imageUrl;
+  @HiveField(11)
   final bool isCompound;
+  @HiveField(12)
   final int? defaultSets;
+  @HiveField(13)
   final int? defaultReps;
+  @HiveField(14)
   final int? defaultDurationSeconds;
+  @HiveField(15)
   final double? defaultWeight;
+  @HiveField(16)
+  final double? estimatedCaloriesBurnedPerMinute;
+  @HiveField(17)
   final DateTime createdAt;
+  @HiveField(18)
   final DateTime updatedAt;
 
   Exercise({
@@ -78,6 +102,7 @@ class Exercise {
     this.defaultReps,
     this.defaultDurationSeconds,
     this.defaultWeight,
+    this.estimatedCaloriesBurnedPerMinute,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : id = id ?? const Uuid().v4(),
@@ -113,6 +138,7 @@ class Exercise {
     int? defaultReps,
     int? defaultDurationSeconds,
     double? defaultWeight,
+    double? estimatedCaloriesBurnedPerMinute,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -134,6 +160,8 @@ class Exercise {
       defaultDurationSeconds:
           defaultDurationSeconds ?? this.defaultDurationSeconds,
       defaultWeight: defaultWeight ?? this.defaultWeight,
+      estimatedCaloriesBurnedPerMinute: estimatedCaloriesBurnedPerMinute ??
+          this.estimatedCaloriesBurnedPerMinute,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -159,6 +187,8 @@ class Exercise {
       defaultWeight: json['default_weight'] != null
           ? (json['default_weight'] as num).toDouble()
           : null,
+      estimatedCaloriesBurnedPerMinute:
+          json['estimated_calories_burned_per_minute']?.toDouble(),
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
@@ -186,17 +216,45 @@ class Exercise {
       'default_reps': defaultReps,
       'default_duration_seconds': defaultDurationSeconds,
       'default_weight': defaultWeight,
+      'estimated_calories_burned_per_minute': estimatedCaloriesBurnedPerMinute,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
   }
 
+  // Convert to database format for insertion
+  Map<String, dynamic> toDatabaseJson() {
+    return {
+      'name': name,
+      'description': description,
+      'primary_muscles':
+          '{${primaryMuscles.map((m) => '"$m"').join(",")}}', // Format as PostgreSQL array
+      'secondary_muscles':
+          '{${secondaryMuscles.map((m) => '"$m"').join(",")}}', // Format as PostgreSQL array
+      'equipment':
+          '{${equipment.map((e) => '"$e"').join(",")}}', // Format as PostgreSQL array
+      'type': type,
+      'difficulty': difficulty.toLowerCase(), // Ensure it matches enum values
+      'instructions': instructions.join('\n'), // Convert array to string
+      'video_url': videoUrl,
+      'image_url': imageUrl,
+      'is_compound': isCompound,
+      'default_sets': defaultSets,
+      'default_reps': defaultReps,
+      'default_duration_seconds': defaultDurationSeconds,
+      'default_weight': defaultWeight,
+      'user_id': null, // This should be set when saving
+    };
+  }
+
   // Check if exercise can be performed with available equipment
   bool canPerformWith(List<EquipmentType> availableEquipment) {
-    if (equipment.isEmpty || equipment.contains(EquipmentType.bodyweight.name)) {
+    if (equipment.isEmpty ||
+        equipment.contains(EquipmentType.bodyweight.name)) {
       return true;
     }
-    return equipment.every((req) => availableEquipment.any((availEq) => availEq.name == req));
+    return equipment.every(
+        (req) => availableEquipment.any((availEq) => availEq.name == req));
   }
 
   // Check if exercise targets specific muscle groups

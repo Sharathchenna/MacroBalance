@@ -50,7 +50,7 @@ PODS:
     - FirebaseCore (~> 11.8.0)
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
-  - FirebaseAppCheckInterop (11.13.0)
+  - FirebaseAppCheckInterop (11.14.0)
   - FirebaseAuth (11.8.1):
     - FirebaseAppCheckInterop (~> 11.0)
     - FirebaseAuthInterop (~> 11.0)
@@ -60,7 +60,7 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GTMSessionFetcher/Core (< 5.0, >= 3.4)
     - RecaptchaInterop (~> 100.0)
-  - FirebaseAuthInterop (11.13.0)
+  - FirebaseAuthInterop (11.14.0)
   - FirebaseCore (11.8.1):
     - FirebaseCoreInternal (~> 11.8.0)
     - GoogleUtilities/Environment (~> 8.0)
@@ -211,7 +211,7 @@ PODS:
     - FlutterMacOS
   - permission_handler_apple (9.3.0):
     - Flutter
-  - PostHog (3.26.0)
+  - PostHog (3.26.2)
   - posthog_flutter (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -246,12 +246,12 @@ PODS:
   - sqflite_darwin (0.0.4):
     - Flutter
     - FlutterMacOS
-  - Superscript (0.2.4)
-  - SuperwallKit (4.4.1):
-    - Superscript (= 0.2.4)
+  - Superscript (0.1.18)
+  - SuperwallKit (4.0.6):
+    - Superscript (= 0.1.18)
   - superwallkit_flutter (0.0.1):
     - Flutter
-    - SuperwallKit (= 4.4.1)
+    - SuperwallKit (= 4.0.6)
   - url_launcher_ios (0.0.1):
     - Flutter
   - webview_flutter_wkwebview (0.0.1):
@@ -416,9 +416,9 @@ SPEC CHECKSUMS:
   firebase_core: ac395f994af4e28f6a38b59e05a88ca57abeb874
   firebase_messaging: 7e223f4ee7ca053bf4ce43748e84a6d774ec9728
   FirebaseAppCheck: f6648d6d2b321ecf94cf72f6737fc68d4fddc010
-  FirebaseAppCheckInterop: 72066489c209823649a997132bcd9269bc33a4bb
+  FirebaseAppCheckInterop: a92ba81d0ee3c4cddb1a2e52c668ea51dc63c3ae
   FirebaseAuth: ad59a1a7b161e75f74c39f70179d2482d40e2737
-  FirebaseAuthInterop: 4fa327ec3c551a80a6929561f83af80b1dd44937
+  FirebaseAuthInterop: e25b58ecb90f3285085fa2118861a3c9dfdc62ad
   FirebaseCore: 99fe0c4b44a39f37d99e6404e02009d2db5d718d
   FirebaseCoreExtension: 3d3f2017a00d06e09ab4ebe065391b0bb642565e
   FirebaseCoreInternal: df24ce5af28864660ecbd13596fc8dd3a8c34629
@@ -454,7 +454,7 @@ SPEC CHECKSUMS:
   package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
-  PostHog: 77fa0e762ced56862eb9a520c46bda206ccf5f23
+  PostHog: 1537fafb97b44964c170f135e120b1b953338c64
   posthog_flutter: 6d1041c7da77eb2032c27b72df103439af64cb8c
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   purchases_flutter: af24717c282747d54ee718db91a946629e1530b8
@@ -469,9 +469,9 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
   sign_in_with_apple: f3bf75217ea4c2c8b91823f225d70230119b8440
   sqflite_darwin: 5a7236e3b501866c1c9befc6771dfd73ffb8702d
-  Superscript: ede1cf73124c02ba1e120fbe5e15d3c4b12020a0
-  SuperwallKit: 643979a6e0c8fea3967f6bbd561398ef8ca5f847
-  superwallkit_flutter: 475a74c7cf126b05abe9cdc43aba23d44cfa8abf
+  Superscript: 88a0e5e467fc986289f99e20e383232513c41ea9
+  SuperwallKit: 18a4588702d5369880563d5a17cb967423f94c89
+  superwallkit_flutter: 8b17d2999070e8173c3be23cd64a524df3ed2ba9
   url_launcher_ios: 5334b05cef931de560670eeae103fd3e431ac3fe
   webview_flutter_wkwebview: a4af96a051138e28e29f60101d094683b9f82188
 

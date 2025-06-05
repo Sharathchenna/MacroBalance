@@ -55,8 +55,9 @@ class _DebugPerformanceScreenState extends State<DebugPerformanceScreen>
     });
 
     if (_isRealTimeMode) {
+      // Changed from 1 second to 10 seconds to reduce CPU/memory usage
       _refreshTimer =
-          Timer.periodic(const Duration(seconds: 1), (_) => _refreshData());
+          Timer.periodic(const Duration(seconds: 10), (_) => _refreshData());
     } else {
       _refreshTimer?.cancel();
     }

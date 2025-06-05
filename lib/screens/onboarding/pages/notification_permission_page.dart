@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/services/notification_service.dart';
 
 class NotificationPermissionPage extends StatefulWidget {
@@ -66,23 +65,20 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
     HapticFeedback.mediumImpact();
 
     try {
-      // Initialize and request notification permissions
       await NotificationService().initialize();
 
-      // Show success feedback
       if (mounted) {
         HapticFeedback.lightImpact();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Notifications enabled successfully!'),
+          const SnackBar(
+            content: Text('Notifications enabled successfully!'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 1),
+            duration: Duration(seconds: 1),
           ),
         );
       }
 
-      // Small delay to show success message
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
@@ -99,8 +95,6 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
             behavior: SnackBarBehavior.floating,
           ),
         );
-
-        // Continue anyway after error
         widget.onNext();
       }
     } finally {
@@ -121,340 +115,223 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final customColors = theme.extension<CustomColors>();
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final size = MediaQuery.of(context).size;
 
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.symmetric(
-          horizontal: screenWidth * 0.06,
-          vertical: 16,
+          horizontal: size.width * 0.06,
+          vertical: size.height * 0.03,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // Top section with icon and text
-            Expanded(
-              flex: 3,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Animated icon with gradient background (smaller)
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              (customColors?.accentPrimary ??
-                                      theme.primaryColor)
-                                  .withOpacity(0.15),
-                              (customColors?.accentPrimary ??
-                                      theme.primaryColor)
-                                  .withOpacity(0.05),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (customColors?.accentPrimary ??
-                                      theme.primaryColor)
-                                  .withOpacity(0.1),
-                              blurRadius: 15,
-                              spreadRadius: 3,
-                            ),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Header section with icon and title
+                Column(
+                  children: [
+                    Container(
+                      width: size.width * 0.18,
+                      height: size.width * 0.18,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            (customColors?.accentPrimary ?? theme.primaryColor)
+                                .withValues(alpha: 0.15),
+                            (customColors?.accentPrimary ?? theme.primaryColor)
+                                .withValues(alpha: 0.05),
                           ],
-                        ),
-                        child: Icon(
-                          Icons.notifications_active_rounded,
-                          size: 50,
-                          color:
-                              customColors?.accentPrimary ?? theme.primaryColor,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                       ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Title with modern typography (smaller)
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: Text(
-                        'Stay on Track',
-                        style: GoogleFonts.inter(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          color: customColors?.textPrimary ??
-                              theme.colorScheme.onSurface,
-                          letterSpacing: -0.5,
-                        ),
-                        textAlign: TextAlign.center,
+                      child: Icon(
+                        Icons.notifications_active_rounded,
+                        size: size.width * 0.09,
+                        color: customColors?.accentPrimary ?? theme.primaryColor,
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Subtitle
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: Text(
-                        'Smart Nutrition Reminders',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color:
-                              customColors?.accentPrimary ?? theme.primaryColor,
-                        ),
-                        textAlign: TextAlign.center,
+                    SizedBox(height: size.height * 0.025),
+                    Text(
+                      'Stay on Track',
+                      style: GoogleFonts.inter(
+                        fontSize: size.width * 0.065,
+                        fontWeight: FontWeight.w700,
+                        color: customColors?.textPrimary ?? theme.colorScheme.onSurface,
+                        letterSpacing: -0.5,
                       ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: size.height * 0.008),
+                    Text(
+                      'Get reminders to stay consistent with your nutrition goals',
+                      style: GoogleFonts.inter(
+                        fontSize: size.width * 0.038,
+                        color: customColors?.textSecondary ?? theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        height: 1.3,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+
+                // Features section - compact horizontal layout
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: size.width * 0.04,
+                    vertical: size.height * 0.025,
+                  ),
+                  decoration: BoxDecoration(
+                    color: customColors?.cardBackground ?? theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.1),
+                      width: 1,
                     ),
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // Description with better spacing (smaller)
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          'Get gentle reminders to log your meals and stay consistent with your nutrition goals.',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: customColors?.textSecondary ??
-                                theme.colorScheme.onSurface.withOpacity(0.7),
-                            height: 1.5,
-                            letterSpacing: 0.1,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Features list (compact)
-            Expanded(
-              flex: 2,
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildCompactFeatureItem(
+                      _buildCompactFeature(
                         icon: Icons.schedule_rounded,
-                        title: 'Meal Reminders',
+                        title: 'Meal\nReminders',
                         theme: theme,
                         customColors: customColors,
+                        size: size,
                       ),
-                      const SizedBox(height: 8),
-                      _buildCompactFeatureItem(
+                      _buildCompactFeature(
                         icon: Icons.insights_rounded,
-                        title: 'Progress Updates',
+                        title: 'Progress\nUpdates',
                         theme: theme,
                         customColors: customColors,
+                        size: size,
                       ),
-                      const SizedBox(height: 8),
-                      _buildCompactFeatureItem(
+                      _buildCompactFeature(
                         icon: Icons.tune_rounded,
-                        title: 'Customizable Settings',
+                        title: 'Custom\nSettings',
                         theme: theme,
                         customColors: customColors,
+                        size: size,
                       ),
                     ],
                   ),
                 ),
-              ),
-            ),
 
-            // Buttons section
-            Expanded(
-              flex: 1,
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Allow button with gradient
-                      Container(
-                        width: double.infinity,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              customColors?.accentPrimary ?? theme.primaryColor,
-                              (customColors?.accentPrimary ??
-                                      theme.primaryColor)
-                                  .withOpacity(0.8),
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
+                // Buttons section
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: size.height * 0.065,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleAllowNotifications,
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: customColors?.accentPrimary ?? theme.primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (customColors?.accentPrimary ??
-                                      theme.primaryColor)
-                                  .withOpacity(0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                          elevation: 0,
                         ),
-                        child: ElevatedButton(
-                          onPressed:
-                              _isLoading ? null : _handleAllowNotifications,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(
-                                  'Enable Notifications',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.2,
-                                  ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
                                 ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Skip button with subtle styling
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: TextButton(
-                          onPressed: _isLoading ? null : _handleSkip,
-                          style: TextButton.styleFrom(
-                            foregroundColor: customColors?.textSecondary ??
-                                theme.colorScheme.onSurface.withOpacity(0.7),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: BorderSide(
-                                color:
-                                    theme.colorScheme.outline.withOpacity(0.2),
-                                width: 1,
+                              )
+                            : Text(
+                                'Enable Notifications',
+                                style: GoogleFonts.inter(
+                                  fontSize: size.width * 0.04,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ),
-                          child: Text(
-                            'Maybe Later',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.1,
+                      ),
+                    ),
+                    SizedBox(height: size.height * 0.015),
+                    SizedBox(
+                      width: double.infinity,
+                      height: size.height * 0.065,
+                      child: TextButton(
+                        onPressed: _isLoading ? null : _handleSkip,
+                        style: TextButton.styleFrom(
+                          foregroundColor: customColors?.textSecondary ?? theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                              width: 1,
                             ),
                           ),
                         ),
+                        child: Text(
+                          'Maybe Later',
+                          style: GoogleFonts.inter(
+                            fontSize: size.width * 0.04,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCompactFeatureItem({
+  Widget _buildCompactFeature({
     required IconData icon,
     required String title,
     required ThemeData theme,
     required CustomColors? customColors,
+    required Size size,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: customColors?.cardBackground ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.1),
-          width: 1,
+    return Column(
+      children: [
+        Container(
+          width: size.width * 0.12,
+          height: size.width * 0.12,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                (customColors?.accentPrimary ?? theme.primaryColor)
+                    .withValues(alpha: 0.15),
+                (customColors?.accentPrimary ?? theme.primaryColor)
+                    .withValues(alpha: 0.08),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            size: size.width * 0.06,
+            color: customColors?.accentPrimary ?? theme.primaryColor,
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        SizedBox(height: size.height * 0.01),
+        Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: size.width * 0.03,
+            fontWeight: FontWeight.w600,
+            color: customColors?.textPrimary ?? theme.colorScheme.onSurface,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  (customColors?.accentPrimary ?? theme.primaryColor)
-                      .withOpacity(0.15),
-                  (customColors?.accentPrimary ?? theme.primaryColor)
-                      .withOpacity(0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: customColors?.accentPrimary ?? theme.primaryColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: customColors?.textPrimary ?? theme.colorScheme.onSurface,
-                letterSpacing: 0.1,
-              ),
-            ),
-          ),
-        ],
-      ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }

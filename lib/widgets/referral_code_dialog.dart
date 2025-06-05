@@ -46,7 +46,6 @@ class _ReferralCodeDialogState extends State<ReferralCodeDialog> {
       // Validate and show the referral paywall
       final isValid = await SuperwallService().validateAndShowReferralPaywall(
         code,
-        context: context,
         influencerName: _getInfluencerName(code),
         discountPercentage: _getDiscountPercentage(code),
       );

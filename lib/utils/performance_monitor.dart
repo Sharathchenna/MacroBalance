@@ -289,7 +289,8 @@ class _PerformanceOverlayState extends State<PerformanceOverlay> {
   void initState() {
     super.initState();
     if (kDebugMode) {
-      _updateTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      // Reduced frequency from 2 seconds to 30 seconds to save CPU/memory
+      _updateTimer = Timer.periodic(const Duration(seconds: 30), (_) {
         if (mounted && _showOverlay) {
           setState(() {});
         }

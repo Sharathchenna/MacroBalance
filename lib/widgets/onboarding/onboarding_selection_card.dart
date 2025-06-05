@@ -55,7 +55,9 @@ class OnboardingSelectionCard extends StatelessWidget {
             ),
           ],
           border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.withAlpha(((0.2) * 255).round()),
+            color: isSelected
+                ? primaryColor
+                : Colors.grey.withAlpha(((0.2) * 255).round()),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -105,11 +107,12 @@ class OnboardingSelectionCard extends StatelessWidget {
         SizedBox(height: isCompact ? 10 : 16),
         AnimatedDefaultTextStyle(
           duration: const Duration(milliseconds: 300),
-          style: TextStyle(
-            // Adjust font size based on compact mode
-            fontSize: isCompact ? 16 : 18,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          style:
+              (isCompact ? PremiumTypography.bodyLarge : PremiumTypography.h4)
+                  .copyWith(
             color: isSelected ? primaryColor : textColor,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            letterSpacing: isSelected ? -0.3 : -0.2,
           ),
           child: Text(label),
         ),
@@ -123,21 +126,6 @@ class OnboardingSelectionCard extends StatelessWidget {
     Theme.of(context);
     return Row(
       children: [
-        // Optional: Radio button style indicator if preferred over border highlight
-        /*
-         AnimatedContainer(
-           duration: const Duration(milliseconds: 300),
-           width: 24, height: 24,
-           decoration: BoxDecoration(
-             shape: BoxShape.circle,
-             color: isSelected ? primaryColor : Colors.transparent,
-             border: Border.all(color: isSelected ? primaryColor : Colors.grey.withAlpha(((0.5) * 255).round()), width: 2),
-           ),
-           child: isSelected ? Center(child: Icon(Icons.check, size: 16, color: theme.colorScheme.onPrimary)) : null,
-         ),
-         const SizedBox(width: 16),
-         */
-        // Icon indicator (can be used instead of radio button)
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           // Adjust height and width based on compact mode
@@ -166,11 +154,13 @@ class OnboardingSelectionCard extends StatelessWidget {
             children: [
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 300),
-                style: TextStyle(
-                  // Adjust font size based on compact mode
-                  fontSize: isCompact ? 14 : 16,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                style: (isCompact
+                        ? PremiumTypography.bodyLarge
+                        : PremiumTypography.h4)
+                    .copyWith(
                   color: isSelected ? primaryColor : textColor,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  letterSpacing: isSelected ? -0.3 : -0.2,
                 ),
                 child: Text(label),
               ),
@@ -179,11 +169,11 @@ class OnboardingSelectionCard extends StatelessWidget {
                 SizedBox(height: isCompact ? 2 : 4),
                 Text(
                   description!,
-                  // Adjust font size and limit lines based on compact mode
-                  style: TextStyle(
-                    fontSize: isCompact ? 12 : 14,
+                  style: PremiumTypography.bodyMedium.copyWith(
                     color: secondaryTextColor,
-                    height: isCompact ? 1.1 : 1.2,
+                    height: isCompact ? 1.3 : 1.4,
+                    letterSpacing: 0.1,
+                    fontWeight: FontWeight.w400,
                   ),
                   maxLines: isCompact ? 1 : 2,
                   overflow: TextOverflow.ellipsis,

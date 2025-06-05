@@ -61,6 +61,29 @@ class _AuthGateState extends State<AuthGate> {
                   .put('protein_goal', response['protein_goal']);
               await StorageService().put('carbs_goal', response['carbs_goal']);
               await StorageService().put('fat_goal', response['fat_goal']);
+
+              // Also update the structured nutrition_goals format for consistency
+              final nutritionGoals = {
+                'macro_targets': {
+                  'calories': response['calories_goal'] ?? 2000.0,
+                  'protein': response['protein_goal'] ?? 150.0,
+                  'carbs': response['carbs_goal'] ?? 225.0,
+                  'fat': response['fat_goal'] ?? 65.0,
+                },
+                'steps_goal': response['steps_goal'] ?? 10000,
+                'bmr': response['bmr'] ?? 1500.0,
+                'tdee': response['tdee'] ?? 2000.0,
+                'goal_weight_kg': response['goal_weight_kg'] ?? 0.0,
+                'current_weight_kg': response['current_weight_kg'] ?? 0.0,
+                'goal_type': response['goal_type'] ?? 'maintain',
+                'deficit_surplus': response['deficit_surplus'] ?? 500,
+                'updated_at': DateTime.now().toIso8601String(),
+              };
+              await StorageService()
+                  .put('nutrition_goals', jsonEncode(nutritionGoals));
+
+              debugPrint(
+                  'Synced Supabase goals to local storage: calories=${response['calories_goal']}');
             } catch (e) {
               debugPrint('Error saving to local storage: $e');
               // Continue even if local save fails

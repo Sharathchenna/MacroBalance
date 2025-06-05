@@ -12,6 +12,7 @@ class SuperwallService implements sw.SuperwallDelegate {
   bool _isInitialized = false;
   final SubscriptionService _subscriptionService = SubscriptionService();
   String? _storedReferralCode;
+  bool _isAttemptingHardPaywallReShow = false;
 
   /// Initialize Superwall with your API key
   Future<void> initialize() async {
@@ -83,7 +84,7 @@ class SuperwallService implements sw.SuperwallDelegate {
 
       final params = <String, String>{
         'paywall_type': 'hard',
-        'trigger': 'app_install',
+        'trigger': 'signup_required',
       };
 
       // Add referral code if available
@@ -92,11 +93,11 @@ class SuperwallService implements sw.SuperwallDelegate {
         params['has_referral'] = 'true';
       }
 
-      // Use app_install placement for hard paywall
-      debugPrint('Attempting to show app_install hard paywall');
+      // Use onboarding_paywall placement instead of app_install for better compatibility
+      debugPrint('Attempting to show onboarding_paywall as hard paywall');
 
       sw.Superwall.shared.registerPlacement(
-        'app_install',
+        'onboarding_paywall',
         params: params,
         feature: () {
           debugPrint('User has premium access - hard paywall bypassed');
@@ -334,7 +335,6 @@ class SuperwallService implements sw.SuperwallDelegate {
   /// This is a convenience method that combines validation and paywall display
   Future<bool> validateAndShowReferralPaywall(
     String code, {
-    BuildContext? context,
     String? influencerName,
     double? discountPercentage,
   }) async {
@@ -431,22 +431,83 @@ class SuperwallService implements sw.SuperwallDelegate {
     }
   }
 
-  /// Handle restore action from paywall
+  /// Handle restore action from paywall with custom logic
   Future<void> _handleRestoreAction() async {
     try {
-      final success = await restorePurchases();
-      debugPrint('Superwall Delegate: Restore completed with result: $success');
+      debugPrint('Custom restore: Starting restore process');
 
-      // You could show a user message here if needed
-      // The paywall should automatically dismiss if subscription is found
+      // Use RevenueCat directly for more control
+      final customerInfo = await Purchases.restorePurchases();
+
+      final hasActiveSubscription = customerInfo.entitlements.active.isNotEmpty;
+
+      if (hasActiveSubscription) {
+        debugPrint('Custom restore: Active subscription found');
+
+        // Update subscription status immediately
+        await _subscriptionService.refreshPurchaserInfo();
+        await updateSubscriptionStatus(true);
+
+        debugPrint('Custom restore: Subscription restored successfully');
+        // The PaywallGate should automatically detect the subscription change and dismiss
+      } else {
+        debugPrint('Custom restore: No active subscriptions found');
+        // Don't show misleading success message - let Superwall handle appropriately
+        // The default Superwall behavior should show an appropriate message
+      }
     } catch (e) {
-      debugPrint('Superwall Delegate: Error in restore action: $e');
+      debugPrint('Custom restore error: $e');
+      // Let Superwall handle the error display
     }
   }
 
   @override
   void didDismissPaywall(sw.PaywallInfo paywallInfo) {
-    debugPrint('Superwall Delegate: Paywall dismissed');
+    debugPrint(
+        'Paywall dismissed: ${paywallInfo.name} (ID: ${paywallInfo.identifier}) - performing security check...');
+
+    Future.microtask(() async {
+      if (_isAttemptingHardPaywallReShow) {
+        debugPrint(
+            'Hard paywall re-show already in progress or recently attempted, skipping for: ${paywallInfo.name}');
+        return;
+      }
+
+      try {
+        _isAttemptingHardPaywallReShow = true;
+        debugPrint(
+            'Set _isAttemptingHardPaywallReShow = true for ${paywallInfo.name}');
+
+        await _subscriptionService.refreshPurchaserInfo();
+        final hasSubscription = _subscriptionService.hasPremiumAccess();
+
+        if (!hasSubscription) {
+          debugPrint(
+              '❌ Security breach: Unauthorized dismissal of paywall: ${paywallInfo.name} (ID: ${paywallInfo.identifier}, URL: ${paywallInfo.url}). User does NOT have subscription.');
+          debugPrint('Re-showing hard paywall immediately.');
+
+          await Future.delayed(
+              const Duration(milliseconds: 100)); // Brief delay
+          await showHardPaywall();
+        } else {
+          debugPrint(
+              '✅ Paywall dismissed: ${paywallInfo.name}. User HAS subscription.');
+        }
+      } catch (e) {
+        debugPrint(
+            'Error in didDismissPaywall security check / re-show logic for ${paywallInfo.name}: $e');
+        // Consider if a re-show is safe or needed here on error.
+        // For now, the finally block will reset the flag.
+      } finally {
+        // Reset the flag after a delay to allow the new paywall to present
+        // and to prevent issues if dismissal events are rapid.
+        Future.delayed(const Duration(seconds: 1), () {
+          _isAttemptingHardPaywallReShow = false;
+          debugPrint(
+              'Reset _isAttemptingHardPaywallReShow = false (was for ${paywallInfo.name})');
+        });
+      }
+    });
   }
 
   @override
@@ -484,25 +545,22 @@ class SuperwallService implements sw.SuperwallDelegate {
 
   @override
   void willDismissPaywall(sw.PaywallInfo paywallInfo) {
-    debugPrint('Superwall Delegate: Will dismiss paywall');
+    debugPrint(
+        'Paywall will be dismissed: ${paywallInfo.name} (ID: ${paywallInfo.identifier}, URL: ${paywallInfo.url}) - verifying subscription...');
 
-    // For hard paywall, we need to check subscription status when paywall is dismissed
+    // This method is called *before* the paywall is dismissed.
+    // Avoid re-showing paywall from here to prevent complex race conditions
+    // with didDismissPaywall and the paywall's own dismissal animation/logic.
+    // Focus on logging or preparing state if needed.
     Future.microtask(() async {
       try {
-        // Refresh subscription status to see if user purchased
         await _subscriptionService.refreshPurchaserInfo();
         final hasSubscription = _subscriptionService.hasPremiumAccess();
-
-        debugPrint('Paywall dismissed - subscription status: $hasSubscription');
-
-        // If this was a hard paywall and user still doesn't have subscription,
-        // they should not be able to proceed (Superwall should handle this)
-        if (!hasSubscription) {
-          debugPrint(
-              'Hard paywall dismissed without purchase - Superwall should handle blocking');
-        }
+        debugPrint(
+            'Subscription status as paywall (${paywallInfo.name}) is dismissing: $hasSubscription');
       } catch (e) {
-        debugPrint('Error checking subscription after paywall dismiss: $e');
+        debugPrint(
+            'Error refreshing subscription status in willDismissPaywall for ${paywallInfo.name}: $e');
       }
     });
   }
@@ -520,7 +578,40 @@ class SuperwallService implements sw.SuperwallDelegate {
   }
 
   @override
-  void didRedeemLink(sw.RedemptionResult result) {
+  // TODO: Find the correct type for 'result' from the Superwall SDK.
+  // Using 'dynamic' as a temporary workaround.
+  void didRedeemLink(dynamic result) {
     debugPrint('Superwall Delegate: Did redeem link with result: $result');
+  }
+
+  /// Test method to verify Superwall is working properly
+  Future<void> testSuperwallConnection() async {
+    debugPrint('=== TESTING SUPERWALL CONNECTION ===');
+
+    try {
+      // Initialize if needed
+      if (!_isInitialized) {
+        debugPrint('Initializing Superwall for test...');
+        await initialize();
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
+      debugPrint('Superwall initialized: $_isInitialized');
+      debugPrint(
+          'API Key configured: pk_92e7caae027e3213de436b66d1fb25996245e09c3415ef9b');
+
+      // Try to set subscription status to test connection
+      await updateSubscriptionStatus(false);
+      debugPrint('Successfully updated subscription status');
+
+      // Test user attributes
+      await setUserProperties({'test_user': 'debug_mode'});
+      debugPrint('Successfully set user properties');
+
+      debugPrint('✅ Superwall connection test successful');
+    } catch (e) {
+      debugPrint('❌ Superwall connection test failed: $e');
+      throw e;
+    }
   }
 }

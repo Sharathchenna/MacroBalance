@@ -1,36 +1,41 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:firebase_vertexai/firebase_vertexai.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // For potential AuthException, etc.
+import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/fitness_profile.dart';
 import '../services/storage_service.dart';
 import '../services/exercise_image_service.dart';
 import '../services/supabase_service.dart'; // Added SupabaseService import
+import '../config/api_config.dart';
+import '../models/workout_plan.dart';
+import '../models/exercise.dart';
 
 class FitnessAIService {
   static final FitnessAIService _instance = FitnessAIService._internal();
   factory FitnessAIService() => _instance;
-  FitnessAIService._internal();
+  FitnessAIService._internal() {
+    // Initialize Gemini in constructor
+    if (ApiConfig.isGeminiConfigured) {
+      final model = GenerativeModel(
+        model: ApiConfig.geminiModel,
+        apiKey: ApiConfig.geminiApiKey,
+      );
+      _model = model;
+    }
+  }
 
-  GenerativeModel? _model; // Changed to nullable
+  GenerativeModel? _model;
   final StorageService _storage = StorageService();
   final ExerciseImageService _exerciseService = ExerciseImageService();
-  final SupabaseService _supabaseService = SupabaseService(); // Added SupabaseService instance
+  final SupabaseService _supabaseService =
+      SupabaseService(); // Added SupabaseService instance
 
-  void initialize() {
-    if (_model != null) {
-      log('[FitnessAI] Model already initialized.');
-      return;
+  bool get isInitialized => _model != null;
+
+  void _checkInitialization() {
+    if (_model == null) {
+      throw Exception(
+          'Gemini AI is not initialized. Please configure API key in ApiConfig.');
     }
-    _model = FirebaseVertexAI.instance.generativeModel(
-      model: 'gemini-2.0-flash',
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      ),
-    );
   }
 
   // ================== FITNESS PROFILE DATA (Supabase Integration) ==================
@@ -82,39 +87,49 @@ class FitnessAIService {
     String? specificMuscleGroup,
     int? customDuration,
   }) async {
+    log('[FitnessAI] Starting enhanced workout plan generation...');
+    _checkInitialization();
+
     try {
-      // First, get AI-powered exercise recommendations from ExerciseDB
-      final aiExercises = await _getAIExerciseRecommendations(
+      // Get exercise recommendations first
+      log('[FitnessAI] Getting exercise recommendations...');
+      final availableExercises = await _getAIExerciseRecommendations(
         fitnessProfile,
         specificMuscleGroup,
       );
+      log('[FitnessAI] Found ${availableExercises.length} recommended exercises');
 
-      // Generate workout structure using AI
+      // Build the prompt
+      log('[FitnessAI] Building workout plan prompt...');
       final prompt = _buildEnhancedWorkoutPlanPrompt(
         fitnessProfile,
         macroData,
         specificMuscleGroup,
         customDuration,
-        aiExercises,
+        availableExercises,
       );
+      log('[FitnessAI] Generated prompt length: ${prompt.length} characters');
 
-      log('[FitnessAI] Generating enhanced workout plan for ${fitnessProfile.fitnessLevel} user');
-
+      // Generate the workout
+      log('[FitnessAI] Calling Gemini AI for workout generation...');
       final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
+      log('[FitnessAI] Received response length: ${responseText.length} characters');
 
-      // Parse and validate the JSON response
+      // Parse and validate the response
+      log('[FitnessAI] Parsing workout response...');
       final workoutData = _parseWorkoutResponse(responseText);
-
-      // Enhance workout data with real exercise information
-      final enhancedWorkout = await _enhanceWorkoutWithExerciseDB(workoutData);
+      log('[FitnessAI] Successfully parsed workout data');
 
       // Store the workout for future reference
-      await _storeWorkoutPlan(enhancedWorkout);
+      await _storeWorkoutPlan(workoutData);
+      log('[FitnessAI] Workout plan stored successfully');
 
-      return enhancedWorkout;
-    } catch (e) {
+      return workoutData;
+    } catch (e, stackTrace) {
       log('[FitnessAI] Error generating enhanced workout plan: $e');
+      log('[FitnessAI] Stack trace: $stackTrace');
+      log('[FitnessAI] Falling back to backup workout plan');
       return _getBackupWorkoutPlan(fitnessProfile);
     }
   }
@@ -434,7 +449,49 @@ class FitnessAIService {
     required Map<String, dynamic> macroData,
   }) async {
     try {
-      final prompt = _buildWeeklySchedulePrompt(fitnessProfile, macroData);
+      final prompt = '''
+Create a personalized weekly workout schedule with the following specifications:
+
+USER PROFILE:
+- Fitness Level: ${fitnessProfile.fitnessLevel}
+- Workouts per week: ${fitnessProfile.workoutsPerWeek}
+- Available Equipment: ${fitnessProfile.availableEquipment.join(', ')}
+- Workout Location: ${fitnessProfile.workoutLocation}
+- Max Duration per Session: ${fitnessProfile.maxWorkoutDuration} minutes
+- Preferred Days: ${fitnessProfile.preferredDays.join(', ')}
+- Preferred Time: ${fitnessProfile.preferredTimeOfDay}
+
+REQUIREMENTS:
+1. Create a balanced weekly schedule that targets all major muscle groups
+2. Account for proper rest and recovery between muscle groups
+3. Only include exercises that can be done with available equipment
+4. Match workout intensity to user's fitness level
+5. Include variety to maintain engagement
+6. Consider user's time preferences
+
+RESPONSE FORMAT:
+Return a JSON array of workout days:
+[
+  {
+    "day": "Monday",
+    "workout_focus": "Muscle group focus",
+    "estimated_duration": "Duration in minutes",
+    "exercises": [
+      {
+        "exercise": "Exercise name",
+        "sets": "Number of sets",
+        "reps": "Rep range",
+        "rest": "Rest period in seconds",
+        "equipment_needed": ["Required equipment"],
+        "instructions": "Form instructions"
+      }
+    ],
+    "notes": "Any special instructions or tips"
+  }
+]
+
+Ensure proper exercise selection and rest periods between workouts targeting the same muscle groups.
+''';
 
       log('[FitnessAI] Generating weekly schedule for ${fitnessProfile.workoutsPerWeek} workouts');
 
@@ -457,11 +514,60 @@ class FitnessAIService {
     String? focusArea,
   }) async {
     try {
-      final prompt = _buildQuickWorkoutPrompt(
-        fitnessProfile,
-        availableMinutes,
-        focusArea,
-      );
+      final prompt = '''
+Create a quick, effective workout for limited time with these specifications:
+
+USER PROFILE:
+- Fitness Level: ${fitnessProfile.fitnessLevel}
+- Available Time: $availableMinutes minutes
+- Focus Area: ${focusArea ?? 'Full Body'}
+- Available Equipment: ${fitnessProfile.availableEquipment.join(', ')}
+- Workout Location: ${fitnessProfile.workoutLocation}
+
+REQUIREMENTS:
+1. Create a time-efficient workout that can be completed in ${availableMinutes} minutes
+2. Focus on ${focusArea ?? 'full body'} exercises
+3. Include only exercises possible with available equipment
+4. Match intensity to user's fitness level
+5. Minimize rest periods while maintaining safety
+6. Include brief warm-up and cool-down
+
+RESPONSE FORMAT:
+Return a valid JSON object with this structure:
+{
+  "workout_name": "Quick workout name",
+  "estimated_duration": $availableMinutes,
+  "difficulty_level": "${fitnessProfile.fitnessLevel}",
+  "calories_burned_estimate": "Estimated calories",
+  "muscle_groups_targeted": ["target muscles"],
+  "warm_up": [
+    {
+      "exercise": "Name",
+      "duration": "Time in minutes",
+      "instructions": "Brief instructions"
+    }
+  ],
+  "main_exercises": [
+    {
+      "exercise": "Name",
+      "sets": "Number",
+      "reps": "Range or fixed",
+      "rest": "Rest in seconds",
+      "instructions": "Form guide",
+      "equipment_needed": ["Required equipment"]
+    }
+  ],
+  "cool_down": [
+    {
+      "exercise": "Name",
+      "duration": "Time in minutes",
+      "instructions": "Brief instructions"
+    }
+  ]
+}
+
+Ensure the workout can be completed within the time limit while being effective.
+''';
 
       log('[FitnessAI] Generating $availableMinutes-minute quick workout');
 
@@ -491,7 +597,8 @@ class FitnessAIService {
 
       if (_model == null) {
         log('[FitnessAI] Error: GenerativeModel not initialized.');
-        throw Exception('FitnessAIService not initialized. Call initialize() first.');
+        throw Exception(
+            'FitnessAIService not initialized. Call initialize() first.');
       }
       final response = await _model!.generateContent([Content.text(prompt)]);
       final responseText = response.text ?? '';
@@ -896,32 +1003,47 @@ Provide actionable, encouraging feedback based on data.
 
   // ================== RESPONSE PARSERS ==================
 
-  Map<String, dynamic> _parseWorkoutResponse(String response) {
+  Map<String, dynamic> _parseWorkoutResponse(String responseText) {
     try {
-      // Clean the response to extract JSON
-      final cleanResponse = _extractJsonFromResponse(response);
-      return json.decode(cleanResponse);
+      // Extract JSON from the response if needed
+      final jsonMatch =
+          RegExp(r'\{.*\}', dotAll: true).firstMatch(responseText);
+      final jsonData = jsonMatch != null ? jsonMatch.group(0) : responseText;
+
+      if (jsonData == null || jsonData.isEmpty) {
+        throw Exception('No JSON data found in response');
+      }
+
+      return json.decode(jsonData);
     } catch (e) {
       log('[FitnessAI] Error parsing workout response: $e');
-      return {};
+      throw Exception('Failed to parse workout data: $e');
     }
   }
 
-  List<Map<String, dynamic>> _parseWeeklyScheduleResponse(String response) {
+  List<Map<String, dynamic>> _parseWeeklyScheduleResponse(String responseText) {
     try {
-      final cleanResponse = _extractJsonFromResponse(response);
-      final List<dynamic> scheduleList = json.decode(cleanResponse);
-      return scheduleList.cast<Map<String, dynamic>>();
+      // Extract JSON from the response if needed
+      final jsonMatch =
+          RegExp(r'\[.*\]', dotAll: true).firstMatch(responseText);
+      final jsonData = jsonMatch != null ? jsonMatch.group(0) : responseText;
+
+      if (jsonData == null || jsonData.isEmpty) {
+        throw Exception('No JSON data found in response');
+      }
+
+      final List<dynamic> decoded = json.decode(jsonData);
+      return decoded.cast<Map<String, dynamic>>();
     } catch (e) {
-      log('[FitnessAI] Error parsing weekly schedule: $e');
-      return [];
+      log('[FitnessAI] Error parsing weekly schedule response: $e');
+      throw Exception('Failed to parse weekly schedule data: $e');
     }
   }
 
   List<Map<String, dynamic>> _parseExerciseAlternativesResponse(
-      String response) {
+      String responseText) {
     try {
-      final cleanResponse = _extractJsonFromResponse(response);
+      final cleanResponse = _extractJsonFromResponse(responseText);
       final List<dynamic> alternatives = json.decode(cleanResponse);
       return alternatives.cast<Map<String, dynamic>>();
     } catch (e) {
@@ -930,9 +1052,9 @@ Provide actionable, encouraging feedback based on data.
     }
   }
 
-  Map<String, dynamic> _parseExerciseGuidanceResponse(String response) {
+  Map<String, dynamic> _parseExerciseGuidanceResponse(String responseText) {
     try {
-      final cleanResponse = _extractJsonFromResponse(response);
+      final cleanResponse = _extractJsonFromResponse(responseText);
       return json.decode(cleanResponse);
     } catch (e) {
       log('[FitnessAI] Error parsing exercise guidance: $e');
@@ -940,9 +1062,9 @@ Provide actionable, encouraging feedback based on data.
     }
   }
 
-  Map<String, dynamic> _parseProgressAnalysisResponse(String response) {
+  Map<String, dynamic> _parseProgressAnalysisResponse(String responseText) {
     try {
-      final cleanResponse = _extractJsonFromResponse(response);
+      final cleanResponse = _extractJsonFromResponse(responseText);
       return json.decode(cleanResponse);
     } catch (e) {
       log('[FitnessAI] Error parsing progress analysis: $e');
@@ -967,11 +1089,11 @@ Provide actionable, encouraging feedback based on data.
 
   // ================== STORAGE METHODS ==================
 
-  Future<void> _storeWorkoutPlan(Map<String, dynamic> workout) async {
+  Future<void> _storeWorkoutPlan(Map<String, dynamic> workoutData) async {
     try {
       final workoutHistory = await _getWorkoutHistory();
       workoutHistory.add({
-        ...workout,
+        ...workoutData,
         'generated_at': DateTime.now().toIso8601String(),
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
       });
@@ -987,12 +1109,13 @@ Provide actionable, encouraging feedback based on data.
     }
   }
 
-  Future<void> _storeWeeklySchedule(List<Map<String, dynamic>> schedule) async {
+  Future<void> _storeWeeklySchedule(
+      List<Map<String, dynamic>> scheduleData) async {
     try {
       await _storage.put(
           'current_weekly_schedule',
           json.encode({
-            'schedule': schedule,
+            'schedule': scheduleData,
             'generated_at': DateTime.now().toIso8601String(),
             'week_of': _getCurrentWeekStart().toIso8601String(),
           }));
@@ -1023,7 +1146,6 @@ Provide actionable, encouraging feedback based on data.
   // ================== BACKUP METHODS ==================
 
   Map<String, dynamic> _getBackupWorkoutPlan(FitnessProfile profile) {
-    // Provide a basic backup workout when AI fails
     return {
       'workout_name': 'Basic ${profile.fitnessLevel} Workout',
       'estimated_duration': profile.optimalWorkoutDuration,
@@ -1073,43 +1195,35 @@ Provide actionable, encouraging feedback based on data.
   }
 
   List<Map<String, dynamic>> _getBackupWeeklySchedule(FitnessProfile profile) {
-    final days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday'
-    ];
+    final workoutsPerWeek = profile.workoutsPerWeek;
     final schedule = <Map<String, dynamic>>[];
 
-    int workoutCount = 0;
-    for (final day in days) {
-      if (workoutCount < profile.workoutsPerWeek) {
-        schedule.add({
-          'day': day,
-          'workout_type': 'Full Body',
-          'primary_focus': 'General Fitness',
-          'estimated_duration': profile.optimalWorkoutDuration,
-          'intensity': 'moderate',
-          'equipment_needed': profile.availableEquipment,
-          'key_exercises': ['Squats', 'Push-ups', 'Stretching'],
-          'rest_day': false
-        });
-        workoutCount++;
-      } else {
-        schedule.add({
-          'day': day,
-          'workout_type': 'Rest Day',
-          'primary_focus': 'Recovery',
-          'estimated_duration': 0,
-          'intensity': 'low',
-          'equipment_needed': [],
-          'key_exercises': ['Light stretching', 'Walking'],
-          'rest_day': true
-        });
-      }
+    final workoutTypes = [
+      'Full Body',
+      'Upper Body',
+      'Lower Body',
+      'Core',
+      'Cardio'
+    ];
+
+    for (var i = 0; i < workoutsPerWeek; i++) {
+      schedule.add({
+        'day': _getDayName(i),
+        'workout_focus': workoutTypes[i % workoutTypes.length],
+        'estimated_duration': profile.optimalWorkoutDuration,
+        'exercises': [
+          {
+            'exercise':
+                'Basic ${workoutTypes[i % workoutTypes.length]} Exercise',
+            'sets': 3,
+            'reps': '10-12',
+            'rest': '60',
+            'equipment_needed': ['bodyweight'],
+            'instructions': 'Perform with proper form'
+          }
+        ],
+        'notes': 'Backup workout - adjust as needed'
+      });
     }
 
     return schedule;
@@ -1153,5 +1267,219 @@ Provide actionable, encouraging feedback based on data.
       'notes': 'Quick backup workout for time constraints',
       'progression_tips': 'Try to increase intensity gradually'
     };
+  }
+
+  String _getDayName(int index) {
+    final days = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
+    return days[index % 7];
+  }
+
+  // Add this new method for simplified workout generation
+  Future<WorkoutRoutine> generateWorkout(
+      FitnessProfile profile, Map<String, dynamic> macroData) async {
+    log('[FitnessAI] Starting workout generation...');
+    log('[FitnessAI] Profile data: fitness level=${profile.fitnessLevel}, '
+        'workouts/week=${profile.workoutsPerWeek}, '
+        'equipment=${profile.availableEquipment.join(", ")}');
+
+    try {
+      // Check initialization
+      if (!isInitialized) {
+        log('[FitnessAI] Error: Gemini AI not initialized. API Key status: ${ApiConfig.isGeminiConfigured}');
+        throw Exception(
+            'Gemini AI is not initialized. Please check your API configuration.');
+      }
+
+      // Determine optimal workout parameters based on user profile
+      final duration = profile.optimalWorkoutDuration;
+      final intensity = _determineIntensityFromProfile(profile);
+
+      log('[FitnessAI] Generating workout with parameters: '
+          'duration=$duration minutes, intensity=$intensity');
+
+      // Generate workout plan
+      log('[FitnessAI] Calling generateEnhancedWorkoutPlan...');
+      final workoutData = await generateEnhancedWorkoutPlan(
+        fitnessProfile: profile,
+        macroData: macroData,
+        customDuration: duration,
+      );
+
+      log('[FitnessAI] Received workout data: ${json.encode(workoutData)}');
+
+      // Convert to WorkoutRoutine
+      final routine = WorkoutRoutine(
+        name: workoutData['workout_name'] ?? 'AI Generated Workout',
+        description: workoutData['description'] ??
+            'Personalized workout based on your fitness profile',
+        estimatedDurationMinutes: workoutData['estimated_duration'] ?? duration,
+        difficulty: _mapDifficultyToEnum(workoutData['difficulty_level']?.toString()) ?? _mapDifficultyToEnum(intensity),
+        targetMuscles: List<String>.from(
+            workoutData['muscle_groups_targeted'] ?? ['full body']),
+        requiredEquipment:
+            List<String>.from(workoutData['required_equipment'] ?? []),
+        exercises: _convertExercises(workoutData['main_exercises'] ?? []),
+        isCustom: true,
+      );
+
+      log('[FitnessAI] Successfully created workout routine: ${routine.name} '
+          'with ${routine.exercises.length} exercises');
+      return routine;
+    } catch (e, stackTrace) {
+      log('[FitnessAI] Error generating workout: $e');
+      log('[FitnessAI] Stack trace: $stackTrace');
+      // Return a basic backup workout
+      log('[FitnessAI] Falling back to basic workout');
+      return _createBasicWorkout(profile);
+    }
+  }
+
+  String _determineIntensityFromProfile(FitnessProfile profile) {
+    switch (profile.fitnessLevel.toLowerCase()) {
+      case 'beginner':
+        return 'Light';
+      case 'intermediate':
+        return 'Moderate';
+      case 'advanced':
+        return 'High';
+      default:
+        return 'Moderate';
+    }
+  }
+
+// Helper function to map difficulty strings to DB enum values
+String _mapDifficultyToEnum(String? rawDifficulty) {
+  final lowerDifficulty = rawDifficulty?.toLowerCase().trim();
+  switch (lowerDifficulty) {
+    case 'easy':
+    case 'beginner':
+      return 'beginner';
+    case 'medium':
+    case 'intermediate':
+    case 'moderate':
+      return 'intermediate';
+    case 'hard':
+    case 'advanced':
+      return 'advanced';
+    default:
+      // Default to 'beginner' if mapping is unclear.
+      // Log a warning if an unexpected value is encountered.
+      if (rawDifficulty != null) {
+        log('[FitnessAI] Unknown difficulty value "$rawDifficulty" received, defaulting to "beginner".');
+      }
+      return 'beginner';
+  }
+}
+
+  List<WorkoutExercise> _convertExercises(List<dynamic> exerciseData) {
+    log('[FitnessAI] Converting ${exerciseData.length} exercises to WorkoutExercise objects');
+
+    return exerciseData.asMap().entries.map((entry) {
+      final i = entry.key;
+      final data = entry.value;
+
+      log('[FitnessAI] Converting exercise ${i + 1}: ${data['exercise'] ?? 'unnamed'}');
+
+      final exercise = Exercise(
+        id: 'ai_exercise_$i',
+        name: data['exercise'] ?? 'Exercise ${i + 1}',
+        description: data['instructions'] ?? 'AI-generated exercise',
+        primaryMuscles:
+            List<String>.from(data['muscle_groups'] ?? ['full body']),
+        type: 'strength',
+        difficulty: _mapDifficultyToEnum(data['difficulty']?.toString()),
+        instructions: [data['instructions'] ?? 'Follow proper form'],
+        equipment: List<String>.from(data['equipment_needed'] ?? []),
+        isCompound: ((data['muscle_groups'] as List?)?.length ?? 0) > 1,
+      );
+
+      final sets = List.generate(
+        data['sets'] ?? 3,
+        (_) => WorkoutSet(
+          reps: _parseReps(data['reps']?.toString() ?? '10-12'),
+          durationSeconds: null,
+        ),
+      );
+
+      log('[FitnessAI] Created exercise: ${exercise.name} with ${sets.length} sets');
+
+      return WorkoutExercise(
+        exerciseId: exercise.id,
+        exercise: exercise,
+        sets: sets,
+        restSeconds: _parseRestSeconds(data['rest']),
+      );
+    }).toList();
+  }
+
+  int _parseRestSeconds(dynamic rest) {
+    if (rest == null) return 60;
+    final parts = rest.toString().split(' ');
+    return int.tryParse(parts[0]) ?? 60;
+  }
+
+  int _parseReps(String repsString) {
+    // Parse reps like "8-12" or "10"
+    if (repsString.contains('-')) {
+      final parts = repsString.split('-');
+      final min = int.tryParse(parts[0]) ?? 10;
+      final max = int.tryParse(parts[1]) ?? 12;
+      return ((min + max) / 2).round();
+    }
+    return int.tryParse(repsString) ?? 10;
+  }
+
+  WorkoutRoutine _createBasicWorkout(FitnessProfile profile) {
+    // Create a simple bodyweight workout as fallback
+    final exercises = [
+      _createBasicExercise('Push-ups', 3, 10),
+      _createBasicExercise('Squats', 3, 12),
+      _createBasicExercise('Plank', 3, 0, durationSeconds: 30),
+    ];
+
+    return WorkoutRoutine(
+      name: 'Basic ${profile.fitnessLevel} Workout',
+      description:
+          'A simple bodyweight workout suitable for your fitness level',
+      estimatedDurationMinutes: profile.optimalWorkoutDuration,
+      difficulty: profile.fitnessLevel,
+      targetMuscles: ['full body'],
+      requiredEquipment: [],
+      exercises: exercises,
+      isCustom: true,
+    );
+  }
+
+  WorkoutExercise _createBasicExercise(String name, int sets, int reps,
+      {int? durationSeconds}) {
+    final exercise = Exercise(
+      id: name.toLowerCase().replaceAll(' ', '_'),
+      name: name,
+      description: 'Basic bodyweight exercise',
+      primaryMuscles: ['full body'],
+      type: 'strength',
+      difficulty: 'beginner',
+      instructions: ['Perform with proper form'],
+      equipment: [],
+      isCompound: false,
+    );
+
+    return WorkoutExercise(
+      exerciseId: exercise.id,
+      exercise: exercise,
+      sets: List.generate(
+        sets,
+        (_) => WorkoutSet(reps: reps, durationSeconds: durationSeconds),
+      ),
+      restSeconds: 60,
+    );
   }
 }

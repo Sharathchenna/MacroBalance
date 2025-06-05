@@ -18,7 +18,18 @@ class SummaryPage extends StatelessWidget {
   final bool isAthlete;
   final bool showBodyFatInput;
   final double bodyFatPercentage;
-  final Function(int) onEdit; // Callback to navigate to a specific page
+  final String fitnessLevel;
+  final int yearsOfExperience;
+  final List<String> previousExerciseTypes;
+  final String workoutLocation;
+  final List<String> availableEquipment;
+  final bool hasGymAccess;
+  final String workoutSpace;
+  final int workoutsPerWeek;
+  final int maxWorkoutDuration;
+  final String preferredTimeOfDay;
+  final List<String> preferredDays;
+  final Function(int) onEdit;
 
   const SummaryPage({
     super.key,
@@ -35,6 +46,17 @@ class SummaryPage extends StatelessWidget {
     required this.isAthlete,
     required this.showBodyFatInput,
     required this.bodyFatPercentage,
+    required this.fitnessLevel,
+    required this.yearsOfExperience,
+    required this.previousExerciseTypes,
+    required this.workoutLocation,
+    required this.availableEquipment,
+    required this.hasGymAccess,
+    required this.workoutSpace,
+    required this.workoutsPerWeek,
+    required this.maxWorkoutDuration,
+    required this.preferredTimeOfDay,
+    required this.preferredDays,
     required this.onEdit,
   });
 
@@ -81,6 +103,9 @@ class SummaryPage extends StatelessWidget {
     const int activityLevelPageIndex = 5;
     const int goalPageIndex = 6;
     const int advancedSettingsPageIndex = 7;
+    const int fitnessLevelPageIndex = 8;
+    const int equipmentPageIndex = 9;
+    const int schedulePageIndex = 10;
 
     final personalInfoItems = [
       {
@@ -153,6 +178,95 @@ class SummaryPage extends StatelessWidget {
       }, // Indicate carbs are calculated
     ];
 
+    final List<Map<String, dynamic>> fitnessItems = [
+      {
+        'label': 'Fitness Level',
+        'value': fitnessLevel.isEmpty
+            ? 'Not set'
+            : fitnessLevel.substring(0, 1).toUpperCase() +
+                fitnessLevel.substring(1),
+        'page': fitnessLevelPageIndex
+      },
+      {
+        'label': 'Experience',
+        'value': yearsOfExperience == 0
+            ? 'Just starting'
+            : yearsOfExperience >= 20
+                ? '20+ years'
+                : '${yearsOfExperience} ${yearsOfExperience == 1 ? 'year' : 'years'}',
+        'page': fitnessLevelPageIndex
+      },
+      if (previousExerciseTypes.isNotEmpty)
+        {
+          'label': 'Previous Exercise',
+          'value': previousExerciseTypes.length > 2
+              ? '${previousExerciseTypes.take(2).join(", ")}...'
+              : previousExerciseTypes.join(", "),
+          'page': fitnessLevelPageIndex
+        },
+    ];
+
+    final List<Map<String, dynamic>> equipmentItems = [
+      {
+        'label': 'Workout Location',
+        'value': workoutLocation.isEmpty
+            ? 'Not set'
+            : workoutLocation.substring(0, 1).toUpperCase() +
+                workoutLocation.substring(1),
+        'page': equipmentPageIndex
+      },
+      {
+        'label': 'Available Space',
+        'value': workoutSpace.isEmpty
+            ? 'Not set'
+            : workoutSpace.substring(0, 1).toUpperCase() +
+                workoutSpace.substring(1),
+        'page': equipmentPageIndex
+      },
+      if (availableEquipment.isNotEmpty)
+        {
+          'label': 'Equipment',
+          'value': availableEquipment.length > 2
+              ? '${availableEquipment.take(2).join(", ")}...'
+              : availableEquipment.join(", "),
+          'page': equipmentPageIndex
+        },
+      if (workoutLocation != 'gym')
+        {
+          'label': 'Gym Access',
+          'value': hasGymAccess ? 'Yes' : 'No',
+          'page': equipmentPageIndex
+        },
+    ];
+
+    final List<Map<String, dynamic>> scheduleItems = [
+      {
+        'label': 'Workouts per Week',
+        'value':
+            '$workoutsPerWeek ${workoutsPerWeek == 1 ? 'workout' : 'workouts'}',
+        'page': schedulePageIndex
+      },
+      {
+        'label': 'Workout Duration',
+        'value': '$maxWorkoutDuration minutes',
+        'page': schedulePageIndex
+      },
+      {
+        'label': 'Preferred Time',
+        'value': _getTimeOfDayDisplayText(preferredTimeOfDay),
+        'page': schedulePageIndex
+      },
+      {
+        'label': 'Preferred Days',
+        'value': preferredDays.contains('Flexible')
+            ? 'Flexible schedule'
+            : preferredDays.length > 2
+                ? '${preferredDays.take(2).join(", ")}...'
+                : preferredDays.join(", "),
+        'page': schedulePageIndex
+      },
+    ];
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -161,8 +275,7 @@ class SummaryPage extends StatelessWidget {
           Text(
             'Summary',
             style: AppTypography.onboardingSubtitle.copyWith(
-              color:
-                  customColors?.textPrimary ?? theme.colorScheme.onSurface,
+              color: customColors?.textPrimary ?? theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -188,6 +301,21 @@ class SummaryPage extends StatelessWidget {
               title: 'Macro Settings',
               icon: Icons.science,
               items: macroSettingsItems),
+          const SizedBox(height: 24),
+          _buildSummarySection(context,
+              title: 'Fitness Level',
+              icon: Icons.directions_run,
+              items: fitnessItems),
+          const SizedBox(height: 24),
+          _buildSummarySection(context,
+              title: 'Equipment & Space',
+              icon: Icons.fitness_center,
+              items: equipmentItems),
+          const SizedBox(height: 24),
+          _buildSummarySection(context,
+              title: 'Workout Schedule',
+              icon: Icons.schedule,
+              items: scheduleItems),
         ],
       ),
     );
@@ -219,7 +347,8 @@ class SummaryPage extends StatelessWidget {
                 Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withAlpha((0.1 * 255).round()),
+                        color: theme.colorScheme.primary
+                            .withAlpha((0.1 * 255).round()),
                         borderRadius: BorderRadius.circular(8)),
                     child:
                         Icon(icon, color: theme.colorScheme.primary, size: 20)),
@@ -230,7 +359,10 @@ class SummaryPage extends StatelessWidget {
                           theme.colorScheme.onSurface,
                     ))
               ])),
-          Divider(height: 1, thickness: 1, color: Colors.grey.withAlpha((0.1 * 255).round())),
+          Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.grey.withAlpha((0.1 * 255).round())),
           ...items.where((item) => item.containsKey('value')).map((item) =>
               _buildSummaryItem(context,
                   label: item['label'],
@@ -260,7 +392,8 @@ class SummaryPage extends StatelessWidget {
                 Text(label,
                     style: AppTypography.caption.copyWith(
                       color: customColors?.textSecondary ??
-                          theme.colorScheme.onSurface.withAlpha((0.7 * 255).round()),
+                          theme.colorScheme.onSurface
+                              .withAlpha((0.7 * 255).round()),
                     )),
                 const SizedBox(height: 4),
                 Text(value,
@@ -274,5 +407,20 @@ class SummaryPage extends StatelessWidget {
         ]),
       ),
     );
+  }
+
+  String _getTimeOfDayDisplayText(String timeOfDay) {
+    switch (timeOfDay) {
+      case 'morning':
+        return 'Morning sessions';
+      case 'afternoon':
+        return 'Afternoon sessions';
+      case 'evening':
+        return 'Evening sessions';
+      case 'flexible':
+        return 'Flexible timing';
+      default:
+        return 'Not set';
+    }
   }
 }

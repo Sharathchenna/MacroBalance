@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:macrotracker/screens/Dashboard.dart';
+import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
@@ -10,6 +10,9 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/auth/paywall_gate.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart'; // Import FoodEntryProvider
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import for auth check
+import 'package:macrotracker/screens/signup.dart'; // Import signup screen
+// Import kDebugMode
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -64,6 +67,72 @@ class _ResultsScreenState extends State<ResultsScreen>
   void _showPaywallAndProceed() {
     HapticFeedback.mediumImpact();
 
+    debugPrint('=== RESULTS SCREEN: _showPaywallAndProceed called ===');
+
+    // Check if user is authenticated first
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    debugPrint('Current user: ${currentUser?.id ?? 'null'}');
+
+    if (currentUser == null) {
+      debugPrint('User not authenticated - navigating to signup');
+      // User is not authenticated, navigate to sign-up screen
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Signup(
+            fromOnboarding: true,
+            onSignupSuccess: () {
+              debugPrint('=== SIGNUP SUCCESS CALLBACK TRIGGERED ===');
+              // After successful signup, we need to delay navigation
+              // to allow the signup screen to complete its navigation
+              Future.delayed(const Duration(milliseconds: 500), () {
+                debugPrint('Delayed callback - about to show paywall');
+                if (mounted) {
+                  _showPaywallThenDashboard();
+                }
+              });
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    debugPrint('User authenticated - proceeding to dashboard flow');
+    // User is authenticated, proceed with existing flow
+    _proceedToDashboard();
+  }
+
+  void _navigateBack() {
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).pop(); // Navigate back to previous screen
+  }
+
+  void _showPaywallThenDashboard() {
+    HapticFeedback.mediumImpact();
+
+    debugPrint('=== _showPaywallThenDashboard called ===');
+
+    // Save results to local storage after signup
+    _saveResultsToPrefs();
+
+    // Pop the signup screen first if it's still on the stack
+    if (Navigator.of(context).canPop()) {
+      debugPrint('Popping signup screen from navigation stack');
+      Navigator.of(context).pop();
+    }
+
+    debugPrint('Navigating to PaywallGate with Dashboard');
+    // Navigate directly to the paywall, then dashboard
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => const PaywallGate(
+          child: Dashboard(),
+        ),
+      ),
+    );
+  }
+
+  void _proceedToDashboard() {
     // First check if user is already a Pro user
     final subscriptionProvider =
         Provider.of<SubscriptionProvider>(context, listen: false);
@@ -128,11 +197,6 @@ class _ResultsScreenState extends State<ResultsScreen>
     });
   }
 
-  void _navigateBack() {
-    HapticFeedback.mediumImpact();
-    Navigator.of(context).pop(); // Navigate back to previous screen
-  }
-
   @override
   void dispose() {
     _scrollController.dispose();
@@ -171,33 +235,38 @@ class _ResultsScreenState extends State<ResultsScreen>
             child: child,
           );
         },
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    _buildDailyCalorieTargetCard(),
-                    const SizedBox(height: 20),
-                    _buildMacroDistributionCard(),
-                    const SizedBox(height: 20),
-                    _buildGoalRelatedInformation(
-                        widget.results['goal_weight_kg'] != null),
-                    const SizedBox(height: 20),
-                    _buildCalculationDetails(),
-                    const SizedBox(height: 20),
-                    _buildLifestyleRecommendations(),
-                    const SizedBox(height: 100), // Extra padding at bottom
-                  ],
+            Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        _buildDailyCalorieTargetCard(),
+                        const SizedBox(height: 20),
+                        _buildMacroDistributionCard(),
+                        const SizedBox(height: 20),
+                        _buildGoalRelatedInformation(
+                            widget.results['goal_weight_kg'] != null),
+                        const SizedBox(height: 20),
+                        _buildCalculationDetails(),
+                        const SizedBox(height: 20),
+                        _buildLifestyleRecommendations(),
+                        const SizedBox(height: 100), // Extra padding at bottom
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                _buildBottomButtons(),
+              ],
             ),
-            _buildBottomButtons(),
+            // Debug button removed for security - no bypass allowed in hard paywall mode
           ],
         ),
       ),
@@ -1126,52 +1195,68 @@ class _ResultsScreenState extends State<ResultsScreen>
   }
 
   Widget _buildBottomButtons() {
+    final customColors = Theme.of(context).extension<CustomColors>()!;
+    final currentUser = Supabase.instance.client.auth.currentUser;
+
     return SafeArea(
       child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
-          // boxShadow: [
-          //   BoxShadow(
-          //     color: Colors.black.withOpacity(0.05),
-          //     blurRadius: 10,
-          //     offset: Offset(0, -2),
-          //   ),
-          // ],
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Center(
-          child: ElevatedButton(
-            onPressed: _showPaywallAndProceed,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 64, vertical: 16),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-              elevation: 4,
-              shadowColor:
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Start Your Journey',
-                  style: GoogleFonts.poppins(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Main CTA Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _showPaywallAndProceed,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  elevation: 0,
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onPrimary,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      currentUser != null
+                          ? 'Continue to App'
+                          : 'Create Account & Continue',
+                      style: GoogleFonts.poppins(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            if (currentUser == null) ...[
+              const SizedBox(height: 16),
+              // Sign up requirement message
+              Text(
+                'Create an account to save your personalized plan and start your journey',
+                style: TextStyle(
+                  color: customColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
         ),
       ),
     );

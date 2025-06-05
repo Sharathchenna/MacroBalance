@@ -18,7 +18,7 @@ import '../services/camera_service.dart';
 // Extension to add withValues method to Color, similar to withOpacity
 extension ColorExtension on Color {
   Color withValues({double? alpha}) {
-    return withValues(alpha: alpha ?? opacity);
+    return withValues(alpha: alpha ?? a);
   }
 }
 
@@ -447,20 +447,20 @@ class _BarcodeResultsState extends State<BarcodeResults>
     }
   }
 
-  Map<String, double> _getMacroPercentages() {
-    double carbs = double.tryParse(_getNutrientValue('carbohydrate')) ?? 0;
-    double protein = double.tryParse(_getNutrientValue('protein')) ?? 0;
-    double fat = double.tryParse(_getNutrientValue('fat')) ?? 0;
+  // Map<String, double> _getMacroPercentages() {
+  //   double carbs = double.tryParse(_getNutrientValue('carbohydrate')) ?? 0;
+  //   double protein = double.tryParse(_getNutrientValue('protein')) ?? 0;
+  //   double fat = double.tryParse(_getNutrientValue('fat')) ?? 0;
 
-    double total = carbs + protein + fat;
-    if (total <= 0) return {'carbs': 0.33, 'protein': 0.33, 'fat': 0.34};
+  //   double total = carbs + protein + fat;
+  //   if (total <= 0) return {'carbs': 0.33, 'protein': 0.33, 'fat': 0.34};
 
-    return {
-      'carbs': carbs / total,
-      'protein': protein / total,
-      'fat': fat / total,
-    };
-  }
+  //   return {
+  //     'carbs': carbs / total,
+  //     'protein': protein / total,
+  //     'fat': fat / total,
+  //   };
+  // }
 
   void _addToMeal(String meal) {
     final dateProvider = Provider.of<DateProvider>(context, listen: false);
@@ -514,7 +514,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
-    final primaryColor = Theme.of(context).primaryColor;
+    // final primaryColor = Theme.of(context).primaryColor;
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
@@ -669,7 +669,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
   Widget _buildAddToDiaryButton() {
     final customColors = Theme.of(context).extension<CustomColors>();
-    final primaryColor = Theme.of(context).primaryColor;
+    // final primaryColor = Theme.of(context).primaryColor;
 
     return Container(
       height: 60,
@@ -834,9 +834,9 @@ class _BarcodeResultsState extends State<BarcodeResults>
     final primaryColor = Theme.of(context).primaryColor;
 
     // Calculate calories and macro percentages
-    final calculatedCalories =
-        double.tryParse(_getNutrientValue('calories')) ?? 0;
-    final macroPercentages = _getMacroPercentages();
+    // final calculatedCalories =
+    //     double.tryParse(_getNutrientValue('calories')) ?? 0;
+    // final macroPercentages = _getMacroPercentages();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),

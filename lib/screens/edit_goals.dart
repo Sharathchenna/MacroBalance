@@ -61,39 +61,61 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
 
     final foodEntryProvider =
         Provider.of<FoodEntryProvider>(context, listen: false);
-    setState(() {
-      calorieGoal = foodEntryProvider.caloriesGoal.round();
-      proteinGoal = foodEntryProvider.proteinGoal.round();
-      carbGoal = foodEntryProvider.carbsGoal.round();
-      fatGoal = foodEntryProvider.fatGoal.round();
-      stepsGoal = foodEntryProvider.stepsGoal;
-      bmr = foodEntryProvider.bmr.round();
-    });
 
-    debugPrint(
-        'Goals refreshed from provider: calories=$calorieGoal, protein=$proteinGoal');
-  }
+    // Only update if the values are different to avoid unnecessary setState calls
+    final newCalorieGoal = foodEntryProvider.caloriesGoal.round();
+    final newProteinGoal = foodEntryProvider.proteinGoal.round();
+    final newCarbGoal = foodEntryProvider.carbsGoal.round();
+    final newFatGoal = foodEntryProvider.fatGoal.round();
+    final newStepsGoal = foodEntryProvider.stepsGoal;
+    final newBmr = foodEntryProvider.bmr.round();
 
-  Future<void> _loadGoals() async {
-    // First, load from the provider
-    if (mounted) {
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
-
-      // Wait for provider to initialize if needed
-      await foodEntryProvider.initialize();
-
+    if (calorieGoal != newCalorieGoal ||
+        proteinGoal != newProteinGoal ||
+        carbGoal != newCarbGoal ||
+        fatGoal != newFatGoal ||
+        stepsGoal != newStepsGoal ||
+        bmr != newBmr) {
       setState(() {
-        calorieGoal = foodEntryProvider.caloriesGoal.round();
-        proteinGoal = foodEntryProvider.proteinGoal.round();
-        carbGoal = foodEntryProvider.carbsGoal.round();
-        fatGoal = foodEntryProvider.fatGoal.round();
-        stepsGoal = foodEntryProvider.stepsGoal;
-        bmr = foodEntryProvider.bmr.round();
+        calorieGoal = newCalorieGoal;
+        proteinGoal = newProteinGoal;
+        carbGoal = newCarbGoal;
+        fatGoal = newFatGoal;
+        stepsGoal = newStepsGoal;
+        bmr = newBmr;
       });
 
       debugPrint(
-          'Loaded goals from provider: calories=$calorieGoal, protein=$proteinGoal, carbs=$carbGoal, fat=$fatGoal');
+          'Goals refreshed from provider: calories=$calorieGoal, protein=$proteinGoal');
+    }
+  }
+
+  Future<void> _loadGoals() async {
+    try {
+      // First, load from the provider
+      if (mounted) {
+        final foodEntryProvider =
+            Provider.of<FoodEntryProvider>(context, listen: false);
+
+        // Wait for provider to initialize if needed
+        await foodEntryProvider.initialize();
+
+        setState(() {
+          calorieGoal = foodEntryProvider.caloriesGoal.round();
+          proteinGoal = foodEntryProvider.proteinGoal.round();
+          carbGoal = foodEntryProvider.carbsGoal.round();
+          fatGoal = foodEntryProvider.fatGoal.round();
+          stepsGoal = foodEntryProvider.stepsGoal;
+          bmr = foodEntryProvider.bmr.round();
+        });
+
+        debugPrint(
+            'Loaded goals from provider: calories=$calorieGoal, protein=$proteinGoal, carbs=$carbGoal, fat=$fatGoal');
+        return; // Exit early since we got values from provider
+      }
+    } catch (e) {
+      debugPrint('Error loading goals from provider: $e');
+      // Continue to try loading from storage
     }
 
     // Load from storage as fallback
@@ -101,14 +123,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     if (resultsString != null && resultsString.isNotEmpty) {
       final Map<String, dynamic> results = jsonDecode(resultsString);
       if (mounted) {
-        // If any values are still default, try to get from macro_results
-        if (stepsGoal == 9000) {
+        setState(() {
           stepsGoal = results['recommended_steps'] ?? stepsGoal;
-        }
-        // Load BMR from macro_results if not loaded from provider
-        // if (bmr == 1500) {
-        //   bmr = results['bmr'] ?? bmr;
-        // }
+        });
       }
     }
 
@@ -119,22 +136,14 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       final Map<String, dynamic> goals = jsonDecode(nutritionGoalsString);
       if (mounted) {
         setState(() {
-          // Only use storage values if provider values were not loaded
-          if (calorieGoal == 2000) {
-            calorieGoal = goals['calories'] ?? calorieGoal;
-          }
-          if (proteinGoal == 150) {
-            proteinGoal = goals['protein'] ?? proteinGoal;
-          }
-          if (carbGoal == 75) {
-            carbGoal = goals['carbs'] ?? carbGoal;
-          }
-          if (fatGoal == 80) {
-            fatGoal = goals['fat'] ?? fatGoal;
-          }
-          if (stepsGoal == 9000) {
-            stepsGoal = goals['steps'] ?? stepsGoal;
-          }
+          calorieGoal =
+              goals['macro_targets']?['calories']?.round() ?? calorieGoal;
+          proteinGoal =
+              goals['macro_targets']?['protein']?.round() ?? proteinGoal;
+          carbGoal = goals['macro_targets']?['carbs']?.round() ?? carbGoal;
+          fatGoal = goals['macro_targets']?['fat']?.round() ?? fatGoal;
+          stepsGoal = goals['steps_goal'] ?? stepsGoal;
+          bmr = goals['bmr']?.round() ?? bmr;
         });
       }
     }
@@ -243,18 +252,13 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       await foodEntryProvider.initialize();
 
       // Create NutritionGoals object and update
-      final nutritionGoals = NutritionGoals(
+      final nutritionGoals = foodEntryProvider.nutritionGoals.copyWith(
         calories: calorieGoal.toDouble(),
         protein: proteinGoal.toDouble(),
         carbs: carbGoal.toDouble(),
         fat: fatGoal.toDouble(),
         steps: stepsGoal,
         bmr: bmr.toDouble(),
-        tdee: foodEntryProvider.tdee, // Keep existing TDEE
-        goalWeightKg: foodEntryProvider.nutritionGoals.goalWeightKg,
-        currentWeightKg: foodEntryProvider.nutritionGoals.currentWeightKg,
-        goalType: foodEntryProvider.nutritionGoals.goalType,
-        deficitSurplus: foodEntryProvider.nutritionGoals.deficitSurplus,
       );
 
       // Update goals in provider (this triggers save to storage and Supabase sync)
@@ -265,28 +269,6 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           'Goals saved to provider: calories=$calorieGoal, protein=$proteinGoal, carbs=$carbGoal, fat=$fatGoal');
       debugPrint(
           'Provider goals after update: calories=${foodEntryProvider.caloriesGoal}, protein=${foodEntryProvider.proteinGoal}');
-
-      // Save to storage for backup
-      final Map<String, dynamic> results = {
-        'calories': calorieGoal,
-        'protein': proteinGoal,
-        'carbs': carbGoal,
-        'fat': fatGoal,
-        'recommended_steps': stepsGoal,
-        'bmr': bmr,
-      };
-      StorageService().put('macro_results', jsonEncode(results));
-
-      // Also save to nutrition_goals for more structured data
-      final Map<String, dynamic> nutritionGoalsMap = {
-        'calories': calorieGoal,
-        'protein': proteinGoal,
-        'carbs': carbGoal,
-        'fat': fatGoal,
-        'steps': stepsGoal,
-        'bmr': bmr,
-      };
-      StorageService().put('nutrition_goals', jsonEncode(nutritionGoalsMap));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

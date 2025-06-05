@@ -474,9 +474,9 @@ class OnboardingScreenState extends State<OnboardingScreen>
   // --- Build Method ---
   @override
   Widget build(BuildContext context) {
-    // Get theme and colors
     final theme = Theme.of(context);
     final customColors = Theme.of(context).extension<CustomColors>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -494,8 +494,9 @@ class OnboardingScreenState extends State<OnboardingScreen>
                     backgroundColor: (customColors?.dateNavigatorBackground ??
                             theme.colorScheme.surface)
                         .withAlpha((0.3 * 255).round()),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        customColors?.textPrimary ?? theme.colorScheme.primary),
+                    valueColor: AlwaysStoppedAnimation<Color>(isDark
+                        ? PremiumColors.blue400
+                        : PremiumColors.slate900),
                     minHeight: 4,
                     borderRadius: BorderRadius.circular(2),
                   );
@@ -506,14 +507,12 @@ class OnboardingScreenState extends State<OnboardingScreen>
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(), // Keep physics
+                physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (index) {
-                  // This will now correctly fire after animateToPage completes
                   setState(() {
                     _currentPage = index;
-                    _updateProgressAnimation(); // Update animation bounds for the new page
-                    _animationController.forward(
-                        from: 0.0); // Restart animation for the new segment
+                    _updateProgressAnimation();
+                    _animationController.forward(from: 0.0);
                   });
                 },
                 children: _buildPages(),
@@ -523,6 +522,17 @@ class OnboardingScreenState extends State<OnboardingScreen>
             // Bottom navigation
             Container(
               padding: const EdgeInsets.all(24.0),
+              decoration: BoxDecoration(
+                color: theme.scaffoldBackgroundColor,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark
+                        ? PremiumColors.slate800
+                        : PremiumColors.slate200,
+                    width: 1,
+                  ),
+                ),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -530,16 +540,23 @@ class OnboardingScreenState extends State<OnboardingScreen>
                   _currentPage > 0
                       ? TextButton(
                           onPressed: _previousPage,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24.0,
+                              vertical: 12.0,
+                            ),
+                          ),
                           child: Text(
                             'Back',
-                            style: AppTypography.onboardingButton.copyWith(
-                              color: customColors?.textSecondary ??
-                                  theme.colorScheme.secondary,
+                            style: PremiumTypography.button.copyWith(
+                              color: customColors?.textSecondary,
                               fontSize: 16,
+                              letterSpacing: 0.2,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         )
-                      : const SizedBox(width: 80), // Empty space for alignment
+                      : const SizedBox(width: 80),
 
                   // Next button or Done
                   _buildNextButton(theme, customColors),
@@ -555,9 +572,6 @@ class OnboardingScreenState extends State<OnboardingScreen>
   Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
     // Hide the button on the Apple Health page (index 12) and Notification Permission page (index 13)
     if (_currentPage == 12 || _currentPage == 13) {
-      // Return an empty SizedBox to maintain layout spacing if needed,
-      // or just an empty Container if no space is required.
-      // Match the width of the back button for alignment.
       return const SizedBox(width: 80);
     }
 
@@ -565,16 +579,20 @@ class OnboardingScreenState extends State<OnboardingScreen>
       onPressed: _nextPage,
       style: ElevatedButton.styleFrom(
         backgroundColor: customColors?.textPrimary ?? theme.colorScheme.surface,
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
+        foregroundColor: theme.colorScheme.onPrimary,
+        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(12.0),
         ),
         elevation: 0,
       ),
       child: Text(
         _currentPage == _totalPages - 1 ? 'Calculate' : 'Next',
-        style: AppTypography.onboardingButton.copyWith(
+        style: PremiumTypography.button.copyWith(
           color: theme.colorScheme.onPrimary,
+          fontSize: 16,
+          letterSpacing: 0.3,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -716,16 +734,36 @@ class OnboardingScreenState extends State<OnboardingScreen>
         onSkip: _nextPage,
       ),
       SummaryPage(
-        // Now at index 14
-        gender: _gender, weightKg: _weightKg, heightCm: _heightCm,
+        // Personal Information
+        gender: _gender,
+        weightKg: _weightKg,
+        heightCm: _heightCm,
         age: _age,
-        activityLevel: _activityLevel, goal: _goal,
+        activityLevel: _activityLevel,
+        goal: _goal,
         deficit: _deficit,
-        proteinRatio: _proteinRatio, fatRatio: _fatRatio,
+        proteinRatio: _proteinRatio,
+        fatRatio: _fatRatio,
         goalWeightKg: _goalWeightKg,
-        isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
+        isAthlete: _isAthlete,
+        showBodyFatInput: _showBodyFatInput,
         bodyFatPercentage: _bodyFatPercentage,
-        onEdit: _goToPage, // _goToPage handles indices correctly
+        // Fitness Information
+        fitnessLevel: _fitnessLevel,
+        yearsOfExperience: _yearsOfExperience,
+        previousExerciseTypes: _previousExerciseTypes,
+        // Equipment Information
+        workoutLocation: _workoutLocation,
+        availableEquipment: _availableEquipment,
+        hasGymAccess: _hasGymAccess,
+        workoutSpace: _workoutSpace,
+        // Schedule Information
+        workoutsPerWeek: _workoutsPerWeek,
+        maxWorkoutDuration: _maxWorkoutDuration,
+        preferredTimeOfDay: _preferredTimeOfDay,
+        preferredDays: _preferredDays,
+        // Navigation
+        onEdit: _goToPage,
       ),
     ];
   }

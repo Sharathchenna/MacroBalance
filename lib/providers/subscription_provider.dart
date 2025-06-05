@@ -2,16 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:macrotracker/services/superwall_service.dart'; // Import SuperwallService
+import 'dart:async'; // Import for Timer
 
 /// A provider class that manages subscription status throughout the app
+///
+/// PERFORMANCE OPTIMIZATIONS:
+/// - Minimum check interval of 10 minutes to avoid redundant API calls
+/// - Periodic monitoring reduced from 5 seconds to 10 minutes
+/// - Primary reliance on RevenueCat's real-time listener for instant updates
+/// - Smart caching to skip unnecessary checks when status was recently verified
+/// - Force check option for critical operations (purchases, paywall monitoring)
 class SubscriptionProvider extends ChangeNotifier {
   bool _isProUser = false;
   bool _isInitialized = false;
   DateTime? _lastChecked;
   bool _revenueCatConfigured = false;
+  Timer? _subscriptionCheckTimer;
 
   // Hard paywall configuration
   static const bool _enforceHardPaywall = true;
+
+  // Cache control - avoid checking too frequently
+  static const Duration _minCheckInterval = Duration(minutes: 10);
 
   // Getters
   bool get isProUser => _isProUser;
@@ -155,8 +167,21 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
+  // Cache control - avoid checking too frequently
+  bool _shouldCheckSubscription() {
+    if (_lastChecked == null) return true;
+    return DateTime.now().difference(_lastChecked!) > _minCheckInterval;
+  }
+
   // Check with RevenueCat for the current subscription status
-  Future<bool> checkSubscriptionStatus() async {
+  Future<bool> checkSubscriptionStatus({bool forceCheck = false}) async {
+    // Skip check if we've checked recently, unless forced
+    if (!forceCheck && !_shouldCheckSubscription()) {
+      debugPrint(
+          'Subscription check skipped - checked recently. Last check: $_lastChecked');
+      return _isProUser;
+    }
+
     try {
       final customerInfo = await Purchases.getCustomerInfo();
       print(
@@ -200,11 +225,11 @@ class SubscriptionProvider extends ChangeNotifier {
       // Try to invalidate cache in RevenueCat to ensure fresh data
       await Purchases.invalidateCustomerInfoCache();
 
-      // Now get latest customer info
-      return await checkSubscriptionStatus();
+      // Now get latest customer info with force check
+      return await checkSubscriptionStatus(forceCheck: true);
     } catch (e) {
       print('Error during forced refresh: $e');
-      return await checkSubscriptionStatus();
+      return await checkSubscriptionStatus(forceCheck: true);
     }
   }
 
@@ -260,6 +285,45 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
+  /// Start monitoring subscription status during hard paywall
+  void startHardPaywallMonitoring() {
+    debugPrint('Starting hard paywall subscription monitoring');
+
+    // Primary detection relies on RevenueCat's real-time listener
+    // This periodic check is just a fallback in case the listener fails
+    // Check subscription status every 10 minutes during paywall instead of every 5 seconds
+    _subscriptionCheckTimer = Timer.periodic(
+      const Duration(minutes: 10),
+      (timer) async {
+        try {
+          final wasProUser = _isProUser;
+          // Use force check for paywall monitoring to ensure we don't miss status changes
+          await checkSubscriptionStatus(forceCheck: true);
+
+          if (!wasProUser && _isProUser) {
+            // User just became a subscriber
+            debugPrint(
+                '✅ Subscription detected during monitoring - paywall should dismiss');
+            notifyListeners();
+            timer.cancel();
+          }
+        } catch (e) {
+          debugPrint('Subscription monitoring error: $e');
+        }
+      },
+    );
+
+    debugPrint(
+        'Note: Primary subscription detection uses RevenueCat real-time listener');
+  }
+
+  /// Stop monitoring subscription status
+  void stopHardPaywallMonitoring() {
+    debugPrint('Stopping hard paywall subscription monitoring');
+    _subscriptionCheckTimer?.cancel();
+    _subscriptionCheckTimer = null;
+  }
+
   // Force a complete reset of subscription state and refresh from the server
   // This is a last resort if the subscription status gets stuck
   Future<bool> resetSubscriptionState() async {
@@ -311,6 +375,9 @@ class SubscriptionProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    // Clean up subscription monitoring timer
+    _subscriptionCheckTimer?.cancel();
+
     // Remove the listener correctly
     try {
       // Different approach to remove listeners

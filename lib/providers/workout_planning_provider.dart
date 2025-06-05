@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 import '../models/exercise.dart';
 import '../models/workout_plan.dart';
 import '../models/user_preferences.dart';
@@ -31,22 +33,36 @@ class WorkoutPlanningProvider with ChangeNotifier {
       : _workoutPlanningService =
             workoutPlanningService ?? WorkoutPlanningService();
 
+  // Safe notification method that avoids calling during build
+  void _safeNotifyListeners() {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      // We're in the build phase, defer the notification
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    } else {
+      // Safe to notify immediately
+      notifyListeners();
+    }
+  }
+
   // Set loading state
   void _setLoading(bool loading) {
     _isLoading = loading;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   // Set error state
   void _setError(String? error) {
     _error = error;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   // Clear error
   void clearError() {
     _error = null;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   // Exercise Management
@@ -67,7 +83,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         difficulty: difficulty,
       );
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to load exercises: $e');
     } finally {
@@ -102,7 +118,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         }
       }
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to save exercise: $e');
     } finally {
@@ -118,7 +134,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
       _exercises = await _workoutPlanningService.getExercises(
         searchQuery: query,
       );
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to search exercises: $e');
     } finally {
@@ -146,7 +162,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         userId: userId,
       );
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to load workout routines: $e');
     } finally {
@@ -165,7 +181,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
     }
   }
 
-  Future<void> saveWorkoutRoutine(WorkoutRoutine routine) async {
+  Future<bool> saveWorkoutRoutine(WorkoutRoutine routine) async {
     try {
       _setLoading(true);
       _setError(null);
@@ -173,8 +189,8 @@ class WorkoutPlanningProvider with ChangeNotifier {
       final savedRoutine =
           await _workoutPlanningService.createWorkoutRoutine(routine);
 
-      // Update local routines list
       if (savedRoutine != null) {
+        // Update local routines list
         final index =
             _workoutRoutines.indexWhere((r) => r.id == savedRoutine.id);
         if (index != -1) {
@@ -182,11 +198,17 @@ class WorkoutPlanningProvider with ChangeNotifier {
         } else {
           _workoutRoutines.add(savedRoutine);
         }
+        _safeNotifyListeners();
+        return true; // Indicate success
+      } else {
+        _setError('Failed to save workout routine. Please try again.');
+        _safeNotifyListeners();
+        return false; // Indicate failure
       }
-
-      notifyListeners();
     } catch (e) {
       _setError('Failed to save workout routine: $e');
+      _safeNotifyListeners();
+      return false; // Indicate failure
     } finally {
       _setLoading(false);
     }
@@ -202,7 +224,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
       // Remove from local list
       _workoutRoutines.removeWhere((r) => r.id == routineId);
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to delete workout routine: $e');
     } finally {
@@ -245,7 +267,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         _workoutRoutines.add(createdRoutine);
       }
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to create custom workout routine: $e');
     } finally {
@@ -302,7 +324,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         userId: userId,
       );
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to load workout plans: $e');
     } finally {
@@ -337,7 +359,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         }
       }
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to save workout plan: $e');
     } finally {
@@ -351,19 +373,24 @@ class WorkoutPlanningProvider with ChangeNotifier {
       _setLoading(true);
       _setError(null);
 
-      final routineSuggestions =
-          await _workoutPlanningService.suggestWorkoutRoutines(userPreferences);
+      // Load routines based on user preferences
+      String difficulty = userPreferences.fitnessGoals.workoutsPerWeek >= 4
+          ? 'intermediate'
+          : 'beginner';
 
-      final planSuggestion =
-          await _workoutPlanningService.suggestWorkoutPlan(userPreferences);
+      await loadWorkoutRoutines(
+        difficulty: difficulty,
+        equipment: userPreferences.equipment.available,
+      );
 
-      // Add suggestions to the beginning of the lists
-      _workoutRoutines = [...routineSuggestions, ..._workoutRoutines];
-      if (planSuggestion != null) {
-        _workoutPlans = [planSuggestion, ..._workoutPlans];
-      }
+      // Load plans based on user preferences
+      await loadWorkoutPlans(
+        difficulty: difficulty,
+        equipment: userPreferences.equipment.available,
+        goal: userPreferences.fitnessGoals.primary,
+      );
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to load workout suggestions: $e');
     } finally {
@@ -385,7 +412,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         userId,
       );
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to load workout logs: $e');
     } finally {
@@ -404,7 +431,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
       _currentWorkout =
           await _workoutPlanningService.startWorkout(userId, routineId);
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to start workout: $e');
     } finally {
@@ -420,7 +447,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
       _currentWorkout =
           await _workoutPlanningService.updateWorkoutLog(workoutLog);
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to update workout: $e');
     } finally {
@@ -445,7 +472,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         _workoutLogs.insert(0, _currentWorkout!);
       }
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to complete workout: $e');
     } finally {
@@ -455,7 +482,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
 
   void cancelCurrentWorkout() {
     _currentWorkout = null;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   // Progress Tracking
@@ -477,13 +504,13 @@ class WorkoutPlanningProvider with ChangeNotifier {
         'total_workouts': filteredLogs.length,
         'completed_workouts':
             filteredLogs.where((log) => log.isCompleted).length,
-        'total_volume': filteredLogs.fold(
-            0.0, (sum, log) => sum + log.totalVolume),
+        'total_volume':
+            filteredLogs.fold(0.0, (sum, log) => sum + log.totalVolume),
         'total_duration': filteredLogs.fold(
             0, (sum, log) => sum + (log.actualDurationMinutes ?? 0)),
       };
 
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (e) {
       _setError('Failed to load workout progress: $e');
     } finally {
@@ -508,7 +535,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
         completedExercises: exercises,
       );
 
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
@@ -528,7 +555,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
           completedExercises: exercises,
         );
 
-        notifyListeners();
+        _safeNotifyListeners();
       }
     }
   }
@@ -553,7 +580,7 @@ class WorkoutPlanningProvider with ChangeNotifier {
             completedExercises: exercises,
           );
 
-          notifyListeners();
+          _safeNotifyListeners();
         }
       }
     }
@@ -601,8 +628,8 @@ class WorkoutPlanningProvider with ChangeNotifier {
         .where((log) => log.startTime.isAfter(monthStart))
         .length;
 
-    final totalVolume = completedWorkouts.fold(
-        0.0, (sum, log) => sum + log.totalVolume);
+    final totalVolume =
+        completedWorkouts.fold(0.0, (sum, log) => sum + log.totalVolume);
     final totalDuration = completedWorkouts.fold(
         0, (sum, log) => sum + (log.actualDurationMinutes ?? 0));
     final averageDuration = completedWorkouts.isNotEmpty
@@ -640,6 +667,6 @@ class WorkoutPlanningProvider with ChangeNotifier {
     _workoutProgress.clear();
     _error = null;
     _isLoading = false;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 }

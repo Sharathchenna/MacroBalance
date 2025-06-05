@@ -1,10 +1,12 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter/scheduler.dart';
 import '../models/foodEntry.dart';
 import '../models/nutrition_goals.dart';
 import '../repositories/food_entry_repository.dart';
 import '../repositories/nutrition_goals_repository.dart';
 import '../services/macro_calculator_service.dart';
 import '../screens/searchPage.dart'; // For FoodItem
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FoodEntryProvider with ChangeNotifier {
   final FoodEntryRepository _entryRepository = FoodEntryRepository();
@@ -66,11 +68,20 @@ class FoodEntryProvider with ChangeNotifier {
       return;
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_batchUpdateInProgress && !_disposed) {
+    try {
+      // Ensure we're on the correct frame
+      if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.idle) {
         notifyListeners();
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!_batchUpdateInProgress && !_disposed) {
+            notifyListeners();
+          }
+        });
       }
-    });
+    } catch (e) {
+      debugPrint('[FoodEntryProvider] Error in _safeNotifyListeners: $e');
+    }
   }
 
   /// Start batch update to prevent multiple rebuilds
@@ -88,29 +99,77 @@ class FoodEntryProvider with ChangeNotifier {
 
   /// Initialize the provider with optimized loading
   Future<void> initialize() async {
-    if (_isInitialized || _disposed) return;
+    if (_isInitialized || _disposed) {
+      debugPrint(
+          '[FoodEntryProvider] Initialize called but already initialized or disposed: isInitialized=$_isInitialized, disposed=$_disposed');
+      return;
+    }
 
+    debugPrint('[FoodEntryProvider] Starting initialization...');
     _isLoading = true;
     _safeNotifyListeners();
 
     try {
-      // Load goals and entries in parallel
-      await Future.wait([
-        _loadGoals(),
-        _loadEntries(),
-      ]);
+      // Load goals first and synchronously to prevent default value flash
+      debugPrint('[FoodEntryProvider] Loading goals with Supabase sync...');
+      await _loadGoalsWithSupabaseSync();
+
+      // Then load entries locally
+      await _loadEntries();
 
       // Check if disposed after async operations
       if (_disposed) return;
 
       _isInitialized = true;
+      debugPrint(
+          '[FoodEntryProvider] Initialization completed successfully. Calories goal: ${_nutritionGoals.calories}');
+
+      // Start background sync for entries (non-blocking)
+      _loadEntriesFromSupabaseInBackground();
     } catch (e) {
       debugPrint('Error initializing FoodEntryProvider: $e');
     } finally {
       if (!_disposed) {
         _isLoading = false;
         _safeNotifyListeners();
+        debugPrint(
+            '[FoodEntryProvider] Initialization finished, loading=$_isLoading, initialized=$_isInitialized');
       }
+    }
+  }
+
+  /// Load goals with Supabase sync to prevent default value flash
+  Future<void> _loadGoalsWithSupabaseSync() async {
+    try {
+      // First try to load from Supabase if user is authenticated
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser != null) {
+        try {
+          final supabaseGoals = await _goalsRepository
+              .loadGoalsFromSupabase()
+              .timeout(const Duration(seconds: 3));
+
+          if (supabaseGoals != null) {
+            _nutritionGoals = supabaseGoals;
+            // Save to local storage for future use
+            await _goalsRepository.saveGoals(_nutritionGoals);
+            debugPrint(
+                'Loaded goals from Supabase during initialization: calories=${_nutritionGoals.calories}');
+            return;
+          }
+        } catch (e) {
+          debugPrint('Failed to load from Supabase during init: $e');
+          // Continue to local storage
+        }
+      }
+
+      // Fallback to local storage
+      _nutritionGoals = await _goalsRepository.loadGoals();
+      debugPrint(
+          'Loaded goals from local storage: calories=${_nutritionGoals.calories}');
+    } catch (e) {
+      debugPrint('Error loading goals with Supabase sync: $e');
+      _nutritionGoals = NutritionGoals.defaultGoals();
     }
   }
 
@@ -154,15 +213,6 @@ class FoodEntryProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading local entries: $e');
       _entries = [];
-    }
-  }
-
-  Future<void> _loadGoals() async {
-    try {
-      _nutritionGoals = await _goalsRepository.loadGoals();
-    } catch (e) {
-      debugPrint('Error loading goals: $e');
-      _nutritionGoals = NutritionGoals.defaultGoals();
     }
   }
 
@@ -382,8 +432,26 @@ class FoodEntryProvider with ChangeNotifier {
   Future<void> updateNutritionGoals(NutritionGoals newGoals) async {
     if (_disposed) return; // Early return if disposed
 
+    final oldCalories = _nutritionGoals.calories;
     _nutritionGoals = newGoals;
+
+    // Save to local storage
     await _goalsRepository.saveGoals(_nutritionGoals);
+
+    // Sync to Supabase if user is authenticated
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser != null) {
+      try {
+        await _goalsRepository.syncGoalsToSupabase(_nutritionGoals);
+        debugPrint('[FoodEntryProvider] Goals synced to Supabase successfully');
+      } catch (e) {
+        debugPrint('[FoodEntryProvider] Error syncing goals to Supabase: $e');
+        // Continue since we've saved locally
+      }
+    }
+
+    debugPrint(
+        '[FoodEntryProvider] Nutrition goals updated: calories changed from $oldCalories to ${newGoals.calories}');
     _safeNotifyListeners();
   }
 
@@ -443,7 +511,8 @@ class FoodEntryProvider with ChangeNotifier {
     }
 
     Map<String, int> frequencyMap = {};
-    Map<String, FoodItem> foodItemMap = {}; // To store the representative FoodItem
+    Map<String, FoodItem> foodItemMap =
+        {}; // To store the representative FoodItem
 
     for (final entry in relevantEntries) {
       final food = entry.food; // FoodItem object

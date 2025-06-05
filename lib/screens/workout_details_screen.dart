@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/workout_plan.dart';
-import '../theme/workout_colors.dart';
 import '../screens/workout_execution_screen.dart';
 import '../services/exercise_image_service.dart';
+import '../services/workout_statistics_service.dart';
+import '../providers/workout_planning_provider.dart';
 
 class WorkoutDetailsScreen extends StatefulWidget {
   final WorkoutRoutine routine;
@@ -20,6 +22,12 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
   late final ExerciseImageService _imageService;
   bool _showEnhancedData = false;
   final Map<String, Map<String, dynamic>?> _exerciseDataCache = {};
+
+  // Workout tracking variables
+  int _customRoutinesThisWeek = 0;
+  int _totalWorkoutsThisWeek = 0;
+  int _streakDays = 0;
+  bool _isLoadingStats = false;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -43,6 +51,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
     ));
 
     _loadExerciseData();
+    _loadWorkoutStats();
     _fadeController.forward();
   }
 
@@ -53,11 +62,19 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
       _preloadExerciseImages();
       _hasPreloadedImages = true;
     }
+
+    // Refresh stats when returning to this screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshWorkoutStats();
+    });
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
+    // Clear any cached data to prevent memory leaks
+    _exerciseDataCache.clear();
+    _preloadedImages.clear();
     super.dispose();
   }
 
@@ -66,9 +83,11 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
       final exerciseName = exercise.exercise?.name ?? '';
       if (exerciseName.isNotEmpty) {
         final data = await _imageService.getExerciseData(exerciseName);
-        setState(() {
-          _exerciseDataCache[exerciseName] = data;
-        });
+        if (mounted) {
+          setState(() {
+            _exerciseDataCache[exerciseName] = data;
+          });
+        }
       }
     }
   }
@@ -80,9 +99,10 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
         final imageUrl = exercise.exercise?.imageUrl ??
             await _imageService.getExerciseImageUrl(exerciseName);
 
+        if (!mounted) return; // Check mounted before proceeding
+
         if (imageUrl.isNotEmpty && !_preloadedImages.contains(imageUrl)) {
           _preloadedImages.add(imageUrl);
-          if (!mounted) return;
           precacheImage(NetworkImage(imageUrl), context).catchError((error) {
             print('Failed to preload image for $exerciseName: $imageUrl');
           });
@@ -90,6 +110,74 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
       } catch (e) {
         print('Error getting image URL for $exerciseName: $e');
       }
+    }
+  }
+
+  Future<void> _loadWorkoutStats() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      final workoutProvider =
+          Provider.of<WorkoutPlanningProvider>(context, listen: false);
+      final stats = _calculateWorkoutStats(workoutProvider.workoutLogs);
+
+      if (mounted) {
+        setState(() {
+          _customRoutinesThisWeek = stats['customRoutinesThisWeek'] ?? 0;
+          _totalWorkoutsThisWeek = stats['totalWorkoutsThisWeek'] ?? 0;
+          _streakDays = stats['streakDays'] ?? 0;
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading workout stats: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingStats = false;
+        });
+      }
+    }
+  }
+
+  Map<String, int> _calculateWorkoutStats(List<WorkoutLog> workoutLogs) {
+    final customRoutinesThisWeek =
+        WorkoutStatisticsService.getCustomRoutinesThisWeek(workoutLogs);
+    final totalWorkoutsThisWeek =
+        WorkoutStatisticsService.getTotalWorkoutsThisWeek(workoutLogs);
+    final streakDays =
+        WorkoutStatisticsService.calculateWorkoutStreak(workoutLogs);
+
+    return {
+      'customRoutinesThisWeek': customRoutinesThisWeek,
+      'totalWorkoutsThisWeek': totalWorkoutsThisWeek,
+      'streakDays': streakDays,
+    };
+  }
+
+  Future<void> _refreshWorkoutStats() async {
+    if (!mounted) return;
+
+    try {
+      final workoutProvider =
+          Provider.of<WorkoutPlanningProvider>(context, listen: false);
+      // Only refresh if we have data and it's not already loading
+      if (!_isLoadingStats && workoutProvider.workoutLogs.isNotEmpty) {
+        final stats = _calculateWorkoutStats(workoutProvider.workoutLogs);
+
+        if (mounted) {
+          setState(() {
+            _customRoutinesThisWeek = stats['customRoutinesThisWeek'] ?? 0;
+            _totalWorkoutsThisWeek = stats['totalWorkoutsThisWeek'] ?? 0;
+            _streakDays = stats['streakDays'] ?? 0;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error refreshing workout stats: $e');
     }
   }
 
@@ -280,9 +368,11 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
                 color: Colors.white,
               ),
               onPressed: () {
-                setState(() {
-                  _showEnhancedData = !_showEnhancedData;
-                });
+                if (mounted) {
+                  setState(() {
+                    _showEnhancedData = !_showEnhancedData;
+                  });
+                }
               },
             ),
           ),
@@ -379,8 +469,131 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
               ),
             ],
           ),
+          const SizedBox(height: 20),
+          _buildProgressStats(isDark),
         ],
       ),
+    );
+  }
+
+  Widget _buildProgressStats(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A2E) : const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+        border: isDark
+            ? Border.all(color: const Color(0xFF3A3A43), width: 1)
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.analytics_outlined,
+                size: 16,
+                color: isDark ? Colors.white : const Color(0xFF6B7280),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Your Progress',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildProgressItem(
+                  widget.routine.isCustom
+                      ? 'Custom Workouts This Week'
+                      : 'Total Workouts This Week',
+                  _isLoadingStats
+                      ? '...'
+                      : widget.routine.isCustom
+                          ? (_customRoutinesThisWeek > 0
+                              ? '$_customRoutinesThisWeek 💪'
+                              : 'None yet')
+                          : (_totalWorkoutsThisWeek > 0
+                              ? '$_totalWorkoutsThisWeek 💪'
+                              : 'None yet'),
+                  Icons.playlist_add_check_outlined,
+                  (widget.routine.isCustom
+                              ? _customRoutinesThisWeek
+                              : _totalWorkoutsThisWeek) >
+                          0
+                      ? Colors.blue
+                      : Colors.grey,
+                  isDark,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildProgressItem(
+                  'Current Streak',
+                  _isLoadingStats
+                      ? '...'
+                      : _streakDays > 0
+                          ? '$_streakDays ${_streakDays == 1 ? 'day' : 'days'} 🔥'
+                          : 'Start today!',
+                  Icons.local_fire_department_outlined,
+                  _streakDays > 0 ? Colors.orange : Colors.grey,
+                  isDark,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressItem(
+      String label, String value, IconData icon, Color color, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: color,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: isDark
+                      ? const Color(0xFFE5E7EB)
+                      : const Color(0xFF6B7280),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : const Color(0xFF1F2937),
+          ),
+        ),
+      ],
     );
   }
 
@@ -404,7 +617,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
         Text(
           value,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 13,
             fontWeight: FontWeight.w700,
             color: isDark ? Colors.white : Colors.black,
           ),
@@ -490,7 +703,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                      color: Colors.white,
                     ),
                   ),
                 );
@@ -540,9 +753,11 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
                 if (ExerciseImageService.isExerciseDbConfigured)
                   GestureDetector(
                     onTap: () {
-                      setState(() {
-                        _showEnhancedData = !_showEnhancedData;
-                      });
+                      if (mounted) {
+                        setState(() {
+                          _showEnhancedData = !_showEnhancedData;
+                        });
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -686,7 +901,7 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Colors.black,
+                color: Colors.white,
               ),
             ),
           ),
@@ -763,19 +978,47 @@ class _WorkoutDetailsScreenState extends State<WorkoutDetailsScreen>
     final firstSet = exercise.sets.first;
     if (firstSet.durationSeconds != null) {
       return '${firstSet.durationSeconds}s each';
-    } else if (firstSet.reps != null) {
+    } else {
       return '${firstSet.reps} reps each';
     }
-    return 'Custom sets';
   }
 
-  void _startWorkout() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => WorkoutExecutionScreen(routine: widget.routine),
-      ),
-    );
+  void _startWorkout() async {
+    try {
+      final workoutProvider =
+          Provider.of<WorkoutPlanningProvider>(context, listen: false);
+
+      // If we don't have workout logs loaded yet, try to load them
+      if (workoutProvider.workoutLogs.isEmpty) {
+        // You might want to get the actual user ID from your auth system
+        // For now, we'll proceed without loading logs
+        print('No workout logs available - continuing to workout execution');
+      }
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => WorkoutExecutionScreen(routine: widget.routine),
+        ),
+      );
+
+      // When returning from workout execution, refresh the stats
+      if (mounted) {
+        _refreshWorkoutStats();
+      }
+    } catch (e) {
+      print('Error starting workout: $e');
+      // Still allow the user to start the workout even if stats loading fails
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                WorkoutExecutionScreen(routine: widget.routine),
+          ),
+        );
+      }
+    }
   }
 }
 

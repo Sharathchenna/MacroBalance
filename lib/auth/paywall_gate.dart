@@ -41,49 +41,52 @@ class PaywallGate extends StatelessWidget {
           );
         }
 
-        // If the user has a subscription, let them access the app
+        // CRITICAL: Only show child if user has active subscription
         if (subscriptionProvider.isProUser) {
           return child;
         }
 
-        // If the user doesn't have a subscription, show the hard paywall
-        return _HardSuperwallPaywall(
-          onSubscriptionDetected: () {
-            // Refresh subscription status when purchase is detected
-            subscriptionProvider.refreshSubscriptionStatus();
-          },
+        // NEVER show app content - always show blocking paywall screen
+        return _BlockingPaywallScreen(
+          subscriptionProvider: subscriptionProvider,
         );
       },
     );
   }
 }
 
-/// Internal widget that shows only Superwall paywall - no fallback, no dismiss option
-class _HardSuperwallPaywall extends StatefulWidget {
-  final VoidCallback onSubscriptionDetected;
+/// A completely blocking screen that prevents any app access without subscription
+/// This screen cannot be dismissed and blocks all app functionality
+class _BlockingPaywallScreen extends StatefulWidget {
+  final SubscriptionProvider subscriptionProvider;
 
-  const _HardSuperwallPaywall({
-    required this.onSubscriptionDetected,
+  const _BlockingPaywallScreen({
+    required this.subscriptionProvider,
   });
 
   @override
-  State<_HardSuperwallPaywall> createState() => _HardSuperwallPaywallState();
+  State<_BlockingPaywallScreen> createState() => _BlockingPaywallScreenState();
 }
 
-class _HardSuperwallPaywallState extends State<_HardSuperwallPaywall>
+class _BlockingPaywallScreenState extends State<_BlockingPaywallScreen>
     with WidgetsBindingObserver {
-  bool _superwallShown = false;
+  bool _paywallShown = false;
+  bool _isProcessingPurchase = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeAndShowSuperwall();
+    // Start monitoring subscription status for real-time updates
+    widget.subscriptionProvider.startHardPaywallMonitoring();
+    _showSuperwallPaywall();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Stop monitoring subscription status
+    widget.subscriptionProvider.stopHardPaywallMonitoring();
     super.dispose();
   }
 
@@ -91,121 +94,241 @@ class _HardSuperwallPaywallState extends State<_HardSuperwallPaywall>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // When app becomes active again, check subscription status
-    // This handles the case where user completes purchase outside the app
+    // When app becomes active again, check subscription status and re-show paywall if needed
     if (state == AppLifecycleState.resumed) {
-      debugPrint('App resumed - checking subscription status');
-      widget.onSubscriptionDetected();
+      debugPrint(
+          'App resumed - checking subscription and re-enforcing paywall');
+      _checkSubscriptionAndReshow();
     }
   }
 
-  void _initializeAndShowSuperwall() {
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        final superwallService = SuperwallService();
+  void _showSuperwallPaywall() async {
+    if (_paywallShown || _isProcessingPurchase) return;
 
-        debugPrint('=== HARD PAYWALL GATE ===');
-        debugPrint('Initializing Superwall for hard paywall...');
+    try {
+      final superwallService = SuperwallService();
 
-        // Initialize Superwall if not already done
-        if (!superwallService.isInitialized) {
-          await superwallService.initialize();
-        }
+      debugPrint('=== SHOWING SUPERWALL PAYWALL ===');
 
-        if (superwallService.isInitialized && !_superwallShown) {
-          debugPrint('✅ Showing Superwall hard paywall');
-          _superwallShown = true;
-
-          // Show the hard paywall - use app_install placement for first-time users
-          await superwallService.showHardPaywall();
-        } else {
-          debugPrint('❌ Superwall failed to initialize');
-          // Show error message instead of fallback
-          _showSuperwallError();
-        }
-      } catch (e) {
-        debugPrint('Error in hard paywall: $e');
-        _showSuperwallError();
+      // Initialize Superwall if not already done
+      if (!superwallService.isInitialized) {
+        debugPrint('Initializing Superwall...');
+        await superwallService.initialize();
+        await Future.delayed(const Duration(milliseconds: 1000));
       }
-    });
-  }
 
-  void _showSuperwallError() {
-    if (mounted) {
-      setState(() {
-        // Will show error UI in build method
-      });
+      if (superwallService.isInitialized) {
+        debugPrint('✅ Showing Superwall paywall');
+        _paywallShown = true;
+
+        // Show the paywall using Superwall
+        await superwallService.showHardPaywall();
+
+        debugPrint('Superwall paywall shown');
+      } else {
+        debugPrint('❌ Superwall failed to initialize');
+      }
+    } catch (e) {
+      debugPrint('Error showing Superwall paywall: $e');
     }
   }
+
+  void _checkSubscriptionAndReshow() async {
+    try {
+      await widget.subscriptionProvider.refreshSubscriptionStatus();
+
+      if (!widget.subscriptionProvider.isProUser) {
+        debugPrint('No active subscription detected - re-showing paywall');
+        _paywallShown = false; // Reset flag to allow re-showing
+        _showSuperwallPaywall();
+      } else {
+        debugPrint('Active subscription detected - paywall no longer needed');
+      }
+    } catch (e) {
+      debugPrint('Error checking subscription status: $e');
+      // On error, re-show paywall to be safe
+      _showSuperwallPaywall();
+    }
+  }
+
+  void _retryPaywall() {
+    _paywallShown = false;
+    _showSuperwallPaywall();
+  }
+
+  // // Override the back button to prevent users from escaping
+  // Future<bool> _onWillPop() async {
+  //   debugPrint('❌ Back button pressed - BLOCKING exit from paywall');
+  //   return false; // Prevent back navigation
+  // }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // App logo or icon
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.restaurant_menu,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // App name
-              const Text(
-                'MacroBalance',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Loading message
-              const Text(
-                'Loading premium features...',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              const CircularProgressIndicator(
-                color: Colors.white,
-              ),
-
-              const SizedBox(height: 32),
-
-              // Small disclaimer
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 40),
-                child: Text(
-                  'A subscription is required to use this app',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 14,
+    // This is a BLOCKING screen that prevents any app access
+    // Users cannot dismiss it without subscribing
+    return PopScope(
+      canPop: false, // Block back button
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // App logo or icon
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  textAlign: TextAlign.center,
+                  child: Icon(
+                    Icons.restaurant_menu,
+                    color: Theme.of(context).primaryColor,
+                    size: 50,
+                  ),
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 32),
+
+                // App name
+                const Text(
+                  'MacroBalance',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Subscription required message
+                const Text(
+                  'Subscription Required',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Description
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(
+                    'Get personalized nutrition plans, macro tracking, and unlimited access to all premium features.',
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+
+                // Primary action button
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  child: ElevatedButton(
+                    onPressed: _isProcessingPurchase ? null : _retryPaywall,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
+                    ),
+                    child: _isProcessingPurchase
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'Processing...',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          )
+                        : const Text(
+                            'View Subscription Options',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Security notice
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.security,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Secure payment • Cancel anytime • 7-day free trial',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Debug info (only in debug mode)
+                if (widget.subscriptionProvider.isInitialized)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      'Subscription Status: ${widget.subscriptionProvider.isProUser ? "Active" : "Required"}',
+                      style: const TextStyle(
+                        color: Colors.white30,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

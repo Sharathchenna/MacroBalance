@@ -7,12 +7,15 @@ import 'package:uuid/uuid.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/models/foodEntry.dart';
+import 'package:macrotracker/models/food.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
+import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:macrotracker/widgets/quantity_selector.dart';
 import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'package:macrotracker/providers/date_provider.dart';
 import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/services/posthog_service.dart';
 import 'dart:ui';
 
 class AIFoodDetailPage extends StatefulWidget {
@@ -115,6 +118,92 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     };
   }
 
+  void _saveFoodToLibrary() {
+    final savedFoodProvider =
+        Provider.of<SavedFoodProvider>(context, listen: false);
+
+    // Create a FoodItem from AIFoodItem
+    final foodItem = FoodItem(
+      id: widget.food.name.hashCode
+          .toString(), // Use name hash as ID since AI food doesn't have FDC ID
+      name: widget.food.name,
+      brandName: 'AI Detected',
+      foodType: '',
+      servings: widget.food.servingSizes.asMap().entries.map((entry) {
+        final index = entry.key;
+        final description = entry.value;
+        return ServingInfo(
+          description: description,
+          amount: 1.0,
+          unit: 'serving',
+          metricAmount: 1.0,
+          metricUnit: 'serving',
+          calories: widget.food.calories[index],
+          protein: widget.food.protein[index],
+          carbohydrate: widget.food.carbohydrates[index],
+          fat: widget.food.fat[index],
+          fiber: widget.food.fiber[index],
+          saturatedFat: 0.0, // Default value since AI doesn't detect this
+          polyunsaturatedFat: null,
+          monounsaturatedFat: null,
+          transFat: null,
+          cholesterol: null,
+          sodium: null,
+          potassium: null,
+          sugar: null,
+          vitaminA: null,
+          vitaminC: null,
+          calcium: null,
+          iron: null,
+        );
+      }).toList(),
+      nutrients: {
+        'Protein': widget.food.protein[selectedServingIndex],
+        'Total lipid (fat)': widget.food.fat[selectedServingIndex],
+        'Carbohydrate, by difference':
+            widget.food.carbohydrates[selectedServingIndex],
+        'Fiber': widget.food.fiber[selectedServingIndex],
+      },
+    );
+
+    // Check if already saved
+    if (savedFoodProvider.isFoodSaved(foodItem.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This food is already saved'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Add to saved foods
+    savedFoodProvider.addSavedFood(foodItem);
+
+    // Track with PostHog
+    PostHogService.trackEvent('save_food', properties: {
+      'food_name': foodItem.name,
+      'brand_name': foodItem.brandName,
+      'source': 'ai_detection',
+    });
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${foodItem.name} added to saved foods'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        action: SnackBarAction(
+          label: 'VIEW',
+          onPressed: () {
+            Navigator.pushNamed(context, '/savedFoods');
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -186,6 +275,38 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                       ),
                     ),
                   ),
+                  actions: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _saveFoodToLibrary,
+                          customBorder: const CircleBorder(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: customColors.cardBackground,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black
+                                      .withAlpha(((0.1) * 255).round()),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.bookmark_border_rounded,
+                              color: customColors.textPrimary,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   flexibleSpace: FlexibleSpaceBar(
                     background: Container(
                       decoration: BoxDecoration(

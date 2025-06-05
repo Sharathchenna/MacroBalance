@@ -111,9 +111,12 @@ class WorkoutPlanningService {
 
   Future<Exercise?> createExercise(Exercise exercise) async {
     try {
+      final databaseJson = exercise.toDatabaseJson();
+      debugPrint(
+          '[WorkoutPlanningService] Inserting exercise: ${json.encode(databaseJson)}'); // Log the data
       final response = await _supabaseService.supabaseClient
           .from('exercises')
-          .insert(exercise.toJson())
+          .insert(databaseJson) // Use toDatabaseJson() here
           .select()
           .single();
 
@@ -128,9 +131,12 @@ class WorkoutPlanningService {
 
   Future<Exercise?> updateExercise(Exercise exercise) async {
     try {
+      final databaseJson = exercise.toDatabaseJson();
+      debugPrint(
+          '[WorkoutPlanningService] Updating exercise ${exercise.id}: ${json.encode(databaseJson)}'); // Log the data
       final response = await _supabaseService.supabaseClient
           .from('exercises')
-          .update(exercise.toJson())
+          .update(databaseJson) // Use toDatabaseJson() here
           .eq('id', exercise.id)
           .select()
           .single();
@@ -271,6 +277,8 @@ class WorkoutPlanningService {
         createdBy: currentUser.id,
         updatedAt: DateTime.now(),
       );
+
+      debugPrint('[WorkoutPlanningService] Attempting to insert routine. Name: ${routineWithUser.name}, Difficulty: ${routineWithUser.difficulty}, FullData: ${routineWithUser.toJson()}');
 
       final response = await _supabaseService.supabaseClient
           .from('workout_routines')
@@ -622,64 +630,6 @@ class WorkoutPlanningService {
     } catch (e) {
       debugPrint('Error fetching workout history: $e');
       return [];
-    }
-  }
-
-  // Workout Suggestions
-  Future<List<WorkoutRoutine>> suggestWorkoutRoutines(
-      UserPreferences userPreferences) async {
-    try {
-      final equipment = userPreferences.equipment.available;
-      final fitnessGoals = userPreferences.fitnessGoals;
-
-      String difficulty = 'beginner';
-      if (fitnessGoals.primary == 'muscle_gain' ||
-          fitnessGoals.secondary.contains('strength')) {
-        difficulty = 'intermediate';
-      }
-
-      return getWorkoutRoutines(
-        equipment: equipment,
-        difficulty: difficulty,
-        isCustom: false,
-        limit: 5,
-      );
-    } catch (e) {
-      debugPrint('Error suggesting workout routines: $e');
-      return [];
-    }
-  }
-
-  Future<WorkoutPlan?> suggestWorkoutPlan(
-      UserPreferences userPreferences) async {
-    try {
-      final equipment = userPreferences.equipment.available;
-      final fitnessGoals = userPreferences.fitnessGoals;
-
-      String goal = 'general_fitness';
-      if (fitnessGoals.primary == 'weight_loss') {
-        goal = 'weight_loss';
-      } else if (fitnessGoals.primary == 'muscle_gain') {
-        goal = 'muscle_gain';
-      }
-
-      String difficulty = 'beginner';
-      if (fitnessGoals.workoutsPerWeek >= 4) {
-        difficulty = 'intermediate';
-      }
-
-      final plans = await getWorkoutPlans(
-        goal: goal,
-        difficulty: difficulty,
-        equipment: equipment,
-        isCustom: false,
-        limit: 1,
-      );
-
-      return plans.isNotEmpty ? plans.first : null;
-    } catch (e) {
-      debugPrint('Error suggesting workout plan: $e');
-      return null;
     }
   }
 

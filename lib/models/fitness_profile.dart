@@ -1,34 +1,56 @@
-class FitnessProfile {
+import 'package:hive/hive.dart';
+
+part 'fitness_profile.g.dart';
+
+@HiveType(typeId: 4)
+class FitnessProfile extends HiveObject {
   // Fitness Level & Experience
+  @HiveField(0)
   final String fitnessLevel; // 'beginner', 'intermediate', 'advanced'
+  @HiveField(1)
   final int yearsOfExperience;
+  @HiveField(2)
   final List<String> previousExerciseTypes;
 
   // Equipment & Environment
+  @HiveField(3)
   final String workoutLocation; // 'home', 'gym', 'outdoor', 'mixed'
+  @HiveField(4)
   final List<String> availableEquipment;
+  @HiveField(5)
   final bool hasGymAccess;
+  @HiveField(6)
   final String workoutSpace; // 'small', 'medium', 'large'
 
   // Schedule & Preferences
+  @HiveField(7)
   final int workoutsPerWeek;
+  @HiveField(8)
   final int maxWorkoutDuration; // in minutes
+  @HiveField(9)
   final String
       preferredTimeOfDay; // 'morning', 'afternoon', 'evening', 'flexible'
+  @HiveField(10)
   final List<String> preferredDays;
 
   // Health & Limitations (to be collected in future)
+  @HiveField(11)
   final List<String>? injuries;
+  @HiveField(12)
   final List<String>? limitations;
+  @HiveField(13)
   final String?
       primaryGoal; // 'weight_loss', 'muscle_gain', 'endurance', 'flexibility', 'general_fitness'
+  @HiveField(14)
   final List<String>? secondaryGoals;
 
   // AI Personalization Data
+  @HiveField(15)
   final Map<String, dynamic>? aiPreferences;
+  @HiveField(16)
   final DateTime? lastUpdated;
 
-  const FitnessProfile({
+  FitnessProfile({
     required this.fitnessLevel,
     required this.yearsOfExperience,
     required this.previousExerciseTypes,
@@ -49,7 +71,7 @@ class FitnessProfile {
   });
 
   // Empty constructor for initial state
-  static const empty = FitnessProfile(
+  static final empty = FitnessProfile(
     fitnessLevel: '',
     yearsOfExperience: 0,
     previousExerciseTypes: [],
@@ -206,31 +228,43 @@ class FitnessProfile {
   // Create from JSON
   factory FitnessProfile.fromJson(Map<String, dynamic> json) {
     return FitnessProfile(
-      fitnessLevel: json['fitnessLevel'] ?? '',
-      yearsOfExperience: json['yearsOfExperience'] ?? 0,
-      previousExerciseTypes:
-          List<String>.from(json['previousExerciseTypes'] ?? []),
-      workoutLocation: json['workoutLocation'] ?? '',
-      availableEquipment: List<String>.from(json['availableEquipment'] ?? []),
-      hasGymAccess: json['hasGymAccess'] ?? false,
-      workoutSpace: json['workoutSpace'] ?? '',
-      workoutsPerWeek: json['workoutsPerWeek'] ?? 3,
-      maxWorkoutDuration: json['maxWorkoutDuration'] ?? 30,
-      preferredTimeOfDay: json['preferredTimeOfDay'] ?? '',
-      preferredDays: List<String>.from(json['preferredDays'] ?? []),
+      fitnessLevel: json['fitnessLevel'] ?? json['fitness_level'] ?? '',
+      yearsOfExperience:
+          json['yearsOfExperience'] ?? json['years_of_experience'] ?? 0,
+      previousExerciseTypes: List<String>.from(json['previousExerciseTypes'] ??
+          json['previous_exercise_types'] ??
+          []),
+      workoutLocation:
+          json['workoutLocation'] ?? json['workout_location'] ?? '',
+      availableEquipment: List<String>.from(
+          json['availableEquipment'] ?? json['available_equipment'] ?? []),
+      hasGymAccess: json['hasGymAccess'] ?? json['has_gym_access'] ?? false,
+      workoutSpace: json['workoutSpace'] ?? json['workout_space'] ?? '',
+      workoutsPerWeek:
+          json['workoutsPerWeek'] ?? json['workouts_per_week'] ?? 3,
+      maxWorkoutDuration:
+          json['maxWorkoutDuration'] ?? json['max_workout_duration'] ?? 30,
+      preferredTimeOfDay:
+          json['preferredTimeOfDay'] ?? json['preferred_time_of_day'] ?? '',
+      preferredDays: List<String>.from(
+          json['preferredDays'] ?? json['preferred_days'] ?? []),
       injuries:
           json['injuries'] != null ? List<String>.from(json['injuries']) : null,
       limitations: json['limitations'] != null
           ? List<String>.from(json['limitations'])
           : null,
-      primaryGoal: json['primaryGoal'],
+      primaryGoal: json['primaryGoal'] ?? json['primary_goal'],
       secondaryGoals: json['secondaryGoals'] != null
           ? List<String>.from(json['secondaryGoals'])
-          : null,
-      aiPreferences: json['aiPreferences'],
+          : json['secondary_goals'] != null
+              ? List<String>.from(json['secondary_goals'])
+              : null,
+      aiPreferences: json['aiPreferences'] ?? json['ai_preferences'],
       lastUpdated: json['lastUpdated'] != null
           ? DateTime.parse(json['lastUpdated'])
-          : null,
+          : json['last_updated'] != null
+              ? DateTime.parse(json['last_updated'])
+              : null,
     );
   }
 

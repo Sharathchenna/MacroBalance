@@ -8,6 +8,7 @@ import 'package:macrotracker/widgets/nutrient_row.dart';
 import 'searchPage.dart'; // This has the FoodItem class we need
 import 'package:provider/provider.dart';
 import '../providers/food_entry_provider.dart';
+import '../providers/saved_food_provider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:ui';
@@ -391,6 +392,47 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     // With this - pop back to the first route in the stack (Dashboard)
     if (!mounted) return;
     Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  void _saveFoodToLibrary() {
+    final savedFoodProvider =
+        Provider.of<SavedFoodProvider>(context, listen: false);
+
+    // Check if this food is already saved
+    if (savedFoodProvider.isFoodSaved(widget.food.fdcId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This food is already saved'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Add to saved foods
+    savedFoodProvider.addSavedFood(widget.food);
+
+    // Track with PostHog
+    PostHogService.trackEvent('save_food', properties: {
+      'food_name': widget.food.name,
+      'brand_name': widget.food.brandName,
+    });
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${widget.food.name} added to saved foods'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        action: SnackBarAction(
+          label: 'VIEW',
+          onPressed: () {
+            Navigator.pushNamed(context, '/savedFoods');
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -1487,82 +1529,139 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                     ],
                   ),
                 ),
-                child: Container(
-                  height: 60,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black.withValues(alpha: 0.3)
-                          : Colors.white.withValues(alpha: 0.3),
-                      width: 0.5,
-                    ),
-                    boxShadow: const [
-                      // BoxShadow(
-                      //   color: customColors.textPrimary.withOpacity(0.3),
-                      //   blurRadius: 5,
-                      //   offset: const Offset(0, 4),
-                      // ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      _addFoodEntry();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: customColors.textPrimary,
-                      elevation: 0,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    child: Ink(
+                child: Row(
+                  children: [
+                    // Save Food Button
+                    Container(
+                      width: 60,
+                      height: 60,
+                      margin: const EdgeInsets.only(right: 12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? Colors.black.withValues(alpha: 0.3)
+                                  : Colors.white.withValues(alpha: 0.3),
+                          width: 0.5,
+                        ),
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(30),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              // border: Border.all(
-                              // color: customColors.dateNavigatorBackground,
-                              // width: 1.5,
-                              // ),
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: Container(
-                              height: 60,
-                              alignment: Alignment.center,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Add to Diary',
-                                    style: AppTypography.button.copyWith(
-                                      color: Theme.of(context).brightness ==
-                                              Brightness.light
-                                          ? Colors.black
-                                          : const Color(0xFFFFC107)
-                                              .withValues(alpha: 0.9),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
+                      child: ElevatedButton(
+                        onPressed: () {
+                          HapticFeedback.mediumImpact();
+                          _saveFoodToLibrary();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: customColors.textPrimary,
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(30),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: Icon(
+                                  Icons.bookmark_border,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                      ? Colors.black
+                                      : const Color(0xFFFFC107)
+                                          .withValues(alpha: 0.9),
+                                  size: 24,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+
+                    // Add to Diary Button
+                    Expanded(
+                      child: Container(
+                        height: 60,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.black.withValues(alpha: 0.3)
+                                    : Colors.white.withValues(alpha: 0.3),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            _addFoodEntry();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: customColors.textPrimary,
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(30),
+                              child: BackdropFilter(
+                                filter:
+                                    ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: Container(
+                                    height: 60,
+                                    alignment: Alignment.center,
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Add to Diary',
+                                          style: AppTypography.button.copyWith(
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                        Brightness.light
+                                                    ? Colors.black
+                                                    : const Color(0xFFFFC107)
+                                                        .withValues(alpha: 0.9),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

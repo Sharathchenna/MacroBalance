@@ -28,7 +28,6 @@ import 'package:macrotracker/screens/contact_support_screen.dart'; // Added impo
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
-import 'package:macrotracker/auth/paywall_gate.dart'; // Import PaywallGate
 import 'package:macrotracker/test_flutter_camera.dart'; // Import test camera screen
 import 'package:macrotracker/services/superwall_service.dart'; // Added import for SuperwallService
 
@@ -1002,6 +1001,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                         } catch (e) {
                           debugPrint('Error showing Superwall paywall: $e');
                           if (mounted) {
+                            // ignore: use_build_context_synchronously
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Error showing paywall'),
@@ -1552,8 +1552,9 @@ class _AccountDashboardState extends State<AccountDashboard>
               'Default calories goal: ${foodEntryProvider.caloriesGoal}');
           debugPrint('Default protein goal: ${foodEntryProvider.proteinGoal}');
 
-          // Instead of setting null values, use the default values from the provider
-          await _supabase.from('user_macros').update({
+          // Use upsert instead of update to handle both insert and update cases
+          await _supabase.from('user_macros').upsert({
+            'id': currentUser.id, // Include the id for upsert
             'calories_goal': foodEntryProvider.caloriesGoal,
             'protein_goal': foodEntryProvider.proteinGoal,
             'carbs_goal': foodEntryProvider.carbsGoal,
@@ -1593,23 +1594,28 @@ class _AccountDashboardState extends State<AccountDashboard>
             'activity_level': null,
             'protein_ratio': null,
             'fat_ratio': null,
-          }).eq('id', currentUser.id);
+          }, onConflict: 'id');
 
-          // Verify the sync by fetching the updated record
+          // Verify the sync by fetching the updated record using maybeSingle() instead of single()
           final verification = await _supabase
               .from('user_macros')
               .select('calories_goal, protein_goal, macro_results')
               .eq('id', currentUser.id)
-              .single();
+              .maybeSingle();
 
-          debugPrint('Sync verification successful');
-          debugPrint(
-              'Verified calories goal: ${verification['calories_goal']}');
-          debugPrint('Verified protein goal: ${verification['protein_goal']}');
-          if (verification['macro_results'] != null) {
-            debugPrint('Verified macro_results exists in Supabase');
+          if (verification != null) {
+            debugPrint('Sync verification successful');
+            debugPrint(
+                'Verified calories goal: ${verification['calories_goal']}');
+            debugPrint(
+                'Verified protein goal: ${verification['protein_goal']}');
+            if (verification['macro_results'] != null) {
+              debugPrint('Verified macro_results exists in Supabase');
+            } else {
+              debugPrint('Warning: macro_results field is null in Supabase');
+            }
           } else {
-            debugPrint('Warning: macro_results field is null in Supabase');
+            debugPrint('Warning: Could not verify sync - record not found');
           }
 
           debugPrint(

@@ -6,12 +6,14 @@ import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/date_provider.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
+import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
 import 'package:macrotracker/AI/gemini.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/searchPage.dart';
+import 'package:macrotracker/screens/saved_foods_screen.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
@@ -40,6 +42,9 @@ import 'package:macrotracker/services/subscription_service.dart';
 import 'package:macrotracker/services/paywall_manager.dart';
 import 'package:macrotracker/services/superwall_service.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
+import 'package:macrotracker/models/exercise.dart';
+import 'package:macrotracker/models/fitness_profile.dart';
+import 'package:macrotracker/models/workout_plan.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
 import 'package:macrotracker/providers/meal_planning_provider.dart'; // Added MealPlanningProvider
@@ -80,6 +85,7 @@ class Routes {
   static const String weightTracking = '/weightTracking';
   static const String macroTracking = '/macroTracking';
   static const String expenditure = '/expenditure'; // Added expenditure route
+  static const String savedFoods = '/savedFoods'; // Added saved foods route
 }
 
 // Global variable for AI initialization tracking
@@ -94,6 +100,13 @@ Future<void> main() async {
 
   // Initialize Hive (must be done before opening boxes)
   await Hive.initFlutter();
+
+  // Register Hive Adapters
+  Hive.registerAdapter(ExerciseAdapter());
+  Hive.registerAdapter(WorkoutSetAdapter());
+  Hive.registerAdapter(WorkoutExerciseAdapter());
+  Hive.registerAdapter(WorkoutRoutineAdapter());
+  Hive.registerAdapter(FitnessProfileAdapter());
 
   // Initialize Firebase
   await Firebase.initializeApp(
@@ -217,16 +230,16 @@ Future<void> main() async {
                   // If previous was null or empty (likely just logged in or first load)
                   // Create a new provider instance and trigger loading
                   debugPrint(
-                      '[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.');
+                      '[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering initialization.');
                   final newProvider = FoodEntryProvider();
                   // Don't await here, let it load in background
                   // Wrap in addPostFrameCallback to prevent setState during build
                   debugPrint(
-                      '[Startup Timing] Scheduling loadEntriesForCurrentUser: ${DateTime.now()}');
+                      '[Startup Timing] Scheduling initialize: ${DateTime.now()}');
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     // Use Future.microtask to make it completely non-blocking
-                    Future.microtask(
-                        () => newProvider.loadEntriesForCurrentUser());
+                    // Use initialize() instead of loadEntriesForCurrentUser() to ensure goals are loaded first
+                    Future.microtask(() => newProvider.initialize());
                   });
                   return newProvider;
                 } else {
@@ -244,6 +257,36 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
           ChangeNotifierProvider(
               create: (_) => WeightUnitProvider()), // Keep this instance
+          // Saved Foods Provider
+          ChangeNotifierProxyProvider<User?, SavedFoodProvider>(
+            create: (_) => SavedFoodProvider(),
+            update: (context, user, previousProvider) {
+              if (user == null) {
+                // User logged out, return a NEW empty provider
+                debugPrint(
+                    '[ProxyProvider] User is null. Creating new empty SavedFoodProvider.');
+                return SavedFoodProvider();
+              } else {
+                // User logged in
+                if (previousProvider == null ||
+                    !previousProvider.isInitialized) {
+                  // If previous was null or not initialized
+                  debugPrint(
+                      '[ProxyProvider] User logged in (${user.id}). Creating new SavedFoodProvider and triggering initialization.');
+                  final newProvider = SavedFoodProvider();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    Future.microtask(() => newProvider.initialize());
+                  });
+                  return newProvider;
+                } else {
+                  // User is the same, reuse the existing provider
+                  debugPrint(
+                      '[ProxyProvider] User (${user.id}) remains. Reusing existing SavedFoodProvider.');
+                  return previousProvider;
+                }
+              }
+            },
+          ),
           // Meal and Workout Planning Providers - Using empty constructors
           ChangeNotifierProvider(create: (_) => MealPlanningProvider()),
           ChangeNotifierProvider(create: (_) => WorkoutPlanningProvider()),
@@ -561,6 +604,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             Routes.account: (context) => const AccountDashboard(),
             Routes.weightTracking: (context) => const WeightTrackingScreen(),
             Routes.macroTracking: (context) => const MacroTrackingScreen(),
+            Routes.savedFoods: (context) => const SavedFoodsScreen(),
             // Routes.expenditure: (context) => const PaywallGate(
             //     child: ExpenditureScreen()), // Added expenditure route mapping
           },

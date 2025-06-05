@@ -14,8 +14,7 @@ import 'package:macrotracker/screens/steps_tracking_screen.dart';
 import 'package:macrotracker/screens/tracking_pages_screen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/searchPage.dart';
-import 'package:macrotracker/screens/meal_planning_screen.dart';
-import 'package:macrotracker/screens/workout_planning_screen.dart';
+import 'package:macrotracker/screens/workout_planning_screen.dart'; // Added for WorkoutPlanningScreen
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Import Hive
@@ -26,7 +25,6 @@ import '../services/storage_service.dart'; // Import StorageService
 import '../services/nutrition_calculator_service.dart'; // Import NutritionCalculatorService
 import '../utils/performance_monitor.dart';
 import '../widgets/camera/camera_controls.dart'; // Import CameraMode
-import '../test_barcode_navigation.dart'; // Import test navigation
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -48,23 +46,17 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
 
     trackOperation('dashboard_setup');
 
-    // Load local data immediately (fast), then sync in background
+    // Provider initialization is now handled by ProxyProvider in main.dart
+    // Just track that Dashboard is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         trackOperation('food_provider_refresh');
         final foodEntryProvider =
             Provider.of<FoodEntryProvider>(context, listen: false);
 
-        // Use the optimized loading method that loads local first
-        foodEntryProvider.loadEntriesForCurrentUser().then((_) {
-          endTracking('food_provider_refresh');
-          print(
-              'Dashboard: FoodEntryProvider loaded locally, calories_goal=${foodEntryProvider.caloriesGoal}');
-          // Force a rebuild after the local data loads
-          if (mounted) {
-            setState(() {});
-          }
-        });
+        endTracking('food_provider_refresh');
+        print(
+            'Dashboard: FoodEntryProvider state, calories_goal=${foodEntryProvider.caloriesGoal}, isInitialized=${foodEntryProvider.isInitialized}');
       }
     });
 
@@ -195,18 +187,6 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody:
           true, // Allows body to go behind bottom nav bar if transparent
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const TestBarcodeNavigation(),
-            ),
-          );
-        },
-        backgroundColor: Colors.red.shade400,
-        child: const Icon(Icons.bug_report, color: Colors.white),
-      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.miniStartTop,
       body: Stack(
         children: [
@@ -265,10 +245,8 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14.0),
             color: Theme.of(context).brightness == Brightness.light
-                ? Colors.grey.shade50
-                    .withAlpha(((0.4) * 255).round()) // Use withOpacity
-                : Colors.black
-                    .withAlpha(((0.4) * 255).round()), // Use withOpacity
+                ? Colors.grey.shade50.withAlpha(((0.4) * 255).round())
+                : Colors.black.withAlpha(((0.4) * 255).round()),
             border: Border.all(
               color: Theme.of(context).brightness == Brightness.light
                   ? Colors.grey.withAlpha(((0.2) * 255).round())
@@ -289,25 +267,9 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildNavItemCompact(
-                  context: context,
-                  icon: CupertinoIcons.add,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        builder: (context) => const FoodSearchPage(),
-                      ),
-                    );
-                  }),
-              _buildNavItemCompact(
                 context: context,
-                icon: CupertinoIcons.camera,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  // Use Flutter camera implementation
-                  _showFlutterCamera();
-                },
+                icon: CupertinoIcons.add,
+                onTap: () => _showAddFoodMenu(context),
               ),
               _buildNavItemCompact(
                 context: context,
@@ -323,6 +285,18 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
               ),
               _buildNavItemCompact(
                 context: context,
+                icon: CupertinoIcons.flame_fill,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(
+                        builder: (context) => const WorkoutPlanningScreen()),
+                  );
+                },
+              ),
+              _buildNavItemCompact(
+                context: context,
                 icon: CupertinoIcons.person,
                 onTap: () {
                   HapticFeedback.lightImpact();
@@ -333,29 +307,151 @@ class _DashboardState extends State<Dashboard> with PerformanceTrackingMixin {
                   );
                 },
               ),
-              _buildNavItemCompact(
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Add method to show the add food menu
+  void _showAddFoodMenu(BuildContext context) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          decoration: BoxDecoration(
+            color: Theme.of(context).extension<CustomColors>()?.cardBackground,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildAddFoodOption(
                 context: context,
-                icon: CupertinoIcons.chart_pie_fill,
+                icon: CupertinoIcons.camera,
+                title: 'AI Camera',
+                subtitle: 'Take a photo of your food',
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  Navigator.pop(context);
+                  _showFlutterCamera();
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildAddFoodOption(
+                context: context,
+                icon: CupertinoIcons.bookmark,
+                title: 'Saved Foods',
+                subtitle: 'Quick access to your favorites',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/savedFoods');
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildAddFoodOption(
+                context: context,
+                icon: CupertinoIcons.search,
+                title: 'Search Foods',
+                subtitle: 'Browse our food database',
+                onTap: () {
+                  Navigator.pop(context);
                   Navigator.push(
                     context,
                     CupertinoPageRoute(
-                        builder: (context) => const MealPlanningScreen()),
+                      builder: (context) => const FoodSearchPage(),
+                    ),
                   );
                 },
               ),
-              _buildNavItemCompact(
-                context: context,
-                icon: CupertinoIcons.sportscourt_fill,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    CupertinoPageRoute(
-                        builder: (context) => const WorkoutPlanningScreen()),
-                  );
-                },
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method to build add food options
+  Widget _buildAddFoodOption({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context)
+                            .extension<CustomColors>()
+                            ?.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                CupertinoIcons.chevron_right,
+                size: 20,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade600
+                    : Colors.grey.shade400,
               ),
             ],
           ),
@@ -1025,7 +1121,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         // Show UI even if not fully loaded - it will update automatically when data arrives
         // Get nutrition goals directly from the provider
         final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
-        debugPrint('Dashboard Calorie Goal: $caloriesGoal'); // Add debug print
+        debugPrint(
+            '[Dashboard] Calorie Goal from provider: $caloriesGoal (isInitialized: ${foodEntryProvider.isInitialized})');
         final proteinGoal = foodEntryProvider.proteinGoal.toInt();
         final carbGoal = foodEntryProvider.carbsGoal.toInt();
         final fatGoal = foodEntryProvider.fatGoal.toInt();

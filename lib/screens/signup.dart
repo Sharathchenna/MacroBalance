@@ -13,7 +13,14 @@ import 'package:macrotracker/screens/forgot_password_screen.dart';
 import 'dart:io';
 
 class Signup extends StatefulWidget {
-  const Signup({super.key});
+  final bool fromOnboarding;
+  final VoidCallback? onSignupSuccess;
+
+  const Signup({
+    super.key,
+    this.fromOnboarding = false,
+    this.onSignupSuccess,
+  });
 
   @override
   State<Signup> createState() => _SignupState();
@@ -125,11 +132,24 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         );
       } else if (response.user != null && response.session != null) {
         // This case might happen if email confirmation is disabled or if the user somehow confirms immediately.
-        // Navigate to AuthGate as before.
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const AuthGate()),
-          (route) => false,
-        );
+        debugPrint('=== SIGNUP SUCCESS: User and session created ===');
+        debugPrint('User ID: ${response.user!.id}');
+        debugPrint('fromOnboarding: ${widget.fromOnboarding}');
+        debugPrint(
+            'onSignupSuccess callback exists: ${widget.onSignupSuccess != null}');
+
+        if (widget.fromOnboarding && widget.onSignupSuccess != null) {
+          debugPrint('Calling onSignupSuccess callback');
+          // Call the success callback - don't pop, let parent handle navigation
+          widget.onSignupSuccess!();
+        } else {
+          debugPrint('Navigating to AuthGate normally');
+          // Navigate to AuthGate as before.
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const AuthGate()),
+            (route) => false,
+          );
+        }
       }
       // If response.user is null, the catch block will handle the error.
     } catch (error) {
@@ -187,10 +207,22 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         accessToken: accessToken,
       );
 
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const AuthGate()),
-        (route) => false,
-      );
+      debugPrint('=== GOOGLE SIGNIN SUCCESS ===');
+      debugPrint('fromOnboarding: ${widget.fromOnboarding}');
+      debugPrint(
+          'onSignupSuccess callback exists: ${widget.onSignupSuccess != null}');
+
+      if (widget.fromOnboarding && widget.onSignupSuccess != null) {
+        debugPrint('Calling onSignupSuccess callback from Google signin');
+        // Call the success callback - don't pop, let parent handle navigation
+        widget.onSignupSuccess!();
+      } else {
+        debugPrint('Navigating to AuthGate from Google signin');
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthGate()),
+          (route) => false,
+        );
+      }
     } catch (error) {
       print('Google sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -229,10 +261,22 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
           accessToken: credential.authorizationCode,
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const AuthGate()),
-          (route) => false,
-        );
+        debugPrint('=== APPLE SIGNIN SUCCESS ===');
+        debugPrint('fromOnboarding: ${widget.fromOnboarding}');
+        debugPrint(
+            'onSignupSuccess callback exists: ${widget.onSignupSuccess != null}');
+
+        if (widget.fromOnboarding && widget.onSignupSuccess != null) {
+          debugPrint('Calling onSignupSuccess callback from Apple signin');
+          // Call the success callback - don't pop, let parent handle navigation
+          widget.onSignupSuccess!();
+        } else {
+          debugPrint('Navigating to AuthGate from Apple signin');
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const AuthGate()),
+            (route) => false,
+          );
+        }
       } else {
         throw 'No identity token received from Apple';
       }
@@ -264,6 +308,17 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: widget.fromOnboarding
+            ? AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back_rounded,
+                      color: customColors!.textPrimary),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              )
+            : null,
         body: FadeTransition(
           opacity: _fadeAnimation,
           child: SafeArea(
@@ -285,10 +340,13 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                     ),
                     const SizedBox(height: 4), // Reduced from 8
                     Text(
-                      'Start your fitness journey today',
+                      widget.fromOnboarding
+                          ? 'Create an account to save your personalized plan'
+                          : 'Start your fitness journey today',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: customColors!.textPrimary.withAlpha(((0.7) * 255).round()),
+                        color: customColors!.textPrimary
+                            .withAlpha(((0.7) * 255).round()),
                       ),
                     ),
                     const SizedBox(height: 24), // Reduced from 40
@@ -423,7 +481,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       children: [
                         Expanded(
                           child: Divider(
-                            color: customColors.textPrimary.withAlpha(((0.2) * 255).round()),
+                            color: customColors.textPrimary
+                                .withAlpha(((0.2) * 255).round()),
                             thickness: 1,
                           ),
                         ),
@@ -433,7 +492,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                           child: Text(
                             'OR',
                             style: TextStyle(
-                              color: customColors.textPrimary.withAlpha(((0.6) * 255).round()),
+                              color: customColors.textPrimary
+                                  .withAlpha(((0.6) * 255).round()),
                               fontWeight: FontWeight.w500,
                               fontSize: 13, // Slightly smaller font
                             ),
@@ -441,7 +501,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         ),
                         Expanded(
                           child: Divider(
-                            color: customColors.textPrimary.withAlpha(((0.2) * 255).round()),
+                            color: customColors.textPrimary
+                                .withAlpha(((0.2) * 255).round()),
                             thickness: 1,
                           ),
                         ),
@@ -455,7 +516,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       onPressed: isLoading ? null : _nativeGoogleSignIn,
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(
-                            color: customColors.textPrimary.withAlpha(((0.3) * 255).round())),
+                            color: customColors.textPrimary
+                                .withAlpha(((0.3) * 255).round())),
                         padding: const EdgeInsets.symmetric(
                             vertical: 12), // Reduced from 14
                         shape: RoundedRectangleBorder(
@@ -470,7 +532,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       label: Text(
                         'Continue with Google',
                         style: TextStyle(
-                          color: customColors.textPrimary.withAlpha(((0.8) * 255).round()),
+                          color: customColors.textPrimary
+                              .withAlpha(((0.8) * 255).round()),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -484,7 +547,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         onPressed: isLoading ? null : _signInWithApple,
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
-                              color: customColors.textPrimary.withAlpha(((0.3) * 255).round())),
+                              color: customColors.textPrimary
+                                  .withAlpha(((0.3) * 255).round())),
                           padding: const EdgeInsets.symmetric(
                               vertical: 12), // Reduced from 14
                           shape: RoundedRectangleBorder(
@@ -499,7 +563,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         label: Text(
                           'Continue with Apple',
                           style: TextStyle(
-                            color: customColors.textPrimary.withAlpha(((0.8) * 255).round()),
+                            color: customColors.textPrimary
+                                .withAlpha(((0.8) * 255).round()),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -515,7 +580,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                         Text(
                           'Already have an account? ',
                           style: TextStyle(
-                            color: customColors.textPrimary.withAlpha(((0.7) * 255).round()),
+                            color: customColors.textPrimary
+                                .withAlpha(((0.7) * 255).round()),
                             fontSize: 13, // Slightly smaller font
                           ),
                         ),
@@ -589,7 +655,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: customColors.textPrimary.withAlpha(((0.5) * 255).round()),
+                color:
+                    customColors.textPrimary.withAlpha(((0.5) * 255).round()),
                 size: 22,
               )
             : null,
@@ -599,7 +666,9 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                   (passwordVisibility ?? false)
                       ? Icons.visibility
                       : Icons.visibility_off,
-                  color: Theme.of(context).primaryColor.withAlpha(((0.5) * 255).round()),
+                  color: Theme.of(context)
+                      .primaryColor
+                      .withAlpha(((0.5) * 255).round()),
                   size: 22,
                 ),
                 onPressed: () {
@@ -618,7 +687,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             width: 1,
-            color: Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
+            color:
+                Theme.of(context).primaryColor.withAlpha(((0.1) * 255).round()),
           ),
         ),
         focusedBorder: OutlineInputBorder(

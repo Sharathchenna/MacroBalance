@@ -1,11 +1,20 @@
+import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
-import 'exercise.dart';
+import 'exercise.dart'; // Exercise model should already be Hive-annotated
 
-class WorkoutSet {
+part 'workout_plan.g.dart';
+
+@HiveType(typeId: 1)
+class WorkoutSet extends HiveObject {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   final int reps;
+  @HiveField(2)
   final double? weight;
+  @HiveField(3)
   final int? durationSeconds;
+  @HiveField(4)
   final bool isCompleted;
 
   WorkoutSet({
@@ -54,13 +63,21 @@ class WorkoutSet {
   }
 }
 
-class WorkoutExercise {
+@HiveType(typeId: 2)
+class WorkoutExercise extends HiveObject {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   final String exerciseId;
-  final Exercise? exercise;
-  final List<WorkoutSet> sets;
+  @HiveField(2)
+  final Exercise? exercise; // This will store a HiveObject of Exercise
+  @HiveField(3)
+  final List<WorkoutSet> sets; // This will store a list of HiveObjects of WorkoutSet
+  @HiveField(4)
   final int restSeconds;
+  @HiveField(5)
   final String? notes;
+  @HiveField(6)
   final bool isCompleted;
 
   WorkoutExercise({
@@ -159,18 +176,31 @@ class WorkoutExercise {
   }
 }
 
-class WorkoutRoutine {
+@HiveType(typeId: 3)
+class WorkoutRoutine extends HiveObject {
+  @HiveField(0)
   final String id;
+  @HiveField(1)
   final String name;
+  @HiveField(2)
   final String description;
-  final List<WorkoutExercise> exercises;
+  @HiveField(3)
+  final List<WorkoutExercise> exercises; // This will store a list of HiveObjects of WorkoutExercise
+  @HiveField(4)
   final int estimatedDurationMinutes;
+  @HiveField(5)
   final String difficulty;
+  @HiveField(6)
   final List<String> targetMuscles;
+  @HiveField(7)
   final List<String> requiredEquipment;
+  @HiveField(8)
   final bool isCustom;
+  @HiveField(9)
   final String? createdBy;
+  @HiveField(10)
   final DateTime createdAt;
+  @HiveField(11)
   final DateTime updatedAt;
 
   WorkoutRoutine({
