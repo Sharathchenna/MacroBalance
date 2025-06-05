@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/food_entry_provider.dart';
 import 'package:macrotracker/models/nutrition_goals.dart'; // Import NutritionGoals
 import 'package:macrotracker/Health/Health.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditGoalsScreen extends StatefulWidget {
   const EditGoalsScreen({super.key});
@@ -243,32 +244,31 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   }
 
   // Keep async because FoodEntryProvider setters might be async (due to Supabase sync)
-  Future<void> _saveGoals() async {
+  Future<void> _saveGoals(Map<String, int> newMacros) async {
     try {
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
 
-      // Ensure provider is initialized
-      await foodEntryProvider.initialize();
+      // First update local state
+      setState(() {
+        calorieGoal = newMacros['calories']!;
+        proteinGoal = newMacros['protein']!;
+        carbGoal = newMacros['carbs']!;
+        fatGoal = newMacros['fat']!;
+      });
 
-      // Create NutritionGoals object and update
+      // Create nutrition goals object
       final nutritionGoals = foodEntryProvider.nutritionGoals.copyWith(
-        calories: calorieGoal.toDouble(),
-        protein: proteinGoal.toDouble(),
-        carbs: carbGoal.toDouble(),
-        fat: fatGoal.toDouble(),
+        calories: newMacros['calories']!.toDouble(),
+        protein: newMacros['protein']!.toDouble(),
+        carbs: newMacros['carbs']!.toDouble(),
+        fat: newMacros['fat']!.toDouble(),
         steps: stepsGoal,
         bmr: bmr.toDouble(),
       );
 
-      // Update goals in provider (this triggers save to storage and Supabase sync)
+      // Update provider - this will handle both local storage and Supabase sync
       await foodEntryProvider.updateNutritionGoals(nutritionGoals);
-
-      // Log diagnostic info
-      debugPrint(
-          'Goals saved to provider: calories=$calorieGoal, protein=$proteinGoal, carbs=$carbGoal, fat=$fatGoal');
-      debugPrint(
-          'Provider goals after update: calories=${foodEntryProvider.caloriesGoal}, protein=${foodEntryProvider.proteinGoal}');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -279,7 +279,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       debugPrint('Error saving goals: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error saving goals')),
+          const SnackBar(content: Text('Error updating goals')),
         );
       }
     }
@@ -290,8 +290,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     final TextEditingController controller =
         TextEditingController(text: currentValue.toString());
     final customColors = Theme.of(context).extension<CustomColors>();
-    // Find the color associated with this title
-    Color dialogColor = Colors.deepOrange; // Default color
+    Color dialogColor = Colors.deepOrange;
     for (var data in _getGoalsData()) {
       if (data['title'].contains(title.split(' ')[0])) {
         dialogColor = data['color'];
@@ -328,7 +327,6 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Fix for overflow - Wrap with Flexible for title
                 Row(
                   children: [
                     Container(
@@ -357,9 +355,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 24),
-
                 Container(
                   decoration: BoxDecoration(
                     color: customColors.cardBackground,
@@ -413,13 +409,10 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Cancel button
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
@@ -435,27 +428,47 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Save button
                     ElevatedButton(
                       onPressed: () async {
                         final newValue = int.tryParse(controller.text);
                         if (newValue != null && newValue > 0) {
-                          // First, update local state
-                          setState(() {
-                            onSave(newValue);
-                          });
+                          // Determine which macro is being changed
+                          String macroType = '';
+                          if (title.contains('Protein'))
+                            macroType = 'protein';
+                          else if (title.contains('Carbohydrate'))
+                            macroType = 'carbs';
+                          else if (title.contains('Fat'))
+                            macroType = 'fat';
+                          else if (title.contains('Calorie'))
+                            macroType = 'calories';
+                          else if (title.contains('Steps')) {
+                            setState(() {
+                              stepsGoal = newValue;
+                            });
+                            await _saveGoals({
+                              'calories': calorieGoal,
+                              'protein': proteinGoal,
+                              'carbs': carbGoal,
+                              'fat': fatGoal,
+                            });
+                            if (context.mounted) {
+                              Navigator.pop(context, true);
+                            }
+                            return;
+                          }
 
-                          // Save to provider and storage
-                          await _saveGoals();
+                          // Calculate new macro values
+                          final newMacros = await calculateInterconnectedMacros(
+                              macroType, newValue);
 
-                          // Debug info
-                          debugPrint("Goal '$title' updated to: $newValue");
+                          // Save all updated values
+                          await _saveGoals(newMacros);
 
                           if (context.mounted) {
                             Navigator.pop(context, true);
                           }
                         } else {
-                          // Show error for invalid input
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                                 content: Text(
@@ -803,5 +816,53 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     );
   }
 
-  // Add this new method somewhere within the _EditGoalsScreenState class
+  // Constants for macro calculations
+  static const double PROTEIN_CAL = 4.0;
+  static const double CARBS_CAL = 4.0;
+  static const double FAT_CAL = 9.0;
+  static const double PROTEIN_RATIO = 0.30;
+  static const double CARBS_RATIO = 0.40;
+  static const double FAT_RATIO = 0.30;
+
+  Future<Map<String, int>> calculateInterconnectedMacros(
+      String changedMacro, int newValue) async {
+    Map<String, int> newMacros = {
+      'calories': calorieGoal,
+      'protein': proteinGoal,
+      'carbs': carbGoal,
+      'fat': fatGoal
+    };
+
+    switch (changedMacro) {
+      case 'protein':
+        newMacros['protein'] = newValue;
+        newMacros['calories'] =
+            (newValue * PROTEIN_CAL + carbGoal * CARBS_CAL + fatGoal * FAT_CAL)
+                .round();
+        break;
+      case 'carbs':
+        newMacros['carbs'] = newValue;
+        newMacros['calories'] = (proteinGoal * PROTEIN_CAL +
+                newValue * CARBS_CAL +
+                fatGoal * FAT_CAL)
+            .round();
+        break;
+      case 'fat':
+        newMacros['fat'] = newValue;
+        newMacros['calories'] = (proteinGoal * PROTEIN_CAL +
+                carbGoal * CARBS_CAL +
+                newValue * FAT_CAL)
+            .round();
+        break;
+      case 'calories':
+        newMacros['calories'] = newValue;
+        // Distribute calories according to macro ratios
+        newMacros['protein'] =
+            ((newValue * PROTEIN_RATIO) / PROTEIN_CAL).round();
+        newMacros['carbs'] = ((newValue * CARBS_RATIO) / CARBS_CAL).round();
+        newMacros['fat'] = ((newValue * FAT_RATIO) / FAT_CAL).round();
+        break;
+    }
+    return newMacros;
+  }
 }

@@ -79,7 +79,7 @@ class NutritionGoalsRepository {
 
     try {
       final Map<String, dynamic> goalsData = {
-        'user_id': userId,
+        'id': userId, // Note: user_macros uses 'id' instead of 'user_id'
         'calories_goal': goals.calories,
         'protein_goal': goals.protein,
         'carbs_goal': goals.carbs,
@@ -92,9 +92,19 @@ class NutritionGoalsRepository {
         'goal_type': goals.goalType,
         'deficit_surplus': goals.deficitSurplus,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
+        'macro_targets': {
+          'calories': goals.calories,
+          'protein': goals.protein,
+          'carbs': goals.carbs,
+          'fat': goals.fat,
+        },
       };
 
-      await Supabase.instance.client.from('nutrition_goals').upsert(goalsData);
+      await Supabase.instance.client
+          .from('user_macros')
+          .upsert(goalsData, onConflict: 'id');
+
+      debugPrint('Successfully synced goals to Supabase user_macros table');
     } catch (e) {
       print('Error syncing goals to Supabase: $e');
     }
