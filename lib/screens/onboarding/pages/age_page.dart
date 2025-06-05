@@ -114,7 +114,8 @@ class _AgePageState extends State<AgePage> {
   }
 
   Widget _buildAgeDisplay(ThemeData theme, CustomColors? customColors) {
-    final Color primaryColor = theme.colorScheme.primary;
+    final Color primaryColor =
+        customColors?.textPrimary ?? theme.colorScheme.onSurface;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
@@ -142,7 +143,9 @@ class _AgePageState extends State<AgePage> {
           Text(
             'years',
             style: TextStyle(
-              color: (customColors?.textPrimary ?? theme.textTheme.bodyLarge?.color)?.withAlpha((0.8 * 255).round()),
+              color: (customColors?.textPrimary ??
+                      theme.textTheme.bodyLarge?.color)
+                  ?.withAlpha((0.8 * 255).round()),
               fontSize: 20,
               fontWeight: FontWeight.w400,
             ),

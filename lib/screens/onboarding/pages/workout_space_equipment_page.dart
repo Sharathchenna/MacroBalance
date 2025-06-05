@@ -311,6 +311,8 @@ class _WorkoutSpaceEquipmentPageState extends State<WorkoutSpaceEquipmentPage> {
 
   Widget _buildEquipmentChip(String equipment, IconData icon, bool isDark) {
     final isSelected = widget.availableEquipment.contains(equipment);
+    final theme = Theme.of(context);
+    final customColors = theme.extension<CustomColors>();
 
     return GestureDetector(
       onTap: () {
@@ -327,21 +329,22 @@ class _WorkoutSpaceEquipmentPageState extends State<WorkoutSpaceEquipmentPage> {
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? PremiumColors.blue400 : PremiumColors.slate900)
+              ? (customColors?.textPrimary ??
+                  (isDark ? Colors.white : PremiumColors.slate900))
               : (isDark ? PremiumColors.trueDarkCard : Colors.white),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? (isDark ? PremiumColors.blue400 : PremiumColors.slate900)
+                ? (customColors?.textPrimary ??
+                    (isDark ? Colors.white : PremiumColors.slate900))
                 : (isDark ? PremiumColors.slate700 : PremiumColors.slate300),
             width: 1.5,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: (isDark
-                            ? PremiumColors.blue400
-                            : PremiumColors.slate900)
+                    color: (customColors?.textPrimary ??
+                            (isDark ? Colors.white : PremiumColors.slate900))
                         .withAlpha((0.1 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
@@ -358,7 +361,8 @@ class _WorkoutSpaceEquipmentPageState extends State<WorkoutSpaceEquipmentPage> {
                 icon,
                 size: 18,
                 color: isSelected
-                    ? (isDark ? PremiumColors.slate900 : Colors.white)
+                    ? (customColors?.cardBackground ??
+                        (isDark ? PremiumColors.slate900 : Colors.white))
                     : (isDark
                         ? PremiumColors.slate300
                         : PremiumColors.slate600),
@@ -368,9 +372,10 @@ class _WorkoutSpaceEquipmentPageState extends State<WorkoutSpaceEquipmentPage> {
                 child: Text(
                   equipment,
                   style: PremiumTypography.label.copyWith(
-                    fontSize: 13,
+                    fontSize: 14,
                     color: isSelected
-                        ? (isDark ? PremiumColors.slate900 : Colors.white)
+                        ? (customColors?.cardBackground ??
+                            (isDark ? PremiumColors.slate900 : Colors.white))
                         : (isDark
                             ? PremiumColors.slate300
                             : PremiumColors.slate700),

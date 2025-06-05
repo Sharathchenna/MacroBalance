@@ -79,12 +79,13 @@ dependencies:
   supabase_flutter: ^2.8.3
   superwallkit_flutter: ^2.0.5
   syncfusion_flutter_charts: ^28.2.6
-  syncfusion_flutter_sliders: ^28.2.6 # Added sliders dependency (matching charts version)
+  syncfusion_flutter_sliders: ^28.2.12 # Added sliders dependency (matching charts version)
   app_links: ^6.4.0 # Replaced uni_links with app_links
   url_launcher: ^6.3.1 # Added for contact support email
   uuid: ^4.5.1
   visibility_detector: ^0.4.0+2
   webview_flutter: ^4.10.0
+  syncfusion_flutter_core: ^28.2.12
 
 dev_dependencies:
   flutter_test:

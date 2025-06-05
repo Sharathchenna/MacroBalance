@@ -491,9 +491,9 @@ class OnboardingScreenState extends State<OnboardingScreen>
                     backgroundColor: (customColors?.dateNavigatorBackground ??
                             theme.colorScheme.surface)
                         .withAlpha((0.3 * 255).round()),
-                    valueColor: AlwaysStoppedAnimation<Color>(isDark
-                        ? PremiumColors.blue400
-                        : PremiumColors.slate900),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        customColors?.textPrimary ??
+                            (isDark ? Colors.white : PremiumColors.slate900)),
                     minHeight: 4,
                     borderRadius: BorderRadius.circular(2),
                   );
@@ -586,7 +586,7 @@ class OnboardingScreenState extends State<OnboardingScreen>
       child: Text(
         _currentPage == _totalPages - 1 ? 'Calculate' : 'Next',
         style: PremiumTypography.button.copyWith(
-          color: theme.colorScheme.onPrimary,
+          color: customColors?.cardBackground ?? theme.scaffoldBackgroundColor,
           fontSize: 16,
           letterSpacing: 0.3,
           fontWeight: FontWeight.w600,

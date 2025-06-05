@@ -254,17 +254,19 @@ class AdvancedSettingsPage extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isSelected
-                      ? (customColors?.textPrimary ?? theme.colorScheme.primary)
+                      ? (customColors?.textPrimary ??
+                          theme.colorScheme.onSurface)
                       : Colors.transparent,
                   border: Border.all(
                       color: isSelected
                           ? (customColors?.textPrimary ??
-                              theme.colorScheme.primary)
+                              theme.colorScheme.onSurface)
                           : Colors.grey.withAlpha((0.5 * 255).round()),
                       width: 2),
                 ),
                 child: isSelected
-                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    ? Icon(Icons.check,
+                        size: 14, color: customColors?.cardBackground)
                     : null,
               ),
               const SizedBox(width: 8),
@@ -298,7 +300,7 @@ class AdvancedSettingsPage extends StatelessWidget {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
     final Color primaryColor =
-        customColors?.textPrimary ?? theme.colorScheme.primary;
+        customColors?.textPrimary ?? theme.colorScheme.onSurface;
 
     return Container(
       padding: const EdgeInsets.all(16),

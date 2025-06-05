@@ -140,9 +140,9 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
                           colors: [
-                            (customColors?.accentPrimary ?? theme.primaryColor)
+                            (customColors?.textPrimary ?? theme.primaryColor)
                                 .withValues(alpha: 0.15),
-                            (customColors?.accentPrimary ?? theme.primaryColor)
+                            (customColors?.textPrimary ?? theme.primaryColor)
                                 .withValues(alpha: 0.05),
                           ],
                           begin: Alignment.topLeft,
@@ -152,7 +152,7 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                       child: Icon(
                         Icons.notifications_active_rounded,
                         size: size.width * 0.09,
-                        color: customColors?.accentPrimary ?? theme.primaryColor,
+                        color: customColors?.textPrimary ?? theme.primaryColor,
                       ),
                     ),
                     SizedBox(height: size.height * 0.025),
@@ -161,7 +161,8 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                       style: GoogleFonts.inter(
                         fontSize: size.width * 0.065,
                         fontWeight: FontWeight.w700,
-                        color: customColors?.textPrimary ?? theme.colorScheme.onSurface,
+                        color: customColors?.textPrimary ??
+                            theme.colorScheme.onSurface,
                         letterSpacing: -0.5,
                       ),
                       textAlign: TextAlign.center,
@@ -171,7 +172,8 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                       'Get reminders to stay consistent with your nutrition goals',
                       style: GoogleFonts.inter(
                         fontSize: size.width * 0.038,
-                        color: customColors?.textSecondary ?? theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        color: customColors?.textSecondary ??
+                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
                         height: 1.3,
                       ),
                       textAlign: TextAlign.center,
@@ -186,7 +188,8 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                     vertical: size.height * 0.025,
                   ),
                   decoration: BoxDecoration(
-                    color: customColors?.cardBackground ?? theme.colorScheme.surface,
+                    color: customColors?.cardBackground ??
+                        theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: theme.colorScheme.outline.withValues(alpha: 0.1),
@@ -228,10 +231,13 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                       width: double.infinity,
                       height: size.height * 0.065,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleAllowNotifications,
+                        onPressed:
+                            _isLoading ? null : _handleAllowNotifications,
                         style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: customColors?.accentPrimary ?? theme.primaryColor,
+                          foregroundColor: customColors?.cardBackground ??
+                              theme.scaffoldBackgroundColor,
+                          backgroundColor:
+                              customColors?.textPrimary ?? theme.primaryColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -262,11 +268,14 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                       child: TextButton(
                         onPressed: _isLoading ? null : _handleSkip,
                         style: TextButton.styleFrom(
-                          foregroundColor: customColors?.textSecondary ?? theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          foregroundColor: customColors?.textSecondary ??
+                              theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.7),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                              color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                              color: theme.colorScheme.outline
+                                  .withValues(alpha: 0.2),
                               width: 1,
                             ),
                           ),
@@ -305,9 +314,9 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                (customColors?.accentPrimary ?? theme.primaryColor)
+                (customColors?.textPrimary ?? theme.primaryColor)
                     .withValues(alpha: 0.15),
-                (customColors?.accentPrimary ?? theme.primaryColor)
+                (customColors?.textPrimary ?? theme.primaryColor)
                     .withValues(alpha: 0.08),
               ],
               begin: Alignment.topLeft,
@@ -318,7 +327,7 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
           child: Icon(
             icon,
             size: size.width * 0.06,
-            color: customColors?.accentPrimary ?? theme.primaryColor,
+            color: customColors?.textPrimary ?? theme.primaryColor,
           ),
         ),
         SizedBox(height: size.height * 0.01),

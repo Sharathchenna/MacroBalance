@@ -145,6 +145,10 @@ class ActivityLevelPage extends StatelessWidget {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
     final isSelected = currentActivityLevel == level;
+    final accentColor = theme.colorScheme.onSurface;
+    final onAccentColor = theme.colorScheme.surface;
+    final unselectedAccentColor = customColors?.textSecondary ??
+        theme.colorScheme.onSurface.withOpacity(0.7);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -156,8 +160,8 @@ class ActivityLevelPage extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isSelected
               ? [
-                  theme.colorScheme.primary.withAlpha((0.1 * 255).round()),
-                  theme.colorScheme.primary.withAlpha((0.2 * 255).round()),
+                  accentColor.withOpacity(0.8),
+                  accentColor,
                 ]
               : [
                   customColors?.cardBackground ?? theme.cardColor,
@@ -167,14 +171,14 @@ class ActivityLevelPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isSelected
-              ? theme.colorScheme.primary
+              ? accentColor
               : theme.dividerColor.withAlpha((0.1 * 255).round()),
           width: isSelected ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: isSelected
-                ? theme.colorScheme.primary.withAlpha((0.2 * 255).round())
+                ? accentColor.withOpacity(0.2)
                 : Colors.black.withAlpha((0.05 * 255).round()),
             blurRadius: isSelected ? 8 : 4,
             offset: Offset(0, isSelected ? 4 : 2),
@@ -208,13 +212,13 @@ class ActivityLevelPage extends StatelessWidget {
                             end: Alignment.bottomRight,
                             colors: [
                               Color.lerp(
-                                theme.colorScheme.primary.withAlpha((0.1 * 255).round()),
-                                theme.colorScheme.primary,
+                                unselectedAccentColor.withOpacity(0.1),
+                                accentColor,
                                 value,
                               )!,
                               Color.lerp(
-                                theme.colorScheme.primary.withAlpha((0.05 * 255).round()),
-                                theme.colorScheme.primary.withAlpha((0.8 * 255).round()),
+                                unselectedAccentColor.withOpacity(0.05),
+                                accentColor.withOpacity(0.8),
                                 value,
                               )!,
                             ],
@@ -224,8 +228,8 @@ class ActivityLevelPage extends StatelessWidget {
                         child: Icon(
                           icon,
                           color: Color.lerp(
-                            theme.colorScheme.primary,
-                            theme.colorScheme.onPrimary,
+                            unselectedAccentColor,
+                            onAccentColor,
                             value,
                           ),
                           size: 24,
@@ -234,18 +238,21 @@ class ActivityLevelPage extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          TweenAnimationBuilder<double>(
-                            duration: const Duration(milliseconds: 300),
-                            tween: Tween<double>(
-                                begin: 0, end: isSelected ? 1 : 0),
-                            builder: (context, value, child) => Text(
+                      child: TweenAnimationBuilder<double>(
+                        duration: const Duration(milliseconds: 300),
+                        tween: Tween<double>(begin: 0, end: isSelected ? 1 : 0),
+                        builder: (context, value, child) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
                               title,
                               style: AppTypography.h3.copyWith(
-                                color: customColors?.textPrimary,
+                                color: Color.lerp(
+                                  customColors?.textPrimary,
+                                  onAccentColor,
+                                  value,
+                                ),
                                 fontWeight: FontWeight.lerp(
                                   FontWeight.w600,
                                   FontWeight.bold,
@@ -253,18 +260,22 @@ class ActivityLevelPage extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            description,
-                            style: AppTypography.body2.copyWith(
-                              color: customColors?.textSecondary,
-                              height: 1.2,
+                            const SizedBox(height: 2),
+                            Text(
+                              description,
+                              style: AppTypography.body2.copyWith(
+                                color: Color.lerp(
+                                  customColors?.textSecondary,
+                                  onAccentColor.withOpacity(0.7),
+                                  value,
+                                ),
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -286,12 +297,12 @@ class ActivityLevelPage extends StatelessWidget {
                           height: 20,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: theme.colorScheme.primary,
+                            color: onAccentColor,
                           ),
                           child: Icon(
                             Icons.check,
                             size: 14,
-                            color: theme.colorScheme.onPrimary,
+                            color: accentColor,
                           ),
                         ),
                       ),

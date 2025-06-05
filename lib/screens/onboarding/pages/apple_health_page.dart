@@ -23,21 +23,23 @@ class AppleHealthPage extends StatelessWidget {
       if (granted) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Successfully connected to Health')),
-        );
+            const SnackBar(content: Text('Successfully connected to Health')),
+          );
         }
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Health permissions were not granted')),
-        );
+            const SnackBar(
+                content: Text('Health permissions were not granted')),
+          );
         }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error connecting to Health: ${e.toString()}')),
-      );
+          SnackBar(
+              content: Text('Error connecting to Health: ${e.toString()}')),
+        );
       }
     } finally {
       // Proceed to the next step regardless of connection success/failure for now
@@ -109,10 +111,10 @@ class AppleHealthPage extends StatelessWidget {
         ElevatedButton(
           onPressed: () => _handleConnect(context),
           style: ElevatedButton.styleFrom(
-            backgroundColor:
-                theme.colorScheme.primary, // Use theme primary color
-            foregroundColor:
-                theme.colorScheme.onPrimary, // Use theme onPrimary color
+            backgroundColor: customColors?.textPrimary ??
+                theme.colorScheme.onSurface, // Use theme primary color
+            foregroundColor: customColors?.cardBackground ??
+                theme.scaffoldBackgroundColor, // Use theme onPrimary color
             padding:
                 const EdgeInsets.symmetric(vertical: 18), // Slightly taller
             shape: RoundedRectangleBorder(
@@ -172,8 +174,8 @@ class AppleHealthPage extends StatelessWidget {
                 width: illustrationWidth * 0.9, // Slightly smaller than stack
                 height: illustrationHeight,
                 decoration: BoxDecoration(
-                  color: (theme.colorScheme.surface)
-                      .withAlpha((0.05 * 255).round()), // Use theme surface color
+                  color: (theme.colorScheme.surface).withAlpha(
+                      (0.05 * 255).round()), // Use theme surface color
                   shape: BoxShape.circle,
                 ),
               ),
@@ -211,7 +213,8 @@ class AppleHealthPage extends StatelessWidget {
                 child: _HealthIcon(
                   icon: Icons.check_circle,
                   // Use theme primary color for consistency
-                  color: theme.colorScheme.primary,
+                  color:
+                      customColors?.textPrimary ?? theme.colorScheme.onSurface,
                   backgroundColor: Colors.transparent,
                   showContainer: false,
                   size: 32,
@@ -292,7 +295,8 @@ class _HealthIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(15), // Rounded corners
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha((0.05 * 255).round()), // Softer shadow
+            color:
+                Colors.black.withAlpha((0.05 * 255).round()), // Softer shadow
             spreadRadius: 1,
             blurRadius: 8,
             offset: const Offset(0, 2),
@@ -317,11 +321,13 @@ class _AppleIcon extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         // Use a dark color, preferably from theme if available, else fallback
-        color: Theme.of(context).colorScheme.primary, // Get theme from context
+        color: customColors?.textPrimary ??
+            Theme.of(context).colorScheme.onSurface, // Get theme from context
         borderRadius: BorderRadius.circular(15), // Rounded corners
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha((0.1 * 255).round()), // Slightly darker shadow
+            color: Colors.black
+                .withAlpha((0.1 * 255).round()), // Slightly darker shadow
             spreadRadius: 1,
             blurRadius: 8,
             offset: const Offset(0, 3),
@@ -363,7 +369,8 @@ class _ActivityBubble extends StatelessWidget {
         borderRadius: BorderRadius.circular(20), // Pill shape
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha((0.05 * 255).round()), // Softer shadow
+            color:
+                Colors.black.withAlpha((0.05 * 255).round()), // Softer shadow
             spreadRadius: 0,
             blurRadius: 6,
             offset: const Offset(0, 1),
