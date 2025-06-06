@@ -218,8 +218,7 @@ class WorkoutCreationModal extends StatelessWidget {
   }
 
   void _openManualWorkoutCreator(BuildContext context) async {
-    Navigator.pop(context); // Close modal first
-
+    // We get the result from the creator screen first
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -227,7 +226,8 @@ class WorkoutCreationModal extends StatelessWidget {
       ),
     );
 
-    // Return the result to the parent screen
+    // Then, if we have a result, we pop the modal and pass the result back
+    // to the workout planning screen.
     if (result != null && context.mounted) {
       Navigator.pop(context, result);
     }
@@ -275,8 +275,10 @@ class WorkoutCreationModal extends StatelessWidget {
       log('[WorkoutCreation] Workout routine generated successfully: ${workoutRoutine.name}');
 
       // Get services and user
-      final workoutPlanningProvider = Provider.of<WorkoutPlanningProvider>(context, listen: false);
-      final supabase = Supabase.instance.client; // Keep for direct exercise insert if preferred
+      final workoutPlanningProvider =
+          Provider.of<WorkoutPlanningProvider>(context, listen: false);
+      final supabase = Supabase
+          .instance.client; // Keep for direct exercise insert if preferred
       final user = supabase.auth.currentUser;
 
       if (user == null) {
@@ -297,18 +299,20 @@ class WorkoutCreationModal extends StatelessWidget {
         }
 
         // 1. Prepare Exercise data for saving, removing temporary ID to let DB generate UUID
-        Map<String, dynamic> exerciseDataToInsert = exerciseDetails.toDatabaseJson();
-        exerciseDataToInsert.remove('id'); // Remove temporary 'ai_exercise_X' ID
+        Map<String, dynamic> exerciseDataToInsert =
+            exerciseDetails.toDatabaseJson();
+        exerciseDataToInsert
+            .remove('id'); // Remove temporary 'ai_exercise_X' ID
         exerciseDataToInsert['user_id'] = user.id;
 
         log('[WorkoutCreation] Saving exercise to DB: ${exerciseDetails.name}, Data: $exerciseDataToInsert');
-        
+
         final savedExerciseResponse = await supabase
             .from('exercises')
             .insert(exerciseDataToInsert)
             .select('id, name') // Select only needed fields
             .single();
-        
+
         final String dbExerciseId = savedExerciseResponse['id'];
         log('[WorkoutCreation] Saved exercise "${savedExerciseResponse['name']}" with DB ID: $dbExerciseId');
 
@@ -333,7 +337,8 @@ class WorkoutCreationModal extends StatelessWidget {
         id: workoutRoutine.id, // Use the ID from the AI-generated routine
         name: workoutRoutine.name,
         description: workoutRoutine.description,
-        exercises: processedWorkoutExercises, // Use the list with real exercise IDs
+        exercises:
+            processedWorkoutExercises, // Use the list with real exercise IDs
         estimatedDurationMinutes: workoutRoutine.estimatedDurationMinutes,
         difficulty: workoutRoutine.difficulty, // Already mapped by AI service
         targetMuscles: workoutRoutine.targetMuscles,
@@ -345,7 +350,8 @@ class WorkoutCreationModal extends StatelessWidget {
 
       // 4. Save the WorkoutRoutine using WorkoutPlanningProvider/Service
       log('[WorkoutCreation] Saving final workout routine to "workout_routines" table: ${finalWorkoutRoutine.name}');
-      final bool saveSuccess = await workoutPlanningProvider.saveWorkoutRoutine(finalWorkoutRoutine);
+      final bool saveSuccess =
+          await workoutPlanningProvider.saveWorkoutRoutine(finalWorkoutRoutine);
 
       // Close loading indicator
       if (context.mounted) {
@@ -365,7 +371,8 @@ class WorkoutCreationModal extends StatelessWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(workoutPlanningProvider.error ?? 'Failed to save workout. Please try again.'),
+              content: Text(workoutPlanningProvider.error ??
+                  'Failed to save workout. Please try again.'),
               backgroundColor: Colors.redAccent,
             ),
           );

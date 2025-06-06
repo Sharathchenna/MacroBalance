@@ -982,21 +982,92 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     );
 
     if (result != null && result is WorkoutRoutine) {
+      await _addNewWorkout(result);
+    }
+  }
+
+  Future<void> _addNewWorkout(WorkoutRoutine routine) async {
+    HapticFeedback.mediumImpact();
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You must be logged in to create a workout.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show a loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Saving workout...'),
+          ],
+        ),
+        duration: Duration(minutes: 1), // Will be dismissed manually
+      ),
+    );
+
+    try {
+      final routineToSave = routine.copyWith(
+        createdBy: user.id,
+        isCustom: true, // All manually added workouts are custom
+        updatedAt: DateTime.now(),
+      );
+
+      final supabase = Supabase.instance.client;
+      final savedData = await supabase
+          .from('workout_routines')
+          .upsert(routineToSave.toJson())
+          .select()
+          .single();
+
+      final newRoutine = WorkoutRoutine.fromJson(savedData);
+
       setState(() {
-        if (result.isCustom) {
-          _customRoutines.insert(0, result);
-        } else {
-          _sampleRoutines.insert(0, result);
-        }
+        _customRoutines.insert(0, newRoutine);
       });
 
+      await _updateCustomRoutinesCache();
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${result.name} created successfully!'),
+          content: Text('${newRoutine.name} created successfully!'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
       );
+    } catch (error) {
+      print('Error saving workout to Supabase: $error');
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save workout: $error'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _updateCustomRoutinesCache() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final routinesBox =
+          await Hive.openBox<List<dynamic>>(_workoutRoutinesBoxName);
+      await routinesBox.put(user.id, _customRoutines);
+      print('Hive cache updated with new custom routine list.');
+    } catch (e) {
+      print('Error updating custom routines in Hive: $e');
     }
   }
 
@@ -1107,7 +1178,10 @@ class _WorkoutPlanningScreenState extends State<WorkoutPlanningScreen>
     try {
       // Delete from Supabase for all workouts
       final supabase = Supabase.instance.client;
-      await supabase.from('workouts').delete().match({'id': routine.id});
+      await supabase
+          .from('workout_routines')
+          .delete()
+          .match({'id': routine.id});
 
       print('Deleted workout: ${routine.name}');
     } catch (error) {

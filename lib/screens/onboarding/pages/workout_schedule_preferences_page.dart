@@ -95,8 +95,8 @@ class _WorkoutSchedulePreferencesPageState
               min: 1,
               max: 7,
               divisions: 6,
-              activeColor:
-                  isDark ? PremiumColors.blue400 : PremiumColors.slate900,
+              activeColor: customColors?.textPrimary ??
+                  (isDark ? Colors.white : PremiumColors.slate900),
               inactiveColor:
                   isDark ? PremiumColors.slate700 : PremiumColors.slate300,
               label:
@@ -156,8 +156,8 @@ class _WorkoutSchedulePreferencesPageState
               min: 15,
               max: 90,
               divisions: 5,
-              activeColor:
-                  isDark ? PremiumColors.blue400 : PremiumColors.slate900,
+              activeColor: customColors?.textPrimary ??
+                  (isDark ? Colors.white : PremiumColors.slate900),
               inactiveColor:
                   isDark ? PremiumColors.slate700 : PremiumColors.slate300,
               label: '${widget.workoutDuration} minutes',
@@ -241,6 +241,8 @@ class _WorkoutSchedulePreferencesPageState
   Widget _buildTimeOption(
       String value, String title, String subtitle, IconData icon, bool isDark) {
     final isSelected = widget.preferredTime == value;
+    final theme = Theme.of(context);
+    final customColors = theme.extension<CustomColors>();
 
     return GestureDetector(
       onTap: () {
@@ -252,21 +254,22 @@ class _WorkoutSchedulePreferencesPageState
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? PremiumColors.blue400 : PremiumColors.slate900)
+              ? (customColors?.textPrimary ??
+                  (isDark ? Colors.white : PremiumColors.slate900))
               : (isDark ? PremiumColors.trueDarkCard : Colors.white),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? (isDark ? PremiumColors.blue400 : PremiumColors.slate900)
+                ? (customColors?.textPrimary ??
+                    (isDark ? Colors.white : PremiumColors.slate900))
                 : (isDark ? PremiumColors.slate700 : PremiumColors.slate300),
             width: 1.5,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: (isDark
-                            ? PremiumColors.blue400
-                            : PremiumColors.slate900)
+                    color: (customColors?.textPrimary ??
+                            (isDark ? Colors.white : PremiumColors.slate900))
                         .withAlpha((0.1 * 255).round()),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
@@ -280,7 +283,8 @@ class _WorkoutSchedulePreferencesPageState
               icon,
               size: 24,
               color: isSelected
-                  ? (isDark ? PremiumColors.slate900 : Colors.white)
+                  ? (customColors?.cardBackground ??
+                      (isDark ? PremiumColors.slate900 : Colors.white))
                   : (isDark ? PremiumColors.slate300 : PremiumColors.slate600),
             ),
             const SizedBox(height: 8),
@@ -289,7 +293,8 @@ class _WorkoutSchedulePreferencesPageState
               style: PremiumTypography.label.copyWith(
                 fontSize: 14,
                 color: isSelected
-                    ? (isDark ? PremiumColors.slate900 : Colors.white)
+                    ? (customColors?.cardBackground ??
+                        (isDark ? PremiumColors.slate900 : Colors.white))
                     : (isDark
                         ? PremiumColors.slate300
                         : PremiumColors.slate700),
@@ -301,8 +306,10 @@ class _WorkoutSchedulePreferencesPageState
               style: PremiumTypography.caption.copyWith(
                 color: isSelected
                     ? (isDark
-                        ? PremiumColors.slate900.withOpacity(0.8)
-                        : Colors.white.withOpacity(0.8))
+                        ? (customColors?.cardBackground ?? Colors.white)
+                            .withOpacity(0.8)
+                        : (customColors?.cardBackground ?? Colors.white)
+                            .withOpacity(0.8))
                     : (isDark
                         ? PremiumColors.slate400
                         : PremiumColors.slate500),
