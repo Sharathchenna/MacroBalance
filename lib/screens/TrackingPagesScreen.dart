@@ -9,6 +9,7 @@ import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import '../theme/app_theme.dart';
 import 'WeightTrackingScreen.dart';
 import 'MacroTrackingScreen.dart';
+import 'WorkoutTrackingScreen.dart';
 
 class TrackingPagesScreen extends StatefulWidget {
   const TrackingPagesScreen({Key? key}) : super(key: key);
@@ -21,7 +22,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with AutomaticKeepAliveClientMixin {
   late PageController _pageController;
   int _currentPage = 0;
-  final List<String> _titles = ['Weight', 'Calories', 'Steps'];
+  final List<String> _titles = ['Weight', 'Calories', 'Steps', 'Workouts'];
   bool _showSwipeHint = true;
   bool _isInitialLoad = true;
 
@@ -140,6 +141,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
               KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
               KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
+              KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
             ],
           ),
 
@@ -294,6 +296,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
       Icons.monitor_weight_outlined, // Weight
       Icons.pie_chart_outline_rounded, // Macros
       Icons.directions_walk, // Steps
+      Icons.fitness_center, // Workouts
     ];
 
     return ClipRRect(
