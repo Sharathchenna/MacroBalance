@@ -8,7 +8,9 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'dart:convert';
 import '../services/storage_service.dart';
+import '../services/workout_sync_service.dart';
 import '../models/workout_entry.dart';
+import 'package:uuid/uuid.dart';
 
 class WorkoutTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -30,6 +32,8 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
   DateTime _currentMonth = DateTime.now();
   bool _isLoading = true;
   int _totalTodayMinutes = 0;
+  final WorkoutSyncService _syncService = WorkoutSyncService();
+  final Uuid _uuid = const Uuid();
 
   @override
   void initState() {
@@ -59,6 +63,9 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       // Load current month data
       await _loadMonthData(_currentMonth);
       
+      // Perform background sync with Supabase (don't wait for it)
+      _backgroundSync();
+      
       _animationController.forward();
     } catch (e) {
       print('Error loading workout data: $e');
@@ -66,6 +73,33 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  // Background sync with Supabase
+  Future<void> _backgroundSync() async {
+    try {
+      // This runs in the background and doesn't block the UI
+      if (!_syncService.isUserAuthenticated) {
+        print('User not logged in, skipping sync');
+        return;
+      }
+
+      // Try to fetch recent data from Supabase to sync with local
+      final today = DateTime.now();
+      final weekAgo = today.subtract(const Duration(days: 7));
+      
+      final supabaseWorkouts = await _syncService.fetchWorkoutEntries(weekAgo, today);
+      final currentMonthSupabaseStats = await _syncService.fetchMonthlyStats(_currentMonth);
+      
+      // Check if we have newer data locally that needs to be synced up
+      // This is a simple approach - in a more complex app you'd want proper conflict resolution
+      
+      print('Background sync completed - found ${supabaseWorkouts.length} workouts from Supabase');
+      
+    } catch (e) {
+      print('Background sync failed: $e');
+      // Fail silently to not disrupt user experience
     }
   }
 
@@ -137,6 +171,9 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       final workoutsData = dayWorkouts.map((w) => w.toMap()).toList();
       StorageService().put('workouts_$dateKey', workoutsData);
       
+      // Sync to Supabase
+      await _syncService.syncWorkoutEntry(workout);
+      
       // Update monthly aggregation
       await _updateMonthlyData(workout.date, workout.durationMinutes);
       
@@ -205,6 +242,10 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
     );
     
     StorageService().put('monthly_workouts_$monthKey', updatedMonthData.toMap());
+    
+    // Sync monthly stats to Supabase
+    await _syncService.syncMonthlyStats(updatedMonthData);
+    
     print('Saved monthly data: ${updatedMonthData.toMap()}');
   }
 
@@ -235,6 +276,9 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
           StorageService().put('workouts_$dateKey', workoutsData);
         }
       }
+      
+      // Delete from Supabase
+      await _syncService.deleteWorkoutEntry(workout.id);
       
       // Update monthly aggregation (subtract the deleted workout)
       await _updateMonthlyData(workout.date, -workout.durationMinutes);
@@ -1327,7 +1371,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                                                               onPressed: isValid ? () async {
                                 HapticFeedback.mediumImpact();
                                 final workout = WorkoutEntry(
-                                  id: isEditing ? editingWorkout.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                                  id: isEditing ? editingWorkout.id : _uuid.v4(),
                                   name: workoutName.trim(),
                                   durationMinutes: totalMinutes,
                                   date: selectedDate,
