@@ -7,10 +7,12 @@ import 'package:macrotracker/auth/paywall_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
 import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
+import 'package:macrotracker/screens/saved_foods_screen.dart';
 import 'package:macrotracker/AI/gemini.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/searchPage.dart';
@@ -77,6 +79,7 @@ class Routes {
   static const String weightTracking = '/weightTracking';
   static const String macroTracking = '/macroTracking';
   static const String expenditure = '/expenditure'; // Added expenditure route
+  static const String savedFoods = '/savedFoods'; // Added saved foods route
 }
 
 bool _initialUriHandled = false;
@@ -193,6 +196,7 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => DateProvider()),
           ChangeNotifierProvider(create: (_) => MealProvider()),
           ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+          ChangeNotifierProvider(create: (_) => SavedFoodProvider()),
           ChangeNotifierProvider(
               create: (_) => WeightUnitProvider()), // Keep this instance
           // Pass FoodEntryProvider instance to ExpenditureProvider
@@ -630,6 +634,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 const PaywallGate(child: WeightTrackingScreen()),
             Routes.macroTracking: (context) =>
                 const PaywallGate(child: MacroTrackingScreen()),
+            Routes.savedFoods: (context) =>
+                const PaywallGate(child: SavedFoodsScreen()),
             // Routes.expenditure: (context) => const PaywallGate(
             //     child: ExpenditureScreen()), // Added expenditure route mapping
           },
