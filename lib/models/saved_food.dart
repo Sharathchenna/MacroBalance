@@ -21,6 +21,12 @@ class SavedFood {
 
   // Convert our FoodItem to the SearchPage FoodItem type
   search.FoodItem toSearchPageFoodItem() {
+    print('SavedFood: Converting to SearchPage FoodItem for ${food.name}');
+    print('SavedFood: Total servings: ${food.servings.length}');
+    if (food.servings.isNotEmpty) {
+      print('SavedFood: First serving: ${food.servings[0].description}');
+    }
+    
     List<search.Serving> searchServings = food.servings.map((serving) {
       return search.Serving(
           description: serving.description,
@@ -50,18 +56,20 @@ class SavedFood {
           });
     }).toList();
 
+    // Use the first serving (which is now the user's preferred serving) for default values
+    final firstServing = food.servings.isNotEmpty ? food.servings[0] : null;
+    
     return search.FoodItem(
       fdcId: food.id,
       name: food.name,
       brandName: food.brandName,
       mealType: 'breakfast', // Default meal type
-      servingSize:
-          food.servings.isNotEmpty ? food.servings[0].metricAmount : 100.0,
-      calories: food.calories,
+      servingSize: firstServing?.metricAmount ?? 100.0,
+      calories: firstServing?.calories ?? 0.0,
       nutrients: {
-        'Protein': food.protein,
-        'Total lipid (fat)': food.fat,
-        'Carbohydrate, by difference': food.carbs,
+        'Protein': firstServing?.protein ?? 0.0,
+        'Total lipid (fat)': firstServing?.fat ?? 0.0,
+        'Carbohydrate, by difference': firstServing?.carbohydrate ?? 0.0,
       },
       servings: searchServings,
     );

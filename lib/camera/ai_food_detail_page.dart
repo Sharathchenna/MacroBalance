@@ -116,30 +116,35 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
   }
 
   FoodItem _convertToFoodItem() {
-    // Use the currently selected serving size for the conversion
-    final selectedServing = widget.food.servingSizes[selectedServingIndex];
+    // Create ServingInfo objects for ALL serving sizes, not just the selected one
+    List<ServingInfo> allServings = [];
     
-    // Create a ServingInfo object for the selected serving
-    final servingInfo = ServingInfo(
-      description: selectedServing,
-      amount: 1.0,
-      unit: 'serving',
-      metricAmount: 1.0,
-      metricUnit: 'serving',
-      calories: widget.food.calories[selectedServingIndex],
-      carbohydrate: widget.food.carbohydrates[selectedServingIndex],
-      protein: widget.food.protein[selectedServingIndex],
-      fat: widget.food.fat[selectedServingIndex],
-      saturatedFat: 0.0, // Default value since AI food doesn't have this
-      fiber: widget.food.fiber[selectedServingIndex],
-    );
+    for (int i = 0; i < widget.food.servingSizes.length; i++) {
+      final servingDescription = widget.food.servingSizes[i];
+      
+      final servingInfo = ServingInfo(
+        description: servingDescription,
+        amount: 1.0,
+        unit: 'serving',
+        metricAmount: 1.0,
+        metricUnit: 'serving',
+        calories: widget.food.calories[i],
+        carbohydrate: widget.food.carbohydrates[i],
+        protein: widget.food.protein[i],
+        fat: widget.food.fat[i],
+        saturatedFat: 0.0, // Default value since AI food doesn't have this
+        fiber: widget.food.fiber[i],
+      );
+      
+      allServings.add(servingInfo);
+    }
     
     return FoodItem(
       id: widget.food.name.hashCode.toString(),
       name: widget.food.name,
       brandName: 'AI Detected',
       foodType: 'AI Food',
-      servings: [servingInfo],
+      servings: allServings, // Now includes all servings
       nutrients: {
         'Protein': widget.food.protein[selectedServingIndex],
         'Carbohydrate, by difference': widget.food.carbohydrates[selectedServingIndex],
