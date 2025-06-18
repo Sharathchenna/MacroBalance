@@ -9,6 +9,9 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 class PaywallGate extends StatelessWidget {
   final Widget child;
 
+  // TEMPORARY: Debug flag to disable paywall
+  static const bool _DISABLE_PAYWALL_DEBUG = true;
+
   const PaywallGate({
     super.key,
     required this.child,
@@ -16,6 +19,11 @@ class PaywallGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // TEMPORARY: If debug flag is enabled, bypass paywall entirely
+    if (_DISABLE_PAYWALL_DEBUG) {
+      return child;
+    }
+
     return Consumer<SubscriptionProvider>(
       builder: (context, subscriptionProvider, _) {
         // If the provider is still initializing, show a loading screen
