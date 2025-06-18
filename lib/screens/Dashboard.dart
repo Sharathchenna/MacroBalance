@@ -284,6 +284,220 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
+  // Show add food menu with options
+  void _showAddFoodMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).extension<CustomColors>()?.cardBackground ??
+                  (Theme.of(context).brightness == Brightness.light
+                      ? Colors.white
+                      : Colors.grey[900]),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(28),
+                topRight: Radius.circular(28),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  spreadRadius: 0,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Handle bar
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade600,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Title
+                    Text(
+                      'Add Food',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Choose how you want to add food',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade400,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Menu options
+                    _buildMenuOption(
+                      context: context,
+                      icon: CupertinoIcons.search,
+                      title: 'Search Food',
+                      subtitle: 'Search our food database',
+                      color: const Color(0xFF34C85A),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder: (context) => const FoodSearchPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMenuOption(
+                      context: context,
+                      icon: CupertinoIcons.bookmark_fill,
+                      title: 'Saved Foods',
+                      subtitle: 'Choose from your saved foods',
+                      color: const Color(0xFFFFC107),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/savedFoods');
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Cancel button
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          backgroundColor: Theme.of(context).brightness == Brightness.light
+                              ? Colors.grey.shade100
+                              : Colors.grey.shade800,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMenuOption({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: color.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                CupertinoIcons.chevron_right,
+                color: color,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // --- Build Method ---
   @override
   Widget build(BuildContext context) {
@@ -379,12 +593,7 @@ class _DashboardState extends State<Dashboard> {
                   icon: CupertinoIcons.add,
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        builder: (context) => const FoodSearchPage(),
-                      ),
-                    );
+                    _showAddFoodMenu(context);
                   }),
               _buildNavItemCompact(
                 context: context,

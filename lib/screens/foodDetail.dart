@@ -18,6 +18,7 @@ import '../theme/app_theme.dart';
 import '../theme/typography.dart';
 import 'dart:math'; // Add missing import for min function and pi constant
 import '../services/posthog_service.dart';
+import '../providers/saved_food_provider.dart';
 
 class FoodDetailPage extends StatefulWidget {
   final FoodItem food;
@@ -88,6 +89,13 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     _animationController.forward();
 
     _scrollController.addListener(_onScroll);
+
+    // Initialize SavedFoodProvider if not already
+    Future.microtask(() {
+      if (mounted) {
+        Provider.of<SavedFoodProvider>(context, listen: false).initialize();
+      }
+    });
   }
 
   void _onScroll() {
@@ -524,6 +532,34 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                       ),
                     ),
                   ),
+                  actions: [
+                    Consumer<SavedFoodProvider>(
+                      builder: (context, savedProvider, _) {
+                        final bool isSaved =
+                            savedProvider.isFoodSaved(widget.food.fdcId);
+                        return IconButton(
+                          icon: Icon(
+                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            color: Theme.of(context)
+                                .extension<CustomColors>()!
+                                .textPrimary,
+                          ),
+                          onPressed: () async {
+                            if (isSaved) {
+                              final saved =
+                                  savedProvider.getSavedFoodByFoodId(widget.food.fdcId);
+                              if (saved != null) {
+                                await savedProvider.removeSavedFood(saved.id);
+                              }
+                            } else {
+                              await savedProvider.addSavedFood(widget.food);
+                            }
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
                 SliverToBoxAdapter(
                   child: AnimatedBuilder(
