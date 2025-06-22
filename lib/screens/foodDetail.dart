@@ -18,6 +18,7 @@ import '../theme/app_theme.dart';
 import '../theme/typography.dart';
 import 'dart:math'; // Add missing import for min function and pi constant
 import '../services/posthog_service.dart';
+import '../providers/saved_food_provider.dart';
 
 class FoodDetailPage extends StatefulWidget {
   final FoodItem food;
@@ -88,6 +89,13 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     _animationController.forward();
 
     _scrollController.addListener(_onScroll);
+
+    // Initialize SavedFoodProvider if not already
+    Future.microtask(() {
+      if (mounted) {
+        Provider.of<SavedFoodProvider>(context, listen: false).initialize();
+      }
+    });
   }
 
   void _onScroll() {
@@ -524,6 +532,36 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                       ),
                     ),
                   ),
+                  actions: [
+                    Consumer<SavedFoodProvider>(
+                      builder: (context, savedProvider, _) {
+                        final bool isSaved =
+                            savedProvider.isFoodSaved(widget.food.fdcId);
+                        return IconButton(
+                          icon: Icon(
+                            isSaved ? Icons.bookmark : Icons.bookmark_border,
+                            color: Theme.of(context)
+                                .extension<CustomColors>()!
+                                .textPrimary,
+                          ),
+                          onPressed: () async {
+                            if (isSaved) {
+                              final saved =
+                                  savedProvider.getSavedFoodByFoodId(widget.food.fdcId);
+                              if (saved != null) {
+                                await savedProvider.removeSavedFood(saved.id);
+                              }
+                            } else {
+                              // Create food item with selected serving prioritized
+                              final foodToSave = _createFoodItemWithSelectedServing();
+                              await savedProvider.addSavedFood(foodToSave);
+                            }
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
                 SliverToBoxAdapter(
                   child: AnimatedBuilder(
@@ -2018,6 +2056,44 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       return '${description.substring(0, 15)}...';
     }
     return description;
+  }
+
+  // Helper method to create a food item with selected serving prioritized
+  FoodItem _createFoodItemWithSelectedServing() {
+    if (selectedServing == null) {
+      print('FoodDetail: No serving selected, returning original food');
+      return widget.food; // Return original if no serving selected
+    }
+
+    print('FoodDetail: Creating food item with selected serving: ${selectedServing!.description}');
+
+    // Create a new list with selected serving first, followed by others
+    List<Serving> reorderedServings = [];
+    
+    // Add the selected serving first
+    reorderedServings.add(selectedServing!);
+    
+    // Add all other servings (excluding the one we already added)
+    for (var serving in widget.food.servings) {
+      if (serving.description != selectedServing!.description) {
+        reorderedServings.add(serving);
+      }
+    }
+
+    print('FoodDetail: Reordered servings count: ${reorderedServings.length}');
+    print('FoodDetail: First serving will be: ${reorderedServings.first.description}');
+
+    // Create a new FoodItem with reordered servings
+    return FoodItem(
+      fdcId: widget.food.fdcId,
+      name: widget.food.name,
+      calories: widget.food.calories,
+      nutrients: widget.food.nutrients,
+      brandName: widget.food.brandName,
+      mealType: widget.food.mealType,
+      servingSize: widget.food.servingSize,
+      servings: reorderedServings,
+    );
   }
 }
 

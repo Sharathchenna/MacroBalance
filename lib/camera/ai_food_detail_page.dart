@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
+import 'package:macrotracker/models/food.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:macrotracker/widgets/quantity_selector.dart';
 import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -113,6 +115,90 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     };
   }
 
+  FoodItem _convertToFoodItem() {
+    // Create ServingInfo objects for ALL serving sizes, not just the selected one
+    List<ServingInfo> allServings = [];
+    
+    for (int i = 0; i < widget.food.servingSizes.length; i++) {
+      final servingDescription = widget.food.servingSizes[i];
+      
+      final servingInfo = ServingInfo(
+        description: servingDescription,
+        amount: 1.0,
+        unit: 'serving',
+        metricAmount: 1.0,
+        metricUnit: 'serving',
+        calories: widget.food.calories[i],
+        carbohydrate: widget.food.carbohydrates[i],
+        protein: widget.food.protein[i],
+        fat: widget.food.fat[i],
+        saturatedFat: 0.0, // Default value since AI food doesn't have this
+        fiber: widget.food.fiber[i],
+      );
+      
+      allServings.add(servingInfo);
+    }
+    
+    return FoodItem(
+      id: widget.food.name.hashCode.toString(),
+      name: widget.food.name,
+      brandName: 'AI Detected',
+      foodType: 'AI Food',
+      servings: allServings, // Now includes all servings
+      nutrients: {
+        'Protein': widget.food.protein[selectedServingIndex],
+        'Carbohydrate, by difference': widget.food.carbohydrates[selectedServingIndex],
+        'Total lipid (fat)': widget.food.fat[selectedServingIndex],
+        'Fiber': widget.food.fiber[selectedServingIndex],
+      },
+    );
+  }
+
+  void _saveFood() async {
+    final savedFoodProvider = Provider.of<SavedFoodProvider>(context, listen: false);
+    final foodItem = _convertToFoodItem();
+    
+    try {
+      await savedFoodProvider.addSavedFood(foodItem);
+      
+      if (mounted) {
+        HapticFeedback.mediumImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.bookmark_added_rounded, 
+                     color: Theme.of(context).colorScheme.onPrimary),
+                const SizedBox(width: 8),
+                Text(
+                  'Food saved successfully!',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFFFFC107),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(8),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save food: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(8),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
@@ -170,6 +256,61 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                       ),
                     ),
                   ),
+                  actions: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Consumer<SavedFoodProvider>(
+                        builder: (context, savedFoodProvider, child) {
+                          final foodId = widget.food.name.hashCode.toString();
+                          final isSaved = savedFoodProvider.isFoodSaved(foodId);
+                          
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                if (isSaved) {
+                                  // Show already saved message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Food is already saved!'),
+                                      backgroundColor: Colors.orange,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      margin: const EdgeInsets.all(8),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                } else {
+                                  _saveFood();
+                                }
+                              },
+                              customBorder: const CircleBorder(),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: customColors.cardBackground,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                                  color: isSaved ? const Color(0xFFFFC107) : customColors.textPrimary,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                   title: AnimatedOpacity(
                     opacity: _showFloatingTitle ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 200),
