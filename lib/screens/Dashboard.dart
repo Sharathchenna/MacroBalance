@@ -48,19 +48,29 @@ class _DashboardState extends State<Dashboard> {
     super.initState();
     _setupNativeCameraHandler(); // Set up the handler when the dashboard initializes
 
-    // Force refresh of the FoodEntryProvider to ensure we have the latest data from Hive
+    // Only force refresh on first app launch or when there's no cached data
+    // This prevents the glitching when navigating back to dashboard
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final foodEntryProvider =
             Provider.of<FoodEntryProvider>(context, listen: false);
-        foodEntryProvider.forceSyncAndDiagnose().then((_) {
-          print(
-              'Dashboard: FoodEntryProvider refreshed, calories_goal=${foodEntryProvider.caloriesGoal}');
-          // Force a rebuild after the refresh
-          if (mounted) {
-            setState(() {});
-          }
-        });
+        
+        // Only force sync if this is likely the first app launch
+        // (no entries loaded yet) or if goals are still default values
+        final shouldForceSync = foodEntryProvider.entries.isEmpty ||
+            (foodEntryProvider.caloriesGoal == 2000.0 && 
+             foodEntryProvider.proteinGoal == 150.0);
+        
+        if (shouldForceSync) {
+          foodEntryProvider.forceSyncAndDiagnose().then((_) {
+            print(
+                'Dashboard: FoodEntryProvider refreshed on first launch, calories_goal=${foodEntryProvider.caloriesGoal}');
+            // Only rebuild if still mounted
+            if (mounted) {
+              setState(() {});
+            }
+          });
+        }
       }
     });
   }
@@ -908,44 +918,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   VoidCallback? _storageListener; // To hold the listener reference
 
   @override
-  void initState() {
-    super.initState();
-    // Use addPostFrameCallback to ensure context is available for Provider
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _dateProvider = Provider.of<DateProvider>(context, listen: false);
-      _initializeHealthData(); // Reads initial status and fetches if needed
-      _dateProvider.addListener(_onDateChanged);
-
-      // Set up listener for StorageService changes
-      _storageListener = () {
-        final currentStatus =
-            _storageService.get('healthConnected', defaultValue: false);
-        // Check if the status has changed and is now true
-        if (currentStatus && !_hasHealthPermissions) {
-          if (mounted) {
-            setState(() {
-              _hasHealthPermissions = true;
-            });
-            print("Health connection status changed to true, fetching data...");
-            _fetchHealthData(); // Fetch data immediately on status change
-          }
-        } else if (!currentStatus && _hasHealthPermissions) {
-          // Optional: Handle disconnection if needed
-          if (mounted) {
-            setState(() {
-              _hasHealthPermissions = false;
-              _steps = 0; // Reset data on disconnect
-              _caloriesBurned = 0;
-            });
-            print("Health connection status changed to false.");
-          }
-        }
-      };
-      _storageService.listenForChanges(_storageListener!);
-    });
-  }
-
-  @override
   void dispose() {
     _dateProvider.removeListener(_onDateChanged);
     // Remove the listener when the widget is disposed
@@ -1055,12 +1027,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     }
     if (_isLoadingHealthData) return; // Avoid concurrent fetches
 
-    if (mounted) {
-      setState(() {
-        _isLoadingHealthData = true;
-      });
-    }
-
     // Get the selected date from the DateProvider
     // Ensure context is valid before accessing Provider
     if (!mounted) return;
@@ -1072,12 +1038,13 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     if (!isToday &&
         _lastFetchedDate != null &&
         _isSameDay(_lastFetchedDate!, selectedDate)) {
-      if (mounted) {
-        setState(() {
-          _isLoadingHealthData = false;
-        });
-      }
       return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingHealthData = true;
+      });
     }
 
     try {
@@ -1284,307 +1251,283 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
   @override
   Widget build(BuildContext context) {
-    // Use FutureBuilder to ensure provider is initialized before building UI
-    return FutureBuilder(
-      future: Provider.of<FoodEntryProvider>(context, listen: false)
-          .ensureInitialized(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          // Show a loading indicator while the provider initializes
-          // Make the loading indicator fill the space
-          return const SizedBox(
-            // Changed Container to SizedBox
-            height: 300, // Give it a reasonable height
-            child: Center(child: CupertinoActivityIndicator()),
-          );
-        } else if (snapshot.hasError) {
-          // Handle initialization error
-          return SizedBox(
-              // Changed Container to SizedBox
-              height: 300,
-              child: Center(
-                  child: Text('Error initializing data: ${snapshot.error}')));
-        } else {
-          // Provider is initialized, build the main UI
-          return Consumer2<FoodEntryProvider, DateProvider>(
-            builder: (context, foodEntryProvider, dateProvider, child) {
-              // Get nutrition goals directly from the provider
-              final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
-              debugPrint(
-                  "Dashboard Calorie Goal: $caloriesGoal"); // Add debug print
-              final proteinGoal = foodEntryProvider.proteinGoal.toInt();
-              final carbGoal = foodEntryProvider.carbsGoal.toInt();
-              final fatGoal = foodEntryProvider.fatGoal.toInt();
-              final stepsGoal = foodEntryProvider.stepsGoal.toInt();
+    // Direct Consumer without FutureBuilder - provider is initialized at app startup
+    return Consumer2<FoodEntryProvider, DateProvider>(
+      builder: (context, foodEntryProvider, dateProvider, child) {
+        // Get nutrition goals directly from the provider
+        final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
+        debugPrint(
+            "Dashboard Calorie Goal: $caloriesGoal"); // Add debug print
+        final proteinGoal = foodEntryProvider.proteinGoal.toInt();
+        final carbGoal = foodEntryProvider.carbsGoal.toInt();
+        final fatGoal = foodEntryProvider.fatGoal.toInt();
+        final stepsGoal = foodEntryProvider.stepsGoal.toInt();
 
-              // Get nutrient totals using the new centralized method
-              final nutrientTotals = foodEntryProvider
-                  .getNutrientTotalsForDate(dateProvider.selectedDate);
-              final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
-              // --- Dashboard Debug Log ---
-              print('[CalorieTracker Build] Received caloriesFromFood: $caloriesFromFood for date: ${dateProvider.selectedDate}');
-              // --- End Debug Log ---
-              final totalProtein = nutrientTotals['protein'] ?? 0.0;
-              final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
-              final totalFat = nutrientTotals['fat'] ?? 0.0;
+        // Get nutrient totals using the new centralized method
+        final nutrientTotals = foodEntryProvider
+            .getNutrientTotalsForDate(dateProvider.selectedDate);
+        final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
+        // --- Dashboard Debug Log ---
+        print('[CalorieTracker Build] Received caloriesFromFood: $caloriesFromFood for date: ${dateProvider.selectedDate}');
+        // --- End Debug Log ---
+        final totalProtein = nutrientTotals['protein'] ?? 0.0;
+        final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
+        final totalFat = nutrientTotals['fat'] ?? 0.0;
 
-              // Calculate remaining calories (updated logic)
-              // Handle potential division by zero if caloriesGoal is 0
-              final int caloriesRemaining = caloriesGoal > 0
-                  ? caloriesGoal - caloriesFromFood.toInt()
-                  : 0;
-              double progress =
-                  caloriesGoal > 0 ? caloriesFromFood / caloriesGoal : 0.0;
-              progress = progress.clamp(0.0, 1.0);
+        // Calculate remaining calories (updated logic)
+        // Handle potential division by zero if caloriesGoal is 0
+        final int caloriesRemaining = caloriesGoal > 0
+            ? caloriesGoal - caloriesFromFood.toInt()
+            : 0;
+        double progress =
+            caloriesGoal > 0 ? caloriesFromFood / caloriesGoal : 0.0;
+        progress = progress.clamp(0.0, 1.0);
 
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(16), // Reduced from 20
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .extension<CustomColors>()
-                      ?.cardBackground,
-                  borderRadius: BorderRadius.circular(20.0),
-                  boxShadow: [
-                    BoxShadow(
-                      // Softer shadow, more spread out
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.grey.shade300
-                              .withOpacity(0.5) // Lighter shadow for light mode
-                          : Colors.black.withOpacity(
-                              0.2), // Slightly darker shadow for dark mode
-                      blurRadius: 20, // Increased blur
-                      spreadRadius: 0, // No spread, just blur
-                      offset: const Offset(0, 5), // Slightly increased offset
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(16), // Reduced from 20
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .extension<CustomColors>()
+                ?.cardBackground,
+            borderRadius: BorderRadius.circular(20.0),
+            boxShadow: [
+              BoxShadow(
+                // Softer shadow, more spread out
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade300
+                        .withOpacity(0.5) // Lighter shadow for light mode
+                    : Colors.black.withOpacity(
+                        0.2), // Slightly darker shadow for dark mode
+                blurRadius: 20, // Increased blur
+                spreadRadius: 0, // No spread, just blur
+                offset: const Offset(0, 5), // Slightly increased offset
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start, // Align to start
+            children: [
+              // Add a header
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(children: [
+                  Icon(
+                    Icons.pie_chart_outline,
+                    size: 20,
+                    color:
+                        Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade400,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    "Today's Nutrition and Activity",
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          Theme.of(context).brightness == Brightness.light
+                              ? Colors.grey.shade700
+                              : Colors.grey.shade400,
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start, // Align to start
-                  children: [
-                    // Add a header
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(children: [
-                        Icon(
-                          Icons.pie_chart_outline,
-                          size: 20,
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? Colors.grey.shade700
-                                  : Colors.grey.shade400,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Today's Nutrition and Activity",
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade400,
+                  ),
+                ]),
+              ),
+
+              // Main content column
+              Column(
+                children: [
+                  // Calories Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Calorie Circle
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) =>
+                                  const MacroTrackingScreen(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          height: 130,
+                          width: 130,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness ==
+                                    Brightness.light
+                                ? Colors.white
+                                : Colors.grey.shade900
+                                    .withOpacity(0.3), // Use withOpacity
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.withOpacity(
+                                        0.1) // Use withOpacity
+                                    : Colors.black.withOpacity(
+                                        0.2), // Use withOpacity
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
-                        ),
-                      ]),
-                    ),
-
-                    // Main content column
-                    Column(
-                      children: [
-                        // Calories Section
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Calorie Circle
-                            GestureDetector(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    builder: (context) =>
-                                        const MacroTrackingScreen(),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                height: 130,
-                                width: 130,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.light
-                                      ? Colors.white
-                                      : Colors.grey.shade900
-                                          .withOpacity(0.3), // Use withOpacity
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Theme.of(context).brightness ==
-                                              Brightness.light
-                                          ? Colors.grey.withOpacity(
-                                              0.1) // Use withOpacity
-                                          : Colors.black.withOpacity(
-                                              0.2), // Use withOpacity
-                                      blurRadius: 10,
-                                      spreadRadius: 1,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    // Progress circle
-                                    SizedBox(
-                                      width: 110,
-                                      height: 110,
-                                      child: CircularProgressIndicator(
-                                        value: progress,
-                                        strokeWidth: 10,
-                                        strokeCap: StrokeCap
-                                            .round, // Added circular stroke cap
-                                        backgroundColor:
-                                            Theme.of(context).brightness ==
-                                                    Brightness.light
-                                                ? Colors.grey.shade200
-                                                : Colors.grey.shade800,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          progress > 1.0
-                                              ? Colors.red
-                                              : const Color(0xFF34C85A),
-                                        ),
-                                      ),
-                                    ),
-                                    // Calorie text
-                                    Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          caloriesRemaining.toString(),
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context)
-                                                .extension<CustomColors>()
-                                                ?.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          'cal left',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
-                                            color:
-                                                Theme.of(context).brightness ==
-                                                        Brightness.light
-                                                    ? Colors.grey.shade600
-                                                    : Colors.grey.shade400,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // Calories Info - Vertical layout with colored cards
-                            Expanded(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment
-                                      .center, // Center items vertically
-                                  children: [
-                                    _buildCalorieInfoCard(
-                                      context,
-                                      'Goal',
-                                      caloriesGoal,
-                                      const Color(0xFF34C85A),
-                                      Icons.flag_outlined, // Use outlined icon
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildCalorieInfoCard(
-                                      context,
-                                      'Food',
-                                      caloriesFromFood.toInt(),
-                                      const Color(0xFFFFA726),
-                                      Icons
-                                          .restaurant_menu_outlined, // Use outlined icon
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildCalorieInfoCard(
-                                      context,
-                                      'Burned',
-                                      _caloriesBurned
-                                          .toInt(), // Use state variable _caloriesBurned
-                                      const Color(0xFF42A5F5),
-                                      Icons
-                                          .local_fire_department_outlined, // Use outlined icon
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(
-                            height: 30), // Increased space before macro rings
-
-                        // Macro circles - Enhanced with circular progress
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          child: Stack(
+                            alignment: Alignment.center,
                             children: [
-                              _buildMacroProgressEnhanced(
-                                context,
-                                'Carbs',
-                                totalCarbs.round(),
-                                carbGoal,
-                                const Color(0xFF42A5F5),
-                                'g',
+                              // Progress circle
+                              SizedBox(
+                                width: 110,
+                                height: 110,
+                                child: CircularProgressIndicator(
+                                  value: progress,
+                                  strokeWidth: 10,
+                                  strokeCap: StrokeCap
+                                      .round, // Added circular stroke cap
+                                  backgroundColor:
+                                      Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? Colors.grey.shade200
+                                          : Colors.grey.shade800,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(
+                                    progress > 1.0
+                                        ? Colors.red
+                                        : const Color(0xFF34C85A),
+                                  ),
+                                ),
                               ),
-                              _buildMacroProgressEnhanced(
-                                context,
-                                'Protein',
-                                totalProtein.round(),
-                                proteinGoal,
-                                const Color(0xFFEF5350),
-                                'g',
-                              ),
-                              _buildMacroProgressEnhanced(
-                                context,
-                                'Fat',
-                                totalFat.round(),
-                                fatGoal,
-                                const Color(0xFFFFA726),
-                                'g',
-                              ),
-                              _buildMacroProgressEnhanced(
-                                context,
-                                'Steps',
-                                _steps, // Use state variable _steps
-                                stepsGoal, // Use state variable stepsGoal
-                                const Color(0xFF66BB6A),
-                                '',
+                              // Calorie text
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    caloriesRemaining.toString(),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context)
+                                          .extension<CustomColors>()
+                                          ?.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    'cal left',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          Theme.of(context).brightness ==
+                                                  Brightness.light
+                                              ? Colors.grey.shade600
+                                              : Colors.grey.shade400,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
+                      ),
+
+                      // Calories Info - Vertical layout with colored cards
+                      Expanded(
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment
+                                .center, // Center items vertically
+                            children: [
+                              _buildCalorieInfoCard(
+                                context,
+                                'Goal',
+                                caloriesGoal,
+                                const Color(0xFF34C85A),
+                                Icons.flag_outlined, // Use outlined icon
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCalorieInfoCard(
+                                context,
+                                'Food',
+                                caloriesFromFood.toInt(),
+                                const Color(0xFFFFA726),
+                                Icons
+                                    .restaurant_menu_outlined, // Use outlined icon
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCalorieInfoCard(
+                                context,
+                                'Burned',
+                                _caloriesBurned
+                                    .toInt(), // Use state variable _caloriesBurned
+                                const Color(0xFF42A5F5),
+                                Icons
+                                    .local_fire_department_outlined, // Use outlined icon
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                      height: 30), // Increased space before macro rings
+
+                  // Macro circles - Enhanced with circular progress
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Carbs',
+                          totalCarbs.round(),
+                          carbGoal,
+                          const Color(0xFF42A5F5),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Protein',
+                          totalProtein.round(),
+                          proteinGoal,
+                          const Color(0xFFEF5350),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Fat',
+                          totalFat.round(),
+                          fatGoal,
+                          const Color(0xFFFFA726),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Steps',
+                          _steps, // Use state variable _steps
+                          stepsGoal, // Use state variable stepsGoal
+                          const Color(0xFF66BB6A),
+                          '',
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              );
-            },
-          );
-        }
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
       },
     );
   }
