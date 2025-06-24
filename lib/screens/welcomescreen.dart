@@ -118,9 +118,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Image.asset(
-                            isDark
-                                ? 'assets/icons/icon_white.png'
-                                : 'assets/icons/icon_black.png',
+                            'assets/icons/MacroBalance_Logo.png',
                             fit: BoxFit.contain,
                           ),
                         ),

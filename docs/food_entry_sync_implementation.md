@@ -84,3 +84,106 @@ Uses existing `food_entries` table in Supabase with:
 3. **Selective Sync**: Sync only recent/modified entries
 4. **Background Sync**: Sync when app is backgrounded
 5. **Sync Settings**: User-configurable sync frequency
+
+# Food Entry Data Persistence Fix
+
+## Issue Description
+Food entries (like adding "egg to breakfast") were disappearing when the app was closed and reopened. This was causing significant data loss for users.
+
+## Root Cause Analysis
+The issue was in the `FoodEntryProvider` initialization and data loading flow:
+
+1. **During app startup**: The `_initialize()` method was calling `_entries.clear()`, which removed all food entries from memory
+2. **During user authentication**: `loadEntriesForCurrentUser()` was called, but the entries had already been cleared
+3. **During storage loading**: `loadEntries()` would set `_entries = []` when no data was found in storage, even if entries existed in memory
+4. **Authentication timing issue**: `loadEntriesForCurrentUser()` was calling `clearUserData()` when `currentUser` was null due to Supabase auth timing issues during app startup
+5. **Result**: Any food entries added during the previous session were permanently lost
+
+## Solution Implementation
+
+### 1. Fixed Provider Initialization
+- Modified `_initialize()` to NOT clear food entries during normal app startup
+- Only clear the date cache, not the actual food entries
+- Food entries should only be cleared during user logout, not during normal initialization
+
+### 2. Fixed Data Loading Logic
+- Modified `loadEntries()` to preserve existing entries in memory when no storage data is found
+- Modified `_loadEntriesFromJson()` to only replace entries when actual data is loaded from storage
+- Added proper logging to track the data loading process
+
+### 3. Fixed Authentication Timing Issue
+- Modified `loadEntriesForCurrentUser()` to NOT call `clearUserData()` when user is null
+- Instead, preserve existing data and load from local storage during authentication delays
+- This prevents data loss during Supabase authentication timing issues on app startup
+
+### 4. Preserved Data Integrity
+- Entries now persist between app sessions as expected
+- Local storage is still used for persistence
+- No data loss during normal app usage or authentication timing issues
+
+## Code Changes Made
+
+### In `_initialize()`:
+```dart
+// BEFORE (caused data loss):
+_entries.clear();
+
+// AFTER (preserves data):
+// Clear cache but NOT entries - entries should persist between app sessions
+await _clearDateCache();
+```
+
+### In `loadEntries()`:
+```dart
+// BEFORE (cleared entries):
+_entries = []; // when no storage data found
+
+// AFTER (preserves entries):
+// Don't clear existing entries - they might have been added during this session
+```
+
+### In `_loadEntriesFromJson()`:
+```dart
+// BEFORE (always replaced entries):
+_entries = decodedList.map(...).toList();
+
+// AFTER (only replaces when data exists):
+if (loadedEntries.isNotEmpty) {
+  _entries = loadedEntries;
+} else {
+  // Keep existing entries
+}
+```
+
+### In `loadEntriesForCurrentUser()`:
+```dart
+// BEFORE (cleared data on null user):
+if (user == null) {
+  await clearUserData();
+  return;
+}
+
+// AFTER (preserves data during auth timing issues):
+if (user == null) {
+  debugPrint("[Provider Load] User not logged in. Preserving existing data and skipping cloud sync.");
+  await loadEntries();
+  _initialLoadComplete = true;
+  notifyListeners();
+  return;
+}
+```
+
+## Testing
+To test the fix:
+1. Add a food entry (e.g., "egg" to breakfast)
+2. Close the app completely
+3. Reopen the app
+4. Verify the food entry is still present
+
+## Impact
+This fix ensures that:
+- Food entries persist between app sessions
+- No data loss during normal app usage
+- No data loss during authentication timing issues
+- Proper initialization without clearing user data
+- Maintained backwards compatibility with existing storage format
