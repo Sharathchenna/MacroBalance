@@ -32,7 +32,42 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<bool> _checkForLocalData() async {
     final caloriesGoal = await StorageService().get('calories_goal');
-    return caloriesGoal != null;
+    
+    // If we have local data, user has completed onboarding
+    if (caloriesGoal != null) {
+      return true;
+    }
+    
+    // If no local data, check Supabase for existing user data
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser != null) {
+      try {
+        // Check if user has macro data in Supabase
+        final response = await Supabase.instance.client
+            .from('user_macros')
+            .select('calories_goal, protein_goal, carbs_goal, fat_goal')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+        
+        if (response != null && response['calories_goal'] != null) {
+          // User has completed onboarding, sync their data to local storage
+          print("[AuthGate] Found existing user data in Supabase, syncing to local storage");
+          
+          // Store the macro data locally
+          await StorageService().put('calories_goal', response['calories_goal']);
+          await StorageService().put('protein_goal', response['protein_goal']);
+          await StorageService().put('carbs_goal', response['carbs_goal']);
+          await StorageService().put('fat_goal', response['fat_goal']);
+          
+          return true; // User has completed onboarding
+        }
+      } catch (e) {
+        print("[AuthGate] Error checking Supabase for user data: $e");
+        // Fall through to return false on error
+      }
+    }
+    
+    return false; // No data found, user needs onboarding
   }
 
   Future<void> _loadUserDataAfterLogin() async {

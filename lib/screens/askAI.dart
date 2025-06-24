@@ -142,19 +142,19 @@ Meal to analyze: ${_mealController.text}
           setState(() {
             _isLoading = false;
           });
-          _showErrorSnackbar('Error parsing results: ${e.toString()}');
+          _showErrorSnackbar('Something went wrong, try again later');
         }
       } else {
         setState(() {
           _isLoading = false;
         });
-        _showErrorSnackbar('Could not extract structured data from response');
+        _showErrorSnackbar('Something went wrong, try again later');
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      _showErrorSnackbar('Error analyzing meal: ${e.toString()}');
+      _showErrorSnackbar('Something went wrong, try again later');
     }
   }
 

@@ -918,6 +918,40 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   VoidCallback? _storageListener; // To hold the listener reference
 
   @override
+  void initState() {
+    super.initState();
+    // Initialize the DateProvider
+    _dateProvider = Provider.of<DateProvider>(context, listen: false);
+    
+    // Add listener to DateProvider
+    _dateProvider.addListener(_onDateChanged);
+    
+    // Initialize health data and storage listener
+    _initializeHealthData();
+    
+    // Set up storage listener for health connection status
+    _storageListener = () {
+      final newStatus = _storageService.get('healthConnected', defaultValue: false);
+      if (mounted && newStatus != _hasHealthPermissions) {
+        setState(() {
+          _hasHealthPermissions = newStatus;
+        });
+        if (_hasHealthPermissions) {
+          _fetchHealthData();
+        }
+      }
+    };
+    
+    // Add the listener to the Hive box
+    try {
+      Hive.box('user_preferences').listenable().addListener(_storageListener!);
+      print("Storage listener added successfully.");
+    } catch (e) {
+      print("Error adding storage listener: $e");
+    }
+  }
+
+  @override
   void dispose() {
     _dateProvider.removeListener(_onDateChanged);
     // Remove the listener when the widget is disposed
