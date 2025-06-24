@@ -27,8 +27,8 @@ class AuthService {
             : null;
 
         if (foodEntryProvider != null) {
-          // Load entries from Supabase and update local storage
-          await foodEntryProvider.loadEntriesFromSupabase();
+          // Load entries from local storage only (no cloud sync for food entries)
+          await foodEntryProvider.loadEntriesForCurrentUser();
 
           // Force a refresh of the provider's state
           await foodEntryProvider.forceSyncAndDiagnose();
