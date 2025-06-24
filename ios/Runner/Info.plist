@@ -52,6 +52,8 @@
 	<string>This app needs access to the microphone for video recording.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo library access is needed to select images for food analysis.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>This app needs notification access to send you meal reminders and nutrition insights to help you stay on track with your health goals.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

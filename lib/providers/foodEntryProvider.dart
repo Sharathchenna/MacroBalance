@@ -2,17 +2,13 @@
 
 import 'package:flutter/foundation.dart';
 import '../models/foodEntry.dart';
-import '../screens/searchPage.dart'; // Import Serving class definition
-import '../screens/searchPage.dart'; // Import Serving class definition
+import '../screens/searchPage.dart'; // Import Serving class definition and FoodItem
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'dart:math'; // Added for min function
-import '../services/widget_service.dart';
+import 'dart:async'; // Added for Timer
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart'; // Import for MethodChannel
-import 'package:http/http.dart' as http; // Import for HTTP requests
-import 'package:macrotracker/screens/searchPage.dart'; // Import FoodItem and Serving
-// Removed ExpenditureProvider import, interaction handled differently
 import 'package:macrotracker/services/macro_calculator_service.dart'; // Import MacroCalculatorService
 
 // Define the channel name consistently
@@ -55,6 +51,11 @@ class FoodEntryProvider with ChangeNotifier {
   // Flag to prevent multiple initial loads
   bool _initialLoadComplete = false;
 
+  // Daily sync functionality
+  Timer? _dailySyncTimer;
+  DateTime? _lastFoodEntrySyncDate;
+  static const String _lastSyncKey = 'last_food_entry_sync_date';
+
   FoodEntryProvider() {
     _initialize();
   }
@@ -73,6 +74,11 @@ class FoodEntryProvider with ChangeNotifier {
     // Load non-user-specific data or defaults if necessary
     await loadNutritionGoals(); // Load goals (might be user-specific, ensure cleared on logout too)
     debugPrint("[Provider Init] Loaded nutrition goals.");
+    
+    // Initialize daily sync functionality
+    await _initializeDailySync();
+    debugPrint("[Provider Init] Daily sync initialized.");
+    
     _initialLoadComplete = true; // Mark basic structure as initialized
     debugPrint(
         "[Provider Init] Provider structure initialized. InitialLoadComplete = true.");
@@ -788,7 +794,11 @@ class FoodEntryProvider with ChangeNotifier {
     await loadEntries();
     debugPrint("[Provider Load] Loaded entries from local storage.");
     
-    // 4. Notify listeners about the loaded state
+    // 4. Reinitialize daily sync for the current user
+    await _initializeDailySync();
+    debugPrint("[Provider Load] Daily sync reinitialized for current user.");
+    
+    // 5. Notify listeners about the loaded state
     notifyListeners();
     debugPrint("[Provider Load] loadEntriesForCurrentUser finished.");
   }
@@ -899,20 +909,254 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   Future<void> syncAllDataWithSupabase() async {
-    debugPrint("[Provider Sync] Syncing nutrition goals with Supabase...");
+    debugPrint("[Provider Sync] Syncing all data with Supabase...");
     
     try {
-      // Only sync nutrition goals (not food entries)
+      // Sync nutrition goals
       await _syncNutritionGoalsToSupabase();
       debugPrint("[Provider Sync] Successfully synced nutrition goals with Supabase.");
+      
+      // Sync food entries
+      await _syncFoodEntriesToSupabase();
+      debugPrint("[Provider Sync] Successfully synced food entries with Supabase.");
     } catch (e) {
       debugPrint("[Provider Sync] Error syncing with Supabase: $e");
       // Don't throw error, just log it
     }
+  }  // Initialize daily sync functionality
+  Future<void> _initializeDailySync() async {
+    // Load last sync date from storage
+    final lastSyncString = StorageService().get(_lastSyncKey);
+    if (lastSyncString != null) {
+      try {
+        _lastFoodEntrySyncDate = DateTime.parse(lastSyncString);
+      } catch (e) {
+        debugPrint("[Daily Sync] Error parsing last sync date: $e");
+      }
+    }
+    
+    // Check if user is authenticated and perform initial sync if needed
+    // This handles both first-time authentication and daily sync requirements
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      await _performInitialSyncIfNeeded();
+    }
+    
+    // Schedule the next midnight sync for automatic daily backups
+    _scheduleMidnightSync();
   }
+
+// Perform initial sync when user first authenticates
+Future<void> _performInitialSyncIfNeeded() async {
+  debugPrint("[Initial Sync] Checking if initial sync is needed...");
+  
+  final today = DateTime.now();
+  final todayDate = DateTime(today.year, today.month, today.day);
+  
+  // Check if we need to sync:
+  // 1. Never synced before
+  // 2. Last sync was not today
+  bool shouldSync = false;
+  
+  if (_lastFoodEntrySyncDate == null) {
+    debugPrint("[Initial Sync] Never synced before - will perform initial sync");
+    shouldSync = true;
+  } else {
+    final lastSyncDate = DateTime(_lastFoodEntrySyncDate!.year, 
+        _lastFoodEntrySyncDate!.month, _lastFoodEntrySyncDate!.day);
+    if (!lastSyncDate.isAtSameMomentAs(todayDate)) {
+      debugPrint("[Initial Sync] Last sync was not today - will sync");
+      shouldSync = true;
+    } else {
+      debugPrint("[Initial Sync] Already synced today - skipping initial sync");
+    }
+  }
+  
+  if (shouldSync) {
+    try {
+      debugPrint("[Initial Sync] Starting initial food entry sync...");
+      
+      // Sync food entries to Supabase
+      await _syncFoodEntriesToSupabase();
+      
+      // Update last sync date
+      _lastFoodEntrySyncDate = today;
+      await StorageService().put(_lastSyncKey, today.toIso8601String());
+      
+      debugPrint("[Initial Sync] Initial sync completed successfully");
+    } catch (e) {
+      debugPrint("[Initial Sync] Error during initial sync: $e");
+      // Don't throw error to avoid blocking user authentication
+    }
+  }
+}
+
+// Schedule sync to run at midnight
+  void _scheduleMidnightSync() {
+    _dailySyncTimer?.cancel(); // Cancel any existing timer
+    
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+    final timeUntilMidnight = nextMidnight.difference(now);
+    
+    debugPrint("[Daily Sync] Scheduling next sync for: $nextMidnight (in ${timeUntilMidnight.inMinutes} minutes)");
+    
+    _dailySyncTimer = Timer(timeUntilMidnight, () async {
+      await _performDailySync();
+      // Schedule the next day's sync
+      _scheduleMidnightSync();
+    });
+  }
+
+  // Perform the daily sync at midnight
+  Future<void> _performDailySync() async {
+    debugPrint("[Daily Sync] Starting daily food entry sync...");
+    
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    
+    // Check if we already synced today
+    if (_lastFoodEntrySyncDate != null) {
+      final lastSyncDate = DateTime(_lastFoodEntrySyncDate!.year, 
+          _lastFoodEntrySyncDate!.month, _lastFoodEntrySyncDate!.day);
+      if (lastSyncDate.isAtSameMomentAs(todayDate)) {
+        debugPrint("[Daily Sync] Already synced today, skipping...");
+        return;
+      }
+    }
+    
+    try {
+      // Sync food entries to Supabase
+      await _syncFoodEntriesToSupabase();
+      
+      // Update last sync date
+      _lastFoodEntrySyncDate = today;
+      await StorageService().put(_lastSyncKey, today.toIso8601String());
+      
+      debugPrint("[Daily Sync] Daily sync completed successfully");
+    } catch (e) {
+      debugPrint("[Daily Sync] Error during daily sync: $e");
+    }
+  }
+
+  // Sync food entries to Supabase
+  Future<void> _syncFoodEntriesToSupabase() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint('[Food Sync] Cannot sync food entries: User not logged in.');
+      return;
+    }
+
+    try {
+      debugPrint('[Food Sync] Starting food entries sync for user: $userId');
+      
+      // Get local entries
+      final localEntries = _entries.map((entry) => {
+        ...entry.toJson(),
+        'user_id': userId,
+        'synced_at': DateTime.now().toIso8601String(),
+      }).toList();
+      
+      if (localEntries.isEmpty) {
+        debugPrint('[Food Sync] No local entries to sync');
+        return;
+      }
+      
+      // Batch sync entries to avoid overwhelming the database
+      const batchSize = 50;
+      for (int i = 0; i < localEntries.length; i += batchSize) {
+        final end = (i + batchSize < localEntries.length) ? i + batchSize : localEntries.length;
+        final batch = localEntries.sublist(i, end);
+        
+        debugPrint('[Food Sync] Syncing batch ${(i / batchSize).floor() + 1} of ${(localEntries.length / batchSize).ceil()} (${batch.length} entries)');
+        
+        await Supabase.instance.client
+            .from('food_entries')
+            .upsert(batch);
+      }
+      
+      debugPrint('[Food Sync] Successfully synced ${localEntries.length} food entries to Supabase');
+    } catch (e) {
+      debugPrint('[Food Sync] Error syncing food entries to Supabase: $e');
+      rethrow;
+    }
+  }
+
+  // Manual sync method for testing or force sync
+  Future<void> forceFoodEntrySync() async {
+    debugPrint("[Manual Sync] Force syncing food entries...");
+    try {
+      await _syncFoodEntriesToSupabase();
+      
+      // Update last sync date
+      final now = DateTime.now();
+      _lastFoodEntrySyncDate = now;
+      await StorageService().put(_lastSyncKey, now.toIso8601String());
+      
+      debugPrint("[Manual Sync] Force sync completed successfully");
+    } catch (e) {
+      debugPrint("[Manual Sync] Error during force sync: $e");
+      rethrow;
+    }
+  }
+
+  // Check if sync is needed (for UI display)
+  bool get needsSync {
+    if (_lastFoodEntrySyncDate == null) return true;
+    
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final lastSyncDate = DateTime(_lastFoodEntrySyncDate!.year, 
+        _lastFoodEntrySyncDate!.month, _lastFoodEntrySyncDate!.day);
+    
+    return !lastSyncDate.isAtSameMomentAs(today);
+  }
+
+  // Check if this is the first time syncing
+  bool get isFirstTimeSync => _lastFoodEntrySyncDate == null;
+  
+  // Get sync status message for UI
+  String get syncStatusMessage {
+    if (_lastFoodEntrySyncDate == null) {
+      return 'Never synced';
+    }
+    
+    final now = DateTime.now();
+    final daysSince = now.difference(_lastFoodEntrySyncDate!).inDays;
+    
+    if (daysSince == 0) {
+      return 'Synced today';
+    } else if (daysSince == 1) {
+      return 'Synced yesterday';
+    } else {
+      return 'Synced $daysSince days ago';
+    }
+  }
+  
+  // Get sync subtitle for UI
+  String get syncSubtitle {
+    if (_lastFoodEntrySyncDate == null) {
+      return 'Tap to backup your food entries to cloud';
+    }
+    
+    if (needsSync) {
+      return 'Tap to sync today\'s data to cloud';
+    } else {
+      return 'Your data is backed up and secure';
+    }
+  }
+
+  // Get last sync date for UI display
+  DateTime? get lastSyncDate => _lastFoodEntrySyncDate;
 
   Future<void> clearUserData() async {
     debugPrint("[Provider Clear] Clearing all user data...");
+    
+    // Cancel daily sync timer
+    _dailySyncTimer?.cancel();
+    _dailySyncTimer = null;
+    _lastFoodEntrySyncDate = null;
+    
     _entries.clear();
     await _clearDateCache();
     
@@ -932,8 +1176,15 @@ class FoodEntryProvider with ChangeNotifier {
     // Clear local storage
     await StorageService().delete(_storageKey);
     await StorageService().delete('nutrition_goals');
+    await StorageService().delete(_lastSyncKey);
     
     notifyListeners();
     debugPrint("[Provider Clear] All user data cleared.");
+  }
+
+  @override
+  void dispose() {
+    _dailySyncTimer?.cancel();
+    super.dispose();
   }
 }

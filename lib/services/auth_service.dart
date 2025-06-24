@@ -18,7 +18,7 @@ class AuthService {
 
       if (response.user != null) {
         // First, ensure we wait for the full sync to complete
-        await supabaseService.fullSync(response.user!.id);
+        // await supabaseService.fullSync(response.user!.id);
 
         // Then, explicitly fetch and update local storage
         final foodEntryProvider = navigatorKey.currentContext != null

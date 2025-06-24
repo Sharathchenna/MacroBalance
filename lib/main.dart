@@ -20,6 +20,7 @@ import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
 import 'package:macrotracker/services/notification_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:macrotracker/services/widget_service.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -82,8 +83,6 @@ class Routes {
   static const String savedFoods = '/savedFoods'; // Added saved foods route
 }
 
-bool _initialUriHandled = false;
-
 Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
@@ -95,6 +94,9 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Set up Firebase messaging background handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   // Initialize Supabase - make sure this completes before accessing Supabase.instance
   debugPrint("[Startup Timing] Before Supabase.initialize: ${DateTime.now()}");
@@ -127,6 +129,9 @@ Future<void> main() async {
 
   // Initialize widget service
   await WidgetService.initWidgetService();
+
+  // Initialize notification service
+  await NotificationService().initialize();
 
   // Register error handlers
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -211,86 +216,6 @@ Future<void> main() async {
 
   // Delayed widget refresh to avoid impacting startup time
   _delayedWidgetRefresh();
-}
-
-// New function to initialize non-essential services in the background
-Future<void> _initializeServicesInBackground() async {
-  // Use multiple parallel operations for faster initialization
-  await Future.wait([
-    _initializeFirebase(),
-    _initializeSupabase(),
-    _initializePlatformState(),
-  ]);
-
-  // Then initialize services that depend on above initializations
-  // ApiService().getAccessToken(); // Removed - Token fetched by Edge Function now
-  NotificationService().initialize(); // Don't await this
-  WidgetService.initWidgetService(); // Don't await this
-
-  // Delay widget refresh to avoid slowing down initial UI rendering
-  _delayedWidgetRefresh();
-
-  // Posthog logging (not critical for initial UI)
-  Posthog().screen(screenName: "MainScreen");
-}
-
-Future<void> _initializeFirebase() async {
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    debugPrint("Firebase initialized successfully with explicit options");
-  } catch (e) {
-    debugPrint("Firebase initialization error: $e");
-  }
-}
-
-Future<void> _initializeSupabase() async {
-  try {
-    await Supabase.initialize(
-      anonKey:
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kaXZ0YmxhYm1uZnRkcWxneXN2Iiwicm9zZSI6ImFub24iLCJpYXQiOjE3Mzg4NjUyMDksImV4cCI6MjA1NDQ0MTIwOX0.zzdtVddtl8Wb8K2k-HyS3f95j3g9FT0zy-pqjmBElrU",
-      url: "https://mdivtblabmnftdqlgysv.supabase.co",
-    );
-  } catch (e) {
-    debugPrint("Supabase initialization error: $e");
-  }
-}
-
-Future<void> _setupFirebaseMessaging() async {
-  try {
-    // Firebase Messaging setup
-    if (Platform.isIOS || Platform.isAndroid) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-
-      // Optional: Add other Firebase Messaging initialization here if needed
-      debugPrint('Firebase Messaging initialized successfully');
-    }
-  } catch (e) {
-    debugPrint('Firebase Messaging initialization error: $e');
-  }
-}
-
-Future<void> _initializePlatformState() async {
-  try {
-    await Purchases.setLogLevel(LogLevel.debug);
-
-    PurchasesConfiguration? configuration;
-    if (Platform.isAndroid) {
-      // Android Implementation
-    } else if (Platform.isIOS) {
-      configuration =
-          PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
-    }
-
-    if (configuration != null) {
-      await Purchases.configure(configuration);
-    }
-  } catch (e) {
-    debugPrint('Platform state initialization error: $e');
-  }
 }
 
 // Delay widget refresh to avoid impacting startup time
@@ -657,5 +582,39 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
       );
     });
+  }
+}
+
+// Firebase messaging setup function
+Future<void> _setupFirebaseMessaging() async {
+  try {
+    // Firebase Messaging setup
+    if (Platform.isIOS || Platform.isAndroid) {
+      // Firebase is already initialized above, no need to initialize again
+      debugPrint('Firebase Messaging setup completed');
+    }
+  } catch (e) {
+    debugPrint('Firebase Messaging setup error: $e');
+  }
+}
+
+// Platform state initialization for RevenueCat
+Future<void> _initializePlatformState() async {
+  try {
+    await Purchases.setLogLevel(LogLevel.debug);
+
+    PurchasesConfiguration? configuration;
+    if (Platform.isAndroid) {
+      // Android Implementation - add your Google Play key here
+    } else if (Platform.isIOS) {
+      configuration =
+          PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
+    }
+
+    if (configuration != null) {
+      await Purchases.configure(configuration);
+    }
+  } catch (e) {
+    debugPrint('Platform state initialization error: $e');
   }
 }
