@@ -5,10 +5,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:macrotracker/main.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
-import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Add this import
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
 import 'package:provider/provider.dart';
@@ -23,8 +21,6 @@ import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
-import 'package:macrotracker/screens/privacy_policy_screen.dart'; // Added import
-import 'package:macrotracker/screens/terms_screen.dart'; // Added import
 import 'package:macrotracker/screens/feedback_screen.dart'
     as fb_screen; // Added import for feedback with prefix
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
@@ -439,6 +435,9 @@ class _AccountDashboardState extends State<AccountDashboard>
                   // ),
                 ],
               ),
+
+              // Data & Sync section
+              _buildSyncSection(colorScheme, customColors),
 
               // Appearance section
               _buildSection(
@@ -1256,6 +1255,102 @@ class _AccountDashboardState extends State<AccountDashboard>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSyncSection(ColorScheme colorScheme, CustomColors? customColors) {
+    return Consumer<FoodEntryProvider>(
+      builder: (context, foodEntryProvider, child) {
+        final lastSync = foodEntryProvider.lastSyncDate;
+        final needsSync = foodEntryProvider.needsSync;
+        final syncStatus = foodEntryProvider.syncStatusMessage;
+        final syncSubtitle = foodEntryProvider.syncSubtitle;
+        
+        IconData syncIcon;
+        Color syncIconColor;
+        
+        if (lastSync == null) {
+          syncIcon = CupertinoIcons.cloud_upload;
+          syncIconColor = Colors.orange;
+        } else if (needsSync) {
+          syncIcon = CupertinoIcons.cloud_upload;
+          syncIconColor = Colors.orange;
+        } else {
+          syncIcon = CupertinoIcons.cloud_fill;
+          syncIconColor = Colors.green;
+        }
+        
+        return _buildSection(
+          title: 'Data & Sync',
+          icon: CupertinoIcons.cloud,
+          colorScheme: colorScheme,
+          customColors: customColors,
+          children: [
+            _buildListTile(
+              icon: syncIcon,
+              iconColor: syncIconColor,
+              title: syncStatus,
+              subtitle: syncSubtitle,
+              trailing: needsSync || lastSync == null
+                  ? const Icon(Icons.chevron_right)
+                  : Icon(Icons.check_circle, color: Colors.green),
+              onTap: () async {
+                if (needsSync || lastSync == null) {
+                  HapticFeedback.lightImpact();
+                  try {
+                    // Show loading indicator with appropriate message
+                    final isFirstTime = foodEntryProvider.isFirstTimeSync;
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => AlertDialog(
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text(isFirstTime 
+                                ? 'Backing up your food entries...'
+                                : 'Syncing food entries...'),
+                          ],
+                        ),
+                      ),
+                    );
+                    
+                    await foodEntryProvider.forceFoodEntrySync();
+                    
+                    Navigator.of(context).pop(); // Close loading dialog
+                    
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isFirstTime 
+                            ? 'Food entries backed up successfully!'
+                            : 'Food entries synced successfully!'),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  } catch (e) {
+                    Navigator.of(context).pop(); // Close loading dialog
+                    
+                    // Show error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Sync failed: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+              colorScheme: colorScheme,
+              customColors: customColors,
+            ),
+          ],
+        );
+      },
     );
   }
 

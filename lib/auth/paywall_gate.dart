@@ -10,7 +10,7 @@ class PaywallGate extends StatelessWidget {
   final Widget child;
 
   // TEMPORARY: Debug flag to disable paywall
-  static const bool _DISABLE_PAYWALL_DEBUG = true;
+  static const bool _DISABLE_PAYWALL_DEBUG = false;
 
   const PaywallGate({
     super.key,

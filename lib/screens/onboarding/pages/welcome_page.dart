@@ -52,9 +52,7 @@ class WelcomePage extends StatelessWidget {
                     ),
                     child: Center(
                       child: Image.asset(
-                        Theme.of(context).brightness == Brightness.light
-                            ? 'assets/icons/icon_black.png'
-                            : 'assets/icons/icon_white.png',
+                        'assets/icons/MacroBalance_Logo.png',
                         width: 200,
                         height: 200,
                       ),

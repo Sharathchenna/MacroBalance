@@ -203,31 +203,23 @@ class ActivityLevelPage extends StatelessWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color.lerp(
-                                theme.colorScheme.primary.withOpacity(0.1),
-                                theme.colorScheme.primary,
-                                value,
-                              )!,
-                              Color.lerp(
-                                theme.colorScheme.primary.withOpacity(0.05),
-                                theme.colorScheme.primary.withOpacity(0.8),
-                                value,
-                              )!,
-                            ],
-                          ),
+                          color: isSelected
+                              ? theme.colorScheme.primary.withOpacity(0.15)
+                              : customColors?.cardBackground?.withOpacity(0.5) ?? 
+                                theme.cardColor.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(12),
+                          border: isSelected
+                              ? Border.all(
+                                  color: theme.colorScheme.primary.withOpacity(0.3),
+                                  width: 1,
+                                )
+                              : null,
                         ),
                         child: Icon(
                           icon,
-                          color: Color.lerp(
-                            theme.colorScheme.primary,
-                            theme.colorScheme.onPrimary,
-                            value,
-                          ),
+                          color: isSelected
+                              ? theme.colorScheme.primary
+                              : customColors?.textSecondary ?? theme.iconTheme.color,
                           size: 24,
                         ),
                       ),
