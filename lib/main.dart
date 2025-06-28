@@ -27,8 +27,8 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'providers/meal_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
@@ -86,6 +86,9 @@ class Routes {
 Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load the .env file
+  await dotenv.load(fileName: ".env");
 
   // Initialize Hive (must be done before opening boxes)
   await Hive.initFlutter();
