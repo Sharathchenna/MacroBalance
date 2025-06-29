@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/auth/paywall_gate.dart';
+import 'package:macrotracker/auth/superwall_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
@@ -48,6 +49,7 @@ import 'package:macrotracker/services/storage_service.dart'; // Added StorageSer
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
+import 'package:macrotracker/services/superwall_service.dart';
 import 'package:lottie/lottie.dart';
 
 // Add a global key for widget test access
@@ -127,8 +129,14 @@ Future<void> main() async {
   // Initialize subscription service
   await SubscriptionService().initialize();
 
-  // Increment app session count for paywall logic (now synchronous)
-  PaywallManager().incrementAppSession();
+  // Initialize Superwall service
+  debugPrint('[Startup] About to configure SuperwallService...');
+  await SuperwallService().configure();
+  debugPrint('[Startup] SuperwallService configured. Is configured: ${SuperwallService().isConfigured}');
+
+  // Increment app session count for paywall logic (migrated to SuperwallService)
+  debugPrint('[Startup] Incrementing app session count...');
+  SuperwallService().incrementAppSession();
 
   // Initialize widget service
   await WidgetService.initWidgetService();
@@ -549,21 +557,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           routes: {
             Routes.initial: (context) => const AuthGate(),
             Routes.onboarding: (context) => const OnboardingScreen(),
-            Routes.home: (context) => const PaywallGate(child: Dashboard()),
+            Routes.home: (context) => const SuperwallGate(child: Dashboard()),
             Routes.dashboard: (context) =>
-                const PaywallGate(child: Dashboard()),
+                const SuperwallGate(child: Dashboard()),
             Routes.goals: (context) =>
-                const PaywallGate(child: StepTrackingScreen()),
+                const SuperwallGate(child: StepTrackingScreen()),
             Routes.search: (context) =>
-                const PaywallGate(child: FoodSearchPage()),
+                const SuperwallGate(child: FoodSearchPage()),
             Routes.account: (context) =>
-                const PaywallGate(child: AccountDashboard()),
+                const SuperwallGate(child: AccountDashboard()),
             Routes.weightTracking: (context) =>
-                const PaywallGate(child: WeightTrackingScreen()),
+                const SuperwallGate(child: WeightTrackingScreen()),
             Routes.macroTracking: (context) =>
-                const PaywallGate(child: MacroTrackingScreen()),
+                const SuperwallGate(child: MacroTrackingScreen()),
             Routes.savedFoods: (context) =>
-                const PaywallGate(child: SavedFoodsScreen()),
+                const SuperwallGate(child: SavedFoodsScreen()),
             // Routes.expenditure: (context) => const PaywallGate(
             //     child: ExpenditureScreen()), // Added expenditure route mapping
           },

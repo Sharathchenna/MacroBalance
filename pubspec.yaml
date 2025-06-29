@@ -71,6 +71,7 @@ dependencies:
   purchases_flutter: ^8.6.1
   purchases_ui_flutter: ^8.6.1
   rename_app: ^1.6.2
+  superwallkit_flutter: ^2.0.5
   settings_ui: ^2.0.2
   sign_in_with_apple: ^6.1.0
   smooth_page_indicator: ^1.1.0
