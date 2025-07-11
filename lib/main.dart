@@ -46,6 +46,7 @@ import 'package:macrotracker/providers/expenditure_provider.dart'; // Added Expe
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -609,6 +610,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               : themeProvider.isDarkMode
                   ? ThemeMode.dark
                   : ThemeMode.light,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en'),
+            Locale('es'),
+            Locale('fr'),
+            Locale('de'),
+          ],
+          localeResolutionCallback: (locale, supportedLocales) {
+            if (locale == null) return const Locale('en');
+            for (var supportedLocale in supportedLocales) {
+              if (supportedLocale.languageCode == locale.languageCode) {
+                return supportedLocale;
+              }
+            }
+            return const Locale('en');
+          },
           initialRoute: Routes.initial,
           navigatorObservers: [
             MyRouteObserver(),
