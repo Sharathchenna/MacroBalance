@@ -4,9 +4,6 @@ import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 // Removed shared_preferences import
-import 'package:provider/provider.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
-import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/auth/superwall_gate.dart'; // Import the SuperwallGate
 import 'dart:convert'; // Add for JSON parsing
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService

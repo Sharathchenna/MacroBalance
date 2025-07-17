@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import '../screens/TrackingPagesScreen.dart';
 
 class AppRoutes {

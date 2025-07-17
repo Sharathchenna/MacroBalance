@@ -3,8 +3,6 @@
 
 import 'dart:convert';
 import 'dart:io'; // For Platform check and File operations
-import 'dart:typed_data'; // For Uint8List
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +11,7 @@ import 'package:macrotracker/camera/barcode_results.dart';
 import 'package:macrotracker/camera/results_page.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/screens/askAI.dart';
+import 'package:macrotracker/services/food_icon_service.dart';
 import 'package:path_provider/path_provider.dart'; // For temp directory
 import '../AI/gemini.dart'; // Import Gemini processing
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
@@ -25,6 +24,8 @@ import 'package:macrotracker/widgets/search_header.dart';
 import 'dart:async';
 import 'package:lottie/lottie.dart';
 import 'package:macrotracker/services/posthog_service.dart';
+import 'package:macrotracker/services/ai_food_search_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 // import 'package:macrotracker/camera/camera.dart'; // No longer needed
 
 // Define the expected result structure at the top level
@@ -33,7 +34,7 @@ typedef CameraResult = Map<String, dynamic>;
 class FoodSearchPage extends StatefulWidget {
   final String? selectedMeal;
 
-  const FoodSearchPage({Key? key, this.selectedMeal}) : super(key: key);
+  const FoodSearchPage({super.key, this.selectedMeal});
 
   @override
   _FoodSearchPageState createState() => _FoodSearchPageState();
@@ -47,12 +48,11 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
-  List<String> _autoCompleteResults = [];
+  List<FoodItem> _aiSearchResults = [];
   bool _isLoading = false;
   // Track if the search was triggered by the search button
   bool _searchButtonClicked = false;
-  // final ApiService _apiService = ApiService(); // Remove ApiService instance
-  Timer? _debouncer;
+  final AIFoodSearchService _aiSearchService = AIFoodSearchService();
 
   // Supabase Edge Function URL
   final String _fatSecretProxyUrl =
@@ -82,7 +82,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       if (_searchController.text.isEmpty) {
         setState(() {
           _searchResults = [];
-          _autoCompleteResults = [];
           _isLoading = false;
           _searchButtonClicked = false;
         });
@@ -92,7 +91,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   @override
   void dispose() {
-    _debouncer?.cancel();
     _loadingController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
@@ -150,7 +148,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   Future<void> _getAutocompleteSuggestions(String query) async {
     if (query.isEmpty || _isLoading) {
       // Don't show suggestions while loading search results
-      setState(() => _autoCompleteResults = []);
+      // Autocomplete removed
       return;
     }
 
@@ -199,7 +197,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       if (mounted) {
         // Add mounted check before setState
         setState(() {
-          _autoCompleteResults = suggestionsList;
+          // Autocomplete removed
         });
       }
       // --- End Refined Parsing ---
@@ -207,24 +205,17 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       // Error handled in _callFatSecretProxy
       if (mounted) {
         // Add mounted check
-        setState(() => _autoCompleteResults = []);
+        // Autocomplete removed
       }
     }
   }
   */
 
   void _onSearchChanged(String query) {
-    if (_debouncer?.isActive ?? false) _debouncer!.cancel();
-    // Only trigger search if we're not already loading search results and query isn't empty
-    if (!_isLoading && query.isNotEmpty) {
-      _debouncer = Timer(const Duration(milliseconds: 300), () {
-        _searchFood(query);
-      });
-    } else if (query.isEmpty) {
-      // Clear results if query is empty
+    // Only clear results if query is empty - no real-time search
+    if (query.isEmpty) {
       setState(() {
         _searchResults = [];
-        _autoCompleteResults = [];
       });
     }
   }
@@ -235,7 +226,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     if (query.isEmpty) {
       setState(() {
         _searchResults = [];
-        _autoCompleteResults = [];
+        _aiSearchResults = [];
+        // No autocomplete to clear
         _isLoading = false;
         _searchButtonClicked = false;
       });
@@ -254,9 +246,25 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     setState(() {
       _isLoading = true;
       _searchButtonClicked = fromSearchButton;
-      _autoCompleteResults = [];
     });
 
+    // Run both database and AI search concurrently
+    await Future.wait([
+      _searchDatabase(query),
+      _searchAI(query),
+    ]);
+
+    // Ensure loading state is turned off regardless of success/failure
+    if (mounted) {
+      // Check if the widget is still in the tree
+      setState(() {
+        _isLoading = false;
+        // Don't reset _searchButtonClicked here to keep animation state consistent
+      });
+    }
+  }
+
+  Future<void> _searchDatabase(String query) async {
     // Call the proxy function
     final proxyResponse = await _callFatSecretProxy(
       endpoint: 'search',
@@ -275,35 +283,45 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           searchData['results'] != null &&
           searchData['results']['food'] != null) {
         final foods = searchData['results']['food'] as List;
-        setState(() {
-          _searchResults =
-              foods.map((food) => FoodItem.fromFatSecretJson(food)).toList();
-          // Make sure autocomplete results remain empty when showing search results
-          _autoCompleteResults = [];
-        });
+        if (mounted) {
+          setState(() {
+            _searchResults =
+                foods.map((food) => FoodItem.fromFatSecretJson(food)).toList();
+          });
+        }
       } else {
-        setState(() {
-          _searchResults = [];
-          // Make sure autocomplete results remain empty when showing search results
-          _autoCompleteResults = [];
-        });
+        if (mounted) {
+          setState(() {
+            _searchResults = [];
+          });
+        }
       }
     } else {
       // Error handled in _callFatSecretProxy
-      setState(() {
-        _searchResults = [];
-        // Make sure autocomplete results remain empty when showing search results
-        _autoCompleteResults = [];
-      });
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _aiSearchResults = [];
+        });
+      }
     }
+  }
 
-    // Ensure loading state is turned off regardless of success/failure
-    if (mounted) {
-      // Check if the widget is still in the tree
-      setState(() {
-        _isLoading = false;
-        // Don't reset _searchButtonClicked here to keep animation state consistent
-      });
+  Future<void> _searchAI(String query) async {
+    try {
+      final aiSuggestions = await _aiSearchService.searchFoodsWithAI(query);
+      if (mounted) {
+        setState(() {
+          _aiSearchResults = aiSuggestions.map((suggestion) => suggestion.toFoodItem()).toList();
+        });
+      }
+    } catch (e) {
+      print('Error searching AI: $e');
+      if (mounted) {
+        setState(() {
+          _aiSearchResults = [];
+        });
+      }
     }
   }
 
@@ -633,14 +651,11 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     if (_isLoading && !_searchButtonClicked) {
       return _buildPlaceholderCards();
     }
-    // Important: Show search results with priority over suggestions
-    if (_searchResults.isNotEmpty) {
-      return _buildSearchResults();
+    // Show search results
+    if (_searchResults.isNotEmpty || _aiSearchResults.isNotEmpty) {
+      return _buildCombinedSearchResults();
     }
-    if (_autoCompleteResults.isNotEmpty) {
-      return _buildSuggestions();
-    }
-    if (_searchResults.isEmpty && _searchController.text.isNotEmpty) {
+    if (_searchResults.isEmpty && _aiSearchResults.isEmpty && _searchController.text.isNotEmpty) {
       return const NoResultsFoundWidget();
     }
     return _buildEmptyState();
@@ -686,6 +701,166 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               fontWeight: FontWeight.w500,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCombinedSearchResults() {
+    return RefreshIndicator(
+      onRefresh: () => _searchFood(_searchController.text),
+      color: Theme.of(context).primaryColor,
+      backgroundColor: Theme.of(context).cardColor,
+      displacement: 20,
+      edgeOffset: 20,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // AI Results Section
+          if (_aiSearchResults.isNotEmpty) ...[
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.purple.withOpacity(0.8),
+                            Colors.blue.withOpacity(0.8),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.smart_toy_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'AI Suggestions',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'AI-generated food suggestions',
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index < 0 || index >= _aiSearchResults.length) {
+                      return const SizedBox.shrink();
+                    }
+                    return AnimatedOpacity(
+                      duration: const Duration(milliseconds: 250),
+                      opacity: 1.0,
+                      child: _buildFoodCard(_aiSearchResults[index], isAI: true),
+                    );
+                  },
+                  childCount: _aiSearchResults.length,
+                ),
+              ),
+            ),
+          ],
+          
+          // Database Results Section
+          if (_searchResults.isNotEmpty) ...[
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, _aiSearchResults.isNotEmpty ? 16 : 16, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.storage,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Database Results',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'From nutrition database',
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index < 0 || index >= _searchResults.length) {
+                      return const SizedBox.shrink();
+                    }
+                    return AnimatedOpacity(
+                      duration: const Duration(milliseconds: 250),
+                      opacity: 1.0,
+                      child: _buildFoodCard(_searchResults[index], isAI: false),
+                    );
+                  },
+                  childCount: _searchResults.length,
+                ),
+              ),
+            ),
+          ],
+          
+          // Empty state if no results
+          if (_searchResults.isEmpty && _aiSearchResults.isEmpty)
+            const SliverToBoxAdapter(
+              child: NoResultsFoundWidget(),
+            ),
         ],
       ),
     );
@@ -753,7 +928,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     _navigateToFoodDetail(food);
   }
 
-  Widget _buildFoodCard(FoodItem food) {
+  Widget _buildFoodCard(FoodItem food, {bool isAI = false}) {
     // Get the default serving (first serving)
     final defaultServing =
         food.servings.isNotEmpty ? food.servings.first : null;
@@ -761,7 +936,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final accentColor = _categoryColor(food.name);
 
-    // Enhanced premium card design
+    // Enhanced premium card design with AI indicator
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
@@ -782,10 +957,12 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           ),
         ],
         border: Border.all(
-          color: isDarkMode
-              ? Colors.grey.withOpacity(0.1)
-              : Colors.grey.withOpacity(0.08),
-          width: 0.5,
+          color: isAI 
+              ? Colors.purple.withOpacity(0.2)
+              : isDarkMode
+                  ? Colors.grey.withOpacity(0.1)
+                  : Colors.grey.withOpacity(0.08),
+          width: isAI ? 1.0 : 0.5,
         ),
       ),
       child: Material(
@@ -805,35 +982,68 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Enhanced food icon with gradient
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            accentColor.withOpacity(0.15),
-                            accentColor.withOpacity(0.05),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: accentColor.withOpacity(0.15),
-                            offset: const Offset(0, 2),
-                            blurRadius: 6,
-                            spreadRadius: -2,
+                    Stack(
+                      children: [
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                accentColor.withOpacity(0.15),
+                                accentColor.withOpacity(0.05),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accentColor.withOpacity(0.15),
+                                offset: const Offset(0, 2),
+                                blurRadius: 6,
+                                spreadRadius: -2,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Icon(
-                          _categoryIcon(food.name),
-                          color: accentColor,
-                          size: 24,
+                          child: Center(
+                            child: _buildFoodIcon(food.name, accentColor, 24),
+                          ),
                         ),
-                      ),
+                        // AI badge
+                        if (isAI)
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: Container(
+                              width: 18,
+                              height: 18,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.purple.withOpacity(0.9),
+                                    Colors.blue.withOpacity(0.9),
+                                  ],
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.purple.withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.smart_toy_rounded,
+                                  color: Colors.white,
+                                  size: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(width: 16),
                     // Food name and brand with improved typography
@@ -1141,184 +1351,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  Widget _buildSuggestions() {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        // Gradient removed
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Premium header with subtle divider
-          Container(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: customColors!.cardBackground!.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.lightbulb_outline,
-                  size: 18,
-                  color: Theme.of(context).primaryColor.withOpacity(0.8),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Suggestions',
-                  style: GoogleFonts.onest(
-                    color: customColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Suggestions list with improved styling
-          Expanded(
-            child: _autoCompleteResults.isEmpty
-                ? _buildSuggestionsEmptyState()
-                : Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    child: ListView.builder(
-                      itemCount: _autoCompleteResults.length,
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      physics: const BouncingScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        if (index < 0 || index >= _autoCompleteResults.length) {
-                          return const SizedBox.shrink();
-                        }
-
-                        final suggestion = _autoCompleteResults[index];
-                        final Color accentColor = _categoryColor(suggestion);
-
-                        // Animate items with staggered effect
-                        return AnimatedOpacity(
-                          opacity: 1.0,
-                          duration: Duration(milliseconds: 300 + (index * 30)),
-                          curve: Curves.easeOutQuart,
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: isDarkMode
-                                  ? Theme.of(context).cardColor.withOpacity(0.9)
-                                  : Theme.of(context).cardColor,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                  spreadRadius: 0,
-                                ),
-                              ],
-                              border: Border.all(
-                                color: Theme.of(context)
-                                    .dividerColor
-                                    .withOpacity(0.08),
-                                width: 1,
-                              ),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  splashColor: accentColor.withOpacity(0.1),
-                                  highlightColor: accentColor.withOpacity(0.05),
-                                  onTap: () {
-                                    HapticFeedback.lightImpact();
-                                    FocusScope.of(context).unfocus();
-                                    _searchController.text = suggestion;
-                                    _searchFood(suggestion);
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 14, horizontal: 16),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                accentColor.withOpacity(0.12),
-                                                accentColor.withOpacity(0.05),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          child: Icon(
-                                            _categoryIcon(suggestion),
-                                            color: accentColor,
-                                            size: 18,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 14),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                suggestion,
-                                                style: AppTypography.body2
-                                                    .copyWith(
-                                                  color:
-                                                      customColors.textPrimary,
-                                                  fontWeight: FontWeight.w500,
-                                                  height: 1.3,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Tap to search',
-                                                style: AppTypography.caption
-                                                    .copyWith(
-                                                  color: customColors
-                                                      .textSecondary
-                                                      ?.withOpacity(0.7),
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Icon(
-                                          Icons.chevron_right_rounded,
-                                          color: customColors.textSecondary
-                                              ?.withOpacity(0.4),
-                                          size: 20,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // Simplified helper methods for colors and icons based on categories
   Color _categoryColor(String text) {
@@ -1356,6 +1388,46 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     }
   }
 
+  Widget _buildFoodIcon(String foodName, Color accentColor, double size) {
+    return FutureBuilder<String?>(
+      future: FoodIconService.getFoodIconUrl(foodName),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          // Show actual food image
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+              imageUrl: snapshot.data!,
+              width: size * 1.5,
+              height: size * 1.5,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => SizedBox(
+                width: size,
+                height: size,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                ),
+              ),
+              errorWidget: (context, url, error) => Icon(
+                _categoryIcon(foodName),
+                color: accentColor,
+                size: size,
+              ),
+            ),
+          );
+        } else {
+          // Show fallback icon while loading or if no image found
+          return Icon(
+            _categoryIcon(foodName),
+            color: accentColor,
+            size: size,
+          );
+        }
+      },
+    );
+  }
+
   IconData _categoryIcon(String text) {
     final text_lc = text.toLowerCase();
     if (text_lc.contains('chicken') ||
@@ -1385,41 +1457,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     }
   }
 
-  Widget _buildSuggestionsEmptyState() {
-    final customColors = Theme.of(context).extension<CustomColors>();
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 64,
-            color: customColors?.textSecondary.withOpacity(0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No suggestions found',
-            style: AppTypography.body1.copyWith(
-              color: customColors?.textPrimary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              'Try typing a different search term',
-              style: AppTypography.caption.copyWith(
-                color: customColors?.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildPlaceholderCards() {
     return ListView.builder(
@@ -1874,7 +1911,7 @@ class Serving {
 }
 
 class NoResultsFoundWidget extends StatelessWidget {
-  const NoResultsFoundWidget({Key? key}) : super(key: key);
+  const NoResultsFoundWidget({super.key});
 
   @override
   Widget build(BuildContext context) {

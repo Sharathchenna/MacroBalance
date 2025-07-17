@@ -266,46 +266,44 @@ class _BenefitsScreenState extends State<BenefitsScreen>
     required String title,
     required Color color,
   }) {
-    return Expanded(
-      child: Container(
-        height: 110, // Increased from 90
-        padding: const EdgeInsets.all(16), // Increased from 12
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[800]!, width: 1),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 40, // Increased from 32
-              height: 40, // Increased from 32
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24, // Increased from 18
-              ),
+    return Container(
+      height: 110, // Increased from 90
+      padding: const EdgeInsets.all(16), // Increased from 12
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[800]!, width: 1),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 40, // Increased from 32
+            height: 40, // Increased from 32
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: 12, // Increased from 10
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            child: Icon(
+              icon,
+              color: color,
+              size: 24, // Increased from 18
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontSize: 12, // Increased from 10
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

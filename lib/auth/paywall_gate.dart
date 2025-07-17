@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 
 /// A component that forces users to subscribe before they can access the app
 /// This implements a hard paywall approach where no features are accessible without payment

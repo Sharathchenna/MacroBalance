@@ -17,6 +17,7 @@ import 'package:macrotracker/screens/MacroTrackingScreen.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
+import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:path_provider/path_provider.dart';
@@ -327,102 +328,125 @@ class _DashboardState extends State<Dashboard> {
               ],
             ),
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Handle bar
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade300
-                            : Colors.grey.shade600,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Title
-                    Text(
-                      'Add Food',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Choose how you want to add food',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade600
-                            : Colors.grey.shade400,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Menu options
-                    _buildMenuOption(
-                      context: context,
-                      icon: CupertinoIcons.search,
-                      title: 'Search Food',
-                      subtitle: 'Search our food database',
-                      color: const Color(0xFF34C85A),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (context) => const FoodSearchPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildMenuOption(
-                      context: context,
-                      icon: CupertinoIcons.bookmark_fill,
-                      title: 'Saved Foods',
-                      subtitle: 'Choose from your saved foods',
-                      color: const Color(0xFFFFC107),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/savedFoods');
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Cancel button
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          backgroundColor: Theme.of(context).brightness == Brightness.light
-                              ? Colors.grey.shade100
-                              : Colors.grey.shade800,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-                          ),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.6,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Handle bar
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.light
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade600,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      
+                      // Title
+                      Text(
+                        'Add Food',
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Choose how you want to add food',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Theme.of(context).brightness == Brightness.light
+                              ? Colors.grey.shade600
+                              : Colors.grey.shade400,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      
+                      // Menu options
+                      _buildMenuOption(
+                        context: context,
+                        icon: Icon(CupertinoIcons.search, color: const Color(0xFF34C85A), size: 24),
+                        title: 'Search Food',
+                        subtitle: 'Search our food database',
+                        color: const Color(0xFF34C85A),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) => const FoodSearchPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      _buildMenuOption(
+                        context: context,
+                        icon: Icon(CupertinoIcons.bookmark_fill, color: const Color(0xFFFFC107), size: 24),
+                        title: 'Saved Foods',
+                        subtitle: 'Choose from your saved foods',
+                        color: const Color(0xFFFFC107),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(context, '/savedFoods');
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                        _buildMenuOption(
+                          context: context,
+                          icon: ImageIcon(
+                            AssetImage('assets/icons/AI Icon.png'),
+                            color: const Color(0xFFFFC107),
+                            size: 24,
+                          ),
+                          title: 'AI Food Search',
+                          subtitle: 'Search for food with AI',
+                          color: const Color(0xFFFFC107),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                            context,
+                            CupertinoPageRoute(builder: (context) => const Askai()),
+  );                          },
+                        ),
+                      const SizedBox(height: 8),
+                      
+                      // Cancel button
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            backgroundColor: Theme.of(context).brightness == Brightness.light
+                                ? Colors.grey.shade100
+                                : Colors.grey.shade800,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -434,7 +458,7 @@ class _DashboardState extends State<Dashboard> {
 
   Widget _buildMenuOption({
     required BuildContext context,
-    required IconData icon,
+    required Widget icon,
     required String title,
     required String subtitle,
     required Color color,
@@ -468,11 +492,7 @@ class _DashboardState extends State<Dashboard> {
                   color: color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 24,
-                ),
+                child: icon,
               ),
               const SizedBox(width: 14),
               Expanded(

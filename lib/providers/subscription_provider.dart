@@ -28,10 +28,9 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Helper to check if any pro entitlement is active
   bool _hasProEntitlement(CustomerInfo customerInfo) {
-    final entitlements = customerInfo.entitlements.active.keys;
-    
+    print("[SubscriptionProvider] Active entitlements: "+customerInfo.entitlements.active.keys.toString());
     // Check for any entitlement containing 'pro' in a case-insensitive way
-    return entitlements.any((key) => 
+    return customerInfo.entitlements.active.keys.any((key) => 
       key.toLowerCase() == 'pro' || 
       key == 'Pro' || 
       key.toLowerCase().contains('pro')
