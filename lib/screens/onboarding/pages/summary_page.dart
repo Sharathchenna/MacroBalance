@@ -73,14 +73,14 @@ class SummaryPage extends StatelessWidget {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
 
-    // Define page indices based on the new structure
-    const int genderPageIndex = 1;
-    const int weightPageIndex = 2;
-    const int heightPageIndex = 3;
-    const int agePageIndex = 4;
-    const int activityLevelPageIndex = 5;
-    const int goalPageIndex = 6;
-    const int advancedSettingsPageIndex = 7;
+    // Define page indices based on the new structure with acquisition source page
+    const int genderPageIndex = 2;
+    const int weightPageIndex = 3;
+    const int heightPageIndex = 4;
+    const int agePageIndex = 5;
+    const int activityLevelPageIndex = 6;
+    const int goalPageIndex = 7;
+    const int advancedSettingsPageIndex = 10;
 
     final personalInfoItems = [
       {

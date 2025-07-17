@@ -28,6 +28,7 @@ import '../AI/gemini.dart';
 import '../Health/Health.dart';
 import '../services/camera_service.dart'; // Import CameraService
 import '../services/storage_service.dart'; // Import StorageService
+import '../services/posthog_service.dart'; // Import PostHogService
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -47,6 +48,9 @@ class _DashboardState extends State<Dashboard> {
   void initState() {
     super.initState();
     _setupNativeCameraHandler(); // Set up the handler when the dashboard initializes
+
+    // Track screen view
+    PostHogService.trackScreen('dashboard');
 
     // Only force refresh on first app launch or when there's no cached data
     // This prevents the glitching when navigating back to dashboard

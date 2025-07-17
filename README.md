@@ -108,43 +108,53 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - PostHog for analytics
 - All contributors and users of the app
 
-# MacroTracker RevenueCat Hard Paywall Implementation
+# MacroTracker Superwall + RevenueCat Hard Paywall Implementation
 
 ## Overview
 
-MacroTracker implements a hard paywall approach using RevenueCat. A hard paywall blocks access to the entire app until a subscription is purchased. This is different from a soft paywall, which would allow partial access to app features.
+MacroTracker implements a hard paywall approach using **Superwall** for paywall presentation and **RevenueCat** for subscription management. A hard paywall blocks access to the entire app until a subscription is purchased.
 
 ## Implementation Details
 
-### PaywallGate Component
+### SuperwallGate Component
 
-The implementation uses a `PaywallGate` component that wraps all routes in the app. This gate checks if the user has a valid subscription before allowing access to any screen.
+The implementation uses a `SuperwallGate` component that wraps all routes in the app. This gate integrates with Superwall to present paywalls and checks RevenueCat for subscription validation.
 
 Key features:
 - Blocks all app functionality until a subscription is purchased
-- No trial or free tier access
-- Clear subscription options with RevenueCat's PaywallView
+- Remote paywall configuration via Superwall dashboard
+- A/B testing and analytics through Superwall
+- RevenueCat handles subscription management
 - Proper subscription status management
 
-### RevenueCat Integration
+### Superwall + RevenueCat Integration
 
-RevenueCat is used for:
+**Superwall** is used for:
+1. Remote paywall configuration
+2. A/B testing capabilities
+3. Paywall presentation and UI
+4. Analytics and conversion tracking
+
+**RevenueCat** is used for:
 1. In-app purchase management
 2. Subscription validation
 3. Cross-platform subscription handling
-4. Paywall presentation
+4. Subscription status monitoring
 
 ## Code Structure
 
 ### Key Components
 
-1. **PaywallGate**: Wraps all routes and checks subscription status
-2. **PaywallScreen**: Handles displaying the RevenueCat paywall UI
-3. **SubscriptionProvider**: Manages subscription state throughout the app
+1. **SuperwallGate**: Wraps all routes and manages paywall presentation
+2. **SuperwallService**: Handles Superwall SDK integration
+3. **SuperwallPlacements**: Defines placement constants and helper methods
+4. **SubscriptionProvider**: Manages subscription state throughout the app
 
 ### Configuration
 
-The RevenueCat SDK is initialized in `main.dart` with the appropriate API keys for each platform.
+Both SDKs are initialized in `main.dart`:
+- Superwall SDK with API key for paywall presentation
+- RevenueCat SDK with API keys for subscription management
 
 ## App Store Submission Guidelines
 

@@ -57,6 +57,125 @@ class SuperwallService {
       _isInitializing = false;
     }
   }
+
+  /// Show chained paywalls - when first paywall is dismissed, show the second
+  /// This is the main method you'll use to implement chained paywalls
+  Future<void> showChainedPaywalls({
+    required String firstPlacement,
+    required String secondPlacement,
+    Map<String, dynamic>? firstParams,
+    Map<String, dynamic>? secondParams,
+    VoidCallback? onFirstPaywallPresented,
+    VoidCallback? onSecondPaywallPresented,
+    VoidCallback? onUserSubscribed,
+    VoidCallback? onBothPaywallsDismissed,
+  }) async {
+    if (!_isConfigured) {
+      debugPrint('[SuperwallService] Superwall not configured - cannot show chained paywalls');
+      onBothPaywallsDismissed?.call();
+      return;
+    }
+
+    debugPrint('[SuperwallService] Starting chained paywall sequence: $firstPlacement -> $secondPlacement');
+
+    try {
+      // Show first paywall
+      onFirstPaywallPresented?.call();
+      await Superwall.shared.registerPlacement(
+        firstPlacement,
+        params: firstParams?.cast<String, Object>(),
+        feature: () async {
+          // This callback is triggered when user completes the first paywall successfully
+          debugPrint('[SuperwallService] First paywall completed - checking subscription status');
+          
+          // Check if user actually subscribed
+          final hasSubscription = await hasActiveSubscription();
+          if (hasSubscription) {
+            debugPrint('[SuperwallService] User subscribed after first paywall');
+            onUserSubscribed?.call();
+            return;
+          }
+
+          // If no subscription, wait a moment then show second paywall
+          debugPrint('[SuperwallService] First paywall dismissed without subscription, showing second paywall');
+          await Future.delayed(const Duration(milliseconds: 800));
+          
+          // Show second paywall
+          onSecondPaywallPresented?.call();
+          await Superwall.shared.registerPlacement(
+            secondPlacement,
+            params: secondParams?.cast<String, Object>(),
+            feature: () async {
+              // Check subscription after second paywall
+              debugPrint('[SuperwallService] Second paywall completed - checking subscription status');
+              final hasSubscriptionAfterSecond = await hasActiveSubscription();
+              if (hasSubscriptionAfterSecond) {
+                debugPrint('[SuperwallService] User subscribed after second paywall');
+                onUserSubscribed?.call();
+              } else {
+                debugPrint('[SuperwallService] User dismissed both paywalls without subscribing');
+                onBothPaywallsDismissed?.call();
+              }
+            },
+          );
+        },
+      );
+
+      // Track the chained paywall sequence
+      PostHogService.trackEvent('superwall_chained_paywalls_initiated', properties: {
+        'first_placement': firstPlacement,
+        'second_placement': secondPlacement,
+        'first_params': firstParams?.toString() ?? 'none',
+        'second_params': secondParams?.toString() ?? 'none',
+      });
+
+    } catch (e) {
+      debugPrint('[SuperwallService] Error in chained paywall sequence: $e');
+      onBothPaywallsDismissed?.call();
+    }
+  }
+
+  /// Simple method to show a single paywall and then immediately show another one
+  /// This is a more straightforward approach for your use case
+  Future<void> showSequentialPaywalls({
+    required BuildContext context,
+    required String firstPlacement,
+    required String secondPlacement,
+    Map<String, dynamic>? params,
+  }) async {
+    if (!_isConfigured) {
+      debugPrint('[SuperwallService] Superwall not configured');
+      return;
+    }
+
+    debugPrint('[SuperwallService] Showing sequential paywalls: $firstPlacement then $secondPlacement');
+
+    try {
+      // Show first paywall
+      await register(
+        placement: firstPlacement,
+        params: params,
+        feature: () {
+          debugPrint('[SuperwallService] First paywall dismissed, proceeding to second');
+        },
+      );
+
+      // Wait a brief moment for the first paywall to fully dismiss
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Show second paywall immediately
+      await register(
+        placement: secondPlacement,
+        params: params,
+        feature: () {
+          debugPrint('[SuperwallService] Second paywall completed');
+        },
+      );
+
+    } catch (e) {
+      debugPrint('[SuperwallService] Error in sequential paywalls: $e');
+    }
+  }
   
   /// Register a placement for paywall presentation
   /// This replaces the need for PaywallManager.showPaywall()
@@ -66,8 +185,9 @@ class SuperwallService {
     VoidCallback? feature,
   }) async {
     if (!_isConfigured) {
-      debugPrint('[SuperwallService] Superwall not configured, executing feature directly');
-      feature?.call(); // Execute feature directly for now
+      debugPrint('[SuperwallService] Superwall not configured - hard paywall will be enforced via benefits screen');
+      // For hard paywall: DO NOT execute feature callback when Superwall fails
+      // The UI will handle showing benefits screen instead
       return;
     }
     
@@ -89,7 +209,8 @@ class SuperwallService {
       
     } catch (e) {
       debugPrint('[SuperwallService] Error registering placement $placement: $e');
-      feature?.call(); // Fallback to executing feature
+      // For hard paywall: DO NOT fallback to executing feature on error
+      // Let the UI handle showing benefits screen instead
     }
   }
   

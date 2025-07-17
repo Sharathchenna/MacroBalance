@@ -27,8 +27,8 @@ import 'package:macrotracker/screens/contact_support_screen.dart'; // Added impo
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
-import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart'; // Import Paywall Screen
 import 'package:macrotracker/services/superwall_placements.dart'; // Import Superwall Placements
+import 'package:macrotracker/services/posthog_service.dart'; // Import PostHogService
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -62,6 +62,10 @@ class _AccountDashboardState extends State<AccountDashboard>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    
+    // Track screen view
+    PostHogService.trackScreen('account_dashboard');
+    
     _checkHealthConnection();
     _loadUserData(); // Add this line
     _loadNotificationPreferences(); // Add this line
@@ -974,6 +978,20 @@ class _AccountDashboardState extends State<AccountDashboard>
                       onTap: () {
                         HapticFeedback.lightImpact();
                         SuperwallPlacements.showDebugPaywall(context);
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                    // Add Test Superwall Integration Button
+                    _buildListTile(
+                      icon: CupertinoIcons.lab_flask_solid,
+                      iconColor: Colors.orange,
+                      title: 'Test Superwall Integration',
+                      subtitle: 'Verify Superwall is working correctly',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        SuperwallPlacements.showTestPaywall(context);
                       },
                       colorScheme: colorScheme,
                       customColors: customColors,

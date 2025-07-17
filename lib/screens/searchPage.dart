@@ -67,6 +67,10 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     super.initState();
     _setupNativeCameraHandler(); // Set up the handler
     // _initializeApi(); // Remove API initialization
+    
+    // Track screen view
+    PostHogService.trackScreen('food_search_page');
+    
     _loadingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),

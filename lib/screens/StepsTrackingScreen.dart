@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 import '../Health/Health.dart';
 import '../theme/app_theme.dart';
 import 'dart:async'; // Add this import
+import '../services/posthog_service.dart';
 
 class StepTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -65,6 +66,10 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
   @override
   void initState() {
     super.initState();
+    
+    // Track screen view
+    PostHogService.trackScreen('steps_tracking_screen');
+    
     _loadStepData();
   }
 

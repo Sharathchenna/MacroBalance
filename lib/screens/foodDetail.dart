@@ -57,6 +57,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     super.initState();
     // Initialize selectedMeal with widget parameter or default to "Breakfast"
     selectedMeal = widget.selectedMeal ?? "Breakfast";
+    
+    // Track screen view
+    PostHogService.trackScreen('food_detail_page');
 
     if (widget.food.servings.isNotEmpty) {
       selectedServing = widget.food.servings.first;

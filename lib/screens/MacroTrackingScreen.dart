@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 import 'package:provider/provider.dart';
 import '../providers/foodEntryProvider.dart';
 import '../models/foodEntry.dart';
+import '../services/posthog_service.dart';
 
 class MacroTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -54,6 +55,9 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
       'carbs': 0,
       'fat': 0,
     });
+    
+    // Track screen view
+    PostHogService.trackScreen('macro_tracking_screen');
 
     // Load initial goals and history after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {

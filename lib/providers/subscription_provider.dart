@@ -179,6 +179,35 @@ class SubscriptionProvider extends ChangeNotifier {
       print("Error getting debug subscription info: $e");
     }
   }
+
+  // Debug method to reset subscription cache for testing
+  Future<void> resetSubscriptionForTesting() async {
+    try {
+      print("===== RESETTING SUBSCRIPTION FOR TESTING =====");
+      
+      // Clear local cache
+      _isProUser = false;
+      notifyListeners();
+      
+      // Force refresh from RevenueCat
+      await Purchases.invalidateCustomerInfoCache();
+      
+      // Get fresh customer info
+      final customerInfo = await Purchases.getCustomerInfo();
+      
+      // Update status based on fresh data
+      final hasActiveEntitlements = customerInfo.entitlements.active.isNotEmpty;
+      _isProUser = hasActiveEntitlements;
+      
+      print("Reset complete. New status: isProUser = $_isProUser");
+      print("Active entitlements after reset: ${customerInfo.entitlements.active.keys}");
+      print("===== RESET COMPLETE =====");
+      
+      notifyListeners();
+    } catch (e) {
+      print("Error resetting subscription for testing: $e");
+    }
+  }
   
   // Force a complete reset of subscription state and refresh from the server
   // This is a last resort if the subscription status gets stuck

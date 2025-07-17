@@ -11,6 +11,7 @@ import '../services/storage_service.dart';
 import '../services/workout_sync_service.dart';
 import '../models/workout_entry.dart';
 import 'package:uuid/uuid.dart';
+import '../services/posthog_service.dart';
 
 class WorkoutTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -42,6 +43,10 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+    
+    // Track screen view
+    PostHogService.trackScreen('workout_tracking_screen');
+    
     _loadWorkoutData();
   }
 

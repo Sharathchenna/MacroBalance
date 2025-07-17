@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
-import 'package:macrotracker/auth/paywall_gate.dart'; // Import the PaywallGate
 import 'package:macrotracker/auth/superwall_gate.dart'; // Import the SuperwallGate
 import 'dart:convert'; // Add for JSON parsing
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
