@@ -528,6 +528,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       AcquisitionSourcePage(
         currentSource: _acquisitionSource,
         onSourceSelected: (source) => setState(() => _acquisitionSource = source),
+        onSkip: _nextPage,
       ),
       GenderPage(
         currentGender: _gender,

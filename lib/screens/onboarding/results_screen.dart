@@ -7,7 +7,6 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:macrotracker/services/superwall_placements.dart';
 import 'package:flutter/services.dart';
-import 'dart:math' as math;
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
@@ -26,6 +25,8 @@ class _ResultsScreenState extends State<ResultsScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeInAnimation;
   late ScrollController _scrollController;
+  bool _showDetailedMetrics = false;
+  bool _showCalculationDetails = false;
 
   @override
   void initState() {
@@ -127,6 +128,30 @@ class _ResultsScreenState extends State<ResultsScreen>
     Navigator.of(context).pop(); // Navigate back to previous screen
   }
 
+  void _savePlan() {
+    HapticFeedback.mediumImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            const Text('Plan saved successfully!'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -175,18 +200,26 @@ class _ResultsScreenState extends State<ResultsScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 8),
+                    const SizedBox(height: 16),
                     _buildDailyCalorieTargetCard(),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 16),
                     _buildMacroDistributionCard(),
-                    SizedBox(height: 20),
-                    _buildGoalRelatedInformation(
-                        widget.results['goal_weight_kg'] != null),
-                    SizedBox(height: 20),
-                    _buildCalculationDetails(),
-                    SizedBox(height: 20),
-                    _buildLifestyleRecommendations(),
-                    SizedBox(height: 100), // Extra padding at bottom
+                    const SizedBox(height: 16),
+                    _buildDetailedMetricsToggle(),
+                    if (_showDetailedMetrics) ...[
+                      const SizedBox(height: 16),
+                      _buildGoalRelatedInformation(
+                          widget.results['goal_weight_kg'] != null),
+                      const SizedBox(height: 16),
+                      _buildLifestyleRecommendations(),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildCalculationDetailsToggle(),
+                    if (_showCalculationDetails) ...[
+                      const SizedBox(height: 16),
+                      _buildCalculationDetails(),
+                    ],
+                    const SizedBox(height: 100),
                   ],
                 ),
               ),
@@ -202,114 +235,109 @@ class _ResultsScreenState extends State<ResultsScreen>
     final customColors = Theme.of(context).extension<CustomColors>()!;
     final calorieTarget = widget.results['target_calories'];
 
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            "Your Personalized Nutrition Plan",
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: customColors.textPrimary,
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: customColors.cardBackground,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              "Your Daily Calorie Target",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: customColors.textPrimary,
+              ),
             ),
-          ),
-          SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Text(
-              "Based on your information, we've calculated your optimal nutrition plan to help you reach your goals.",
+            const SizedBox(height: 8),
+            Text(
+              "Calculated specifically for your ${_getGoalText()} goal",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 color: customColors.textSecondary,
-                height: 1.4,
               ),
             ),
-          ),
-          SizedBox(height: 30),
-          TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0, end: 1),
-            duration: Duration(milliseconds: 1500),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, child) {
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    height: 200,
-                    width: 200,
-                    child: CircularProgressIndicator(
-                      value: value,
-                      strokeWidth: 15,
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: AlwaysStoppedAnimation<Color>(
+            const SizedBox(height: 32),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 1200),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return Container(
+                  height: 140,
+                  width: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
                         Theme.of(context).colorScheme.primary,
-                      ),
+                        Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                      ],
                     ),
                   ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${(calorieTarget * value).round()}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                          color: customColors.textPrimary,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${(calorieTarget * value).round()}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'calories/day',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: customColors.textSecondary,
+                        Text(
+                          'cal/day',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ],
-              );
-            },
-          ),
-          SizedBox(height: 16),
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                width: 1,
-              ),
+                );
+              },
             ),
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Row(
                 children: [
                   Icon(
-                    Icons.info_outline,
+                    Icons.lightbulb_outline,
                     color: Theme.of(context).colorScheme.primary,
                     size: 20,
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'This calorie level is designed to help you achieve your ${_getGoalText()} goal in a sustainable way.',
+                      'This target supports sustainable progress toward your goals',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: customColors.textPrimary,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -330,6 +358,10 @@ class _ResultsScreenState extends State<ResultsScreen>
     final fatPercent = widget.results['fat_percent'] ?? 0;
     final carbPercent = widget.results['carb_percent'] ?? 0;
 
+    const proteinColor = Color(0xFF6366F1); // Indigo
+    const carbColor = Color(0xFF10B981); // Emerald  
+    const fatColor = Color(0xFFF59E0B); // Amber
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -343,11 +375,11 @@ class _ResultsScreenState extends State<ResultsScreen>
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.pie_chart_rounded,
+                  Icons.timeline_rounded,
                   color: Theme.of(context).colorScheme.primary,
                   size: 22,
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
                   'Daily Macronutrients',
                   style: GoogleFonts.poppins(
@@ -358,87 +390,165 @@ class _ResultsScreenState extends State<ResultsScreen>
                 ),
               ],
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'Balance these nutrients for optimal health and performance',
+              'Your optimal macronutrient breakdown',
               style: TextStyle(
                 fontSize: 14,
                 color: customColors.textSecondary,
               ),
             ),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween<double>(begin: 0, end: 1),
-                      duration: Duration(milliseconds: 1200),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) {
-                        return CustomPaint(
-                          painter: MacroPieChartPainter(
-                            proteinPercent: proteinPercent * value / 100,
-                            carbPercent: carbPercent * value / 100,
-                            fatPercent: fatPercent * value / 100,
-                          ),
-                        );
-                      },
+            const SizedBox(height: 24),
+            _buildMacroProgressBar(
+              'Protein',
+              protein,
+              proteinPercent,
+              proteinColor,
+              isAnimated: true,
+              animationDelay: 200,
+            ),
+            const SizedBox(height: 16),
+            _buildMacroProgressBar(
+              'Carbs',
+              carbs,
+              carbPercent,
+              carbColor,
+              isAnimated: true,
+              animationDelay: 400,
+            ),
+            const SizedBox(height: 16),
+            _buildMacroProgressBar(
+              'Fat',
+              fat,
+              fatPercent,
+              fatColor,
+              isAnimated: true,
+              animationDelay: 600,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Based on ISSN guidelines',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: customColors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildMacroLegendItem(
-                        'Protein',
-                        '$protein g',
-                        '$proteinPercent%',
-                        Colors.red.shade400,
-                        isAnimated: true,
-                        animationDelay: 300,
-                      ),
-                      SizedBox(height: 14),
-                      _buildMacroLegendItem(
-                        'Carbs',
-                        '$carbs g',
-                        '$carbPercent%',
-                        Colors.blue.shade400,
-                        isAnimated: true,
-                        animationDelay: 500,
-                      ),
-                      SizedBox(height: 14),
-                      _buildMacroLegendItem(
-                        'Fat',
-                        '$fat g',
-                        '$fatPercent%',
-                        Colors.orange.shade400,
-                        isAnimated: true,
-                        animationDelay: 700,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-            Divider(),
-            SizedBox(height: 8),
-            Text(
-              'Based on scientific guidelines from the International Society of Sports Nutrition',
-              style: TextStyle(
-                fontSize: 12,
-                color: customColors.textSecondary,
-                fontStyle: FontStyle.italic,
+                ],
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildMacroProgressBar(
+    String name,
+    int grams,
+    int percentage,
+    Color color, {
+    bool isAnimated = false,
+    int animationDelay = 0,
+  }) {
+    final customColors = Theme.of(context).extension<CustomColors>()!;
+
+    Widget content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              name,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: customColors.textPrimary,
+              ),
+            ),
+            Row(
+              children: [
+                Text(
+                  '${grams}g',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: customColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$percentage%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: percentage / 100),
+          duration: Duration(milliseconds: 1000 + animationDelay),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, child) {
+            return LinearProgressIndicator(
+              value: value,
+              minHeight: 8,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              borderRadius: BorderRadius.circular(4),
+            );
+          },
+        ),
+      ],
+    );
+
+    if (isAnimated) {
+      return TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: Duration(milliseconds: 600 + animationDelay),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, child) {
+          return Opacity(
+            opacity: value,
+            child: Transform.translate(
+              offset: Offset(20 * (1 - value), 0),
+              child: content,
+            ),
+          );
+        },
+      );
+    }
+
+    return content;
   }
 
   Widget _buildMacroLegendItem(
@@ -1112,160 +1222,192 @@ class _ResultsScreenState extends State<ResultsScreen>
     return card;
   }
 
+  Widget _buildDetailedMetricsToggle() {
+    final customColors = Theme.of(context).extension<CustomColors>()!;
+    
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: customColors.cardBackground,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _showDetailedMetrics = !_showDetailedMetrics;
+          });
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.insights_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Detailed Metrics & Recommendations',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: customColors.textPrimary,
+                  ),
+                ),
+              ),
+              Icon(
+                _showDetailedMetrics 
+                  ? Icons.keyboard_arrow_up 
+                  : Icons.keyboard_arrow_down,
+                color: customColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalculationDetailsToggle() {
+    final customColors = Theme.of(context).extension<CustomColors>()!;
+    
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: customColors.cardBackground,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _showCalculationDetails = !_showCalculationDetails;
+          });
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.science_rounded,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'How We Calculated This',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: customColors.textPrimary,
+                  ),
+                ),
+              ),
+              Icon(
+                _showCalculationDetails 
+                  ? Icons.keyboard_arrow_up 
+                  : Icons.keyboard_arrow_down,
+                color: customColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomButtons() {
     return SafeArea(
       child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
-          // boxShadow: [
-          //   BoxShadow(
-          //     color: Colors.black.withOpacity(0.05),
-          //     blurRadius: 10,
-          //     offset: Offset(0, -2),
-          //   ),
-          // ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Center(
-          child: ElevatedButton(
-            onPressed: _showPaywallAndProceed,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 64, vertical: 16),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-              elevation: 4,
-              shadowColor:
-                  Theme.of(context).colorScheme.primary.withOpacity(0.4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "Start Your Journey",
-                  style: GoogleFonts.poppins(
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+        child: Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: OutlinedButton(
+                onPressed: _savePlan,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 1.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onPrimary,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.bookmark_outline,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "Save Plan",
+                      style: GoogleFonts.poppins(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _showPaywallAndProceed,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Start Your Journey",
+                      style: GoogleFonts.poppins(
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// Custom painter for macro pie chart
-class MacroPieChartPainter extends CustomPainter {
-  final double proteinPercent;
-  final double carbPercent;
-  final double fatPercent;
-
-  MacroPieChartPainter({
-    required this.proteinPercent,
-    required this.carbPercent,
-    required this.fatPercent,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2;
-
-    // Define colors for each segment
-    final proteinColor = Colors.red.shade400;
-    final carbColor = Colors.blue.shade400;
-    final fatColor = Colors.orange.shade400;
-
-    // Calculate total - should equal 1.0 but just in case
-    final total = proteinPercent + carbPercent + fatPercent;
-
-    // Convert percentages to radians
-    final proteinRadians = 2 * math.pi * (proteinPercent / total);
-    final carbRadians = 2 * math.pi * (carbPercent / total);
-    final fatRadians = 2 * math.pi * (fatPercent / total);
-
-    // Starting angle is -π/2 (top of circle)
-    double startAngle = -math.pi / 2;
-
-    // Draw protein segment
-    if (proteinPercent > 0) {
-      final paint = Paint()
-        ..color = proteinColor
-        ..style = PaintingStyle.fill;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        proteinRadians,
-        true,
-        paint,
-      );
-
-      startAngle += proteinRadians;
-    }
-
-    // Draw carb segment
-    if (carbPercent > 0) {
-      final paint = Paint()
-        ..color = carbColor
-        ..style = PaintingStyle.fill;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        carbRadians,
-        true,
-        paint,
-      );
-
-      startAngle += carbRadians;
-    }
-
-    // Draw fat segment
-    if (fatPercent > 0) {
-      final paint = Paint()
-        ..color = fatColor
-        ..style = PaintingStyle.fill;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        fatRadians,
-        true,
-        paint,
-      );
-    }
-
-    // Draw inner circle to create a donut chart
-    final innerPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(
-      center,
-      radius * 0.6, // Inner radius is 60% of outer radius
-      innerPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(MacroPieChartPainter oldDelegate) {
-    return oldDelegate.proteinPercent != proteinPercent ||
-        oldDelegate.carbPercent != carbPercent ||
-        oldDelegate.fatPercent != fatPercent;
-  }
-}
 
 // Color utility extension
 extension ColorExtension on Color {
