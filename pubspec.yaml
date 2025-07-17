@@ -38,8 +38,8 @@ dependencies:
   device_info_plus: ^9.1.2 # Added for feedback screen
   firebase_core: ^3.12.1
   firebase_messaging: ^15.2.4
-  firebase_vertexai: ^1.4.0
   fl_chart: ^0.70.2
+  flutter_dotenv: ^5.1.0
   flutter_image_compress: ^2.4.0
   flutter_lints: ^5.0.0
   flutter_local_notifications: ^19.0.0
@@ -71,6 +71,7 @@ dependencies:
   purchases_flutter: ^8.6.1
   purchases_ui_flutter: ^8.6.1
   rename_app: ^1.6.2
+  superwallkit_flutter: ^2.0.5
   settings_ui: ^2.0.2
   sign_in_with_apple: ^6.1.0
   smooth_page_indicator: ^1.1.0
@@ -109,6 +110,7 @@ flutter:
     - assets/privacy_policy.html
     - assets/terms.html
     - shorebird.yaml # Added terms and conditions
+    - .env
     # - images/a_dot_ham.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

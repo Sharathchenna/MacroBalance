@@ -28,6 +28,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
 import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart'; // Import Paywall Screen
+import 'package:macrotracker/services/superwall_placements.dart'; // Import Superwall Placements
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -972,14 +973,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (context) => CustomPaywallScreen(
-                              onDismiss: () {}, // Add required onDismiss
-                            ),
-                          ),
-                        );
+                        SuperwallPlacements.showDebugPaywall(context);
                       },
                       colorScheme: colorScheme,
                       customColors: customColors,

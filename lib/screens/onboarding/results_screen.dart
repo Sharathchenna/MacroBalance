@@ -5,15 +5,12 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'dart:async';
-import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart';
+import 'package:macrotracker/services/superwall_placements.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
-import 'package:macrotracker/auth/paywall_gate.dart';
-import 'package:macrotracker/screens/onboarding/onboarding_screen.dart'; // Add this import
-import 'package:macrotracker/providers/foodEntryProvider.dart'; // Import FoodEntryProvider
+import 'package:macrotracker/providers/foodEntryProvider.dart';
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -78,163 +75,51 @@ class _ResultsScreenState extends State<ResultsScreen>
   void _showPaywallAndProceed() {
     HapticFeedback.mediumImpact();
 
-    // First check if user is already a Pro user
-    final subscriptionProvider =
-        Provider.of<SubscriptionProvider>(context, listen: false);
+    // Get providers
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+    final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
 
-    // Get access to the FoodEntryProvider to ensure data refresh
-    final foodEntryProvider =
-        Provider.of<FoodEntryProvider>(context, listen: false);
-
-    // Force reload nutrition goals to ensure latest data from onboarding
-    // is reflected in the Dashboard
-    foodEntryProvider.loadNutritionGoals().then((_) {
-      debugPrint(
-          'Refreshed nutrition goals in FoodEntryProvider: Calories=${foodEntryProvider.caloriesGoal}, Protein=${foodEntryProvider.proteinGoal}');
-
-      // Explicitly sync nutrition goals to Supabase after loading
-      // Use a private method via reflection to access _syncNutritionGoalsToSupabase
+    // Prepare nutrition goals sync helper
+    Future<void> syncNutritionGoals() async {
+      await foodEntryProvider.loadNutritionGoals();
       try {
-        // Access the private method using reflection
-        final syncGoalsMethod = foodEntryProvider.syncAllDataWithSupabase();
-        debugPrint(
-            'Explicitly syncing nutrition goals to Supabase after onboarding');
-        syncGoalsMethod.then((_) {
-          debugPrint('Completed explicit sync of nutrition goals to Supabase');
-        });
+        debugPrint('Syncing nutrition goals to Supabase after onboarding');
+        await foodEntryProvider.syncAllDataWithSupabase();
+        debugPrint('Completed sync of nutrition goals to Supabase');
       } catch (e) {
         debugPrint('Error syncing nutrition goals to Supabase: $e');
       }
+    }
 
-      // Now check subscription status
-      subscriptionProvider.refreshSubscriptionStatus().then((isProUser) {
-        if (isProUser) {
-          // Pro user - proceed directly to dashboard without showing paywall
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const Dashboard(),
-              ),
-            );
-          }
-        } else {
-          // Not a Pro user - show paywall
-          if (mounted) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                fullscreenDialog: true,
-                builder: (context) => CustomPaywallScreen(
-                  onDismiss: () async {
-                    // Use our subscription provider to check subscription status
-                    final subscriptionProvider =
-                        Provider.of<SubscriptionProvider>(context,
-                            listen: false);
-                    await subscriptionProvider.refreshSubscriptionStatus();
-
-                    // Always refresh the goals again before navigating
-                    final foodEntryProvider =
-                        Provider.of<FoodEntryProvider>(context, listen: false);
-                    await foodEntryProvider.loadNutritionGoals();
-
-                    // Explicitly sync nutrition goals to Supabase
-                    try {
-                      debugPrint(
-                          'Explicitly syncing nutrition goals to Supabase after paywall dismissal');
-                      await foodEntryProvider.syncAllDataWithSupabase();
-                      debugPrint(
-                          'Completed explicit sync of nutrition goals to Supabase');
-                    } catch (e) {
-                      debugPrint(
-                          'Error syncing nutrition goals to Supabase: $e');
-                    }
-
-                    if (subscriptionProvider.isProUser) {
-                      // Pro user - proceed to dashboard
-                      if (mounted) {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            // Wrap Dashboard with PaywallGate for extra security
-                            builder: (context) => const PaywallGate(
-                              child: Dashboard(),
-                            ),
-                          ),
-                        );
-                      }
-                    } else {
-                      // Free user - hard paywall, show them the paywall again with explicit message
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'A subscription is required to use this app'),
-                            duration: Duration(seconds: 3),
-                            behavior: SnackBarBehavior.fixed,
-                          ),
-                        );
-
-                        // Show the paywall again, but this time with harder enforcement
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            fullscreenDialog: true,
-                            builder: (context) => CustomPaywallScreen(
-                              allowDismissal:
-                                  false, // Don't allow dismissal without subscribing
-                              onDismiss: () async {
-                                // This will only be called if they subscribe
-                                final subscriptionProvider =
-                                    Provider.of<SubscriptionProvider>(context,
-                                        listen: false);
-                                await subscriptionProvider
-                                    .refreshSubscriptionStatus();
-
-                                // Always refresh the goals again before navigating
-                                final foodEntryProvider =
-                                    Provider.of<FoodEntryProvider>(context,
-                                        listen: false);
-                                await foodEntryProvider.loadNutritionGoals();
-
-                                // Explicitly sync nutrition goals to Supabase
-                                try {
-                                  debugPrint(
-                                      'Explicitly syncing nutrition goals to Supabase after hard paywall dismissal');
-                                  await foodEntryProvider
-                                      .syncAllDataWithSupabase();
-                                  debugPrint(
-                                      'Completed explicit sync of nutrition goals to Supabase');
-                                } catch (e) {
-                                  debugPrint(
-                                      'Error syncing nutrition goals to Supabase: $e');
-                                }
-
-                                if (mounted && subscriptionProvider.isProUser) {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (context) => const Dashboard(),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  // When back button is pressed on paywall shown from results, just pop back to results
-                  onBackPressedOverride: () {
-                    if (mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  // Start with a soft paywall to give users a chance to subscribe willingly
-                  allowDismissal: true,
-                ),
-              ),
-            );
-          }
+    // Use the new Superwall placement system
+    SuperwallPlacements.showOnboardingPaywall(
+      context,
+      onPremiumUser: () async {
+        // User has premium access - sync data and proceed to dashboard
+        await syncNutritionGoals();
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const Dashboard(),
+            ),
+          );
         }
-      });
-    });
+      },
+      onFreeUser: () async {
+        // User doesn't have premium - show hard paywall message and remain on results
+        await syncNutritionGoals();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('A subscription is required to use this app'),
+              duration: Duration(seconds: 3),
+              behavior: SnackBarBehavior.fixed,
+            ),
+          );
+          // Stay on results screen - user can try again or use back button
+        }
+      },
+    );
   }
 
   void _navigateBack() {

@@ -14,12 +14,12 @@ Future<String> processImageWithGemini(String imagePath) async {
     
     print('[Gemini Debug] Reading and compressing image file...');
     final imageReadStart = DateTime.now();
-    
+
     // Read original image size
     final File originalImage = File(imagePath);
     final originalBytes = await originalImage.readAsBytes();
     print('[Gemini Debug] Original image size: ${originalBytes.length} bytes');
-    
+
     // Compress the image (reduce quality and size)
     final compressedImageStart = DateTime.now();
     final targetPath = imagePath.replaceFirst('.jpg', '_compressed.jpg');
@@ -30,11 +30,14 @@ Future<String> processImageWithGemini(String imagePath) async {
       minWidth: 1024, // Reduce dimensions if larger
       minHeight: 1024,
     );
-    
+
     final imageBytes = await compressedFile!.readAsBytes();
-    print('[Gemini Debug] Compressed to ${imageBytes.length} bytes (${(imageBytes.length / originalBytes.length * 100).toStringAsFixed(1)}% of original)');
-    print('[Gemini Debug] Compression completed in ${DateTime.now().difference(compressedImageStart).inMilliseconds}ms');
-    print('[Gemini Debug] Total image processing time: ${DateTime.now().difference(imageReadStart).inMilliseconds}ms');
+    print(
+        '[Gemini Debug] Compressed to ${imageBytes.length} bytes (${(imageBytes.length / originalBytes.length * 100).toStringAsFixed(1)}% of original)');
+    print(
+        '[Gemini Debug] Compression completed in ${DateTime.now().difference(compressedImageStart).inMilliseconds}ms');
+    print(
+        '[Gemini Debug] Total image processing time: ${DateTime.now().difference(imageReadStart).inMilliseconds}ms');
 
     print('[Gemini Debug] Preparing request to Supabase edge function...');
     

@@ -9,10 +9,6 @@ PODS:
   - AppAuth/Core (1.7.6)
   - AppAuth/ExternalUserAgent (1.7.6):
     - AppAuth/Core
-  - AppCheckCore (11.2.0):
-    - GoogleUtilities/Environment (~> 8.0)
-    - GoogleUtilities/UserDefaults (~> 8.0)
-    - PromisesObjC (~> 2.4)
   - camera_avfoundation (0.0.1):
     - Flutter
   - camerawesome (0.0.1):
@@ -20,23 +16,11 @@ PODS:
     - JPSVolumeButtonHandler
   - device_info_plus (0.0.1):
     - Flutter
-  - Firebase/Auth (11.8.0):
-    - Firebase/CoreOnly
-    - FirebaseAuth (~> 11.8.0)
   - Firebase/CoreOnly (11.8.0):
     - FirebaseCore (~> 11.8.0)
   - Firebase/Messaging (11.8.0):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 11.8.0)
-  - firebase_app_check (0.3.2-4):
-    - Firebase/CoreOnly (~> 11.8.0)
-    - firebase_core
-    - FirebaseAppCheck (~> 11.8.0)
-    - Flutter
-  - firebase_auth (5.5.1):
-    - Firebase/Auth (= 11.8.0)
-    - firebase_core
-    - Flutter
   - firebase_core (3.12.1):
     - Firebase/CoreOnly (= 11.8.0)
     - Flutter
@@ -44,29 +28,10 @@ PODS:
     - Firebase/Messaging (= 11.8.0)
     - firebase_core
     - Flutter
-  - FirebaseAppCheck (11.8.0):
-    - AppCheckCore (~> 11.0)
-    - FirebaseAppCheckInterop (~> 11.0)
-    - FirebaseCore (~> 11.8.0)
-    - GoogleUtilities/Environment (~> 8.0)
-    - GoogleUtilities/UserDefaults (~> 8.0)
-  - FirebaseAppCheckInterop (11.10.0)
-  - FirebaseAuth (11.8.1):
-    - FirebaseAppCheckInterop (~> 11.0)
-    - FirebaseAuthInterop (~> 11.0)
-    - FirebaseCore (~> 11.8.0)
-    - FirebaseCoreExtension (~> 11.8.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.0)
-    - GoogleUtilities/Environment (~> 8.0)
-    - GTMSessionFetcher/Core (< 5.0, >= 3.4)
-    - RecaptchaInterop (~> 100.0)
-  - FirebaseAuthInterop (11.10.0)
   - FirebaseCore (11.8.1):
     - FirebaseCoreInternal (~> 11.8.0)
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/Logger (~> 8.0)
-  - FirebaseCoreExtension (11.8.0):
-    - FirebaseCore (~> 11.8.0)
   - FirebaseCoreInternal (11.8.0):
     - "GoogleUtilities/NSData+zlib (~> 8.0)"
   - FirebaseInstallations (11.8.0):
@@ -228,7 +193,6 @@ PODS:
   - PurchasesHybridCommonUI (13.25.0):
     - PurchasesHybridCommon (= 13.25.0)
     - RevenueCatUI (= 5.19.0)
-  - RecaptchaInterop (100.0.0)
   - RevenueCat (5.19.0)
   - RevenueCatUI (5.19.0):
     - RevenueCat (= 5.19.0)
@@ -246,6 +210,12 @@ PODS:
   - sqflite_darwin (0.0.4):
     - Flutter
     - FlutterMacOS
+  - Superscript (0.2.8)
+  - SuperwallKit (4.5.2):
+    - Superscript (= 0.2.8)
+  - superwallkit_flutter (0.0.1):
+    - Flutter
+    - SuperwallKit (= 4.5.2)
   - url_launcher_ios (0.0.1):
     - Flutter
   - webview_flutter_wkwebview (0.0.1):
@@ -258,8 +228,6 @@ DEPENDENCIES:
   - camera_avfoundation (from `.symlinks/plugins/camera_avfoundation/ios`)
   - camerawesome (from `.symlinks/plugins/camerawesome/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
-  - firebase_app_check (from `.symlinks/plugins/firebase_app_check/ios`)
-  - firebase_auth (from `.symlinks/plugins/firebase_auth/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
@@ -283,20 +251,15 @@ DEPENDENCIES:
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sign_in_with_apple (from `.symlinks/plugins/sign_in_with_apple/ios`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
+  - superwallkit_flutter (from `.symlinks/plugins/superwallkit_flutter/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
 
 SPEC REPOS:
   trunk:
     - AppAuth
-    - AppCheckCore
     - Firebase
-    - FirebaseAppCheck
-    - FirebaseAppCheckInterop
-    - FirebaseAuth
-    - FirebaseAuthInterop
     - FirebaseCore
-    - FirebaseCoreExtension
     - FirebaseCoreInternal
     - FirebaseInstallations
     - FirebaseMessaging
@@ -319,11 +282,12 @@ SPEC REPOS:
     - PromisesObjC
     - PurchasesHybridCommon
     - PurchasesHybridCommonUI
-    - RecaptchaInterop
     - RevenueCat
     - RevenueCatUI
     - SDWebImage
     - SDWebImageWebPCoder
+    - Superscript
+    - SuperwallKit
 
 EXTERNAL SOURCES:
   app_links:
@@ -336,10 +300,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/camerawesome/ios"
   device_info_plus:
     :path: ".symlinks/plugins/device_info_plus/ios"
-  firebase_app_check:
-    :path: ".symlinks/plugins/firebase_app_check/ios"
-  firebase_auth:
-    :path: ".symlinks/plugins/firebase_auth/ios"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
   firebase_messaging:
@@ -386,6 +346,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/sign_in_with_apple/ios"
   sqflite_darwin:
     :path: ".symlinks/plugins/sqflite_darwin/darwin"
+  superwallkit_flutter:
+    :path: ".symlinks/plugins/superwallkit_flutter/ios"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
   webview_flutter_wkwebview:
@@ -395,21 +357,13 @@ SPEC CHECKSUMS:
   app_links: 76b66b60cc809390ca1ad69bfd66b998d2387ac7
   app_settings: 5127ae0678de1dcc19f2293271c51d37c89428b2
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
-  AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   camera_avfoundation: 04b44aeb14070126c6529e5ab82cc7c9fca107cf
   camerawesome: ae69de297ab1a69a0bcaeef8797d3045ed57172f
   device_info_plus: 335f3ce08d2e174b9fdc3db3db0f4e3b1f66bd89
   Firebase: d80354ed7f6df5f9aca55e9eb47cc4b634735eaf
-  firebase_app_check: cb20bddfd2664003e55c1dc29545cd4a6512ee34
-  firebase_auth: 9ebbd83276bf977dea1c74dfc199acf9d2a2f42f
   firebase_core: 8d552814f6c01ccde5d88939fced4ec26f2f5510
   firebase_messaging: 8b96a4f09841c15a16b96973ef5c3dcfc1a064e4
-  FirebaseAppCheck: f6648d6d2b321ecf94cf72f6737fc68d4fddc010
-  FirebaseAppCheckInterop: 9664c858489710f682766ef54e2b6741d3b62070
-  FirebaseAuth: ad59a1a7b161e75f74c39f70179d2482d40e2737
-  FirebaseAuthInterop: 01a804fb074424fd58b92dd50dd0272277199356
   FirebaseCore: 99fe0c4b44a39f37d99e6404e02009d2db5d718d
-  FirebaseCoreExtension: 3d3f2017a00d06e09ab4ebe065391b0bb642565e
   FirebaseCoreInternal: df24ce5af28864660ecbd13596fc8dd3a8c34629
   FirebaseInstallations: 6c963bd2a86aca0481eef4f48f5a4df783ae5917
   FirebaseMessaging: 487b634ccdf6f7b7ff180fdcb2a9935490f764e8
@@ -450,7 +404,6 @@ SPEC CHECKSUMS:
   purchases_ui_flutter: 2f664731a6d793e4a6eeaaee323eea5bd1292649
   PurchasesHybridCommon: f27e7fe57a9934319373b10c260db5d6c10bbb64
   PurchasesHybridCommonUI: 57b87f2e4feb1a9337e1f19f9b84cad5a16da970
-  RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
   RevenueCat: 4be87c151dff652d2a5b7af46073db11f01ad93f
   RevenueCatUI: 79372219c99e2d08eed0a0607004ca0872a17fd5
   SDWebImage: f84b0feeb08d2d11e6a9b843cb06d75ebf5b8868
@@ -458,6 +411,9 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   sign_in_with_apple: c5dcc141574c8c54d5ac99dd2163c0c72ad22418
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
+  Superscript: 82dbb40f502823160e75503ebc1b6bac756a503d
+  SuperwallKit: 520fd9dff39358c9708d88cc69c1f4fbd32b3008
+  superwallkit_flutter: 24189eddf53053b67bb8a909556fca71140665c4
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
   webview_flutter_wkwebview: 1821ceac936eba6f7984d89a9f3bcb4dea99ebb2
 
