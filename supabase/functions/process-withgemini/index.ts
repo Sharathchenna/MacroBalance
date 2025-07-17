@@ -72,6 +72,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log(`Received image: ${image.name}, type: ${image.type}, size: ${image.size}`);
+
     // Read image as bytes
     const imageBytes = new Uint8Array(await image.arrayBuffer());
     
@@ -84,6 +86,9 @@ Deno.serve(async (req: Request) => {
     // Define nutrition analysis prompt - same as in the Dart implementation
     const prompt = `
       Analyze the following meal and provide its nutritional content.
+      if the image is a nutrition label, extract the nutrition information from the label and return response in the specified format, give correct nutrition values for different serving sizes, if given percentages then convert them into relavant values, do not provide null values if you couldn't get the number return 0.
+      If the image is food, identify the food and provide the nutrition information for the meal.
+      The meal can be a single food item or a combination of different foods.
       Break down the meal into different foods and do the nutrition analysis for each food.
       give nutrition info for each food in the meal with different serving sizes. the serving sizes can be in grams, ounces, tablespoons, teaspoons, cups etc.
       Return only the numerical values for calories, protein, carbohydrates, fat, and fiber.
@@ -110,11 +115,33 @@ Deno.serve(async (req: Request) => {
       ]
     `;
     
+    // Determine the correct MIME type
+    let mimeType = image.type;
+    
+    // If the MIME type is not set or is application/octet-stream, determine from filename
+    if (!mimeType || mimeType === 'application/octet-stream') {
+      const fileName = image.name?.toLowerCase() || '';
+      if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+        mimeType = 'image/jpeg';
+      } else if (fileName.endsWith('.png')) {
+        mimeType = 'image/png';
+      } else if (fileName.endsWith('.webp')) {
+        mimeType = 'image/webp';
+      } else if (fileName.endsWith('.gif')) {
+        mimeType = 'image/gif';
+      } else {
+        // Default to jpeg since that's what the Flutter app compresses to
+        mimeType = 'image/jpeg';
+      }
+    }
+    
+    console.log(`Using MIME type: ${mimeType}`);
+    
     // Create parts for the request
     const imagePart: Part = {
       inlineData: {
         data: encodeBase64(imageBytes),
-        mimeType: image.type,
+        mimeType: mimeType,
       },
     };
     
