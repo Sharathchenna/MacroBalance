@@ -404,8 +404,8 @@ class _DashboardState extends State<Dashboard> {
                       const SizedBox(height: 8),
                         _buildMenuOption(
                           context: context,
-                          icon: ImageIcon(
-                            AssetImage('assets/icons/AI Icon.png'),
+                          icon: Icon(
+                            Icons.auto_awesome,
                             color: const Color(0xFFFFC107),
                             size: 24,
                           ),

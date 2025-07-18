@@ -416,6 +416,65 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                   ),
                                 ),
 
+                                const SizedBox(height: 16),
+
+                                // Health Score
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Color(int.parse('0xFF${nutrition.getHealthScoreColor().substring(1)}')).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Color(int.parse('0xFF${nutrition.getHealthScoreColor().substring(1)}')).withValues(alpha: 0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: Color(int.parse('0xFF${nutrition.getHealthScoreColor().substring(1)}')),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${nutrition.calculateHealthScore()}',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Health Score',
+                                            style: AppTypography.caption.copyWith(
+                                              color: customColors.textSecondary,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          Text(
+                                            nutrition.getHealthScoreLabel(),
+                                            style: AppTypography.body2.copyWith(
+                                              color: Color(int.parse('0xFF${nutrition.getHealthScoreColor().substring(1)}')),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
                                 const SizedBox(height: 20),
 
                                 // Macro info grid (now in column)
