@@ -325,57 +325,122 @@ class _DashboardState extends State<Dashboard> {
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Container(
-                margin: EdgeInsets.fromLTRB(20, 0, 20, screenHeight * 0.05),
+                margin: EdgeInsets.fromLTRB(20, 0, 20, screenHeight * 0.07),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Title
-                        Container(
-                          decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: Theme.of(context).brightness ==
-                                        Brightness.light
-                                    ? [
-                                        Colors.white.withOpacity(0.9),
-                                        Colors.grey.shade50.withOpacity(0.8),
-                                      ]
-                                    : [
-                                        Colors.grey.shade900.withOpacity(0.6),
-                                        Colors.grey.shade900.withOpacity(0.8),
+                        children: [
+                          // Title with close button
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                          SizedBox(width: 40),
+                              Expanded(
+                                child: Center(
+                                  child: Container(
+                                   decoration: BoxDecoration(
+                                       gradient: LinearGradient(
+                                         begin: Alignment.topLeft,
+                                         end: Alignment.bottomRight,
+                                         colors: Theme.of(context).brightness ==
+                                                 Brightness.light
+                                             ? [
+                                                 Colors.white.withOpacity(0.9),
+                                                 Colors.grey.shade50.withOpacity(0.8),
+                                               ]
+                                             : [
+                                                 Colors.grey.shade900.withOpacity(0.6),
+                                                 Colors.grey.shade900.withOpacity(0.8),
+                                               ],
+                                       ),
+                                       borderRadius: BorderRadius.circular(12),
+                                       border: Border.all(
+                                         color: Theme.of(context).brightness ==
+                                                 Brightness.light
+                                             ? Colors.black.withOpacity(0.8)
+                                             : Colors.white.withOpacity(0.1),
+                                         width: 1,
+                                       )),
+                                   child: Padding(
+                                     padding: const EdgeInsets.symmetric(
+                                         horizontal: 16, vertical: 8),
+                                     child: Text(
+                                       'Add Food',
+                                       style: GoogleFonts.poppins(
+                                         fontSize: 18,
+                                         fontWeight: FontWeight.w600,
+                                         color: Theme.of(context).brightness ==
+                                                 Brightness.light
+                                             ? Colors.black87
+                                             : Colors.white,
+                                         decoration: TextDecoration.none,
+                                       ),
+                                     ),
+                                   ),
+                                 ),
+                                ),
+                              ),
+                              // Close button
+                              Material(
+                                color: Colors.transparent.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(16),
+                                child: InkWell(
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    Navigator.pop(context);
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: Theme.of(context).brightness == Brightness.light
+                                            ? [
+                                                Colors.white.withOpacity(0.9),
+                                                Colors.grey.shade50.withOpacity(0.8),
+                                              ]
+                                            : [
+                                                Colors.grey.shade900.withOpacity(0.6),
+                                                Colors.grey.shade900.withOpacity(0.8),
+                                              ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Theme.of(context).brightness == Brightness.light
+                                            ? Colors.black.withOpacity(0.8)
+                                            : Colors.white.withOpacity(0.1),
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Theme.of(context).brightness == Brightness.light
+                                              ? Colors.black.withOpacity(0.1)
+                                              : Colors.black.withOpacity(0.2),
+                                          blurRadius: 15,
+                                          spreadRadius: 0,
+                                          offset: const Offset(0, 4),
+                                        ),
                                       ],
+                                    ),
+                                    child: Icon(
+                                      CupertinoIcons.xmark,
+                                      color: Theme.of(context).brightness == Brightness.light
+                                          ? Colors.grey.shade900
+                                          : Colors.grey.shade300,
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
                               ),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.light
-                                    ? Colors.black.withOpacity(0.8)
-                                    : Colors.white.withOpacity(0.1),
-                                width: 1,
-                              )),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            child: Text(
-                              'Add Food',
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).brightness ==
-                                        Brightness.light
-                                    ? Colors.black87
-                                    : Colors.white,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
+                            ],
                           ),
-                        ),
                         const SizedBox(height: 16),
 
                         // Row of buttons
@@ -465,7 +530,8 @@ class _DashboardState extends State<Dashboard> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.transparent,
+      color: Colors.transparent.withOpacity(0.4),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: () {
           HapticFeedback.lightImpact();
