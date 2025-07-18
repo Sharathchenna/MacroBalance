@@ -924,7 +924,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         ],
         border: Border.all(
           color: isAI 
-              ? isDarkMode? Colors.grey.shade500 : Colors.black.withOpacity(0.1)
+              ? isDarkMode? Colors.grey.shade900 : Colors.black.withOpacity(0.1)
               : isDarkMode
                   ? Colors.grey.withOpacity(0.1)
                   : Colors.grey.withOpacity(0.08),
@@ -1566,7 +1566,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           ),
         ],
         border: Border.all(
-          color: isDarkMode? Colors.grey.shade500 : Colors.black.withOpacity(0.1),
+          color: isDarkMode? Colors.grey.shade900 : Colors.black.withOpacity(0.1),
           width: 1.0,
         ),
       ),
