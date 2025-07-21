@@ -53,6 +53,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   // Track if the search was triggered by the search button
   bool _searchButtonClicked = false;
   final AIFoodSearchService _aiSearchService = AIFoodSearchService();
+  // Track if AI section is expanded
+  bool _isAISectionExpanded = false;
 
   // Supabase Edge Function URL
   final String _fatSecretProxyUrl =
@@ -707,6 +709,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   }
 
   Widget _buildCombinedSearchResults() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return RefreshIndicator(
       onRefresh: () => _searchFood(_searchController.text),
       color: Theme.of(context).primaryColor,
@@ -717,73 +720,81 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // AI Results Section
+          // Top AI Result (Featured)
           if (_aiSearchResults.isNotEmpty) ...[
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               sliver: SliverToBoxAdapter(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.purple.withOpacity(0.8),
-                            Colors.blue.withOpacity(0.8),
-                          ],
+                    // Subtle AI indicator
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 16,
+                          color: isDarkMode? Colors.grey.shade500 : Colors.black,
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.smart_toy_rounded,
-                            color: Colors.white,
-                            size: 16,
+                        const SizedBox(width: 6),
+                        Text(
+                          'AI suggestion',
+                          style: TextStyle(
+                            color: isDarkMode? Colors.grey.shade500 : Colors.black,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'AI Suggestions',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'AI-generated food suggestions',
-                        style: TextStyle(
-                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                          fontSize: 12,
                         ),
-                      ),
+                      ],
                     ),
+                    const SizedBox(height: 8),
+                    // Featured AI Result Card
+                    _buildFeaturedAICard(_aiSearchResults.first),
                   ],
                 ),
               ),
             ),
+
+            // Expandable AI Results Section (if more than 1 AI result)
+            if (_aiSearchResults.length > 1) ...[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _buildExpandableAISection(),
+                ),
+              ),
+            ],
+
+            // Divider between AI and Database results
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    if (index < 0 || index >= _aiSearchResults.length) {
-                      return const SizedBox.shrink();
-                    }
-                    return AnimatedOpacity(
-                      duration: const Duration(milliseconds: 250),
-                      opacity: 1.0,
-                      child: _buildFoodCard(_aiSearchResults[index], isAI: true),
-                    );
-                  },
-                  childCount: _aiSearchResults.length,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: Theme.of(context).dividerColor.withOpacity(0.3),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'More results',
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: Theme.of(context).dividerColor.withOpacity(0.3),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -791,51 +802,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           
           // Database Results Section
           if (_searchResults.isNotEmpty) ...[
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(16, _aiSearchResults.isNotEmpty ? 16 : 16, 16, 8),
-              sliver: SliverToBoxAdapter(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.storage,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Database Results',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'From nutrition database',
-                        style: TextStyle(
-                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverList(
@@ -938,7 +904,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
     // Enhanced premium card design with AI indicator
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
+      margin: const EdgeInsets.symmetric(vertical: 5),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(18),
@@ -958,7 +924,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         ],
         border: Border.all(
           color: isAI 
-              ? Colors.purple.withOpacity(0.2)
+              ? isDarkMode? Colors.grey.shade900 : Colors.black.withOpacity(0.1)
               : isDarkMode
                   ? Colors.grey.withOpacity(0.1)
                   : Colors.grey.withOpacity(0.08),
@@ -1036,7 +1002,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                               ),
                               child: Center(
                                 child: Icon(
-                                  Icons.smart_toy_rounded,
+                                  Icons.auto_awesome_rounded,
                                   color: Colors.white,
                                   size: 10,
                                 ),
@@ -1095,7 +1061,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 // Enhanced nutrition row
                 _buildSimplifiedNutritionRow(food, defaultServing),
               ],
@@ -1126,25 +1092,25 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           _buildNutrientChip(
             '${calories.toStringAsFixed(0)} cal',
             Icons.local_fire_department_rounded,
-            Colors.orange,
+            Colors.green,
           ),
           const SizedBox(width: 8),
           _buildNutrientChip(
             '${protein.toStringAsFixed(1)}g P',
             Icons.fitness_center_rounded,
-            Colors.blue,
+            Colors.red,
           ),
           const SizedBox(width: 8),
           _buildNutrientChip(
             '${carbs.toStringAsFixed(1)}g C',
             Icons.grain_rounded,
-            Colors.green,
+            Colors.blue,
           ),
           const SizedBox(width: 8),
           _buildNutrientChip(
             '${fat.toStringAsFixed(1)}g F',
             Icons.circle_outlined,
-            Colors.red,
+            Colors.orange,
           ),
         ],
       ),
@@ -1543,7 +1509,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             // Placeholder nutrition chips
             Row(
               children: [
@@ -1578,6 +1544,234 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFeaturedAICard(FoodItem food) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = _categoryColor(food.name);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            offset: const Offset(0, 2),
+            blurRadius: 8,
+            spreadRadius: 0,
+          ),
+        ],
+        border: Border.all(
+          color: isDarkMode? Colors.grey.shade900 : Colors.black.withOpacity(0.1),
+          width: 1.0,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _navigateToFoodDetail(food),
+          splashColor: accentColor.withOpacity(0.1),
+          highlightColor: accentColor.withOpacity(0.05),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Enhanced food icon
+                    Stack(
+                      children: [
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                accentColor.withOpacity(0.15),
+                                accentColor.withOpacity(0.05),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Center(
+                            child: _buildFoodIcon(food.name, accentColor, 24),
+                          ),
+                        ),
+                        // Subtle AI indicator
+                        Positioned(
+                            top: -2,
+                            right: -2,
+                            child: Container(
+                              width: 18,
+                              height: 18,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.purple.withOpacity(0.9),
+                                    Colors.blue.withOpacity(0.9),
+                                  ],
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.purple.withOpacity(0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            child: Center(
+                              child: Icon(
+                                Icons.auto_awesome_rounded,
+                                color: Colors.white,
+                                size: 8,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    // Food name and brand with improved typography
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            food.name,
+                            style: GoogleFonts.onest(
+                              fontSize: 17,
+                              color: customColors?.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                              letterSpacing: -0.1,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          // Show brand name only if it's not "AI Generated"
+                          if (food.brandName.isNotEmpty && 
+                              food.brandName != 'AI Generated') ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              food.brandName,
+                              style: GoogleFonts.onest(
+                                fontSize: 13,
+                                color: customColors?.textSecondary
+                                    ?.withOpacity(0.8),
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                          ],
+                          // Show serving information like normal cards
+                          if (food.servings.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Per ${food.servings.first.description}',
+                              style: GoogleFonts.onest(
+                                color: Theme.of(context)
+                                    .primaryColor
+                                    .withOpacity(0.8),
+                                fontSize: 12,
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          // Enhanced nutrition row
+                          _buildSimplifiedNutritionRow(food, null),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandableAISection() {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Simple expandable button
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () {
+              setState(() {
+                _isAISectionExpanded = !_isAISectionExpanded;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 14,
+                    color: isDarkMode? Colors.grey.shade500 : Colors.black,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _isAISectionExpanded ? 'Show fewer suggestions' : 'More AI suggestions',
+                    style: TextStyle(
+                      color: isDarkMode? Colors.grey.shade500 : Colors.black,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _isAISectionExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 16,
+                    color: isDarkMode? Colors.grey.shade500 : Colors.black,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Expandable content
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 250),
+          crossFadeState: _isAISectionExpanded 
+            ? CrossFadeState.showSecond 
+            : CrossFadeState.showFirst,
+          firstChild: const SizedBox.shrink(),
+          secondChild: Column(
+            children: [
+              const SizedBox(height: 8),
+              // List of remaining AI Results (skip the first one as it's already shown as featured)
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _aiSearchResults.length - 1,
+                itemBuilder: (context, index) {
+                  final food = _aiSearchResults[index + 1];
+                  return _buildFoodCard(food, isAI: true);
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1958,7 +2152,7 @@ class NoResultsFoundWidget extends StatelessWidget {
                   ),
                 );
               },
-              icon: const Icon(Icons.smart_toy_rounded),
+              icon: const Icon(Icons.auto_awesome_rounded),
               label: const Text('Ask AI for Help'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
