@@ -420,7 +420,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
 
                                 // Health Score
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                                   decoration: BoxDecoration(
                                     color: Color(int.parse('0xFF${nutrition.getHealthScoreColor().substring(1)}')).withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(16),
@@ -430,14 +430,15 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                     ),
                                   ),
                                   child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisSize: MainAxisSize.max,
                                     children: [
                                       Container(
-                                        width: 40,
-                                        height: 40,
+                                        width: 50,
+                                        height: 50,
                                         decoration: BoxDecoration(
                                           color: Color(int.parse('0xFF${nutrition.getHealthScoreColor().substring(1)}')),
-                                          shape: BoxShape.circle,
+                                          shape: BoxShape.rectangle,
+                                          borderRadius: BorderRadius.circular(16),
                                         ),
                                         child: Center(
                                           child: Text(
@@ -445,12 +446,12 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 16,
+                                              fontSize: 18,
                                             ),
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 16),
                                       Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         mainAxisSize: MainAxisSize.min,
@@ -467,6 +468,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                             style: AppTypography.body2.copyWith(
                                               color: Color(int.parse('0xFF${nutrition.getHealthScoreColor().substring(1)}')),
                                               fontWeight: FontWeight.bold,
+                                              fontSize: 18,
                                             ),
                                           ),
                                         ],
