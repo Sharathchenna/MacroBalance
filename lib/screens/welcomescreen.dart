@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'dart:io' show Platform;
+import 'package:macrotracker/l10n/generated/app_localizations.dart';
 
 class Welcomescreen extends StatefulWidget {
   const Welcomescreen({Key? key}) : super(key: key);
@@ -128,7 +129,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                     ),
                     const SizedBox(width: 14),
                     Text(
-                      'MacroBalance',
+                      AppLocalizations.of(context)!.welcomeAppName,
                       style: AppTypography.h1.copyWith(
                         color: customColors.textPrimary,
                       ),
@@ -146,7 +147,7 @@ class _WelcomescreenState extends State<Welcomescreen>
               child: FadeTransition(
                 opacity: _fadeAnimation,
                 child: Text(
-                  'Smart nutrition tracking made simple',
+                  AppLocalizations.of(context)!.welcomeTagline,
                   textAlign: TextAlign.center,
                   style: AppTypography.body1.copyWith(
                     color: customColors.textSecondary,
@@ -169,8 +170,8 @@ class _WelcomescreenState extends State<Welcomescreen>
                       _buildFeature(
                         isDark: isDark,
                         icon: CupertinoIcons.camera,
-                        title: 'AI Food Recognition',
-                        description: 'Just snap a photo to log your meals',
+                        title: AppLocalizations.of(context)!.featureAiTitle,
+                        description: AppLocalizations.of(context)!.featureAiDesc,
                         backgroundColor: isDark
                             ? const Color(0xFF242428)
                             : customColors.dateNavigatorBackground,
@@ -180,8 +181,8 @@ class _WelcomescreenState extends State<Welcomescreen>
                       _buildFeature(
                         isDark: isDark,
                         icon: CupertinoIcons.chart_pie,
-                        title: 'Effortless Tracking',
-                        description: 'Monitor calories, macros, and nutrients',
+                        title: AppLocalizations.of(context)!.featureEffortlessTitle,
+                        description: AppLocalizations.of(context)!.featureEffortlessDesc,
                         backgroundColor: isDark
                             ? const Color(0xFF242428)
                             : customColors.dateNavigatorBackground,
@@ -191,8 +192,8 @@ class _WelcomescreenState extends State<Welcomescreen>
                       _buildFeature(
                         isDark: isDark,
                         icon: CupertinoIcons.heart,
-                        title: 'Health Integration',
-                        description: 'Sync with Apple Health & Google Fit',
+                        title: AppLocalizations.of(context)!.featureHealthTitle,
+                        description: AppLocalizations.of(context)!.featureHealthDesc,
                         backgroundColor: isDark
                             ? const Color(0xFF242428)
                             : customColors.dateNavigatorBackground,
@@ -236,7 +237,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                           ),
                         ),
                         child: Text(
-                          'Sign In',
+                          AppLocalizations.of(context)!.signInButton,
                           style: AppTypography.onboardingButton.copyWith(
                             color: theme.colorScheme.onPrimary,
                           ),
@@ -269,7 +270,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                           ),
                         ),
                         child: Text(
-                          'Create Account',
+                          AppLocalizations.of(context)!.createAccountButton,
                           style: AppTypography.onboardingButton.copyWith(
                             color: customColors.textPrimary,
                           ),

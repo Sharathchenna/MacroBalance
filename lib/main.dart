@@ -48,6 +48,8 @@ import 'package:macrotracker/providers/expenditure_provider.dart'; // Added Expe
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/generated/app_localizations.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -605,7 +607,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         child: MaterialApp(
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
-          title: 'MacroTracker',
+          title: AppLocalizations.of(context)?.appTitle ?? 'MacroTracker',
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.useSystemTheme
@@ -613,6 +615,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               : themeProvider.isDarkMode
                   ? ThemeMode.dark
                   : ThemeMode.light,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en'),
+            Locale('es'),
+          ],
           initialRoute: Routes.initial,
           navigatorObservers: [
             MyRouteObserver(),

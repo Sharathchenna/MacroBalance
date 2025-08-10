@@ -11,6 +11,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/forgot_password_screen.dart';
 import 'dart:io';
+import 'package:macrotracker/l10n/generated/app_localizations.dart';
 
 class Signup extends StatefulWidget {
   const Signup({super.key});
@@ -64,8 +65,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all fields'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.snackPleaseFillAllFields),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -76,8 +77,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     if (_confirmPasswordController.text.isNotEmpty &&
         _passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.snackPasswordsNoMatch),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -93,8 +94,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       final email = _emailController.text.trim(); // Trim whitespace
       if (email.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter a valid email address'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.snackPleaseEnterValidEmail),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -112,9 +113,8 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       if (response.user != null && response.session == null) {
         // User signed up but needs email confirmation
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Signup successful! Please check your email to confirm your account.'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.signupSuccessCheckEmail),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -135,7 +135,9 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${error.toString()}'),
+          content: Text(
+            '${AppLocalizations.of(context)!.errorPrefix}${error.toString()}',
+          ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -195,7 +197,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       print('Google sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('There was a problem signing in with Google'),
+          content: Text(AppLocalizations.of(context)!.googleSignInProblem),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -240,7 +242,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       print('Apple sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('There was a problem signing in with Apple'),
+          content: Text(AppLocalizations.of(context)!.appleSignInProblem),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -276,7 +278,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                   children: [
                     const SizedBox(height: 24), // Reduced from 40
                     Text(
-                      'Create Account',
+                      AppLocalizations.of(context)!.createAccountTitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
@@ -285,7 +287,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                     ),
                     const SizedBox(height: 4), // Reduced from 8
                     Text(
-                      'Start your fitness journey today',
+                      AppLocalizations.of(context)!.createAccountSubtitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: customColors!.textPrimary.withOpacity(0.7),
@@ -294,22 +296,22 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                     const SizedBox(height: 24), // Reduced from 40
 
                     // Name field
-                    _buildInputLabel('Name'),
+                    _buildInputLabel(AppLocalizations.of(context)!.nameLabel),
                     const SizedBox(height: 4), // Reduced from 8
                     _buildTextField(
                       controller: _nameController,
-                      hintText: 'Enter your name',
+                      hintText: AppLocalizations.of(context)!.nameHint,
                       prefixIcon: Icons.person_outline,
                     ),
 
                     const SizedBox(height: 16), // Reduced from 20
 
                     // Email field
-                    _buildInputLabel('Email'),
+                    _buildInputLabel(AppLocalizations.of(context)!.emailLabel),
                     const SizedBox(height: 4), // Reduced from 8
                     _buildTextField(
                       controller: _emailController,
-                      hintText: 'Enter your email',
+                      hintText: AppLocalizations.of(context)!.emailHint,
                       keyboardType: TextInputType.emailAddress,
                       prefixIcon: Icons.email_outlined,
                     ),
@@ -317,11 +319,11 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                     const SizedBox(height: 16), // Reduced from 20
 
                     // Password field
-                    _buildInputLabel('Password'),
+                    _buildInputLabel(AppLocalizations.of(context)!.passwordLabel),
                     const SizedBox(height: 4), // Reduced from 8
                     _buildTextField(
                       controller: _passwordController,
-                      hintText: 'Create a password',
+                      hintText: AppLocalizations.of(context)!.passwordHint,
                       isPassword: true,
                       passwordVisibility: isPasswordVisible,
                       onPasswordVisibilityChanged: (value) {
@@ -335,11 +337,11 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                     const SizedBox(height: 16), // Reduced from 20
 
                     // Confirm Password field
-                    _buildInputLabel('Confirm Password'),
+                    _buildInputLabel(AppLocalizations.of(context)!.confirmPasswordLabel),
                     const SizedBox(height: 4), // Reduced from 8
                     _buildTextField(
                       controller: _confirmPasswordController,
-                      hintText: 'Confirm your password',
+                      hintText: AppLocalizations.of(context)!.confirmPasswordHint,
                       isPassword: true,
                       passwordVisibility: isConfirmPasswordVisible,
                       onPasswordVisibilityChanged: (value) {
@@ -370,7 +372,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Text(
-                          'Forgot password?',
+                          AppLocalizations.of(context)!.forgotPassword,
                           style: TextStyle(
                             color: theme.colorScheme.secondary,
                             fontWeight: FontWeight.w500,
@@ -402,12 +404,11 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  theme.colorScheme.onPrimary,
-                                ),
+                                    theme.colorScheme.onPrimary),
                               ),
                             )
                           : Text(
-                              "Sign Up",
+                              AppLocalizations.of(context)!.signUpButton,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -513,7 +514,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Already have an account? ',
+                          AppLocalizations.of(context)!.alreadyHaveAccountPrompt,
                           style: TextStyle(
                             color: customColors.textPrimary.withOpacity(0.7),
                             fontSize: 13, // Slightly smaller font
@@ -528,7 +529,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
                             );
                           },
                           child: Text(
-                            'Login',
+                            AppLocalizations.of(context)!.loginLink,
                             style: TextStyle(
                               color: theme.colorScheme.secondary,
                               fontWeight: FontWeight.w600,
