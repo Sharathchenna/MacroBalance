@@ -49,7 +49,7 @@ import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'l10n/generated/app_localizations.dart';
+import 'package:macrotracker/l10n/generated/app_localizations.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -622,9 +622,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: const [
-            Locale('en'),
-            Locale('es'),
-          ],
+             Locale('en'),
+             Locale('es'),
+             Locale('fr'),
+             Locale('de'),
+             Locale('it'),
+             Locale('pt'),
+           ],
           initialRoute: Routes.initial,
           navigatorObservers: [
             MyRouteObserver(),
