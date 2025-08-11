@@ -12,6 +12,7 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:io';
 import 'package:macrotracker/services/auth_service.dart';
 import 'package:macrotracker/screens/forgot_password_screen.dart';
+import 'package:macrotracker/l10n/generated/app_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -59,8 +60,8 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter both email and password'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.snackPleaseEnterBoth),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -87,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen>
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.message}'),
+          content: Text('${AppLocalizations.of(context)!.errorPrefix}${e.message}'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -95,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'),
+          content: Text('${AppLocalizations.of(context)!.errorPrefix}${e.toString()}'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -156,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen>
       print('Google sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('There was a problem signing in with google'),
+          content: Text(AppLocalizations.of(context)!.googleSignInProblem),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -201,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen>
       print('Apple sign-in error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('There was a problem signing in with Apple'),
+          content: Text(AppLocalizations.of(context)!.appleSignInProblem),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -236,7 +237,7 @@ class _LoginScreenState extends State<LoginScreen>
                   children: [
                     const SizedBox(height: 40),
                     Text(
-                      'Welcome Back',
+                      AppLocalizations.of(context)!.loginWelcomeTitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
@@ -245,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Login to continue tracking your fitness journey',
+                      AppLocalizations.of(context)!.loginWelcomeSubtitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: customColors!.textPrimary.withOpacity(0.7),
@@ -254,11 +255,11 @@ class _LoginScreenState extends State<LoginScreen>
                     const SizedBox(height: 40),
 
                     // Email Field
-                    _buildInputLabel('Email'),
+                    _buildInputLabel(AppLocalizations.of(context)!.emailLabel),
                     const SizedBox(height: 8),
                     _buildTextField(
                       controller: _emailController,
-                      hintText: 'Enter your email',
+                      hintText: AppLocalizations.of(context)!.emailHint,
                       keyboardType: TextInputType.emailAddress,
                       prefixIcon: Icons.email_outlined,
                     ),
@@ -266,11 +267,11 @@ class _LoginScreenState extends State<LoginScreen>
                     const SizedBox(height: 20),
 
                     // Password Field
-                    _buildInputLabel('Password'),
+                    _buildInputLabel(AppLocalizations.of(context)!.passwordLabel),
                     const SizedBox(height: 8),
                     _buildTextField(
                       controller: _passwordController,
-                      hintText: 'Enter your password',
+                      hintText: AppLocalizations.of(context)!.passwordHint,
                       isPassword: true,
                       prefixIcon: Icons.lock_outline,
                     ),
@@ -294,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen>
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Text(
-                          'Forgot password?',
+                          AppLocalizations.of(context)!.forgotPassword,
                           style: TextStyle(
                             color: theme.colorScheme.secondary,
                             fontWeight: FontWeight.w500,
@@ -328,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             )
                           : Text(
-                              "Login",
+                              AppLocalizations.of(context)!.loginButton,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -351,7 +352,7 @@ class _LoginScreenState extends State<LoginScreen>
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
-                            'OR',
+                            AppLocalizations.of(context)!.orLabel,
                             style: TextStyle(
                               color: customColors.textPrimary.withOpacity(0.6),
                               fontWeight: FontWeight.w500,
@@ -386,7 +387,7 @@ class _LoginScreenState extends State<LoginScreen>
                         height: 20,
                       ),
                       label: Text(
-                        'Continue with Google',
+                        AppLocalizations.of(context)!.continueWithGoogle,
                         style: TextStyle(
                           color: customColors.textPrimary.withOpacity(0.8),
                           fontWeight: FontWeight.w500,
@@ -414,7 +415,7 @@ class _LoginScreenState extends State<LoginScreen>
                           color: theme.primaryColor,
                         ),
                         label: Text(
-                          'Continue with Apple',
+                          AppLocalizations.of(context)!.continueWithApple,
                           style: TextStyle(
                             color: customColors.textPrimary.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
@@ -429,7 +430,7 @@ class _LoginScreenState extends State<LoginScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Don\'t have an account? ',
+                          AppLocalizations.of(context)!.noAccountPrompt,
                           style: TextStyle(
                             color: customColors.textPrimary.withOpacity(0.7),
                           ),
@@ -443,7 +444,7 @@ class _LoginScreenState extends State<LoginScreen>
                             );
                           },
                           child: Text(
-                            'Sign up',
+                            AppLocalizations.of(context)!.signUpLink,
                             style: TextStyle(
                               color: theme.colorScheme.secondary,
                               fontWeight: FontWeight.w600,
