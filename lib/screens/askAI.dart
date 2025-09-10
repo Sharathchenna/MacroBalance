@@ -16,6 +16,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'package:lottie/lottie.dart';
 import 'package:math_expressions/math_expressions.dart'; // Import math_expressions
+import 'package:macrotracker/services/posthog_service.dart';
 
 class Askai extends StatefulWidget {
   const Askai({super.key});
@@ -35,6 +36,9 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
+
+    // Track screen view
+    PostHogService.trackScreen('ask_ai_screen');
 
     _mealController.addListener(() {
       setState(() {

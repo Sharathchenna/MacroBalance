@@ -11,7 +11,65 @@ class SuperwallPlacements {
   static const String accountDashboard = 'account_dashboard_debug';
   static const String appAccess = 'app_access'; // Match dashboard configuration
   static const String premiumFeatures = 'premium_features'; // Feature-level gates
+  static const String testPlacement = 'test_placement'; // For testing Superwall integration
+  static const String onboardingResultsSecond = 'onboarding_results_second';
   
+  // Chained paywall placements
+  static const String firstPaywall = 'first_paywall'; // First paywall in chain
+  static const String secondPaywall = 'second_paywall'; // Second paywall in chain
+  static const String fallbackPaywall = 'fallback_paywall'; // Fallback if main paywall dismissed
+  /// Show chained paywalls - main use case for when you want one paywall after another
+  /// This is the method you'll use for your chained paywall implementation
+  static Future<void> showChainedPaywalls({
+    required BuildContext context,
+    String firstPlacement = onboardingResults,
+    String secondPlacement = onboardingResultsSecond,
+    Map<String, dynamic>? firstParams,
+    Map<String, dynamic>? secondParams,
+    VoidCallback? onUserSubscribed,
+    VoidCallback? onBothPaywallsDismissed,
+  }) async {
+    final superwallService = SuperwallService();
+    
+    debugPrint('[SuperwallPlacements] Initiating chained paywall sequence');
+    
+    await superwallService.showChainedPaywalls(
+      firstPlacement: firstPlacement,
+      secondPlacement: secondPlacement,
+      firstParams: firstParams ?? {
+        'source': 'chained_paywall_sequence',
+      },
+      secondParams: secondParams ?? {
+        'source': 'chained_paywall_sequence',
+      },
+      onUserSubscribed: onUserSubscribed,
+      onBothPaywallsDismissed: onBothPaywallsDismissed,
+    );
+  }
+
+  /// Simple sequential paywalls - show one paywall immediately after another
+  /// This is a more direct approach if you just want immediate sequential display
+  static Future<void> showSequentialPaywalls({
+    required BuildContext context,
+    String firstPlacementName = firstPaywall,
+    String secondPlacementName = fallbackPaywall,
+    Map<String, dynamic>? params,
+  }) async {
+    final superwallService = SuperwallService();
+    
+    debugPrint('[SuperwallPlacements] Showing sequential paywalls');
+    
+    await superwallService.showSequentialPaywalls(
+      context: context,
+      firstPlacement: firstPlacementName,
+      secondPlacement: secondPlacementName,
+      params: params ?? {
+        'source': 'sequential_paywalls',
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
   /// Show paywall during onboarding results (replaces complex paywall logic in results_screen.dart)
   static Future<void> showOnboardingPaywall(
     BuildContext context, {
@@ -36,6 +94,33 @@ class SuperwallPlacements {
           onFreeUser();
         }
       },
+    );
+  }
+
+  /// Show chained paywalls during onboarding - first show onboarding paywall, then fallback
+  static Future<void> showOnboardingChainedPaywalls({
+    required BuildContext context,
+    required VoidCallback onPremiumUser,
+    required VoidCallback onFreeUser,
+  }) async {
+    debugPrint('[SuperwallPlacements] Starting onboarding chained paywall sequence');
+    
+    await showChainedPaywalls(
+      context: context,
+      firstPlacement: onboardingResults,
+      secondPlacement: fallbackPaywall,
+      firstParams: {
+        'source': 'onboarding_results_chained',
+        'user_stage': 'post_goals_calculation',
+        'chain_position': 'first',
+      },
+      secondParams: {
+        'source': 'onboarding_fallback_chained',
+        'user_stage': 'post_goals_calculation', 
+        'chain_position': 'second',
+      },
+      onUserSubscribed: onPremiumUser,
+      onBothPaywallsDismissed: onFreeUser,
     );
   }
   
@@ -70,8 +155,9 @@ class SuperwallPlacements {
   }
   
   /// Register hard paywall for app access (replaces PaywallGate)
+  /// Returns true if user has subscription, false if they need to see benefits screen
   static Future<bool> registerAppAccessGate({
-    required VoidCallback onGrantAccess,
+    VoidCallback? onGrantAccess, // Made optional since hard paywall doesn't auto-grant
   }) async {
     final superwallService = SuperwallService();
     
@@ -83,41 +169,47 @@ class SuperwallPlacements {
     
     if (hasSubscription) {
       debugPrint('[SuperwallPlacements] User has subscription, granting access immediately');
-      onGrantAccess();
+      onGrantAccess?.call();
       return true;
     }
     
-    debugPrint('[SuperwallPlacements] No subscription, registering placement: $appAccess');
+    debugPrint('[SuperwallPlacements] No subscription - hard paywall will show benefits screen');
     
-    // Register placement for app access
+    // For hard paywall: Don't register placement that could grant automatic access
+    // Let the UI show benefits screen instead
+    return false;
+  }
+
+  /// Show paywall from benefits screen (for users who want to upgrade)
+  static Future<void> showPaywallFromBenefits({
+    required VoidCallback onPurchaseCompleted,
+  }) async {
+    final superwallService = SuperwallService();
+    
+    debugPrint('[SuperwallPlacements] Showing paywall from benefits screen...');
+    
     try {
       await superwallService.register(
         placement: appAccess,
         params: {
-          'source': 'app_access_gate',
-          'access_type': 'hard_paywall',
+          'source': 'benefits_screen',
+          'access_type': 'upgrade_flow',
         },
-              feature: () async {
-        debugPrint('[SuperwallPlacements] Paywall feature callback triggered - granting access');
-        
-        // When Superwall triggers this callback, it means user should have access
-        // Either they just completed a purchase or already had a subscription
-        onGrantAccess();
-        
-        // Optionally check subscription status for logging (but don't base access on it)
-        final newSubscriptionStatus = await superwallService.hasActiveSubscription();
-        debugPrint('[SuperwallPlacements] Post-paywall subscription status check: $newSubscriptionStatus');
-      },
+        feature: () async {
+          debugPrint('[SuperwallPlacements] Purchase completed from benefits screen');
+          
+          // Verify subscription status before granting access
+          final hasSubscription = await superwallService.hasActiveSubscription();
+          if (hasSubscription) {
+            onPurchaseCompleted();
+          } else {
+            debugPrint('[SuperwallPlacements] Purchase callback triggered but no subscription found');
+          }
+        },
       );
-      
-      debugPrint('[SuperwallPlacements] Placement registration completed');
     } catch (e) {
-      debugPrint('[SuperwallPlacements] Error registering placement: $e');
+      debugPrint('[SuperwallPlacements] Error showing paywall from benefits: $e');
     }
-    
-    final finalSubscriptionStatus = await superwallService.hasActiveSubscription();
-    debugPrint('[SuperwallPlacements] Final subscription status check: $finalSubscriptionStatus');
-    return finalSubscriptionStatus;
   }
   
   /// Register feature-level premium gate
@@ -151,5 +243,61 @@ class SuperwallPlacements {
     );
   }
 
+  /// Test placement for verifying Superwall integration
+  /// This is a simple test that shows whether Superwall is working correctly
+  static Future<void> showTestPaywall(
+    BuildContext context, {
+    VoidCallback? onSuccess,
+    VoidCallback? onError,
+  }) async {
+    final superwallService = SuperwallService();
+    
+    debugPrint('[SuperwallPlacements] Testing Superwall integration with test placement');
+    
+    try {
+      await superwallService.register(
+        placement: testPlacement,
+        params: {
+          'source': 'test_integration',
+          'test_type': 'basic_functionality',
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+        feature: () async {
+          debugPrint('[SuperwallPlacements] Test placement feature callback triggered');
+          
+          // Show success feedback
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Superwall test placement worked!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+          
+          onSuccess?.call();
+        },
+      );
+      
+      debugPrint('[SuperwallPlacements] Test placement registration completed successfully');
+      
+    } catch (e) {
+      debugPrint('[SuperwallPlacements] Test placement failed: $e');
+      
+      // Show error feedback
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Superwall test failed: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      
+      onError?.call();
+    }
+  }
 
 } 

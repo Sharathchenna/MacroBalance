@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/services/superwall_placements.dart';
+import 'package:macrotracker/screens/benefits_screen.dart';
 
 /// A component that enforces subscriptions using Superwall
 /// This replaces the custom PaywallGate with Superwall-powered paywalls
@@ -10,7 +11,8 @@ class SuperwallGate extends StatelessWidget {
   final String? placement; // Superwall placement name for this gate
 
   // Configuration flag to enable/disable Superwall gate
-  static const bool _enableSuperwallGate = true; // ✅ ENABLED: Ready for migration testing
+  // When testing flag is enabled in SubscriptionProvider, always bypass this gate.
+  static const bool _enableSuperwallGate = true; // ✅ ENABLED normally
 
   const SuperwallGate({
     super.key,
@@ -36,7 +38,7 @@ class SuperwallGate extends StatelessWidget {
           );
         }
 
-        // If the user has a subscription, let them access the app
+        // Global testing bypass: treat all users as premium and skip gating
         if (subscriptionProvider.isProUser) {
           return child;
         }
@@ -74,7 +76,7 @@ class _SuperwallGateContent extends StatefulWidget {
 class _SuperwallGateContentState extends State<_SuperwallGateContent> {
   bool _isCheckingSubscription = false;
   bool _justCompletedPurchase = false;
-  bool _accessGrantedByPaywall = false; // Track if access was granted by Superwall
+  bool _showingBenefitsScreen = false; // Track if showing benefits screen
   static const int _maxRetries = 3;
 
   @override
@@ -83,6 +85,44 @@ class _SuperwallGateContentState extends State<_SuperwallGateContent> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _registerPlacementWithSuperwall();
     });
+    
+    // Listen for subscription changes to automatically transition from benefits screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupSubscriptionListener();
+    });
+  }
+
+  void _setupSubscriptionListener() {
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+    subscriptionProvider.addListener(_onSubscriptionChanged);
+  }
+
+  void _onSubscriptionChanged() {
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+    
+    // If user now has subscription and we're showing benefits screen, transition to app
+    if (subscriptionProvider.isProUser && _showingBenefitsScreen && mounted) {
+      setState(() {
+        _showingBenefitsScreen = false;
+        _justCompletedPurchase = true;
+      });
+      
+      // Give a moment for the UI to update, then clear the purchase flag
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _justCompletedPurchase = false;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+    subscriptionProvider.removeListener(_onSubscriptionChanged);
+    super.dispose();
   }
 
   Future<void> _registerPlacementWithSuperwall() async {
@@ -93,31 +133,17 @@ class _SuperwallGateContentState extends State<_SuperwallGateContent> {
     });
 
     try {
-      // Use the new placement helper for app access gate
-      final hasAccess = await SuperwallPlacements.registerAppAccessGate(
-        onGrantAccess: () async {
-          debugPrint('[SuperwallGate] User gained access through paywall');
-          
-          if (mounted) {
-            setState(() {
-              _accessGrantedByPaywall = true;
-              _justCompletedPurchase = true;
-            });
-          }
-          
-          // Add delay before checking subscription status to allow RevenueCat to update
-          await Future.delayed(const Duration(seconds: 2));
-          
-          await _refreshSubscriptionWithRetry();
-        },
-      );
+              // Check if user already has subscription first
+        final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
+        if (subscriptionProvider.isProUser) {
+          // User already has subscription, no need to show paywall
+          return;
+        }
 
-      // If user already has access, show the child directly
-      if (hasAccess && mounted) {
+        // User doesn't have subscription, show benefits screen instead of automatic access
         setState(() {
-          // User has access, the widget will rebuild and show child
+          _showingBenefitsScreen = true;
         });
-      }
     } catch (e) {
       debugPrint('[SuperwallGate] Error registering placement: $e');
       // Show fallback content on error
@@ -155,16 +181,8 @@ class _SuperwallGateContentState extends State<_SuperwallGateContent> {
           return; // Success - exit retry loop
         }
         
-        // If access was granted by Superwall (even without subscription), stop retrying
-        if (_accessGrantedByPaywall) {
-          debugPrint('[SuperwallGate] Access granted by Superwall, stopping retry attempts');
-          if (mounted) {
-            setState(() {
-              _justCompletedPurchase = false;
-            });
-          }
-          return; // Access granted - exit retry loop
-        }
+        // For hard paywall, only grant access if user actually has subscription
+        // No fallback access granting
         
         // If still no access and we have more retries, wait and try again
         if (attempt < _maxRetries) {
@@ -187,7 +205,7 @@ class _SuperwallGateContentState extends State<_SuperwallGateContent> {
     if (mounted) {
       setState(() {
         _justCompletedPurchase = false;
-        // Don't reset _accessGrantedByPaywall here - it should remain true if Superwall granted access
+        // For hard paywall, no fallback access - only subscription grants access
       });
     }
   }
@@ -220,9 +238,14 @@ class _SuperwallGateContentState extends State<_SuperwallGateContent> {
   Widget build(BuildContext context) {
     return Consumer<SubscriptionProvider>(
       builder: (context, subscriptionProvider, _) {
-        // Check subscription status OR if access was granted by Superwall
-        if (subscriptionProvider.isProUser || _accessGrantedByPaywall) {
+        // For hard paywall: ONLY grant access if user has valid subscription
+        if (subscriptionProvider.isProUser) {
           return widget.child;
+        }
+
+        // Show benefits screen for non-subscribers
+        if (_showingBenefitsScreen) {
+          return const BenefitsScreen();
         }
 
         if (_isCheckingSubscription) {
@@ -256,8 +279,14 @@ class _SuperwallGateContentState extends State<_SuperwallGateContent> {
           );
         }
 
-        // If we reach here without a subscription, show a loading state
-        // The actual paywall should be handled by Superwall
+        // If we reach here without a subscription and not showing benefits, 
+        // start the registration process which will show benefits screen
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_showingBenefitsScreen && !_isCheckingSubscription) {
+            _registerPlacementWithSuperwall();
+          }
+        });
+
         return const Scaffold(
           body: Center(
             child: Column(
@@ -265,7 +294,7 @@ class _SuperwallGateContentState extends State<_SuperwallGateContent> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Loading paywall...'),
+                Text('Loading...'),
               ],
             ),
           ),

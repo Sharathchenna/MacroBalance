@@ -12,6 +12,7 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:io';
 import 'package:macrotracker/services/auth_service.dart';
 import 'package:macrotracker/screens/forgot_password_screen.dart';
+import 'package:macrotracker/services/posthog_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -42,6 +43,10 @@ class _LoginScreenState extends State<LoginScreen>
       parent: _animationController,
       curve: Curves.easeIn,
     );
+    
+    // Track screen view
+    PostHogService.trackScreen('login_screen');
+    
     _animationController.forward();
   }
 

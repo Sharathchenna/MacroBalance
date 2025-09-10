@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'WeightTrackingScreen.dart';
 import 'MacroTrackingScreen.dart';
 import 'WorkoutTrackingScreen.dart';
+import '../services/posthog_service.dart';
 
 class TrackingPagesScreen extends StatefulWidget {
   const TrackingPagesScreen({Key? key}) : super(key: key);
@@ -33,6 +34,9 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentPage);
+    
+    // Track screen view
+    PostHogService.trackScreen('tracking_pages_screen');
 
     // Show swipe hint after a short delay
     Future.delayed(const Duration(milliseconds: 800), () {

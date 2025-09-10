@@ -65,6 +65,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
+    
+    // Track screen view
+    PostHogService.trackScreen('weight_tracking_screen');
+    
     // Use addPostFrameCallback to access provider safely
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadWeightData();

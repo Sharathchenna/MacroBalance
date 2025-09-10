@@ -3,7 +3,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
-import 'package:macrotracker/auth/paywall_gate.dart';
 import 'package:macrotracker/auth/superwall_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
@@ -43,7 +42,6 @@ import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for d
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/expenditure_screen.dart'; // Added ExpenditureScreen
 import 'package:macrotracker/services/subscription_service.dart';
-import 'package:macrotracker/services/paywall_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
@@ -572,8 +570,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 const SuperwallGate(child: MacroTrackingScreen()),
             Routes.savedFoods: (context) =>
                 const SuperwallGate(child: SavedFoodsScreen()),
-            // Routes.expenditure: (context) => const PaywallGate(
-            //     child: ExpenditureScreen()), // Added expenditure route mapping
+            // Routes.expenditure: (context) => const SuperwallGate(
+            //     child: ExpenditureScreen()), // ExpenditureScreen not implemented yet
           },
           onGenerateRoute: (settings) {
             // Handle any dynamic routes or routes with parameters here
