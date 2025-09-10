@@ -11,7 +11,8 @@ class SuperwallGate extends StatelessWidget {
   final String? placement; // Superwall placement name for this gate
 
   // Configuration flag to enable/disable Superwall gate
-  static const bool _enableSuperwallGate = true; // ✅ ENABLED: Ready for migration testing
+  // When testing flag is enabled in SubscriptionProvider, always bypass this gate.
+  static const bool _enableSuperwallGate = true; // ✅ ENABLED normally
 
   const SuperwallGate({
     super.key,
@@ -37,7 +38,7 @@ class SuperwallGate extends StatelessWidget {
           );
         }
 
-        // If the user has a subscription, let them access the app
+        // Global testing bypass: treat all users as premium and skip gating
         if (subscriptionProvider.isProUser) {
           return child;
         }
