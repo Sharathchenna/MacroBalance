@@ -5,10 +5,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:macrotracker/main.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
-import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Add this import
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
 import 'package:provider/provider.dart';
@@ -23,15 +21,14 @@ import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
-import 'package:macrotracker/screens/privacy_policy_screen.dart'; // Added import
-import 'package:macrotracker/screens/terms_screen.dart'; // Added import
 import 'package:macrotracker/screens/feedback_screen.dart'
     as fb_screen; // Added import for feedback with prefix
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
-import 'package:macrotracker/screens/RevenueCat/custom_paywall_screen.dart'; // Import Paywall Screen
+import 'package:macrotracker/services/superwall_placements.dart'; // Import Superwall Placements
+import 'package:macrotracker/services/posthog_service.dart'; // Import PostHogService
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -65,6 +62,10 @@ class _AccountDashboardState extends State<AccountDashboard>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    
+    // Track screen view
+    PostHogService.trackScreen('account_dashboard');
+    
     _checkHealthConnection();
     _loadUserData(); // Add this line
     _loadNotificationPreferences(); // Add this line
@@ -439,6 +440,9 @@ class _AccountDashboardState extends State<AccountDashboard>
                   // ),
                 ],
               ),
+
+              // Data & Sync section
+              _buildSyncSection(colorScheme, customColors),
 
               // Appearance section
               _buildSection(
@@ -973,14 +977,21 @@ class _AccountDashboardState extends State<AccountDashboard>
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         HapticFeedback.lightImpact();
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (context) => CustomPaywallScreen(
-                              onDismiss: () {}, // Add required onDismiss
-                            ),
-                          ),
-                        );
+                        SuperwallPlacements.showDebugPaywall(context);
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                    // Add Test Superwall Integration Button
+                    _buildListTile(
+                      icon: CupertinoIcons.lab_flask_solid,
+                      iconColor: Colors.orange,
+                      title: 'Test Superwall Integration',
+                      subtitle: 'Verify Superwall is working correctly',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        SuperwallPlacements.showTestPaywall(context);
                       },
                       colorScheme: colorScheme,
                       customColors: customColors,
@@ -1256,6 +1267,102 @@ class _AccountDashboardState extends State<AccountDashboard>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSyncSection(ColorScheme colorScheme, CustomColors? customColors) {
+    return Consumer<FoodEntryProvider>(
+      builder: (context, foodEntryProvider, child) {
+        final lastSync = foodEntryProvider.lastSyncDate;
+        final needsSync = foodEntryProvider.needsSync;
+        final syncStatus = foodEntryProvider.syncStatusMessage;
+        final syncSubtitle = foodEntryProvider.syncSubtitle;
+        
+        IconData syncIcon;
+        Color syncIconColor;
+        
+        if (lastSync == null) {
+          syncIcon = CupertinoIcons.cloud_upload;
+          syncIconColor = Colors.orange;
+        } else if (needsSync) {
+          syncIcon = CupertinoIcons.cloud_upload;
+          syncIconColor = Colors.orange;
+        } else {
+          syncIcon = CupertinoIcons.cloud_fill;
+          syncIconColor = Colors.green;
+        }
+        
+        return _buildSection(
+          title: 'Data & Sync',
+          icon: CupertinoIcons.cloud,
+          colorScheme: colorScheme,
+          customColors: customColors,
+          children: [
+            _buildListTile(
+              icon: syncIcon,
+              iconColor: syncIconColor,
+              title: syncStatus,
+              subtitle: syncSubtitle,
+              trailing: needsSync || lastSync == null
+                  ? const Icon(Icons.chevron_right)
+                  : Icon(Icons.check_circle, color: Colors.green),
+              onTap: () async {
+                if (needsSync || lastSync == null) {
+                  HapticFeedback.lightImpact();
+                  try {
+                    // Show loading indicator with appropriate message
+                    final isFirstTime = foodEntryProvider.isFirstTimeSync;
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => AlertDialog(
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text(isFirstTime 
+                                ? 'Backing up your food entries...'
+                                : 'Syncing food entries...'),
+                          ],
+                        ),
+                      ),
+                    );
+                    
+                    await foodEntryProvider.forceFoodEntrySync();
+                    
+                    Navigator.of(context).pop(); // Close loading dialog
+                    
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isFirstTime 
+                            ? 'Food entries backed up successfully!'
+                            : 'Food entries synced successfully!'),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  } catch (e) {
+                    Navigator.of(context).pop(); // Close loading dialog
+                    
+                    // Show error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Sync failed: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+              colorScheme: colorScheme,
+              customColors: customColors,
+            ),
+          ],
+        );
+      },
     );
   }
 

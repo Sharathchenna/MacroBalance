@@ -16,6 +16,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'package:lottie/lottie.dart';
 import 'package:math_expressions/math_expressions.dart'; // Import math_expressions
+import 'package:macrotracker/services/posthog_service.dart';
 
 class Askai extends StatefulWidget {
   const Askai({super.key});
@@ -35,6 +36,9 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
+
+    // Track screen view
+    PostHogService.trackScreen('ask_ai_screen');
 
     _mealController.addListener(() {
       setState(() {
@@ -142,19 +146,19 @@ Meal to analyze: ${_mealController.text}
           setState(() {
             _isLoading = false;
           });
-          _showErrorSnackbar('Error parsing results: ${e.toString()}');
+          _showErrorSnackbar('Something went wrong, try again later');
         }
       } else {
         setState(() {
           _isLoading = false;
         });
-        _showErrorSnackbar('Could not extract structured data from response');
+        _showErrorSnackbar('Something went wrong, try again later');
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      _showErrorSnackbar('Error analyzing meal: ${e.toString()}');
+      _showErrorSnackbar('Something went wrong, try again later');
     }
   }
 

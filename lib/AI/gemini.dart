@@ -1,57 +1,25 @@
 // ignore_for_file: avoid_print
 
 import 'dart:io';
-import 'package:firebase_vertexai/firebase_vertexai.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<String> processImageWithGemini(String imagePath) async {
   try {
-    print('[Gemini Debug] Starting Gemini processing at ${DateTime.now().toString()}');
+    print('[Gemini Debug] Starting Gemini processing with Supabase edge function at ${DateTime.now().toString()}');
     final startTime = DateTime.now();
-    
-    print('[Gemini Debug] Initializing model...');
-    final model = FirebaseVertexAI.instance.generativeModel(model: 'gemini-2.0-flash');
-    print('[Gemini Debug] Model initialized in ${DateTime.now().difference(startTime).inMilliseconds}ms');
-
-    final promptText = '''
-        Analyze the following meal and provide its nutritional content. 
-        if the image is a nutrition label, extract the nutrition information from the label and return response in the specified format, give correct nutrition values for different serving sizes, if given percentages then convert them into relavant values, do not provide null values if you couldn't get the number return 0.
-        If the image is food, identify the food and provide the nutrition information for the meal.
-        The meal can be a single food item or a combination of different foods.
-        Break down the meal into different foods and do the nutrition analysis for each food.
-        give nutrition info for each food in the meal with different serving sizes. the serving sizes can be in grams, ounces, tablespoons, teaspoons, cups etc.
-        Return only the numerical values for calories, protein, carbohydrates, fat, and fiber.
-        Format the response in json exactly like this example, do not include any other information in the response, just the json object, not even the json title in the response.:
-        meal: [
-          {
-            food: "food name 1",
-            serving_size: ["serving size 1", "serving size 2", "serving size 3"],
-            calories: [calories for serving 1, calories for serving 2, calories for serving 3],
-            protein: [protein for serving 1, protein for serving 2, protein for serving 3],
-            carbohydrates: [carbohydrates for serving 1, carbohydrates for serving 2, carbohydrates for serving 3],
-            fat: [fat for serving 1, fat for serving 2, fat for serving 3],
-            fiber: [fiber for serving 1, fiber for serving 2, fiber for serving 3]
-          },
-          {
-            food: "food name 2",
-            serving_size: ["serving size 1", "serving size 2", "serving size 3"],
-            calories: [calories for serving 1, calories for serving 2, calories for serving 3],
-            protein: [protein for serving 1, protein for serving 2, protein for serving 3],
-            carbohydrates: [carbohydrates for serving 1, carbohydrates for serving 2, carbohydrates for serving 3],
-            fat: [fat for serving 1, fat for serving 2, fat for serving 3],
-            fiber: [fiber for serving 1, fiber for serving 2, fiber for serving 3]
-          },
-        ]
-        ''';
     
     print('[Gemini Debug] Reading and compressing image file...');
     final imageReadStart = DateTime.now();
-    
+
     // Read original image size
     final File originalImage = File(imagePath);
     final originalBytes = await originalImage.readAsBytes();
     print('[Gemini Debug] Original image size: ${originalBytes.length} bytes');
-    
+
     // Compress the image (reduce quality and size)
     final compressedImageStart = DateTime.now();
     final targetPath = imagePath.replaceFirst('.jpg', '_compressed.jpg');
@@ -62,22 +30,48 @@ Future<String> processImageWithGemini(String imagePath) async {
       minWidth: 1024, // Reduce dimensions if larger
       minHeight: 1024,
     );
-    
+
     final imageBytes = await compressedFile!.readAsBytes();
-    print('[Gemini Debug] Compressed to ${imageBytes.length} bytes (${(imageBytes.length / originalBytes.length * 100).toStringAsFixed(1)}% of original)');
-    print('[Gemini Debug] Compression completed in ${DateTime.now().difference(compressedImageStart).inMilliseconds}ms');
-    print('[Gemini Debug] Total image processing time: ${DateTime.now().difference(imageReadStart).inMilliseconds}ms');
+    print(
+        '[Gemini Debug] Compressed to ${imageBytes.length} bytes (${(imageBytes.length / originalBytes.length * 100).toStringAsFixed(1)}% of original)');
+    print(
+        '[Gemini Debug] Compression completed in ${DateTime.now().difference(compressedImageStart).inMilliseconds}ms');
+    print(
+        '[Gemini Debug] Total image processing time: ${DateTime.now().difference(imageReadStart).inMilliseconds}ms');
 
-    print('[Gemini Debug] Preparing content parts...');
-    final prompt = TextPart(promptText);
-    final imagePart = InlineDataPart('image/jpeg', imageBytes);
+    print('[Gemini Debug] Preparing request to Supabase edge function...');
+    
+    // Get Supabase client and current session
+    final supabase = Supabase.instance.client;
+    final session = supabase.auth.currentSession;
+    
+    if (session == null) {
+      throw Exception('User not authenticated');
+    }
+    
+    // Prepare multipart request
+    final uri = Uri.parse('https://mdivtblabmnftdqlgysv.supabase.co/functions/v1/process-withgemini');
+    var request = http.MultipartRequest('POST', uri);
+    
+    // Add authorization header
+    request.headers['Authorization'] = 'Bearer ${session.accessToken}';
+    
+    // Add compressed image as multipart file with explicit MIME type
+    final multipartFile = http.MultipartFile.fromBytes(
+      'image',
+      imageBytes,
+      filename: 'image.jpg',
+      contentType: MediaType('image', 'jpeg'),
+    );
+    request.files.add(multipartFile);
 
-    print('[Gemini Debug] Sending request to Gemini API...');
+    print('[Gemini Debug] Sending request to Supabase edge function...');
     final apiCallStart = DateTime.now();
-    final response = await model.generateContent([
-      Content.multi([prompt, imagePart])
-    ]);
-    print('[Gemini Debug] Gemini API response received in ${DateTime.now().difference(apiCallStart).inMilliseconds}ms');
+    
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    
+    print('[Gemini Debug] Supabase edge function response received in ${DateTime.now().difference(apiCallStart).inMilliseconds}ms');
     
     // Clean up temp file
     try {
@@ -87,12 +81,19 @@ Future<String> processImageWithGemini(String imagePath) async {
       print('[Gemini Debug] Warning: Could not delete temp file: $e');
     }
     
-    final responseText = response.text ?? 'No response from Gemini';
-    print('[Gemini Debug] Total Gemini processing time: ${DateTime.now().difference(startTime).inMilliseconds}ms');
+    if (response.statusCode == 200) {
+      final responseData = json.decode(response.body);
+      final responseText = responseData['result'] ?? 'No response from Gemini';
+      print('[Gemini Debug] Total Supabase processing time: ${DateTime.now().difference(startTime).inMilliseconds}ms');
+      return responseText;
+    } else {
+      final errorData = json.decode(response.body);
+      final errorMessage = errorData['error'] ?? 'Unknown error occurred';
+      throw Exception('Supabase edge function error: $errorMessage');
+    }
     
-    return responseText;
   } catch (error) {
-    print('Error processing image with Gemini: $error');
+    print('Error processing image with Supabase edge function: $error');
     return 'Error processing image: $error';
   }
 }

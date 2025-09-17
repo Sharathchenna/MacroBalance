@@ -12,6 +12,8 @@ class SupabaseService {
   factory SupabaseService() => _instance;
   SupabaseService._internal();
 
+  static const String _lastSyncKey = 'last_sync_timestamp';
+
   // Use the client instance defined in the class
   final supabaseClient = Supabase.instance.client;
 
@@ -33,6 +35,18 @@ class SupabaseService {
     }
   }
 
+  Future<void> syncOnAppStart(String userId) async {
+    final lastSyncString = StorageService().get(_lastSyncKey);
+    if (lastSyncString != null) {
+      final lastSyncTime = DateTime.parse(lastSyncString);
+      if (DateTime.now().difference(lastSyncTime) < const Duration(hours: 12)) {
+        print('Skipping sync, last sync was less than 12 hours ago.');
+        return;
+      }
+    }
+    await fullSync(userId);
+  }
+
   Future<void> fullSync(String userId) async {
     print('Starting full data sync with Supabase...');
     print('User ID: $userId');
@@ -48,6 +62,7 @@ class SupabaseService {
       await verifySync(userId);
 
       print('All data sync process completed');
+      StorageService().put(_lastSyncKey, DateTime.now().toIso8601String());
     } catch (e) {
       print('Error during full sync: $e');
       rethrow;
@@ -180,6 +195,7 @@ class SupabaseService {
           .eq('user_id', userId);
 
       // Check nutrition_goals using supabaseClient
+      /*
       final nutritionGoalsResponse = await supabaseClient
           .from('nutrition_goals')
           .select()
@@ -199,11 +215,12 @@ class SupabaseService {
       } else {
         print('Nutrition goals response is null or empty.');
       }
+      */
 
       int totalFoodEntries = foodEntryResponse?.length ?? 0;
-      int totalGoalsEntries = nutritionGoalsResponse?.length ?? 0;
+      // int totalGoalsEntries = nutritionGoalsResponse?.length ?? 0;
       print(
-          'Verification successful: $totalFoodEntries food entries and $totalGoalsEntries goals entries found in Supabase');
+          'Verification successful: $totalFoodEntries food entries found in Supabase');
     } catch (e) {
       print('Verification error: $e');
       rethrow;

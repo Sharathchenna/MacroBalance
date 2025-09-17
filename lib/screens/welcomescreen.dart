@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'dart:io' show Platform;
+import 'package:macrotracker/services/posthog_service.dart';
 
 class Welcomescreen extends StatefulWidget {
   const Welcomescreen({Key? key}) : super(key: key);
@@ -35,6 +36,9 @@ class _WelcomescreenState extends State<Welcomescreen>
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
+    
+    // Track screen view
+    PostHogService.trackScreen('welcome_screen');
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
@@ -118,9 +122,7 @@ class _WelcomescreenState extends State<Welcomescreen>
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Image.asset(
-                            isDark
-                                ? 'assets/icons/icon_white.png'
-                                : 'assets/icons/icon_black.png',
+                            'assets/icons/MacroBalance_Logo.png',
                             fit: BoxFit.contain,
                           ),
                         ),

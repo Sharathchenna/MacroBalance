@@ -97,11 +97,19 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         super.viewWillAppear(animated)
         // Reset state when the view is about to appear
         hasSentResult = false
+        // Update preview layer frame to ensure it's properly displayed
+        updatePreviewLayerFrame()
         // Only start if setup is fully complete to avoid race condition
         if isSessionSetupComplete {
              startSessionIfNeeded()
              updateUIForCurrentMode() // Ensure UI matches mode on appear
         }
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Update preview layer frame when layout changes
+        updatePreviewLayerFrame()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -549,6 +557,22 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             previewView.layer.addSublayer(layer)
         }
     }
+    
+    private func updatePreviewLayerFrame() {
+        DispatchQueue.main.async {
+            guard let layer = self.previewLayer else { return }
+            
+            // Check if the preview layer is still attached to the preview view
+            if layer.superlayer != self.previewView.layer {
+                print("Preview layer detached, reattaching...")
+                self.previewView.layer.addSublayer(layer)
+            }
+            
+            // Update the preview layer frame to match the preview view bounds
+            layer.frame = self.previewView.bounds
+            print("Preview layer frame updated to: \(self.previewView.bounds)")
+        }
+    }
 
     // MARK: - Session Management
     
@@ -557,6 +581,13 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             if !(self.captureSession?.isRunning ?? false) {
                 self.captureSession?.startRunning()
                 print("Native Camera Session Started")
+            } else {
+                print("Native Camera Session Already Running")
+            }
+            
+            // Ensure preview layer is properly connected after session starts
+            DispatchQueue.main.async {
+                self.updatePreviewLayerFrame()
             }
         }
     }
@@ -567,6 +598,8 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                 self.captureSession?.stopRunning()
                 print("Native Camera Session Stopped")
             }
+            // Note: We don't remove the preview layer here to maintain preview state
+            // The preview layer will be updated when the session restarts
         }
     }
     

@@ -1,0 +1,81 @@
+# Notification Testing Instructions
+
+## Testing Notifications in Your MacroTracker App
+
+### Issues Found and Fixed:
+
+1. **NotificationService not awaited**: Fixed in main.dart - now properly awaits initialization
+2. **Missing Android permissions**: Added notification permissions to AndroidManifest.xml
+3. **Missing iOS notification usage description**: Added to Info.plist
+4. **Improved error handling and debugging**: Enhanced NotificationService with better logging
+
+### How to Test Notifications:
+
+#### 1. Test Local Notifications (Easiest):
+```dart
+// Call this from anywhere in your app to test local notifications
+NotificationService().scheduleTestLocalNotification();
+```
+
+#### 2. Test Firebase Cloud Messaging (FCM):
+```dart
+// Call this to test FCM (requires user to be logged in)
+try {
+  await NotificationService().testFirebaseCloudMessaging();
+  print('FCM test notification sent successfully');
+} catch (e) {
+  print('FCM test failed: $e');
+}
+```
+
+### Common Issues and Solutions:
+
+#### iOS Issues:
+- **Permission Denied**: Go to Settings > Your App > Notifications and enable them
+- **No APNs Certificate**: Make sure you have a valid APNs certificate in Firebase Console
+- **Provisioning Profile**: Ensure your provisioning profile includes push notification capability
+
+#### Android Issues:
+- **Android 13+ Permissions**: The app now requests POST_NOTIFICATIONS permission
+- **Notification Channel**: Make sure the channel is created (handled automatically now)
+- **Google Services**: Ensure google-services.json is properly configured
+
+### Debugging Steps:
+
+1. **Check Console Logs**: Look for logs prefixed with `[NotificationService]`
+2. **Test Local First**: Always test local notifications before FCM
+3. **Check Permissions**: Verify notification permissions are granted in device settings
+4. **Verify FCM Token**: Check if FCM token is being generated and saved
+
+### Key Improvements Made:
+
+1. **Better Permission Handling**: Explicit permission requests for both Android and iOS
+2. **Enhanced Logging**: Detailed debug logs to track initialization and errors
+3. **Proper Initialization**: NotificationService is now properly awaited during app startup
+4. **Android Channels**: Proper notification channel configuration
+5. **Error Handling**: Better error handling and user feedback
+
+### Testing Commands:
+
+Run these commands from your device/emulator after the fixes:
+
+```bash
+# Check if the app builds without errors
+flutter build ios
+flutter build android
+
+# Run on device to test notifications
+flutter run
+```
+
+### Monitoring FCM Tokens:
+
+Check your Supabase database table `user_notification_tokens` to see if FCM tokens are being saved properly.
+
+### Next Steps if Still Not Working:
+
+1. Check Firebase Console for proper configuration
+2. Verify APNs certificates for iOS
+3. Test on a physical device (simulators have limitations)
+4. Check device notification settings
+5. Look at Supabase Edge Function logs for FCM sending

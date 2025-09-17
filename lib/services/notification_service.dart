@@ -1,329 +1,479 @@
-import 'dart:io';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter/services.dart';
-import 'package:macrotracker/firebase_options.dart'; // Import firebase_options
-
-// Add this top-level function for the background handler
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // If you're going to use other Firebase services in the background, like Firestore,
-  // make sure you call `initializeApp` before using other Firebase services.
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  debugPrint("Handling a background message: ${message.messageId}");
-  // You can add custom logic here if needed in the future
-}
+import 'dart:io' show Platform;
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications =
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+  final _supabase = Supabase.instance.client;
+  late FirebaseMessaging _firebaseMessaging;
 
-  // For handling notification when app is in background/terminated and tapped
-  final selectNotificationSubject = ValueNotifier<String?>(null);
+  bool _isInitialized = false;
+  String? _fcmToken;
 
   Future<void> initialize() async {
-    // Initialize local notification plugin
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    if (_isInitialized) return;
 
-    final DarwinInitializationSettings iosSettings =
-        DarwinInitializationSettings(
-      requestSoundPermission: true, // Request sound permission during init
-      requestBadgePermission: true,  // Request badge permission during init
-      requestAlertPermission: true, // Request alert permission during init
-      // onDidReceiveLocalNotification is deprecated here, handled in initialize()
-    );
+    try {
+      debugPrint('[NotificationService] Starting initialization...');
+      
+      // Initialize timezone data
+      tz.initializeTimeZones();
 
-    final InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
+      // Initialize Firebase Messaging
+      _firebaseMessaging = FirebaseMessaging.instance;
+      
+      // Initialize platform-specific settings
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    await _localNotifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Handle notification tap when app is in foreground/background
-        debugPrint('Local notification tapped with payload: ${response.payload}');
-        selectNotificationSubject.value = response.payload;
-      },
-    );
+      const DarwinInitializationSettings initializationSettingsIOS =
+          DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
 
-    // Request foreground presentation options for iOS (needed for iOS 10+)
-    // This ensures foreground notifications are shown using flutter_local_notifications
-    await _messaging.setForegroundNotificationPresentationOptions(
-      alert: true, // Required to display a heads up notification
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsIOS,
+      );
+
+      await _flutterLocalNotificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: _onNotificationTap,
+      );
+
+      // Request permissions
+      await _requestPermissions();
+
+      // Setup FCM
+      await _setupFirebaseMessaging();
+
+      _isInitialized = true;
+      debugPrint('[NotificationService] Initialization completed successfully');
+    } catch (e) {
+      debugPrint('[NotificationService] Error during initialization: $e');
+    }
+  }
+
+  Future<void> _requestPermissions() async {
+    debugPrint('[NotificationService] Requesting permissions...');
+    
+    if (Platform.isIOS) {
+      await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+    } else if (Platform.isAndroid) {
+      await Permission.notification.request();
+    }
+
+    // Request FCM permissions
+    NotificationSettings settings = await _firebaseMessaging.requestPermission(
+      alert: true,
+      announcement: false,
       badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
       sound: true,
     );
 
-    // Request permission for iOS (redundant if requested in iosSettings, but safe)
-    if (Platform.isIOS) {
-      await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-    }
-
-    // Configure notification channels for Android
-    if (Platform.isAndroid) {
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'meal_reminders', // id
-        'Meal Reminders', // title
-        description: 'Notifications to remind you to log your meals',
-        importance: Importance.high,
-      );
-
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(channel);
-    }
-
-    // Handle messages when app is in foreground
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-       debugPrint('Foreground FCM message received: ${message.notification?.title}');
-      _showNotification(message); // Use local notifications to display foreground FCM
-    });
-
-    // Set the background messaging handler
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // Handle notification tap when app is opened from terminated state
-    final RemoteMessage? initialMessage = await _messaging.getInitialMessage();
-    if (initialMessage != null) {
-       debugPrint('App opened from terminated state via FCM: ${initialMessage.notification?.title}');
-       // Handle initial message payload if needed, e.g., navigate
-       // selectNotificationSubject.value = initialMessage.data['type']; // Example
-    }
-
-    // Handle notification tap when app is opened from background state
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-       debugPrint('App opened from background state via FCM: ${message.notification?.title}');
-       // Handle message payload if needed, e.g., navigate
-       // selectNotificationSubject.value = message.data['type']; // Example
-    });
-
-
-    // Get FCM token and save to Supabase
-    final token = await _messaging.getToken();
-    if (token != null) {
-      await _saveFcmToken(token);
-    }
-
-    // Listen for token refreshes
-    _messaging.onTokenRefresh.listen(_saveFcmToken);
-
-    // Remove the potentially redundant method channel handler unless specifically needed
-    // const platform = MethodChannel('app.macrobalance.com/fcm');
-    // platform.setMethodCallHandler((MethodCall call) async {
-    //   debugPrint('FCM method channel received: ${call.method}');
-    //   if (call.method == 'updateFCMToken') {
-    //     final token = call.arguments as String;
-    //     debugPrint('Received FCM token from iOS: $token');
-    //     await _saveFcmToken(token);
-    //     return;
-    //   }
-    //   return;
-    // });
+    debugPrint('[NotificationService] Notification permission status: ${settings.authorizationStatus}');
   }
 
-  // Handler for older iOS versions (before iOS 10) receiving local notifications
-  void onDidReceiveLocalNotification(
-      int id, String? title, String? body, String? payload) async {
-    // display a dialog with the notification details, tap ok to go to another page
-     debugPrint('Received local notification on older iOS: $title');
-     selectNotificationSubject.value = payload;
-  }
-
-
-  Future<void> _saveFcmToken(String token) async {
+  Future<void> _setupFirebaseMessaging() async {
+    debugPrint('[NotificationService] Setting up Firebase Messaging...');
+    
     try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser == null) {
-         debugPrint('Cannot save FCM token: User not logged in.');
-         return;
+      // Get FCM token
+      _fcmToken = await _firebaseMessaging.getToken();
+      debugPrint('[NotificationService] FCM Token obtained: ${_fcmToken?.substring(0, 20)}...');
+
+      // Save token to database if user is logged in
+      if (_fcmToken != null && _supabase.auth.currentUser != null) {
+        await _saveFCMTokenToDatabase(_fcmToken!);
       }
 
-      await Supabase.instance.client.from('user_notification_tokens').upsert(
-        {
-          'user_id': currentUser.id,
-          'fcm_token': token,
-          'device_name': Platform.isIOS ? 'iOS Device' : 'Android Device',
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        // Ensure upsert happens based on user_id and fcm_token
-        onConflict: 'user_id, fcm_token', // Specify the conflict columns
-      );
+      // Listen for token refresh
+      _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+        debugPrint('[NotificationService] FCM Token refreshed');
+        _fcmToken = newToken;
+        if (_supabase.auth.currentUser != null) {
+          await _saveFCMTokenToDatabase(newToken);
+        }
+      });
 
-      debugPrint('FCM token saved/updated in Supabase: $token');
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('[NotificationService] Received foreground message: ${message.messageId}');
+        _handleForegroundMessage(message);
+      });
+
+      // Handle background messages when app is opened
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('[NotificationService] App opened from background message: ${message.messageId}');
+        _handleMessageTap(message);
+      });
+
+      // Handle app opened from terminated state
+      RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
+      if (initialMessage != null) {
+        debugPrint('[NotificationService] App opened from terminated state: ${initialMessage.messageId}');
+        _handleMessageTap(initialMessage);
+      }
+
     } catch (e) {
-      debugPrint('Error saving FCM token: $e');
+      debugPrint('[NotificationService] Error setting up Firebase Messaging: $e');
     }
   }
 
-  // Renamed to reflect it's showing local notifications (also used for foreground FCM)
-  Future<void> _showLocalNotification({
-      required int id,
-      required String title,
-      required String body,
-      String? payload,
-      NotificationDetails? details // Allow custom details
-  }) async {
-     await _localNotifications.show(
-        id,
-        title,
-        body,
-        details ?? // Use default details if none provided
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'meal_reminders', // Use your channel ID
-            'Meal Reminders', // Use your channel name
-            channelDescription: 'Notifications to remind you to log your meals',
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: '@mipmap/ic_launcher', // Ensure this icon exists
-          ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-            // You can add categoryIdentifier here for actions
-          ),
-        ),
-        payload: payload,
-      );
-  }
+  Future<void> _saveFCMTokenToDatabase(String token) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
 
-  // Handles displaying FCM messages received while the app is in the foreground
-  Future<void> _showNotification(RemoteMessage message) async {
-    final notification = message.notification;
+      debugPrint('[NotificationService] Saving FCM token to database for user: $userId');
 
-    if (notification != null) {
-       debugPrint('Displaying foreground FCM as local notification: ${notification.title}');
-       await _showLocalNotification(
-          id: notification.hashCode, // Use a unique ID
-          title: notification.title ?? 'New Message',
-          body: notification.body ?? '',
-          payload: message.data['type'], // Example payload extraction
-          // Use platform-specific details from the FCM message if available
-          // details: NotificationDetails(...)
-       );
+      await _supabase.from('user_notification_tokens').upsert({
+        'user_id': userId,
+        'fcm_token': token,
+        'platform': Platform.isIOS ? 'ios' : 'android',
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      debugPrint('[NotificationService] FCM token saved successfully');
+    } catch (e) {
+      debugPrint('[NotificationService] Error saving FCM token: $e');
     }
   }
 
-  // --- Test Functions ---
-
-  /// Schedules a test local notification to appear after 5 seconds.
-  Future<void> scheduleTestLocalNotification() async {
-    debugPrint('Scheduling test local notification...');
-    await _showLocalNotification(
-      id: 999, // Unique ID for the test notification
-      title: 'Test Local Notification',
-      body: 'This is a test local notification scheduled from the app.',
-      payload: 'test_local_payload',
+  void _handleForegroundMessage(RemoteMessage message) {
+    // Show local notification when app is in foreground
+    showNotification(
+      id: message.hashCode,
+      title: message.notification?.title ?? 'New Notification',
+      body: message.notification?.body ?? 'You have a new message',
+      payload: message.data.toString(),
     );
-     debugPrint('Test local notification displayed/scheduled.');
   }
 
-  /// Tests a Firebase Cloud Messaging (FCM) notification through the server.
-  /// This tests the full end-to-end flow including APN on iOS.
-  Future<void> testFirebaseCloudMessaging() async {
+  void _handleMessageTap(RemoteMessage message) {
+    debugPrint('[NotificationService] Handling message tap: ${message.data}');
+    // Handle navigation based on message data
+    // You can add navigation logic here based on message.data
+  }
+
+  void _onNotificationTap(NotificationResponse notificationResponse) {
+    debugPrint('[NotificationService] Local notification tapped: ${notificationResponse.payload}');
+    // Handle local notification tap
+  }
+
+  Future<void> showNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    debugPrint('[NotificationService] Showing local notification: $title');
+
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'macrotracker_channel',
+      'MacroTracker Notifications',
+      channelDescription: 'Notifications for MacroTracker app',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+    );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await _flutterLocalNotificationsPlugin.show(
+      id,
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: payload,
+    );
+  }
+
+  Future<void> scheduleNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledDate,
+    String? payload,
+  }) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    debugPrint('[NotificationService] Scheduling notification for: $scheduledDate');
+
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'macrotracker_scheduled_channel',
+      'MacroTracker Scheduled Notifications',
+      channelDescription: 'Scheduled notifications for MacroTracker app',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    // Convert DateTime to TZDateTime
+    final tz.TZDateTime scheduledTZDateTime = tz.TZDateTime.from(
+      scheduledDate,
+      tz.local,
+    );
+
+          await _flutterLocalNotificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduledTZDateTime,
+      platformChannelSpecifics,
+      payload: payload,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  // NEW TEST METHODS
+  Future<void> scheduleTestLocalNotification() async {
+    debugPrint('[NotificationService] Scheduling test local notification...');
+    
     try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser == null) {
-        debugPrint('Cannot test FCM: User not logged in.');
-        throw Exception('User not logged in');
-      }
-
-      // Get the FCM token first to ensure it's registered
-      final token = await _messaging.getToken();
-      if (token != null) {
-        await _saveFcmToken(token);
-        debugPrint('FCM token refreshed before test: $token');
-      } else {
-        debugPrint('Warning: FCM token is null');
-      }
-
-      debugPrint('Sending test notification for user: ${currentUser.id}');
-      
-      // Define request body
-      final requestBody = {
-        'type': 'test_notification',
-        'userId': currentUser.id,
-      };
-      
-      debugPrint('Request body: ${requestBody.toString()}');
-
-      // Call the Supabase Edge Function to send a test notification
-      final response = await Supabase.instance.client.functions.invoke(
-        'send-notifications',
-        body: requestBody,
+      await showNotification(
+        id: DateTime.now().millisecondsSinceEpoch,
+        title: 'Test Local Notification',
+        body: 'Your local notifications are working perfectly! 🎉',
+        payload: 'test_local_notification',
       );
-
-      debugPrint('Response status: ${response.status}');
-      debugPrint('Response data: ${response.data}');
-
-      if (response.status != 200) {
-        throw Exception('Failed to send test notification: ${response.data}');
-      }
-
-      debugPrint('Test FCM notification sent successfully: ${response.data}');
-      return;
+      
+      // Also schedule one for 5 seconds from now
+      await scheduleNotification(
+        id: DateTime.now().millisecondsSinceEpoch + 1,
+        title: 'Scheduled Test Notification',
+        body: 'This scheduled notification proves your timing works! ⏰',
+        scheduledDate: DateTime.now().add(const Duration(seconds: 5)),
+        payload: 'test_scheduled_notification',
+      );
+      
+      debugPrint('[NotificationService] Test local notifications sent successfully');
     } catch (e) {
-      debugPrint('Error sending test FCM notification: $e');
-      rethrow; // Rethrow to handle in the UI
+      debugPrint('[NotificationService] Error sending test local notification: $e');
+      rethrow;
     }
   }
 
-  // --- Preference Update ---
-
-  Future<void> updateNotificationPreferences(
-      bool mealReminders, bool weeklyReports,
-      {String? mealReminderTime,
-      int? weeklyReportDay,
-      String? weeklyReportTime}) async {
+  Future<void> testFirebaseCloudMessaging() async {
+    debugPrint('[NotificationService] Testing Firebase Cloud Messaging...');
+    
     try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser == null) return;
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('User not logged in. Please log in to test FCM.');
+      }
 
-      final preferences = {
-        'user_id': currentUser.id,
+      if (_fcmToken == null) {
+        throw Exception('FCM token not available. Please check your internet connection and try again.');
+      }
+
+      // Save the current token to database first
+      await _saveFCMTokenToDatabase(_fcmToken!);
+
+      // Call the Supabase Edge Function to send test notification
+      final response = await _supabase.functions.invoke(
+        'send-notifications',
+        body: {
+          'type': 'test_notification',
+          'userId': userId,
+        },
+      );
+
+      if (response.data == null) {
+        throw Exception('Failed to send test FCM: No response data received');
+      }
+
+      debugPrint('[NotificationService] Test FCM sent successfully: ${response.data}');
+    } catch (e) {
+      debugPrint('[NotificationService] Error sending test FCM: $e');
+      rethrow;
+    }
+  }
+
+  // USER PREFERENCE METHODS
+  Future<void> saveNotificationPreferences({
+    required bool enabled,
+    required bool mealReminders,
+    required bool weeklyReports,
+    String? mealReminderTime,
+    int? weeklyReportDay,
+    String? weeklyReportTime,
+  }) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      debugPrint('[NotificationService] Saving notification preferences for user: $userId');
+
+      await _supabase.from('user_notification_preferences').upsert({
+        'user_id': userId,
+        'enabled': enabled,
         'meal_reminders': mealReminders,
         'weekly_reports': weeklyReports,
+        'meal_reminder_time': mealReminderTime,
+        'weekly_report_day': weeklyReportDay,
+        'weekly_report_time': weeklyReportTime,
         'updated_at': DateTime.now().toIso8601String(),
-      };
+      });
 
-      if (mealReminderTime != null) {
-        preferences['meal_reminder_time'] = mealReminderTime;
-      }
-
-      if (weeklyReportDay != null) {
-        preferences['weekly_report_day'] = weeklyReportDay;
-      }
-
-      if (weeklyReportTime != null) {
-        preferences['weekly_report_time'] = weeklyReportTime;
-      }
-
-      await Supabase.instance.client
-          .from('user_notification_preferences')
-          .upsert(
-            preferences,
-            onConflict: 'user_id', // Specify the conflict column
-          );
-
-      debugPrint('Notification preferences updated');
+      debugPrint('[NotificationService] Notification preferences saved successfully');
     } catch (e) {
-      debugPrint('Error updating notification preferences: $e');
+      debugPrint('[NotificationService] Error saving notification preferences: $e');
     }
   }
+
+  // Convenience method for updating notification preferences with simplified parameters
+  Future<void> updateNotificationPreferences(
+    bool mealReminders,
+    bool weeklyReports, {
+    String? mealReminderTime,
+  }) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      debugPrint('[NotificationService] Updating notification preferences for user: $userId');
+
+      // Get current preferences to preserve other settings
+      Map<String, dynamic>? currentPrefs;
+      try {
+        currentPrefs = await getNotificationPreferences();
+      } catch (e) {
+        debugPrint('[NotificationService] Could not get current preferences, using defaults: $e');
+      }
+
+      await _supabase.from('user_notification_preferences').upsert({
+        'user_id': userId,
+        'enabled': mealReminders || weeklyReports, // Enable if any notification type is enabled
+        'meal_reminders': mealReminders,
+        'weekly_reports': weeklyReports,
+        'meal_reminder_time': mealReminderTime ?? currentPrefs?['meal_reminder_time'] ?? '19:00:00',
+        'weekly_report_day': currentPrefs?['weekly_report_day'] ?? 0, // Sunday default
+        'weekly_report_time': currentPrefs?['weekly_report_time'] ?? '09:00:00',
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      debugPrint('[NotificationService] Notification preferences updated successfully');
+    } catch (e) {
+      debugPrint('[NotificationService] Error updating notification preferences: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getNotificationPreferences() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return null;
+
+      final response = await _supabase
+          .from('user_notification_preferences')
+          .select()
+          .eq('user_id', userId)
+          .single();
+
+      return response;
+    } catch (e) {
+      debugPrint('[NotificationService] Error getting notification preferences: $e');
+      return null;
+    }
+  }
+
+  // UTILITY METHODS
+  Future<String?> getFCMToken() async {
+    if (_fcmToken == null) {
+      _fcmToken = await _firebaseMessaging.getToken();
+    }
+    return _fcmToken;
+  }
+
+  Future<void> refreshFCMToken() async {
+    debugPrint('[NotificationService] Refreshing FCM token...');
+    try {
+      await _firebaseMessaging.deleteToken();
+      _fcmToken = await _firebaseMessaging.getToken();
+      
+      if (_fcmToken != null && _supabase.auth.currentUser != null) {
+        await _saveFCMTokenToDatabase(_fcmToken!);
+      }
+      
+      debugPrint('[NotificationService] FCM token refreshed successfully');
+    } catch (e) {
+      debugPrint('[NotificationService] Error refreshing FCM token: $e');
+    }
+  }
+
+  Future<void> cancelNotification(int id) async {
+    await _flutterLocalNotificationsPlugin.cancel(id);
+    debugPrint('[NotificationService] Cancelled notification with ID: $id');
+  }
+
+  Future<void> cancelAllNotifications() async {
+    await _flutterLocalNotificationsPlugin.cancelAll();
+    debugPrint('[NotificationService] Cancelled all notifications');
+  }
+
+  // CLEANUP
+  Future<void> dispose() async {
+    debugPrint('[NotificationService] Disposing notification service...');
+    // Cancel all notifications
+    await cancelAllNotifications();
+  }
+}
+
+// Background message handler (must be top-level function)
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint('[NotificationService] Background message received: ${message.messageId}');
+  // Handle background message here if needed
 }

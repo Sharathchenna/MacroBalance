@@ -10,9 +10,11 @@ import 'dart:math'; // For min/max
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/services/posthog_service.dart';
 
 // Import Page Widgets
 import 'pages/welcome_page.dart';
+import 'pages/acquisition_source_page.dart'; // Import the new acquisition source page
 import 'pages/gender_page.dart';
 import 'pages/weight_page.dart';
 import 'pages/height_page.dart';
@@ -36,13 +38,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  // Total pages is now 11, adding Apple Health page
+  // Total pages is now 12, adding Acquisition Source page
   final int _totalPages =
-      11; // Welcome(0)+Gender(1)+Weight(2)+Height(3)+Age(4)+Activity(5)+Goal(6)+SetNewGoal(7)+Advanced(8)+AppleHealth(9)+Summary(10)
+      12; // Welcome(0)+AcquisitionSource(1)+Gender(2)+Weight(3)+Height(4)+Age(5)+Activity(6)+Goal(7)+SetNewGoal(8)+Advanced(9)+AppleHealth(10)+Summary(11)
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
   // --- State Variables ---
+  String? _acquisitionSource; // New state variable for acquisition source
   String _gender = MacroCalculatorService.MALE;
   double _weightKg = 70;
   double _heightCm = 170;
@@ -67,6 +70,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
+    
+    // Track screen view
+    PostHogService.trackScreen('onboarding_screen');
+    
     // Initialize animation with default values before first build
     _progressAnimation = Tween<double>(begin: 0, end: 1 / _totalPages).animate(
         CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
@@ -171,15 +178,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     int currentPageIndex = _currentPage;
     int nextPage = currentPageIndex + 1;
 
-    // Validate ranges before moving from SetNewGoal page (index 7)
-    if (currentPageIndex == 7) {
+    // Validate ranges before moving from SetNewGoal page (index 8)
+    if (currentPageIndex == 8) {
       _validateRanges(); // Keep validation, now triggered after setting goal details
     }
 
-    // Skip SetNewGoalPage (index 7) if goal is Maintain
-    if (currentPageIndex == 6 &&
+    // Skip SetNewGoalPage (index 8) if goal is Maintain
+    if (currentPageIndex == 7 &&
         _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      nextPage = 8; // Skip to Advanced Settings (index 8)
+      nextPage = 9; // Skip to Advanced Settings (index 9)
     }
 
     if (nextPage < _totalPages) {
@@ -195,10 +202,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     int currentPageIndex = _currentPage;
     int prevPage = currentPageIndex - 1;
 
-    // Skip SetNewGoalPage (index 7) if goal is Maintain when going back from Advanced (index 8)
-    if (currentPageIndex == 8 &&
+    // Skip SetNewGoalPage (index 8) if goal is Maintain when going back from Advanced (index 9)
+    if (currentPageIndex == 9 &&
         _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      prevPage = 6; // Go back to Goal Page (index 6)
+      prevPage = 7; // Go back to Goal Page (index 7)
     }
 
     if (prevPage >= 0) {
@@ -211,21 +218,21 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     int targetPage = page;
     bool isSkippingForwardMaintain = false; // Flag for the specific skip
 
-    // Adjust target page if skipping SetNewGoalPage (index 7) for Maintain goal
-    // This handles cases where _goToPage might be called with 7 directly
-    if (targetPage == 7 && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      if (_currentPage < 7) {
-        // Moving forward from a page before 7
-        targetPage = 8; // Skip forward to Advanced
+    // Adjust target page if skipping SetNewGoalPage (index 8) for Maintain goal
+    // This handles cases where _goToPage might be called with 8 directly
+    if (targetPage == 8 && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
+      if (_currentPage < 8) {
+        // Moving forward from a page before 8
+        targetPage = 9; // Skip forward to Advanced
         isSkippingForwardMaintain = true; // Mark this specific skip
       } else {
-        // Moving backward from a page after 7
-        targetPage = 6; // Skip backward to Goal
+        // Moving backward from a page after 8
+        targetPage = 7; // Skip backward to Goal
       }
     }
-    // Also handle the specific case triggered by _nextPage when on page 6 and goal is Maintain
-    else if (targetPage == 8 &&
-        _currentPage == 6 &&
+    // Also handle the specific case triggered by _nextPage when on page 7 and goal is Maintain
+    else if (targetPage == 9 &&
+        _currentPage == 7 &&
         _goal == MacroCalculatorService.GOAL_MAINTAIN) {
       isSkippingForwardMaintain = true; // Mark this specific skip
     }
@@ -235,7 +242,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         targetPage != _currentPage) {
       // Validate if jumping past SetNewGoal page (index 7)
       // This validation might still be relevant even with jumpToPage
-      if (_currentPage < 7 && targetPage > 7) _validateRanges();
+      if (_currentPage < 8 && targetPage > 8) _validateRanges();
 
       if (isSkippingForwardMaintain) {
         // Use jumpToPage for instantaneous transition when skipping forward for Maintain goal
@@ -275,6 +282,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       bodyFatPercentage: _showBodyFatInput ? _bodyFatPercentage : null,
       isAthlete: _isAthlete,
     );
+    
+    // Track onboarding completion with acquisition source
+    PostHogService.trackEvent('onboarding_completed', properties: {
+      'acquisition_source': _acquisitionSource ?? 'not_provided',
+      'goal': _goal,
+      'gender': _gender,
+      'age': _age,
+      'activity_level': _activityLevel,
+      'target_calories': results['target_calories'],
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+    
     await saveMacroResults(results);
     // Use context safely
     if (!mounted) return;
@@ -475,8 +494,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
-    // Hide the button on the Apple Health page (index 9)
-    if (_currentPage == 9) {
+    // Hide the button on the Apple Health page (index 10)
+    if (_currentPage == 10) {
       // Return an empty SizedBox to maintain layout spacing if needed,
       // or just an empty Container if no space is required.
       // Match the width of the back button for alignment.
@@ -506,6 +525,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   List<Widget> _buildPages() {
     return [
       const WelcomePage(),
+      AcquisitionSourcePage(
+        currentSource: _acquisitionSource,
+        onSourceSelected: (source) => setState(() => _acquisitionSource = source),
+        onSkip: _nextPage,
+      ),
       GenderPage(
         currentGender: _gender,
         onGenderSelected: (newGender) => setState(() => _gender = newGender),

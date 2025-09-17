@@ -17,6 +17,7 @@ import 'package:macrotracker/screens/MacroTrackingScreen.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
+import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:path_provider/path_provider.dart';
@@ -28,6 +29,7 @@ import '../AI/gemini.dart';
 import '../Health/Health.dart';
 import '../services/camera_service.dart'; // Import CameraService
 import '../services/storage_service.dart'; // Import StorageService
+import '../services/posthog_service.dart'; // Import PostHogService
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -48,19 +50,32 @@ class _DashboardState extends State<Dashboard> {
     super.initState();
     _setupNativeCameraHandler(); // Set up the handler when the dashboard initializes
 
-    // Force refresh of the FoodEntryProvider to ensure we have the latest data from Hive
+    // Track screen view
+    PostHogService.trackScreen('dashboard');
+
+    // Only force refresh on first app launch or when there's no cached data
+    // This prevents the glitching when navigating back to dashboard
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final foodEntryProvider =
             Provider.of<FoodEntryProvider>(context, listen: false);
-        foodEntryProvider.forceSyncAndDiagnose().then((_) {
-          print(
-              'Dashboard: FoodEntryProvider refreshed, calories_goal=${foodEntryProvider.caloriesGoal}');
-          // Force a rebuild after the refresh
-          if (mounted) {
-            setState(() {});
-          }
-        });
+
+        // Only force sync if this is likely the first app launch
+        // (no entries loaded yet) or if goals are still default values
+        final shouldForceSync = foodEntryProvider.entries.isEmpty ||
+            (foodEntryProvider.caloriesGoal == 2000.0 &&
+                foodEntryProvider.proteinGoal == 150.0);
+
+        if (shouldForceSync) {
+          foodEntryProvider.forceSyncAndDiagnose().then((_) {
+            print(
+                'Dashboard: FoodEntryProvider refreshed on first launch, calories_goal=${foodEntryProvider.caloriesGoal}');
+            // Only rebuild if still mounted
+            if (mounted) {
+              setState(() {});
+            }
+          });
+        }
       }
     });
   }
@@ -286,129 +301,217 @@ class _DashboardState extends State<Dashboard> {
 
   // Show add food menu with options
   void _showAddFoodMenu(BuildContext context) {
-    showModalBottomSheet(
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    showGeneralDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (BuildContext context) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).extension<CustomColors>()?.cardBackground ??
-                  (Theme.of(context).brightness == Brightness.light
-                      ? Colors.white
-                      : Colors.grey[900]),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(28),
-                topRight: Radius.circular(28),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  spreadRadius: 0,
-                  offset: const Offset(0, -5),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Handle bar
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade300
-                            : Colors.grey.shade600,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Title
-                    Text(
-                      'Add Food',
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Choose how you want to add food',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade600
-                            : Colors.grey.shade400,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Menu options
-                    _buildMenuOption(
-                      context: context,
-                      icon: CupertinoIcons.search,
-                      title: 'Search Food',
-                      subtitle: 'Search our food database',
-                      color: const Color(0xFF34C85A),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder: (context) => const FoodSearchPage(),
+      barrierDismissible: true,
+      // barrierColor: Colors.black.withOpacity(0.3),
+      barrierLabel: '',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation1, animation2) => Container(),
+      transitionBuilder: (context, animation1, animation2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation1,
+            curve: Curves.easeOutCubic,
+          )),
+          child: FadeTransition(
+            opacity: animation1,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                margin: EdgeInsets.fromLTRB(20, 0, 20, screenHeight * 0.07),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Title with close button
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                          SizedBox(width: 40),
+                              Expanded(
+                                child: Center(
+                                  child: Container(
+                                   decoration: BoxDecoration(
+                                       gradient: LinearGradient(
+                                         begin: Alignment.topLeft,
+                                         end: Alignment.bottomRight,
+                                         colors: Theme.of(context).brightness ==
+                                                 Brightness.light
+                                             ? [
+                                                 Colors.white.withOpacity(0.9),
+                                                 Colors.grey.shade50.withOpacity(0.8),
+                                               ]
+                                             : [
+                                                 Colors.grey.shade900.withOpacity(0.6),
+                                                 Colors.grey.shade900.withOpacity(0.8),
+                                               ],
+                                       ),
+                                       borderRadius: BorderRadius.circular(12),
+                                       border: Border.all(
+                                         color: Theme.of(context).brightness ==
+                                                 Brightness.light
+                                             ? Colors.black.withOpacity(0.8)
+                                             : Colors.white.withOpacity(0.1),
+                                         width: 1,
+                                       )),
+                                   child: Padding(
+                                     padding: const EdgeInsets.symmetric(
+                                         horizontal: 16, vertical: 8),
+                                     child: Text(
+                                       'Add Food',
+                                       style: GoogleFonts.poppins(
+                                         fontSize: 18,
+                                         fontWeight: FontWeight.w600,
+                                         color: Theme.of(context).brightness ==
+                                                 Brightness.light
+                                             ? Colors.black87
+                                             : Colors.white,
+                                         decoration: TextDecoration.none,
+                                       ),
+                                     ),
+                                   ),
+                                 ),
+                                ),
+                              ),
+                              // Close button
+                              Material(
+                                color: Colors.transparent.withOpacity(0.4),
+                                borderRadius: BorderRadius.circular(16),
+                                child: InkWell(
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    Navigator.pop(context);
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: Theme.of(context).brightness == Brightness.light
+                                            ? [
+                                                Colors.white.withOpacity(0.9),
+                                                Colors.grey.shade50.withOpacity(0.8),
+                                              ]
+                                            : [
+                                                Colors.grey.shade900.withOpacity(0.6),
+                                                Colors.grey.shade900.withOpacity(0.8),
+                                              ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Theme.of(context).brightness == Brightness.light
+                                            ? Colors.black.withOpacity(0.8)
+                                            : Colors.white.withOpacity(0.1),
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Theme.of(context).brightness == Brightness.light
+                                              ? Colors.black.withOpacity(0.1)
+                                              : Colors.black.withOpacity(0.2),
+                                          blurRadius: 15,
+                                          spreadRadius: 0,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      CupertinoIcons.xmark,
+                                      color: Theme.of(context).brightness == Brightness.light
+                                          ? Colors.grey.shade900
+                                          : Colors.grey.shade300,
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildMenuOption(
-                      context: context,
-                      icon: CupertinoIcons.bookmark_fill,
-                      title: 'Saved Foods',
-                      subtitle: 'Choose from your saved foods',
-                      color: const Color(0xFFFFC107),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/savedFoods');
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Cancel button
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          backgroundColor: Theme.of(context).brightness == Brightness.light
-                              ? Colors.grey.shade100
-                              : Colors.grey.shade800,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                        const SizedBox(height: 16),
+
+                        // Row of buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildCompactMenuButton(
+                                context: context,
+                                icon: CupertinoIcons.bookmark,
+                                title: 'Saved',
+                                subtitle: 'Your foods',
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade900
+                                    : Colors.grey.shade300,
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(context, '/savedFoods');
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildCompactMenuButton(
+                                context: context,
+                                icon: CupertinoIcons.search,
+                                title: 'Search',
+                                subtitle: 'Database',
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade900
+                                    : Colors.grey.shade300,
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  Navigator.push(
+                                    context,
+                                    CupertinoPageRoute(
+                                      builder: (context) =>
+                                          const FoodSearchPage(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildCompactMenuButton(
+                                context: context,
+                                icon: Icons.auto_awesome,
+                                title: 'AI',
+                                subtitle: 'search',
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey.shade900
+                                    : Colors.grey.shade300,
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  Navigator.push(
+                                    context,
+                                    CupertinoPageRoute(
+                                      builder: (context) => const Askai(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.poppins(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -418,7 +521,7 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildMenuOption({
+  Widget _buildCompactMenuButton({
     required BuildContext context,
     required IconData icon,
     required String title,
@@ -427,7 +530,8 @@ class _DashboardState extends State<Dashboard> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.transparent,
+      color: Colors.transparent.withOpacity(0.4),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: () {
           HapticFeedback.lightImpact();
@@ -435,61 +539,77 @@ class _DashboardState extends State<Dashboard> {
         },
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: Theme.of(context).brightness == Brightness.light
+                  ? [
+                      Colors.white.withOpacity(0.9),
+                      Colors.grey.shade50.withOpacity(0.8),
+                    ]
+                  : [
+                      Colors.grey.shade900.withOpacity(0.6),
+                      Colors.grey.shade900.withOpacity(0.8),
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: color.withOpacity(0.2),
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.black.withOpacity(0.8)
+                  : Colors.white.withOpacity(0.1),
               width: 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.black.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.2),
+                blurRadius: 15,
+                spreadRadius: 0,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                width: 44,
+                height: 44,
                 child: Icon(
                   icon,
                   color: color,
-                  size: 24,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade600
-                            : Colors.grey.shade400,
-                      ),
-                    ),
-                  ],
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.black87
+                      : Colors.white.withOpacity(0.95),
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              Icon(
-                CupertinoIcons.chevron_right,
-                color: color,
-                size: 18,
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.grey.shade600
+                      : Colors.grey.shade400,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -910,39 +1030,36 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   @override
   void initState() {
     super.initState();
-    // Use addPostFrameCallback to ensure context is available for Provider
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _dateProvider = Provider.of<DateProvider>(context, listen: false);
-      _initializeHealthData(); // Reads initial status and fetches if needed
-      _dateProvider.addListener(_onDateChanged);
+    // Initialize the DateProvider
+    _dateProvider = Provider.of<DateProvider>(context, listen: false);
 
-      // Set up listener for StorageService changes
-      _storageListener = () {
-        final currentStatus =
-            _storageService.get('healthConnected', defaultValue: false);
-        // Check if the status has changed and is now true
-        if (currentStatus && !_hasHealthPermissions) {
-          if (mounted) {
-            setState(() {
-              _hasHealthPermissions = true;
-            });
-            print("Health connection status changed to true, fetching data...");
-            _fetchHealthData(); // Fetch data immediately on status change
-          }
-        } else if (!currentStatus && _hasHealthPermissions) {
-          // Optional: Handle disconnection if needed
-          if (mounted) {
-            setState(() {
-              _hasHealthPermissions = false;
-              _steps = 0; // Reset data on disconnect
-              _caloriesBurned = 0;
-            });
-            print("Health connection status changed to false.");
-          }
+    // Add listener to DateProvider
+    _dateProvider.addListener(_onDateChanged);
+
+    // Initialize health data and storage listener
+    _initializeHealthData();
+
+    // Set up storage listener for health connection status
+    _storageListener = () {
+      final newStatus =
+          _storageService.get('healthConnected', defaultValue: false);
+      if (mounted && newStatus != _hasHealthPermissions) {
+        setState(() {
+          _hasHealthPermissions = newStatus;
+        });
+        if (_hasHealthPermissions) {
+          _fetchHealthData();
         }
-      };
-      _storageService.listenForChanges(_storageListener!);
-    });
+      }
+    };
+
+    // Add the listener to the Hive box
+    try {
+      Hive.box('user_preferences').listenable().addListener(_storageListener!);
+      print("Storage listener added successfully.");
+    } catch (e) {
+      print("Error adding storage listener: $e");
+    }
   }
 
   @override
@@ -1055,12 +1172,6 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     }
     if (_isLoadingHealthData) return; // Avoid concurrent fetches
 
-    if (mounted) {
-      setState(() {
-        _isLoadingHealthData = true;
-      });
-    }
-
     // Get the selected date from the DateProvider
     // Ensure context is valid before accessing Provider
     if (!mounted) return;
@@ -1072,12 +1183,13 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     if (!isToday &&
         _lastFetchedDate != null &&
         _isSameDay(_lastFetchedDate!, selectedDate)) {
-      if (mounted) {
-        setState(() {
-          _isLoadingHealthData = false;
-        });
-      }
       return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingHealthData = true;
+      });
     }
 
     try {
@@ -1284,307 +1396,273 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
   @override
   Widget build(BuildContext context) {
-    // Use FutureBuilder to ensure provider is initialized before building UI
-    return FutureBuilder(
-      future: Provider.of<FoodEntryProvider>(context, listen: false)
-          .ensureInitialized(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          // Show a loading indicator while the provider initializes
-          // Make the loading indicator fill the space
-          return const SizedBox(
-            // Changed Container to SizedBox
-            height: 300, // Give it a reasonable height
-            child: Center(child: CupertinoActivityIndicator()),
-          );
-        } else if (snapshot.hasError) {
-          // Handle initialization error
-          return SizedBox(
-              // Changed Container to SizedBox
-              height: 300,
-              child: Center(
-                  child: Text('Error initializing data: ${snapshot.error}')));
-        } else {
-          // Provider is initialized, build the main UI
-          return Consumer2<FoodEntryProvider, DateProvider>(
-            builder: (context, foodEntryProvider, dateProvider, child) {
-              // Get nutrition goals directly from the provider
-              final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
-              debugPrint(
-                  "Dashboard Calorie Goal: $caloriesGoal"); // Add debug print
-              final proteinGoal = foodEntryProvider.proteinGoal.toInt();
-              final carbGoal = foodEntryProvider.carbsGoal.toInt();
-              final fatGoal = foodEntryProvider.fatGoal.toInt();
-              final stepsGoal = foodEntryProvider.stepsGoal.toInt();
+    // Direct Consumer without FutureBuilder - provider is initialized at app startup
+    return Consumer2<FoodEntryProvider, DateProvider>(
+      builder: (context, foodEntryProvider, dateProvider, child) {
+        // Get nutrition goals directly from the provider
+        final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
+        debugPrint("Dashboard Calorie Goal: $caloriesGoal"); // Add debug print
+        final proteinGoal = foodEntryProvider.proteinGoal.toInt();
+        final carbGoal = foodEntryProvider.carbsGoal.toInt();
+        final fatGoal = foodEntryProvider.fatGoal.toInt();
+        final stepsGoal = foodEntryProvider.stepsGoal.toInt();
 
-              // Get nutrient totals using the new centralized method
-              final nutrientTotals = foodEntryProvider
-                  .getNutrientTotalsForDate(dateProvider.selectedDate);
-              final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
-              // --- Dashboard Debug Log ---
-              print('[CalorieTracker Build] Received caloriesFromFood: $caloriesFromFood for date: ${dateProvider.selectedDate}');
-              // --- End Debug Log ---
-              final totalProtein = nutrientTotals['protein'] ?? 0.0;
-              final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
-              final totalFat = nutrientTotals['fat'] ?? 0.0;
+        // Get nutrient totals using the new centralized method
+        final nutrientTotals = foodEntryProvider
+            .getNutrientTotalsForDate(dateProvider.selectedDate);
+        final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
+        // --- Dashboard Debug Log ---
+        print(
+            '[CalorieTracker Build] Received caloriesFromFood: $caloriesFromFood for date: ${dateProvider.selectedDate}');
+        // --- End Debug Log ---
+        final totalProtein = nutrientTotals['protein'] ?? 0.0;
+        final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
+        final totalFat = nutrientTotals['fat'] ?? 0.0;
 
-              // Calculate remaining calories (updated logic)
-              // Handle potential division by zero if caloriesGoal is 0
-              final int caloriesRemaining = caloriesGoal > 0
-                  ? caloriesGoal - caloriesFromFood.toInt()
-                  : 0;
-              double progress =
-                  caloriesGoal > 0 ? caloriesFromFood / caloriesGoal : 0.0;
-              progress = progress.clamp(0.0, 1.0);
+        // Calculate remaining calories (updated logic)
+        // Handle potential division by zero if caloriesGoal is 0
+        final int caloriesRemaining =
+            caloriesGoal > 0 ? caloriesGoal - caloriesFromFood.toInt() : 0;
+        double progress =
+            caloriesGoal > 0 ? caloriesFromFood / caloriesGoal : 0.0;
+        progress = progress.clamp(0.0, 1.0);
 
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                padding: const EdgeInsets.all(16), // Reduced from 20
-                decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .extension<CustomColors>()
-                      ?.cardBackground,
-                  borderRadius: BorderRadius.circular(20.0),
-                  boxShadow: [
-                    BoxShadow(
-                      // Softer shadow, more spread out
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(16), // Reduced from 20
+          decoration: BoxDecoration(
+            color: Theme.of(context).extension<CustomColors>()?.cardBackground,
+            borderRadius: BorderRadius.circular(20.0),
+            boxShadow: [
+              BoxShadow(
+                // Softer shadow, more spread out
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade300
+                        .withOpacity(0.5) // Lighter shadow for light mode
+                    : Colors.black.withOpacity(
+                        0.2), // Slightly darker shadow for dark mode
+                blurRadius: 20, // Increased blur
+                spreadRadius: 0, // No spread, just blur
+                offset: const Offset(0, 5), // Slightly increased offset
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, // Align to start
+            children: [
+              // Add a header
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(children: [
+                  Icon(
+                    Icons.pie_chart_outline,
+                    size: 20,
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.grey.shade700
+                        : Colors.grey.shade400,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    "Today's Nutrition and Activity",
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                       color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.grey.shade300
-                              .withOpacity(0.5) // Lighter shadow for light mode
-                          : Colors.black.withOpacity(
-                              0.2), // Slightly darker shadow for dark mode
-                      blurRadius: 20, // Increased blur
-                      spreadRadius: 0, // No spread, just blur
-                      offset: const Offset(0, 5), // Slightly increased offset
+                          ? Colors.grey.shade700
+                          : Colors.grey.shade400,
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start, // Align to start
-                  children: [
-                    // Add a header
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(children: [
-                        Icon(
-                          Icons.pie_chart_outline,
-                          size: 20,
-                          color:
-                              Theme.of(context).brightness == Brightness.light
-                                  ? Colors.grey.shade700
-                                  : Colors.grey.shade400,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Today's Nutrition and Activity",
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                  ),
+                ]),
+              ),
+
+              // Main content column
+              Column(
+                children: [
+                  // Calories Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Calorie Circle
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) => const MacroTrackingScreen(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          height: 130,
+                          width: 130,
+                          decoration: BoxDecoration(
                             color:
                                 Theme.of(context).brightness == Brightness.light
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade400,
+                                    ? Colors.white
+                                    : Colors.grey.shade900
+                                        .withOpacity(0.3), // Use withOpacity
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.light
+                                    ? Colors.grey
+                                        .withOpacity(0.1) // Use withOpacity
+                                    : Colors.black
+                                        .withOpacity(0.2), // Use withOpacity
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
-                        ),
-                      ]),
-                    ),
-
-                    // Main content column
-                    Column(
-                      children: [
-                        // Calories Section
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Calorie Circle
-                            GestureDetector(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    builder: (context) =>
-                                        const MacroTrackingScreen(),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Progress circle
+                              SizedBox(
+                                width: 110,
+                                height: 110,
+                                child: CircularProgressIndicator(
+                                  value: progress,
+                                  strokeWidth: 10,
+                                  strokeCap: StrokeCap
+                                      .round, // Added circular stroke cap
+                                  backgroundColor:
+                                      Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? Colors.grey.shade200
+                                          : Colors.grey.shade800,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    progress > 1.0
+                                        ? Colors.red
+                                        : const Color(0xFF34C85A),
                                   ),
-                                );
-                              },
-                              child: Container(
-                                height: 130,
-                                width: 130,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).brightness ==
-                                          Brightness.light
-                                      ? Colors.white
-                                      : Colors.grey.shade900
-                                          .withOpacity(0.3), // Use withOpacity
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
+                                ),
+                              ),
+                              // Calorie text
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    caloriesRemaining.toString(),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context)
+                                          .extension<CustomColors>()
+                                          ?.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    'cal left',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
                                       color: Theme.of(context).brightness ==
                                               Brightness.light
-                                          ? Colors.grey.withOpacity(
-                                              0.1) // Use withOpacity
-                                          : Colors.black.withOpacity(
-                                              0.2), // Use withOpacity
-                                      blurRadius: 10,
-                                      spreadRadius: 1,
-                                      offset: const Offset(0, 3),
+                                          ? Colors.grey.shade600
+                                          : Colors.grey.shade400,
                                     ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    // Progress circle
-                                    SizedBox(
-                                      width: 110,
-                                      height: 110,
-                                      child: CircularProgressIndicator(
-                                        value: progress,
-                                        strokeWidth: 10,
-                                        strokeCap: StrokeCap
-                                            .round, // Added circular stroke cap
-                                        backgroundColor:
-                                            Theme.of(context).brightness ==
-                                                    Brightness.light
-                                                ? Colors.grey.shade200
-                                                : Colors.grey.shade800,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          progress > 1.0
-                                              ? Colors.red
-                                              : const Color(0xFF34C85A),
-                                        ),
-                                      ),
-                                    ),
-                                    // Calorie text
-                                    Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          caloriesRemaining.toString(),
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context)
-                                                .extension<CustomColors>()
-                                                ?.textPrimary,
-                                          ),
-                                        ),
-                                        Text(
-                                          'cal left',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
-                                            color:
-                                                Theme.of(context).brightness ==
-                                                        Brightness.light
-                                                    ? Colors.grey.shade600
-                                                    : Colors.grey.shade400,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // Calories Info - Vertical layout with colored cards
-                            Expanded(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment
-                                      .center, // Center items vertically
-                                  children: [
-                                    _buildCalorieInfoCard(
-                                      context,
-                                      'Goal',
-                                      caloriesGoal,
-                                      const Color(0xFF34C85A),
-                                      Icons.flag_outlined, // Use outlined icon
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildCalorieInfoCard(
-                                      context,
-                                      'Food',
-                                      caloriesFromFood.toInt(),
-                                      const Color(0xFFFFA726),
-                                      Icons
-                                          .restaurant_menu_outlined, // Use outlined icon
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildCalorieInfoCard(
-                                      context,
-                                      'Burned',
-                                      _caloriesBurned
-                                          .toInt(), // Use state variable _caloriesBurned
-                                      const Color(0xFF42A5F5),
-                                      Icons
-                                          .local_fire_department_outlined, // Use outlined icon
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(
-                            height: 30), // Increased space before macro rings
-
-                        // Macro circles - Enhanced with circular progress
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildMacroProgressEnhanced(
-                                context,
-                                'Carbs',
-                                totalCarbs.round(),
-                                carbGoal,
-                                const Color(0xFF42A5F5),
-                                'g',
-                              ),
-                              _buildMacroProgressEnhanced(
-                                context,
-                                'Protein',
-                                totalProtein.round(),
-                                proteinGoal,
-                                const Color(0xFFEF5350),
-                                'g',
-                              ),
-                              _buildMacroProgressEnhanced(
-                                context,
-                                'Fat',
-                                totalFat.round(),
-                                fatGoal,
-                                const Color(0xFFFFA726),
-                                'g',
-                              ),
-                              _buildMacroProgressEnhanced(
-                                context,
-                                'Steps',
-                                _steps, // Use state variable _steps
-                                stepsGoal, // Use state variable stepsGoal
-                                const Color(0xFF66BB6A),
-                                '',
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
+                      ),
+
+                      // Calories Info - Vertical layout with colored cards
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment
+                                .center, // Center items vertically
+                            children: [
+                              _buildCalorieInfoCard(
+                                context,
+                                'Goal',
+                                caloriesGoal,
+                                const Color(0xFF34C85A),
+                                Icons.flag_outlined, // Use outlined icon
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCalorieInfoCard(
+                                context,
+                                'Food',
+                                caloriesFromFood.toInt(),
+                                const Color(0xFFFFA726),
+                                Icons
+                                    .restaurant_menu_outlined, // Use outlined icon
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCalorieInfoCard(
+                                context,
+                                'Burned',
+                                _caloriesBurned
+                                    .toInt(), // Use state variable _caloriesBurned
+                                const Color(0xFF42A5F5),
+                                Icons
+                                    .local_fire_department_outlined, // Use outlined icon
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                      height: 30), // Increased space before macro rings
+
+                  // Macro circles - Enhanced with circular progress
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Carbs',
+                          totalCarbs.round(),
+                          carbGoal,
+                          const Color(0xFF42A5F5),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Protein',
+                          totalProtein.round(),
+                          proteinGoal,
+                          const Color(0xFFEF5350),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Fat',
+                          totalFat.round(),
+                          fatGoal,
+                          const Color(0xFFFFA726),
+                          'g',
+                        ),
+                        _buildMacroProgressEnhanced(
+                          context,
+                          'Steps',
+                          _steps, // Use state variable _steps
+                          stepsGoal, // Use state variable stepsGoal
+                          const Color(0xFF66BB6A),
+                          '',
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              );
-            },
-          );
-        }
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
       },
     );
   }
@@ -1646,12 +1724,13 @@ class _MealSectionState extends State<MealSection> {
                 sum +
                 foodEntryProvider.calculateNutrientForEntry(entry, 'calories'));
 
-       // --- Dashboard Debug Log ---
-       print('[MealCard Build - $mealType] Calculated totalCalories: $totalCalories for date: ${dateProvider.selectedDate}');
-       // --- End Debug Log ---
+        // --- Dashboard Debug Log ---
+        print(
+            '[MealCard Build - $mealType] Calculated totalCalories: $totalCalories for date: ${dateProvider.selectedDate}');
+        // --- End Debug Log ---
 
-       // Meal type icon mapping
-       IconData getMealIcon() {
+        // Meal type icon mapping
+        IconData getMealIcon() {
           switch (mealType) {
             case 'Breakfast':
               return Icons.breakfast_dining;
@@ -2009,7 +2088,11 @@ Widget _buildFoodItem(
                     ),
                   ),
                   // *** ADDED DISPLAY LOGGING ***
-                  () { debugPrint("[DISPLAY VALUE CHECK] Qty=${entry.quantity}, Unit=$displayUnit for ${entry.id}"); return const SizedBox.shrink(); } (),
+                  () {
+                    debugPrint(
+                        "[DISPLAY VALUE CHECK] Qty=${entry.quantity}, Unit=$displayUnit for ${entry.id}");
+                    return const SizedBox.shrink();
+                  }(),
                   // *** END DISPLAY LOGGING ***
 
                   Text(

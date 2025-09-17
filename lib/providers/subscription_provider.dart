@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
@@ -7,12 +8,15 @@ class SubscriptionProvider extends ChangeNotifier {
   bool _isProUser = false;
   bool _isInitialized = false;
   DateTime? _lastChecked;
-  
+
+  // Global dev-only flag to disable paywall for testing.
+  // IMPORTANT: Never enable this for production builds.
+  static const bool _DISABLE_PAYWALL_FOR_TESTING = true; // Set to false to re-enable
   // Hard paywall configuration
   static const bool _ENFORCE_HARD_PAYWALL = true;
-  
+
   // Getters
-  bool get isProUser => _isProUser;
+  bool get isProUser => _DISABLE_PAYWALL_FOR_TESTING ? true : _isProUser;
   bool get isInitialized => _isInitialized;
   DateTime? get lastChecked => _lastChecked;
   bool get hasFreeTrial => false; // No free trial with hard paywall
@@ -28,10 +32,9 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Helper to check if any pro entitlement is active
   bool _hasProEntitlement(CustomerInfo customerInfo) {
-    final entitlements = customerInfo.entitlements.active.keys;
-    
+    print("[SubscriptionProvider] Active entitlements: "+customerInfo.entitlements.active.keys.toString());
     // Check for any entitlement containing 'pro' in a case-insensitive way
-    return entitlements.any((key) => 
+    return customerInfo.entitlements.active.keys.any((key) => 
       key.toLowerCase() == 'pro' || 
       key == 'Pro' || 
       key.toLowerCase().contains('pro')
@@ -57,6 +60,13 @@ class SubscriptionProvider extends ChangeNotifier {
   // Load the cached subscription status (now synchronous)
   void _loadFromPrefs() {
     try {
+      if (_DISABLE_PAYWALL_FOR_TESTING) {
+        _isProUser = true;
+        _lastChecked = DateTime.now();
+        _isInitialized = true;
+        return;
+      }
+
       // Assuming StorageService is initialized
       _isProUser = StorageService().get('is_pro_user', defaultValue: false);
       final lastCheckedMillis = StorageService().get('subscription_last_checked');
@@ -87,17 +97,29 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Check with RevenueCat for the current subscription status
   Future<bool> checkSubscriptionStatus() async {
+    if (_DISABLE_PAYWALL_FOR_TESTING) {
+      // Force premium in testing mode
+      final wasProUser = _isProUser;
+      _isProUser = true;
+      _lastChecked = DateTime.now();
+      if (wasProUser != _isProUser) {
+        notifyListeners();
+      }
+      _saveToPrefs();
+      return true;
+    }
+
     try {
       final customerInfo = await Purchases.getCustomerInfo();
       print("Checking subscription status: ${customerInfo.entitlements.active.keys}");
-      
+
       final bool wasProUser = _isProUser;
-      
+
       // Consider both sandbox/test and production entitlements
       _isProUser = _hasProEntitlement(customerInfo);
-      
+
       _lastChecked = DateTime.now();
-      
+
       // If status changed, notify listeners
       if (wasProUser != _isProUser) {
         print("Subscription status changed: $_isProUser");
@@ -132,30 +154,39 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Check if a specific feature is available - with hard paywall, requires subscription
   bool canAccessFeature(String featureName) {
+    if (_DISABLE_PAYWALL_FOR_TESTING) {
+      return true;
+    }
     if (_ENFORCE_HARD_PAYWALL) {
       return _isProUser; // With hard paywall, all features require subscription
     }
-    
+
     // Legacy soft paywall logic (not used with hard paywall)
     return _isProUser;
   }
   
   // Check if the user can access app content at all
   bool canAccessApp() {
+    if (_DISABLE_PAYWALL_FOR_TESTING) {
+      return true;
+    }
     if (_ENFORCE_HARD_PAYWALL) {
       return _isProUser; // With hard paywall, app access requires subscription
     }
-    
+
     // Legacy code path (not used with hard paywall)
-    return true; 
+    return true;
   }
   
   // Check if the user can add any food entries
   bool canAddEntries() {
+    if (_DISABLE_PAYWALL_FOR_TESTING) {
+      return true;
+    }
     if (_ENFORCE_HARD_PAYWALL) {
       return _isProUser; // With hard paywall, entries require subscription
     }
-    
+
     // Legacy code path (not used with hard paywall)
     return true;
   }
@@ -177,6 +208,35 @@ class SubscriptionProvider extends ChangeNotifier {
       print("===== END DEBUG INFO =====");
     } catch (e) {
       print("Error getting debug subscription info: $e");
+    }
+  }
+
+  // Debug method to reset subscription cache for testing
+  Future<void> resetSubscriptionForTesting() async {
+    try {
+      print("===== RESETTING SUBSCRIPTION FOR TESTING =====");
+      
+      // Clear local cache
+      _isProUser = false;
+      notifyListeners();
+      
+      // Force refresh from RevenueCat
+      await Purchases.invalidateCustomerInfoCache();
+      
+      // Get fresh customer info
+      final customerInfo = await Purchases.getCustomerInfo();
+      
+      // Update status based on fresh data
+      final hasActiveEntitlements = customerInfo.entitlements.active.isNotEmpty;
+      _isProUser = hasActiveEntitlements;
+      
+      print("Reset complete. New status: isProUser = $_isProUser");
+      print("Active entitlements after reset: ${customerInfo.entitlements.active.keys}");
+      print("===== RESET COMPLETE =====");
+      
+      notifyListeners();
+    } catch (e) {
+      print("Error resetting subscription for testing: $e");
     }
   }
   
