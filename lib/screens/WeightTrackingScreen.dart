@@ -671,33 +671,39 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
           .compareTo(DateTime.parse(b['date'] as String)));
 
-      // Get first and last entries based on selected time frame
-      final firstEntry = _filterWeightDataByTimeFrame(_weightData).first;
-      final lastEntry = _filterWeightDataByTimeFrame(_weightData).last;
+      // Get filtered data for the selected time frame
+      final filteredData = _filterWeightDataByTimeFrame(_weightData);
+      
+      // Only calculate statistics if we have filtered data
+      if (filteredData.isNotEmpty) {
+        // Get first and last entries based on selected time frame
+        final firstEntry = filteredData.first;
+        final lastEntry = filteredData.last;
 
-      // Calculate change
-      final startWeight = firstEntry['weight'] as double;
-      final endWeight = lastEntry['weight'] as double;
-      weightChange = endWeight - startWeight;
+        // Calculate change
+        final startWeight = firstEntry['weight'] as double;
+        final endWeight = lastEntry['weight'] as double;
+        weightChange = endWeight - startWeight;
 
-      // Format time description
-      final startDate = DateTime.parse(firstEntry['date'] as String);
-      final endDate = DateTime.parse(lastEntry['date'] as String);
-      final days = endDate.difference(startDate).inDays;
+        // Format time description
+        final startDate = DateTime.parse(firstEntry['date'] as String);
+        final endDate = DateTime.parse(lastEntry['date'] as String);
+        final days = endDate.difference(startDate).inDays;
 
-      if (days < 7) {
-        timeDescription = days == 0
-            ? 'today'
-            : 'in the last $days day${days == 1 ? '' : 's'}';
-      } else if (days < 30) {
-        final weeks = (days / 7).floor();
-        timeDescription = 'in the last $weeks week${weeks == 1 ? '' : 's'}';
-      } else if (days < 365) {
-        final months = (days / 30).floor();
-        timeDescription = 'in the last $months month${months == 1 ? '' : 's'}';
-      } else {
-        final years = (days / 365).floor();
-        timeDescription = 'in the last $years year${years == 1 ? '' : 's'}';
+        if (days < 7) {
+          timeDescription = days == 0
+              ? 'today'
+              : 'in the last $days day${days == 1 ? '' : 's'}';
+        } else if (days < 30) {
+          final weeks = (days / 7).floor();
+          timeDescription = 'in the last $weeks week${weeks == 1 ? '' : 's'}';
+        } else if (days < 365) {
+          final months = (days / 30).floor();
+          timeDescription = 'in the last $months month${months == 1 ? '' : 's'}';
+        } else {
+          final years = (days / 365).floor();
+          timeDescription = 'in the last $years year${years == 1 ? '' : 's'}';
+        }
       }
     }
 
@@ -774,36 +780,55 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                     if (_weightData.length > 1)
                       Padding(
                         padding: const EdgeInsets.only(top: 8, bottom: 16),
-                        child: Row(
-                          children: [
-                            Icon(
-                              weightChange > 0
-                                  ? Icons.arrow_upward
-                                  : weightChange < 0
-                                      ? Icons.arrow_downward
-                                      : Icons.remove,
-                              size: 16,
-                              color: weightChange > 0
-                                  ? Colors.redAccent
-                                  : weightChange < 0
-                                      ? Colors.greenAccent.shade700
-                                      : customColors.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${convertedChange.abs().toStringAsFixed(1)} ${unitProvider.unitLabel} ${weightChange > 0 ? 'gained' : weightChange < 0 ? 'lost' : 'maintained'} $timeDescription',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: weightChange > 0
-                                    ? Colors.redAccent
-                                    : weightChange < 0
-                                        ? Colors.greenAccent.shade700
-                                        : customColors.textSecondary,
+                        child: _filterWeightDataByTimeFrame(_weightData).isNotEmpty
+                            ? Row(
+                                children: [
+                                  Icon(
+                                    weightChange > 0
+                                        ? Icons.arrow_upward
+                                        : weightChange < 0
+                                            ? Icons.arrow_downward
+                                            : Icons.remove,
+                                    size: 16,
+                                    color: weightChange > 0
+                                        ? Colors.redAccent
+                                        : weightChange < 0
+                                            ? Colors.greenAccent.shade700
+                                            : customColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${convertedChange.abs().toStringAsFixed(1)} ${unitProvider.unitLabel} ${weightChange > 0 ? 'gained' : weightChange < 0 ? 'lost' : 'maintained'} $timeDescription',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: weightChange > 0
+                                          ? Colors.redAccent
+                                          : weightChange < 0
+                                              ? Colors.greenAccent.shade700
+                                              : customColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: customColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'No data for this ${_selectedTimeFrame.toLowerCase()}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: customColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
 
                     // Chart
@@ -2039,7 +2064,7 @@ class _WeightChartPainter extends CustomPainter {
       fontWeight: FontWeight.w500,
     );
 
-    const text = 'No weight data available';
+    final text = 'No weight data for this ${timeFrame.toLowerCase()}';
     final textSpan = TextSpan(text: text, style: textStyle);
     final textPainter = TextPainter(
       text: textSpan,
