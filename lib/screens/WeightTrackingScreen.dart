@@ -667,33 +667,38 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
           .compareTo(DateTime.parse(b['date'] as String)));
 
-      // Get first and last entries based on selected time frame
-      final firstEntry = _filterWeightDataByTimeFrame(_weightData).first;
-      final lastEntry = _filterWeightDataByTimeFrame(_weightData).last;
+      // Get filtered data based on selected time frame
+      final filteredData = _filterWeightDataByTimeFrame(_weightData);
+      
+      // Check if filtered data is not empty before accessing first and last
+      if (filteredData.isNotEmpty) {
+        final firstEntry = filteredData.first;
+        final lastEntry = filteredData.last;
 
-      // Calculate change
-      final startWeight = firstEntry['weight'] as double;
-      final endWeight = lastEntry['weight'] as double;
-      weightChange = endWeight - startWeight;
+        // Calculate change
+        final startWeight = firstEntry['weight'] as double;
+        final endWeight = lastEntry['weight'] as double;
+        weightChange = endWeight - startWeight;
 
-      // Format time description
-      final startDate = DateTime.parse(firstEntry['date'] as String);
-      final endDate = DateTime.parse(lastEntry['date'] as String);
-      final days = endDate.difference(startDate).inDays;
+        // Format time description
+        final startDate = DateTime.parse(firstEntry['date'] as String);
+        final endDate = DateTime.parse(lastEntry['date'] as String);
+        final days = endDate.difference(startDate).inDays;
 
-      if (days < 7) {
-        timeDescription = days == 0
-            ? 'today'
-            : 'in the last $days day${days == 1 ? '' : 's'}';
-      } else if (days < 30) {
-        final weeks = (days / 7).floor();
-        timeDescription = 'in the last $weeks week${weeks == 1 ? '' : 's'}';
-      } else if (days < 365) {
-        final months = (days / 30).floor();
-        timeDescription = 'in the last $months month${months == 1 ? '' : 's'}';
-      } else {
-        final years = (days / 365).floor();
-        timeDescription = 'in the last $years year${years == 1 ? '' : 's'}';
+        if (days < 7) {
+          timeDescription = days == 0
+              ? 'today'
+              : 'in the last $days day${days == 1 ? '' : 's'}';
+        } else if (days < 30) {
+          final weeks = (days / 7).floor();
+          timeDescription = 'in the last $weeks week${weeks == 1 ? '' : 's'}';
+        } else if (days < 365) {
+          final months = (days / 30).floor();
+          timeDescription = 'in the last $months month${months == 1 ? '' : 's'}';
+        } else {
+          final years = (days / 365).floor();
+          timeDescription = 'in the last $years year${years == 1 ? '' : 's'}';
+        }
       }
     }
 
@@ -767,7 +772,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                     ),
 
                     // Weight change information
-                    if (_weightData.length > 1)
+                    if (_weightData.length > 1 && timeDescription.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 8, bottom: 16),
                         child: Row(
