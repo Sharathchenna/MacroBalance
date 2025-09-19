@@ -29,6 +29,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this import for the confirmation screen
 import 'package:macrotracker/services/superwall_placements.dart'; // Import Superwall Placements
 import 'package:macrotracker/services/posthog_service.dart'; // Import PostHogService
+import 'package:macrotracker/services/superwall_service.dart'; // Import SuperwallService
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key});
@@ -992,6 +993,64 @@ class _AccountDashboardState extends State<AccountDashboard>
                       onTap: () {
                         HapticFeedback.lightImpact();
                         SuperwallPlacements.showTestPaywall(context);
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                    // Add Test Redeem Action Button
+                    _buildListTile(
+                      icon: CupertinoIcons.gift_fill,
+                      iconColor: Colors.green,
+                      title: 'Test Redeem Action',
+                      subtitle: 'Test the native iOS redemption sheet',
+                      trailing: ElevatedButton(
+                        onPressed: () async {
+                          HapticFeedback.mediumImpact();
+                          
+                          // Show loading indicator
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Testing redeem action...'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                          
+                          try {
+                            // Test the redeem action
+                            SuperwallService().testRedeemAction();
+                            
+                            // Show success message
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Redeem test triggered! Check for redemption sheet.'),
+                                  backgroundColor: Colors.green,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            // Show error message
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Test failed: ${e.toString()}'),
+                                  backgroundColor: Colors.red,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        child: const Text('Test'),
+                      ),
+                      onTap: () {
+                        // Button handles the action
                       },
                       colorScheme: colorScheme,
                       customColors: customColors,
