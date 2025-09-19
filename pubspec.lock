@@ -864,6 +864,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.1+1"
+  in_app_purchase:
+    dependency: "direct main"
+    description:
+      name: in_app_purchase
+      sha256: "5cddd7f463f3bddb1d37a72b95066e840d5822d66291331d7f8f05ce32c24b6c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.3"
+  in_app_purchase_android:
+    dependency: transitive
+    description:
+      name: in_app_purchase_android
+      sha256: "5a02da1399a8faafb36d9b4acca85001b7eefa629f0eeeebf5ad0b04b9df302a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0+4"
+  in_app_purchase_platform_interface:
+    dependency: transitive
+    description:
+      name: in_app_purchase_platform_interface
+      sha256: "1d353d38251da5b9fea6635c0ebfc6bb17a2d28d0e86ea5e083bf64244f1fb4c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.4.0"
+  in_app_purchase_storekit:
+    dependency: transitive
+    description:
+      name: in_app_purchase_storekit
+      sha256: "9e5986db8f7600d62c56739c7d357aa37c4af27035bf00db6f7ab7a8ca952614"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.4+1"
   infinite_listview:
     dependency: transitive
     description:
@@ -1601,10 +1633,10 @@ packages:
     dependency: "direct main"
     description:
       name: superwallkit_flutter
-      sha256: "1d120f95ee66744ec33261a2260449bb8ac1de5d6a5cbd500b110db6ce7dab5c"
+      sha256: "6dfaaf11afeb25a3d8349240c6ee7438095d97a070cda11aa986ddceea352b21"
       url: "https://pub.dev"
     source: hosted
-    version: "2.3.4"
+    version: "2.4.2"
   syncfusion_flutter_charts:
     dependency: "direct main"
     description:
@@ -1910,5 +1942,5 @@ packages:
     source: hosted
     version: "2.0.3"
 sdks:
-  dart: ">=3.8.0-0 <4.0.0"
-  flutter: ">=3.27.0"
+  dart: ">=3.9.0 <4.0.0"
+  flutter: ">=3.35.0"

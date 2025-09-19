@@ -126,6 +126,9 @@ PODS:
     - Flutter
   - image_picker_ios (0.0.1):
     - Flutter
+  - in_app_purchase_storekit (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - JPSVolumeButtonHandler (1.0.5)
   - libwebp (1.5.0):
     - libwebp/demux (= 1.5.0)
@@ -211,11 +214,11 @@ PODS:
     - Flutter
     - FlutterMacOS
   - Superscript (0.2.8)
-  - SuperwallKit (4.5.2):
+  - SuperwallKit (4.7.0):
     - Superscript (= 0.2.8)
   - superwallkit_flutter (0.0.1):
     - Flutter
-    - SuperwallKit (= 4.5.2)
+    - SuperwallKit (= 4.7.0)
   - url_launcher_ios (0.0.1):
     - Flutter
   - webview_flutter_wkwebview (0.0.1):
@@ -240,6 +243,7 @@ DEPENDENCIES:
   - health (from `.symlinks/plugins/health/ios`)
   - home_widget (from `.symlinks/plugins/home_widget/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - in_app_purchase_storekit (from `.symlinks/plugins/in_app_purchase_storekit/darwin`)
   - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
   - open_file_ios (from `.symlinks/plugins/open_file_ios/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
@@ -324,6 +328,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/home_widget/ios"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
+  in_app_purchase_storekit:
+    :path: ".symlinks/plugins/in_app_purchase_storekit/darwin"
   local_auth_darwin:
     :path: ".symlinks/plugins/local_auth_darwin/darwin"
   open_file_ios:
@@ -384,6 +390,7 @@ SPEC CHECKSUMS:
   health: 785a9a388095ea6414755ff081bf46a4a5fb01b2
   home_widget: f169fc41fd807b4d46ab6615dc44d62adbf9f64f
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
+  in_app_purchase_storekit: 22cca7d08eebca9babdf4d07d0baccb73325d3c8
   JPSVolumeButtonHandler: 53110330c9168ed325def93eabff39f0fe3e8082
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   local_auth_darwin: 553ce4f9b16d3fdfeafce9cf042e7c9f77c1c391
@@ -412,8 +419,8 @@ SPEC CHECKSUMS:
   sign_in_with_apple: c5dcc141574c8c54d5ac99dd2163c0c72ad22418
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   Superscript: 82dbb40f502823160e75503ebc1b6bac756a503d
-  SuperwallKit: 520fd9dff39358c9708d88cc69c1f4fbd32b3008
-  superwallkit_flutter: 24189eddf53053b67bb8a909556fca71140665c4
+  SuperwallKit: 239843161a144ad08af40906ec0307779abd7d12
+  superwallkit_flutter: 1a8f16ff97d3a3be52be3f6585279cd82209feb2
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
   webview_flutter_wkwebview: 1821ceac936eba6f7984d89a9f3bcb4dea99ebb2
 
