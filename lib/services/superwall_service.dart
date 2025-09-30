@@ -3,17 +3,23 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:superwallkit_flutter/superwallkit_flutter.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
+import 'package:macrotracker/services/superwall_delegate.dart';
 
 /// Service to manage Superwall integration and replace custom paywall functionality
 class SuperwallService {
   static final SuperwallService _instance = SuperwallService._internal();
   factory SuperwallService() => _instance;
-  SuperwallService._internal();
+  SuperwallService._internal() {
+    _delegate = CustomSuperwallDelegate();
+  }
 
   // Configuration
   static const String _apiKey = 'pk_92e7caae027e3213de436b66d1fb25996245e09c3415ef9b'; // TODO: Replace with actual API key
   bool _isConfigured = false;
   bool _isInitializing = false;
+  
+  // Delegate for handling custom actions
+  late final CustomSuperwallDelegate _delegate;
 
   // Session tracking (migrated from PaywallManager)
   static const String _lastPaywallShownKey = 'superwall_last_paywall_shown_timestamp';
@@ -39,8 +45,12 @@ class SuperwallService {
       // Configure Superwall with API key (simple configuration)
       Superwall.configure(_apiKey);
       
+      // Set the custom delegate to handle custom paywall actions
+      Superwall.shared.setDelegate(_delegate);
+      
+      debugPrint('[SuperwallService] Superwall configured successfully with custom delegate');
+      
       _isConfigured = true;
-      debugPrint('[SuperwallService] Superwall configured successfully');
       
       // Test basic Superwall functionality
       try {
@@ -238,6 +248,59 @@ class SuperwallService {
     }
   }
   
+  /// Handle redeem custom action - opens App Store redeem page with native sheet
+  void handleRedeemAction({bool useNativeSheet = true}) {
+    if (!_isConfigured) {
+      debugPrint('[SuperwallService] Superwall not configured - cannot handle redeem action');
+      return;
+    }
+    
+    debugPrint('[SuperwallService] Handling redeem custom action with native sheet: $useNativeSheet');
+    _delegate.handleCustomPaywallAction('redeem');
+  }
+
+  /// Handle custom action from Superwall paywall
+  /// This method should be called when Superwall triggers a custom action
+  /// Note: This is now handled automatically by the SuperwallDelegate
+  void handleCustomAction(String actionName, {Map<String, dynamic>? parameters}) {
+    if (!_isConfigured) {
+      debugPrint('[SuperwallService] Superwall not configured - cannot handle custom action: $actionName');
+      return;
+    }
+    
+    debugPrint('[SuperwallService] Manually handling custom action: $actionName with parameters: $parameters');
+    
+    switch (actionName.toLowerCase()) {
+      case 'redeem':
+        // Extract useNativeSheet parameter if provided
+        final useNativeSheet = parameters?['useNativeSheet'] as bool? ?? true;
+        handleRedeemAction(useNativeSheet: useNativeSheet);
+        break;
+      case 'restore':
+        handleRestoreAction();
+        break;
+      default:
+        debugPrint('[SuperwallService] Unknown custom action: $actionName');
+    }
+  }
+
+  /// Test the custom redeem action (for debugging purposes)
+  void testRedeemAction() {
+    debugPrint('[SuperwallService] Testing redeem action...');
+    _delegate.handleCustomPaywallAction('redeem');
+  }
+
+  /// Handle restore custom action - restores purchases via RevenueCat
+  void handleRestoreAction() {
+    if (!_isConfigured) {
+      debugPrint('[SuperwallService] Superwall not configured - cannot handle restore action');
+      return;
+    }
+    
+    debugPrint('[SuperwallService] Handling restore custom action');
+    _delegate.handleCustomPaywallAction('restore');
+  }
+
   /// Identify user for personalized paywalls
   Future<void> identify(String userId) async {
     if (!_isConfigured) return;
@@ -277,27 +340,6 @@ class SuperwallService {
     }
   }
   
-  /// Sync subscription status from RevenueCat to Superwall
-  void _syncSubscriptionStatusWithRevenueCat() {
-    Purchases.addCustomerInfoUpdateListener((customerInfo) async {
-      try {
-        final hasActiveEntitlementOrSubscription = 
-            customerInfo.entitlements.active.isNotEmpty;
-        
-        // TODO: Update Superwall subscription status when API is available
-        // if (hasActiveEntitlementOrSubscription) {
-        //   await Superwall.shared.setSubscriptionStatus(SubscriptionStatusActive(...));
-        // } else {
-        //   await Superwall.shared.setSubscriptionStatus(SubscriptionStatusInactive());
-        // }
-        
-        debugPrint('[SuperwallService] Synced subscription status: $hasActiveEntitlementOrSubscription');
-        
-      } catch (e) {
-        debugPrint('[SuperwallService] Error syncing subscription status: $e');
-      }
-    });
-  }
   
   /// Show a placeholder paywall (temporary implementation)
   /// This can be used to replace PaywallManager.showPaywall() calls

@@ -671,33 +671,39 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
           .compareTo(DateTime.parse(b['date'] as String)));
 
-      // Get first and last entries based on selected time frame
-      final firstEntry = _filterWeightDataByTimeFrame(_weightData).first;
-      final lastEntry = _filterWeightDataByTimeFrame(_weightData).last;
+      // Get filtered data for the selected time frame
+      final filteredData = _filterWeightDataByTimeFrame(_weightData);
+      
+      // Only calculate statistics if we have filtered data
+      if (filteredData.isNotEmpty) {
+        // Get first and last entries based on selected time frame
+        final firstEntry = filteredData.first;
+        final lastEntry = filteredData.last;
 
-      // Calculate change
-      final startWeight = firstEntry['weight'] as double;
-      final endWeight = lastEntry['weight'] as double;
-      weightChange = endWeight - startWeight;
+        // Calculate change
+        final startWeight = firstEntry['weight'] as double;
+        final endWeight = lastEntry['weight'] as double;
+        weightChange = endWeight - startWeight;
 
-      // Format time description
-      final startDate = DateTime.parse(firstEntry['date'] as String);
-      final endDate = DateTime.parse(lastEntry['date'] as String);
-      final days = endDate.difference(startDate).inDays;
+        // Format time description
+        final startDate = DateTime.parse(firstEntry['date'] as String);
+        final endDate = DateTime.parse(lastEntry['date'] as String);
+        final days = endDate.difference(startDate).inDays;
 
-      if (days < 7) {
-        timeDescription = days == 0
-            ? 'today'
-            : 'in the last $days day${days == 1 ? '' : 's'}';
-      } else if (days < 30) {
-        final weeks = (days / 7).floor();
-        timeDescription = 'in the last $weeks week${weeks == 1 ? '' : 's'}';
-      } else if (days < 365) {
-        final months = (days / 30).floor();
-        timeDescription = 'in the last $months month${months == 1 ? '' : 's'}';
-      } else {
-        final years = (days / 365).floor();
-        timeDescription = 'in the last $years year${years == 1 ? '' : 's'}';
+        if (days < 7) {
+          timeDescription = days == 0
+              ? 'today'
+              : 'in the last $days day${days == 1 ? '' : 's'}';
+        } else if (days < 30) {
+          final weeks = (days / 7).floor();
+          timeDescription = 'in the last $weeks week${weeks == 1 ? '' : 's'}';
+        } else if (days < 365) {
+          final months = (days / 30).floor();
+          timeDescription = 'in the last $months month${months == 1 ? '' : 's'}';
+        } else {
+          final years = (days / 365).floor();
+          timeDescription = 'in the last $years year${years == 1 ? '' : 's'}';
+        }
       }
     }
 
@@ -774,36 +780,55 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                     if (_weightData.length > 1)
                       Padding(
                         padding: const EdgeInsets.only(top: 8, bottom: 16),
-                        child: Row(
-                          children: [
-                            Icon(
-                              weightChange > 0
-                                  ? Icons.arrow_upward
-                                  : weightChange < 0
-                                      ? Icons.arrow_downward
-                                      : Icons.remove,
-                              size: 16,
-                              color: weightChange > 0
-                                  ? Colors.redAccent
-                                  : weightChange < 0
-                                      ? Colors.greenAccent.shade700
-                                      : customColors.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${convertedChange.abs().toStringAsFixed(1)} ${unitProvider.unitLabel} ${weightChange > 0 ? 'gained' : weightChange < 0 ? 'lost' : 'maintained'} $timeDescription',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: weightChange > 0
-                                    ? Colors.redAccent
-                                    : weightChange < 0
-                                        ? Colors.greenAccent.shade700
-                                        : customColors.textSecondary,
+                        child: _filterWeightDataByTimeFrame(_weightData).isNotEmpty
+                            ? Row(
+                                children: [
+                                  Icon(
+                                    weightChange > 0
+                                        ? Icons.arrow_upward
+                                        : weightChange < 0
+                                            ? Icons.arrow_downward
+                                            : Icons.remove,
+                                    size: 16,
+                                    color: weightChange > 0
+                                        ? Colors.redAccent
+                                        : weightChange < 0
+                                            ? Colors.greenAccent.shade700
+                                            : customColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${convertedChange.abs().toStringAsFixed(1)} ${unitProvider.unitLabel} ${weightChange > 0 ? 'gained' : weightChange < 0 ? 'lost' : 'maintained'} $timeDescription',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: weightChange > 0
+                                          ? Colors.redAccent
+                                          : weightChange < 0
+                                              ? Colors.greenAccent.shade700
+                                              : customColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: customColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'No data for this ${_selectedTimeFrame.toLowerCase()}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: customColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
 
                     // Chart
@@ -2039,7 +2064,7 @@ class _WeightChartPainter extends CustomPainter {
       fontWeight: FontWeight.w500,
     );
 
-    const text = 'No weight data available';
+    final text = 'No weight data for this ${timeFrame.toLowerCase()}';
     final textSpan = TextSpan(text: text, style: textStyle);
     final textPainter = TextPainter(
       text: textSpan,
@@ -2236,22 +2261,11 @@ class _WeightChartPainter extends CustomPainter {
       ) {
     if (animatedPoints.length < 2) return;
 
-    final path = Path();
+    final Path path = _createMonotoneCurvePath(animatedPoints);
 
-    // Start from bottom left of the first point (using bottomPadding)
-    path.moveTo(animatedPoints.first.dx, size.height - bottomPadding);
-
-    // Go to the first actual point
-    path.lineTo(animatedPoints.first.dx, animatedPoints.first.dy);
-
-    // Add all points using straight lines
-    for (int i = 1; i < animatedPoints.length; i++) {
-      path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
-    }
-
-    // Close the path by going to the bottom right and then back to start (using bottomPadding)
     path.lineTo(animatedPoints.last.dx, size.height - bottomPadding);
     path.lineTo(animatedPoints.first.dx, size.height - bottomPadding);
+    path.close();
 
     canvas.drawPath(path, fillPaint); // Use the passed fillPaint
   }
@@ -2261,14 +2275,91 @@ class _WeightChartPainter extends CustomPainter {
       double chartHeight, List<Offset> animatedPoints) {
     if (animatedPoints.length < 2) return;
 
-    final path = Path();
-    path.moveTo(animatedPoints.first.dx, animatedPoints.first.dy);
+    final Path path = _createMonotoneCurvePath(animatedPoints);
 
-    // Draw straight lines between points
-    for (int i = 1; i < animatedPoints.length; i++) {
-      path.lineTo(animatedPoints[i].dx, animatedPoints[i].dy);
-    }
     canvas.drawPath(path, linePaint); // Use the instance linePaint
+  }
+
+  Path _createMonotoneCurvePath(List<Offset> points) {
+    final Path path = Path();
+    if (points.isEmpty) {
+      return path;
+    }
+
+    if (points.length < 2) {
+      path.moveTo(points.first.dx, points.first.dy);
+      return path;
+    }
+
+    final List<double> xValues =
+        points.map((point) => point.dx).toList(growable: false);
+    final List<double> yValues =
+        points.map((point) => point.dy).toList(growable: false);
+
+    final int pointCount = points.length;
+    final List<double> slopes = List<double>.filled(pointCount - 1, 0);
+    final List<double> tangents = List<double>.filled(pointCount, 0);
+
+    for (int i = 0; i < pointCount - 1; i++) {
+      final double dx = xValues[i + 1] - xValues[i];
+      if (dx == 0) {
+        slopes[i] = 0;
+      } else {
+        slopes[i] = (yValues[i + 1] - yValues[i]) / dx;
+      }
+    }
+
+    tangents[0] = slopes[0];
+    tangents[pointCount - 1] = slopes[pointCount - 2];
+
+    for (int i = 1; i < pointCount - 1; i++) {
+      tangents[i] = (slopes[i - 1] + slopes[i]) / 2;
+    }
+
+    for (int i = 0; i < pointCount - 1; i++) {
+      final double slope = slopes[i];
+      if (slope == 0) {
+        tangents[i] = 0;
+        tangents[i + 1] = 0;
+        continue;
+      }
+
+      final double a = tangents[i] / slope;
+      final double b = tangents[i + 1] / slope;
+      final double magnitude = math.sqrt(a * a + b * b);
+
+      if (magnitude > 3) {
+        final double scale = 3 / magnitude;
+        tangents[i] = scale * a * slope;
+        tangents[i + 1] = scale * b * slope;
+      }
+    }
+
+    path.moveTo(xValues.first, yValues.first);
+
+    for (int i = 0; i < pointCount - 1; i++) {
+      final double x0 = xValues[i];
+      final double y0 = yValues[i];
+      final double x1 = xValues[i + 1];
+      final double y1 = yValues[i + 1];
+      final double dx = x1 - x0;
+
+      if (dx == 0) {
+        path.lineTo(x1, y1);
+        continue;
+      }
+
+      path.cubicTo(
+        x0 + dx / 3,
+        y0 + tangents[i] * dx / 3,
+        x1 - dx / 3,
+        y1 - tangents[i + 1] * dx / 3,
+        x1,
+        y1,
+      );
+    }
+
+    return path;
   }
 
   // Updated to accept calculated values

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
@@ -10,13 +10,34 @@ class SubscriptionProvider extends ChangeNotifier {
   DateTime? _lastChecked;
 
   // Global dev-only flag to disable paywall for testing.
-  // IMPORTANT: Never enable this for production builds.
-  static const bool _DISABLE_PAYWALL_FOR_TESTING = true; // Set to false to re-enable
+  // IMPORTANT: This only works in debug builds - production builds ignore this completely.
+  static const bool _DISABLE_PAYWALL_FOR_TESTING = true; // ✅ Safe - only works in debug
   // Hard paywall configuration
   static const bool _ENFORCE_HARD_PAYWALL = true;
+  
+  // Build mode validation - extra security layer
+  static bool get _isDebugBuild => kDebugMode && !kReleaseMode;
+  static bool get _isProductionBuild => kReleaseMode || !kDebugMode;
 
-  // Getters
-  bool get isProUser => _DISABLE_PAYWALL_FOR_TESTING ? true : _isProUser;
+  // Getters with multiple security layers
+  bool get isProUser {
+    // SECURITY LAYER 1: Production builds NEVER allow bypass
+    if (_isProductionBuild) {
+      if (_DISABLE_PAYWALL_FOR_TESTING) {
+        debugPrint('🚨 CRITICAL: Testing bypass attempted in PRODUCTION - BLOCKED');
+      }
+      return _isProUser; // Always use real subscription status in production
+    }
+    
+    // SECURITY LAYER 2: Debug builds can use testing bypass
+    if (_isDebugBuild && _DISABLE_PAYWALL_FOR_TESTING) {
+      debugPrint('🧪 DEBUG MODE: Using testing bypass - subscription check disabled');
+      return true;
+    }
+    
+    // SECURITY LAYER 3: Fallback to real subscription status
+    return _isProUser;
+  }
   bool get isInitialized => _isInitialized;
   DateTime? get lastChecked => _lastChecked;
   bool get hasFreeTrial => false; // No free trial with hard paywall
@@ -60,11 +81,18 @@ class SubscriptionProvider extends ChangeNotifier {
   // Load the cached subscription status (now synchronous)
   void _loadFromPrefs() {
     try {
-      if (_DISABLE_PAYWALL_FOR_TESTING) {
+      // Only allow testing bypass in debug builds
+      if (_isDebugBuild && _DISABLE_PAYWALL_FOR_TESTING) {
+        debugPrint('🧪 DEBUG MODE: Loading with testing bypass enabled');
         _isProUser = true;
         _lastChecked = DateTime.now();
         _isInitialized = true;
         return;
+      }
+      
+      // Production builds always load real subscription status
+      if (_isProductionBuild && _DISABLE_PAYWALL_FOR_TESTING) {
+        debugPrint('🚨 PRODUCTION: Testing bypass ignored - loading real subscription status');
       }
 
       // Assuming StorageService is initialized
@@ -97,8 +125,9 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Check with RevenueCat for the current subscription status
   Future<bool> checkSubscriptionStatus() async {
-    if (_DISABLE_PAYWALL_FOR_TESTING) {
-      // Force premium in testing mode
+    // Only allow testing bypass in debug builds
+    if (_isDebugBuild && _DISABLE_PAYWALL_FOR_TESTING) {
+      debugPrint('🧪 DEBUG MODE: Forcing premium status for testing');
       final wasProUser = _isProUser;
       _isProUser = true;
       _lastChecked = DateTime.now();
@@ -107,6 +136,11 @@ class SubscriptionProvider extends ChangeNotifier {
       }
       _saveToPrefs();
       return true;
+    }
+    
+    // Production builds always check real subscription status
+    if (_isProductionBuild && _DISABLE_PAYWALL_FOR_TESTING) {
+      debugPrint('🚨 PRODUCTION: Testing bypass ignored - checking real subscription status');
     }
 
     try {
@@ -154,9 +188,18 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Check if a specific feature is available - with hard paywall, requires subscription
   bool canAccessFeature(String featureName) {
-    if (_DISABLE_PAYWALL_FOR_TESTING) {
+    // Production builds never allow bypass
+    if (_isProductionBuild) {
+      return _isProUser; // Always check real subscription in production
+    }
+    
+    // Debug builds can use testing bypass
+    if (_isDebugBuild && _DISABLE_PAYWALL_FOR_TESTING) {
+      debugPrint('🧪 DEBUG MODE: Feature "$featureName" access granted via testing bypass');
       return true;
     }
+    
+    // Default: check real subscription status
     if (_ENFORCE_HARD_PAYWALL) {
       return _isProUser; // With hard paywall, all features require subscription
     }
@@ -167,9 +210,18 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Check if the user can access app content at all
   bool canAccessApp() {
-    if (_DISABLE_PAYWALL_FOR_TESTING) {
+    // Production builds never allow bypass
+    if (_isProductionBuild) {
+      return _isProUser; // Always check real subscription in production
+    }
+    
+    // Debug builds can use testing bypass
+    if (_isDebugBuild && _DISABLE_PAYWALL_FOR_TESTING) {
+      debugPrint('🧪 DEBUG MODE: App access granted via testing bypass');
       return true;
     }
+    
+    // Default: check real subscription status
     if (_ENFORCE_HARD_PAYWALL) {
       return _isProUser; // With hard paywall, app access requires subscription
     }
@@ -180,9 +232,18 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Check if the user can add any food entries
   bool canAddEntries() {
-    if (_DISABLE_PAYWALL_FOR_TESTING) {
+    // Production builds never allow bypass
+    if (_isProductionBuild) {
+      return _isProUser; // Always check real subscription in production
+    }
+    
+    // Debug builds can use testing bypass
+    if (_isDebugBuild && _DISABLE_PAYWALL_FOR_TESTING) {
+      debugPrint('🧪 DEBUG MODE: Entry access granted via testing bypass');
       return true;
     }
+    
+    // Default: check real subscription status
     if (_ENFORCE_HARD_PAYWALL) {
       return _isProUser; // With hard paywall, entries require subscription
     }
@@ -196,6 +257,14 @@ class SubscriptionProvider extends ChangeNotifier {
   Future<void> debugSubscriptionStatus() async {
     try {
       print("===== SUBSCRIPTION DEBUG INFO =====");
+      print("🏗️ Build Mode: ${_isDebugBuild ? 'DEBUG' : 'PRODUCTION'}");
+      print("🧪 Testing Bypass Enabled: $_DISABLE_PAYWALL_FOR_TESTING");
+      print("🔒 Testing Bypass Active: ${_isDebugBuild && _DISABLE_PAYWALL_FOR_TESTING}");
+      print("💎 Hard Paywall Enabled: $_ENFORCE_HARD_PAYWALL");
+      print("👤 Cached Pro Status: $_isProUser");
+      print("📱 Public Pro Status: $isProUser");
+      print("---");
+      
       final customerInfo = await Purchases.getCustomerInfo();
       
       print("Active entitlements: ${customerInfo.entitlements.active.keys}");
@@ -204,7 +273,6 @@ class SubscriptionProvider extends ChangeNotifier {
       print("All purchased product IDs: ${customerInfo.allPurchasedProductIdentifiers}");
       print("Latest expiration date: ${customerInfo.latestExpirationDate}");
       print("Provider: ${customerInfo.managementURL != null ? 'Apple/Google' : 'Unknown'}");
-      print("Cached provider status: isProUser = $_isProUser");
       print("===== END DEBUG INFO =====");
     } catch (e) {
       print("Error getting debug subscription info: $e");
