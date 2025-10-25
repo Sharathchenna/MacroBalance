@@ -280,38 +280,29 @@ class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                height: 56,
-                width: 56,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? source.iconColor.withOpacity(0.12)
-                      : source.iconColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: AnimatedScale(
-                    scale: isSelected ? 1.1 : 1.0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
-                    child: source.icon.runtimeType == IconData
-                        ? Icon(
-                            source.icon as IconData,
-                            size: 28,
-                            color: source.iconColor,
-                          )
-                        : FaIcon(
-                            source.icon as IconData,
-                            size: 24,
-                            color: source.iconColor,
-                          ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: AnimatedScale(
+                      scale: isSelected ? 1.1 : 1.0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutBack,
+                      child: source.icon.runtimeType == IconData
+                          ? Icon(
+                              source.icon as IconData,
+                              size: 32,
+                              color: source.iconColor,
+                            )
+                          : FaIcon(
+                              source.icon as IconData,
+                              size: 28,
+                              color: source.iconColor,
+                            ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 16),
+                  const SizedBox(width: 20),
               Expanded(
                 child: isOther && isSelected
                     ? TextField(
