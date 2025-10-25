@@ -502,11 +502,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       return const SizedBox(width: 80);
     }
 
+    // Disable button on acquisition source page if no source is selected
+    bool isDisabled = _currentPage == 1 && _acquisitionSource == null;
+    
     return ElevatedButton(
-      onPressed: _nextPage,
+      onPressed: isDisabled ? null : _nextPage,
       style: ElevatedButton.styleFrom(
-        backgroundColor:
-            customColors?.textPrimary ?? theme.colorScheme.onBackground,
+        backgroundColor: isDisabled
+            ? (customColors?.textPrimary ?? theme.colorScheme.onBackground).withOpacity(0.4)
+            : (customColors?.textPrimary ?? theme.colorScheme.onBackground),
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
@@ -516,7 +520,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       child: Text(
         _currentPage == _totalPages - 1 ? 'Calculate' : 'Next',
         style: AppTypography.onboardingButton.copyWith(
-          color: theme.colorScheme.onPrimary,
+          color: isDisabled
+              ? theme.colorScheme.onPrimary.withOpacity(0.5)
+              : theme.colorScheme.onPrimary,
         ),
       ),
     );
