@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'dart:async';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -24,6 +24,9 @@ class AcquisitionSourcePage extends StatefulWidget {
 class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
     with TickerProviderStateMixin {
   String? _selectedSource;
+  final TextEditingController _otherTextController = TextEditingController();
+  final FocusNode _otherFocusNode = FocusNode();
+  Timer? _debounceTimer;
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -68,6 +71,9 @@ class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
+    _otherTextController.dispose();
+    _otherFocusNode.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -77,28 +83,50 @@ class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
       _selectedSource = source;
     });
     
+    // If "other" is selected, focus the text field after a short delay
+    if (source == 'other') {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _otherFocusNode.requestFocus();
+        }
+      });
+    }
+    
+    // Track the selection with the actual text if it's "other"
+    final String trackingSource = source == 'other' && _otherTextController.text.isNotEmpty
+        ? 'other: ${_otherTextController.text}'
+        : source;
+    
     PostHogService.trackEvent('acquisition_source_selected', properties: {
-      'source': source,
+      'source': trackingSource,
       'timestamp': DateTime.now().toIso8601String(),
     });
     
-    widget.onSourceSelected(source);
+    // Pass the actual text for "other" if available
+    if (source == 'other' && _otherTextController.text.isNotEmpty) {
+      widget.onSourceSelected('other: ${_otherTextController.text}');
+    } else {
+      widget.onSourceSelected(source);
+    }
   }
-
-  void _handleSkip() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _selectedSource = 'skipped';
+  
+  void _handleOtherTextChanged(String value) {
+    // Cancel the previous timer
+    _debounceTimer?.cancel();
+    
+    // Debounce both callback and PostHog tracking - only fire after user stops typing for 1000ms
+    _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
+      final String trackingSource = value.isNotEmpty ? 'other: $value' : 'other';
+      
+      // Update the selected source after debounce
+      widget.onSourceSelected(trackingSource);
+      
+      PostHogService.trackEvent('acquisition_source_other_text_changed', properties: {
+        'source': trackingSource,
+        'text_length': value.length,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
     });
-    
-    PostHogService.trackEvent('acquisition_source_skipped', properties: {
-      'timestamp': DateTime.now().toIso8601String(),
-    });
-    
-    widget.onSourceSelected('skipped');
-    
-    // Call the onSkip callback if provided to auto-advance
-    widget.onSkip?.call();
   }
 
   @override
@@ -125,15 +153,12 @@ class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
                   
                   const SizedBox(height: 16),
 
-                  // Source options in a grid
+                  // Source options in a list
                   Expanded(
-                    child: _buildSourceGrid(context),
+                    child: _buildSourceList(context),
                   ),
 
                   const SizedBox(height: 16),
-                  
-                  // Skip button
-                  _buildSkipButton(customColors, theme),
                   
                   const SizedBox(height: 8),
                 ],
@@ -149,243 +174,199 @@ class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1.clamp(0.0, 1.0)),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            'Optional',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
         Text(
-          'How did you discover us?',
-          style: GoogleFonts.poppins(
-            fontSize: 28,
+          'How did you hear about us?',
+          style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
+            fontSize: 26,
             color: customColors?.textPrimary ?? theme.colorScheme.onBackground,
-            height: 1.2,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text(
           'Help us understand our community better and improve our reach',
-          style: GoogleFonts.poppins(
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 16,
-            color: customColors?.textSecondary ?? theme.colorScheme.onSurface.withOpacity(0.7.clamp(0.0, 1.0)),
-            height: 1.4,
+            color: customColors?.textSecondary ?? theme.colorScheme.onSurface.withOpacity(0.7),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSourceGrid(BuildContext context) {
+  Widget _buildSourceList(BuildContext context) {
     final sources = [
       _SourceData(
         id: 'tiktok',
         title: 'TikTok',
         icon: FontAwesomeIcons.tiktok,
-        gradient: [const Color(0xFF25F4EE), const Color(0xFFFE2C55)],
-        category: 'Social Media',
+        iconColor: Colors.black,
       ),
       _SourceData(
         id: 'instagram',
         title: 'Instagram',
         icon: FontAwesomeIcons.instagram,
-        gradient: [const Color(0xFF833AB4), const Color(0xFFFD1D1D), const Color(0xFFFCB045)],
-        category: 'Social Media',
-      ),
-      _SourceData(
-        id: 'youtube',
-        title: 'YouTube',
-        icon: FontAwesomeIcons.youtube,
-        gradient: [const Color(0xFFFF0000), const Color(0xFFCC0000)],
-        category: 'Social Media',
+        iconColor: const Color(0xFFE1306C),
       ),
       _SourceData(
         id: 'reddit',
         title: 'Reddit',
         icon: FontAwesomeIcons.reddit,
-        gradient: [const Color(0xFFFF4500), const Color(0xFFFF6B35)],
-        category: 'Communities',
+        iconColor: const Color(0xFFFF4500),
+      ),
+      _SourceData(
+        id: 'other',
+        title: 'Other',
+        icon: Icons.edit_rounded,
+        iconColor: const Color(0xFF9C27B0),
       ),
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 8),
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        shrinkWrap: true,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.1,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-        ),
-        itemCount: sources.length,
-        itemBuilder: (context, index) {
-          final source = sources[index];
-          return TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: 400 + (index * 100)),
-            curve: Curves.easeOutBack,
-            builder: (context, value, child) {
-              return Transform.scale(
-                scale: 0.8 + (0.2 * value),
-                child: Opacity(
-                  opacity: value.clamp(0.0, 1.0),
-                  child: _buildSourceCard(source),
-                ),
-              );
-            },
-          );
-        },
-      ),
+    return ListView.separated(
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      padding: const EdgeInsets.only(top: 24),
+      itemCount: sources.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final source = sources[index];
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: Duration(milliseconds: 300 + (index * 80)),
+          curve: Curves.easeOutBack,
+          builder: (context, value, child) {
+            return Transform.translate(
+              offset: Offset(0, 20 * (1 - value)),
+              child: Opacity(
+                opacity: value.clamp(0.0, 1.0),
+                child: _buildSourceCard(source),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _buildSourceCard(_SourceData source) {
     final isSelected = _selectedSource == source.id;
     final theme = Theme.of(context);
+    final customColors = Theme.of(context).extension<CustomColors>();
+    final Color primaryColor = customColors?.textPrimary ?? theme.colorScheme.primary;
+    final Color cardBgColor = customColors?.cardBackground ?? theme.cardColor;
+    final bool isOther = source.id == 'other';
     
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: isSelected ? 1 : 0),
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      builder: (context, selectedValue, child) {
-        return GestureDetector(
-          onTap: () => _handleSourceSelection(source.id),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                colors: source.gradient.map((c) => c.withOpacity((0.1 + (selectedValue * 0.05)).clamp(0.0, 1.0))).toList(),
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: isSelected 
-                  ? source.gradient.first.withOpacity(0.5.clamp(0.0, 1.0))
-                  : Colors.grey.withOpacity(0.2.clamp(0.0, 1.0)),
-                width: isSelected ? 2 : 1,
-              ),
-              boxShadow: [
-                if (isSelected)
-                  BoxShadow(
-                    color: source.gradient.first.withOpacity(0.3.clamp(0.0, 1.0)),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-              ],
+    return GestureDetector(
+      onTap: isOther && isSelected ? null : () => _handleSourceSelection(source.id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: cardBgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? primaryColor : Colors.grey.withOpacity(0.15),
+            width: isSelected ? 2.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? source.iconColor.withOpacity(0.12)
+                  : Colors.black.withOpacity(0.03),
+              blurRadius: isSelected ? 10 : 4,
+              offset: Offset(0, isSelected ? 3 : 1),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: source.gradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: source.gradient.first.withOpacity(0.3.clamp(0.0, 1.0)),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: 56,
+                width: 56,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? source.iconColor.withOpacity(0.12)
+                      : source.iconColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: AnimatedScale(
+                    scale: isSelected ? 1.1 : 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutBack,
+                    child: source.icon.runtimeType == IconData
+                        ? Icon(
+                            source.icon as IconData,
+                            size: 28,
+                            color: source.iconColor,
+                          )
+                        : FaIcon(
+                            source.icon as IconData,
+                            size: 24,
+                            color: source.iconColor,
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: isOther && isSelected
+                    ? TextField(
+                        controller: _otherTextController,
+                        focusNode: _otherFocusNode,
+                        autofocus: false,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: customColors?.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
+                        decoration: InputDecoration(
+                          hintText: 'Type here...',
+                          hintStyle: TextStyle(
+                            color: customColors?.textSecondary ?? Colors.grey,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: _handleOtherTextChanged,
+                      )
+                    : AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 300),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                          color: isSelected
+                              ? primaryColor
+                              : customColors?.textPrimary ?? theme.colorScheme.onSurface,
+                        ),
+                        child: Text(source.title),
+                      ),
+              ),
+              if (isSelected && !isOther)
+                AnimatedScale(
+                  scale: 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: primaryColor,
+                      shape: BoxShape.circle,
                     ),
-                    child: FaIcon(
-                      source.icon,
-                      size: 28,
+                    child: const Icon(
+                      Icons.check,
+                      size: 16,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    source.title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 2),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: source.gradient.first.withOpacity(0.2.clamp(0.0, 1.0)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      source.category,
-                      style: GoogleFonts.poppins(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                        color: source.gradient.first.withOpacity(0.8.clamp(0.0, 1.0)),
-                      ),
-                    ),
-                  ),
-                  if (isSelected) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: source.gradient.first,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSkipButton(CustomColors? customColors, ThemeData theme) {
-    return Center(
-      child: TextButton.icon(
-        onPressed: _handleSkip,
-        icon: Icon(
-          Icons.skip_next_rounded,
-          size: 20,
-          color: customColors?.textSecondary ?? theme.colorScheme.onSurface.withOpacity(0.6),
-        ),
-        label: Text(
-          'Skip for now',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: customColors?.textSecondary ?? theme.colorScheme.onSurface.withOpacity(0.6),
-          ),
-        ),
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
+                ),
+            ],
           ),
         ),
       ),
@@ -396,15 +377,13 @@ class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
 class _SourceData {
   final String id;
   final String title;
-  final IconData icon;
-  final List<Color> gradient;
-  final String category;
+  final dynamic icon;
+  final Color iconColor;
 
   _SourceData({
     required this.id,
     required this.title,
     required this.icon,
-    required this.gradient,
-    required this.category,
+    required this.iconColor,
   });
 }
