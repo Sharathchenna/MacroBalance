@@ -97,13 +97,19 @@ async function generateFoodItems(query: string, maxResults: number = 3): Promise
     throw new Error('Gemini API key not configured');
   }
 
-  const prompt = `You are a nutrition expert. For the food search query below, suggest ${maxResults} realistic foods that match it, with accurate nutrition.
+  const prompt = `You are a nutrition expert AI assistant. When given a food search query, generate realistic food suggestions with accurate nutritional information. Return only valid JSON in the exact format specified.
 
-For each food, give 2 to 4 common serving sizes the way people actually eat it (for example "1 slice (35g)", "1 cup (240ml)", "1 medium (118g)", "100g"). Include the weight in grams in brackets where it makes sense. Every nutrition array must have one value per serving size, in the same order. Use plain numbers, never null; use 0 if unknown.
+Rules:
+1. Generate ${maxResults} realistic food items that match the search query.
+2. For each food, give 2 to 4 serving sizes that suit that food, the way people actually eat it (for example "1 slice (35g)", "1 cup (240ml)", "1 medium (118g)"), and always include "100g". Factor in the user's description when choosing serving sizes, and put the most appropriate serving for what the user asked for first. Include the weight in grams in brackets where it makes sense.
+3. Every nutrition array must have one value per serving size, in the same order. Use plain numbers, never null or arithmetic; use 0 if a value is truly unknown.
+4. Provide a short, helpful description.
+5. Ensure all nutritional values are real and accurate.
+6. Do not hallucinate. If you are unsure about a food, think carefully, and do not return a wrong result.
 
 Query: "${query}"
 
-Respond with JSON only, no other text, exactly in this shape:
+Response format (JSON only, no other text):
 {
   "items": [
     {
@@ -121,7 +127,7 @@ Respond with JSON only, no other text, exactly in this shape:
 
   try {
     const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent(prompt);
     const response = await result.response;

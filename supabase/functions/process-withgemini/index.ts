@@ -1,38 +1,11 @@
-// // Follow this setup guide to integrate the Deno language server with your editor:
-// // https://deno.land/manual/getting_started/setup_your_environment
-// // This enables autocomplete, go to definition, etc.
+// Follow this setup guide to integrate the Deno language server with your editor:
+// https://deno.land/manual/getting_started/setup_your_environment
+// This enables autocomplete, go to definition, etc.
 
-// // Setup type definitions for built-in Supabase Runtime APIs
-// import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+// Setup type definitions for built-in Supabase Runtime APIs
+import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 
-// console.log("Hello from Functions!")
-
-// Deno.serve(async (req) => {
-//   const { name } = await req.json()
-//   const data = {
-//     message: `Hello ${name}!`,
-//   }
-
-//   return new Response(
-//     JSON.stringify(data),
-//     { headers: { "Content-Type": "application/json" } },
-//   )
-// })
-
-// /* To invoke locally:
-
-//   1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-//   2. Make an HTTP request:
-
-//   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/process-withgemini' \
-//     --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-//     --header 'Content-Type: application/json' \
-//     --data '{"name":"Functions"}'
-
-// */
-
-import { GoogleGenerativeAI, Part } from "npm:@google/generative-ai@0.2.1";
-import { encodeBase64 } from "https://deno.land/std@0.220.1/encoding/base64.ts";
+import { GoogleGenAI } from "npm:@google/genai@1.50.1";
 
 // Health score calculation function
 function calculateHealthScore(calories: number, protein: number, carbohydrates: number, fat: number, fiber: number): number {
@@ -132,12 +105,9 @@ Deno.serve(async (req: Request) => {
     // Read image as bytes
     const imageBytes = new Uint8Array(await image.arrayBuffer());
     
-    // Initialize the Google Generative AI client
-    const genAI = new GoogleGenerativeAI(apiKey);
+    // Initialize the Google GenAI client
+    const genAI = new GoogleGenAI({ apiKey });
     
-    // Get the Gemini model - using gemini-2.0-flash to match the Dart implementation
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
     // Define nutrition analysis prompt - updated to include health score
     const prompt = `
       Analyze the following meal and provide its nutritional content including health scores.
@@ -202,25 +172,37 @@ Deno.serve(async (req: Request) => {
     
     console.log(`Using MIME type: ${mimeType}`);
     
-    // Create parts for the request
-    const imagePart: Part = {
-      inlineData: {
-        data: encodeBase64(imageBytes),
-        mimeType: mimeType,
-      },
-    };
+    // Convert image bytes to base64 - chunk processing to avoid stack overflow
+    const base64Image = (() => {
+      const chunkSize = 0x8000; // 32KB chunks
+      const chunks = [];
+      for (let i = 0; i < imageBytes.length; i += chunkSize) {
+        const chunk = imageBytes.subarray(i, i + chunkSize);
+        chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
+      }
+      return btoa(chunks.join(''));
+    })();
     
-    const textPart: Part = {
-      text: prompt,
-    };
-    
-    // Generate content with the image and prompt
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [textPart, imagePart] }],
+    // Generate content with the image and prompt using the new API
+    const result = await genAI.models.generateContent({
+      model: "gemini-flash-lite-latest",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Image
+              }
+            }
+          ]
+        }
+      ]
     });
     
-    const response = await result.response;
-    const text = response.text();
+    const text = result.text;
 
     // Try to parse the response and add health scores if missing
     try {

@@ -47,7 +47,6 @@ dependencies:
   flutter_svg: ^2.0.17
   font_awesome_flutter: ^10.8.0
   google_fonts: ^6.2.1
-  google_generative_ai: ^0.4.6
   google_mlkit_barcode_scanning: ^0.13.0
   google_sign_in: ^6.2.2
   health: ^12.0.1
@@ -59,7 +58,6 @@ dependencies:
   image_picker: ^1.1.2 # Already present, ensure it's up-to-date if needed
   local_auth: ^2.3.0
   lottie: ^2.7.0
-  math_expressions: ^2.4.0 # Added for evaluating AI responses
   numberpicker: ^2.1.2
   oauth2: ^2.0.3
   open_file: ^3.5.10

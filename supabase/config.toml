@@ -11,7 +11,7 @@ entrypoint = "./functions/send-notifications/index.ts"
 
 [functions.schedule-notifications]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/schedule-notifications/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -27,7 +27,7 @@ entrypoint = "./functions/delete-user/index.ts"
 
 [functions.fatsecret-proxy]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/fatsecret-proxy/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -41,3 +41,30 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/process-withgemini/deno.json"
 entrypoint = "./functions/process-withgemini/index.ts"
+
+# verify_jwt values below match what is deployed (supabase functions list).
+[functions.contact-support]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/contact-support/index.ts"
+
+[functions.revoke-apple-token]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/revoke-apple-token/index.ts"
+
+[functions.email-verification]
+enabled = true
+verify_jwt = false
+import_map = "./functions/email-verification/deno.json"
+entrypoint = "./functions/email-verification/index.ts"
+
+[functions.ai-food-search]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-food-search/index.ts"
+
+[functions.ask-ai]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ask-ai/index.ts"

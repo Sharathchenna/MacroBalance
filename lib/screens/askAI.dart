@@ -6,7 +6,7 @@ import 'package:macrotracker/widgets/ai_estimate_badge.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
@@ -14,9 +14,8 @@ import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import 'dart:convert';
+import 'dart:async';
 import 'package:lottie/lottie.dart';
-import 'package:math_expressions/math_expressions.dart'; // Import math_expressions
 import 'package:macrotracker/services/posthog_service.dart';
 
 class Askai extends StatefulWidget {
@@ -61,137 +60,47 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
     });
 
     try {
-      const apiKey = 'AIzaSyDe8qpEeJHOYJtJviyr4GVH2_ssCUy9gZc';
+      // Analysis runs in the ask-ai edge function, which holds the Gemini key.
+      final response = await Supabase.instance.client.functions
+          .invoke('ask-ai', body: {'meal': _mealController.text.trim()})
+          .timeout(const Duration(seconds: 45));
 
-      final model = GenerativeModel(
-        model: 'gemini-2.0-flash',
-        apiKey: apiKey,
-      );
-
-      final prompt = '''
-Analyze the following meal description and extract all food items with their nutritional content.
-Break the meal into individual food items. do not breakdown the meal into ingredients but rather into food items. for example, "turkey sandwich with avocado and cheese" should be broken down into "turkey sandwich", "avocado", and "cheese". another example is "a banana milkshake with chocolate syrup" should be broken down into "banana milkshake" and "chocolate syrup".
-For each item provide:
-1. The name of the food item
-2. A list of serving sizes
-3. Calories, protein, carbohydrates, fat, and fiber for each serving size
-
-Return the response as a JSON list of objects with this structure:
-[
-  {
-    "name": "Food name",
-    "servingSizes": ["1 cup", "100g", etc.],
-    "calories": [200, 150, etc.],
-    "protein": [10, 7.5, etc.],
-    "carbohydrates": [25, 18.75, etc.],
-    "fat": [8, 6, etc.],
-    "fiber": [3, 2.25, etc.]
-  },
-  {...}
-]
-Important note: Do not leave any trailing commas in the JSON response.
-**Crucially, all numeric values in the arrays (calories, protein, etc.) MUST be calculated final numbers, not mathematical expressions (e.g., use `36`, not `72*0.5`).**
-Make educated estimates for nutrition values if needed. If the meal is complex, break it down into its main components.
-Ensure each food has at least two serving size options (e.g., "1 serving" and "100g").
-Meal to analyze: ${_mealController.text}
-''';
-
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
-      final responseText = response.text ?? '';
-      print('--- Raw AI Response ---');
-      print(responseText);
-      print('-----------------------');
-
-      // Extract JSON from response (in case there's any text around it)
-      final jsonRegExp = RegExp(r'(\[[\s\S]*\])');
-      final match = jsonRegExp.firstMatch(responseText);
-
-      if (match != null) {
-        final jsonString = match.group(1)!;
-        print('--- Extracted JSON String ---');
-        print(jsonString);
-        print('---------------------------');
-        String processedJsonString = ''; // Declare before try
-        try {
-          // Pre-process the JSON string to evaluate math expressions
-          processedJsonString =
-              _preprocessJsonResponse(jsonString); // Assign here
-          print('--- Processed JSON String ---');
-          print(processedJsonString);
-          print('-----------------------------');
-
-          final jsonData =
-              json.decode(processedJsonString); // Use processed string
-          final List<AIFoodItem> parsedItems = [];
-
-          for (var item in jsonData) {
-            // Ensure all lists have the expected elements
-            _validateAndFixJsonItem(item);
-
-            // Convert JSON to AIFoodItem using our custom converter
-            parsedItems.add(_convertToAIFoodItem(item));
-          }
-
-          setState(() {
-            _foodItems = parsedItems;
-            _isLoading = false;
-          });
-        } catch (e) {
-          print('--- JSON Parsing Error ---');
-          print('Error: ${e.toString()}');
-          // Log both original and processed strings on error
-          print('Original String: $jsonString');
-          print('Processed String: $processedJsonString');
-          print('------------------------');
-          setState(() {
-            _isLoading = false;
-          });
-          _showErrorSnackbar('Something went wrong, try again later');
-        }
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-        _showErrorSnackbar('Something went wrong, try again later');
+      final data = response.data;
+      if (data is! List) {
+        throw StateError('Unexpected ask-ai response: $data');
       }
-    } catch (e) {
+      final parsedItems = <AIFoodItem>[];
+      for (final raw in data) {
+        if (raw is! Map) continue;
+        final item = Map<String, dynamic>.from(raw);
+        _validateAndFixJsonItem(item);
+        parsedItems.add(_convertToAIFoodItem(item));
+      }
+      if (!mounted) return;
       setState(() {
+        _foodItems = parsedItems;
         _isLoading = false;
       });
+      if (parsedItems.isEmpty) {
+        _showErrorSnackbar("Couldn't find any food in that description. Try naming the foods.");
+      }
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showErrorSnackbar('This is taking too long. Check your connection and try again.');
+    } on FunctionException catch (e) {
+      debugPrint('ask-ai failed (${e.status}): ${e.details}');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showErrorSnackbar(e.status == 401
+          ? 'Please sign in again to use Ask AI.'
+          : 'Something went wrong, try again later');
+    } catch (e) {
+      debugPrint('ask-ai failed: $e');
+      if (!mounted) return;
+      setState(() => _isLoading = false);
       _showErrorSnackbar('Something went wrong, try again later');
     }
-  }
-
-  // Function to preprocess JSON string and evaluate simple math expressions
-  String _preprocessJsonResponse(String jsonString) {
-    // Regex to find simple multiplications or divisions like number*number or number/number
-    // It handles integers and decimals.
-    final expRegex = RegExp(r'(\d+(\.\d+)?)\s*([\*\/])\s*(\d+(\.\d+)?)');
-    Parser p = Parser();
-    ContextModel cm = ContextModel();
-
-    // Replace found expressions with their calculated values
-    String processedString = jsonString.replaceAllMapped(expRegex, (match) {
-      try {
-        String expression =
-            match.group(0)!; // The full matched expression e.g., "72*0.5"
-        Expression exp = p.parse(expression);
-        double result = exp.evaluate(EvaluationType.REAL, cm);
-        // Format to avoid unnecessary trailing zeros for integers
-        if (result == result.truncate()) {
-          return result.toInt().toString();
-        } else {
-          // Limit decimal places if needed, e.g., toStringAsFixed(2)
-          return result.toStringAsFixed(2); // Adjust precision as needed
-        }
-      } catch (e) {
-        print("Error evaluating expression '${match.group(0)}': $e");
-        return match.group(0)!; // Return original string if evaluation fails
-      }
-    });
-
-    return processedString;
   }
 
   // Helper method to validate and fix JSON data to prevent errors
