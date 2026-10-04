@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/food.dart';
 import '../models/saved_food.dart';
 import '../services/saved_food_repository.dart';
+import '../services/storage_service.dart';
 import '../screens/searchPage.dart' as search;
 
 class SavedFoodProvider with ChangeNotifier {
@@ -204,7 +205,8 @@ class SavedFoodProvider with ChangeNotifier {
         _hasMoreData = false;
       } else {
         _currentPage++;
-        _updateFoodsList([..._savedFoods, ...nextPage]);
+        // Local storage already holds earlier pages; merge by id, don't append.
+        _updateFoodsList(_mergeFoodLists(_savedFoods, nextPage));
       }
     } catch (e) {
       debugPrint('Error loading more saved foods: $e');
@@ -419,12 +421,17 @@ class SavedFoodProvider with ChangeNotifier {
     _safeNotifyListeners();
 
     try {
-      final cloudFoods = await _repository.loadFromCloud(
-        page: 0,
-        pageSize: _pageSize,
-      );
+      // Replace with the complete cloud list (not just page one), so foods past
+      // the first page aren't dropped from local storage.
+      final List<SavedFood> cloudFoods = [];
+      for (int page = 0;; page++) {
+        final batch =
+            await _repository.loadFromCloud(page: page, pageSize: _pageSize);
+        cloudFoods.addAll(batch);
+        if (batch.length < _pageSize) break;
+      }
 
-      _updateFoodsList(cloudFoods);
+      _updateFoodsList(_mergeFoodLists(const [], cloudFoods));
       await _repository.saveToLocal(_savedFoods);
       _lastSyncTime = DateTime.now();
     } catch (e) {
@@ -433,6 +440,20 @@ class SavedFoodProvider with ChangeNotifier {
       _isLoading = false;
       _safeNotifyListeners();
     }
+  }
+
+  /// Forgets the signed-in user's saved foods (on logout or account deletion),
+  /// so the next account on this device starts clean and reloads its own.
+  Future<void> clearUserData() async {
+    _savedFoods = [];
+    _foodCache.clear();
+    _cacheTimestamps.clear();
+    _isInitialized = false;
+    _lastSyncTime = null;
+    _currentPage = 0;
+    _hasMoreData = true;
+    await StorageService().delete('saved_foods');
+    _safeNotifyListeners();
   }
 
   @override

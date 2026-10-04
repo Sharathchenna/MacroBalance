@@ -68,8 +68,12 @@ Future<String> processImageWithGemini(String imagePath) async {
     print('[Gemini Debug] Sending request to Supabase edge function...');
     final apiCallStart = DateTime.now();
     
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
+    // Without a limit the "Analyzing Image" dialog, which can't be dismissed,
+    // waits as long as the OS keeps the connection open.
+    final streamedResponse =
+        await request.send().timeout(const Duration(seconds: 45));
+    final response = await http.Response.fromStream(streamedResponse)
+        .timeout(const Duration(seconds: 45));
     
     print('[Gemini Debug] Supabase edge function response received in ${DateTime.now().difference(apiCallStart).inMilliseconds}ms');
     

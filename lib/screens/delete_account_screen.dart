@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
@@ -145,7 +146,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         // Clear local provider data (now synchronous)
         final foodEntryProvider =
             Provider.of<FoodEntryProvider>(context, listen: false);
-        foodEntryProvider.clearEntries();
+        await foodEntryProvider.clearUserData();
+        await Provider.of<SavedFoodProvider>(context, listen: false)
+            .clearUserData();
 
         // Sign out regardless of outcome
         await _supabase.auth.signOut();

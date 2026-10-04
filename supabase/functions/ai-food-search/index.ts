@@ -25,6 +25,21 @@ interface AIFoodSearchRequest {
   max_results?: number;
 }
 
+// Same shape the photo (process-withgemini) and Ask AI flows use, so the app
+// can show every AI result in one screen with real serving options.
+interface AIFoodItem {
+  food: string;
+  serving_size: string[];
+  calories: number[];
+  protein: number[];
+  carbohydrates: number[];
+  fat: number[];
+  fiber: number[];
+  description?: string;
+}
+
+// Legacy single-serving shape. Builds before 1.0.19 read only this, so it is
+// still returned (derived from each item's first serving).
 interface AIFoodSuggestion {
   name: string;
   brand_name: string;
@@ -37,67 +52,97 @@ interface AIFoodSuggestion {
   description: string;
 }
 
-async function generateFoodSuggestions(query: string, maxResults: number = 3): Promise<AIFoodSuggestion[]> {
+function toNumberArray(value: unknown, length: number): number[] {
+  const arr = Array.isArray(value) ? value : [value];
+  return Array.from({ length }, (_, i) => {
+    const n = Number(arr[i] ?? arr[0] ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  });
+}
+
+function normalizeItem(raw: Record<string, unknown>): AIFoodItem | null {
+  const servings = (Array.isArray(raw.serving_size) ? raw.serving_size : [raw.serving_size])
+    .filter((s) => typeof s === 'string' && s.trim().length > 0) as string[];
+  const name = (raw.food ?? raw.name) as string | undefined;
+  if (!name || servings.length === 0) return null;
+  const n = servings.length;
+  return {
+    food: name,
+    serving_size: servings,
+    calories: toNumberArray(raw.calories, n),
+    protein: toNumberArray(raw.protein, n),
+    carbohydrates: toNumberArray(raw.carbohydrates, n),
+    fat: toNumberArray(raw.fat, n),
+    fiber: toNumberArray(raw.fiber, n),
+    description: typeof raw.description === 'string' ? raw.description : undefined,
+  };
+}
+
+function toLegacySuggestion(item: AIFoodItem): AIFoodSuggestion {
+  return {
+    name: item.food,
+    brand_name: 'AI Generated',
+    calories: item.calories[0],
+    protein: item.protein[0],
+    carbohydrates: item.carbohydrates[0],
+    fat: item.fat[0],
+    fiber: item.fiber[0],
+    serving_size: item.serving_size[0],
+    description: item.description ?? 'AI-generated food suggestion',
+  };
+}
+
+async function generateFoodItems(query: string, maxResults: number = 3): Promise<AIFoodItem[]> {
   if (!geminiApiKey) {
     throw new Error('Gemini API key not configured');
   }
 
-  const prompt = `You are a nutrition expert AI assistant. When given a food search query, generate realistic food suggestions with accurate nutritional information. Return only valid JSON in the exact format specified.
+  const prompt = `You are a nutrition expert. For the food search query below, suggest ${maxResults} realistic foods that match it, with accurate nutrition.
 
-Rules:
-1. Generate realistic food items that match the search query
-2. Include accurate nutritional information per 100g serving
-3. Provide helpful descriptions
-4. Use "AI Generated" as brand_name
-5. Ensure all nutritional values are realistic and accurate
+For each food, give 2 to 4 common serving sizes the way people actually eat it (for example "1 slice (35g)", "1 cup (240ml)", "1 medium (118g)", "100g"). Include the weight in grams in brackets where it makes sense. Every nutrition array must have one value per serving size, in the same order. Use plain numbers, never null; use 0 if unknown.
 
-Generate ${maxResults} food suggestions for: "${query}"
+Query: "${query}"
 
-Response format (JSON only, no other text):
+Respond with JSON only, no other text, exactly in this shape:
 {
-  "suggestions": [
+  "items": [
     {
-      "name": "Food Name",
-      "brand_name": "AI Generated",
-      "calories": 200,
-      "protein": 15.0,
-      "carbohydrates": 25.0,
-      "fat": 8.0,
-      "fiber": 3.0,
-      "serving_size": "100g",
-      "description": "Brief description of the food item"
+      "food": "Food name",
+      "serving_size": ["1 slice (35g)", "100g"],
+      "calories": [90, 257],
+      "protein": [3.1, 8.9],
+      "carbohydrates": [17.0, 48.6],
+      "fat": [1.1, 3.2],
+      "fiber": [0.9, 2.7],
+      "description": "One short sentence about the food"
     }
   ]
 }`;
 
   try {
-    // Initialize the Google Generative AI client
     const genAI = new GoogleGenerativeAI(geminiApiKey);
-    
-    // Get the Gemini 2.0 Flash model
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    // Generate content
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
-    
+
     if (!text) {
       throw new Error('No response from Gemini');
     }
 
-    // Clean up the response - remove any code block markers
     const cleanedText = text.trim().replace(/```json/g, '').replace(/```/g, '');
-
-    // Parse the JSON response
     const parsedResponse = JSON.parse(cleanedText);
-    
-    if (!parsedResponse.suggestions || !Array.isArray(parsedResponse.suggestions)) {
+    const rawItems = parsedResponse.items ?? parsedResponse.suggestions;
+
+    if (!Array.isArray(rawItems)) {
       throw new Error('Invalid response format from Gemini');
     }
 
-    return parsedResponse.suggestions;
-
+    return rawItems
+      .map((raw: Record<string, unknown>) => normalizeItem(raw))
+      .filter((item: AIFoodItem | null): item is AIFoodItem => item !== null)
+      .slice(0, maxResults);
   } catch (error) {
     console.error('Error generating food suggestions:', error);
     throw error;
@@ -169,10 +214,11 @@ serve(async (req: Request) => {
     console.log(`Generating AI food suggestions for query: "${requestData.query}" with max_results: ${maxResults}`);
 
     // Generate food suggestions using Gemini
-    const suggestions = await generateFoodSuggestions(requestData.query, maxResults);
+    const items = await generateFoodItems(requestData.query, maxResults);
+    const suggestions = items.map(toLegacySuggestion);
 
     // Return the suggestions
-    return new Response(JSON.stringify({ suggestions }), {
+    return new Response(JSON.stringify({ items, suggestions }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

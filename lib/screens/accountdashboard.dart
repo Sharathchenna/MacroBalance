@@ -14,6 +14,7 @@ import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/Health/Health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
@@ -197,14 +198,22 @@ class _AccountDashboardState extends State<AccountDashboard>
       // Add haptic feedback
       HapticFeedback.mediumImpact();
 
-      // Clear user data from SharedPreferences first
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('macro_results');
-      // Clear food entries (now synchronous)
+      // Push any queued changes before this device forgets them.
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
-      foodEntryProvider.clearEntries();
-      // Other user-related data can be removed here as well
+      final savedFoodProvider =
+          Provider.of<SavedFoodProvider>(context, listen: false);
+      try {
+        await foodEntryProvider
+            .syncWithCloud()
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {
+        // Offline: local-only changes are lost on logout, as before.
+      }
+      // Clear goals, entries, weight history, saved foods and sync state so the
+      // next account on this device starts from its own data.
+      await foodEntryProvider.clearUserData();
+      await savedFoodProvider.clearUserData();
 
       // Then sign out from Supabase
       await _supabase.auth.signOut();
@@ -1684,7 +1693,7 @@ class _AccountDashboardState extends State<AccountDashboard>
             ),
           ),
           content: Text(
-            'This will reset all your macro calculations. You\'ll need to complete the onboarding process again. This action cannot be undone.',
+            'This will reset your calorie and macro goals and take you through onboarding again. Your food log is kept.',
             style: GoogleFonts.poppins(),
           ),
           actions: [
@@ -1722,10 +1731,6 @@ class _AccountDashboardState extends State<AccountDashboard>
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
 
-      // Clear macro data from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('macro_results');
-
       // Clear relevant goal keys from Hive (StorageService)
       StorageService().delete('nutrition_goals');
       StorageService().delete('calories_goal');
@@ -1736,9 +1741,10 @@ class _AccountDashboardState extends State<AccountDashboard>
       StorageService().delete('current_weight');
       // Add any other specific goal keys stored in Hive if necessary
 
-      // Reset provider data and goals locally first - this sets defaults
-      foodEntryProvider.clearEntries(); // Clear food logs
-      foodEntryProvider.resetGoalsToDefault(); // Reset goals in provider state
+      StorageService().delete('macro_results');
+
+      // Only goals are reset; the food log is kept.
+      foodEntryProvider.resetGoalsToDefault();
 
       // Now sync the default values to Supabase
       final currentUser = _supabase.auth.currentUser;

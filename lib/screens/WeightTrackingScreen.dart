@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:macrotracker/services/weight_sync_service.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -107,7 +108,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
             if (_weightData.isNotEmpty) {
               _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
                   .compareTo(DateTime.parse(b['date'] as String)));
-              _currentWeight = _weightData.last['weight'] as double;
+              _currentWeight = (_weightData.last['weight'] as num).toDouble();
               // Update provider if history's latest differs from provider's initial load
               if (foodEntryProvider.currentWeightKg != _currentWeight) {
                 foodEntryProvider.currentWeightKg = _currentWeight;
@@ -132,8 +133,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         StorageService().put('weight_history', json.encode(_weightData));
       }
 
-      // No need to load from cache or Supabase directly for goals anymore
-      // No need to create sample data here, handle empty state in UI
+      _mergeWeightHistoryWithCloud();
     } catch (e) {
       print('Error loading weight data: $e');
       // Ensure weightData is initialized even on error
@@ -148,6 +148,26 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         });
         _pageController.forward();
       }
+    }
+  }
+
+  /// Brings back history from the cloud (after a reinstall or from another
+  /// device) and uploads anything this device hasn't sent yet.
+  Future<void> _mergeWeightHistoryWithCloud() async {
+    final merged = await WeightSyncService()
+        .mergeWithCloud(List<Map<String, dynamic>>.from(_weightData));
+    if (merged == null || !mounted) return;
+    setState(() {
+      _weightData = merged;
+      if (_weightData.isNotEmpty) {
+        _currentWeight = (_weightData.last['weight'] as num).toDouble();
+      }
+    });
+    StorageService().put('weight_history', json.encode(_weightData));
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+    if (_currentWeight > 0 && foodEntryProvider.currentWeightKg != _currentWeight) {
+      foodEntryProvider.currentWeightKg = _currentWeight;
     }
   }
 
@@ -1329,7 +1349,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
                       // Update current weight to the latest entry's weight after sorting
                       if (_weightData.isNotEmpty) {
-                        _currentWeight = _weightData.last['weight'] as double;
+                        _currentWeight = (_weightData.last['weight'] as num).toDouble();
                       }
                     });
 
@@ -1347,6 +1367,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
                     Navigator.pop(context);
                     await _saveWeightChanges();
+                    WeightSyncService().upsertDay(selectedDate, newWeight);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: customColors.accentPrimary,

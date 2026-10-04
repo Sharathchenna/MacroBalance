@@ -78,8 +78,16 @@ serve(async (req) => {
     }
 
     // Delete the user's data from all tables
+    // Tables the app actually writes to (see lib/). 'user_food_entries' was a
+    // stale name: food logs live in 'food_entries'.
     const tables = [
-      'user_food_entries',
+      'food_entries',
+      'nutrition_goals',
+      'saved_foods',
+      'weight_entries',
+      'workout_entries',
+      'workout_monthly_stats',
+      'profiles',
       'user_notification_preferences',
       'user_notification_tokens',
       'user_preferences', 
@@ -90,20 +98,20 @@ serve(async (req) => {
 
     // Delete user data from each table
     let tableResults = {};
+    // supabase-js reports failures in `error` rather than throwing, so check it
+    // explicitly before falling back to tables keyed by `id` (user_macros, profiles).
     for (const table of tables) {
-      try {
-        const result = await supabaseAdmin.from(table).delete().eq('user_id', user_id);
-        tableResults[table] = { success: true, count: result.count };
-        console.log(`Deleted from ${table}:`, result.count);
-      } catch (error) {
-        try {
-          const result = await supabaseAdmin.from(table).delete().eq('id', user_id);
-          tableResults[table] = { success: true, count: result.count };
-          console.log(`Deleted from ${table} using id:`, result.count);
-        } catch (e) {
-          tableResults[table] = { success: false, error: e.message };
-          console.error(`Error deleting from ${table}:`, e);
-        }
+      const byUserId = await supabaseAdmin.from(table).delete().eq('user_id', user_id);
+      if (!byUserId.error) {
+        tableResults[table] = { success: true, count: byUserId.count };
+        continue;
+      }
+      const byId = await supabaseAdmin.from(table).delete().eq('id', user_id);
+      if (!byId.error) {
+        tableResults[table] = { success: true, count: byId.count };
+      } else {
+        tableResults[table] = { success: false, error: byId.error.message };
+        console.error(`Error deleting from ${table}:`, byUserId.error.message, byId.error.message);
       }
     }
 

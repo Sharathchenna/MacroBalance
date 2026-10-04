@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:macrotracker/screens/Dashboard.dart';
+import 'package:macrotracker/screens/dashboard_screen.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';

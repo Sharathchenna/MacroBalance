@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import 'package:flutter/services.dart';
-import 'package:macrotracker/screens/foodDetail.dart';
+import 'package:macrotracker/screens/food_detail/components/macro_info_box.dart';
 import 'package:macrotracker/widgets/shimmer_loading.dart';
 import 'package:macrotracker/widgets/nutrient_row.dart';
 import 'package:macrotracker/widgets/macro_progress_ring.dart';
@@ -119,6 +119,18 @@ class _BarcodeResultsState extends State<BarcodeResults>
     super.dispose();
   }
 
+  /// Many EU products in Open Food Facts list energy only in kJ. Derive kcal
+  /// so they don't log as 0 kcal.
+  void _fillKcalFromKj(Map<String, dynamic> productData) {
+    final nutriments = productData['nutriments'];
+    if (nutriments is! Map<String, dynamic>) return;
+    if (nutriments['energy-kcal_100g'] is num) return;
+    final kj = nutriments['energy-kj_100g'] ?? nutriments['energy_100g'];
+    if (kj is num) {
+      nutriments['energy-kcal_100g'] = kj / 4.184;
+    }
+  }
+
   Future<void> _searchBarcode(String barcode) async {
     if (barcode.isEmpty) return;
 
@@ -128,7 +140,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
         Uri.parse(
           'https://world.openfoodfacts.org/api/v0/product/$barcode.json',
         ),
-      );
+      ).timeout(const Duration(seconds: 20));
       print('API response status code: ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -137,6 +149,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
         if (data['status'] == 1) {
           // Parse the product data
           Map<String, dynamic> productData = data['product'];
+          _fillKcalFromKj(productData);
 
           // Parse serving data
           List<Serving> parsedServings =

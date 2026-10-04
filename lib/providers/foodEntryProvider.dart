@@ -10,6 +10,7 @@ import 'dart:async'; // Added for Timer
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart'; // Import for MethodChannel
 import 'package:macrotracker/services/macro_calculator_service.dart'; // Import MacroCalculatorService
+import 'package:macrotracker/services/widget_service.dart';
 
 // Define the channel name consistently
 const String _statsChannelName = 'app.macrobalance.com/stats';
@@ -52,7 +53,6 @@ class FoodEntryProvider with ChangeNotifier {
   bool _initialLoadComplete = false;
 
   // Daily sync functionality
-  Timer? _dailySyncTimer;
   DateTime? _lastFoodEntrySyncDate;
   static const String _lastSyncKey = 'last_food_entry_sync_date';
 
@@ -303,8 +303,6 @@ class FoodEntryProvider with ChangeNotifier {
     debugPrint("[Provider Load] Starting loadEntries from local storage...");
     try {
       final String? entriesJson = StorageService().get(_storageKey);
-      debugPrint(
-          "[Provider Load] Raw entries JSON from storage: $entriesJson"); // Added log
       if (entriesJson != null && entriesJson.isNotEmpty) {
         debugPrint(
             "[Provider Load] Found entries in local storage. JSON length: ${entriesJson.length}");
@@ -329,92 +327,81 @@ class FoodEntryProvider with ChangeNotifier {
   void _loadEntriesFromJson(String entriesJson) {
     try {
       final List<dynamic> decodedList = jsonDecode(entriesJson);
-      _entries = decodedList
-          .map((jsonItem) =>
-              FoodEntry.fromJson(jsonItem as Map<String, dynamic>))
-          .toList();
+      // Decode entries one by one so a single bad row can't blank the diary.
+      final List<FoodEntry> loaded = [];
+      for (final jsonItem in decodedList) {
+        try {
+          loaded.add(FoodEntry.fromJson(Map<String, dynamic>.from(jsonItem as Map)));
+        } catch (e) {
+          debugPrint('Skipping unreadable food entry: $e');
+        }
+      }
+      _entries = loaded;
     } catch (e) {
       debugPrint('Error decoding entries JSON: $e');
       _entries = []; // Reset entries on decoding error
     }
   }
 
+  /// Loads goals from local storage.
+  ///
+  /// `nutrition_goals` is written on every goal change, so it wins. The
+  /// individual `*_goal` keys are only a fallback: they are filled from
+  /// `user_macros` at sign-in, before `nutrition_goals` exists on this device.
   Future<void> loadNutritionGoals() async {
     try {
-      // First check for individual keys (these are saved by auth flow)
-      final caloriesGoalFromHive = StorageService().get('calories_goal');
-      final proteinGoalFromHive = StorageService().get('protein_goal');
-      final carbsGoalFromHive = StorageService().get('carbs_goal');
-      final fatGoalFromHive = StorageService().get('fat_goal');
-
-      debugPrint("loadNutritionGoals: Checking individual keys first");
-      debugPrint(
-          "Individual keys from Hive: calories_goal=$caloriesGoalFromHive, protein_goal=$proteinGoalFromHive, carbs_goal=$carbsGoalFromHive, fat_goal=$fatGoalFromHive");
-
-      // Update provider state if values are found in Hive
-      bool updatedFromHive = false;
-      if (caloriesGoalFromHive != null) {
-        _caloriesGoal = (caloriesGoalFromHive as num).toDouble();
-        updatedFromHive = true;
-      }
-      if (proteinGoalFromHive != null) {
-        _proteinGoal = (proteinGoalFromHive as num).toDouble();
-        updatedFromHive = true;
-      }
-      if (carbsGoalFromHive != null) {
-        _carbsGoal = (carbsGoalFromHive as num).toDouble();
-        updatedFromHive = true;
-      }
-      if (fatGoalFromHive != null) {
-        _fatGoal = (fatGoalFromHive as num).toDouble();
-        updatedFromHive = true;
-      }
-
-      if (updatedFromHive) {
-        debugPrint("loadNutritionGoals: Updated from individual Hive keys");
-        notifyListeners();
-        return;
-      }
-
-      // Fall back to nutrition_goals JSON if individual keys not found
       final String? nutritionGoalsString =
           StorageService().get('nutrition_goals');
-      debugPrint(
-          "[Provider Load] Raw nutrition_goals JSON from storage: $nutritionGoalsString"); // Added log
+      bool loadedMacros = false;
       if (nutritionGoalsString != null && nutritionGoalsString.isNotEmpty) {
         final Map<String, dynamic> nutritionGoals =
             jsonDecode(nutritionGoalsString);
 
-        // Load macro targets
-        if (nutritionGoals['macro_targets'] != null) {
-          final macroTargets = nutritionGoals['macro_targets'];
-          _caloriesGoal = (macroTargets['calories'] as num).toDouble();
-          _proteinGoal = (macroTargets['protein'] as num).toDouble();
-          _carbsGoal = (macroTargets['carbs'] as num).toDouble();
-          _fatGoal = (macroTargets['fat'] as num).toDouble();
+        // Older builds of Edit Goals wrote a flat {calories, protein, ...} map.
+        final macroTargets = nutritionGoals['macro_targets'] is Map
+            ? nutritionGoals['macro_targets'] as Map
+            : nutritionGoals;
+        final calories = _asDouble(macroTargets['calories']);
+        if (calories != null && calories > 0) {
+          _caloriesGoal = calories;
+          _proteinGoal = _asDouble(macroTargets['protein']) ?? _proteinGoal;
+          _carbsGoal = _asDouble(macroTargets['carbs']) ?? _carbsGoal;
+          _fatGoal = _asDouble(macroTargets['fat']) ?? _fatGoal;
+          loadedMacros = true;
         }
 
-        // Load other goals
-        _stepsGoal = nutritionGoals['steps_goal'] ?? _stepsGoal;
-        _bmr = (nutritionGoals['bmr'] as num?)?.toDouble() ?? _bmr;
-        _tdee = (nutritionGoals['tdee'] as num?)?.toDouble() ?? _tdee;
-        _goalWeightKg =
-            (nutritionGoals['goal_weight_kg'] as num?)?.toDouble() ??
-                _goalWeightKg;
+        _stepsGoal = _asDouble(nutritionGoals['steps_goal'] ?? nutritionGoals['steps'])
+                ?.toInt() ??
+            _stepsGoal;
+        _bmr = _asDouble(nutritionGoals['bmr']) ?? _bmr;
+        _tdee = _asDouble(nutritionGoals['tdee']) ?? _tdee;
+        _goalWeightKg = _asDouble(nutritionGoals['goal_weight_kg']) ?? _goalWeightKg;
         _currentWeightKg =
-            (nutritionGoals['current_weight_kg'] as num?)?.toDouble() ??
-                _currentWeightKg;
-        _goalType = nutritionGoals['goal_type'] ?? _goalType;
-        _deficitSurplus = nutritionGoals['deficit_surplus'] ?? _deficitSurplus;
-
-        debugPrint('Loaded nutrition goals from storage');
-        notifyListeners();
-      } else {
-        debugPrint('No nutrition goals found in storage, using defaults');
+            _asDouble(nutritionGoals['current_weight_kg']) ?? _currentWeightKg;
+        _goalType = nutritionGoals['goal_type'] as String? ?? _goalType;
+        _deficitSurplus =
+            (nutritionGoals['deficit_surplus'] as num?)?.toInt() ?? _deficitSurplus;
       }
+
+      if (!loadedMacros) {
+        final calories = _asDouble(StorageService().get('calories_goal'));
+        if (calories != null && calories > 0) {
+          _caloriesGoal = calories;
+          _proteinGoal = _asDouble(StorageService().get('protein_goal')) ?? _proteinGoal;
+          _carbsGoal = _asDouble(StorageService().get('carbs_goal')) ?? _carbsGoal;
+          _fatGoal = _asDouble(StorageService().get('fat_goal')) ?? _fatGoal;
+        }
+      }
+      notifyListeners();
     } catch (e) {
       debugPrint('Error loading nutrition goals: $e');
     }
+  }
+
+  static double? _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   void _saveNutritionGoals() {
@@ -431,11 +418,16 @@ class FoodEntryProvider with ChangeNotifier {
       'goal_weight_kg': _goalWeightKg,
       'current_weight_kg': _currentWeightKg,
       'goal_type': _goalType,
+      'deficit_surplus': _deficitSurplus,
       'updated_at': DateTime.now().toIso8601String(),
     };
 
     StorageService().put('nutrition_goals', jsonEncode(goals));
-    debugPrint('Saved nutrition goals to storage: ${jsonEncode(goals)}');
+    // Keep the sign-in fallback keys in step so they can never resurrect old goals.
+    StorageService().put('calories_goal', _caloriesGoal);
+    StorageService().put('protein_goal', _proteinGoal);
+    StorageService().put('carbs_goal', _carbsGoal);
+    StorageService().put('fat_goal', _fatGoal);
   }
 
   Future<void> _syncNutritionGoalsToSupabase() async {
@@ -464,6 +456,17 @@ class FoodEntryProvider with ChangeNotifier {
       };
 
       await Supabase.instance.client.from('nutrition_goals').upsert(goalsData);
+      // Sign-in and AuthGate restore goals from user_macros, so it must match.
+      await Supabase.instance.client.from('user_macros').update({
+        'calories_goal': _caloriesGoal,
+        'protein_goal': _proteinGoal,
+        'carbs_goal': _carbsGoal,
+        'fat_goal': _fatGoal,
+        'steps_goal': _stepsGoal,
+        'goal_weight_kg': _goalWeightKg,
+        'current_weight_kg': _currentWeightKg,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', userId);
       debugPrint('[Provider Sync] Synced nutrition goals to Supabase successfully.');
     } catch (e) {
       debugPrint('[Provider Sync] Error syncing nutrition goals to Supabase: $e');
@@ -485,12 +488,20 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   // --- Nutrient Calculation Methods ---
-  double calculateNutrientForEntry(FoodEntry entry, String nutrientKey) {
-    debugPrint("[DEBUG CALC] Calculating nutrient '$nutrientKey' for entry: ${entry.food.name}, Quantity: ${entry.quantity}, Unit: ${entry.unit}, Brand: ${entry.food.brandName}");
+  double calculateNutrientForEntry(FoodEntry entry, String nutrientKey) =>
+      nutrientForEntry(entry, nutrientKey);
+
+  /// Amount of [nutrientKey] ('calories', 'Protein', ...) in one logged entry.
+  /// Static and pure so it can be unit tested without storage or Supabase.
+  static double nutrientForEntry(FoodEntry entry, String nutrientKey) {
     // --- Special handling for AI-detected foods ---
-    // AI-detected foods store the selected serving's nutrients directly in the FoodItem
-    // and the quantity represents the multiplier for that serving.
-    if (entry.food.brandName == 'AI Detected') {
+    // AI-detected foods logged from the AI screens store the selected serving's
+    // nutrients directly in the FoodItem, and quantity is the multiplier. A
+    // saved AI food logged later carries all its servings instead, so use the
+    // chosen serving when it can be found.
+    final hasMatchingServing = entry.servingDescription != null &&
+        entry.food.servings.any((s) => s.description == entry.servingDescription);
+    if (entry.food.brandName == 'AI Detected' && !hasMatchingServing) {
       double baseValue = 0.0;
       if (nutrientKey == 'calories') {
         baseValue = entry.food.calories;
@@ -501,8 +512,6 @@ class FoodEntryProvider with ChangeNotifier {
       double calculatedValue = baseValue * entry.quantity;
       // Ensure multiplier is not negative (though quantity shouldn't be)
       if (calculatedValue < 0) calculatedValue = 0;
-      debugPrint(
-          "[DEBUG CALC]   AI Detected - Food: ${entry.food.name}, BaseValue: $baseValue, Entry Quantity: ${entry.quantity}. Calculated: $calculatedValue");
       return calculatedValue;
     }
 
@@ -548,7 +557,9 @@ class FoodEntryProvider with ChangeNotifier {
           quantityGrams *= 1000;
         }
         // else assume entry.unit is 'g' or compatible
-        multiplier = quantityGrams / baseAmount;
+        // The serving's own amount is in its unit; compare grams with grams.
+        final baseGrams = servingUnit == 'oz' ? baseAmount * 28.35 : baseAmount;
+        multiplier = quantityGrams / baseGrams;
       } else {
         // If the serving is unit-based (e.g., "1 burger"), use the entry's quantity directly
         multiplier = entry.quantity /
@@ -564,8 +575,7 @@ class FoodEntryProvider with ChangeNotifier {
     } else {
       // --- Fallback: Calculation based on food's default (usually 100g) values ---
       // This happens if no servingDescription was saved or if it didn't match any serving
-      print("Info: Using fallback 100g calculation for ${entry.food.name}");
-
+  
       // Convert entry quantity to grams based on entry.unit
       double quantityGrams = entry.quantity;
       if (entry.unit.toLowerCase() == 'oz') {
@@ -604,8 +614,6 @@ class FoodEntryProvider with ChangeNotifier {
 
     // Final calculation
     double calculatedValue = baseValue * multiplier;
-    debugPrint("[DEBUG CALC]   Non-AI - BaseValue: $baseValue, Multiplier: $multiplier. Calculated: $calculatedValue");
-    debugPrint("[DEBUG CALC]   Final calculated value for ${entry.food.name}: $calculatedValue");
     return calculatedValue;
   }
 
@@ -640,7 +648,6 @@ class FoodEntryProvider with ChangeNotifier {
 
   // --- Centralized Calculation Method ---
   Map<String, double> getNutrientTotalsForDate(DateTime date) {
-    debugPrint("[DEBUG TOTALS] Calculating totals for date: ${date.toIso8601String()}");
     final entriesForDate = getAllEntriesForDate(date);
     double totalCalories = 0.0;
     double totalProtein = 0.0;
@@ -648,7 +655,6 @@ class FoodEntryProvider with ChangeNotifier {
     double totalFat = 0.0;
 
     for (final entry in entriesForDate) {
-      debugPrint("[DEBUG TOTALS]   Processing entry: ${entry.food.name}, Calculated Calories: ${calculateNutrientForEntry(entry, 'calories')}, Protein: ${calculateNutrientForEntry(entry, 'Protein')}, Carbs: ${calculateNutrientForEntry(entry, 'Carbohydrate, by difference')}, Fat: ${calculateNutrientForEntry(entry, 'Total lipid (fat)')}");
       totalCalories += calculateNutrientForEntry(entry, 'calories');
       totalProtein += calculateNutrientForEntry(entry, 'Protein');
       totalCarbs +=
@@ -656,7 +662,6 @@ class FoodEntryProvider with ChangeNotifier {
       totalFat += calculateNutrientForEntry(entry, 'Total lipid (fat)');
     }
 
-    debugPrint("[DEBUG TOTALS]   Final Totals - Calories: $totalCalories, Protein: $totalProtein, Carbs: $totalCarbs, Fat: $totalFat");
     return {
       'calories': totalCalories,
       'protein': totalProtein,
@@ -695,8 +700,10 @@ class FoodEntryProvider with ChangeNotifier {
         "[Provider Add] Received FoodEntry: ID=${entry.id}, Name=${entry.food.name}, Quantity=${entry.quantity}, Unit=${entry.unit}, ServingDesc=${entry.servingDescription}, FoodBrand=${entry.food.brandName}");
     _entries.add(entry);
     await _clearDateCache(); // Clear cache as entries changed
-    await saveEntries(); // Save locally only
+    await saveEntries();
     notifyListeners(); // Notify after saving and clearing cache
+    _updateWidgets();
+    _pushUpsert(entry);
     debugPrint("[Provider Add] Entry ${entry.id} added locally.");
   }
 
@@ -709,8 +716,9 @@ class FoodEntryProvider with ChangeNotifier {
           "[Provider Remove] Entry $entryId found and removed from list.");
       await _clearDateCache(); // Clear cache as entries changed
       notifyListeners();
-      await saveEntries(); // Save locally only
-      debugPrint("[Provider Remove] Entry $entryId removed locally.");
+      await saveEntries();
+      _updateWidgets();
+      _pushDelete(entryId);
     } else {
       debugPrint("[Provider Remove] Entry $entryId not found in list.");
     }
@@ -737,21 +745,18 @@ class FoodEntryProvider with ChangeNotifier {
       await _clearDateCache(); // Clear cache as entries changed
       debugPrint("[Provider Update] Cleared date cache after update.");
       notifyListeners();
-      await saveEntries(); // Save locally only
-      debugPrint("[Provider Update] Entry ${updatedEntry.id} updated locally.");
+      await saveEntries();
+      _updateWidgets();
+      _pushUpsert(updatedEntry);
     } else {
       debugPrint("[Provider Update] Entry ${updatedEntry.id} not found for update.");
     }
   }
 
   List<FoodEntry> getEntriesForMeal(DateTime date, String meal) {
-    debugPrint(
-        "[Provider Get] Getting entries for date ${date.toIso8601String()} and meal $meal...");
     final entriesForDate = getAllEntriesForDate(date);
     final filteredEntries =
         entriesForDate.where((entry) => entry.meal == meal).toList();
-    debugPrint(
-        "[Provider Get] Found ${filteredEntries.length} entries for meal $meal on ${date.toIso8601String()}.");
     return filteredEntries;
   }
 
@@ -765,6 +770,21 @@ class FoodEntryProvider with ChangeNotifier {
   // --- Widget and Platform Integration ---
   Future<void> _updateWidgets() async {
     try {
+      // Home-screen widget reads today's totals from the shared app group.
+      final today = DateTime.now();
+      final totals = getNutrientTotalsForDate(today);
+      await WidgetService.updateMacroWidget(
+        totals['calories'] ?? 0,
+        totals['protein'] ?? 0,
+        totals['carbs'] ?? 0,
+        totals['fat'] ?? 0,
+        _caloriesGoal,
+        _proteinGoal,
+        _carbsGoal,
+        _fatGoal,
+      );
+      await WidgetService.updateRecentMeals(getAllEntriesForDate(today),
+          (entry) => calculateNutrientForEntry(entry, 'calories'));
       await _notifyNativeStatsChanged();
     } catch (e) {
       debugPrint('Error updating widgets: $e');
@@ -794,12 +814,11 @@ class FoodEntryProvider with ChangeNotifier {
     await loadEntries();
     debugPrint("[Provider Load] Loaded entries from local storage.");
     
-    // 4. Reinitialize daily sync for the current user
     await _initializeDailySync();
-    debugPrint("[Provider Load] Daily sync reinitialized for current user.");
-    
-    // 5. Notify listeners about the loaded state
     notifyListeners();
+
+    // Pull anything logged on other devices (or before a reinstall).
+    syncWithCloud().catchError((e) => debugPrint('[Food Sync] $e'));
     debugPrint("[Provider Load] loadEntriesForCurrentUser finished.");
   }
 
@@ -834,47 +853,8 @@ class FoodEntryProvider with ChangeNotifier {
     };
 
     try {
-      // First check for individual keys (these are saved by auth flow)
-      final caloriesGoalFromHive = StorageService().get('calories_goal');
-      final proteinGoalFromHive = StorageService().get('protein_goal');
-      final carbsGoalFromHive = StorageService().get('carbs_goal');
-      final fatGoalFromHive = StorageService().get('fat_goal');
-
-      debugPrint(
-          "FoodEntryProvider Values from Hive: calories_goal=$caloriesGoalFromHive, protein_goal=$proteinGoalFromHive, carbs_goal=$carbsGoalFromHive, fat_goal=$fatGoalFromHive");
-
-      // Update provider state if values are found in Hive
-      bool updatedFromHive = false;
-      if (caloriesGoalFromHive != null) {
-        _caloriesGoal = (caloriesGoalFromHive as num).toDouble();
-        updatedFromHive = true;
-      }
-      if (proteinGoalFromHive != null) {
-        _proteinGoal = (proteinGoalFromHive as num).toDouble();
-        updatedFromHive = true;
-      }
-      if (carbsGoalFromHive != null) {
-        _carbsGoal = (carbsGoalFromHive as num).toDouble();
-        updatedFromHive = true;
-      }
-      if (fatGoalFromHive != null) {
-        _fatGoal = (fatGoalFromHive as num).toDouble();
-        updatedFromHive = true;
-      }
-
-      if (updatedFromHive) {
-        debugPrint(
-            "FoodEntryProvider: Updated values from individual Hive keys");
-        debugPrint(
-            "FoodEntryProvider updated values: calories=${_caloriesGoal}, protein=${_proteinGoal}, carbs=${_carbsGoal}, fat=${_fatGoal}");
-        notifyListeners();
-        diagnosticInfo['updatedFromIndividualKeys'] = true;
-      } else {
-        // If individual keys don't exist, fall back to nutrition_goals
-        await loadNutritionGoals();
-        diagnosticInfo['loadedFromNutritionGoals'] = true;
-      }
-
+      await loadNutritionGoals();
+      diagnosticInfo['loadedFromNutritionGoals'] = true;
       diagnosticInfo['success'] = true;
     } catch (e) {
       diagnosticInfo['errors'].add('General error: ${e.toString()}');
@@ -909,195 +889,183 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   Future<void> syncAllDataWithSupabase() async {
-    debugPrint("[Provider Sync] Syncing all data with Supabase...");
-    
-    try {
-      // Sync nutrition goals
-      await _syncNutritionGoalsToSupabase();
-      debugPrint("[Provider Sync] Successfully synced nutrition goals with Supabase.");
-      
-      // Sync food entries
-      await _syncFoodEntriesToSupabase();
-      debugPrint("[Provider Sync] Successfully synced food entries with Supabase.");
-    } catch (e) {
-      debugPrint("[Provider Sync] Error syncing with Supabase: $e");
-      // Don't throw error, just log it
-    }
-  }  // Initialize daily sync functionality
+    await _syncNutritionGoalsToSupabase();
+    await syncWithCloud();
+  }
+
+  // --- Cloud sync for food entries ---
+  //
+  // Every add/update/delete is pushed straight away. A push that fails is kept
+  // in a pending set in Hive and retried on the next sync, so offline edits are
+  // never lost or overwritten. syncWithCloud() then pulls the user's rows and
+  // merges: local entries win while they are pending, remote rows fill in what
+  // other devices added, and entries removed elsewhere are dropped.
+
+  static const String _pendingUpsertsKey = 'pending_entry_upserts';
+  static const String _pendingDeletesKey = 'pending_entry_deletes';
+  static const String _initialUploadKey = 'entry_sync_v2_done';
+  static const int _remotePageSize = 1000;
+  bool _isSyncing = false;
+
   Future<void> _initializeDailySync() async {
-    // Load last sync date from storage
     final lastSyncString = StorageService().get(_lastSyncKey);
-    if (lastSyncString != null) {
-      try {
-        _lastFoodEntrySyncDate = DateTime.parse(lastSyncString);
-      } catch (e) {
-        debugPrint("[Daily Sync] Error parsing last sync date: $e");
-      }
+    if (lastSyncString is String) {
+      _lastFoodEntrySyncDate = DateTime.tryParse(lastSyncString);
     }
-    
-    // Check if user is authenticated and perform initial sync if needed
-    // This handles both first-time authentication and daily sync requirements
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) {
-      await _performInitialSyncIfNeeded();
-    }
-    
-    // Schedule the next midnight sync for automatic daily backups
-    _scheduleMidnightSync();
   }
 
-// Perform initial sync when user first authenticates
-Future<void> _performInitialSyncIfNeeded() async {
-  debugPrint("[Initial Sync] Checking if initial sync is needed...");
-  
-  final today = DateTime.now();
-  final todayDate = DateTime(today.year, today.month, today.day);
-  
-  // Check if we need to sync:
-  // 1. Never synced before
-  // 2. Last sync was not today
-  bool shouldSync = false;
-  
-  if (_lastFoodEntrySyncDate == null) {
-    debugPrint("[Initial Sync] Never synced before - will perform initial sync");
-    shouldSync = true;
-  } else {
-    final lastSyncDate = DateTime(_lastFoodEntrySyncDate!.year, 
-        _lastFoodEntrySyncDate!.month, _lastFoodEntrySyncDate!.day);
-    if (!lastSyncDate.isAtSameMomentAs(todayDate)) {
-      debugPrint("[Initial Sync] Last sync was not today - will sync");
-      shouldSync = true;
-    } else {
-      debugPrint("[Initial Sync] Already synced today - skipping initial sync");
-    }
-  }
-  
-  if (shouldSync) {
+  Set<String> _readIdSet(String key) {
+    final raw = StorageService().get(key);
+    if (raw is! String || raw.isEmpty) return <String>{};
     try {
-      debugPrint("[Initial Sync] Starting initial food entry sync...");
-      
-      // Sync food entries to Supabase
-      await _syncFoodEntriesToSupabase();
-      
-      // Update last sync date
-      _lastFoodEntrySyncDate = today;
-      await StorageService().put(_lastSyncKey, today.toIso8601String());
-      
-      debugPrint("[Initial Sync] Initial sync completed successfully");
-    } catch (e) {
-      debugPrint("[Initial Sync] Error during initial sync: $e");
-      // Don't throw error to avoid blocking user authentication
-    }
-  }
-}
-
-// Schedule sync to run at midnight
-  void _scheduleMidnightSync() {
-    _dailySyncTimer?.cancel(); // Cancel any existing timer
-    
-    final now = DateTime.now();
-    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
-    final timeUntilMidnight = nextMidnight.difference(now);
-    
-    debugPrint("[Daily Sync] Scheduling next sync for: $nextMidnight (in ${timeUntilMidnight.inMinutes} minutes)");
-    
-    _dailySyncTimer = Timer(timeUntilMidnight, () async {
-      await _performDailySync();
-      // Schedule the next day's sync
-      _scheduleMidnightSync();
-    });
-  }
-
-  // Perform the daily sync at midnight
-  Future<void> _performDailySync() async {
-    debugPrint("[Daily Sync] Starting daily food entry sync...");
-    
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    
-    // Check if we already synced today
-    if (_lastFoodEntrySyncDate != null) {
-      final lastSyncDate = DateTime(_lastFoodEntrySyncDate!.year, 
-          _lastFoodEntrySyncDate!.month, _lastFoodEntrySyncDate!.day);
-      if (lastSyncDate.isAtSameMomentAs(todayDate)) {
-        debugPrint("[Daily Sync] Already synced today, skipping...");
-        return;
-      }
-    }
-    
-    try {
-      // Sync food entries to Supabase
-      await _syncFoodEntriesToSupabase();
-      
-      // Update last sync date
-      _lastFoodEntrySyncDate = today;
-      await StorageService().put(_lastSyncKey, today.toIso8601String());
-      
-      debugPrint("[Daily Sync] Daily sync completed successfully");
-    } catch (e) {
-      debugPrint("[Daily Sync] Error during daily sync: $e");
+      return (jsonDecode(raw) as List).map((e) => e.toString()).toSet();
+    } catch (_) {
+      return <String>{};
     }
   }
 
-  // Sync food entries to Supabase
-  Future<void> _syncFoodEntriesToSupabase() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      debugPrint('[Food Sync] Cannot sync food entries: User not logged in.');
-      return;
-    }
+  Future<void> _writeIdSet(String key, Set<String> ids) async {
+    await StorageService().put(key, jsonEncode(ids.toList()));
+  }
 
-    try {
-      debugPrint('[Food Sync] Starting food entries sync for user: $userId');
-      
-      // Get local entries
-      final localEntries = _entries.map((entry) => {
+  Map<String, dynamic> _remoteRow(FoodEntry entry, String userId) => {
         ...entry.toJson(),
         'user_id': userId,
-        'synced_at': DateTime.now().toIso8601String(),
-      }).toList();
-      
-      if (localEntries.isEmpty) {
-        debugPrint('[Food Sync] No local entries to sync');
-        return;
-      }
-      
-      // Batch sync entries to avoid overwhelming the database
-      const batchSize = 50;
-      for (int i = 0; i < localEntries.length; i += batchSize) {
-        final end = (i + batchSize < localEntries.length) ? i + batchSize : localEntries.length;
-        final batch = localEntries.sublist(i, end);
-        
-        debugPrint('[Food Sync] Syncing batch ${(i / batchSize).floor() + 1} of ${(localEntries.length / batchSize).ceil()} (${batch.length} entries)');
-        
-        await Supabase.instance.client
-            .from('food_entries')
-            .upsert(batch);
-      }
-      
-      debugPrint('[Food Sync] Successfully synced ${localEntries.length} food entries to Supabase');
+        'synced_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+  Future<void> _pushUpsert(FoodEntry entry) async {
+    final pending = _readIdSet(_pendingUpsertsKey)..add(entry.id);
+    await _writeIdSet(_pendingUpsertsKey, pending);
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await Supabase.instance.client
+          .from('food_entries')
+          .upsert(_remoteRow(entry, userId))
+          .timeout(const Duration(seconds: 15));
+      await _writeIdSet(_pendingUpsertsKey, _readIdSet(_pendingUpsertsKey)..remove(entry.id));
     } catch (e) {
-      debugPrint('[Food Sync] Error syncing food entries to Supabase: $e');
-      rethrow;
+      debugPrint('[Food Sync] Upsert of ${entry.id} queued for retry: $e');
     }
   }
 
-  // Manual sync method for testing or force sync
-  Future<void> forceFoodEntrySync() async {
-    debugPrint("[Manual Sync] Force syncing food entries...");
+  Future<void> _pushDelete(String entryId) async {
+    await _writeIdSet(_pendingUpsertsKey, _readIdSet(_pendingUpsertsKey)..remove(entryId));
+    await _writeIdSet(_pendingDeletesKey, _readIdSet(_pendingDeletesKey)..add(entryId));
+    if (Supabase.instance.client.auth.currentUser == null) return;
     try {
-      await _syncFoodEntriesToSupabase();
-      
-      // Update last sync date
-      final now = DateTime.now();
-      _lastFoodEntrySyncDate = now;
-      await StorageService().put(_lastSyncKey, now.toIso8601String());
-      
-      debugPrint("[Manual Sync] Force sync completed successfully");
+      await Supabase.instance.client
+          .from('food_entries')
+          .delete()
+          .eq('id', entryId)
+          .timeout(const Duration(seconds: 15));
+      await _writeIdSet(_pendingDeletesKey, _readIdSet(_pendingDeletesKey)..remove(entryId));
     } catch (e) {
-      debugPrint("[Manual Sync] Error during force sync: $e");
-      rethrow;
+      debugPrint('[Food Sync] Delete of $entryId queued for retry: $e');
     }
+  }
+
+  Future<void> _upsertBatch(List<FoodEntry> entries, String userId) async {
+    for (int i = 0; i < entries.length; i += 50) {
+      final batch = entries
+          .sublist(i, min(i + 50, entries.length))
+          .map((e) => _remoteRow(e, userId))
+          .toList();
+      await Supabase.instance.client
+          .from('food_entries')
+          .upsert(batch)
+          .timeout(const Duration(seconds: 30));
+    }
+  }
+
+  Future<void> _flushPending(String userId) async {
+    final pendingUpserts = _readIdSet(_pendingUpsertsKey);
+    final toUpsert = _entries.where((e) => pendingUpserts.contains(e.id)).toList();
+    if (toUpsert.isNotEmpty) {
+      await _upsertBatch(toUpsert, userId);
+    }
+    await _writeIdSet(_pendingUpsertsKey, <String>{});
+
+    final pendingDeletes = _readIdSet(_pendingDeletesKey);
+    if (pendingDeletes.isNotEmpty) {
+      await Supabase.instance.client
+          .from('food_entries')
+          .delete()
+          .inFilter('id', pendingDeletes.toList())
+          .timeout(const Duration(seconds: 30));
+      await _writeIdSet(_pendingDeletesKey, <String>{});
+    }
+  }
+
+  Future<List<FoodEntry>> _fetchRemoteEntries(String userId) async {
+    final List<FoodEntry> remote = [];
+    for (int from = 0;; from += _remotePageSize) {
+      final rows = await Supabase.instance.client
+          .from('food_entries')
+          .select()
+          .eq('user_id', userId)
+          .order('id')
+          .range(from, from + _remotePageSize - 1)
+          .timeout(const Duration(seconds: 30));
+      for (final row in rows) {
+        try {
+          remote.add(FoodEntry.fromJson(Map<String, dynamic>.from(row)));
+        } catch (e) {
+          debugPrint('[Food Sync] Skipping unreadable remote row: $e');
+        }
+      }
+      if (rows.length < _remotePageSize) break;
+    }
+    return remote;
+  }
+
+  /// Pushes queued changes, then merges the user's cloud entries into this device.
+  Future<void> syncWithCloud() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null || _isSyncing) return;
+    _isSyncing = true;
+    try {
+      // Builds before this one uploaded once a day, so today's entries may be
+      // missing remotely. Upload everything once so the merge can trust remote.
+      if (StorageService().get(_initialUploadKey) != true) {
+        await _upsertBatch(_entries, userId);
+        await StorageService().put(_initialUploadKey, true);
+      }
+      await _flushPending(userId);
+
+      final remote = await _fetchRemoteEntries(userId);
+      final remoteById = {for (final e in remote) e.id: e};
+      final pendingUpserts = _readIdSet(_pendingUpsertsKey);
+      final pendingDeletes = _readIdSet(_pendingDeletesKey);
+      final localIds = _entries.map((e) => e.id).toSet();
+
+      final merged = <FoodEntry>[
+        // Local entries survive if the cloud has them or they still need pushing.
+        ..._entries.where(
+            (e) => remoteById.containsKey(e.id) || pendingUpserts.contains(e.id)),
+        // Remote entries this device hasn't seen (another device, or a reinstall).
+        ...remote.where(
+            (e) => !localIds.contains(e.id) && !pendingDeletes.contains(e.id)),
+      ];
+
+      _entries = merged;
+      await _clearDateCache();
+      await saveEntries();
+      _lastFoodEntrySyncDate = DateTime.now();
+      await StorageService().put(_lastSyncKey, _lastFoodEntrySyncDate!.toIso8601String());
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[Food Sync] Sync failed, will retry next launch: $e');
+      rethrow;
+    } finally {
+      _isSyncing = false;
+    }
+  }
+
+  // Manual sync from the account screen.
+  Future<void> forceFoodEntrySync() async {
+    await syncWithCloud();
   }
 
   // Check if sync is needed (for UI display)
@@ -1152,9 +1120,6 @@ Future<void> _performInitialSyncIfNeeded() async {
   Future<void> clearUserData() async {
     debugPrint("[Provider Clear] Clearing all user data...");
     
-    // Cancel daily sync timer
-    _dailySyncTimer?.cancel();
-    _dailySyncTimer = null;
     _lastFoodEntrySyncDate = null;
     
     _entries.clear();
@@ -1177,6 +1142,22 @@ Future<void> _performInitialSyncIfNeeded() async {
     await StorageService().delete(_storageKey);
     await StorageService().delete('nutrition_goals');
     await StorageService().delete(_lastSyncKey);
+    await StorageService().delete(_pendingUpsertsKey);
+    await StorageService().delete(_pendingDeletesKey);
+    await StorageService().delete(_initialUploadKey);
+    for (final key in [
+      'calories_goal',
+      'protein_goal',
+      'carbs_goal',
+      'fat_goal',
+      'macro_results',
+      'weight_history',
+      'last_sync_timestamp',
+      'pending_weight_days',
+      'weight_backfill_done',
+    ]) {
+      await StorageService().delete(key);
+    }
     
     notifyListeners();
     debugPrint("[Provider Clear] All user data cleared.");
@@ -1184,7 +1165,6 @@ Future<void> _performInitialSyncIfNeeded() async {
 
   @override
   void dispose() {
-    _dailySyncTimer?.cancel();
     super.dispose();
   }
 }

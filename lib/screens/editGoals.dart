@@ -264,17 +264,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'bmr': bmr,
       };
       StorageService().put('macro_results', jsonEncode(results));
-
-      // Also save to nutrition_goals for more structured data
-      final Map<String, dynamic> nutritionGoals = {
-        'calories': calorieGoal,
-        'protein': proteinGoal,
-        'carbs': carbGoal,
-        'fat': fatGoal,
-        'steps': stepsGoal,
-        'bmr': bmr,
-      };
-      StorageService().put('nutrition_goals', jsonEncode(nutritionGoals));
+      // nutrition_goals is owned by FoodEntryProvider.updateNutritionGoals.
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

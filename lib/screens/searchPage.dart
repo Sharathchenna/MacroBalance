@@ -4,6 +4,8 @@
 import 'dart:convert';
 import 'dart:io'; // For Platform check and File operations
 import 'package:flutter/material.dart';
+import 'package:macrotracker/services/camera_service.dart';
+import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -42,13 +44,10 @@ class FoodSearchPage extends StatefulWidget {
 
 class _FoodSearchPageState extends State<FoodSearchPage>
     with SingleTickerProviderStateMixin {
-  // Method Channel for the native camera view
-  static const MethodChannel _nativeCameraViewChannel =
-      MethodChannel('com.macrotracker/native_camera_view');
-
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
-  List<FoodItem> _aiSearchResults = [];
+  List<FoodItem> _aiSearchResults = []; // display cards, same order as _aiItems
+  List<AIFoodItem> _aiItems = [];
   bool _isLoading = false;
   // Track if the search was triggered by the search button
   bool _searchButtonClicked = false;
@@ -93,6 +92,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   @override
   void dispose() {
+    CameraService().removeResultListener(_onCameraCall);
     _loadingController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
@@ -127,7 +127,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           'query': query,
           // Add any other parameters needed by your Edge Function here
         }),
-      );
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -311,10 +311,11 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   Future<void> _searchAI(String query) async {
     try {
-      final aiSuggestions = await _aiSearchService.searchFoodsWithAI(query);
+      final aiItems = await _aiSearchService.searchFoodsWithAI(query);
       if (mounted) {
         setState(() {
-          _aiSearchResults = aiSuggestions.map((suggestion) => suggestion.toFoodItem()).toList();
+          _aiItems = aiItems;
+          _aiSearchResults = aiItems.map(aiItemToDisplayFoodItem).toList();
         });
       }
     } catch (e) {
@@ -352,46 +353,48 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   // --- Native Camera Handling (Adapted from Dashboard) ---
 
   void _setupNativeCameraHandler() {
-    _nativeCameraViewChannel.setMethodCallHandler((call) async {
-      print('[Flutter SearchPage] Received method call: ${call.method}');
-      switch (call.method) {
-        case 'cameraResult':
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) {
-              print(
-                  '[Flutter SearchPage] Post-frame callback: Widget is unmounted. Ignoring result.');
-              return;
-            }
-            final Map<dynamic, dynamic> result = call.arguments as Map;
-            final String type = result['type'] as String;
-            final currentContext = context;
+    CameraService().addResultListener(_onCameraCall);
+  }
 
-            if (type == 'barcode') {
-              final String barcode = result['value'] as String;
-              print(
-                  '[Flutter SearchPage] Post-frame: Handling barcode: $barcode');
-              _handleBarcodeResult(currentContext, barcode);
-            } else if (type == 'photo') {
-              final Uint8List photoData = result['value'] as Uint8List;
-              print(
-                  '[Flutter SearchPage] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-              _handlePhotoResult(currentContext, photoData);
-            } else if (type == 'cancel') {
-              print('[Flutter SearchPage] Post-frame: Handling cancel.');
-            } else {
-              print(
-                  '[Flutter SearchPage] Post-frame: Unknown camera result type: $type');
-              if (mounted) {
-                _showErrorSnackbar('Received unknown result from camera.');
-              }
+  Future<dynamic> _onCameraCall(MethodCall call) async {
+    print('[Flutter SearchPage] Received method call: ${call.method}');
+    switch (call.method) {
+      case 'cameraResult':
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            print(
+                '[Flutter SearchPage] Post-frame callback: Widget is unmounted. Ignoring result.');
+            return;
+          }
+          final Map<dynamic, dynamic> result = call.arguments as Map;
+          final String type = result['type'] as String;
+          final currentContext = context;
+
+          if (type == 'barcode') {
+            final String barcode = result['value'] as String;
+            print(
+                '[Flutter SearchPage] Post-frame: Handling barcode: $barcode');
+            _handleBarcodeResult(currentContext, barcode);
+          } else if (type == 'photo') {
+            final Uint8List photoData = result['value'] as Uint8List;
+            print(
+                '[Flutter SearchPage] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
+            _handlePhotoResult(currentContext, photoData);
+          } else if (type == 'cancel') {
+            print('[Flutter SearchPage] Post-frame: Handling cancel.');
+          } else {
+            print(
+                '[Flutter SearchPage] Post-frame: Unknown camera result type: $type');
+            if (mounted) {
+              _showErrorSnackbar('Received unknown result from camera.');
             }
-          });
-          break;
-        default:
-          print(
-              '[Flutter SearchPage] Unknown method call from native: ${call.method}');
-      }
-    });
+          }
+        });
+        break;
+      default:
+        print(
+            '[Flutter SearchPage] Unknown method call from native: ${call.method}');
+    }
   }
 
   Future<void> _showNativeCamera() async {
@@ -414,7 +417,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
     try {
       print('[Flutter SearchPage] Invoking showNativeCamera...');
-      await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
+      await CameraService().showNativeCamera();
       print('[Flutter SearchPage] showNativeCamera invoked successfully.');
     } on PlatformException catch (e) {
       print('[Flutter SearchPage] Error showing native camera: ${e.message}');
@@ -936,7 +939,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => _onFoodItemTap(food),
+          onTap: () => isAI ? _openAIFood(food) : _onFoodItemTap(food),
           splashColor: accentColor.withOpacity(0.1),
           highlightColor: accentColor.withOpacity(0.05),
           child: Padding(
@@ -1547,6 +1550,22 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
+  /// AI results open the same multi-serving screen as photo logging and Ask AI.
+  void _openAIFood(FoodItem displayFood) {
+    final index = _aiSearchResults.indexOf(displayFood);
+    if (index < 0 || index >= _aiItems.length) return;
+    HapticFeedback.selectionClick();
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => AIFoodDetailPage(
+          food: _aiItems[index],
+          selectedMeal: widget.selectedMeal,
+        ),
+      ),
+    );
+  }
+
   Widget _buildFeaturedAICard(FoodItem food) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1575,7 +1594,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _navigateToFoodDetail(food),
+          onTap: () => _openAIFood(food),
           splashColor: accentColor.withOpacity(0.1),
           highlightColor: accentColor.withOpacity(0.05),
           child: Padding(

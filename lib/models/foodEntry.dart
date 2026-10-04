@@ -37,31 +37,46 @@ class FoodEntry {
         'meal': meal,
         'quantity': quantity,
         'unit': unit,
-        'date': date.toIso8601String(),
+        // UTC with a 'Z' so a timestamptz column round-trips to the same day.
+        'date': date.toUtc().toIso8601String(),
         'servingDescription': servingDescription,
       };
 
-  factory FoodEntry.fromJson(Map<String, dynamic> json) => FoodEntry(
-        id: json['id'],
-        food: FoodItem(
-          fdcId: json['food']['fdcId'],
-          name: json['food']['name'],
-          calories: json['food']['calories'],
-          brandName: json['food']['brandName'],
-          nutrients: Map<String, double>.from(json['food']['nutrients']),
-          mealType: json['food']['mealType'],
-          servingSize: json['food']['servingSize'],
-          // Deserialize the servings list
-          servings: (json['food']['servings'] as List<dynamic>? ?? [])
-              .map((s) => Serving.fromJson(s as Map<String, dynamic>))
-              .toList(),
-        ),
-        meal: json['meal'],
-        quantity: json['quantity'],
-        unit: json['unit'],
-        date: DateTime.parse(json['date']),
-        servingDescription: json['servingDescription'],
-      );
+  factory FoodEntry.fromJson(Map<String, dynamic> json) {
+    final food = Map<String, dynamic>.from(json['food'] as Map);
+    final nutrients = <String, double>{};
+    (food['nutrients'] as Map? ?? {}).forEach((key, value) {
+      final parsed = _toDouble(value);
+      if (parsed != null) nutrients[key.toString()] = parsed;
+    });
+    return FoodEntry(
+      id: json['id'].toString(),
+      food: FoodItem(
+        fdcId: food['fdcId'].toString(),
+        name: food['name'] as String? ?? 'Unknown food',
+        calories: _toDouble(food['calories']) ?? 0.0,
+        brandName: food['brandName'] as String? ?? '',
+        nutrients: nutrients,
+        mealType: food['mealType'] as String? ?? '',
+        servingSize: _toDouble(food['servingSize']) ?? 100.0,
+        servings: (food['servings'] as List<dynamic>? ?? [])
+            .map((s) => Serving.fromJson(Map<String, dynamic>.from(s as Map)))
+            .toList(),
+      ),
+      meal: json['meal'] as String,
+      quantity: _toDouble(json['quantity']) ?? 0.0,
+      unit: json['unit'] as String? ?? 'g',
+      date: DateTime.parse(json['date'] as String),
+      servingDescription: json['servingDescription'] as String?,
+    );
+  }
+
+  // Supabase returns whole numbers as ints (1 rather than 1.0).
+  static double? _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
 
   // Static method to create a FoodItem for AI-detected foods
   static FoodItem createFood({

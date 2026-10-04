@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/models/food.dart';
-import 'package:macrotracker/screens/foodDetail.dart';
+import 'package:macrotracker/screens/food_detail/components/macro_info_box.dart';
 import 'package:macrotracker/widgets/quantity_selector.dart';
 import 'package:macrotracker/widgets/food_detail_components.dart';
 import 'package:provider/provider.dart';
@@ -18,9 +18,12 @@ import 'dart:ui';
 class AIFoodDetailPage extends StatefulWidget {
   final AIFoodItem food;
 
+  final String? selectedMeal;
+
   const AIFoodDetailPage({
     super.key,
     required this.food,
+    this.selectedMeal,
   });
 
   @override
@@ -30,7 +33,7 @@ class AIFoodDetailPage extends StatefulWidget {
 class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     with SingleTickerProviderStateMixin {
   int selectedServingIndex = 0;
-  String selectedMeal = 'Breakfast';
+  late String selectedMeal = widget.selectedMeal ?? 'Breakfast';
   final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
   final List<double> presetMultipliers = [
     0.5,

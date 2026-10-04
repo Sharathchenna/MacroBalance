@@ -57,37 +57,45 @@ class _DashboardState extends State<Dashboard> {
     });
   }
 
-  void _setupNativeCameraHandler() {
-    _cameraService.setupMethodCallHandler((call) async {
-      print('[Flutter Dashboard] Received method call: ${call.method}');
-      switch (call.method) {
-        case 'cameraResult':
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            final Map<dynamic, dynamic> result = call.arguments as Map;
-            final String type = result['type'] as String;
-            final currentContext = context;
+  @override
+  void dispose() {
+    _cameraService.removeResultListener(_onCameraCall);
+    super.dispose();
+  }
 
-            if (type == 'barcode') {
-              final String barcode = result['value'] as String;
-              print('[Flutter Dashboard] Post-frame: Handling barcode: $barcode');
-              _handleBarcodeResult(currentContext, barcode);
-            } else if (type == 'photo') {
-              final Uint8List photoData = result['value'] as Uint8List;
-              print('[Flutter Dashboard] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-              _handlePhotoResult(currentContext, photoData);
-            } else if (type == 'cancel') {
-              print('[Flutter Dashboard] Post-frame: Handling cancel.');
-            } else {
-              print('[Flutter Dashboard] Post-frame: Unknown camera result type: $type');
-              if (mounted) _showErrorSnackbar('Received unknown result from camera.');
-            }
-          });
-          break;
-        default:
-          print('[Flutter Dashboard] Unknown method call from native: ${call.method}');
-      }
-    });
+  void _setupNativeCameraHandler() {
+    _cameraService.addResultListener(_onCameraCall);
+  }
+
+  Future<dynamic> _onCameraCall(MethodCall call) async {
+    print('[Flutter Dashboard] Received method call: ${call.method}');
+    switch (call.method) {
+      case 'cameraResult':
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final Map<dynamic, dynamic> result = call.arguments as Map;
+          final String type = result['type'] as String;
+          final currentContext = context;
+
+          if (type == 'barcode') {
+            final String barcode = result['value'] as String;
+            print('[Flutter Dashboard] Post-frame: Handling barcode: $barcode');
+            _handleBarcodeResult(currentContext, barcode);
+          } else if (type == 'photo') {
+            final Uint8List photoData = result['value'] as Uint8List;
+            print('[Flutter Dashboard] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
+            _handlePhotoResult(currentContext, photoData);
+          } else if (type == 'cancel') {
+            print('[Flutter Dashboard] Post-frame: Handling cancel.');
+          } else {
+            print('[Flutter Dashboard] Post-frame: Unknown camera result type: $type');
+            if (mounted) _showErrorSnackbar('Received unknown result from camera.');
+          }
+        });
+        break;
+      default:
+        print('[Flutter Dashboard] Unknown method call from native: ${call.method}');
+    }
   }
 
   Future<void> _showNativeCamera() async {

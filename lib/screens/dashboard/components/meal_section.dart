@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../../camera/barcode_results.dart';
+import '../../searchPage.dart';
 import '../../../models/foodEntry.dart';
 import '../../../providers/dateProvider.dart';
 import '../../../providers/foodEntryProvider.dart';
@@ -186,7 +186,7 @@ class _MealSectionState extends State<MealSection> {
               ),
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
-                secondChild: _buildExpandedContent(entries, foodEntryProvider),
+                secondChild: _buildExpandedContent(entries, foodEntryProvider, mealType),
                 crossFadeState: expandedState[mealType]!
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
@@ -199,34 +199,85 @@ class _MealSectionState extends State<MealSection> {
     );
   }
 
-  Widget _buildExpandedContent(List<FoodEntry> entries, FoodEntryProvider provider) {
-    if (entries.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: Text(
-            'No entries yet',
-            style: AppTypography.body2.copyWith(
-              color: Theme.of(context).extension<CustomColors>()?.textSecondary,
+  Widget _buildExpandedContent(
+      List<FoodEntry> entries, FoodEntryProvider provider, String mealType) {
+    return Column(
+      children: [
+        if (entries.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: Text(
+                'No entries yet',
+                style: AppTypography.body2.copyWith(
+                  color: Theme.of(context).extension<CustomColors>()?.textSecondary,
+                ),
+              ),
             ),
           ),
-        ),
-      );
-    }
-
-    return Column(
-      children: entries.map((entry) => _buildFoodEntryTile(entry, provider)).toList(),
+        ...entries.map((entry) => _buildFoodEntryTile(entry, provider)),
+        _buildAddFoodButton(mealType),
+      ],
     );
+  }
+
+  Widget _buildAddFoodButton(String mealType) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: TextButton.icon(
+        icon: Icon(Icons.add_circle_outline, size: 18, color: primary),
+        label: Text(
+          'Add Food to $mealType',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: primary,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          backgroundColor: primary.withOpacity(0.1),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          minimumSize: const Size(double.infinity, 40),
+        ),
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          Navigator.push(
+            context,
+            CupertinoPageRoute(
+              builder: (context) => FoodSearchPage(selectedMeal: mealType),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatQuantity(double quantity) {
+    return quantity == quantity.roundToDouble()
+        ? quantity.toStringAsFixed(0)
+        : quantity.toStringAsFixed(1);
+  }
+
+  String _displayUnit(FoodEntry entry) {
+    // AI entries store "<qty> x <serving>" as the description; show the serving.
+    if (entry.food.brandName == 'AI Detected' && entry.servingDescription != null) {
+      return entry.servingDescription!
+          .replaceAll(RegExp(r'^\d+(\.\d+)?\s*x?\s*'), '')
+          .trim();
+    }
+    return entry.unit;
   }
 
   Widget _buildFoodEntryTile(FoodEntry entry, FoodEntryProvider provider) {
     final calories = provider.calculateNutrientForEntry(entry, 'calories');
-    final protein = provider.calculateNutrientForEntry(entry, 'protein');
+    final protein = provider.calculateNutrientForEntry(entry, 'Protein');
 
     return Dismissible(
       key: ValueKey(entry.id),
       direction: DismissDirection.endToStart,
-      onDismissed: (_) => provider.deleteEntry(entry),
+      onDismissed: (_) => provider.removeEntry(entry.id),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
@@ -269,7 +320,7 @@ class _MealSectionState extends State<MealSection> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${entry.quantity.toStringAsFixed(0)} ${entry.unit}',
+                      '${_formatQuantity(entry.quantity)} ${_displayUnit(entry)}',
                       style: AppTypography.caption.copyWith(
                         color: Theme.of(context).extension<CustomColors>()?.textSecondary,
                       ),

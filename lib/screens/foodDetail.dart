@@ -58,6 +58,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 
     if (widget.food.servings.isNotEmpty) {
       selectedServing = widget.food.servings.first;
+      // Match the unit to the serving, as selecting a serving does, so an
+      // "oz" serving isn't read as grams.
+      final unit = selectedServing!.metricUnit.toLowerCase();
+      selectedUnit = (unit == 'g' || unit == 'oz') ? unit : selectedServing!.metricUnit;
       quantityController =
           TextEditingController(text: selectedServing!.metricAmount.toString());
     } else {
@@ -112,7 +116,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   }
 
   double getConvertedQuantity() {
-    double qty = double.tryParse(quantityController.text) ?? 100;
+    double qty = double.tryParse(quantityController.text.replaceAll(',', '.')) ?? 100;
     if (selectedUnit == "oz") {
       return qty * 28.35;
     }
@@ -137,10 +141,11 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 
     if (isWeightBased) {
       double convertedQtyGrams = getConvertedQuantity();
-      double multiplier = convertedQtyGrams / baseAmount;
+      final baseGrams = unit == 'oz' ? baseAmount * 28.35 : baseAmount;
+      double multiplier = convertedQtyGrams / baseGrams;
       return multiplier;
     } else {
-      double quantityEntered = double.tryParse(quantityController.text) ?? 1.0;
+      double quantityEntered = double.tryParse(quantityController.text.replaceAll(',', '.')) ?? 1.0;
       if (quantityEntered < 0) quantityEntered = 0;
       double multiplier = quantityEntered / baseAmount;
       return multiplier;
@@ -257,13 +262,25 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   }
 
   void _addFoodEntry() async {
+    // Accept "1,5" as well as "1.5" (comma is the decimal key in many locales).
+    final quantity =
+        double.tryParse(quantityController.text.trim().replaceAll(',', '.'));
+    if (quantity == null || quantity <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter an amount greater than 0'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
     final dateProvider = Provider.of<DateProvider>(context, listen: false);
     final entry = FoodEntry(
       id: const Uuid().v4(),
       food: widget.food,
       meal: selectedMeal,
-      quantity: double.parse(quantityController.text),
+      quantity: quantity,
       unit: selectedUnit,
       date: dateProvider.selectedDate,
       servingDescription: selectedServing?.description,
@@ -538,14 +555,27 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                 color: customColors.textPrimary,
               ),
               onPressed: () async {
-                if (isSaved) {
-                  final saved = savedProvider.getSavedFoodByFoodId(widget.food.fdcId);
-                  if (saved != null) {
-                    await savedProvider.removeSavedFood(saved.id);
+                try {
+                  if (isSaved) {
+                    final saved = savedProvider.getSavedFoodByFoodId(widget.food.fdcId);
+                    if (saved != null) {
+                      await savedProvider.removeSavedFood(saved.id);
+                    }
+                  } else {
+                    final foodToSave = _createFoodItemWithSelectedServing();
+                    await savedProvider.addSavedFood(foodToSave);
                   }
-                } else {
-                  final foodToSave = _createFoodItemWithSelectedServing();
-                  await savedProvider.addSavedFood(foodToSave);
+                } catch (_) {
+                  // The provider rolls the change back; say why the icon flipped back.
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isSaved
+                          ? 'Couldn\'t remove from saved foods. Check your connection and try again.'
+                          : 'Couldn\'t save this food. Check your connection and try again.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
                 }
               },
             );

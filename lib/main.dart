@@ -10,7 +10,7 @@ import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
-import 'package:macrotracker/screens/dashboard.dart';
+import 'package:macrotracker/screens/dashboard_screen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
 import 'package:macrotracker/screens/saved_foods_screen.dart';
 import 'package:macrotracker/AI/gemini.dart';
@@ -27,7 +27,6 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'providers/meal_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -46,6 +45,7 @@ import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
 import 'package:macrotracker/screens/loginscreen.dart';
+import 'package:macrotracker/screens/reset_password_screen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/services/superwall_service.dart';
 import 'package:lottie/lottie.dart';
@@ -62,7 +62,6 @@ const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
 // Add these variables at the top of the file, after imports
 DateTime? _lastStatsUpdate;
 Map<String, List<Map<String, dynamic>>>? _statsCache;
-const _minimumUpdateInterval = Duration(minutes: 15); // Increased to 15 minutes
 DateTime? _lastRequestTime;
 const _requestThrottleInterval =
     Duration(seconds: 2); // Throttle requests to max once every 2 seconds
@@ -86,9 +85,6 @@ class Routes {
 Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Load the .env file
-  await dotenv.load(fileName: ".env");
 
   // Initialize Hive (must be done before opening boxes)
   await Hive.initFlutter();
@@ -288,51 +284,17 @@ void _setupStatsChannelHandler() {
           final startDate = DateTime.parse(startDateString).toLocal();
           final endDate = DateTime.parse(endDateString).toLocal();
 
-          // Check cache first
-          final cacheKey = '${startDateString}_${endDateString}';
-          if (_statsCache?.containsKey(cacheKey) == true &&
-              _lastStatsUpdate != null &&
-              now.difference(_lastStatsUpdate!) < _minimumUpdateInterval) {
-            debugPrint('[Flutter Stats Handler] Returning cached data');
-            return _statsCache![cacheKey];
-          }
-
           final dateFormatter = DateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
           List<Map<String, dynamic>> results = [];
           DateTime currentDate = startDate;
 
           while (currentDate.isBefore(endDate) ||
               currentDate.isAtSameMomentAs(endDate)) {
-            // Use the fetched provider instance
-            final entries = foodEntryProvider.getAllEntriesForDate(currentDate);
-
-            double totalCarbs = 0;
-            double totalFat = 0;
-            double totalProtein = 0;
-
-            for (var entry in entries) {
-              final carbs =
-                  entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-              final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-              final protein = entry.food.nutrients["Protein"] ?? 0;
-
-              double quantityInGrams = entry.quantity;
-              switch (entry.unit) {
-                case "oz":
-                  quantityInGrams *= 28.35;
-                  break;
-                case "kg":
-                  quantityInGrams *= 1000;
-                  break;
-                case "lbs":
-                  quantityInGrams *= 453.59;
-                  break;
-              }
-              final multiplier = quantityInGrams / 100;
-              totalCarbs += carbs * multiplier;
-              totalFat += fat * multiplier;
-              totalProtein += protein * multiplier;
-            }
+            // Same calculation as the dashboard, so servings and AI foods count correctly.
+            final totals = foodEntryProvider.getNutrientTotalsForDate(currentDate);
+            final totalCarbs = totals['carbs'] ?? 0.0;
+            final totalFat = totals['fat'] ?? 0.0;
+            final totalProtein = totals['protein'] ?? 0.0;
 
             // Use the fetched provider instance
             final proteinGoal = foodEntryProvider.proteinGoal;
@@ -380,6 +342,32 @@ void _handleDeepLink(Uri uri) {
 
   debugPrint('Handling deep link path: $path');
 
+  // Supabase consumes the password-reset link itself and then emits
+  // AuthChangeEvent.passwordRecovery, handled in _MyAppState.
+  if (uri.host == 'reset-callback' || path.startsWith('/reset-callback')) {
+    return;
+  }
+
+  // Email verification callback: go to login, nothing else.
+  if (path.startsWith('/login-callback')) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+      if (navigatorKey.currentContext != null) {
+        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+          const SnackBar(
+            content: Text('Email verified successfully! Please log in.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+    return;
+  }
+
   // Navigate based on the path
   if (path.isEmpty || path == '/') {
     navigatorKey.currentState?.pushNamed(Routes.dashboard);
@@ -405,27 +393,6 @@ void _handleDeepLink(Uri uri) {
       navigatorKey.currentState?.pushNamed(Routes.dashboard);
   }
 
-  // Handle email verification callback
-  if (uri.path.startsWith('/login-callback')) {
-    // <-- Change this line
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      navigatorKey.currentState?.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
-
-      // Show success message
-      if (navigatorKey.currentContext != null) {
-        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-          const SnackBar(
-            content: Text('Email verified successfully! Please log in.'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    });
-  }
 }
 
 // Add this before the MyApp class
@@ -453,12 +420,23 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   StreamSubscription? _linkSubscription;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initDeepLinks(); // Keep initialization here within the state
+    // Opening the reset link signs the user in with a recovery session;
+    // ask for the new password straight away.
+    _authSubscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+        );
+      }
+    });
     // Removed provider linking logic
     // Trigger initial expenditure calculation after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -470,6 +448,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     _linkSubscription?.cancel(); // Ensure cancellation on dispose
+    _authSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -516,6 +495,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // When app resumes, reset any stale presentation state
       NativeStatsScreen.resetState();
+      Provider.of<DateProvider>(context, listen: false).refreshIfNewDay();
     }
   }
 
