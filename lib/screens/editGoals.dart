@@ -189,31 +189,15 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         double totalProtein = 0;
         double totalCalories = 0;
 
+        // Same per-entry math as the dashboard, so servings, AI foods and
+        // units all count correctly (not just gram amounts).
         for (var entry in entries) {
-          final carbs =
-              entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-          final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-          final protein = entry.food.nutrients["Protein"] ?? 0;
-
-          // Convert quantity to grams
-          double quantityInGrams = entry.quantity;
-          switch (entry.unit) {
-            case "oz":
-              quantityInGrams *= 28.35;
-              break;
-            case "kg":
-              quantityInGrams *= 1000;
-              break;
-            case "lbs":
-              quantityInGrams *= 453.59;
-              break;
-          }
-
-          final multiplier = quantityInGrams / 100;
-          totalCarbs += carbs * multiplier;
-          totalFat += fat * multiplier;
-          totalProtein += protein * multiplier;
-          totalCalories += entry.food.calories * multiplier;
+          double nutrient(String key) =>
+              foodEntryProvider.calculateNutrientForEntry(entry, key);
+          totalCarbs += nutrient('Carbohydrate, by difference');
+          totalFat += nutrient('Total lipid (fat)');
+          totalProtein += nutrient('Protein');
+          totalCalories += nutrient('calories');
         }
 
         setState(() {
@@ -837,7 +821,9 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
             mismatch
                 ? '${diff.abs()} kcal ${diff > 0 ? 'more' : 'less'} than your $calorieGoal kcal goal. '
                     'Protein ${proteinGoal}g × 4 + carbs ${carbGoal}g × 4 + fat ${fatGoal}g × 9.'
-                : 'This matches your $calorieGoal kcal goal.',
+                : diff.abs() <= 10
+                    ? 'This matches your $calorieGoal kcal goal.'
+                    : 'Within ${diff.abs()} kcal of your $calorieGoal kcal goal.',
             style: theme.textTheme.bodySmall?.copyWith(color: customColors?.textSecondary),
           ),
           const SizedBox(height: 8),

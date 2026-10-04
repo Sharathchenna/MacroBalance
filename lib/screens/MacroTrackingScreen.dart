@@ -95,16 +95,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
           List<FoodEntry> entriesForDate = foodEntryProvider.getAllEntriesForDate(date);
           double protein = 0, carbs = 0, fat = 0;
           for (var entry in entriesForDate) {
-              double multiplier = entry.quantity;
-              switch (entry.unit) {
-                  case "oz": multiplier *= 28.35; break;
-                  case "kg": multiplier *= 1000; break;
-                  case "lbs": multiplier *= 453.59; break;
-              }
-              multiplier /= 100;
-              protein += (entry.food.nutrients['Protein'] ?? 0) * multiplier;
-              carbs += (entry.food.nutrients['Carbohydrate, by difference'] ?? 0) * multiplier;
-              fat += (entry.food.nutrients['Total lipid (fat)'] ?? 0) * multiplier;
+              // Same per-entry math as the dashboard (servings, AI foods, units).
+              protein += foodEntryProvider.calculateNutrientForEntry(entry, 'Protein');
+              carbs += foodEntryProvider.calculateNutrientForEntry(entry, 'Carbohydrate, by difference');
+              fat += foodEntryProvider.calculateNutrientForEntry(entry, 'Total lipid (fat)');
           }
           history.add({'date': date, 'protein': protein, 'carbs': carbs, 'fat': fat});
       }

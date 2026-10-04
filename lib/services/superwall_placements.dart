@@ -78,8 +78,12 @@ class SuperwallPlacements {
   }) async {
     final superwallService = SuperwallService();
     
-    // Use session tracking for onboarding paywall
+    // Hard paywall: always show it at the end of onboarding. The session
+    // rules (3rd, 7th, 12th launch...) are for upsells; applied here they hid
+    // the paywall on a new user's first launch, leaving "A subscription is
+    // required" with nothing to buy.
     await superwallService.registerWithSessionTracking(
+      forceShow: true,
       placement: onboardingResults,
       params: {
         'source': 'onboarding_results',

@@ -17,6 +17,7 @@ import '../../../utils/meal_time.dart';
 import '../../../utils/number_format.dart';
 import '../../foodDetail.dart';
 import 'photo_job_card.dart';
+import '../../../utils/quick_log.dart';
 
 /// Widget that displays meal sections (Breakfast, Lunch, Snacks, Dinner).
 /// Each meal can be expanded to show food entries and their nutritional info.
@@ -357,18 +358,6 @@ class _MealSectionState extends State<MealSection> {
     );
   }
 
-  String _formatQuantity(double quantity) => formatNumber(quantity);
-
-  String _displayUnit(FoodEntry entry) {
-    // AI entries store "<qty> x <serving>" as the description; show the serving.
-    if (entry.food.brandName == 'AI Detected' && entry.servingDescription != null) {
-      return entry.servingDescription!
-          .replaceAll(RegExp(r'^\d+(\.\d+)?\s*x?\s*'), '')
-          .trim();
-    }
-    return entry.unit;
-  }
-
   Widget _buildFoodEntryTile(FoodEntry entry, FoodEntryProvider provider) {
     final calories = provider.calculateNutrientForEntry(entry, 'calories');
     final protein = provider.calculateNutrientForEntry(entry, 'Protein');
@@ -417,7 +406,7 @@ class _MealSectionState extends State<MealSection> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${_formatQuantity(entry.quantity)} ${_displayUnit(entry)}',
+                      describeEntryAmount(entry),
                       style: AppTypography.caption.copyWith(
                         color: Theme.of(context).extension<CustomColors>()?.textSecondary,
                       ),
