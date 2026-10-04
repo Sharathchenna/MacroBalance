@@ -2,6 +2,7 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:macrotracker/widgets/ai_estimate_badge.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -868,12 +869,18 @@ Meal to analyze: ${_mealController.text}
                         )
                       : ListView.builder(
                           key: ValueKey<int>(_foodItems.length),
-                          itemCount: _foodItems.length,
+                          itemCount: _foodItems.length + 1,
                           padding: const EdgeInsets.symmetric(
                               vertical: 8, horizontal: 16),
                           itemBuilder: (context, index) {
-                            final food = _foodItems[index];
-                            return _buildFoodCard(context, food, index);
+                            if (index == 0) {
+                              return const Padding(
+                                padding: EdgeInsets.only(bottom: 8),
+                                child: AIEstimateBadge(showNote: true),
+                              );
+                            }
+                            final food = _foodItems[index - 1];
+                            return _buildFoodCard(context, food, index - 1);
                           },
                         ),
             ),

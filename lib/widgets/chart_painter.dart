@@ -150,7 +150,7 @@ class ChartPainter extends CustomPainter {
         ),
       )
         ..pushStyle(ui.TextStyle(color: Colors.grey.shade600))
-        ..addText(DateFormat('MMM d').format(labelDate));
+        ..addText(DateFormat.MMMd().format(labelDate));
 
       final ui.Paragraph paragraph = builder.build()
         ..layout(ui.ParagraphConstraints(width: 50.0));

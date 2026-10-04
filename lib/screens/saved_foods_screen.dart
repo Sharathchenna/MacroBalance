@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../providers/foodEntryProvider.dart';
+import '../models/foodEntry.dart';
+import '../utils/meal_time.dart';
+import '../utils/quick_log.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -117,7 +121,16 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
       }).toList();
     }
 
-    _filteredSavedFoods.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    // Most-logged first, then most recently saved.
+    final entries = Provider.of<FoodEntryProvider>(context, listen: false);
+    final counts = {
+      for (final saved in _filteredSavedFoods)
+        saved.id: entries.timesLogged(foodId: saved.food.id, name: saved.food.name),
+    };
+    _filteredSavedFoods.sort((a, b) {
+      final byCount = counts[b.id]!.compareTo(counts[a.id]!);
+      return byCount != 0 ? byCount : b.createdAt.compareTo(a.createdAt);
+    });
   }
 
   @override
@@ -129,11 +142,39 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
     super.dispose();
   }
 
+  /// Logs the saved food's first serving to the current meal in one tap.
+  Future<void> _quickLog(SavedFood savedFood) async {
+    final food = savedFood.toSearchPageFoodItem();
+    final serving = food.servings.isNotEmpty ? food.servings.first : null;
+    final unit = serving?.metricUnit.toLowerCase();
+    final template = FoodEntry(
+      id: 'template',
+      food: food,
+      meal: '',
+      quantity: serving == null
+          ? 100
+          : (serving.metricAmount > 0 ? serving.metricAmount : 1),
+      unit: serving == null
+          ? 'g'
+          : (unit == 'g' || unit == 'oz')
+              ? unit!
+              : serving.metricUnit,
+      date: DateTime.now(),
+      servingDescription: serving?.description,
+    );
+    await quickLogAgain(context, template,
+        meal: widget.selectedMeal ?? MealTime.suggested());
+    if (mounted) setState(_filterSavedFoods);
+  }
+
   Future<void> _deleteSavedFood(String savedFoodId) async {
     HapticFeedback.mediumImpact();
     
     final savedFoodProvider =
         Provider.of<SavedFoodProvider>(context, listen: false);
+    final removed = savedFoodProvider.savedFoods
+        .where((s) => s.id == savedFoodId)
+        .firstOrNull;
     await savedFoodProvider.removeSavedFood(savedFoodId);
 
     setState(() {
@@ -160,6 +201,16 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
+          action: removed == null
+              ? null
+              : SnackBarAction(
+                  label: 'Undo',
+                  textColor: Colors.white,
+                  onPressed: () async {
+                    await savedFoodProvider.addSavedFood(removed.food);
+                    if (mounted) setState(_filterSavedFoods);
+                  },
+                ),
         ),
       );
     }
@@ -495,7 +546,8 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildFoodHeader(food, customColors, colorScheme),
+                            _buildFoodHeader(food, customColors, colorScheme,
+                                onQuickLog: () => _quickLog(savedFood)),
                             const SizedBox(height: 16),
                             _buildMacroRow(food, customColors, colorScheme),
                             if (savedFood.notes?.isNotEmpty == true) ...[
@@ -561,7 +613,8 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
     );
   }
 
-  Widget _buildFoodHeader(dynamic food, CustomColors? customColors, ColorScheme colorScheme) {
+  Widget _buildFoodHeader(dynamic food, CustomColors? customColors, ColorScheme colorScheme,
+      {required VoidCallback onQuickLog}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -621,35 +674,13 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Colors.green.withValues(alpha: 0.2),
-              width: 0.5,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.bookmark_rounded,
-                size: 12,
-                color: Colors.green.shade600,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Saved',
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green.shade600,
-                ),
-              ),
-            ],
-          ),
+        IconButton(
+          tooltip: 'Add to ${widget.selectedMeal ?? MealTime.suggested()}',
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            onQuickLog();
+          },
+          icon: const Icon(Icons.add_circle, color: Color(0xFFFFC107), size: 32),
         ),
       ],
     );

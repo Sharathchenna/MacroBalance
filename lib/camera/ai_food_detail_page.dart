@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/utils/meal_time.dart';
+import 'package:macrotracker/utils/number_format.dart';
+import 'package:macrotracker/widgets/ai_estimate_badge.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/models/food.dart';
@@ -20,10 +23,14 @@ class AIFoodDetailPage extends StatefulWidget {
 
   final String? selectedMeal;
 
+  /// Day to log into; defaults to the day selected on the dashboard.
+  final DateTime? logDate;
+
   const AIFoodDetailPage({
     super.key,
     required this.food,
     this.selectedMeal,
+    this.logDate,
   });
 
   @override
@@ -33,7 +40,7 @@ class AIFoodDetailPage extends StatefulWidget {
 class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     with SingleTickerProviderStateMixin {
   int selectedServingIndex = 0;
-  late String selectedMeal = widget.selectedMeal ?? 'Breakfast';
+  late String selectedMeal = widget.selectedMeal ?? MealTime.suggested();
   final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
   final List<double> presetMultipliers = [
     0.5,
@@ -76,7 +83,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     );
 
     // Initialize other controllers
-    quantityController = TextEditingController(text: '1.0');
+    quantityController = TextEditingController(text: '1');
 
     // Add scroll listener
     _scrollController.addListener(_onScroll);
@@ -105,7 +112,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
   Map<String, double> getMacroPercentages() {
     final nutrition = widget.food.getNutritionForIndex(
       selectedServingIndex,
-      double.tryParse(quantityController.text) ?? 1.0,
+      parseAmount(quantityController.text) ?? 1.0,
     );
 
     double total = nutrition.protein + nutrition.carbohydrates + nutrition.fat;
@@ -207,7 +214,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     final customColors = Theme.of(context).extension<CustomColors>();
     final nutrition = widget.food.getNutritionForIndex(
       selectedServingIndex,
-      double.tryParse(quantityController.text) ?? 1.0,
+      parseAmount(quantityController.text) ?? 1.0,
     );
     final primaryColor = Theme.of(context).primaryColor;
 
@@ -418,6 +425,8 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                                const SizedBox(height: 8),
+                                const AIEstimateBadge(showNote: true),
 
                                 const SizedBox(height: 16),
 
@@ -587,6 +596,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                       child: GestureDetector(
                                         onTap: () {
                                           HapticFeedback.lightImpact();
+                                          MealTime.remember(meal);
                                           setState(() => selectedMeal = meal);
                                         },
                                         child: AnimatedContainer(
@@ -704,7 +714,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                           setState(() {
                                             selectedServingIndex = index;
                                             selectedMultiplier = 1.0;
-                                            quantityController.text = '1.0';
+                                            quantityController.text = '1';
                                           });
                                         },
                                         child: Container(
@@ -815,7 +825,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                               setState(() {
                                 selectedMultiplier = multiplier;
                                 quantityController.text =
-                                    (multiplier).toStringAsFixed(1);
+                                    formatNumber(multiplier, maxDecimals: 2);
                               });
                             },
                           ),
@@ -1037,7 +1047,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
         Provider.of<FoodEntryProvider>(context, listen: false);
 
     // Get the selected quantity
-    final double quantity = double.tryParse(quantityController.text) ?? 1.0;
+    final double quantity = parseAmount(quantityController.text) ?? 1.0;
     print('--- AIFoodDetailPage Debug ---'); // Log Start
     print('Raw quantity input: ${quantityController.text}'); // Log Raw Input
     print('Parsed quantity: $quantity'); // Log Parsed Quantity
@@ -1082,7 +1092,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
       meal: selectedMeal,
       quantity: quantity, // Store the multiplier/quantity
       unit: 'serving', // Unit reflects the selected serving size
-      date: dateProvider.selectedDate,
+      date: widget.logDate ?? dateProvider.selectedDate,
       servingDescription:
           "$quantity x $servingDescription", // Combine quantity and original description
     );

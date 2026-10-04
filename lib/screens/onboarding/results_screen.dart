@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/services/posthog_service.dart';
+import 'pages/acquisition_source_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/screens/dashboard_screen.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -14,7 +16,16 @@ import 'package:macrotracker/providers/foodEntryProvider.dart';
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
 
-  const ResultsScreen({Key? key, required this.results}) : super(key: key);
+  /// Recalculating goals from Settings: save and go back, no paywall.
+  final bool recalculateOnly;
+
+  /// Saves the new goals; used in recalculate mode, where onboarding doesn't
+  /// save up front.
+  final Future<void> Function()? onSave;
+
+  const ResultsScreen(
+      {Key? key, required this.results, this.recalculateOnly = false, this.onSave})
+      : super(key: key);
 
   @override
   _ResultsScreenState createState() => _ResultsScreenState();
@@ -92,6 +103,41 @@ class _ResultsScreenState extends State<ResultsScreen>
       }
     }
 
+    if (widget.recalculateOnly) {
+      (widget.onSave?.call() ?? Future.value())
+          .then((_) => syncNutritionGoals())
+          .then((_) {
+        if (!mounted) return;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your goals are updated'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
+      return;
+    }
+
+    _askAcquisitionSourceOnce().then((_) {
+      if (mounted) _presentPaywall(syncNutritionGoals);
+    });
+  }
+
+  /// "How did you hear about us?" now comes after the user has seen their
+  /// plan, and can be skipped. Asked once per device.
+  Future<void> _askAcquisitionSourceOnce() async {
+    const askedKey = 'acquisition_source_asked';
+    if (StorageService().get(askedKey) == true) return;
+    await StorageService().put(askedKey, true);
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => const AcquisitionSourceStep(),
+    ));
+  }
+
+  void _presentPaywall(Future<void> Function() syncNutritionGoals) {
     // Use the new Superwall placement system
     SuperwallPlacements.showOnboardingPaywall(
       context,
@@ -1384,7 +1430,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Start Your Journey",
+                      widget.recalculateOnly ? "Save New Goals" : "Start Your Journey",
                       style: GoogleFonts.poppins(
                         color: Theme.of(context).colorScheme.onPrimary,
                         fontSize: 16,
@@ -1430,6 +1476,65 @@ extension ColorExtension on Color {
       red + ((255 - red) * p).round(),
       green + ((255 - green) * p).round(),
       blue + ((255 - blue) * p).round(),
+    );
+  }
+}
+
+/// Full-screen, skippable "How did you hear about us?" step shown after the
+/// results screen. The page itself reports the answer to PostHog.
+class AcquisitionSourceStep extends StatefulWidget {
+  const AcquisitionSourceStep({super.key});
+
+  @override
+  State<AcquisitionSourceStep> createState() => _AcquisitionSourceStepState();
+}
+
+class _AcquisitionSourceStepState extends State<AcquisitionSourceStep> {
+  String? _source;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final customColors = theme.extension<CustomColors>();
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: AcquisitionSourcePage(
+                currentSource: _source,
+                onSourceSelected: (source) => setState(() => _source = source),
+                onSkip: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (_source != null) {
+                      PostHogService.trackEvent('acquisition_source_answered',
+                          properties: {'acquisition_source': _source});
+                    }
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: customColors?.textPrimary ?? theme.colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text(
+                    _source == null ? 'Skip' : 'Continue',
+                    style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 16),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

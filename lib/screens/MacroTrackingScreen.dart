@@ -453,7 +453,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                DateFormat('EEEE, MMM d')
+                                DateFormat.MMMMEEEEd()
                                     .format(DateTime.now()),
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
@@ -2145,7 +2145,7 @@ class _MacroBarChartPainter extends CustomPainter {
           DateFormat('yyyy-MM-dd').format(DateTime.now());
       return TextPainter(
         text: TextSpan(
-          text: DateFormat('d').format(date),
+          text: DateFormat.d().format(date),
           style: TextStyle(
             color: isToday
                 ? customColors.accentPrimary

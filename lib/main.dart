@@ -36,6 +36,7 @@ import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for date formatting
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
@@ -48,10 +49,16 @@ import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/screens/reset_password_screen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/services/superwall_service.dart';
+import 'package:macrotracker/services/photo_analysis_service.dart';
+import 'package:macrotracker/screens/dashboard/components/photo_job_card.dart';
 import 'package:lottie/lottie.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Lets services show a banner (for example "Your meal is ready") on any screen.
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 // Define the channel for stats communication (presentation AND data)
 const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
@@ -60,7 +67,6 @@ const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
 // late FoodEntryProvider _foodEntryProviderInstance;
 
 // Add these variables at the top of the file, after imports
-DateTime? _lastStatsUpdate;
 Map<String, List<Map<String, dynamic>>>? _statsCache;
 DateTime? _lastRequestTime;
 const _requestThrottleInterval =
@@ -85,6 +91,9 @@ class Routes {
 Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Format dates and times in the phone's language and region.
+  await _initLocaleFormatting();
 
   // Initialize Hive (must be done before opening boxes)
   await Hive.initFlutter();
@@ -204,6 +213,8 @@ Future<void> main() async {
           ), // Added comma here
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => DateProvider()),
+          ChangeNotifierProvider(
+              create: (_) => PhotoAnalysisService(onReady: showPhotoJobBanner)),
           ChangeNotifierProvider(create: (_) => MealProvider()),
           ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
           ChangeNotifierProvider(create: (_) => SavedFoodProvider()),
@@ -221,6 +232,18 @@ Future<void> main() async {
 
   // Delayed widget refresh to avoid impacting startup time
   _delayedWidgetRefresh();
+}
+
+Future<void> _initLocaleFormatting() async {
+  // localeName looks like "en_US" or "fr_FR.UTF-8".
+  final locale = Intl.canonicalizedLocale(Platform.localeName.split('.').first);
+  try {
+    await initializeDateFormatting(locale);
+    Intl.defaultLocale = locale;
+  } catch (_) {
+    await initializeDateFormatting('en_US');
+    Intl.defaultLocale = 'en_US';
+  }
 }
 
 // Delay widget refresh to avoid impacting startup time
@@ -315,7 +338,6 @@ void _setupStatsChannelHandler() {
           }
 
           // Update cache and last update time
-          _lastStatsUpdate = now;
           _statsCache ??= {};
           _statsCache!['${startDateString}_${endDateString}'] = results;
 
@@ -518,6 +540,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // Wrap MaterialApp with PostHogWidget
         child: MaterialApp(
           navigatorKey: navigatorKey,
+          scaffoldMessengerKey: scaffoldMessengerKey,
           debugShowCheckedModeBanner: false,
           title: 'MacroTracker',
           theme: AppTheme.lightTheme,

@@ -1,5 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:macrotracker/services/auth_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -17,6 +19,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   final AuthService _authService = AuthService();
   bool isLoading = false;
   bool isEmailSent = false;
+
+  // Seconds until "Resend email" is available again.
+  int _resendCooldown = 0;
+  Timer? _cooldownTimer;
+
+  void _startCooldown() {
+    _cooldownTimer?.cancel();
+    setState(() => _resendCooldown = 60);
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      setState(() => _resendCooldown--);
+      if (_resendCooldown <= 0) timer.cancel();
+    });
+  }
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -36,6 +52,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     _animationController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -58,10 +75,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     });
 
     try {
-      await _authService.resetPassword(_emailController.text);
+      final resending = isEmailSent;
+      await _authService.resetPassword(_emailController.text.trim());
       setState(() {
         isEmailSent = true;
       });
+      _startCooldown();
+      if (resending && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sent again. Check your spam folder too.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -219,13 +246,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         ),
         const SizedBox(height: 32),
         Text(
-          'Please check your inbox and follow the instructions to reset your password.',
+          'Check your inbox and open the link on this phone to set a new password.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: customColors?.textPrimary.withOpacity(0.7),
           ),
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 24),
+        Center(
+          child: TextButton(
+            onPressed: (_resendCooldown > 0 || isLoading) ? null : _resetPassword,
+            child: Text(
+              _resendCooldown > 0
+                  ? "Didn't get it? Resend in ${_resendCooldown}s"
+                  : "Didn't get it? Resend email",
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         OutlinedButton(
           onPressed: () => Navigator.of(context).pop(),
           style: OutlinedButton.styleFrom(

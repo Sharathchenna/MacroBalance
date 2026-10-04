@@ -15,13 +15,13 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/Health/Health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
+import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
-import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:macrotracker/screens/feedback_screen.dart'
     as fb_screen; // Added import for feedback with prefix
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
@@ -47,7 +47,6 @@ class _AccountDashboardState extends State<AccountDashboard>
 
   // State variables
   bool _healthConnected = false;
-  String _selectedUnit = 'Metric'; // 'Metric' or 'Imperial'
   Map<String, dynamic> userData = {
     'name': 'John Doe',
     'email': 'john.doe@example.com',
@@ -435,19 +434,41 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  // _buildListTile(
-                  //   icon: CupertinoIcons.arrow_up_arrow_down,
-                  //   iconColor: Colors.orange,
-                  //   title: 'Unit System',
-                  //   subtitle: 'Current: $_selectedUnit',
-                  //   trailing: const Icon(Icons.chevron_right),
-                  //   onTap: () {
-                  //     HapticFeedback.lightImpact();
-                  //     _showUnitPicker();
-                  //   },
-                  //   colorScheme: colorScheme,
-                  //   customColors: customColors,
-                  // ),
+                  _buildListTile(
+                    icon: CupertinoIcons.refresh,
+                    iconColor: Colors.purple,
+                    title: 'Recalculate Goals',
+                    subtitle: 'Answer the body and goal questions again',
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (_) => const OnboardingScreen(recalculateOnly: true),
+                        ),
+                      );
+                    },
+                    colorScheme: colorScheme,
+                    customColors: customColors,
+                  ),
+                  Consumer<WeightUnitProvider>(
+                    builder: (context, units, _) => _buildListTile(
+                      icon: CupertinoIcons.arrow_up_arrow_down,
+                      iconColor: Colors.orange,
+                      title: 'Units',
+                      subtitle: units.isMetric
+                          ? 'Metric (kg, g, cm)'
+                          : 'Imperial (lb, oz, ft)',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _showUnitPicker();
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                  ),
                 ],
               ),
 
@@ -618,25 +639,6 @@ class _AccountDashboardState extends State<AccountDashboard>
               ),
 
               // Add new Data Management section
-              _buildSection(
-                title: 'Data Management',
-                icon: CupertinoIcons.arrow_counterclockwise,
-                colorScheme: colorScheme,
-                customColors: customColors,
-                children: [
-                  _buildListTile(
-                    icon: CupertinoIcons.refresh,
-                    iconColor: Colors.purple,
-                    title: 'Reset Onboarding',
-                    subtitle: 'Recalculate your macros and goals',
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _confirmResetOnboarding,
-                    colorScheme: colorScheme,
-                    customColors: customColors,
-                  ),
-                ],
-              ),
-
               // Support section
               _buildSection(
                 title: 'Support',
@@ -1606,21 +1608,21 @@ class _AccountDashboardState extends State<AccountDashboard>
       context: context,
       builder: (BuildContext context) => CupertinoActionSheet(
         title: const Text('Select Unit System'),
-        message: const Text('Choose your preferred measurement system'),
+        message: const Text('Used for body weight, food amounts and height. Defaults to your region.'),
         actions: [
           CupertinoActionSheetAction(
-            child: const Text('Metric (kg, cm)'),
+            child: const Text('Metric (kg, g, cm)'),
             onPressed: () {
               HapticFeedback.lightImpact();
-              setState(() => _selectedUnit = 'Metric');
+              Provider.of<WeightUnitProvider>(context, listen: false).setMetric(true);
               Navigator.pop(context);
             },
           ),
           CupertinoActionSheetAction(
-            child: const Text('Imperial (lb, in)'),
+            child: const Text('Imperial (lb, oz, ft)'),
             onPressed: () {
               HapticFeedback.lightImpact();
-              setState(() => _selectedUnit = 'Imperial');
+              Provider.of<WeightUnitProvider>(context, listen: false).setMetric(false);
               Navigator.pop(context);
             },
           ),
@@ -1675,180 +1677,6 @@ class _AccountDashboardState extends State<AccountDashboard>
         colorScheme: colorScheme,
         customColors: customColors,
       );
-    }
-  }
-
-  void _confirmResetOnboarding() {
-    HapticFeedback.lightImpact();
-
-    // Show confirmation dialog
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Reset Onboarding?',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Text(
-            'This will reset your calorie and macro goals and take you through onboarding again. Your food log is kept.',
-            style: GoogleFonts.poppins(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _resetOnboarding();
-              },
-              child: Text(
-                'Reset',
-                style: GoogleFonts.poppins(
-                  color: Theme.of(context).colorScheme.error,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _resetOnboarding() async {
-    try {
-      // First get the provider to ensure access to it even if there's an error later
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
-
-      // Clear relevant goal keys from Hive (StorageService)
-      StorageService().delete('nutrition_goals');
-      StorageService().delete('calories_goal');
-      StorageService().delete('protein_goal');
-      StorageService().delete('carbs_goal');
-      StorageService().delete('fat_goal');
-      StorageService().delete('goal_weight_kg');
-      StorageService().delete('current_weight');
-      // Add any other specific goal keys stored in Hive if necessary
-
-      StorageService().delete('macro_results');
-
-      // Only goals are reset; the food log is kept.
-      foodEntryProvider.resetGoalsToDefault();
-
-      // Now sync the default values to Supabase
-      final currentUser = _supabase.auth.currentUser;
-      if (currentUser != null) {
-        try {
-          debugPrint('Starting Supabase sync with default values...');
-          debugPrint(
-              'Default calories goal: ${foodEntryProvider.caloriesGoal}');
-          debugPrint('Default protein goal: ${foodEntryProvider.proteinGoal}');
-
-          // Instead of setting null values, use the default values from the provider
-          await _supabase.from('user_macros').update({
-            'calories_goal': foodEntryProvider.caloriesGoal,
-            'protein_goal': foodEntryProvider.proteinGoal,
-            'carbs_goal': foodEntryProvider.carbsGoal,
-            'fat_goal': foodEntryProvider.fatGoal,
-            'goal_type': foodEntryProvider.goalType,
-            'deficit_surplus': foodEntryProvider.deficitSurplus,
-            'steps_goal': foodEntryProvider.stepsGoal,
-            'bmr': foodEntryProvider.bmr,
-            'tdee': foodEntryProvider.tdee,
-            'goal_weight_kg': foodEntryProvider.goalWeightKg,
-            'current_weight_kg': foodEntryProvider.currentWeightKg,
-            'updated_at': DateTime.now().toIso8601String(),
-            // Add macro_results field with default values
-            'macro_results': {
-              'bmr': foodEntryProvider.bmr,
-              'tdee': foodEntryProvider.tdee,
-              'target_calories': foodEntryProvider.caloriesGoal,
-              'protein_g': foodEntryProvider.proteinGoal,
-              'fat_g': foodEntryProvider.fatGoal,
-              'carb_g': foodEntryProvider.carbsGoal,
-              'protein_calories': foodEntryProvider.proteinGoal * 4,
-              'fat_calories': foodEntryProvider.fatGoal * 9,
-              'carb_calories': foodEntryProvider.carbsGoal * 4,
-              'protein_percent': 20,
-              'fat_percent': 25,
-              'carb_percent': 55,
-              'weekly_weight_change': 0.0,
-              'formula_used': "Mifflin-St Jeor",
-              'formula_code': 1,
-              'updated_at': DateTime.now().toIso8601String()
-            },
-            // Set other fields to null as they should be re-entered during onboarding
-            'gender': null,
-            'weight': null,
-            'height': null,
-            'age': null,
-            'activity_level': null,
-            'protein_ratio': null,
-            'fat_ratio': null,
-          }).eq('id', currentUser.id);
-
-          // Verify the sync by fetching the updated record
-          final verification = await _supabase
-              .from('user_macros')
-              .select('calories_goal, protein_goal, macro_results')
-              .eq('id', currentUser.id)
-              .single();
-
-          if (verification != null) {
-            debugPrint('Sync verification successful');
-            debugPrint(
-                'Verified calories goal: ${verification['calories_goal']}');
-            debugPrint(
-                'Verified protein goal: ${verification['protein_goal']}');
-            if (verification['macro_results'] != null) {
-              debugPrint('Verified macro_results exists in Supabase');
-            } else {
-              debugPrint('Warning: macro_results field is null in Supabase');
-            }
-          } else {
-            debugPrint('Warning: Could not verify sync - no record returned');
-          }
-
-          debugPrint(
-              'Successfully reset and synced default values to Supabase');
-        } catch (e) {
-          // Show error to the user if Supabase update fails
-          if (mounted) {
-            _showError(
-                'Error resetting your data on the server: ${e.toString()}');
-          }
-          // Optionally re-throw or return early if the error is critical
-          return; // Stop execution if Supabase update failed
-        }
-      }
-
-      // Navigate to onboarding screen with replacement
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-          (route) => false, // This removes all previous routes
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error resetting data: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 

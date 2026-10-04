@@ -52,13 +52,26 @@ class AdvancedSettingsPage extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Fine-tune your macro distribution and calculation details',
+            'Recommended settings work for most people. Customize them only if you know what you want.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: customColors?.textPrimary ??
                   theme.textTheme.bodyMedium?.color,
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+          _CollapsedSettings(
+            summary: [
+              isAthlete ? 'Athlete' : 'Not an athlete',
+              showBodyFatInput
+                  ? 'Body fat ${bodyFatPercentage.round()}%'
+                  : 'Body fat not used',
+              'Protein ${proteinRatio.toStringAsFixed(1)} g/kg',
+              'Fat ${(fatRatio * 100).round()}% of calories',
+            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+          const SizedBox(height: 8),
 
           // Athletic status selection
           _buildSectionHeader(context, 'Are you an athlete?',
@@ -177,6 +190,9 @@ class AdvancedSettingsPage extends StatelessWidget {
                     double.parse((fatRatio + 0.01).toStringAsFixed(2)));
             },
             rangeText: 'Recommended: 20-35%',
+          ),
+              ],
+            ),
           ),
         ],
       ),
@@ -348,6 +364,73 @@ class AdvancedSettingsPage extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Shows the current settings as one line with a "Customize" button; the
+/// controls appear only when the user asks for them.
+class _CollapsedSettings extends StatefulWidget {
+  final List<String> summary;
+  final Widget child;
+
+  const _CollapsedSettings({required this.summary, required this.child});
+
+  @override
+  State<_CollapsedSettings> createState() => _CollapsedSettingsState();
+}
+
+class _CollapsedSettingsState extends State<_CollapsedSettings> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: customColors?.cardBackground ?? theme.cardColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Using',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: customColors?.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.summary.join(' · '),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: customColors?.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _expanded = !_expanded);
+                },
+                icon: Icon(_expanded ? Icons.expand_less : Icons.tune_rounded, size: 18),
+                label: Text(_expanded ? 'Hide' : 'Customize'),
+              ),
+            ],
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 16),
+          widget.child,
+        ],
+      ],
     );
   }
 }

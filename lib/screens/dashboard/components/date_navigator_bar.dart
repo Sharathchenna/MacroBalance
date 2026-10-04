@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/dateProvider.dart';
 import '../../../theme/app_theme.dart';
@@ -36,9 +37,10 @@ class _DateNavigatorBarState extends State<DateNavigatorBar> {
     if (date.year == yesterday.year && date.month == yesterday.month && date.day == yesterday.day) {
       return 'Yesterday';
     }
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year.toString().substring(2)}';
+    // Locale-aware, e.g. "Thu, Oct 2" or "jeu. 2 oct.".
+    return date.year == now.year
+        ? DateFormat.MMMEd().format(date)
+        : DateFormat.yMMMd().format(date);
   }
 
   @override
@@ -110,16 +112,20 @@ class _DateNavigatorBarState extends State<DateNavigatorBar> {
   Widget _buildDateButton() {
     return Consumer<DateProvider>(
       builder: (context, dateProvider, child) {
-        return Center(
-          child: InkWell(
+        final isToday = DateUtils.isSameDay(dateProvider.selectedDate, DateTime.now());
+        const accent = Color(0xFFFFC107);
+        final dateChip = InkWell(
             borderRadius: BorderRadius.circular(18.0),
             onTap: () => _showCalendarPopup(context, dateProvider),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 7.0),
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .extension<CustomColors>()
-                    ?.dateNavigatorBackground,
+                // Tinted when you're looking at a day other than today, so
+                // food isn't logged to the wrong day by accident.
+                color: isToday
+                    ? Theme.of(context).extension<CustomColors>()?.dateNavigatorBackground
+                    : accent.withOpacity(0.25),
+                border: isToday ? null : Border.all(color: accent, width: 1),
                 borderRadius: BorderRadius.circular(18.0),
               ),
               child: Row(
@@ -146,6 +152,34 @@ class _DateNavigatorBarState extends State<DateNavigatorBar> {
                 ],
               ),
             ),
+          );
+
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              dateChip,
+              if (!isToday)
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    dateProvider.setDate(DateTime.now());
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Back to today',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.black87
+                            : accent,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         );
       },

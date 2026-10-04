@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
+import '../onboarding_steps.dart';
 
 class SummaryPage extends StatelessWidget {
   final String gender;
@@ -18,7 +19,7 @@ class SummaryPage extends StatelessWidget {
   final bool isAthlete;
   final bool showBodyFatInput;
   final double bodyFatPercentage;
-  final Function(int) onEdit; // Callback to navigate to a specific page
+  final void Function(OnboardingStep step) onEdit; // Jumps back to a step to edit it
 
   const SummaryPage({
     super.key,
@@ -73,14 +74,13 @@ class SummaryPage extends StatelessWidget {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
 
-    // Define page indices based on the new structure with acquisition source page
-    const int genderPageIndex = 2;
-    const int weightPageIndex = 3;
-    const int heightPageIndex = 4;
-    const int agePageIndex = 5;
-    const int activityLevelPageIndex = 6;
-    const int goalPageIndex = 7;
-    const int advancedSettingsPageIndex = 10;
+    const genderPageIndex = OnboardingStep.gender;
+    const weightPageIndex = OnboardingStep.weight;
+    const heightPageIndex = OnboardingStep.height;
+    const agePageIndex = OnboardingStep.age;
+    const activityLevelPageIndex = OnboardingStep.activity;
+    const goalPageIndex = OnboardingStep.goal;
+    const advancedSettingsPageIndex = OnboardingStep.advanced;
 
     final personalInfoItems = [
       {
@@ -242,7 +242,7 @@ class SummaryPage extends StatelessWidget {
   }
 
   Widget _buildSummaryItem(BuildContext context,
-      {required String label, required String value, required int page}) {
+      {required String label, required String value, required OnboardingStep page}) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
     return InkWell(

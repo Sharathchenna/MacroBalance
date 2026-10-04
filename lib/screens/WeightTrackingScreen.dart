@@ -343,7 +343,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                            DateFormat.MMMMEEEEd().format(DateTime.now()),
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: customColors.textSecondary,
@@ -1006,7 +1006,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    DateFormat('d').format(date),
+                                    DateFormat.d().format(date),
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -1014,7 +1014,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                     ),
                                   ),
                                   Text(
-                                    DateFormat('MMM').format(date),
+                                    DateFormat.MMM().format(date),
                                     style: GoogleFonts.inter(
                                       fontSize: 12,
                                       color: customColors.textSecondary,
@@ -1029,7 +1029,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    DateFormat('EEEE').format(date),
+                                    DateFormat.EEEE().format(date),
                                     style: GoogleFonts.inter(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
@@ -1289,7 +1289,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           );
                         },
                         child: Text(
-                          DateFormat('MMM d, yyyy').format(selectedDate),
+                          DateFormat.yMMMd().format(selectedDate),
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -2178,11 +2178,11 @@ class _WeightChartPainter extends CustomPainter {
           String dateLabel;
           final timeFrame = getTimeFrame();
           if (timeFrame == 'Week') {
-            dateLabel = DateFormat('E').format(point.date);
+            dateLabel = DateFormat.E().format(point.date);
           } else if (timeFrame == 'Month') {
-            dateLabel = DateFormat('d').format(point.date);
+            dateLabel = DateFormat.d().format(point.date);
           } else {
-            dateLabel = DateFormat('MMM d').format(point.date);
+            dateLabel = DateFormat.MMMd().format(point.date);
           }
 
           labelPainter // Use the instance painter
@@ -2433,7 +2433,7 @@ class _WeightChartPainter extends CustomPainter {
     final weightText = isMetric
         ? '${weightPoint.weight.toStringAsFixed(1)} kg'
         : '${(weightPoint.weight * 2.20462).toStringAsFixed(1)} lbs';
-    final dateText = DateFormat('MMM d, yyyy').format(weightPoint.date);
+    final dateText = DateFormat.yMMMd().format(weightPoint.date);
 
     // Prepare text painters
     final weightPainter = TextPainter(

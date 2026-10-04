@@ -417,7 +417,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                        DateFormat.MMMMEEEEd().format(DateTime.now()),
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: customColors.textSecondary,
@@ -719,7 +719,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      DateFormat('h:mm a').format(workout.createdAt),
+                      TimeOfDay.fromDateTime(workout.createdAt).format(context),
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: customColors.textSecondary,
@@ -882,7 +882,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            DateFormat('MMMM yyyy').format(_currentMonth),
+                            DateFormat.yMMMM().format(_currentMonth),
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               color: customColors.textSecondary,
@@ -1128,7 +1128,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  DateFormat('MMM d, yyyy').format(selectedDate),
+                                  DateFormat.yMMMd().format(selectedDate),
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,

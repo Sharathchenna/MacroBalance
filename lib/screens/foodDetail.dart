@@ -13,19 +13,26 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/cupertino.dart';
 import '../theme/app_theme.dart';
 import '../theme/typography.dart';
-import 'dart:math';
 import '../services/posthog_service.dart';
 import '../providers/saved_food_provider.dart';
 import 'food_detail/components/components.dart';
+import '../main.dart' show navigatorKey;
+import '../providers/weight_unit_provider.dart';
+import '../utils/meal_time.dart';
+import '../utils/number_format.dart';
 
 class FoodDetailPage extends StatefulWidget {
   final FoodItem food;
   final String? selectedMeal;
 
+  /// When set, the page edits this logged entry instead of adding a new one.
+  final FoodEntry? existingEntry;
+
   const FoodDetailPage({
     super.key,
     required this.food,
     this.selectedMeal,
+    this.existingEntry,
   });
 
   @override
@@ -34,39 +41,85 @@ class FoodDetailPage extends StatefulWidget {
 
 class _FoodDetailPageState extends State<FoodDetailPage>
     with SingleTickerProviderStateMixin {
-  final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
-  final List<String> unitOptions = ["g", "oz"];
-  final List<double> presetMultipliers = [0.5, 1.0, 1.5, 2.0];
+  final List<String> mealOptions = MealTime.meals;
+  final List<double> presetServings = [0.5, 1.0, 1.5, 2.0];
 
   late String selectedMeal;
-  String selectedUnit = "g";
   double selectedMultiplier = 1.0;
+
+  /// Number of servings when a serving is selected; grams or ounces in
+  /// weight mode (selectedServing == null).
   late TextEditingController quantityController;
   late AnimationController _animationController;
   late Animation<double> _fadeInAnimation;
   late Animation<double> _slideAnimation;
   Serving? selectedServing;
 
+  /// 'g' or 'oz', from the user's unit system.
+  late String _weightUnit;
+
   final _scrollController = ScrollController();
   bool _showFloatingTitle = false;
+
+  bool get _isEditing => widget.existingEntry != null;
+  bool get _weightMode => selectedServing == null;
+
+  /// The food's servings. AI foods logged from the AI screens carry no list,
+  /// so their one stored serving is shown as a single option.
+  late final List<Serving> _servings = _buildServingOptions();
+
+  List<Serving> _buildServingOptions() {
+    if (widget.food.servings.isNotEmpty) return widget.food.servings;
+    if (widget.food.brandName == 'AI Detected') {
+      return [
+        Serving(
+          description: _aiServingLabel(widget.existingEntry?.servingDescription),
+          metricAmount: 1,
+          metricUnit: 'serving',
+          calories: widget.food.calories,
+          nutrients: widget.food.nutrients,
+        ),
+      ];
+    }
+    return [];
+  }
+
+  // AI entries store "<qty> x <serving>"; the option shows just the serving.
+  static String _aiServingLabel(String? description) {
+    if (description == null || description.isEmpty) return '1 serving';
+    return description.replaceAll(RegExp(r'^\d+(\.\d+)?\s*x\s*'), '').trim();
+  }
+
+  /// A serving measured in g or oz, used to price a weight amount.
+  Serving? get _weightBase {
+    for (final serving in _servings) {
+      final unit = serving.metricUnit.toLowerCase();
+      if ((unit == 'g' || unit == 'oz') && serving.metricAmount > 0) return serving;
+    }
+    return null;
+  }
+
+  /// Weight mode needs either a g/oz serving or per-100 g data.
+  bool get _weightOptionAvailable =>
+      _weightBase != null ||
+      (_servings.isEmpty && widget.food.brandName != 'AI Detected');
 
   @override
   void initState() {
     super.initState();
-    selectedMeal = widget.selectedMeal ?? "Breakfast";
-    PostHogService.trackScreen('food_detail_page');
+    _weightUnit = Provider.of<WeightUnitProvider>(context, listen: false).foodUnit;
+    final existing = widget.existingEntry;
+    selectedMeal = existing?.meal ?? widget.selectedMeal ?? MealTime.suggested();
+    PostHogService.trackScreen(_isEditing ? 'edit_food_entry' : 'food_detail_page');
 
-    if (widget.food.servings.isNotEmpty) {
-      selectedServing = widget.food.servings.first;
-      // Match the unit to the serving, as selecting a serving does, so an
-      // "oz" serving isn't read as grams.
-      final unit = selectedServing!.metricUnit.toLowerCase();
-      selectedUnit = (unit == 'g' || unit == 'oz') ? unit : selectedServing!.metricUnit;
-      quantityController =
-          TextEditingController(text: selectedServing!.metricAmount.toString());
+    if (existing != null) {
+      _initFromEntry(existing);
+    } else if (_servings.isNotEmpty) {
+      selectedServing = _servings.first;
+      quantityController = TextEditingController(text: '1');
     } else {
-      quantityController =
-          TextEditingController(text: widget.food.servingSize.toString());
+      quantityController = TextEditingController(
+          text: _weightUnit == 'oz' ? '3.5' : formatNumber(widget.food.servingSize));
     }
 
     _animationController = AnimationController(
@@ -98,6 +151,39 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     });
   }
 
+  /// Opens a logged entry as servings when it divides into a tidy count,
+  /// otherwise as the weight that was logged.
+  void _initFromEntry(FoodEntry entry) {
+    Serving? match;
+    for (final serving in _servings) {
+      if (serving.description == entry.servingDescription ||
+          serving.description == _aiServingLabel(entry.servingDescription)) {
+        match = serving;
+        break;
+      }
+    }
+    final entryUnit = entry.unit.toLowerCase();
+    final isWeightEntry = entryUnit == 'g' || entryUnit == 'oz';
+
+    if (match != null) {
+      final servingUnit = match.metricUnit.toLowerCase();
+      final base = match.metricAmount > 0 ? match.metricAmount : 1.0;
+      if (!isWeightEntry || servingUnit == entryUnit) {
+        final count = entry.quantity / base;
+        final tidy = (count * 4 - (count * 4).round()).abs() < 0.001;
+        if (!isWeightEntry || tidy) {
+          selectedServing = match;
+          quantityController = TextEditingController(text: formatNumber(count, maxDecimals: 2));
+          return;
+        }
+      }
+    }
+    // Weight mode in the unit the entry was logged in.
+    selectedServing = null;
+    _weightUnit = isWeightEntry ? entryUnit : _weightUnit;
+    quantityController = TextEditingController(text: formatNumber(entry.quantity));
+  }
+
   void _onScroll() {
     if (_scrollController.offset > 120 && !_showFloatingTitle) {
       setState(() => _showFloatingTitle = true);
@@ -115,134 +201,69 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     super.dispose();
   }
 
-  double getConvertedQuantity() {
-    double qty = double.tryParse(quantityController.text.replaceAll(',', '.')) ?? 100;
-    if (selectedUnit == "oz") {
-      return qty * 28.35;
-    }
-    return qty;
+  double get _amount {
+    final value = parseAmount(quantityController.text) ?? 0;
+    return value < 0 ? 0 : value;
   }
 
-  double _calculateMultiplier() {
-    if (selectedServing == null) {
-      double multiplier = getConvertedQuantity() /
-          (widget.food.servingSize > 0 ? widget.food.servingSize : 100.0);
-      return multiplier;
-    }
-
-    double baseAmount = selectedServing!.metricAmount;
-    if (baseAmount <= 0) {
-      print("Warning: Selected serving base amount is invalid ($baseAmount), defaulting to 1.");
-      baseAmount = 1.0;
-    }
-
-    String unit = selectedServing!.metricUnit.toLowerCase();
-    bool isWeightBased = (unit == 'g' || unit == 'oz');
-
-    if (isWeightBased) {
-      double convertedQtyGrams = getConvertedQuantity();
-      final baseGrams = unit == 'oz' ? baseAmount * 28.35 : baseAmount;
-      double multiplier = convertedQtyGrams / baseGrams;
-      return multiplier;
+  /// The entry as it would be logged right now. Every figure on this page is
+  /// calculated from it with the same function the dashboard uses, so what you
+  /// see here is what gets counted.
+  FoodEntry _draftEntry() {
+    final existing = widget.existingEntry;
+    final serving = selectedServing;
+    double quantity;
+    String unit;
+    String? servingDescription;
+    if (serving != null) {
+      final base = serving.metricAmount > 0 ? serving.metricAmount : 1.0;
+      final servingUnit = serving.metricUnit.toLowerCase();
+      quantity = _amount * base;
+      unit = (servingUnit == 'g' || servingUnit == 'oz') ? servingUnit : serving.metricUnit;
+      servingDescription = serving.description;
     } else {
-      double quantityEntered = double.tryParse(quantityController.text.replaceAll(',', '.')) ?? 1.0;
-      if (quantityEntered < 0) quantityEntered = 0;
-      double multiplier = quantityEntered / baseAmount;
-      return multiplier;
+      quantity = _amount;
+      unit = _weightUnit;
+      servingDescription = _weightBase?.description;
     }
+    return FoodEntry(
+      id: existing?.id ?? const Uuid().v4(),
+      food: widget.food,
+      meal: selectedMeal,
+      quantity: quantity,
+      unit: unit,
+      date: existing?.date ??
+          Provider.of<DateProvider>(context, listen: false).selectedDate,
+      servingDescription: servingDescription,
+    );
   }
+
+  double _nutrient(String key) => FoodEntryProvider.nutrientForEntry(_draftEntry(), key);
 
   String getNutrientValue(String nutrient) {
-    final double multiplier = _calculateMultiplier();
-
-    if (selectedServing != null) {
-      double? baseValue;
-      switch (nutrient.toLowerCase()) {
-        case "calories":
-          baseValue = selectedServing!.calories;
-          break;
-        case "protein":
-          baseValue = selectedServing!.nutrients['Protein'];
-          break;
-        case "carbohydrate":
-          baseValue = selectedServing!.nutrients['Carbohydrate, by difference'];
-          break;
-        case "fat":
-          baseValue = selectedServing!.nutrients['Total lipid (fat)'];
-          break;
-      }
-      double value = (baseValue ?? 0.0) * multiplier;
-      return value.toStringAsFixed(1);
-    } else {
-      double? baseValue;
-      switch (nutrient.toLowerCase()) {
-        case "calories":
-          baseValue = widget.food.calories;
-          break;
-        case "protein":
-          baseValue = widget.food.nutrients['Protein'];
-          break;
-        case "carbohydrate":
-          baseValue = widget.food.nutrients['Carbohydrate, by difference'];
-          break;
-        case "fat":
-          baseValue = widget.food.nutrients['Total lipid (fat)'];
-          break;
-      }
-      double value = (baseValue ?? 0.0) * multiplier;
-      return value.toStringAsFixed(1);
-    }
-  }
-
-  Map<String, double> getMacroPercentages() {
-    double carbs = double.tryParse(getNutrientValue("carbohydrate")) ?? 0;
-    double protein = double.tryParse(getNutrientValue("protein")) ?? 0;
-    double fat = double.tryParse(getNutrientValue("fat")) ?? 0;
-
-    setState(() {});
-
-    double total = carbs + protein + fat;
-    if (total <= 0) return {"carbs": 0.33, "protein": 0.33, "fat": 0.34};
-
-    return {
-      "carbs": carbs / total,
-      "protein": protein / total,
-      "fat": fat / total,
+    const keys = {
+      'calories': 'calories',
+      'protein': 'Protein',
+      'carbohydrate': 'Carbohydrate, by difference',
+      'fat': 'Total lipid (fat)',
     };
+    return _nutrient(keys[nutrient.toLowerCase()] ?? nutrient).toStringAsFixed(1);
   }
 
   Map<String, String> getAdditionalNutrients() {
-    Map<String, String> result = {};
-    final double multiplier = _calculateMultiplier();
-
-    if (selectedServing != null) {
-      result['Calories'] = '${(selectedServing!.calories * multiplier).toStringAsFixed(1)} kcal';
-      result['Protein'] = '${((selectedServing!.nutrients['Protein'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
-      result['Carbohydrates'] = '${((selectedServing!.nutrients['Carbohydrate, by difference'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
-      result['Fat'] = '${((selectedServing!.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
-
-      selectedServing!.nutrients.forEach((key, baseValue) {
-        if (!['Protein', 'Carbohydrate, by difference', 'Total lipid (fat)'].contains(key)) {
-          String unit = _getNutrientUnit(key);
-          double calculatedValue = baseValue * multiplier;
-          result[key] = '${calculatedValue.toStringAsFixed(1)}$unit';
-        }
-      });
-    } else {
-      result['Calories'] = '${(widget.food.calories * multiplier).toStringAsFixed(1)} kcal';
-      result['Protein'] = '${((widget.food.nutrients['Protein'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
-      result['Carbohydrates'] = '${((widget.food.nutrients['Carbohydrate, by difference'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
-      result['Fat'] = '${((widget.food.nutrients['Total lipid (fat)'] ?? 0.0) * multiplier).toStringAsFixed(1)}g';
-
-      widget.food.nutrients.forEach((key, baseValue) {
-        if (!['Protein', 'Carbohydrate, by difference', 'Total lipid (fat)'].contains(key)) {
-          String unit = _getNutrientUnit(key);
-          double calculatedValue = baseValue * multiplier;
-          result[key] = '${calculatedValue.toStringAsFixed(1)}$unit';
-        }
-      });
+    final result = <String, String>{
+      'Calories': '${formatNumber(_nutrient('calories'))} kcal',
+      'Protein': '${formatNumber(_nutrient('Protein'))}g',
+      'Carbohydrates': '${formatNumber(_nutrient('Carbohydrate, by difference'))}g',
+      'Fat': '${formatNumber(_nutrient('Total lipid (fat)'))}g',
+    };
+    final source = (selectedServing ?? _weightBase)?.nutrients ?? widget.food.nutrients;
+    for (final key in source.keys) {
+      if (['Protein', 'Carbohydrate, by difference', 'Total lipid (fat)'].contains(key)) {
+        continue;
+      }
+      result[key] = '${formatNumber(_nutrient(key))}${_getNutrientUnit(key)}';
     }
-
     return result;
   }
 
@@ -262,10 +283,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   }
 
   void _addFoodEntry() async {
-    // Accept "1,5" as well as "1.5" (comma is the decimal key in many locales).
-    final quantity =
-        double.tryParse(quantityController.text.trim().replaceAll(',', '.'));
-    if (quantity == null || quantity <= 0) {
+    if (_amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Enter an amount greater than 0'),
@@ -275,16 +293,30 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       return;
     }
     final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
-    final dateProvider = Provider.of<DateProvider>(context, listen: false);
-    final entry = FoodEntry(
-      id: const Uuid().v4(),
-      food: widget.food,
-      meal: selectedMeal,
-      quantity: quantity,
-      unit: selectedUnit,
-      date: dateProvider.selectedDate,
-      servingDescription: selectedServing?.description,
-    );
+    final messenger = ScaffoldMessenger.of(context);
+    final entry = _draftEntry();
+    MealTime.remember(selectedMeal);
+
+    if (_isEditing) {
+      final previous = widget.existingEntry!;
+      await foodEntryProvider.updateEntry(entry);
+      PostHogService.trackEvent('food_entry_edited', properties: {
+        'meal_type': selectedMeal,
+        'meal_changed': previous.meal != selectedMeal,
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Updated ${widget.food.name}'),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => foodEntryProvider.updateEntry(previous),
+          ),
+        ),
+      );
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
 
     PostHogService.trackFoodEntry(
       foodName: widget.food.name,
@@ -303,31 +335,70 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 
     await foodEntryProvider.addEntry(entry);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    final amountLabel = selectedServing != null
+        ? '${formatServings(_amount)} × ${selectedServing!.description}'
+        : '${formatNumber(_amount)} $_weightUnit';
+    messenger.showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_outline, color: Colors.white),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                selectedServing != null
-                    ? 'Added ${widget.food.name} (${selectedServing!.description}) to $selectedMeal'
-                    : 'Added ${widget.food.name} to $selectedMeal',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+        content: Text(
+          'Added ${widget.food.name} ($amountLabel) to $selectedMeal',
+          overflow: TextOverflow.ellipsis,
         ),
-        backgroundColor: const Color(0xFFFFC107).withOpacity(1),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(8),
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => foodEntryProvider.removeEntry(entry.id),
+        ),
       ),
     );
 
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  Future<void> _deleteEntry() async {
+    final entry = widget.existingEntry!;
+    final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+    await foodEntryProvider.removeEntry(entry.id);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Removed ${entry.food.name}'),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => foodEntryProvider.addEntry(entry),
+        ),
+      ),
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  void _selectServing(Serving? serving) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (serving == null) {
+        // Switching to weight: start from the current amount's weight.
+        final grams = selectedServing != null ? _draftWeightInGrams() : null;
+        selectedServing = null;
+        quantityController.text = grams != null
+            ? formatNumber(_weightUnit == 'oz' ? grams / 28.35 : grams)
+            : (_weightUnit == 'oz' ? '3.5' : '100');
+      } else {
+        selectedServing = serving;
+        quantityController.text = '1';
+      }
+      selectedMultiplier = selectedServing == null ? 0 : 1.0;
+    });
+  }
+
+  double? _draftWeightInGrams() {
+    final serving = selectedServing;
+    if (serving == null) return null;
+    final unit = serving.metricUnit.toLowerCase();
+    if (unit == 'g') return serving.metricAmount * _amount;
+    if (unit == 'oz') return serving.metricAmount * _amount * 28.35;
+    return null;
   }
 
   void _showServingSelector(BuildContext context) {
@@ -336,15 +407,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ServingSelectorSheet(
-        servings: widget.food.servings,
+        servings: _servings,
         selectedServing: selectedServing,
         onServingSelected: (serving) {
-          setState(() {
-            selectedServing = serving;
-            quantityController.text = serving.metricAmount.toString();
-            selectedUnit = serving.metricUnit;
-            selectedMultiplier = 1.0;
-          });
+          _selectServing(serving);
           Navigator.pop(context);
         },
       ),
@@ -369,7 +435,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 
     List<Serving> reorderedServings = [];
     reorderedServings.add(selectedServing!);
-    for (var serving in widget.food.servings) {
+    for (var serving in _servings) {
       if (serving.description != selectedServing!.description) {
         reorderedServings.add(serving);
       }
@@ -520,7 +586,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Food Nutrition",
+                            _isEditing ? "Edit Entry" : "Food Nutrition",
                             style: AppTypography.h1.copyWith(
                               color: customColors.textPrimary,
                               fontWeight: FontWeight.bold,
@@ -554,16 +620,39 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                 isSaved ? Icons.bookmark : Icons.bookmark_border,
                 color: customColors.textPrimary,
               ),
+              tooltip: isSaved ? 'Remove from saved foods' : 'Save this food',
               onPressed: () async {
+                HapticFeedback.lightImpact();
+                final messenger = ScaffoldMessenger.of(context);
                 try {
                   if (isSaved) {
                     final saved = savedProvider.getSavedFoodByFoodId(widget.food.fdcId);
                     if (saved != null) {
                       await savedProvider.removeSavedFood(saved.id);
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: const Text('Removed from your saved foods'),
+                          behavior: SnackBarBehavior.floating,
+                          action: SnackBarAction(
+                            label: 'Undo',
+                            onPressed: () => savedProvider.addSavedFood(saved.food),
+                          ),
+                        ),
+                      );
                     }
                   } else {
                     final foodToSave = _createFoodItemWithSelectedServing();
                     await savedProvider.addSavedFood(foodToSave);
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: const Text('Saved to your foods'),
+                        behavior: SnackBarBehavior.floating,
+                        action: SnackBarAction(
+                          label: 'View',
+                          onPressed: () => navigatorKey.currentState?.pushNamed('/savedFoods'),
+                        ),
+                      ),
+                    );
                   }
                 } catch (_) {
                   // The provider rolls the change back; say why the icon flipped back.
@@ -698,6 +787,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                 child: GestureDetector(
                   onTap: () {
                     HapticFeedback.lightImpact();
+                    MealTime.remember(meal);
                     setState(() => selectedMeal = meal);
                   },
                   child: AnimatedContainer(
@@ -729,31 +819,30 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     return Column(
       children: [
         const SizedBox(height: 24),
-        if (widget.food.servings.isNotEmpty)
+        if (_servings.isNotEmpty)
           _buildServingSelectorCard(customColors, primaryColor),
-        QuantitySelector(
-          presetMultipliers: presetMultipliers,
-          selectedMultiplier: selectedMultiplier,
-          onMultiplierSelected: (multiplier) {
-            setState(() {
-              selectedMultiplier = multiplier;
-              if (selectedServing != null) {
-                double baseAmount = selectedServing!.metricAmount;
-                quantityController.text = (baseAmount * multiplier).toStringAsFixed(multiplier % 1 == 0 ? 0 : 1);
-              } else {
-                quantityController.text = (100 * multiplier).toStringAsFixed(multiplier % 1 == 0 ? 0 : 1);
-              }
-            });
-          },
-        ),
+        if (!_weightMode)
+          QuantitySelector(
+            presetMultipliers: presetServings,
+            selectedMultiplier: selectedMultiplier,
+            onMultiplierSelected: (count) {
+              setState(() {
+                selectedMultiplier = count;
+                quantityController.text = formatNumber(count, maxDecimals: 2);
+              });
+            },
+          ),
         _buildQuantityInput(customColors, primaryColor),
       ],
     );
   }
 
   Widget _buildServingSelectorCard(CustomColors customColors, Color primaryColor) {
+    // Serving options first, then weight ("Grams"/"Ounces") when it can be priced.
+    final visibleServings = _servings.take(4).toList();
+    final optionCount = visibleServings.length + (_weightOptionAvailable ? 1 : 0);
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: customColors.cardBackground,
@@ -785,7 +874,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
               ),
               const SizedBox(width: 14),
               Text(
-                "Select Serving",
+                "Serving",
                 style: AppTypography.h3.copyWith(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? Colors.white
@@ -800,12 +889,14 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             height: 160,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: min(4, widget.food.servings.length),
+              itemCount: optionCount,
               separatorBuilder: (context, index) => const SizedBox(width: 12),
-              itemBuilder: (context, index) => _buildServingCard(index, customColors, primaryColor),
+              itemBuilder: (context, index) => index < visibleServings.length
+                  ? _buildServingCard(index, customColors, primaryColor)
+                  : _buildWeightOptionCard(customColors, primaryColor),
             ),
           ),
-          if (widget.food.servings.length > 4)
+          if (_servings.length > 4)
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -848,33 +939,62 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   }
 
   Widget _buildServingCard(int index, CustomColors customColors, Color primaryColor) {
-    final serving = widget.food.servings[index];
+    final serving = _servings[index];
     final isSelected = selectedServing?.description == serving.description;
+    final unit = serving.metricUnit.toLowerCase();
+    final showAmount = unit != 'serving' && unit != 'unit' && serving.metricAmount > 0;
+    return _buildOptionCard(
+      isSelected: isSelected,
+      badge: "${index + 1}",
+      title: serving.description,
+      subtitle: showAmount ? "${formatNumber(serving.metricAmount)} ${serving.metricUnit}" : null,
+      trailing: "${serving.calories.toStringAsFixed(0)} kcal",
+      onTap: () => _selectServing(serving),
+      customColors: customColors,
+      primaryColor: primaryColor,
+    );
+  }
 
+  Widget _buildWeightOptionCard(CustomColors customColors, Color primaryColor) {
+    return _buildOptionCard(
+      isSelected: _weightMode,
+      badge: _weightUnit,
+      title: _weightUnit == 'oz' ? 'Ounces' : 'Grams',
+      subtitle: 'Enter by weight',
+      trailing: null,
+      onTap: () => _selectServing(null),
+      customColors: customColors,
+      primaryColor: primaryColor,
+    );
+  }
+
+  Widget _buildOptionCard({
+    required bool isSelected,
+    required String badge,
+    required String title,
+    required String? subtitle,
+    required String? trailing,
+    required VoidCallback onTap,
+    required CustomColors customColors,
+    required Color primaryColor,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isSelected
-        ? Theme.of(context).brightness == Brightness.dark
+        ? isDark
             ? customColors.cardBackground.withOpacity(1)
             : primaryColor
-        : Theme.of(context).brightness == Brightness.dark
+        : isDark
             ? customColors.cardBackground.withOpacity(0.05)
             : primaryColor.withOpacity(0.05);
 
     final textColor = isSelected
         ? Colors.white
-        : Theme.of(context).brightness == Brightness.dark
+        : isDark
             ? Colors.white.withOpacity(0.87)
             : primaryColor;
 
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() {
-          selectedServing = serving;
-          quantityController.text = serving.metricAmount.toString();
-          selectedUnit = serving.metricUnit;
-          selectedMultiplier = 1.0;
-        });
-      },
+      onTap: onTap,
       child: Container(
         width: 140,
         padding: const EdgeInsets.all(16),
@@ -883,10 +1003,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? Theme.of(context).brightness == Brightness.dark
+                ? isDark
                     ? const Color(0xFF64748B)
                     : primaryColor
-                : Theme.of(context).brightness == Brightness.dark
+                : isDark
                     ? const Color(0xFF475569).withOpacity(0.5)
                     : primaryColor.withOpacity(0.2),
             width: isSelected ? 2 : 1,
@@ -894,7 +1014,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: Theme.of(context).brightness == Brightness.dark
+                    color: isDark
                         ? const Color(0xFF0F172A).withOpacity(0.5)
                         : primaryColor.withOpacity(0.2),
                     blurRadius: 8,
@@ -912,7 +1032,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withOpacity(0.15)
-                    : Theme.of(context).brightness == Brightness.dark
+                    : isDark
                         ? Colors.white.withOpacity(0.1)
                         : primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
@@ -921,7 +1041,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                 child: isSelected
                     ? Icon(Icons.check_rounded, color: textColor, size: 18)
                     : Text(
-                        "${index + 1}",
+                        badge,
                         style: TextStyle(
                           color: textColor,
                           fontWeight: FontWeight.bold,
@@ -931,9 +1051,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             ),
             const SizedBox(height: 12),
             Text(
-              serving.description.length > 18
-                  ? '${serving.description.substring(0, 15)}...'
-                  : serving.description,
+              title,
               style: AppTypography.body2.copyWith(
                 color: textColor,
                 fontWeight: FontWeight.w600,
@@ -943,32 +1061,80 @@ class _FoodDetailPageState extends State<FoodDetailPage>
               overflow: TextOverflow.ellipsis,
             ),
             const Spacer(),
-            Text(
-              "${serving.metricAmount} ${serving.metricUnit}",
-              style: AppTypography.caption.copyWith(
-                color: isSelected ? textColor.withOpacity(0.9) : customColors.textSecondary,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            if (subtitle != null)
+              Text(
+                subtitle,
+                style: AppTypography.caption.copyWith(
+                  color: isSelected ? textColor.withOpacity(0.9) : customColors.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "${serving.calories.toStringAsFixed(0)} kcal",
-              style: AppTypography.caption.copyWith(
-                color: isSelected
-                    ? textColor
-                    : Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFFFBBC05)
-                        : primaryColor,
-                fontWeight: FontWeight.w600,
+            if (trailing != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                trailing,
+                style: AppTypography.caption.copyWith(
+                  color: isSelected
+                      ? textColor
+                      : isDark
+                          ? const Color(0xFFFBBC05)
+                          : primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
     );
   }
 
+  void _stepServings(double delta) {
+    HapticFeedback.selectionClick();
+    final next = ((_amount + delta) * 4).round() / 4; // quarter-serving steps
+    setState(() {
+      quantityController.text = formatNumber(next < 0.25 ? 0.25 : next, maxDecimals: 2);
+      selectedMultiplier = 0;
+    });
+  }
+
   Widget _buildQuantityInput(CustomColors customColors, Color primaryColor) {
+    final label = _weightMode
+        ? (_weightUnit == 'oz' ? 'Amount (oz)' : 'Amount (g)')
+        : 'Number of servings';
+    final field = TextField(
+      controller: quantityController,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
+      textAlign: _weightMode ? TextAlign.start : TextAlign.center,
+      onSubmitted: (_) => FocusScope.of(context).unfocus(),
+      onChanged: (value) => setState(() => selectedMultiplier = 0),
+      style: AppTypography.body1.copyWith(
+        color: customColors.textPrimary,
+        fontWeight: FontWeight.w500,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: customColors.textSecondary),
+        suffixText: _weightMode ? _weightUnit : null,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: customColors.dateNavigatorBackground),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: primaryColor, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+      ),
+    );
+
+    Widget stepButton(IconData icon, double delta) => IconButton.filledTonal(
+          onPressed: () => _stepServings(delta),
+          icon: Icon(icon),
+          tooltip: delta > 0 ? 'Add half a serving' : 'Remove half a serving',
+        );
+
     return Container(
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(20),
@@ -983,100 +1149,17 @@ class _FoodDetailPageState extends State<FoodDetailPage>
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: quantityController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  textInputAction: TextInputAction.done,
-                  onEditingComplete: () {
-                    FocusScope.of(context).unfocus();
-                    setState(() => selectedMultiplier = 0);
-                  },
-                  onSubmitted: (value) {
-                    FocusScope.of(context).unfocus();
-                    setState(() => selectedMultiplier = 0);
-                  },
-                  onChanged: (value) => setState(() => selectedMultiplier = 0),
-                  style: AppTypography.body1.copyWith(
-                    color: customColors.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: "Quantity",
-                    labelStyle: TextStyle(color: customColors.textSecondary),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: customColors.dateNavigatorBackground),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: primaryColor, width: 2),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
-                  ),
-                ),
-              ),
-              if (selectedServing != null &&
-                  ['g', 'oz'].contains(selectedServing!.metricUnit.toLowerCase())) ...[
+      child: _weightMode
+          ? field
+          : Row(
+              children: [
+                stepButton(Icons.remove_rounded, -0.5),
                 const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: _buildUnitDropdown(customColors, primaryColor),
-                ),
+                Expanded(child: field),
+                const SizedBox(width: 12),
+                stepButton(Icons.add_rounded, 0.5),
               ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUnitDropdown(CustomColors customColors, Color primaryColor) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: customColors.dateNavigatorBackground),
-      ),
-      child: DropdownButtonFormField<String>(
-        value: selectedUnit,
-        items: unitOptions
-            .map((unit) => DropdownMenuItem(value: unit, child: Text(unit)))
-            .toList(),
-        onChanged: (val) {
-          if (val == selectedUnit) return;
-          double currentQty = double.tryParse(quantityController.text) ?? 0.0;
-
-          setState(() {
-            if (val == "oz" && selectedUnit == "g") {
-              quantityController.text = (currentQty / 28.35).toStringAsFixed(1);
-            } else if (val == "g" && selectedUnit == "oz") {
-              quantityController.text = (currentQty * 28.35).toStringAsFixed(0);
-            }
-            selectedUnit = val!;
-            selectedMultiplier = 0;
-          });
-        },
-        decoration: InputDecoration(
-          labelText: "Unit",
-          labelStyle: TextStyle(color: customColors.textSecondary),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
-        style: AppTypography.body1.copyWith(
-          color: customColors.textPrimary,
-          fontWeight: FontWeight.w500,
-        ),
-        icon: Icon(Icons.arrow_drop_down_rounded, color: customColors.textPrimary),
-        dropdownColor: customColors.cardBackground,
-        isExpanded: true,
-      ),
+            ),
     );
   }
 
@@ -1176,6 +1259,50 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   }
 
   Widget _buildBottomActionBar(CustomColors customColors, Color primaryColor) {
+    final primaryButton = Container(
+      height: 60,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFC107), Color(0xFFFFB300)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFC107).withOpacity(0.4),
+            blurRadius: 15,
+            spreadRadius: 0,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: _addFoodEntry,
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_isEditing ? Icons.check_circle_outline : Icons.add_circle_outline,
+                  color: Colors.black87),
+              const SizedBox(width: 8),
+              Text(
+                _isEditing ? "Save Changes" : "Add to $selectedMeal",
+                style: AppTypography.button.copyWith(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     return Positioned(
       bottom: 0,
       left: 0,
@@ -1192,48 +1319,23 @@ class _FoodDetailPageState extends State<FoodDetailPage>
             ],
           ),
         ),
-        child: Container(
-          height: 60,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFC107), Color(0xFFFFB300)],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFFFC107).withOpacity(0.4),
-                blurRadius: 15,
-                spreadRadius: 0,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: _addFoodEntry,
-              borderRadius: BorderRadius.circular(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+        child: _isEditing
+            ? Row(
                 children: [
-                  const Icon(Icons.add_circle_outline, color: Colors.black87),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Add to $selectedMeal",
-                    style: AppTypography.button.copyWith(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  SizedBox(
+                    height: 60,
+                    width: 60,
+                    child: IconButton.outlined(
+                      onPressed: _deleteEntry,
+                      tooltip: 'Delete entry',
+                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(child: primaryButton),
                 ],
-              ),
-            ),
-          ),
-        ),
+              )
+            : primaryButton,
       ),
     );
   }

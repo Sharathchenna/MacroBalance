@@ -11,6 +11,12 @@ import '../../../providers/dateProvider.dart';
 import '../../../providers/foodEntryProvider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/typography.dart';
+import '../../../services/photo_analysis_service.dart';
+import '../../../services/posthog_service.dart';
+import '../../../utils/meal_time.dart';
+import '../../../utils/number_format.dart';
+import '../../foodDetail.dart';
+import 'photo_job_card.dart';
 
 /// Widget that displays meal sections (Breakfast, Lunch, Snacks, Dinner).
 /// Each meal can be expanded to show food entries and their nutritional info.
@@ -22,12 +28,21 @@ class MealSection extends StatefulWidget {
 }
 
 class _MealSectionState extends State<MealSection> {
-  Map<String, bool> expandedState = {
-    'Breakfast': false,
-    'Lunch': false,
-    'Snacks': false,
-    'Dinner': false,
-  };
+  // Only what the user toggled by hand, per day and meal. Anything not here
+  // follows the default: open when it has food, a photo in progress, or is
+  // the current meal of today.
+  final Map<String, bool> _userExpanded = {};
+
+  String _expandKey(DateTime date, String meal) =>
+      '${date.year}-${date.month}-${date.day}-$meal';
+
+  bool _isExpanded(DateTime date, String meal, bool hasContent) {
+    final manual = _userExpanded[_expandKey(date, meal)];
+    if (manual != null) return manual;
+    if (hasContent) return true;
+    return DateUtils.isSameDay(date, DateTime.now()) &&
+        meal == MealTime.forTime(DateTime.now());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,11 +70,14 @@ class _MealSectionState extends State<MealSection> {
   }
 
   Widget _buildMealCard(String mealType, {Key? key}) {
-    return Consumer2<FoodEntryProvider, DateProvider>(
+    return Consumer3<FoodEntryProvider, DateProvider, PhotoAnalysisService>(
       key: key,
-      builder: (context, foodEntryProvider, dateProvider, child) {
-        final entries = foodEntryProvider.getEntriesForMeal(
-            dateProvider.selectedDate, mealType);
+      builder: (context, foodEntryProvider, dateProvider, photoService, child) {
+        final date = dateProvider.selectedDate;
+        final entries = foodEntryProvider.getEntriesForMeal(date, mealType);
+        final photoJobs = photoService.jobsFor(date, mealType);
+        final expanded =
+            _isExpanded(date, mealType, entries.isNotEmpty || photoJobs.isNotEmpty);
 
         double totalCalories = entries.fold(
             0.0,
@@ -102,7 +120,7 @@ class _MealSectionState extends State<MealSection> {
               InkWell(
                 onTap: () {
                   HapticFeedback.selectionClick();
-                  setState(() => expandedState[mealType] = !expandedState[mealType]!);
+                  setState(() => _userExpanded[_expandKey(date, mealType)] = !expanded);
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
@@ -169,9 +187,9 @@ class _MealSectionState extends State<MealSection> {
                           ),
                         ],
                       ),
-                      const SizedBox(width: 8),
+                      _buildMealMenu(mealType, date, foodEntryProvider),
                       AnimatedRotation(
-                        turns: expandedState[mealType]! ? 0.5 : 0,
+                        turns: expanded ? 0.5 : 0,
                         duration: const Duration(milliseconds: 200),
                         child: Icon(
                           Icons.keyboard_arrow_down,
@@ -186,8 +204,9 @@ class _MealSectionState extends State<MealSection> {
               ),
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
-                secondChild: _buildExpandedContent(entries, foodEntryProvider, mealType),
-                crossFadeState: expandedState[mealType]!
+                secondChild:
+                    _buildExpandedContent(entries, foodEntryProvider, mealType, photoJobs),
+                crossFadeState: expanded
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 200),
@@ -199,11 +218,95 @@ class _MealSectionState extends State<MealSection> {
     );
   }
 
-  Widget _buildExpandedContent(
-      List<FoodEntry> entries, FoodEntryProvider provider, String mealType) {
+  Widget _buildMealMenu(String mealType, DateTime date, FoodEntryProvider provider) {
+    final yesterday = date.subtract(const Duration(days: 1));
+    final yesterdayEntries = provider.getEntriesForMeal(yesterday, mealType);
+    return PopupMenuButton<String>(
+      tooltip: '$mealType options',
+      icon: Icon(
+        Icons.more_horiz,
+        color: Theme.of(context).extension<CustomColors>()?.textSecondary,
+      ),
+      onSelected: (value) {
+        if (value == 'copy') _copyFromYesterday(mealType, date, provider);
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'copy',
+          enabled: yesterdayEntries.isNotEmpty,
+          child: Text(yesterdayEntries.isEmpty
+              ? 'Nothing logged for $mealType the day before'
+              : 'Copy ${yesterdayEntries.length} ${yesterdayEntries.length == 1 ? 'item' : 'items'} from the day before'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _copyFromYesterday(
+      String mealType, DateTime date, FoodEntryProvider provider) async {
+    HapticFeedback.mediumImpact();
+    final messenger = ScaffoldMessenger.of(context);
+    final copied = await provider.copyMeal(
+      from: date.subtract(const Duration(days: 1)),
+      to: date,
+      meal: mealType,
+    );
+    if (copied.isEmpty) return;
+    setState(() => _userExpanded[_expandKey(date, mealType)] = true);
+    PostHogService.trackEvent('meal_copied', properties: {
+      'meal_type': mealType,
+      'item_count': copied.length,
+    });
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Copied ${copied.length} ${copied.length == 1 ? 'item' : 'items'} to $mealType'),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            for (final entry in copied) {
+              provider.removeEntry(entry.id);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  void _removeWithUndo(FoodEntry entry, FoodEntryProvider provider) {
+    HapticFeedback.mediumImpact();
+    provider.removeEntry(entry.id);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Removed ${entry.food.name}'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => provider.addEntry(entry),
+          ),
+        ),
+      );
+  }
+
+  void _openEntry(FoodEntry entry) {
+    HapticFeedback.selectionClick();
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => FoodDetailPage(food: entry.food, existingEntry: entry),
+      ),
+    );
+  }
+
+  Widget _buildExpandedContent(List<FoodEntry> entries, FoodEntryProvider provider,
+      String mealType, List<PhotoJob> photoJobs) {
     return Column(
       children: [
-        if (entries.isEmpty)
+        ...photoJobs.map((job) => PhotoJobCard(key: ValueKey(job.id), job: job)),
+        if (entries.isEmpty && photoJobs.isEmpty)
           Container(
             padding: const EdgeInsets.all(16),
             child: Center(
@@ -254,11 +357,7 @@ class _MealSectionState extends State<MealSection> {
     );
   }
 
-  String _formatQuantity(double quantity) {
-    return quantity == quantity.roundToDouble()
-        ? quantity.toStringAsFixed(0)
-        : quantity.toStringAsFixed(1);
-  }
+  String _formatQuantity(double quantity) => formatNumber(quantity);
 
   String _displayUnit(FoodEntry entry) {
     // AI entries store "<qty> x <serving>" as the description; show the serving.
@@ -277,7 +376,7 @@ class _MealSectionState extends State<MealSection> {
     return Dismissible(
       key: ValueKey(entry.id),
       direction: DismissDirection.endToStart,
-      onDismissed: (_) => provider.removeEntry(entry.id),
+      onDismissed: (_) => _removeWithUndo(entry, provider),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
@@ -288,9 +387,7 @@ class _MealSectionState extends State<MealSection> {
         child: const Icon(Icons.delete, color: Colors.red),
       ),
       child: InkWell(
-        onTap: () {
-          // Navigate to food detail if needed
-        },
+        onTap: () => _openEntry(entry),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(

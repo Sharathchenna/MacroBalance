@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:math'; // Added for min function
 import 'dart:async'; // Added for Timer
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart'; // Import for MethodChannel
 import 'package:macrotracker/services/macro_calculator_service.dart'; // Import MacroCalculatorService
 import 'package:macrotracker/services/widget_service.dart';
@@ -751,6 +752,72 @@ class FoodEntryProvider with ChangeNotifier {
     } else {
       debugPrint("[Provider Update] Entry ${updatedEntry.id} not found for update.");
     }
+  }
+
+  static String _foodKey(FoodEntry entry) => '${entry.food.fdcId}|${entry.food.name}';
+
+  /// The most recently logged distinct foods, newest first. Each item is the
+  /// latest entry for that food, so re-logging repeats its last amount.
+  List<FoodEntry> recentFoods({int limit = 10}) {
+    // Newest day first; within a day, the later-logged entry first.
+    final indexed = [for (var i = 0; i < _entries.length; i++) (i, _entries[i])]
+      ..sort((a, b) {
+        final byDate = b.$2.date.compareTo(a.$2.date);
+        return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
+      });
+    final seen = <String>{};
+    final result = <FoodEntry>[];
+    for (final (_, entry) in indexed) {
+      if (seen.add(_foodKey(entry))) result.add(entry);
+      if (result.length >= limit) break;
+    }
+    return result;
+  }
+
+  /// The foods logged most often (at least twice), most frequent first.
+  List<FoodEntry> frequentFoods({int limit = 10}) {
+    final counts = <String, int>{};
+    final latest = <String, FoodEntry>{};
+    for (final entry in _entries) {
+      final key = _foodKey(entry);
+      counts[key] = (counts[key] ?? 0) + 1;
+      final current = latest[key];
+      if (current == null || !entry.date.isBefore(current.date)) latest[key] = entry;
+    }
+    final keys = counts.keys.where((k) => counts[k]! >= 2).toList()
+      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+    return keys.take(limit).map((k) => latest[k]!).toList();
+  }
+
+  /// How many times a food has been logged, matched by id or name.
+  int timesLogged({required String foodId, required String name}) =>
+      _entries.where((e) => e.food.fdcId == foodId || e.food.name == name).length;
+
+  /// Re-logs one meal's entries from [from] on [to], with new ids.
+  /// Returns the new entries so the caller can offer Undo.
+  Future<List<FoodEntry>> copyMeal({
+    required DateTime from,
+    required DateTime to,
+    required String meal,
+  }) async {
+    final source = getEntriesForMeal(from, meal);
+    final day = DateTime(to.year, to.month, to.day);
+    final copies = [
+      for (final entry in source)
+        FoodEntry(
+          id: const Uuid().v4(),
+          food: entry.food,
+          meal: meal,
+          quantity: entry.quantity,
+          unit: entry.unit,
+          date: day,
+          servingDescription: entry.servingDescription,
+        ),
+    ];
+    for (final entry in copies) {
+      await addEntry(entry);
+    }
+    return copies;
   }
 
   List<FoodEntry> getEntriesForMeal(DateTime date, String meal) {

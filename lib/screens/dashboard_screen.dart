@@ -1,22 +1,18 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lottie/lottie.dart';
 import 'package:macrotracker/camera/barcode_results.dart' hide Serving;
-import 'package:macrotracker/camera/results_page.dart';
-import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-import '../AI/gemini.dart';
 import '../services/camera_service.dart';
 import '../services/posthog_service.dart';
+import '../services/photo_analysis_service.dart';
+import '../providers/dateProvider.dart';
+import '../utils/meal_time.dart';
 import 'accountdashboard.dart';
 import 'dashboard/components/components.dart';
 import 'TrackingPagesScreen.dart';
@@ -116,70 +112,13 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Future<void> _handlePhotoResult(BuildContext safeContext, Uint8List photoData) async {
+  /// Analysis runs in the background; a card in the meal shows progress and
+  /// a banner says when it's ready to review.
+  void _handlePhotoResult(BuildContext safeContext, Uint8List photoData) {
     if (!mounted) return;
-    _showLoadingDialog('Analyzing Image...');
-
-    try {
-      final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final File tempFile = File(tempPath);
-      await tempFile.writeAsBytes(photoData);
-      print('[Flutter Dashboard] Photo saved to temporary file: $tempPath');
-      String jsonResponse = await processImageWithGemini(tempFile.path);
-      print('[Flutter Dashboard] Gemini response received.');
-      jsonResponse = jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
-      dynamic decodedJson = json.decode(jsonResponse);
-      List<dynamic> mealData;
-      if (decodedJson is Map<String, dynamic> &&
-          decodedJson.containsKey('meal') &&
-          decodedJson['meal'] is List) {
-        mealData = decodedJson['meal'] as List;
-      } else if (decodedJson is List) {
-        mealData = decodedJson;
-      } else if (decodedJson is Map<String, dynamic>) {
-        mealData = [decodedJson];
-      } else {
-        throw Exception('Unexpected JSON structure from Gemini');
-      }
-      final List<AIFoodItem> foods = mealData
-          .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
-          .toList();
-
-      if (mounted) {
-        try {
-          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
-            Navigator.of(safeContext, rootNavigator: true).pop();
-          }
-        } catch (e) {
-          print("[Flutter Dashboard] Error dismissing loading dialog: $e");
-        }
-      }
-      if (!mounted) return;
-
-      if (foods.isEmpty) {
-        print('[Flutter Dashboard] Gemini returned an empty food list.');
-        _showErrorSnackbar('Unable to identify food, try again');
-      } else {
-        print('[Flutter Dashboard] Navigating to ResultsPage');
-        Navigator.push(
-          safeContext,
-          CupertinoPageRoute(builder: (context) => ResultsPage(foods: foods)),
-        );
-      }
-    } catch (e) {
-      print('[Flutter Dashboard] Error processing photo result: ${e.toString()}');
-      if (mounted) {
-        try {
-          if (Navigator.of(safeContext, rootNavigator: true).canPop()) {
-            Navigator.of(safeContext, rootNavigator: true).pop();
-          }
-        } catch (e) {
-          print("[Flutter Dashboard] Error dismissing loading dialog in catch: $e");
-        }
-        _showErrorSnackbar('Something went wrong, try again');
-      }
-    }
+    final date = Provider.of<DateProvider>(safeContext, listen: false).selectedDate;
+    Provider.of<PhotoAnalysisService>(safeContext, listen: false)
+        .start(photoData, meal: MealTime.suggested(), date: date);
   }
 
   void _showErrorSnackbar(String message) {
@@ -192,49 +131,6 @@ class _DashboardState extends State<Dashboard> {
         backgroundColor: Colors.redAccent,
         duration: const Duration(seconds: 3),
       ),
-    );
-  }
-
-  void _showLoadingDialog(String message) {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.3),
-      builder: (BuildContext dialogContext) {
-        return Dialog(
-          backgroundColor: Theme.of(context).brightness == Brightness.light
-              ? Colors.white
-              : Colors.grey[850],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Lottie.asset(
-                  'assets/animations/food_loading.json',
-                  width: 150,
-                  height: 150,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.black87
-                        : Colors.white,
-                    fontSize: 17,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -323,7 +219,7 @@ class _DashboardState extends State<Dashboard> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
-          height: 45,
+          height: 56,
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14.0),
@@ -352,6 +248,7 @@ class _DashboardState extends State<Dashboard> {
               _buildNavItem(
                 context: context,
                 icon: CupertinoIcons.add,
+                label: 'Add',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   _showAddFoodMenu(context);
@@ -360,6 +257,7 @@ class _DashboardState extends State<Dashboard> {
               _buildNavItem(
                 context: context,
                 icon: CupertinoIcons.camera,
+                label: 'Scan',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   _showNativeCamera();
@@ -368,6 +266,7 @@ class _DashboardState extends State<Dashboard> {
               _buildNavItem(
                 context: context,
                 icon: CupertinoIcons.graph_circle,
+                label: 'Progress',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   Navigator.push(
@@ -379,6 +278,7 @@ class _DashboardState extends State<Dashboard> {
               _buildNavItem(
                 context: context,
                 icon: CupertinoIcons.person,
+                label: 'Profile',
                 onTap: () {
                   HapticFeedback.lightImpact();
                   Navigator.push(
@@ -397,25 +297,33 @@ class _DashboardState extends State<Dashboard> {
   Widget _buildNavItem({
     required BuildContext context,
     required IconData icon,
+    required String label,
     required VoidCallback onTap,
     bool isActive = false,
   }) {
     return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: isActive
-                ? const Color(0xFFFFC107).withOpacity(0.2)
-                : Colors.transparent,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: const Color(0xFFFFC107),
-            size: 24,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: const Color(0xFFFFC107), size: 22),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.black87
+                      : Colors.white70,
+                ),
+              ),
+            ],
           ),
         ),
       ),

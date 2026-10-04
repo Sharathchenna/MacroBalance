@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/utils/meal_time.dart';
+import 'package:macrotracker/utils/number_format.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/cupertino.dart';
@@ -58,7 +60,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
   // Add shared meal selection state
   final List<String> mealOptions = ["Breakfast", "Lunch", "Snacks", "Dinner"];
-  String selectedMeal = "Breakfast"; // Default to Breakfast
+  String selectedMeal = MealTime.suggested();
 
   @override
   void initState() {
@@ -343,7 +345,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
   // Get converted quantity based on unit selection
   double getConvertedQuantity() {
-    double qty = double.tryParse(quantityController.text) ?? 100;
+    double qty = parseAmount(quantityController.text) ?? 100;
 
     switch (selectedUnit) {
       case "oz":
@@ -384,7 +386,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
       // Apply quantity multiplier
       double multiplier = selectedMultiplier;
       if (selectedMultiplier == 0) {
-        double enteredQty = double.tryParse(quantityController.text) ?? 0;
+        double enteredQty = parseAmount(quantityController.text) ?? 0;
         multiplier = enteredQty / selectedServing!.metricAmount;
       }
 
@@ -411,7 +413,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
 
       // If custom quantity entered, calculate actual multiplier
       if (selectedMultiplier == 0) {
-        double enteredQty = double.tryParse(quantityController.text) ?? 0;
+        double enteredQty = parseAmount(quantityController.text) ?? 0;
         multiplier = enteredQty / selectedServing!.metricAmount;
       }
 
@@ -486,7 +488,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
     final nutriments = _productData?['nutriments'] ?? {};
 
     // Get the quantity to use
-    double quantity = double.tryParse(quantityController.text) ?? 100.0;
+    double quantity = parseAmount(quantityController.text) ?? 100.0;
 
     // Create food with servings data
     final food = FoodEntry.createFood(
@@ -1053,6 +1055,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                       child: GestureDetector(
                         onTap: () {
                           HapticFeedback.lightImpact();
+                          MealTime.remember(meal);
                           setState(() => selectedMeal = meal);
                         },
                         child: AnimatedContainer(
@@ -1396,7 +1399,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                             if (val == selectedUnit) return;
 
                             double currentQty =
-                                double.tryParse(quantityController.text) ?? 0.0;
+                                parseAmount(quantityController.text) ?? 0.0;
 
                             setState(() {
                               // Convert between g and oz
