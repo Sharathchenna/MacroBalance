@@ -185,20 +185,20 @@ PODS:
     - FlutterMacOS
     - PostHog (< 4.0.0, >= 3.32.0)
   - PromisesObjC (2.4.0)
-  - purchases_flutter (8.6.1):
+  - purchases_flutter (10.14.0):
     - Flutter
-    - PurchasesHybridCommon (= 13.25.0)
-  - purchases_ui_flutter (8.6.1):
+    - PurchasesHybridCommon (= 19.5.0)
+  - purchases_ui_flutter (10.14.0):
     - Flutter
-    - PurchasesHybridCommonUI (= 13.25.0)
-  - PurchasesHybridCommon (13.25.0):
-    - RevenueCat (= 5.19.0)
-  - PurchasesHybridCommonUI (13.25.0):
-    - PurchasesHybridCommon (= 13.25.0)
-    - RevenueCatUI (= 5.19.0)
-  - RevenueCat (5.19.0)
-  - RevenueCatUI (5.19.0):
-    - RevenueCat (= 5.19.0)
+    - PurchasesHybridCommonUI (= 19.5.0)
+  - PurchasesHybridCommon (19.5.0):
+    - RevenueCat (= 5.92.0)
+  - PurchasesHybridCommonUI (19.5.0):
+    - PurchasesHybridCommon (= 19.5.0)
+    - RevenueCatUI (= 5.92.0)
+  - RevenueCat (5.92.0)
+  - RevenueCatUI (5.92.0):
+    - RevenueCat (= 5.92.0)
   - SDWebImage (5.21.3):
     - SDWebImage/Core (= 5.21.3)
   - SDWebImage/Core (5.21.3)
@@ -407,12 +407,12 @@ SPEC CHECKSUMS:
   PostHog: bbb7eaecb2f5a286d9da3c833cbb18ae08799655
   posthog_flutter: 9535ac2d4ab65ccb9ace3886dcc0b3105198bad5
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  purchases_flutter: da84b1c99daa6c94f77c4e812b5a096ea8eb9916
-  purchases_ui_flutter: 2f664731a6d793e4a6eeaaee323eea5bd1292649
-  PurchasesHybridCommon: f27e7fe57a9934319373b10c260db5d6c10bbb64
-  PurchasesHybridCommonUI: 57b87f2e4feb1a9337e1f19f9b84cad5a16da970
-  RevenueCat: 4be87c151dff652d2a5b7af46073db11f01ad93f
-  RevenueCatUI: 79372219c99e2d08eed0a0607004ca0872a17fd5
+  purchases_flutter: 1eadc31e9a260b89c3f1e0c7367ca448b2b5d5cf
+  purchases_ui_flutter: 8d46abd85660fd82b254ef0ea00f5d506d5dd080
+  PurchasesHybridCommon: da80a28f43fdfbf96dcb04c3aa2c6122b0e315d2
+  PurchasesHybridCommonUI: b3d0eb8a379ab969ebd84d639283cea05559dbba
+  RevenueCat: 39657b04641af73c29788b4bf2cf1acff52fd0dc
+  RevenueCatUI: 5add29384ef2916b336346209f91446153165d9d
   SDWebImage: 16309af6d214ba3f77a7c6f6fdda888cb313a50a
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
@@ -424,6 +424,6 @@ SPEC CHECKSUMS:
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
   webview_flutter_wkwebview: 1821ceac936eba6f7984d89a9f3bcb4dea99ebb2
 
-PODFILE CHECKSUM: 9530f776367b6ee49dcf6c41088d23e1647df827
+PODFILE CHECKSUM: c3a17f427957b1e1d27863085046d543b24a3d64
 
 COCOAPODS: 1.16.2

@@ -44,10 +44,11 @@ post_install do |installer|
     
     # Set minimum deployment target for all pods
     target.build_configurations.each do |config|
-      # Ensure minimum iOS version is at least 13.0 for PostHog compatibility
+      # Match the app's iOS 16 minimum. Xcode 27 rejects pod targets below
+      # iOS 15, and PostHog needs at least 13.
       deployment_target = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
-      if deployment_target.nil? || deployment_target.to_f < 13.0
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      if deployment_target.nil? || deployment_target.to_f < 16.0
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
       end
     end
   end

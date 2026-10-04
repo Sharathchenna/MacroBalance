@@ -66,8 +66,8 @@ dependencies:
   permission_handler: ^11.3.1
   posthog_flutter: ^5.6.0
   provider: ^6.1.2
-  purchases_flutter: ^8.6.1
-  purchases_ui_flutter: ^8.6.1
+  purchases_flutter: ^10.14.0
+  purchases_ui_flutter: ^10.14.0
   in_app_purchase: ^3.2.2
   rename_app: ^1.6.2
   superwallkit_flutter: ^2.4.2

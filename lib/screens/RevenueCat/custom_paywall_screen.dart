@@ -267,7 +267,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
 
     try {
-      final customerInfo = await Purchases.purchasePackage(package);
+      final customerInfo = (await Purchases.purchasePackage(package)).customerInfo;
       if (customerInfo.entitlements.active.isNotEmpty) {
         // Navigate to Dashboard and clear the stack
         Navigator.pushNamedAndRemoveUntil(
