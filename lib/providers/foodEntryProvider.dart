@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart'; // Import for MethodChannel
 import 'package:macrotracker/services/macro_calculator_service.dart'; // Import MacroCalculatorService
 import 'package:macrotracker/services/widget_service.dart';
+import 'package:macrotracker/services/weight_sync_service.dart';
 
 // Define the channel name consistently
 const String _statsChannelName = 'app.macrobalance.com/stats';
@@ -440,8 +441,9 @@ class FoodEntryProvider with ChangeNotifier {
     }
 
     try {
-      final Map<String, dynamic> goalsData = {
-        'user_id': userId,
+      // user_macros is the only goals table (there is no nutrition_goals
+      // table); sign-in and AuthGate restore goals from it.
+      await Supabase.instance.client.from('user_macros').update({
         'calories_goal': _caloriesGoal,
         'protein_goal': _proteinGoal,
         'carbs_goal': _carbsGoal,
@@ -449,24 +451,17 @@ class FoodEntryProvider with ChangeNotifier {
         'steps_goal': _stepsGoal,
         'bmr': _bmr,
         'tdee': _tdee,
-        'goal_weight_kg': _goalWeightKg,
-        'current_weight_kg': _currentWeightKg,
         'goal_type': _goalType,
         'deficit_surplus': _deficitSurplus,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-
-      await Supabase.instance.client.from('nutrition_goals').upsert(goalsData);
-      // Sign-in and AuthGate restore goals from user_macros, so it must match.
-      await Supabase.instance.client.from('user_macros').update({
-        'calories_goal': _caloriesGoal,
-        'protein_goal': _proteinGoal,
-        'carbs_goal': _carbsGoal,
-        'fat_goal': _fatGoal,
-        'steps_goal': _stepsGoal,
         'goal_weight_kg': _goalWeightKg,
         'current_weight_kg': _currentWeightKg,
-        'updated_at': DateTime.now().toIso8601String(),
+        'macro_targets': {
+          'calories': _caloriesGoal,
+          'protein': _proteinGoal,
+          'carbs': _carbsGoal,
+          'fat': _fatGoal,
+        },
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', userId);
       debugPrint('[Provider Sync] Synced nutrition goals to Supabase successfully.');
     } catch (e) {
@@ -886,6 +881,7 @@ class FoodEntryProvider with ChangeNotifier {
 
     // Pull anything logged on other devices (or before a reinstall).
     syncWithCloud().catchError((e) => debugPrint('[Food Sync] $e'));
+    _syncWeightHistory();
     debugPrint("[Provider Load] loadEntriesForCurrentUser finished.");
   }
 
@@ -958,6 +954,19 @@ class FoodEntryProvider with ChangeNotifier {
   Future<void> syncAllDataWithSupabase() async {
     await _syncNutritionGoalsToSupabase();
     await syncWithCloud();
+  }
+
+  /// Backs up weight history kept on this device and restores it after a
+  /// reinstall; keeps the current weight in step with the latest entry.
+  Future<void> _syncWeightHistory() async {
+    try {
+      final merged = await WeightSyncService().syncLocalHistory();
+      if (merged == null || merged.isEmpty) return;
+      final latest = (merged.last['weight'] as num).toDouble();
+      if (latest > 0 && latest != _currentWeightKg) currentWeightKg = latest;
+    } catch (e) {
+      debugPrint('[WeightSync] $e');
+    }
   }
 
   // --- Cloud sync for food entries ---

@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.2.1";
+import { GoogleGenAI } from "npm:@google/genai@1.50.1";
+
+// Same model across all AI functions.
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,8 +78,7 @@ serve(async (req) => {
     }
 
     // Initialize Gemini AI
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const genAI = new GoogleGenAI({ apiKey: apiKey });
 
     // Create the prompt
     const prompt = `
@@ -108,9 +110,11 @@ Meal to analyze: ${meal}
 `;
 
     // Generate content
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const result = await genAI.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+    });
+    const text = result.text;
 
     if (!text) {
       throw new Error('No response from Gemini');

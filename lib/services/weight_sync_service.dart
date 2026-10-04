@@ -19,6 +19,7 @@ class WeightSyncService {
   static const String _table = 'weight_entries';
   static const String _pendingKey = 'pending_weight_days';
   static const String _backfillKey = 'weight_backfill_done';
+  static const String _historyKey = 'weight_history';
   static final DateFormat _dayFormat = DateFormat('yyyy-MM-dd');
 
   SupabaseClient get _client => Supabase.instance.client;
@@ -126,6 +127,32 @@ class WeightSyncService {
       debugPrint('[WeightSync] Merge failed, keeping local history: $e');
       return null;
     }
+  }
+
+  /// Backs up the weight history stored on this device and pulls in any from
+  /// the cloud, without the weight screen being open. Run at sign-in and app
+  /// start, so people who log weight on an older build keep it after updating,
+  /// even if they never open the weight screen. Returns the merged history,
+  /// or null if the cloud couldn't be reached (local data is left untouched).
+  Future<List<Map<String, dynamic>>?> syncLocalHistory() async {
+    final raw = StorageService().get(_historyKey);
+    List<Map<String, dynamic>> local = [];
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        local = (jsonDecode(raw) as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .where((e) => e['date'] is String && e['weight'] is num)
+            .toList();
+      } catch (e) {
+        debugPrint('[WeightSync] Unreadable local history, not syncing: $e');
+        return null; // never overwrite data we couldn't read
+      }
+    }
+    final merged = await mergeWithCloud(local);
+    if (merged != null) {
+      await StorageService().put(_historyKey, jsonEncode(merged));
+    }
+    return merged;
   }
 
   /// Clears sync bookkeeping on logout so the next account starts fresh.

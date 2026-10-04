@@ -15,17 +15,17 @@ alter table public.weight_entries enable row level security;
 
 create policy "Users read their own weight entries"
   on public.weight_entries for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users add their own weight entries"
   on public.weight_entries for insert
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users update their own weight entries"
   on public.weight_entries for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users delete their own weight entries"
   on public.weight_entries for delete
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);

@@ -6,6 +6,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 
 import { GoogleGenAI } from "npm:@google/genai@1.50.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Health score calculation function
 function calculateHealthScore(calories: number, protein: number, carbohydrates: number, fat: number, fiber: number): number {
@@ -85,6 +86,30 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Only signed-in app users may spend Gemini quota. verify_jwt is off for
+    // this function, so check the caller's session here (the public anon key
+    // alone is not enough).
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const authHeader = req.headers.get("Authorization");
+    if (!supabaseUrl || !supabaseAnonKey || !authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Parse the multipart form data with the image
     const formData = await req.formData();
     const image = formData.get("image");
@@ -185,7 +210,7 @@ Deno.serve(async (req: Request) => {
     
     // Generate content with the image and prompt using the new API
     const result = await genAI.models.generateContent({
-      model: "gemini-flash-lite-latest",
+      model: "gemini-3.1-flash-lite",
       contents: [
         {
           role: "user",

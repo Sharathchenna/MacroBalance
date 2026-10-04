@@ -16,6 +16,7 @@ import 'package:macrotracker/Health/Health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
+import 'package:macrotracker/services/weight_sync_service.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
@@ -192,6 +193,32 @@ class _AccountDashboardState extends State<AccountDashboard>
     }
   }
 
+  /// Logging out clears this phone's copy, so say so when it isn't backed up.
+  Future<bool?> _confirmLogoutWithoutBackup() {
+    return showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text("Some data isn't backed up"),
+        content: const Text(
+            "We couldn't reach the server, so recent food or weight entries on this phone "
+            "may not be saved to your account. If you log out now they'll be deleted from this phone. "
+            "Connect to the internet and try again to keep them."),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Stay Logged In'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Log Out Anyway'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleLogout() async {
     try {
       // Add haptic feedback
@@ -202,12 +229,20 @@ class _AccountDashboardState extends State<AccountDashboard>
           Provider.of<FoodEntryProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
+      var backedUp = true;
       try {
-        await foodEntryProvider
-            .syncWithCloud()
-            .timeout(const Duration(seconds: 8));
+        final results = await Future.wait<Object?>([
+          foodEntryProvider.syncWithCloud().then((_) => true),
+          WeightSyncService().syncLocalHistory(),
+        ]).timeout(const Duration(seconds: 8));
+        // syncLocalHistory returns null when the cloud couldn't be reached.
+        backedUp = results[1] != null;
       } catch (_) {
-        // Offline: local-only changes are lost on logout, as before.
+        backedUp = false;
+      }
+      if (!backedUp) {
+        final logOutAnyway = await _confirmLogoutWithoutBackup();
+        if (logOutAnyway != true) return;
       }
       // Clear goals, entries, weight history, saved foods and sync state so the
       // next account on this device starts from its own data.

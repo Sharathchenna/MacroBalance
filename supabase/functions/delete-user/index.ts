@@ -78,19 +78,23 @@ serve(async (req) => {
     }
 
     // Delete the user's data from all tables
-    // Tables the app actually writes to (see lib/). 'user_food_entries' was a
-    // stale name: food logs live in 'food_entries'.
+    // Every public table holding this user's rows. food_entries, exercises,
+    // user_settings and user_macros reference auth.users without ON DELETE
+    // CASCADE, so they must be cleared before the auth user can be deleted.
     const tables = [
       'food_entries',
-      'nutrition_goals',
+      'user_food_entries',
+      'food_log',
       'saved_foods',
       'weight_entries',
       'workout_entries',
       'workout_monthly_stats',
-      'profiles',
+      'workouts',
+      'exercises',
+      'fitness_profiles',
       'user_notification_preferences',
       'user_notification_tokens',
-      'user_preferences', 
+      'user_preferences',
       'user_settings',
       'user_macros',
       'feedback'
