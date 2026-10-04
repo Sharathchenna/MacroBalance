@@ -68,3 +68,8 @@ entrypoint = "./functions/ai-food-search/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/ask-ai/index.ts"
+
+[functions.create-test-account]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/create-test-account/index.ts"

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
+import 'package:macrotracker/services/test_accounts.dart';
 
 /// A provider class that manages subscription status throughout the app
 class SubscriptionProvider extends ChangeNotifier {
@@ -21,6 +22,8 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // Getters with multiple security layers
   bool get isProUser {
+    // Test accounts (@mbtest.ai, test builds only) that tapped Buy.
+    if (TestAccounts.hasSubscription) return true;
     // SECURITY LAYER 1: Production builds NEVER allow bypass
     if (_isProductionBuild) {
       if (_DISABLE_PAYWALL_FOR_TESTING) {
@@ -125,6 +128,12 @@ class SubscriptionProvider extends ChangeNotifier {
   
   // Check with RevenueCat for the current subscription status
   Future<bool> checkSubscriptionStatus() async {
+    if (TestAccounts.hasSubscription) {
+      _isProUser = true;
+      _isInitialized = true;
+      notifyListeners();
+      return true;
+    }
     // Only allow testing bypass in debug builds
     if (_isDebugBuild && _DISABLE_PAYWALL_FOR_TESTING) {
       debugPrint('🧪 DEBUG MODE: Forcing premium status for testing');

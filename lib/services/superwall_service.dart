@@ -4,6 +4,10 @@ import 'package:superwallkit_flutter/superwallkit_flutter.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 import 'package:macrotracker/services/superwall_delegate.dart';
+import 'package:macrotracker/services/test_accounts.dart';
+import 'package:macrotracker/providers/subscription_provider.dart';
+import 'package:macrotracker/main.dart' show navigatorKey;
+import 'package:provider/provider.dart';
 
 /// Service to manage Superwall integration and replace custom paywall functionality
 class SuperwallService {
@@ -80,6 +84,11 @@ class SuperwallService {
     VoidCallback? onUserSubscribed,
     VoidCallback? onBothPaywallsDismissed,
   }) async {
+    if (TestAccounts.isActive) {
+      final subscribed = await _handledAsTestAccount(null);
+      subscribed ? onUserSubscribed?.call() : onBothPaywallsDismissed?.call();
+      return;
+    }
     if (!_isConfigured) {
       debugPrint('[SuperwallService] Superwall not configured - cannot show chained paywalls');
       onBothPaywallsDismissed?.call();
@@ -194,6 +203,7 @@ class SuperwallService {
     Map<String, dynamic>? params,
     VoidCallback? feature,
   }) async {
+    if (await _handledAsTestAccount(feature)) return;
     if (!_isConfigured) {
       debugPrint('[SuperwallService] Superwall not configured - hard paywall will be enforced via benefits screen');
       // For hard paywall: DO NOT execute feature callback when Superwall fails
@@ -224,9 +234,29 @@ class SuperwallService {
     }
   }
   
+  /// Test accounts (test builds only) get a stand-in paywall whose Buy grants
+  /// the subscription locally, instead of Superwall's real App Store purchase.
+  /// Returns true if handled (the caller should not show Superwall).
+  Future<bool> _handledAsTestAccount(VoidCallback? feature) async {
+    if (!TestAccounts.isActive) return false;
+    if (!TestAccounts.hasSubscription) {
+      final context = navigatorKey.currentContext;
+      if (context == null) return true;
+      final bought = await TestAccounts.showTestPaywall(context);
+      if (!bought) return true;
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        await Provider.of<SubscriptionProvider>(ctx, listen: false).checkSubscriptionStatus();
+      }
+    }
+    feature?.call();
+    return true;
+  }
+
   /// Check if user has active subscription via RevenueCat
   /// This replaces the subscription checks in PaywallGate
   Future<bool> hasActiveSubscription() async {
+    if (TestAccounts.hasSubscription) return true;
     try {
       final customerInfo = await Purchases.getCustomerInfo();
       return customerInfo.entitlements.active.isNotEmpty;
