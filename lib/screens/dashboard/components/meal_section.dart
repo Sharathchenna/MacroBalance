@@ -13,6 +13,7 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/typography.dart';
 import '../../../services/photo_analysis_service.dart';
 import '../../../services/posthog_service.dart';
+import '../../../utils/meal_routine.dart';
 import '../../../utils/meal_time.dart';
 import '../../foodDetail.dart';
 import 'photo_job_card.dart';
@@ -32,6 +33,8 @@ class _MealSectionState extends State<MealSection> {
   // follows the default: open when it has food, a photo in progress, or is
   // the current meal of today.
   final Map<String, bool> _userExpanded = {};
+
+  final _dismissals = RoutineDismissals();
 
   String _expandKey(DateTime date, String meal) =>
       '${date.year}-${date.month}-${date.day}-$meal';
@@ -219,16 +222,18 @@ class _MealSectionState extends State<MealSection> {
     );
   }
 
-  /// "Same as yesterday?" card shown in an empty meal.
-  Widget _buildRepeatYesterday(String mealType, DateTime date,
-      List<FoodEntry> yesterday, FoodEntryProvider provider) {
+  /// "Your usual breakfast" card shown in an empty meal of today.
+  Widget _buildUsualMeal(RoutineSuggestion usual, FoodEntryProvider provider) {
     final colors = Theme.of(context).extension<CustomColors>();
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final kcal = yesterday.fold<double>(
+    final mealType = usual.meal;
+    final usualName = 'your usual ${mealType.toLowerCase()}';
+    final title = 'Your usual ${mealType.toLowerCase()}';
+    final kcal = usual.entries.fold<double>(
         0, (sum, e) => sum + provider.calculateNutrientForEntry(e, 'calories'));
     // Group repeats: "Toast ×3" rather than "Toast, Toast and 1 more".
     final counts = <String, int>{};
-    for (final e in yesterday) {
+    for (final e in usual.entries) {
       counts[e.food.name] = (counts[e.food.name] ?? 0) + 1;
     }
     final names = [
@@ -240,84 +245,118 @@ class _MealSectionState extends State<MealSection> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-      child: Semantics(
-        button: true,
-        label: 'Repeat yesterday\'s $mealType: $summary, ${kcal.round()} kcal',
-        excludeSemantics: true,
-        child: Material(
-          color: isLight ? Colors.black.withOpacity(0.03) : Colors.white.withOpacity(0.04),
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => _copyFromYesterday(mealType, date, provider),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-              child: Row(
-                children: [
-                  Icon(Icons.history_rounded, size: 20, color: colors?.textSecondary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Same as yesterday?',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: colors?.textPrimary,
-                          ),
+      child: Material(
+        color: isLight ? Colors.black.withOpacity(0.03) : Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Semantics(
+              button: true,
+              label: 'Add $usualName: $summary, ${kcal.round()} kcal',
+              excludeSemantics: true,
+              child: InkWell(
+                onTap: () => _addUsual(usual, provider),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 10, 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.history_rounded, size: 20, color: colors?.textSecondary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colors?.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$summary · ${kcal.round()} kcal',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.poppins(
+                                  fontSize: 12, color: colors?.textSecondary),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$summary · ${kcal.round()} kcal',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                              fontSize: 12, color: colors?.textSecondary),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Add',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Repeat',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+            // Lined up under the text, out of the way of the main action.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(36, 0, 0, 4),
+              child: Semantics(
+                button: true,
+                label: 'Not today, hide $usualName',
+                excludeSemantics: true,
+                child: TextButton(
+                  onPressed: () => _dismissUsual(mealType),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: colors?.textSecondary,
+                  ),
+                  child: Text(
+                    'Not today',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: colors?.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Future<void> _copyFromYesterday(
-      String mealType, DateTime date, FoodEntryProvider provider) async {
+  Future<void> _addUsual(RoutineSuggestion usual, FoodEntryProvider provider) async {
     HapticFeedback.mediumImpact();
     final messenger = ScaffoldMessenger.of(context);
+    final mealType = usual.meal;
+    final today = DateTime.now();
     final copied = await provider.copyMeal(
-      from: date.subtract(const Duration(days: 1)),
-      to: date,
+      from: usual.sourceDate,
+      to: today,
       meal: mealType,
     );
     if (copied.isEmpty) return;
+    await _dismissals.used(mealType);
     // The card may have been rebuilt or removed while the copy was saving.
     if (mounted) {
-      setState(() => _userExpanded[_expandKey(date, mealType)] = true);
+      setState(() => _userExpanded[_expandKey(today, mealType)] = true);
     }
-    PostHogService.trackEvent('meal_copied', properties: {
+    PostHogService.trackEvent('usual_meal_added', properties: {
       'meal_type': mealType,
       'item_count': copied.length,
+      'matching_days': usual.matchingDays,
     });
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Copied ${copied.length} ${copied.length == 1 ? 'item' : 'items'} to $mealType'),
+        content: Text('Added your usual ${mealType.toLowerCase()}'),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
           label: 'Undo',
@@ -329,6 +368,15 @@ class _MealSectionState extends State<MealSection> {
         ),
       ),
     );
+  }
+
+  Future<void> _dismissUsual(String mealType) async {
+    HapticFeedback.selectionClick();
+    await _dismissals.dismiss(mealType, DateTime.now());
+    PostHogService.trackEvent('usual_meal_dismissed', properties: {
+      'meal_type': mealType,
+    });
+    if (mounted) setState(() {});
   }
 
   void _removeWithUndo(FoodEntry entry, FoodEntryProvider provider) {
@@ -362,15 +410,21 @@ class _MealSectionState extends State<MealSection> {
   Widget _buildExpandedContent(List<FoodEntry> entries, FoodEntryProvider provider,
       String mealType, List<PhotoJob> photoJobs, DateTime date) {
     final empty = entries.isEmpty && photoJobs.isEmpty;
-    final yesterday = empty
-        ? provider.getEntriesForMeal(date.subtract(const Duration(days: 1)), mealType)
-        : const <FoodEntry>[];
+    final now = DateTime.now();
+    // An empty meal of today that the user eats most days offers "the usual".
+    final usual = empty && !_dismissals.isHidden(mealType, now)
+        ? MealRoutine.suggest(
+            meal: mealType,
+            viewedDate: date,
+            today: now,
+            entriesFor: (day) => provider.getEntriesForMeal(day, mealType),
+          )
+        : null;
     return Column(
       children: [
         ...photoJobs.map((job) => PhotoJobCard(key: ValueKey(job.id), job: job)),
-        // An empty meal that had food the day before offers to repeat it.
-        if (empty && yesterday.isNotEmpty)
-          _buildRepeatYesterday(mealType, date, yesterday, provider)
+        if (usual != null)
+          _buildUsualMeal(usual, provider)
         else if (empty)
           Container(
             padding: const EdgeInsets.all(16),
