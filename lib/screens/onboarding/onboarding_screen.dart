@@ -534,7 +534,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         return WeightPage(
           currentWeightKg: _weightKg,
           isMetric: _isMetricWeight,
-          onWeightChanged: (newWeight) => setState(() => _weightKg = newWeight),
+          // Re-check the goal weight: after choosing to lose, a lower weight
+          // could leave the goal above it.
+          onWeightChanged: (newWeight) => setState(() {
+            _weightKg = newWeight;
+            _validateRanges();
+          }),
           onUnitChanged: (isMetric) => setState(() => _isMetricWeight = isMetric),
         );
       case OnboardingStep.height:

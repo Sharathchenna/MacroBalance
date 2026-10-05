@@ -144,6 +144,61 @@ void main() {
     });
   }
 
+  // New user picks "lose", sees the goal-weight step, then goes back and
+  // lowers their weight. The goal weight chosen for the old weight is now
+  // above the new one; it must be pulled back below it instead of crashing
+  // the goal-weight wheel (value above its maximum).
+  for (final metric in [true, false]) {
+    testWidgets(
+        'lowering your weight after choosing to lose keeps the goal below it '
+        '(${metric ? 'kg' : 'lbs'})', (tester) async {
+      await pumpFromHome(tester, const OnboardingScreen(),
+          units: WeightUnitProvider()..setMetric(metric));
+
+      // welcome -> gender -> weight
+      await next(tester);
+      await next(tester);
+      expect(visible(WeightPage), findsOneWidget);
+      tester.widget<WeightPage>(find.byType(WeightPage)).onWeightChanged(90);
+      await pumpFrames(tester, seconds: 1);
+
+      // weight -> height -> age -> activity -> goal
+      for (var i = 0; i < 4; i++) {
+        await next(tester);
+      }
+      expect(visible(GoalPage), findsOneWidget);
+      tester.widget<GoalPage>(find.byType(GoalPage))
+          .onGoalChanged(MacroCalculatorService.GOAL_LOSE);
+      await pumpFrames(tester, seconds: 1);
+
+      await next(tester);
+      expect(visible(SetNewGoalPage), findsOneWidget);
+      final firstGoal =
+          tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage)).goalWeightKg;
+      expect(firstGoal, lessThan(90));
+
+      // Back to the weight step and drop well below that goal.
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.text('Back'));
+        await pumpFrames(tester, seconds: 1);
+      }
+      expect(visible(WeightPage), findsOneWidget);
+      tester.widget<WeightPage>(find.byType(WeightPage)).onWeightChanged(firstGoal - 15);
+      await pumpFrames(tester, seconds: 1);
+
+      // Forward to the goal-weight step again.
+      for (var i = 0; i < 5; i++) {
+        await next(tester);
+      }
+      expect(visible(SetNewGoalPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      final page = tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage));
+      // In pounds the weight is kept to a whole pound.
+      expect(page.currentWeightKg, closeTo(firstGoal - 15, 0.5));
+      expect(page.goalWeightKg, lessThan(page.currentWeightKg));
+    });
+  }
+
   testWidgets('"How did you hear about us?" can be skipped', (tester) async {
     await pumpFromHome(tester, const AcquisitionSourceStep());
     expect(find.byType(AcquisitionSourceStep), findsOneWidget);
