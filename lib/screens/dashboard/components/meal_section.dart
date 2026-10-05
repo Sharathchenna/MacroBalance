@@ -14,7 +14,6 @@ import '../../../theme/typography.dart';
 import '../../../services/photo_analysis_service.dart';
 import '../../../services/posthog_service.dart';
 import '../../../utils/meal_time.dart';
-import '../../../utils/number_format.dart';
 import '../../foodDetail.dart';
 import 'photo_job_card.dart';
 import '../../../utils/quick_log.dart';
@@ -188,7 +187,7 @@ class _MealSectionState extends State<MealSection> {
                           ),
                         ],
                       ),
-                      _buildMealMenu(mealType, date, foodEntryProvider),
+                      const SizedBox(width: 8),
                       AnimatedRotation(
                         turns: expanded ? 0.5 : 0,
                         duration: const Duration(milliseconds: 200),
@@ -206,7 +205,8 @@ class _MealSectionState extends State<MealSection> {
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
                 secondChild:
-                    _buildExpandedContent(entries, foodEntryProvider, mealType, photoJobs),
+                    _buildExpandedContent(
+                    entries, foodEntryProvider, mealType, photoJobs, date),
                 crossFadeState: expanded
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
@@ -219,27 +219,81 @@ class _MealSectionState extends State<MealSection> {
     );
   }
 
-  Widget _buildMealMenu(String mealType, DateTime date, FoodEntryProvider provider) {
-    final yesterday = date.subtract(const Duration(days: 1));
-    final yesterdayEntries = provider.getEntriesForMeal(yesterday, mealType);
-    return PopupMenuButton<String>(
-      tooltip: '$mealType options',
-      icon: Icon(
-        Icons.more_horiz,
-        color: Theme.of(context).extension<CustomColors>()?.textSecondary,
-      ),
-      onSelected: (value) {
-        if (value == 'copy') _copyFromYesterday(mealType, date, provider);
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: 'copy',
-          enabled: yesterdayEntries.isNotEmpty,
-          child: Text(yesterdayEntries.isEmpty
-              ? 'Nothing logged for $mealType the day before'
-              : 'Copy ${yesterdayEntries.length} ${yesterdayEntries.length == 1 ? 'item' : 'items'} from the day before'),
+  /// "Same as yesterday?" card shown in an empty meal.
+  Widget _buildRepeatYesterday(String mealType, DateTime date,
+      List<FoodEntry> yesterday, FoodEntryProvider provider) {
+    final colors = Theme.of(context).extension<CustomColors>();
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final kcal = yesterday.fold<double>(
+        0, (sum, e) => sum + provider.calculateNutrientForEntry(e, 'calories'));
+    // Group repeats: "Toast ×3" rather than "Toast, Toast and 1 more".
+    final counts = <String, int>{};
+    for (final e in yesterday) {
+      counts[e.food.name] = (counts[e.food.name] ?? 0) + 1;
+    }
+    final names = [
+      for (final c in counts.entries) c.value > 1 ? '${c.key} ×${c.value}' : c.key
+    ];
+    final summary = names.length <= 2
+        ? names.join(' and ')
+        : '${names.take(2).join(', ')} and ${names.length - 2} more';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Semantics(
+        button: true,
+        label: 'Repeat yesterday\'s $mealType: $summary, ${kcal.round()} kcal',
+        excludeSemantics: true,
+        child: Material(
+          color: isLight ? Colors.black.withOpacity(0.03) : Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => _copyFromYesterday(mealType, date, provider),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.history_rounded, size: 20, color: colors?.textSecondary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Same as yesterday?',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: colors?.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$summary · ${kcal.round()} kcal',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                              fontSize: 12, color: colors?.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Repeat',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -306,11 +360,18 @@ class _MealSectionState extends State<MealSection> {
   }
 
   Widget _buildExpandedContent(List<FoodEntry> entries, FoodEntryProvider provider,
-      String mealType, List<PhotoJob> photoJobs) {
+      String mealType, List<PhotoJob> photoJobs, DateTime date) {
+    final empty = entries.isEmpty && photoJobs.isEmpty;
+    final yesterday = empty
+        ? provider.getEntriesForMeal(date.subtract(const Duration(days: 1)), mealType)
+        : const <FoodEntry>[];
     return Column(
       children: [
         ...photoJobs.map((job) => PhotoJobCard(key: ValueKey(job.id), job: job)),
-        if (entries.isEmpty && photoJobs.isEmpty)
+        // An empty meal that had food the day before offers to repeat it.
+        if (empty && yesterday.isNotEmpty)
+          _buildRepeatYesterday(mealType, date, yesterday, provider)
+        else if (empty)
           Container(
             padding: const EdgeInsets.all(16),
             child: Center(

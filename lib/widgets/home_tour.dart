@@ -26,7 +26,7 @@ class HomeTour {
     TourStep(TourTarget.summary, 'Your day at a glance',
         'Calories left and your macros update the moment you log something.'),
     TourStep(TourTarget.meals, 'Your meals',
-        'Tap a food to edit it, swipe it left to remove it. The ••• menu copies a meal from the day before.'),
+        'Tap a food to edit it, swipe it left to remove it. Eating the same as yesterday? An empty meal offers to repeat it in one tap.'),
     TourStep(TourTarget.dateBar, 'Move between days',
         'Use the arrows or tap the date to log or review any day.'),
     TourStep(TourTarget.addButton, 'Log food',

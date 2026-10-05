@@ -34,58 +34,84 @@ void main() {
     await settle(tester);
   }
 
-  Finder menuFor(String meal) => find.byTooltip('$meal options');
-
-  testWidgets('options menu with nothing to copy opens and closes cleanly',
-      (tester) async {
-    await pumpMeals(tester);
-    for (final meal in ['Breakfast', 'Lunch', 'Snacks', 'Dinner']) {
-      await tester.ensureVisible(menuFor(meal));
-      await tester.tap(menuFor(meal));
+  /// Expands [meal] if it isn't already.
+  Future<void> openMeal(WidgetTester tester, String meal) async {
+    // Collapsed meals still build their (hidden) content, so look for the
+    // add button on screen, not just in the tree.
+    await tester.ensureVisible(find.text(meal));
+    await settle(tester);
+    final addButton = find.text('Add Food to $meal');
+    if (tester.getSize(addButton).width == 0) {
+      await tester.tap(find.text(meal));
       await settle(tester);
-      expect(find.text('Nothing logged for $meal the day before'), findsOneWidget);
-      // The disabled item ignores taps; tapping outside closes the menu.
-      await tester.tap(find.text('Nothing logged for $meal the day before'));
-      await settle(tester);
-      await tester.tapAt(const Offset(5, 5));
-      await settle(tester);
-      expect(tester.takeException(), isNull);
     }
+    await tester.ensureVisible(addButton);
+    await settle(tester);
+  }
+
+  Finder repeatCard() => find.text('Same as yesterday?').hitTestable();
+
+  testWidgets('meal headers have no options menu', (tester) async {
+    await pumpMeals(tester);
+    expect(find.byIcon(Icons.more_horiz), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('copying from the day before adds the items, Undo removes them',
-      (tester) async {
-    await tester.runAsync(() => provider.addEntry(testEntry(name: 'Toast', meal: 'Dinner', date: yesterday)));
-    await tester.runAsync(() => provider.addEntry(testEntry(name: 'Soup', meal: 'Dinner', date: yesterday)));
+  testWidgets('empty meals with nothing yesterday just say so', (tester) async {
     await pumpMeals(tester);
+    for (final meal in ['Breakfast', 'Lunch', 'Snacks', 'Dinner']) {
+      await openMeal(tester, meal);
+      expect(repeatCard(), findsNothing, reason: meal);
+    }
+    expect(find.text('No entries yet'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 
-    await tester.ensureVisible(menuFor('Dinner'));
-    await tester.tap(menuFor('Dinner'));
-    await settle(tester);
-    await tester.tap(find.text('Copy 2 items from the day before'));
-    await settle(tester);
+  testWidgets('an empty meal offers yesterday\'s food; Repeat adds it, Undo removes it',
+      (tester) async {
+    await tester.runAsync(() => provider.addEntry(
+        testEntry(name: 'Toast', meal: 'Dinner', date: yesterday, calories: 75)));
+    await tester.runAsync(() => provider.addEntry(
+        testEntry(name: 'Soup', meal: 'Dinner', date: yesterday, calories: 150)));
+    await pumpMeals(tester);
+    await openMeal(tester, 'Dinner');
 
+    expect(repeatCard(), findsOneWidget);
+    expect(find.text('Toast and Soup · 225 kcal'), findsOneWidget);
+
+    await tester.tap(find.text('Repeat'));
+    await settle(tester);
     expect(provider.getEntriesForMeal(today, 'Dinner'), hasLength(2));
     expect(find.text('Copied 2 items to Dinner'), findsOneWidget);
+    // Once the meal has food the suggestion goes away.
+    expect(repeatCard(), findsNothing);
 
     await tester.tap(find.text('Undo'));
     await settle(tester);
     expect(provider.getEntriesForMeal(today, 'Dinner'), isEmpty);
+    expect(repeatCard(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('opening the menu twice and copying twice stays consistent',
-      (tester) async {
-    await tester.runAsync(() => provider.addEntry(testEntry(name: 'Oats', meal: 'Breakfast', date: yesterday)));
-    await pumpMeals(tester);
-    for (var i = 0; i < 2; i++) {
-      await tester.ensureVisible(menuFor('Breakfast'));
-      await tester.tap(menuFor('Breakfast'));
-      await settle(tester);
-      await tester.tap(find.text('Copy 1 item from the day before'));
-      await settle(tester);
+  testWidgets('long lists are summarised', (tester) async {
+    for (final name in ['Oats', 'Milk', 'Banana', 'Honey']) {
+      await tester.runAsync(() => provider.addEntry(
+          testEntry(name: name, meal: 'Breakfast', date: yesterday, calories: 50)));
     }
-    expect(provider.getEntriesForMeal(today, 'Breakfast'), hasLength(2));
+    await pumpMeals(tester);
+    await openMeal(tester, 'Breakfast');
+    expect(find.text('Oats, Milk and 2 more · 200 kcal'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('no suggestion once a meal has food', (tester) async {
+    await tester.runAsync(() => provider.addEntry(
+        testEntry(name: 'Rice', meal: 'Lunch', date: yesterday)));
+    await tester.runAsync(() => provider.addEntry(
+        testEntry(name: 'Salad', meal: 'Lunch', date: today)));
+    await pumpMeals(tester);
+    await openMeal(tester, 'Lunch');
+    expect(repeatCard(), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -114,8 +140,13 @@ void main() {
   });
 
   testWidgets('works on another day and in light mode', (tester) async {
+    final twoDaysAgo = today.subtract(const Duration(days: 2));
     dates.setDate(yesterday);
-    await tester.runAsync(() => provider.addEntry(testEntry(name: 'Toast', meal: 'Snacks', date: yesterday)));
+    await tester.runAsync(() => provider.addEntry(
+        testEntry(name: 'Toast', meal: 'Snacks', date: twoDaysAgo)));
+    tester.view.physicalSize = const Size(1179, 2556);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(testApp(
       const Scaffold(body: SingleChildScrollView(child: MealSection())),
       foodEntryProvider: provider,
@@ -123,11 +154,22 @@ void main() {
       dark: false,
     ));
     await settle(tester);
-    await tester.ensureVisible(menuFor('Snacks'));
-    await tester.tap(menuFor('Snacks'));
+    await openMeal(tester, 'Snacks');
+    // "Yesterday" is relative to the day being viewed.
+    expect(repeatCard(), findsOneWidget);
+    await tester.tap(find.text('Repeat'));
     await settle(tester);
-    await tester.tapAt(const Offset(5, 5));
-    await settle(tester);
+    expect(provider.getEntriesForMeal(yesterday, 'Snacks'), hasLength(1));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('repeated foods are grouped', (tester) async {
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(() => provider.addEntry(testEntry(
+          name: 'Toast', meal: 'Dinner', date: yesterday, calories: 75, quantity: 1 + i * 0.001)));
+    }
+    await pumpMeals(tester);
+    await openMeal(tester, 'Dinner');
+    expect(find.text('Toast ×3 · 225 kcal'), findsOneWidget);
   });
 }
