@@ -13,6 +13,7 @@ import '../services/photo_analysis_service.dart';
 import '../providers/dateProvider.dart';
 import '../utils/meal_time.dart';
 import 'dashboard/components/components.dart';
+import '../widgets/home_tour.dart';
 
 // Define the expected result structure at the top level
 typedef CameraResult = Map<String, dynamic>;
@@ -137,18 +138,20 @@ class _DashboardState extends State<Dashboard> {
                 Container(
                   color: Theme.of(context).scaffoldBackgroundColor,
                   padding: EdgeInsets.only(top: topPadding),
-                  child: const DateNavigatorBar(),
+                  child: TourTargets.mark(
+                      context, TourTarget.dateBar, const DateNavigatorBar()),
                 ),
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.start,
-                      children: const [
-                        SizedBox(height: 8),
-                        CalorieTracker(),
-                        MealSection(),
+                      children: [
+                        const SizedBox(height: 8),
+                        TourTargets.mark(
+                            context, TourTarget.summary, const CalorieTracker()),
+                        TourTargets.mark(context, TourTarget.meals, const MealSection()),
                         // Room to scroll past the bottom bar.
-                        SizedBox(height: AppBottomBar.scrollClearance),
+                        const SizedBox(height: AppBottomBar.scrollClearance),
                       ],
                     ),
                   ),

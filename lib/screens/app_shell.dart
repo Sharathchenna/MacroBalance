@@ -4,7 +4,10 @@ import 'package:flutter/services.dart';
 
 import '../services/camera_service.dart';
 import '../services/posthog_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../widgets/app_bottom_bar.dart';
+import '../widgets/home_tour.dart';
 import '../widgets/log_food_menu.dart';
 import 'TrackingPagesScreen.dart';
 import 'accountdashboard.dart';
@@ -30,7 +33,8 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => AppShellState();
 }
 
-class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin {
+class AppShellState extends State<AppShell>
+    with SingleTickerProviderStateMixin {
   late AppTab _tab = widget.initialTab;
   late final Set<AppTab> _opened = {widget.initialTab};
 
@@ -43,6 +47,57 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
 
   AppTab get currentTab => _tab;
   bool get menuOpen => _menu.status != AnimationStatus.dismissed;
+
+  // First-run tour. Keys are per shell so two shells never share one.
+  final Map<TourTarget, GlobalKey> _tourKeys = {
+    for (final t in TourTarget.values)
+      t: GlobalKey(debugLabel: 'tour_${t.name}'),
+  };
+  bool _touring = false;
+  bool get touring => _touring;
+
+  String? get _userId => Supabase.instance.client.auth.currentUser?.id;
+
+  @override
+  void initState() {
+    super.initState();
+    // Whenever a signed-in account reaches Home without having seen the tour
+    // (after onboarding, subscribing, starting a trial, or on a new device),
+    // show it once the screen has settled.
+    if (widget.initialTab == AppTab.home && HomeTour.shouldShow(_userId)) {
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (mounted &&
+            _tab == AppTab.home &&
+            !menuOpen &&
+            HomeTour.shouldShow(_userId)) {
+          startTour();
+        }
+      });
+    }
+  }
+
+  /// Shows the tour from the start, on Home. Also used by Profile's
+  /// "Show app tour".
+  void startTour() {
+    _closeMenu();
+    select(AppTab.home);
+    // Let Home lay out (it may have just been built) before measuring.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _touring = true);
+      PostHogService.trackEvent('home_tour_started');
+    });
+    // Already on Home, nothing else asks for a frame, so request one or the
+    // callback above would wait until the next touch.
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _endTour(bool completed) {
+    setState(() => _touring = false);
+    HomeTour.markSeen(_userId);
+    PostHogService.trackEvent(
+        completed ? 'home_tour_completed' : 'home_tour_skipped');
+  }
 
   @override
   void dispose() {
@@ -64,7 +119,8 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
     if (_menu.isForwardOrCompleted) {
       _menu.reverse();
     } else {
-      PostHogService.trackEvent('log_food_menu_opened', properties: {'tab': _tab.name});
+      PostHogService.trackEvent('log_food_menu_opened',
+          properties: {'tab': _tab.name});
       _menu.forward();
     }
   }
@@ -113,45 +169,63 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
     final barBottom = MediaQuery.of(context).size.height * 0.04;
     return PopScope(
       // Back (Android, or a swipe gesture) closes the menu first.
-      canPop: !menuOpen,
+      canPop: !menuOpen && !_touring,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _closeMenu();
+        if (didPop) return;
+        if (_touring) {
+          _endTour(false);
+        } else {
+          _closeMenu();
+        }
       },
-      child: Scaffold(
-        body: Stack(
-          children: [
-            IndexedStack(
-              index: _tab.index,
-              children: [for (final tab in AppTab.values) _buildTab(tab)],
-            ),
-            if (menuOpen)
-              Positioned.fill(
-                child: LogFoodMenu(
-                  animation: _menu,
-                  bottomOffset: barBottom + AppBottomBar.height,
-                  onClose: _closeMenu,
-                  onScan: () => _thenClose(_openCamera),
-                  onSaved: () => _thenClose(
-                      () => Navigator.of(context).pushNamed('/savedFoods')),
-                  onSearch: () => _thenClose(() => _push(() => const FoodSearchPage())),
-                  onDescribe: () => _thenClose(() => _push(() => const Askai())),
+      child: TourTargets(
+        keys: _tourKeys,
+        child: Scaffold(
+          body: Stack(
+            children: [
+              IndexedStack(
+                index: _tab.index,
+                children: [for (final tab in AppTab.values) _buildTab(tab)],
+              ),
+              if (menuOpen)
+                Positioned.fill(
+                  child: LogFoodMenu(
+                    animation: _menu,
+                    bottomOffset: barBottom + AppBottomBar.height,
+                    onClose: _closeMenu,
+                    onScan: () => _thenClose(_openCamera),
+                    onSaved: () => _thenClose(
+                        () => Navigator.of(context).pushNamed('/savedFoods')),
+                    onSearch: () =>
+                        _thenClose(() => _push(() => const FoodSearchPage())),
+                    onDescribe: () =>
+                        _thenClose(() => _push(() => const Askai())),
+                  ),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: barBottom,
+                child: Center(
+                  child: AppBottomBar(
+                    current: _tab,
+                    onSelect: select,
+                    onAdd: _toggleMenu,
+                    onAddLongPress: _openCamera,
+                    menuAnimation: _menu,
+                  ),
                 ),
               ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: barBottom,
-              child: Center(
-                child: AppBottomBar(
-                  current: _tab,
-                  onSelect: select,
-                  onAdd: _toggleMenu,
-                  onAddLongPress: _openCamera,
-                  menuAnimation: _menu,
+              if (_touring)
+                Positioned.fill(
+                  child: HomeTourOverlay(
+                    keys: _tourKeys,
+                    bottomInset: barBottom + AppBottomBar.height,
+                    onFinish: _endTour,
+                  ),
                 ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

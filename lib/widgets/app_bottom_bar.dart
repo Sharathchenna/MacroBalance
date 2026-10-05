@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'home_tour.dart';
 
 /// The app's main sections, in bottom bar order.
 enum AppTab {
@@ -104,14 +105,22 @@ class AppBottomBar extends StatelessWidget {
                     Row(
                       children: [
                         for (final tab in AppTab.values)
-                          _TabItem(
-                            tab: tab,
-                            selected: tab == current,
-                            isLight: isLight,
-                            onTap: () {
-                              if (tab != current) HapticFeedback.selectionClick();
-                              onSelect(tab);
+                          TourTargets.mark(
+                            context,
+                            switch (tab) {
+                              AppTab.home => null,
+                              AppTab.progress => TourTarget.progressTab,
+                              AppTab.profile => TourTarget.profileTab,
                             },
+                            _TabItem(
+                              tab: tab,
+                              selected: tab == current,
+                              isLight: isLight,
+                              onTap: () {
+                                if (tab != current) HapticFeedback.selectionClick();
+                                onSelect(tab);
+                              },
+                            ),
                           ),
                       ],
                     ),
@@ -124,10 +133,14 @@ class AppBottomBar extends StatelessWidget {
         if (onAdd != null)
           Padding(
             padding: const EdgeInsets.only(left: 10),
-            child: _AddButton(
-              onTap: onAdd!,
-              onLongPress: onAddLongPress,
-              animation: menuAnimation ?? const AlwaysStoppedAnimation(0),
+            child: TourTargets.mark(
+              context,
+              TourTarget.addButton,
+              _AddButton(
+                onTap: onAdd!,
+                onLongPress: onAddLongPress,
+                animation: menuAnimation ?? const AlwaysStoppedAnimation(0),
+              ),
             ),
           ),
       ],
