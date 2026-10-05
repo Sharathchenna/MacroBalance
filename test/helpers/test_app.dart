@@ -80,6 +80,8 @@ Widget testApp(
   Widget child, {
   FoodEntryProvider? foodEntryProvider,
   DateProvider? dateProvider,
+  PhotoAnalysisService? photoAnalysisService,
+  WeightUnitProvider? weightUnitProvider,
   bool dark = true,
 }) {
   return MultiProvider(
@@ -89,10 +91,16 @@ Widget testApp(
       ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ChangeNotifierProvider<DateProvider>.value(
           value: dateProvider ?? DateProvider()),
-      ChangeNotifierProvider(create: (_) => PhotoAnalysisService()),
+      if (photoAnalysisService != null)
+        ChangeNotifierProvider<PhotoAnalysisService>.value(value: photoAnalysisService)
+      else
+        ChangeNotifierProvider(create: (_) => PhotoAnalysisService()),
       ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ChangeNotifierProvider(create: (_) => SavedFoodProvider()),
-      ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
+      if (weightUnitProvider != null)
+        ChangeNotifierProvider<WeightUnitProvider>.value(value: weightUnitProvider)
+      else
+        ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,

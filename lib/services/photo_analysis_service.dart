@@ -10,6 +10,9 @@ import '../models/ai_food_item.dart';
 import 'notification_service.dart';
 import 'posthog_service.dart';
 
+/// Turns a meal photo into detected foods. Throws [PhotoAnalysisException].
+typedef PhotoAnalyzer = Future<List<AIFoodItem>> Function(Uint8List photo);
+
 enum PhotoJobStatus { analyzing, ready, failed }
 
 /// One meal photo being analysed for a given meal and day.
@@ -35,8 +38,25 @@ class PhotoJob {
 /// when a job finishes the user gets a banner (or a notification if the app is
 /// in the background) and reviews the foods before anything is logged.
 class PhotoAnalysisService extends ChangeNotifier with WidgetsBindingObserver {
-  PhotoAnalysisService({this.onReady}) {
+  /// [analyzer] defaults to the Gemini analysis; tests pass their own.
+  PhotoAnalysisService({this.onReady, PhotoAnalyzer? analyzer})
+      : _analyze = analyzer ?? _analyzeWithGemini {
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  final PhotoAnalyzer _analyze;
+
+  static Future<List<AIFoodItem>> _analyzeWithGemini(Uint8List photo) async {
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/${const Uuid().v4()}.jpg');
+    await file.writeAsBytes(photo);
+    try {
+      return await analyzeMealPhoto(file.path);
+    } finally {
+      try {
+        await file.delete();
+      } catch (_) {}
+    }
   }
 
   /// Called when a job finishes while the app is in the foreground.
@@ -81,16 +101,7 @@ class PhotoAnalysisService extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _run(PhotoJob job) async {
     final stopwatch = Stopwatch()..start();
     try {
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/${job.id}.jpg');
-      await file.writeAsBytes(job.photo);
-      try {
-        job.foods = await analyzeMealPhoto(file.path);
-      } finally {
-        try {
-          await file.delete();
-        } catch (_) {}
-      }
+      job.foods = await _analyze(job.photo);
       job.status = PhotoJobStatus.ready;
       PostHogService.trackEvent('photo_analysis_ready', properties: {
         'food_count': job.foods.length,

@@ -104,27 +104,52 @@ class WeightSyncService {
           .order('recorded_on')
           .timeout(const Duration(seconds: 20));
 
-      // Days present remotely take the cloud value (it may come from another
-      // device); local-only days were just uploaded above.
-      final merged = Map<String, Map<String, dynamic>>.from(localByDay);
-      for (final row in rows) {
-        final day = row['recorded_on'] as String;
-        final kg = (row['weight_kg'] as num).toDouble();
-        final existing = merged[day];
-        merged[day] = {
-          // Keep the local timestamp when there is one; otherwise use midday
-          // so the day never shifts across time zones.
-          'date': existing?['date'] ??
-              DateTime.parse(day).add(const Duration(hours: 12)).toIso8601String(),
-          'weight': kg,
-        };
-      }
-
-      return merged.values.toList()
-        ..sort((a, b) => DateTime.parse(a['date'] as String)
-            .compareTo(DateTime.parse(b['date'] as String)));
+      return mergeHistory(local, rows);
     } catch (e) {
       debugPrint('[WeightSync] Merge failed, keeping local history: $e');
+      return null;
+    }
+  }
+
+  /// Merges the device's history with `weight_entries` rows, one entry per
+  /// day, sorted oldest first. Days present remotely take the cloud value (it
+  /// may come from another device); local-only days are kept.
+  static List<Map<String, dynamic>> mergeHistory(
+      List<Map<String, dynamic>> local, List<Map<String, dynamic>> cloudRows) {
+    final merged = <String, Map<String, dynamic>>{
+      for (final entry in local)
+        dayKey(DateTime.parse(entry['date'] as String)): entry,
+    };
+    for (final row in cloudRows) {
+      final day = row['recorded_on'] as String;
+      final kg = (row['weight_kg'] as num).toDouble();
+      final existing = merged[day];
+      merged[day] = {
+        // Keep the local timestamp when there is one; otherwise use midday
+        // so the day never shifts across time zones.
+        'date': existing?['date'] ??
+            DateTime.parse(day).add(const Duration(hours: 12)).toIso8601String(),
+        'weight': kg,
+      };
+    }
+
+    return merged.values.toList()
+      ..sort((a, b) => DateTime.parse(a['date'] as String)
+          .compareTo(DateTime.parse(b['date'] as String)));
+  }
+
+  /// Reads the weight screen's stored history. Entries without a date or
+  /// weight are skipped; returns null if the data can't be read at all, so it
+  /// is never overwritten.
+  static List<Map<String, dynamic>>? parseLocalHistory(Object? raw) {
+    if (raw is! String || raw.isEmpty) return [];
+    try {
+      return (jsonDecode(raw) as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .where((e) => e['date'] is String && e['weight'] is num)
+          .toList();
+    } catch (e) {
+      debugPrint('[WeightSync] Unreadable local history, not syncing: $e');
       return null;
     }
   }
@@ -135,19 +160,8 @@ class WeightSyncService {
   /// even if they never open the weight screen. Returns the merged history,
   /// or null if the cloud couldn't be reached (local data is left untouched).
   Future<List<Map<String, dynamic>>?> syncLocalHistory() async {
-    final raw = StorageService().get(_historyKey);
-    List<Map<String, dynamic>> local = [];
-    if (raw is String && raw.isNotEmpty) {
-      try {
-        local = (jsonDecode(raw) as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .where((e) => e['date'] is String && e['weight'] is num)
-            .toList();
-      } catch (e) {
-        debugPrint('[WeightSync] Unreadable local history, not syncing: $e');
-        return null; // never overwrite data we couldn't read
-      }
-    }
+    final local = parseLocalHistory(StorageService().get(_historyKey));
+    if (local == null) return null; // never overwrite data we couldn't read
     final merged = await mergeWithCloud(local);
     if (merged != null) {
       await StorageService().put(_historyKey, jsonEncode(merged));

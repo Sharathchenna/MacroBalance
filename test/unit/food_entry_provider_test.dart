@@ -69,4 +69,35 @@ void main() {
     await reloaded.loadEntriesForCurrentUser();
     expect(reloaded.getEntriesForMeal(today, 'Snacks').map((e) => e.food.name), contains('Apple'));
   });
+
+  group('quick re-log lists', () {
+    final twoDaysAgo = today.subtract(const Duration(days: 2));
+
+    test('recent foods: newest first, each food once, with its latest amount', () async {
+      await provider.addEntry(testEntry(name: 'Oats', meal: 'Breakfast', date: twoDaysAgo));
+      await provider.addEntry(testEntry(name: 'Rice', meal: 'Lunch', date: yesterday));
+      await provider.addEntry(
+          testEntry(name: 'Oats', meal: 'Breakfast', date: today, quantity: 2));
+      final recent = provider.recentFoods();
+      expect(recent.map((e) => e.food.name), ['Oats', 'Rice']);
+      expect(recent.first.quantity, 2);
+      expect(provider.recentFoods(limit: 1), hasLength(1));
+    });
+
+    test('most logged: only foods logged at least twice, most often first', () async {
+      for (var i = 0; i < 3; i++) {
+        await provider.addEntry(testEntry(
+            name: 'Coffee', meal: 'Breakfast', date: today, quantity: 1 + i * 0.001));
+      }
+      await provider.addEntry(testEntry(name: 'Eggs', meal: 'Breakfast', date: yesterday));
+      await provider.addEntry(
+          testEntry(name: 'Eggs', meal: 'Breakfast', date: today, quantity: 3));
+      await provider.addEntry(testEntry(name: 'Cake', meal: 'Snacks', date: today));
+
+      final frequent = provider.frequentFoods();
+      expect(frequent.map((e) => e.food.name), ['Coffee', 'Eggs']);
+      // Re-logging repeats the most recent amount.
+      expect(frequent.last.quantity, 3);
+    });
+  });
 }

@@ -32,27 +32,33 @@ class AIFoodSearchService {
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        final items = responseData['items'] as List?;
-        if (items != null) {
-          return items
-              .map((item) => _tryParse(() => AIFoodItem.fromJson(item)))
-              .whereType<AIFoodItem>()
-              .toList();
-        }
-        // Older deployments of the edge function only return `suggestions`.
-        final suggestions = responseData['suggestions'] as List?;
-        if (suggestions != null) {
-          return suggestions
-              .map((s) => _tryParse(() => AIFoodSuggestion.fromJson(s).toAIFoodItem()))
-              .whereType<AIFoodItem>()
-              .toList();
-        }
+        return parseResponse(jsonDecode(response.body));
       }
     } catch (e) {
       // AI suggestions are optional; database results still show.
     }
 
+    return [];
+  }
+
+  /// Reads the edge function's JSON body. Items that can't be parsed are
+  /// skipped rather than failing the whole search.
+  static List<AIFoodItem> parseResponse(dynamic responseData) {
+    final items = responseData['items'] as List?;
+    if (items != null) {
+      return items
+          .map((item) => _tryParse(() => AIFoodItem.fromJson(item)))
+          .whereType<AIFoodItem>()
+          .toList();
+    }
+    // Older deployments of the edge function only return `suggestions`.
+    final suggestions = responseData['suggestions'] as List?;
+    if (suggestions != null) {
+      return suggestions
+          .map((s) => _tryParse(() => AIFoodSuggestion.fromJson(s).toAIFoodItem()))
+          .whereType<AIFoodItem>()
+          .toList();
+    }
     return [];
   }
 

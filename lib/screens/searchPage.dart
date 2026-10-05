@@ -1049,16 +1049,9 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  List<SavedFood> _matchingSavedFoods() {
-    if (_lastQuery.isEmpty) return const [];
-    final saved = Provider.of<SavedFoodProvider>(context, listen: false).savedFoods;
-    return saved
-        .where((s) =>
-            s.food.name.toLowerCase().contains(_lastQuery) ||
-            s.food.brandName.toLowerCase().contains(_lastQuery))
-        .take(5)
-        .toList();
-  }
+  List<SavedFood> _matchingSavedFoods() => SavedFoodProvider.matching(
+      Provider.of<SavedFoodProvider>(context, listen: false).savedFoods,
+      _lastQuery);
 
   Widget _buildSectionLabel(String text, IconData icon) {
     final customColors = Theme.of(context).extension<CustomColors>();

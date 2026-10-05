@@ -46,25 +46,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  // "How did you hear about us?" is asked after the results screen instead.
-  late final List<OnboardingStep> _steps = widget.recalculateOnly
-      ? const [
-          OnboardingStep.gender,
-          OnboardingStep.weight,
-          OnboardingStep.height,
-          OnboardingStep.age,
-          OnboardingStep.activity,
-          OnboardingStep.goal,
-          OnboardingStep.setNewGoal,
-          OnboardingStep.advanced,
-          OnboardingStep.summary,
-        ]
-      : OnboardingStep.values;
+  late final List<OnboardingStep> _steps =
+      onboardingStepsFor(recalculateOnly: widget.recalculateOnly);
   int get _totalPages => _steps.length;
   OnboardingStep get _currentStep => _steps[_currentPage];
 
-  bool _isSkipped(OnboardingStep step) =>
-      step == OnboardingStep.setNewGoal && _goal == MacroCalculatorService.GOAL_MAINTAIN;
+  bool _isSkipped(OnboardingStep step) => isOnboardingStepSkipped(step, _goal);
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
@@ -117,6 +104,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _goal = goals.goalType;
     _deficit = _goal == MacroCalculatorService.GOAL_MAINTAIN ? 0 : goals.deficitSurplus;
     _goalWeightKg = goals.goalWeightKg > 0 ? goals.goalWeightKg : _weightKg;
+    // A saved goal weight can be on the wrong side of the current weight (no
+    // goal weight saved, or the user has since passed it). Bring it back in
+    // range so the goal-weight wheel can show it.
+    _validateRanges();
   }
 
   @override

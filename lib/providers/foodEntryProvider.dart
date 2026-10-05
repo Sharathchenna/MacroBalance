@@ -432,18 +432,9 @@ class FoodEntryProvider with ChangeNotifier {
     StorageService().put('fat_goal', _fatGoal);
   }
 
-  Future<void> _syncNutritionGoalsToSupabase() async {
-    // Keep nutrition goals sync - this is for daily macros/calories tracking
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      debugPrint('[Provider Sync] Cannot sync nutrition goals: User not logged in.');
-      return;
-    }
-
-    try {
-      // user_macros is the only goals table (there is no nutrition_goals
-      // table); sign-in and AuthGate restore goals from it.
-      await Supabase.instance.client.from('user_macros').update({
+  /// The goals row written to `user_macros` whenever a goal changes.
+  @visibleForTesting
+  Map<String, dynamic> nutritionGoalsPayload() => {
         'calories_goal': _caloriesGoal,
         'protein_goal': _proteinGoal,
         'carbs_goal': _carbsGoal,
@@ -464,7 +455,23 @@ class FoodEntryProvider with ChangeNotifier {
           'fat': _fatGoal,
         },
         'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', userId);
+      };
+
+  Future<void> _syncNutritionGoalsToSupabase() async {
+    // Keep nutrition goals sync - this is for daily macros/calories tracking
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint('[Provider Sync] Cannot sync nutrition goals: User not logged in.');
+      return;
+    }
+
+    try {
+      // user_macros is the only goals table (there is no nutrition_goals
+      // table); sign-in and AuthGate restore goals from it.
+      await Supabase.instance.client
+          .from('user_macros')
+          .update(nutritionGoalsPayload())
+          .eq('id', userId);
       debugPrint('[Provider Sync] Synced nutrition goals to Supabase successfully.');
     } catch (e) {
       debugPrint('[Provider Sync] Error syncing nutrition goals to Supabase: $e');

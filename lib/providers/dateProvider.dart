@@ -3,15 +3,22 @@
 import 'package:flutter/foundation.dart';
 
 class DateProvider with ChangeNotifier {
-  DateTime _selectedDate = _today();
+  /// [now] defaults to the system clock; tests pass a fake one.
+  DateProvider({DateTime Function()? now}) : _now = now ?? DateTime.now {
+    _selectedDate = _today();
+  }
+
+  final DateTime Function() _now;
+
+  late DateTime _selectedDate;
 
   // True while the user is looking at "today" rather than a day they picked.
   bool _followsToday = true;
 
   DateTime get selectedDate => _selectedDate;
 
-  static DateTime _today() {
-    final now = DateTime.now();
+  DateTime _today() {
+    final now = _now();
     return DateTime(now.year, now.month, now.day);
   }
 

@@ -27,21 +27,31 @@ class TestAccounts {
   static bool get isActive =>
       isTestEmail(Supabase.instance.client.auth.currentUser?.email);
 
-  static String? get _grantKey {
-    final id = Supabase.instance.client.auth.currentUser?.id;
-    return id == null ? null : 'test_subscription_$id';
-  }
+  static String _grantKey(String userId) => 'test_subscription_$userId';
 
   /// The test account "bought" the subscription on this device.
   static bool get hasSubscription {
-    final key = _grantKey;
-    return isActive && key != null && StorageService().get(key) == true;
+    final user = Supabase.instance.client.auth.currentUser;
+    return hasSubscriptionFor(email: user?.email, userId: user?.id);
   }
 
-  static Future<void> grantSubscription() async {
-    final key = _grantKey;
-    if (!isActive || key == null) return;
-    await StorageService().put(key, true);
+  /// [hasSubscription] for a given account, so it can be checked without a
+  /// signed-in session.
+  static bool hasSubscriptionFor({String? email, String? userId}) =>
+      isTestEmail(email) &&
+      userId != null &&
+      StorageService().get(_grantKey(userId)) == true;
+
+  static Future<void> grantSubscription() {
+    final user = Supabase.instance.client.auth.currentUser;
+    return grantSubscriptionFor(email: user?.email, userId: user?.id);
+  }
+
+  /// Grants the free test subscription to a test account; does nothing for
+  /// any other account or when signed out.
+  static Future<void> grantSubscriptionFor({String? email, String? userId}) async {
+    if (!isTestEmail(email) || userId == null) return;
+    await StorageService().put(_grantKey(userId), true);
     PostHogService.trackEvent('test_subscription_granted');
   }
 

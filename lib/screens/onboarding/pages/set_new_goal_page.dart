@@ -1,3 +1,5 @@
+import 'dart:math' show max;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
@@ -360,8 +362,10 @@ class SetNewGoalPage extends StatelessWidget {
   }) {
     final customColors = Theme.of(context).extension<CustomColors>();
 
+    // Rounding (kg to whole lbs) can put a valid goal just outside the wheel's
+    // range, which NumberPicker asserts against; show the nearest value.
     return NumberPicker(
-      value: value,
+      value: value.clamp(minValue, max(minValue, maxValue)),
       minValue: minValue,
       maxValue: maxValue,
       onChanged: onChanged,

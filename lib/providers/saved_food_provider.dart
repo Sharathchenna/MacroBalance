@@ -126,7 +126,7 @@ class SavedFoodProvider with ChangeNotifier {
 
       if (!_disposed) {
         // Merge cloud and local data
-        final mergedFoods = _mergeFoodLists(_savedFoods, cloudFoods);
+        final mergedFoods = mergeFoodLists(_savedFoods, cloudFoods);
         _updateFoodsList(mergedFoods);
         _lastSyncTime = DateTime.now();
         await _repository.saveToLocal(_savedFoods);
@@ -143,8 +143,9 @@ class SavedFoodProvider with ChangeNotifier {
     }
   }
 
-  // Merge food lists with conflict resolution
-  List<SavedFood> _mergeFoodLists(
+  /// Merges two lists by id, newest first. Cloud copies win conflicts.
+  @visibleForTesting
+  static List<SavedFood> mergeFoodLists(
       List<SavedFood> local, List<SavedFood> cloud) {
     final Map<String, SavedFood> merged = {};
 
@@ -206,7 +207,7 @@ class SavedFoodProvider with ChangeNotifier {
       } else {
         _currentPage++;
         // Local storage already holds earlier pages; merge by id, don't append.
-        _updateFoodsList(_mergeFoodLists(_savedFoods, nextPage));
+        _updateFoodsList(mergeFoodLists(_savedFoods, nextPage));
       }
     } catch (e) {
       debugPrint('Error loading more saved foods: $e');
@@ -343,6 +344,20 @@ class SavedFoodProvider with ChangeNotifier {
     }
   }
 
+  /// Saved foods whose name or brand contains [query], at most [limit], for
+  /// the "Your foods" section of search.
+  static List<SavedFood> matching(List<SavedFood> saved, String query,
+      {int limit = 5}) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+    return saved
+        .where((s) =>
+            s.food.name.toLowerCase().contains(q) ||
+            s.food.brandName.toLowerCase().contains(q))
+        .take(limit)
+        .toList();
+  }
+
   // Check if a food is already saved
   bool isFoodSaved(String foodId) {
     final isSaved = _savedFoods.any((savedFood) => savedFood.food.id == foodId);
@@ -431,7 +446,7 @@ class SavedFoodProvider with ChangeNotifier {
         if (batch.length < _pageSize) break;
       }
 
-      _updateFoodsList(_mergeFoodLists(const [], cloudFoods));
+      _updateFoodsList(mergeFoodLists(const [], cloudFoods));
       await _repository.saveToLocal(_savedFoods);
       _lastSyncTime = DateTime.now();
     } catch (e) {
