@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -75,7 +76,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
     } catch (e) {
       print('Error loading workout data: $e');
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
     }
@@ -188,7 +189,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       
       // If the workout is for a different month, switch to that month
       if (workoutMonth != currentDisplayedMonth) {
-        setState(() {
+        if (mounted) setState(() {
           _currentMonth = workoutMonth;
         });
       }
@@ -202,10 +203,11 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       // Reload month data for the currently displayed month (which might have changed)
       await _loadMonthData(_currentMonth);
       
-      setState(() {});
+      if (mounted) setState(() {});
       
     } catch (e) {
       print('Error saving workout: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving workout: $e')),
       );
@@ -292,10 +294,11 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       await _loadTodayWorkouts();
       await _loadMonthData(_currentMonth);
       
-      setState(() {});
+      if (mounted) setState(() {});
       
     } catch (e) {
       print('Error deleting workout: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error deleting workout: $e')),
       );
@@ -342,7 +345,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                           _buildContributionGraph(customColors),
                           const SizedBox(height: 32),
                           _buildTodaySection(customColors),
-                          const SizedBox(height: 50),
+                          const SizedBox(height: AppBottomBar.scrollClearance),
                         ],
                       ),
                     ),
@@ -417,7 +420,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                        DateFormat.MMMMEEEEd().format(DateTime.now()),
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: customColors.textSecondary,
@@ -719,7 +722,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      DateFormat('h:mm a').format(workout.createdAt),
+                      TimeOfDay.fromDateTime(workout.createdAt).format(context),
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: customColors.textSecondary,
@@ -882,7 +885,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            DateFormat('MMMM yyyy').format(_currentMonth),
+                            DateFormat.yMMMM().format(_currentMonth),
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               color: customColors.textSecondary,
@@ -1128,7 +1131,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  DateFormat('MMM d, yyyy').format(selectedDate),
+                                  DateFormat.yMMMd().format(selectedDate),
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
@@ -1383,16 +1386,20 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                                   createdAt: DateTime.now(),
                                 );
                                   
+                                  // The sheet's context is gone once it closes;
+                                  // use the screen's messenger instead.
+                                  final messenger = ScaffoldMessenger.of(this.context);
                                   if (isEditing) {
                                     // Delete old workout first, then add new one
                                     await _deleteWorkout(editingWorkout);
                                   }
                                   
                                   await _saveWorkoutEntry(workout);
+                                  if (!context.mounted) return;
                                   Navigator.pop(context);
                                   
                                   HapticFeedback.heavyImpact();
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  messenger.showSnackBar(
                                     SnackBar(
                                       content: Text(
                                         isEditing 
@@ -1466,10 +1473,12 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
           TextButton(
             onPressed: () async {
               HapticFeedback.heavyImpact();
+              // Capture before closing: the dialog's context is unusable after.
+              final messenger = ScaffoldMessenger.of(this.context);
               Navigator.pop(context);
               await _deleteWorkout(workout);
               
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(
                   content: Text('Workout deleted'),
                   backgroundColor: Colors.red,

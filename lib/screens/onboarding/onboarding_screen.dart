@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
@@ -14,7 +17,6 @@ import 'package:macrotracker/services/posthog_service.dart';
 
 // Import Page Widgets
 import 'pages/welcome_page.dart';
-import 'pages/acquisition_source_page.dart'; // Import the new acquisition source page
 import 'pages/gender_page.dart';
 import 'pages/weight_page.dart';
 import 'pages/height_page.dart';
@@ -26,9 +28,14 @@ import 'pages/set_new_goal_page.dart'; // Import the new goal details page
 import 'pages/advanced_settings_page.dart';
 import 'pages/apple_health_page.dart'; // Import the new Apple Health page
 import 'pages/summary_page.dart';
+import 'onboarding_steps.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  /// Recalculate goals for an existing user: only the body and goal
+  /// questions, prefilled, and nothing else about the account changes.
+  final bool recalculateOnly;
+
+  const OnboardingScreen({super.key, this.recalculateOnly = false});
 
   @override
   _OnboardingScreenState createState() => _OnboardingScreenState();
@@ -38,14 +45,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  // Total pages is now 12, adding Acquisition Source page
-  final int _totalPages =
-      12; // Welcome(0)+AcquisitionSource(1)+Gender(2)+Weight(3)+Height(4)+Age(5)+Activity(6)+Goal(7)+SetNewGoal(8)+Advanced(9)+AppleHealth(10)+Summary(11)
+
+  late final List<OnboardingStep> _steps =
+      onboardingStepsFor(recalculateOnly: widget.recalculateOnly);
+  int get _totalPages => _steps.length;
+  OnboardingStep get _currentStep => _steps[_currentPage];
+
+  bool _isSkipped(OnboardingStep step) => isOnboardingStepSkipped(step, _goal);
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
   // --- State Variables ---
-  String? _acquisitionSource; // New state variable for acquisition source
   String _gender = MacroCalculatorService.MALE;
   double _weightKg = 70;
   double _heightCm = 170;
@@ -59,8 +69,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   double _bodyFatPercentage = 20.0;
   bool _isAthlete = false;
   bool _showBodyFatInput = false;
-  bool _isMetricWeight = true;
-  bool _isMetricHeight = true;
+  // Start in the unit system of the phone's region.
+  bool _isMetricWeight = WeightUnitProvider.localeDefaultIsMetric();
+  bool _isMetricHeight = WeightUnitProvider.localeDefaultIsMetric();
   // --- End State Variables ---
 
   @override
@@ -80,6 +91,23 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     // _updateProgressAnimation(); // Removed redundant call
     _animationController.forward();
     _goalWeightKg = _weightKg; // Initialize goal weight
+    // Start from the unit the user already uses (their Settings choice, or
+    // the region default), so finishing doesn't silently switch it.
+    _isMetricWeight = Provider.of<WeightUnitProvider>(context, listen: false).isMetric;
+    if (widget.recalculateOnly) _prefillFromCurrentGoals();
+  }
+
+  /// Starts recalculation from what the app already knows.
+  void _prefillFromCurrentGoals() {
+    final goals = Provider.of<FoodEntryProvider>(context, listen: false);
+    if (goals.currentWeightKg > 0) _weightKg = goals.currentWeightKg;
+    _goal = goals.goalType;
+    _deficit = _goal == MacroCalculatorService.GOAL_MAINTAIN ? 0 : goals.deficitSurplus;
+    _goalWeightKg = goals.goalWeightKg > 0 ? goals.goalWeightKg : _weightKg;
+    // A saved goal weight can be on the wrong side of the current weight (no
+    // goal weight saved, or the user has since passed it). Bring it back in
+    // range so the goal-weight wheel can show it.
+    _validateRanges();
   }
 
   @override
@@ -175,91 +203,50 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // --- Navigation ---
   void _nextPage() {
     HapticFeedback.selectionClick();
-    int currentPageIndex = _currentPage;
-    int nextPage = currentPageIndex + 1;
-
-    // Validate ranges before moving from SetNewGoal page (index 8)
-    if (currentPageIndex == 8) {
-      _validateRanges(); // Keep validation, now triggered after setting goal details
+    if (_currentStep == OnboardingStep.setNewGoal) _validateRanges();
+    var next = _currentPage + 1;
+    while (next < _totalPages && _isSkipped(_steps[next])) {
+      next++;
     }
-
-    // Skip SetNewGoalPage (index 8) if goal is Maintain
-    if (currentPageIndex == 7 &&
-        _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      nextPage = 9; // Skip to Advanced Settings (index 9)
-    }
-
-    if (nextPage < _totalPages) {
-      _goToPage(nextPage);
-    } else if (nextPage == _totalPages) {
-      // Check if we are at the last logical step
+    if (next < _totalPages) {
+      _goToIndex(next);
+    } else {
       _calculateAndShowResults();
     }
   }
 
   void _previousPage() {
     HapticFeedback.selectionClick();
-    int currentPageIndex = _currentPage;
-    int prevPage = currentPageIndex - 1;
-
-    // Skip SetNewGoalPage (index 8) if goal is Maintain when going back from Advanced (index 9)
-    if (currentPageIndex == 9 &&
-        _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      prevPage = 7; // Go back to Goal Page (index 7)
+    var previous = _currentPage - 1;
+    while (previous >= 0 && _isSkipped(_steps[previous])) {
+      previous--;
     }
-
-    if (prevPage >= 0) {
-      _goToPage(prevPage);
-    }
+    if (previous >= 0) _goToIndex(previous);
   }
 
-  void _goToPage(int page) {
-    HapticFeedback.selectionClick();
-    int targetPage = page;
-    bool isSkippingForwardMaintain = false; // Flag for the specific skip
+  /// Used by the summary page's "edit" links.
+  void _goToStep(OnboardingStep step) {
+    final index = _steps.indexOf(step);
+    if (index >= 0) _goToIndex(index);
+  }
 
-    // Adjust target page if skipping SetNewGoalPage (index 8) for Maintain goal
-    // This handles cases where _goToPage might be called with 8 directly
-    if (targetPage == 8 && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      if (_currentPage < 8) {
-        // Moving forward from a page before 8
-        targetPage = 9; // Skip forward to Advanced
-        isSkippingForwardMaintain = true; // Mark this specific skip
-      } else {
-        // Moving backward from a page after 8
-        targetPage = 7; // Skip backward to Goal
-      }
+  void _goToIndex(int target) {
+    if (target == _currentPage || target < 0 || target >= _totalPages) return;
+    if (_currentPage < _steps.indexOf(OnboardingStep.setNewGoal) &&
+        target > _steps.indexOf(OnboardingStep.setNewGoal)) {
+      _validateRanges();
     }
-    // Also handle the specific case triggered by _nextPage when on page 7 and goal is Maintain
-    else if (targetPage == 9 &&
-        _currentPage == 7 &&
-        _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-      isSkippingForwardMaintain = true; // Mark this specific skip
-    }
-
-    if (targetPage >= 0 &&
-        targetPage < _totalPages &&
-        targetPage != _currentPage) {
-      // Validate if jumping past SetNewGoal page (index 7)
-      // This validation might still be relevant even with jumpToPage
-      if (_currentPage < 8 && targetPage > 8) _validateRanges();
-
-      if (isSkippingForwardMaintain) {
-        // Use jumpToPage for instantaneous transition when skipping forward for Maintain goal
-        _pageController.jumpToPage(targetPage);
-        // Manually update state and animation since onPageChanged might not fire reliably with jumpToPage
-        setState(() {
-          _currentPage = targetPage;
-          _updateProgressAnimation();
-          _animationController.forward(from: 0.0);
-        });
-      } else {
-        // Use animateToPage for all other transitions
-        _pageController.animateToPage(targetPage,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOut);
-        // Let onPageChanged handle state/animation updates for animated transitions
-      }
+    if ((target - _currentPage).abs() > 1) {
+      // Jump rather than animate through skipped or intermediate pages.
+      _pageController.jumpToPage(target);
+      setState(() {
+        _currentPage = target;
+        _updateProgressAnimation();
+        _animationController.forward(from: 0.0);
+      });
+    } else {
+      _pageController.animateToPage(target,
+          duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     }
   }
   // --- End Navigation ---
@@ -283,9 +270,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       isAthlete: _isAthlete,
     );
     
-    // Track onboarding completion with acquisition source
-    PostHogService.trackEvent('onboarding_completed', properties: {
-      'acquisition_source': _acquisitionSource ?? 'not_provided',
+    PostHogService.trackEvent(
+        widget.recalculateOnly ? 'goals_recalculated' : 'onboarding_completed',
+        properties: {
       'goal': _goal,
       'gender': _gender,
       'age': _age,
@@ -294,12 +281,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'timestamp': DateTime.now().toIso8601String(),
     });
     
-    await saveMacroResults(results);
+    // When recalculating, nothing changes until the user taps Save.
+    if (!widget.recalculateOnly) await saveMacroResults(results);
     // Use context safely
     if (!mounted) return;
     Navigator.of(context).push(PageRouteBuilder(
       pageBuilder: (context, animation, secondaryAnimation) =>
-          ResultsScreen(results: results),
+          ResultsScreen(
+            results: results,
+            recalculateOnly: widget.recalculateOnly,
+            onSave: widget.recalculateOnly ? () => saveMacroResults(results) : null,
+          ),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         const begin = Offset(1.0, 0.0);
         const end = Offset.zero;
@@ -315,6 +307,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> saveMacroResults(Map<String, dynamic> macroResults) async {
+    // Keep the unit system the user chose for their weight.
+    Provider.of<WeightUnitProvider>(context, listen: false).setMetric(_isMetricWeight);
     try {
       StorageService().put('macro_results', json.encode(macroResults));
       final currentUser = Supabase.instance.client.auth.currentUser;
@@ -468,11 +462,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Back button
-                  _currentPage > 0
+                  // When recalculating from Settings, the first step's
+                  // Back leaves the flow; otherwise there'd be no way out.
+                  _currentPage > 0 || widget.recalculateOnly
                       ? TextButton(
-                          onPressed: _previousPage,
+                          onPressed: _currentPage > 0
+                              ? _previousPage
+                              : () => Navigator.of(context).maybePop(),
                           child: Text(
-                            'Back',
+                            _currentPage > 0 ? 'Back' : 'Cancel',
                             style: AppTypography.onboardingButton.copyWith(
                               color: customColors?.textSecondary ??
                                   theme.colorScheme.secondary,
@@ -494,23 +492,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
-    // Hide the button on the Apple Health page (index 10)
-    if (_currentPage == 10) {
+    // The Apple Health page has its own buttons.
+    if (_currentStep == OnboardingStep.appleHealth) {
       // Return an empty SizedBox to maintain layout spacing if needed,
       // or just an empty Container if no space is required.
       // Match the width of the back button for alignment.
       return const SizedBox(width: 80);
     }
 
-    // Disable button on acquisition source page if no source is selected
-    bool isDisabled = _currentPage == 1 && _acquisitionSource == null;
-    
     return ElevatedButton(
-      onPressed: isDisabled ? null : _nextPage,
+      onPressed: _nextPage,
       style: ElevatedButton.styleFrom(
-        backgroundColor: isDisabled
-            ? (customColors?.textPrimary ?? theme.colorScheme.onBackground).withOpacity(0.4)
-            : (customColors?.textPrimary ?? theme.colorScheme.onBackground),
+        backgroundColor: customColors?.textPrimary ?? theme.colorScheme.onBackground,
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
@@ -520,122 +513,123 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       child: Text(
         _currentPage == _totalPages - 1 ? 'Calculate' : 'Next',
         style: AppTypography.onboardingButton.copyWith(
-          color: isDisabled
-              ? theme.colorScheme.onPrimary.withOpacity(0.5)
-              : theme.colorScheme.onPrimary,
+          color: theme.colorScheme.onPrimary,
         ),
       ),
     );
   }
 
-  List<Widget> _buildPages() {
-    return [
-      const WelcomePage(),
-      AcquisitionSourcePage(
-        currentSource: _acquisitionSource,
-        onSourceSelected: (source) => setState(() => _acquisitionSource = source),
-        onSkip: _nextPage,
-      ),
-      GenderPage(
-        currentGender: _gender,
-        onGenderSelected: (newGender) => setState(() => _gender = newGender),
-      ),
-      WeightPage(
-        currentWeightKg: _weightKg,
-        isMetric: _isMetricWeight,
-        onWeightChanged: (newWeight) => setState(() => _weightKg = newWeight),
-        onUnitChanged: (isMetric) => setState(() => _isMetricWeight = isMetric),
-      ),
-      HeightPage(
-        currentHeightCm: _heightCm,
-        isMetric: _isMetricHeight,
-        onHeightChanged: (newHeight) => setState(() => _heightCm = newHeight),
-        onUnitChanged: (isMetric) => setState(() => _isMetricHeight = isMetric),
-      ),
-      AgePage(
-        currentAge: _age,
-        onAgeChanged: (newAge) => setState(() => _age = newAge),
-      ),
-      ActivityLevelPage(
-        currentActivityLevel: _activityLevel,
-        onActivityLevelChanged: (newLevel) =>
-            setState(() => _activityLevel = newLevel),
-      ),
-      GoalPage(
-        // Removed parameters: currentWeightKg, goalWeightKg, deficit, isMetricWeight, projectedDate, onGoalWeightChanged, onDeficitChanged, onWeightUnitChanged
-        currentGoal: _goal,
-        onGoalChanged: (newGoal) => setState(() {
-          _goal = newGoal;
-          // Logic to reset goal weight/deficit when goal changes remains here
-          if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
-            _goalWeightKg = _weightKg;
-            _deficit = 0;
-            // // Navigate immediately if Maintain is selected
-            // // Need WidgetsBinding.instance.addPostFrameCallback to avoid calling
-            // // _goToPage during build/setState.
-            // WidgetsBinding.instance.addPostFrameCallback((_) {
-            //   // Check mounted again inside the callback for safety
-            //   if (mounted && _goal == MacroCalculatorService.GOAL_MAINTAIN) {
-            //     _goToPage(8); // Go directly to Advanced Settings (index 8)
-            //   }
-            // });
-          } else {
-            _deficit = 500;
-            _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
-                ? max(40.0, _weightKg * 0.9)
-                : min(150.0, _weightKg * 1.1);
-            _validateRanges(); // Keep validation logic here
-          }
-        }),
-        // Removed onGoalWeightChanged, onDeficitChanged, onWeightUnitChanged callbacks
-      ),
-      // Replace TargetSummaryPage with SetNewGoalPage (index 7)
-      SetNewGoalPage(
-        currentGoal: _goal,
-        currentWeightKg: _weightKg,
-        goalWeightKg: _goalWeightKg,
-        deficit: _deficit,
-        isMetricWeight: _isMetricWeight,
-        projectedDate: _calculateProjectedDate(),
-        targetCalories: _calculateTargetCalories(),
-        onGoalWeightChanged: (newWeight) => setState(() {
-          _goalWeightKg = newWeight;
-          _validateRanges();
-        }),
-        onDeficitChanged: (newDeficit) => setState(() => _deficit = newDeficit),
-        onWeightUnitChanged: (isMetric) =>
-            setState(() => _isMetricWeight = isMetric),
-      ),
-      AdvancedSettingsPage(
-        // Now at index 8
-        isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
-        bodyFatPercentage: _bodyFatPercentage,
-        proteinRatio: _proteinRatio, fatRatio: _fatRatio,
-        gender: _gender,
-        onAthleteChanged: (isAthlete) => setState(() => _isAthlete = isAthlete),
-        onShowBodyFatChanged: (show) =>
-            setState(() => _showBodyFatInput = show),
-        onBodyFatChanged: (bfp) => setState(() => _bodyFatPercentage = bfp),
-        onProteinRatioChanged: (ratio) => setState(() => _proteinRatio = ratio),
-        onFatRatioChanged: (ratio) => setState(() => _fatRatio = ratio),
-      ),
-      // Add Apple Health integration page (index 9)
-      AppleHealthPage(
-        onNext: _nextPage,
-        onSkip: _nextPage,
-      ),
-      SummaryPage(
-        // Now at index 10
-        gender: _gender, weightKg: _weightKg, heightCm: _heightCm,
-        age: _age,
-        activityLevel: _activityLevel, goal: _goal,
-        deficit: _deficit,
-        proteinRatio: _proteinRatio, fatRatio: _fatRatio,
-        goalWeightKg: _goalWeightKg,
-        isAthlete: _isAthlete, showBodyFatInput: _showBodyFatInput,
-        bodyFatPercentage: _bodyFatPercentage,
-        onEdit: _goToPage, // _goToPage handles indices correctly
-      ),
-    ];
+  List<Widget> _buildPages() => _steps.map(_buildStep).toList();
+
+  Widget _buildStep(OnboardingStep step) {
+    switch (step) {
+      case OnboardingStep.welcome:
+        return const WelcomePage();
+      case OnboardingStep.gender:
+        return GenderPage(
+          currentGender: _gender,
+          onGenderSelected: (newGender) => setState(() => _gender = newGender),
+        );
+      case OnboardingStep.weight:
+        return WeightPage(
+          currentWeightKg: _weightKg,
+          isMetric: _isMetricWeight,
+          // Re-check the goal weight: after choosing to lose, a lower weight
+          // could leave the goal above it.
+          onWeightChanged: (newWeight) => setState(() {
+            _weightKg = newWeight;
+            _validateRanges();
+          }),
+          onUnitChanged: (isMetric) => setState(() => _isMetricWeight = isMetric),
+        );
+      case OnboardingStep.height:
+        return HeightPage(
+          currentHeightCm: _heightCm,
+          isMetric: _isMetricHeight,
+          onHeightChanged: (newHeight) => setState(() => _heightCm = newHeight),
+          onUnitChanged: (isMetric) => setState(() => _isMetricHeight = isMetric),
+        );
+      case OnboardingStep.age:
+        return AgePage(
+          currentAge: _age,
+          onAgeChanged: (newAge) => setState(() => _age = newAge),
+        );
+      case OnboardingStep.activity:
+        return ActivityLevelPage(
+          currentActivityLevel: _activityLevel,
+          onActivityLevelChanged: (newLevel) =>
+              setState(() => _activityLevel = newLevel),
+        );
+      case OnboardingStep.goal:
+        return GoalPage(
+          currentGoal: _goal,
+          onGoalChanged: (newGoal) => setState(() {
+            _goal = newGoal;
+            if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
+              _goalWeightKg = _weightKg;
+              _deficit = 0;
+            } else {
+              _deficit = 500;
+              _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
+                  ? max(40.0, _weightKg * 0.9)
+                  : min(150.0, _weightKg * 1.1);
+              _validateRanges();
+            }
+          }),
+        );
+      case OnboardingStep.setNewGoal:
+        return SetNewGoalPage(
+          currentGoal: _goal,
+          currentWeightKg: _weightKg,
+          goalWeightKg: _goalWeightKg,
+          deficit: _deficit,
+          isMetricWeight: _isMetricWeight,
+          projectedDate: _calculateProjectedDate(),
+          targetCalories: _calculateTargetCalories(),
+          onGoalWeightChanged: (newWeight) => setState(() {
+            _goalWeightKg = newWeight;
+            _validateRanges();
+          }),
+          onDeficitChanged: (newDeficit) => setState(() => _deficit = newDeficit),
+          onWeightUnitChanged: (isMetric) =>
+              setState(() => _isMetricWeight = isMetric),
+        );
+      case OnboardingStep.advanced:
+        return AdvancedSettingsPage(
+          isAthlete: _isAthlete,
+          showBodyFatInput: _showBodyFatInput,
+          bodyFatPercentage: _bodyFatPercentage,
+          proteinRatio: _proteinRatio,
+          fatRatio: _fatRatio,
+          gender: _gender,
+          onAthleteChanged: (isAthlete) => setState(() => _isAthlete = isAthlete),
+          onShowBodyFatChanged: (show) => setState(() => _showBodyFatInput = show),
+          onBodyFatChanged: (bfp) => setState(() => _bodyFatPercentage = bfp),
+          onProteinRatioChanged: (ratio) => setState(() => _proteinRatio = ratio),
+          onFatRatioChanged: (ratio) => setState(() => _fatRatio = ratio),
+        );
+      case OnboardingStep.appleHealth:
+        return AppleHealthPage(
+          onNext: _nextPage,
+          onSkip: _nextPage,
+        );
+      case OnboardingStep.summary:
+        return SummaryPage(
+          gender: _gender,
+          weightKg: _weightKg,
+          heightCm: _heightCm,
+          age: _age,
+          activityLevel: _activityLevel,
+          goal: _goal,
+          deficit: _deficit,
+          proteinRatio: _proteinRatio,
+          fatRatio: _fatRatio,
+          goalWeightKg: _goalWeightKg,
+          isAthlete: _isAthlete,
+          showBodyFatInput: _showBodyFatInput,
+          bodyFatPercentage: _bodyFatPercentage,
+          onEdit: _goToStep,
+        );
+    }
   }
 }

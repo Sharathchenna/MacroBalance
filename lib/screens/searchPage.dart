@@ -4,6 +4,18 @@
 import 'dart:convert';
 import 'dart:io'; // For Platform check and File operations
 import 'package:flutter/material.dart';
+import 'package:macrotracker/services/camera_service.dart';
+import 'package:macrotracker/models/foodEntry.dart';
+import 'package:macrotracker/models/saved_food.dart';
+import 'package:macrotracker/providers/saved_food_provider.dart';
+import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/utils/quick_log.dart';
+import 'package:macrotracker/widgets/quick_log_tile.dart';
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/utils/meal_time.dart';
+import 'package:macrotracker/services/photo_analysis_service.dart';
+import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -42,13 +54,14 @@ class FoodSearchPage extends StatefulWidget {
 
 class _FoodSearchPageState extends State<FoodSearchPage>
     with SingleTickerProviderStateMixin {
-  // Method Channel for the native camera view
-  static const MethodChannel _nativeCameraViewChannel =
-      MethodChannel('com.macrotracker/native_camera_view');
-
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _searchResults = [];
-  List<FoodItem> _aiSearchResults = [];
+  List<FoodItem> _aiSearchResults = []; // display cards, same order as _aiItems
+  List<AIFoodItem> _aiItems = [];
+  bool _isAILoading = false;
+  // Ignores answers that arrive after a newer search has started.
+  int _searchGeneration = 0;
+  String _lastQuery = '';
   bool _isLoading = false;
   // Track if the search was triggered by the search button
   bool _searchButtonClicked = false;
@@ -93,6 +106,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   @override
   void dispose() {
+    CameraService().removeResultListener(_onCameraCall);
     _loadingController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
@@ -127,7 +141,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           'query': query,
           // Add any other parameters needed by your Edge Function here
         }),
-      );
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -245,21 +259,23 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       },
     );
 
+    final generation = ++_searchGeneration;
     setState(() {
       _isLoading = true;
       _searchButtonClicked = fromSearchButton;
+      _lastQuery = query.trim().toLowerCase();
+      _aiItems = [];
+      _aiSearchResults = [];
     });
 
-    // Run both database and AI search concurrently
-    await Future.wait([
-      _searchDatabase(query),
-      _searchAI(query),
-    ]);
+    // Database results show as soon as they arrive; the AI suggestion is
+    // slower and fills in above them when ready.
+    _searchAI(query, generation);
+    await _searchDatabase(query);
 
-    // Ensure loading state is turned off regardless of success/failure
-    if (mounted) {
+    if (mounted && generation == _searchGeneration) {
       // Check if the widget is still in the tree
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
         // Don't reset _searchButtonClicked here to keep animation state consistent
       });
@@ -309,18 +325,22 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     }
   }
 
-  Future<void> _searchAI(String query) async {
+  Future<void> _searchAI(String query, int generation) async {
+    if (mounted) setState(() => _isAILoading = true);
     try {
-      final aiSuggestions = await _aiSearchService.searchFoodsWithAI(query);
-      if (mounted) {
+      final aiItems = await _aiSearchService.searchFoodsWithAI(query);
+      if (mounted && generation == _searchGeneration) {
         setState(() {
-          _aiSearchResults = aiSuggestions.map((suggestion) => suggestion.toFoodItem()).toList();
+          _aiItems = aiItems;
+          _aiSearchResults = aiItems.map(aiItemToDisplayFoodItem).toList();
+          _isAILoading = false;
         });
       }
     } catch (e) {
       print('Error searching AI: $e');
-      if (mounted) {
+      if (mounted && generation == _searchGeneration) {
         setState(() {
+          _isAILoading = false;
           _aiSearchResults = [];
         });
       }
@@ -352,46 +372,48 @@ class _FoodSearchPageState extends State<FoodSearchPage>
   // --- Native Camera Handling (Adapted from Dashboard) ---
 
   void _setupNativeCameraHandler() {
-    _nativeCameraViewChannel.setMethodCallHandler((call) async {
-      print('[Flutter SearchPage] Received method call: ${call.method}');
-      switch (call.method) {
-        case 'cameraResult':
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) {
-              print(
-                  '[Flutter SearchPage] Post-frame callback: Widget is unmounted. Ignoring result.');
-              return;
-            }
-            final Map<dynamic, dynamic> result = call.arguments as Map;
-            final String type = result['type'] as String;
-            final currentContext = context;
+    CameraService().addResultListener(_onCameraCall);
+  }
 
-            if (type == 'barcode') {
-              final String barcode = result['value'] as String;
-              print(
-                  '[Flutter SearchPage] Post-frame: Handling barcode: $barcode');
-              _handleBarcodeResult(currentContext, barcode);
-            } else if (type == 'photo') {
-              final Uint8List photoData = result['value'] as Uint8List;
-              print(
-                  '[Flutter SearchPage] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-              _handlePhotoResult(currentContext, photoData);
-            } else if (type == 'cancel') {
-              print('[Flutter SearchPage] Post-frame: Handling cancel.');
-            } else {
-              print(
-                  '[Flutter SearchPage] Post-frame: Unknown camera result type: $type');
-              if (mounted) {
-                _showErrorSnackbar('Received unknown result from camera.');
-              }
+  Future<dynamic> _onCameraCall(MethodCall call) async {
+    print('[Flutter SearchPage] Received method call: ${call.method}');
+    switch (call.method) {
+      case 'cameraResult':
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            print(
+                '[Flutter SearchPage] Post-frame callback: Widget is unmounted. Ignoring result.');
+            return;
+          }
+          final Map<dynamic, dynamic> result = call.arguments as Map;
+          final String type = result['type'] as String;
+          final currentContext = context;
+
+          if (type == 'barcode') {
+            final String barcode = result['value'] as String;
+            print(
+                '[Flutter SearchPage] Post-frame: Handling barcode: $barcode');
+            _handleBarcodeResult(currentContext, barcode);
+          } else if (type == 'photo') {
+            final Uint8List photoData = result['value'] as Uint8List;
+            print(
+                '[Flutter SearchPage] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
+            _handlePhotoResult(currentContext, photoData);
+          } else if (type == 'cancel') {
+            print('[Flutter SearchPage] Post-frame: Handling cancel.');
+          } else {
+            print(
+                '[Flutter SearchPage] Post-frame: Unknown camera result type: $type');
+            if (mounted) {
+              _showErrorSnackbar('Received unknown result from camera.');
             }
-          });
-          break;
-        default:
-          print(
-              '[Flutter SearchPage] Unknown method call from native: ${call.method}');
-      }
-    });
+          }
+        });
+        break;
+      default:
+        print(
+            '[Flutter SearchPage] Unknown method call from native: ${call.method}');
+    }
   }
 
   Future<void> _showNativeCamera() async {
@@ -414,7 +436,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
     try {
       print('[Flutter SearchPage] Invoking showNativeCamera...');
-      await _nativeCameraViewChannel.invokeMethod('showNativeCamera');
+      await CameraService().showNativeCamera();
       print('[Flutter SearchPage] showNativeCamera invoked successfully.');
     } on PlatformException catch (e) {
       print('[Flutter SearchPage] Error showing native camera: ${e.message}');
@@ -435,75 +457,15 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  Future<void> _handlePhotoResult(
-      BuildContext safeContext, Uint8List photoData) async {
+  /// Analysis runs in the background; go back to the dashboard, where the
+  /// meal shows a progress card and a banner says when it's ready.
+  void _handlePhotoResult(BuildContext safeContext, Uint8List photoData) {
     if (!mounted) return;
-    _showLoadingDialog('Analyzing Image...');
-    try {
-      final Directory tempDir = await getTemporaryDirectory();
-      final String tempPath =
-          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final File tempFile = File(tempPath);
-      await tempFile.writeAsBytes(photoData);
-      print('[Flutter SearchPage] Photo saved to temporary file: $tempPath');
-      String jsonResponse = await processImageWithGemini(tempFile.path);
-      print('[Flutter SearchPage] Gemini response received.');
-      jsonResponse =
-          jsonResponse.trim().replaceAll('```json', '').replaceAll('```', '');
-      dynamic decodedJson = json.decode(jsonResponse);
-      List<dynamic> mealData;
-      if (decodedJson is Map<String, dynamic> &&
-          decodedJson.containsKey('meal') &&
-          decodedJson['meal'] is List) {
-        mealData = decodedJson['meal'] as List;
-      } else if (decodedJson is List) {
-        mealData = decodedJson;
-      } else if (decodedJson is Map<String, dynamic>) {
-        mealData = [decodedJson];
-      } else {
-        throw Exception('Unexpected JSON structure from Gemini');
-      }
-      final List<AIFoodItem> foods = mealData
-          .map((food) => AIFoodItem.fromJson(food as Map<String, dynamic>))
-          .toList();
-
-      if (mounted) {
-        try {
-          if (Navigator.of(safeContext, rootNavigator: true).canPop())
-            Navigator.of(safeContext, rootNavigator: true).pop();
-        } catch (e) {
-          print("[Flutter SearchPage] Error dismissing loading dialog: $e");
-        }
-      }
-      if (!mounted) return;
-
-      if (foods.isEmpty) {
-        print('[Flutter SearchPage] Gemini returned an empty food list.');
-        _showErrorSnackbar('Unable to identify food, try again');
-      } else {
-        print('[Flutter SearchPage] Navigating to ResultsPage');
-        Navigator.push(
-          safeContext,
-          CupertinoPageRoute(builder: (context) => ResultsPage(foods: foods)),
-        );
-      }
-    } catch (e) {
-      print(
-          '[Flutter SearchPage] Error processing photo result: ${e.toString()}');
-      if (mounted) {
-        try {
-          if (Navigator.of(safeContext, rootNavigator: true).canPop())
-            Navigator.of(safeContext, rootNavigator: true).pop();
-        } catch (e) {
-          print(
-              "[Flutter SearchPage] Error dismissing loading dialog in catch: $e");
-        }
-        _showErrorSnackbar('Something went wrong, try again');
-      }
-    }
+    final date = Provider.of<DateProvider>(safeContext, listen: false).selectedDate;
+    Provider.of<PhotoAnalysisService>(safeContext, listen: false).start(photoData,
+        meal: widget.selectedMeal ?? MealTime.suggested(), date: date);
+    Navigator.of(safeContext).popUntil((route) => route.isFirst);
   }
-
-  // --- UI Helper Methods (Adapted from Dashboard) ---
 
   void _showErrorSnackbar(String message) {
     if (!mounted) return;
@@ -518,52 +480,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  void _showLoadingDialog(String message) {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.3),
-      builder: (BuildContext dialogContext) {
-        return Dialog(
-          backgroundColor: Theme.of(context).brightness == Brightness.light
-              ? Colors.white
-              : Colors.grey[850],
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Lottie.asset(
-                  'assets/animations/food_loading.json',
-                  width: 150,
-                  height: 150,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  message,
-                  style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black87
-                          : Colors.white,
-                      fontSize: 17),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // --- Original Methods ---
-
-  @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
 
@@ -654,10 +570,15 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       return _buildPlaceholderCards();
     }
     // Show search results
-    if (_searchResults.isNotEmpty || _aiSearchResults.isNotEmpty) {
+    final hasQuery = _searchController.text.isNotEmpty && _lastQuery.isNotEmpty;
+    if (hasQuery &&
+        (_searchResults.isNotEmpty ||
+            _aiSearchResults.isNotEmpty ||
+            _isAILoading ||
+            _matchingSavedFoods().isNotEmpty)) {
       return _buildCombinedSearchResults();
     }
-    if (_searchResults.isEmpty && _aiSearchResults.isEmpty && _searchController.text.isNotEmpty) {
+    if (hasQuery) {
       return const NoResultsFoundWidget();
     }
     return _buildEmptyState();
@@ -720,6 +641,45 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          // The user's own saved foods that match come first.
+          if (_matchingSavedFoods().isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionLabel('Your foods', Icons.bookmark_rounded),
+                    ..._matchingSavedFoods().map((saved) => _buildFoodCard(
+                        saved.toSearchPageFoodItem(),
+                        isAI: false)),
+                  ],
+                ),
+              ),
+            ),
+          if (_isAILoading && _aiSearchResults.isEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Finding an AI suggestion…',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDarkMode ? Colors.grey.shade500 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           // Top AI Result (Featured)
           if (_aiSearchResults.isNotEmpty) ...[
             SliverPadding(
@@ -728,26 +688,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Subtle AI indicator
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.auto_awesome_rounded,
-                          size: 16,
-                          color: isDarkMode? Colors.grey.shade500 : Colors.black,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'AI suggestion',
-                          style: TextStyle(
-                            color: isDarkMode? Colors.grey.shade500 : Colors.black,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
                     // Featured AI Result Card
                     _buildFeaturedAICard(_aiSearchResults.first),
                   ],
@@ -936,7 +876,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => _onFoodItemTap(food),
+          onTap: () => isAI ? _openAIFood(food) : _onFoodItemTap(food),
           splashColor: accentColor.withOpacity(0.1),
           highlightColor: accentColor.withOpacity(0.05),
           child: Padding(
@@ -976,39 +916,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                             child: _buildFoodIcon(food.name, accentColor, 24),
                           ),
                         ),
-                        // AI badge
-                        if (isAI)
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.purple.withOpacity(0.9),
-                                    Colors.blue.withOpacity(0.9),
-                                  ],
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.purple.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  Icons.auto_awesome_rounded,
-                                  color: Colors.white,
-                                  size: 10,
-                                ),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                     const SizedBox(width: 16),
@@ -1142,8 +1049,80 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
+  List<SavedFood> _matchingSavedFoods() => SavedFoodProvider.matching(
+      Provider.of<SavedFoodProvider>(context, listen: false).savedFoods,
+      _lastQuery);
+
+  Widget _buildSectionLabel(String text, IconData icon) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: customColors?.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: customColors?.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Before the user types: their recent and most-logged foods, each one tap
+  /// away from being logged again.
+  Widget _buildRecentsAndFrequent() {
+    final provider = Provider.of<FoodEntryProvider>(context);
+    final recent = provider.recentFoods();
+    final frequent = provider.frequentFoods();
+    if (recent.isEmpty) return const SizedBox.shrink();
+    final meal = widget.selectedMeal ?? MealTime.suggested();
+
+    Widget tile(FoodEntry template) => QuickLogTile(
+          title: template.food.name,
+          subtitle: describeEntryAmount(template),
+          trailingLabel:
+              '${FoodEntryProvider.nutrientForEntry(template, 'calories').round()} kcal',
+          addTooltip: 'Add to $meal',
+          onAdd: () => quickLogAgain(context, template, meal: meal),
+          onOpen: () => Navigator.push(
+            context,
+            CupertinoPageRoute(
+              builder: (_) => FoodDetailPage(food: template.food, selectedMeal: meal),
+            ),
+          ),
+        );
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Text(
+          'Tap + to add to $meal',
+          style: AppTypography.caption.copyWith(
+            color: Theme.of(context).extension<CustomColors>()?.textSecondary,
+          ),
+        ),
+        _buildSectionLabel('Recent', Icons.history_rounded),
+        ...recent.map(tile),
+        if (frequent.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildSectionLabel('Most logged', Icons.star_rounded),
+          ...frequent.map(tile),
+        ],
+      ],
+    );
+  }
+
   Widget _buildEmptyState() {
     final customColors = Theme.of(context).extension<CustomColors>();
+    if (Provider.of<FoodEntryProvider>(context).entries.isNotEmpty) {
+      return _buildRecentsAndFrequent();
+    }
 
     // Enhanced premium empty state
     return SingleChildScrollView(
@@ -1547,6 +1526,22 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
+  /// AI results open the same multi-serving screen as photo logging and Ask AI.
+  void _openAIFood(FoodItem displayFood) {
+    final index = _aiSearchResults.indexOf(displayFood);
+    if (index < 0 || index >= _aiItems.length) return;
+    HapticFeedback.selectionClick();
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => AIFoodDetailPage(
+          food: _aiItems[index],
+          selectedMeal: widget.selectedMeal,
+        ),
+      ),
+    );
+  }
+
   Widget _buildFeaturedAICard(FoodItem food) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -1575,7 +1570,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _navigateToFoodDetail(food),
+          onTap: () => _openAIFood(food),
           splashColor: accentColor.withOpacity(0.1),
           highlightColor: accentColor.withOpacity(0.05),
           child: Padding(
@@ -1605,38 +1600,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                           ),
                           child: Center(
                             child: _buildFoodIcon(food.name, accentColor, 24),
-                          ),
-                        ),
-                        // Subtle AI indicator
-                        Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.purple.withOpacity(0.9),
-                                    Colors.blue.withOpacity(0.9),
-                                  ],
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.purple.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                            child: Center(
-                              child: Icon(
-                                Icons.auto_awesome_rounded,
-                                color: Colors.white,
-                                size: 8,
-                              ),
-                            ),
                           ),
                         ),
                       ],
@@ -1724,7 +1687,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.auto_awesome_rounded,
+                    Icons.unfold_more_rounded,
                     size: 14,
                     color: isDarkMode? Colors.grey.shade500 : Colors.black,
                   ),

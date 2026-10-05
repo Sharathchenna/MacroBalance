@@ -116,7 +116,7 @@ class SubscriptionService {
   Future<bool> purchasePackage(Package package) async {
     try {
       final purchaseResult = await Purchases.purchasePackage(package);
-      _processCustomerInfo(purchaseResult);
+      _processCustomerInfo(purchaseResult.customerInfo);
       return hasPremiumAccess();
     } catch (e) {
       debugPrint('Error purchasing package: $e');

@@ -87,9 +87,29 @@ class CameraService {
     }
   }
 
-  // Method to set up the handler (can still be called from Dashboard)
-  void setupMethodCallHandler(Future<dynamic> Function(MethodCall call) handler) {
-     _nativeCameraViewChannel.setMethodCallHandler(handler);
-     print('[CameraService] Method call handler set.');
+  // The native camera reports back over one channel, which can only have one
+  // Dart handler. Screens register a listener instead, and results go to the
+  // most recently registered screen that is still alive. Previously each
+  // screen replaced the channel handler, so after leaving Search, photos were
+  // delivered to the disposed Search page and silently dropped.
+  final List<Future<dynamic> Function(MethodCall call)> _resultListeners = [];
+  bool _channelBound = false;
+
+  void addResultListener(Future<dynamic> Function(MethodCall call) listener) {
+    _resultListeners.remove(listener);
+    _resultListeners.add(listener);
+    if (_channelBound) return;
+    _nativeCameraViewChannel.setMethodCallHandler((call) async {
+      if (_resultListeners.isEmpty) {
+        print('[CameraService] ${call.method} arrived with no screen listening');
+        return null;
+      }
+      return _resultListeners.last(call);
+    });
+    _channelBound = true;
+  }
+
+  void removeResultListener(Future<dynamic> Function(MethodCall call) listener) {
+    _resultListeners.remove(listener);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -86,7 +87,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       final weeklyStepsData = await _healthService.getStepsForLastWeek();
       final monthlyStepsData = await _healthService.getStepsForLastMonth();
 
-      setState(() {
+      if (mounted) setState(() {
         _todaySteps = todaySteps;
         _weeklyStepsData = weeklyStepsData;
         _monthlyStepsData = monthlyStepsData;
@@ -99,7 +100,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         _isLoading = false;
       });
     } catch (e) {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
       print('Error loading step data: $e');
@@ -221,9 +222,9 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         // For monthly view (grouped by week), show the range of the month
         final firstDayOfMonth = DateTime(startDate.year, startDate.month, 1);
         final lastDayOfMonth = DateTime(endDate.year, endDate.month + 1, 0);
-        return '${DateFormat('MMM d').format(firstDayOfMonth)} - ${DateFormat('MMM d, yyyy').format(lastDayOfMonth)}';
+        return '${DateFormat.MMMd().format(firstDayOfMonth)} - ${DateFormat.yMMMd().format(lastDayOfMonth)}';
       default: // Week
-        return '${DateFormat('MMM d').format(startDate)} - ${DateFormat('MMM d').format(endDate)}';
+        return '${DateFormat.MMMd().format(startDate)} - ${DateFormat.MMMd().format(endDate)}';
     }
   }
 
@@ -237,7 +238,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         int weekOfMonth = ((date.day - 1) ~/ 7) + 1;
         return 'W$weekOfMonth';
       default: // Week
-        return DateFormat('d').format(date);
+        return DateFormat.d().format(date);
     }
   }
 
@@ -263,7 +264,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
           percentageLabel = '$goalPercentage% of daily goal';
         }
 
-        return 'Week $weekNumber: ${DateFormat('MMM d').format(date)} - ${DateFormat('MMM d').format(weekEnd)}\n'
+        return 'Week $weekNumber: ${DateFormat.MMMd().format(date)} - ${DateFormat.MMMd().format(weekEnd)}\n'
             'Daily Average: ${NumberFormat.decimalPattern().format(avgSteps)} steps\n'
             'Total: ${NumberFormat.decimalPattern().format(totalSteps)} steps\n'
             'Active Days: $daysCount\n'
@@ -281,7 +282,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
           percentageLabel = '$goalPercentage% of daily goal';
         }
 
-        return '${DateFormat('EEEE, MMM d').format(date)}\n'
+        return '${DateFormat.MMMMEEEEd().format(date)}\n'
             '${NumberFormat.decimalPattern().format(steps)} steps\n'
             '$percentageLabel';
     }
@@ -449,7 +450,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       // _buildStepsHistoryList(customColors),
                       // const SizedBox(height: 16),
                       _buildActivityInsights(customColors),
-                      const SizedBox(height: 50)
+                      const SizedBox(height: AppBottomBar.scrollClearance)
                     ],
                   ),
                 ),
@@ -498,7 +499,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                    DateFormat.MMMMEEEEd().format(DateTime.now()),
                     style: GoogleFonts.inter(
                       fontSize: 14,
                       color: customColors.textSecondary,
@@ -1053,7 +1054,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      DateFormat('d').format(date),
+                      DateFormat.d().format(date),
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1061,7 +1062,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       ),
                     ),
                     Text(
-                      DateFormat('MMM').format(date),
+                      DateFormat.MMM().format(date),
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: customColors.textSecondary,
@@ -1070,7 +1071,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   ],
                 );
                 periodLabel =
-                    '${DateFormat('MMM d').format(date)} - ${DateFormat('d').format(weekEnd)}';
+                    '${DateFormat.MMMd().format(date)} - ${DateFormat.d().format(weekEnd)}';
                 stepsLabel = 'avg/day';
               } else {
                 // For week (daily) view
@@ -1078,7 +1079,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      DateFormat('d').format(date),
+                      DateFormat.d().format(date),
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -1086,7 +1087,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       ),
                     ),
                     Text(
-                      DateFormat('MMM').format(date),
+                      DateFormat.MMM().format(date),
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         color: customColors.textSecondary,
@@ -1095,7 +1096,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                   ],
                 );
                 periodLabel =
-                    isToday ? 'Today' : DateFormat('EEEE').format(date);
+                    isToday ? 'Today' : DateFormat.EEEE().format(date);
                 stepsLabel = 'steps';
               }
 

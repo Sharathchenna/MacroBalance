@@ -1,3 +1,4 @@
+import 'package:google_fonts/google_fonts.dart';
 // ignore_for_file: unused_import
 
 import 'package:firebase_core/firebase_core.dart';
@@ -10,7 +11,7 @@ import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
-import 'package:macrotracker/screens/dashboard.dart';
+import 'package:macrotracker/screens/dashboard_screen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart'; // Added import
 import 'package:macrotracker/screens/saved_foods_screen.dart';
 import 'package:macrotracker/AI/gemini.dart';
@@ -27,7 +28,6 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'providers/meal_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -37,6 +37,7 @@ import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for date formatting
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
@@ -46,12 +47,20 @@ import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
 import 'package:macrotracker/screens/loginscreen.dart';
+import 'package:macrotracker/screens/reset_password_screen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/services/superwall_service.dart';
+import 'package:macrotracker/services/photo_analysis_service.dart';
+import 'package:macrotracker/screens/dashboard/components/photo_job_card.dart';
 import 'package:lottie/lottie.dart';
+import 'package:macrotracker/screens/app_shell.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Lets services show a banner (for example "Your meal is ready") on any screen.
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 // Define the channel for stats communication (presentation AND data)
 const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
@@ -60,9 +69,7 @@ const MethodChannel _statsChannel = MethodChannel('app.macrobalance.com/stats');
 // late FoodEntryProvider _foodEntryProviderInstance;
 
 // Add these variables at the top of the file, after imports
-DateTime? _lastStatsUpdate;
 Map<String, List<Map<String, dynamic>>>? _statsCache;
-const _minimumUpdateInterval = Duration(minutes: 15); // Increased to 15 minutes
 DateTime? _lastRequestTime;
 const _requestThrottleInterval =
     Duration(seconds: 2); // Throttle requests to max once every 2 seconds
@@ -86,9 +93,12 @@ class Routes {
 Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+  // Fonts ship in assets/google_fonts. Fetching them at runtime threw on a
+  // first launch without internet (and fell back to the system font).
+  GoogleFonts.config.allowRuntimeFetching = false;
 
-  // Load the .env file
-  await dotenv.load(fileName: ".env");
+  // Format dates and times in the phone's language and region.
+  await _initLocaleFormatting();
 
   // Initialize Hive (must be done before opening boxes)
   await Hive.initFlutter();
@@ -208,6 +218,8 @@ Future<void> main() async {
           ), // Added comma here
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => DateProvider()),
+          ChangeNotifierProvider(
+              create: (_) => PhotoAnalysisService(onReady: showPhotoJobBanner)),
           ChangeNotifierProvider(create: (_) => MealProvider()),
           ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
           ChangeNotifierProvider(create: (_) => SavedFoodProvider()),
@@ -225,6 +237,18 @@ Future<void> main() async {
 
   // Delayed widget refresh to avoid impacting startup time
   _delayedWidgetRefresh();
+}
+
+Future<void> _initLocaleFormatting() async {
+  // localeName looks like "en_US" or "fr_FR.UTF-8".
+  final locale = Intl.canonicalizedLocale(Platform.localeName.split('.').first);
+  try {
+    await initializeDateFormatting(locale);
+    Intl.defaultLocale = locale;
+  } catch (_) {
+    await initializeDateFormatting('en_US');
+    Intl.defaultLocale = 'en_US';
+  }
 }
 
 // Delay widget refresh to avoid impacting startup time
@@ -288,51 +312,17 @@ void _setupStatsChannelHandler() {
           final startDate = DateTime.parse(startDateString).toLocal();
           final endDate = DateTime.parse(endDateString).toLocal();
 
-          // Check cache first
-          final cacheKey = '${startDateString}_${endDateString}';
-          if (_statsCache?.containsKey(cacheKey) == true &&
-              _lastStatsUpdate != null &&
-              now.difference(_lastStatsUpdate!) < _minimumUpdateInterval) {
-            debugPrint('[Flutter Stats Handler] Returning cached data');
-            return _statsCache![cacheKey];
-          }
-
           final dateFormatter = DateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
           List<Map<String, dynamic>> results = [];
           DateTime currentDate = startDate;
 
           while (currentDate.isBefore(endDate) ||
               currentDate.isAtSameMomentAs(endDate)) {
-            // Use the fetched provider instance
-            final entries = foodEntryProvider.getAllEntriesForDate(currentDate);
-
-            double totalCarbs = 0;
-            double totalFat = 0;
-            double totalProtein = 0;
-
-            for (var entry in entries) {
-              final carbs =
-                  entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-              final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-              final protein = entry.food.nutrients["Protein"] ?? 0;
-
-              double quantityInGrams = entry.quantity;
-              switch (entry.unit) {
-                case "oz":
-                  quantityInGrams *= 28.35;
-                  break;
-                case "kg":
-                  quantityInGrams *= 1000;
-                  break;
-                case "lbs":
-                  quantityInGrams *= 453.59;
-                  break;
-              }
-              final multiplier = quantityInGrams / 100;
-              totalCarbs += carbs * multiplier;
-              totalFat += fat * multiplier;
-              totalProtein += protein * multiplier;
-            }
+            // Same calculation as the dashboard, so servings and AI foods count correctly.
+            final totals = foodEntryProvider.getNutrientTotalsForDate(currentDate);
+            final totalCarbs = totals['carbs'] ?? 0.0;
+            final totalFat = totals['fat'] ?? 0.0;
+            final totalProtein = totals['protein'] ?? 0.0;
 
             // Use the fetched provider instance
             final proteinGoal = foodEntryProvider.proteinGoal;
@@ -353,7 +343,6 @@ void _setupStatsChannelHandler() {
           }
 
           // Update cache and last update time
-          _lastStatsUpdate = now;
           _statsCache ??= {};
           _statsCache!['${startDateString}_${endDateString}'] = results;
 
@@ -380,6 +369,32 @@ void _handleDeepLink(Uri uri) {
 
   debugPrint('Handling deep link path: $path');
 
+  // Supabase consumes the password-reset link itself and then emits
+  // AuthChangeEvent.passwordRecovery, handled in _MyAppState.
+  if (uri.host == 'reset-callback' || path.startsWith('/reset-callback')) {
+    return;
+  }
+
+  // Email verification callback: go to login, nothing else.
+  if (path.startsWith('/login-callback')) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+      if (navigatorKey.currentContext != null) {
+        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
+          const SnackBar(
+            content: Text('Email verified successfully! Please log in.'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+    return;
+  }
+
   // Navigate based on the path
   if (path.isEmpty || path == '/') {
     navigatorKey.currentState?.pushNamed(Routes.dashboard);
@@ -405,27 +420,6 @@ void _handleDeepLink(Uri uri) {
       navigatorKey.currentState?.pushNamed(Routes.dashboard);
   }
 
-  // Handle email verification callback
-  if (uri.path.startsWith('/login-callback')) {
-    // <-- Change this line
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      navigatorKey.currentState?.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
-
-      // Show success message
-      if (navigatorKey.currentContext != null) {
-        ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(
-          const SnackBar(
-            content: Text('Email verified successfully! Please log in.'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    });
-  }
 }
 
 // Add this before the MyApp class
@@ -453,12 +447,23 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   StreamSubscription? _linkSubscription;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initDeepLinks(); // Keep initialization here within the state
+    // Opening the reset link signs the user in with a recovery session;
+    // ask for the new password straight away.
+    _authSubscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+        );
+      }
+    });
     // Removed provider linking logic
     // Trigger initial expenditure calculation after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -470,6 +475,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     _linkSubscription?.cancel(); // Ensure cancellation on dispose
+    _authSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -516,6 +522,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // When app resumes, reset any stale presentation state
       NativeStatsScreen.resetState();
+      Provider.of<DateProvider>(context, listen: false).refreshIfNewDay();
     }
   }
 
@@ -538,6 +545,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // Wrap MaterialApp with PostHogWidget
         child: MaterialApp(
           navigatorKey: navigatorKey,
+          scaffoldMessengerKey: scaffoldMessengerKey,
           debugShowCheckedModeBanner: false,
           title: 'MacroTracker',
           theme: AppTheme.lightTheme,
@@ -555,15 +563,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           routes: {
             Routes.initial: (context) => const AuthGate(),
             Routes.onboarding: (context) => const OnboardingScreen(),
-            Routes.home: (context) => const SuperwallGate(child: Dashboard()),
+            Routes.home: (context) => const SuperwallGate(child: AppShell()),
             Routes.dashboard: (context) =>
-                const SuperwallGate(child: Dashboard()),
+                const SuperwallGate(child: AppShell()),
             Routes.goals: (context) =>
                 const SuperwallGate(child: StepTrackingScreen()),
             Routes.search: (context) =>
                 const SuperwallGate(child: FoodSearchPage()),
             Routes.account: (context) =>
-                const SuperwallGate(child: AccountDashboard()),
+                const SuperwallGate(child: AppShell(initialTab: AppTab.profile)),
             Routes.weightTracking: (context) =>
                 const SuperwallGate(child: WeightTrackingScreen()),
             Routes.macroTracking: (context) =>

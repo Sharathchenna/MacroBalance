@@ -85,7 +85,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       // Wait for provider to initialize if needed
       await foodEntryProvider.ensureInitialized();
 
-      setState(() {
+      if (mounted) setState(() {
         calorieGoal = foodEntryProvider.caloriesGoal.round();
         proteinGoal = foodEntryProvider.proteinGoal.round();
         carbGoal = foodEntryProvider.carbsGoal.round();
@@ -164,7 +164,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           });
         }
       } else {
-        setState(() {
+        if (mounted) setState(() {
           caloriesConsumed = 0;
           proteinConsumed = 0;
           carbsConsumed = 0;
@@ -189,34 +189,18 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         double totalProtein = 0;
         double totalCalories = 0;
 
+        // Same per-entry math as the dashboard, so servings, AI foods and
+        // units all count correctly (not just gram amounts).
         for (var entry in entries) {
-          final carbs =
-              entry.food.nutrients["Carbohydrate, by difference"] ?? 0;
-          final fat = entry.food.nutrients["Total lipid (fat)"] ?? 0;
-          final protein = entry.food.nutrients["Protein"] ?? 0;
-
-          // Convert quantity to grams
-          double quantityInGrams = entry.quantity;
-          switch (entry.unit) {
-            case "oz":
-              quantityInGrams *= 28.35;
-              break;
-            case "kg":
-              quantityInGrams *= 1000;
-              break;
-            case "lbs":
-              quantityInGrams *= 453.59;
-              break;
-          }
-
-          final multiplier = quantityInGrams / 100;
-          totalCarbs += carbs * multiplier;
-          totalFat += fat * multiplier;
-          totalProtein += protein * multiplier;
-          totalCalories += entry.food.calories * multiplier;
+          double nutrient(String key) =>
+              foodEntryProvider.calculateNutrientForEntry(entry, key);
+          totalCarbs += nutrient('Carbohydrate, by difference');
+          totalFat += nutrient('Total lipid (fat)');
+          totalProtein += nutrient('Protein');
+          totalCalories += nutrient('calories');
         }
 
-        setState(() {
+        if (mounted) setState(() {
           caloriesConsumed = totalCalories.round();
           carbsConsumed = totalCarbs.round();
           fatConsumed = totalFat.round();
@@ -264,17 +248,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'bmr': bmr,
       };
       StorageService().put('macro_results', jsonEncode(results));
-
-      // Also save to nutrition_goals for more structured data
-      final Map<String, dynamic> nutritionGoals = {
-        'calories': calorieGoal,
-        'protein': proteinGoal,
-        'carbs': carbGoal,
-        'fat': fatGoal,
-        'steps': stepsGoal,
-        'bmr': bmr,
-      };
-      StorageService().put('nutrition_goals', jsonEncode(nutritionGoals));
+      // nutrition_goals is owned by FoodEntryProvider.updateNutritionGoals.
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -782,9 +756,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         child: Column(
           // Wrap ListView in a Column
           children: [
-            // Widget for Macro Percentages
-            // _buildMacroPercentageCard(),
-            // const SizedBox(height: 10), // Spacing
+            _buildMacroCalorieCheck(),
 
             // Existing ListView for Goal Cards
             Expanded(
@@ -801,6 +773,157 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  int get _macroCalories => proteinGoal * 4 + carbGoal * 4 + fatGoal * 9;
+
+  /// Shows what the macro goals add up to, and offers a fix when that
+  /// differs from the calorie goal by more than 5%.
+  Widget _buildMacroCalorieCheck() {
+    final theme = Theme.of(context);
+    final customColors = theme.extension<CustomColors>();
+    final implied = _macroCalories;
+    final diff = implied - calorieGoal;
+    final mismatch = calorieGoal > 0 && diff.abs() > calorieGoal * 0.05;
+    final color = mismatch ? Colors.orange : Colors.green;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(mismatch ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                  color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Your macros add up to $implied kcal',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: customColors?.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            mismatch
+                ? '${diff.abs()} kcal ${diff > 0 ? 'more' : 'less'} than your $calorieGoal kcal goal. '
+                    'Protein ${proteinGoal}g × 4 + carbs ${carbGoal}g × 4 + fat ${fatGoal}g × 9.'
+                : diff.abs() <= 10
+                    ? 'This matches your $calorieGoal kcal goal.'
+                    : 'Within ${diff.abs()} kcal of your $calorieGoal kcal goal.',
+            style: theme.textTheme.bodySmall?.copyWith(color: customColors?.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              if (mismatch) ...[
+                OutlinedButton(
+                  onPressed: () => _applyGoals(() => calorieGoal = implied),
+                  child: Text('Set calories to $implied'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _applyGoals(_scaleMacrosToCalories),
+                  child: const Text('Scale macros to fit'),
+                ),
+              ],
+              TextButton.icon(
+                onPressed: _showPercentagesDialog,
+                icon: const Icon(Icons.percent_rounded, size: 16),
+                label: const Text('Set by percentages'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyGoals(VoidCallback change) {
+    HapticFeedback.selectionClick();
+    setState(change);
+    _saveGoals();
+  }
+
+  /// Keeps the macro proportions and resizes them to the calorie goal.
+  void _scaleMacrosToCalories() {
+    final implied = _macroCalories;
+    if (implied <= 0) return;
+    final factor = calorieGoal / implied;
+    proteinGoal = (proteinGoal * factor).round();
+    carbGoal = (carbGoal * factor).round();
+    fatGoal = (fatGoal * factor).round();
+  }
+
+  /// Protein / carbs / fat as a share of calories, which always adds up.
+  void _showPercentagesDialog() {
+    final implied = _macroCalories > 0 ? _macroCalories : calorieGoal;
+    double protein = implied > 0 ? (proteinGoal * 4 / implied * 100).roundToDouble() : 30;
+    double fat = implied > 0 ? (fatGoal * 9 / implied * 100).roundToDouble() : 30;
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final carbs = (100 - protein - fat).clamp(0, 100).toDouble();
+          Widget slider(String label, double value, ValueChanged<double> onChanged, double max) =>
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('$label ${value.round()}%  ·  '
+                      '${(calorieGoal * value / 100 / (label == 'Fat' ? 9 : 4)).round()} g'),
+                  Slider(
+                    value: value.clamp(0, max),
+                    min: 0,
+                    max: max,
+                    divisions: max.round(),
+                    onChanged: (v) => setDialogState(() => onChanged(v.roundToDouble())),
+                  ),
+                ],
+              );
+          return AlertDialog(
+            title: Text('Split $calorieGoal kcal'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                slider('Protein', protein, (v) => protein = v, 100 - fat),
+                slider('Fat', fat, (v) => fat = v, 100 - protein),
+                Text('Carbs ${carbs.round()}%  ·  ${(calorieGoal * carbs / 100 / 4).round()} g'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _applyGoals(() {
+                    proteinGoal = (calorieGoal * protein / 100 / 4).round();
+                    fatGoal = (calorieGoal * fat / 100 / 9).round();
+                    carbGoal = (calorieGoal * carbs / 100 / 4).round();
+                  });
+                },
+                child: const Text('Apply'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

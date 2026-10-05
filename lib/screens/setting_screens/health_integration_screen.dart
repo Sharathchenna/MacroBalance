@@ -69,7 +69,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
 
     try {
       final granted = await _healthService.requestPermissions();
-      setState(() {
+      if (mounted) setState(() {
         _isHealthConnected = granted;
         _healthDataStatus = granted
             ? "Successfully connected to Health App"
@@ -85,13 +85,13 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
             "Failed to connect to Health App: Permission denied");
       }
     } catch (e) {
-      setState(() {
+      if (mounted) setState(() {
         _healthDataStatus = "Error connecting to Health App";
       });
       debugPrint('Failed to connect to Health App: $e');
       _showErrorSnackbar("Failed to connect to Health App");
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
     }
@@ -108,7 +108,7 @@ class _HealthIntegrationScreenState extends State<HealthIntegrationScreen> {
       // Get height and weight
       final heightWeight = await _healthService.getHeightandWeight();
 
-      setState(() {
+      if (mounted) setState(() {
         _steps = steps;
         _calories = calories;
         _heightWeight = heightWeight;

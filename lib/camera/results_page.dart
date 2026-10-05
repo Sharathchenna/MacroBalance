@@ -13,9 +13,16 @@ import 'package:uuid/uuid.dart';
 class ResultsPage extends StatelessWidget {
   final List<AIFoodItem> foods;
 
+  /// Meal and day to log into; set when reviewing a photo that was analysed
+  /// in the background, so it lands where the photo was taken for.
+  final String? meal;
+  final DateTime? date;
+
   const ResultsPage({
     super.key,
     required this.foods,
+    this.meal,
+    this.date,
   });
 
   @override
@@ -69,8 +76,7 @@ class ResultsPage extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 itemBuilder: (context, index) {
-                  final food = foods[index];
-                  return _buildFoodCard(context, food, index);
+                  return _buildFoodCard(context, foods[index], index);
                 },
               ),
       ),
@@ -250,7 +256,8 @@ class ResultsPage extends StatelessWidget {
     Navigator.push(
       context,
       CupertinoPageRoute(
-        builder: (context) => AIFoodDetailPage(food: food),
+        builder: (context) =>
+            AIFoodDetailPage(food: food, selectedMeal: meal, logDate: date),
       ),
     );
   }
@@ -342,6 +349,7 @@ class ResultsPage extends StatelessWidget {
 
   void _addFoodToMeal(BuildContext context, AIFoodItem food, String meal) {
     final dateProvider = Provider.of<DateProvider>(context, listen: false);
+    final logDate = date ?? dateProvider.selectedDate;
     final foodEntryProvider =
         Provider.of<FoodEntryProvider>(context, listen: false);
 
@@ -377,7 +385,7 @@ class ResultsPage extends StatelessWidget {
       meal: meal,
       quantity: quantity,
       unit: food.servingSizes[0],
-      date: dateProvider.selectedDate,
+      date: logDate,
     );
 
     foodEntryProvider.addEntry(entry);

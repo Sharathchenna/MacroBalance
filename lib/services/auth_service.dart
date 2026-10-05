@@ -2,12 +2,10 @@ import 'package:macrotracker/main.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'supabase_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 
 class AuthService {
   final supabase = Supabase.instance.client;
-  final supabaseService = SupabaseService();
 
   Future<void> signIn(String email, String password) async {
     try {
@@ -17,34 +15,20 @@ class AuthService {
       );
 
       if (response.user != null) {
-        // First, ensure we wait for the full sync to complete
-        // await supabaseService.fullSync(response.user!.id);
-
-        // Then, explicitly fetch and update local storage
-        final foodEntryProvider = navigatorKey.currentContext != null
-            ? Provider.of<FoodEntryProvider>(navigatorKey.currentContext!,
-                listen: false)
-            : null;
-
-        if (foodEntryProvider != null) {
-          // Load entries from local storage only (no cloud sync for food entries)
-          await foodEntryProvider.loadEntriesForCurrentUser();
-
-          // Force a refresh of the provider's state
-          await foodEntryProvider.forceSyncAndDiagnose();
+        // Restore goals from user_macros first, so the provider reload below
+        // picks them up when this device has no nutrition_goals yet.
+        Map<String, dynamic>? macroResponse;
+        try {
+          macroResponse = await supabase
+              .from('user_macros')
+              .select()
+              .eq('id', response.user!.id)
+              .maybeSingle();
+        } catch (_) {
+          // Signed in fine; goals fall back to what this device has.
         }
 
-        // Ensure we have the latest data in local storage
-        final macroResponse = await supabase
-            .from('user_macros')
-            .select()
-            .eq('id', response.user!.id)
-            .order('updated_at', ascending: false)
-            .limit(1)
-            .maybeSingle();
-
-        if (macroResponse != null) {
-          // Update local storage with the latest macro goals
+        if (macroResponse != null && StorageService().get('nutrition_goals') == null) {
           StorageService()
               .put('calories_goal', macroResponse['calories_goal'] ?? 2000.0);
           StorageService()
@@ -52,6 +36,17 @@ class AuthService {
           StorageService()
               .put('carbs_goal', macroResponse['carbs_goal'] ?? 225.0);
           StorageService().put('fat_goal', macroResponse['fat_goal'] ?? 65.0);
+        }
+
+        final foodEntryProvider = navigatorKey.currentContext != null
+            ? Provider.of<FoodEntryProvider>(navigatorKey.currentContext!,
+                listen: false)
+            : null;
+
+        if (foodEntryProvider != null) {
+          // Loads local entries, then merges in the user's cloud entries.
+          await foodEntryProvider.loadEntriesForCurrentUser();
+          await foodEntryProvider.loadNutritionGoals();
         }
       }
     } on AuthException catch (e) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -95,16 +96,10 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
           List<FoodEntry> entriesForDate = foodEntryProvider.getAllEntriesForDate(date);
           double protein = 0, carbs = 0, fat = 0;
           for (var entry in entriesForDate) {
-              double multiplier = entry.quantity;
-              switch (entry.unit) {
-                  case "oz": multiplier *= 28.35; break;
-                  case "kg": multiplier *= 1000; break;
-                  case "lbs": multiplier *= 453.59; break;
-              }
-              multiplier /= 100;
-              protein += (entry.food.nutrients['Protein'] ?? 0) * multiplier;
-              carbs += (entry.food.nutrients['Carbohydrate, by difference'] ?? 0) * multiplier;
-              fat += (entry.food.nutrients['Total lipid (fat)'] ?? 0) * multiplier;
+              // Same per-entry math as the dashboard (servings, AI foods, units).
+              protein += foodEntryProvider.calculateNutrientForEntry(entry, 'Protein');
+              carbs += foodEntryProvider.calculateNutrientForEntry(entry, 'Carbohydrate, by difference');
+              fat += foodEntryProvider.calculateNutrientForEntry(entry, 'Total lipid (fat)');
           }
           history.add({'date': date, 'protein': protein, 'carbs': carbs, 'fat': fat});
       }
@@ -253,7 +248,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                  child: _buildMacroGoals(customColors,
                                      targetCalories), // Pass calculated target calories
                                ),
-                               const SizedBox(height: 50),
+                               const SizedBox(height: AppBottomBar.scrollClearance),
                              ],
                            ),
                          ),
@@ -453,7 +448,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                DateFormat('EEEE, MMM d')
+                                DateFormat.MMMMEEEEd()
                                     .format(DateTime.now()),
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
@@ -2145,7 +2140,7 @@ class _MacroBarChartPainter extends CustomPainter {
           DateFormat('yyyy-MM-dd').format(DateTime.now());
       return TextPainter(
         text: TextSpan(
-          text: DateFormat('d').format(date),
+          text: DateFormat.d().format(date),
           style: TextStyle(
             color: isToday
                 ? customColors.accentPrimary

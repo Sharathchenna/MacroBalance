@@ -1,7 +1,29 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  // The PostHog SDK talks to native code; record calls instead.
+  final calls = <MethodCall>[];
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(const MethodChannel('posthog_flutter'),
+          (call) async {
+    calls.add(call);
+    return null;
+  });
+
+  tearDown(calls.clear);
+
+  test('trackEvent reaches the native SDK with its properties', () async {
+    PostHogService.trackEvent('test_event', properties: {'a': 1});
+    await Future<void>.delayed(Duration.zero);
+    final capture = calls.where((c) => c.method == 'capture').toList();
+    expect(capture, isNotEmpty);
+    expect((capture.last.arguments as Map)['eventName'], 'test_event');
+  });
+
   group('PostHogService', () {
     setUp(() async {
       await PostHogService.initialize();

@@ -174,13 +174,13 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
               defaultPackage = monthlyPackage;
             }
           }
-          setState(() {
+          if (mounted) setState(() {
             _offering = offerings.current;
             _selectedPackage = defaultPackage;
             _isLoading = false;
           });
         } else {
-          setState(() {
+          if (mounted) setState(() {
             _offering = null;
             _isLoading = false;
           });
@@ -267,7 +267,8 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
 
 
     try {
-      final customerInfo = await Purchases.purchasePackage(package);
+      final customerInfo = (await Purchases.purchasePackage(package)).customerInfo;
+      if (!mounted) return;
       if (customerInfo.entitlements.active.isNotEmpty) {
         // Navigate to Dashboard and clear the stack
         Navigator.pushNamedAndRemoveUntil(
@@ -326,6 +327,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
     });
     try {
       final customerInfo = await Purchases.restorePurchases();
+      if (!mounted) return;
       if (customerInfo.entitlements.active.isNotEmpty) {
         // Navigate to Dashboard and clear the stack
         Navigator.pushNamedAndRemoveUntil(
@@ -447,7 +449,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
       final bool hasSubscriptionHistory =
           customerInfo.allPurchaseDates.isNotEmpty;
 
-      setState(() {
+      if (mounted) setState(() {
         // If they meet any of the criteria, consider them a returning user
         _isReturningUser = hasPreviousPurchases ||
             hasEntitlementHistory ||
@@ -913,6 +915,7 @@ class _CustomPaywallScreenState extends State<CustomPaywallScreen>
                                                     .containsKey(
                                                         premiumEntitlementId)) {
                                                   // Redemption successful, navigate to dashboard
+                                                  if (!context.mounted) return;
                                                   Navigator
                                                       .pushNamedAndRemoveUntil(
                                                           context,

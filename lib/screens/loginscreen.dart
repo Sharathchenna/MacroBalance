@@ -167,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       );
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         isLoading = false;
       });
     }
@@ -212,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       );
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         isLoading = false;
       });
     }

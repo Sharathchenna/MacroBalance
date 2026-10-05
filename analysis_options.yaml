@@ -10,6 +10,8 @@
 analyzer:
   errors:
     depend_on_referenced_packages: ignore
+    # Using a BuildContext after an await throws if the screen has closed.
+    use_build_context_synchronously: error
 include: package:flutter_lints/flutter.yaml
 
 linter:

@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -14,13 +15,15 @@ import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/Health/Health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:macrotracker/providers/saved_food_provider.dart';
+import 'package:macrotracker/providers/weight_unit_provider.dart';
+import 'package:macrotracker/services/weight_sync_service.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
-import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:macrotracker/screens/feedback_screen.dart'
     as fb_screen; // Added import for feedback with prefix
 import 'package:macrotracker/screens/contact_support_screen.dart'; // Added import for contact support
@@ -30,9 +33,13 @@ import 'package:macrotracker/screens/delete_account_screen.dart'; // Add this im
 import 'package:macrotracker/services/superwall_placements.dart'; // Import Superwall Placements
 import 'package:macrotracker/services/posthog_service.dart'; // Import PostHogService
 import 'package:macrotracker/services/superwall_service.dart'; // Import SuperwallService
+import 'package:macrotracker/screens/app_shell.dart';
 
 class AccountDashboard extends StatefulWidget {
-  const AccountDashboard({super.key});
+  const AccountDashboard({super.key, this.showBackButton = true});
+
+  /// False when shown as the Profile tab of the app shell.
+  final bool showBackButton;
 
   @override
   State<AccountDashboard> createState() => _AccountDashboardState();
@@ -46,7 +53,6 @@ class _AccountDashboardState extends State<AccountDashboard>
 
   // State variables
   bool _healthConnected = false;
-  String _selectedUnit = 'Metric'; // 'Metric' or 'Imperial'
   Map<String, dynamic> userData = {
     'name': 'John Doe',
     'email': 'john.doe@example.com',
@@ -102,7 +108,7 @@ class _AccountDashboardState extends State<AccountDashboard>
 
   Future<void> _checkHealthConnection() async {
     final isAvailable = await _healthService.isHealthDataAvailable();
-    setState(() {
+    if (mounted) setState(() {
       _healthConnected = isAvailable;
     });
   }
@@ -172,7 +178,7 @@ class _AccountDashboardState extends State<AccountDashboard>
             .maybeSingle();
 
         if (response != null) {
-          setState(() {
+          if (mounted) setState(() {
             _notificationSettings['mealReminders'] =
                 response['meal_reminders'] ?? true;
             // _notificationSettings['weeklyReports'] =
@@ -192,19 +198,61 @@ class _AccountDashboardState extends State<AccountDashboard>
     }
   }
 
+  /// Logging out clears this phone's copy, so say so when it isn't backed up.
+  Future<bool?> _confirmLogoutWithoutBackup() {
+    return showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text("Some data isn't backed up"),
+        content: const Text(
+            "We couldn't reach the server, so recent food or weight entries on this phone "
+            "may not be saved to your account. If you log out now they'll be deleted from this phone. "
+            "Connect to the internet and try again to keep them."),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Stay Logged In'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Log Out Anyway'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleLogout() async {
     try {
       // Add haptic feedback
       HapticFeedback.mediumImpact();
 
-      // Clear user data from SharedPreferences first
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('macro_results');
-      // Clear food entries (now synchronous)
+      // Push any queued changes before this device forgets them.
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
-      foodEntryProvider.clearEntries();
-      // Other user-related data can be removed here as well
+      final savedFoodProvider =
+          Provider.of<SavedFoodProvider>(context, listen: false);
+      var backedUp = true;
+      try {
+        final results = await Future.wait<Object?>([
+          foodEntryProvider.syncWithCloud().then((_) => true),
+          WeightSyncService().syncLocalHistory(),
+        ]).timeout(const Duration(seconds: 8));
+        // syncLocalHistory returns null when the cloud couldn't be reached.
+        backedUp = results[1] != null;
+      } catch (_) {
+        backedUp = false;
+      }
+      if (!backedUp) {
+        final logOutAnyway = await _confirmLogoutWithoutBackup();
+        if (logOutAnyway != true) return;
+      }
+      // Clear goals, entries, weight history, saved foods and sync state so the
+      // next account on this device starts from its own data.
+      await foodEntryProvider.clearUserData();
+      await savedFoodProvider.clearUserData();
 
       // Then sign out from Supabase
       await _supabase.auth.signOut();
@@ -314,20 +362,23 @@ class _AccountDashboardState extends State<AccountDashboard>
             systemOverlayStyle: isDarkMode
                 ? SystemUiOverlayStyle.light
                 : SystemUiOverlayStyle.dark,
-            leading: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(CupertinoIcons.back,
-                    color: colorScheme.primary, size: 18),
-              ),
-              onPressed: () => Navigator.pop(context),
-            ),
+            automaticallyImplyLeading: false,
+            leading: !widget.showBackButton
+                ? null
+                : IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(CupertinoIcons.back,
+                          color: colorScheme.primary, size: 18),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
             title: Text(
-              'Settings',
+              widget.showBackButton ? 'Settings' : 'Profile',
               style: GoogleFonts.poppins(
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
@@ -338,8 +389,8 @@ class _AccountDashboardState extends State<AccountDashboard>
           ),
           // Use a regular ListView instead of a Stack to avoid layout issues
           body: ListView(
-            padding:
-                const EdgeInsets.only(top: 8), // Add some padding at the top
+            // Bottom room so the last row scrolls clear of the bottom bar.
+            padding: EdgeInsets.only(top: 8, bottom: widget.showBackButton ? 24 : AppBottomBar.scrollClearance),
             children: [
               // Profile header
               _buildProfileHeader(colorScheme, customColors),
@@ -426,19 +477,41 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  // _buildListTile(
-                  //   icon: CupertinoIcons.arrow_up_arrow_down,
-                  //   iconColor: Colors.orange,
-                  //   title: 'Unit System',
-                  //   subtitle: 'Current: $_selectedUnit',
-                  //   trailing: const Icon(Icons.chevron_right),
-                  //   onTap: () {
-                  //     HapticFeedback.lightImpact();
-                  //     _showUnitPicker();
-                  //   },
-                  //   colorScheme: colorScheme,
-                  //   customColors: customColors,
-                  // ),
+                  _buildListTile(
+                    icon: CupertinoIcons.refresh,
+                    iconColor: Colors.purple,
+                    title: 'Recalculate Goals',
+                    subtitle: 'Answer the body and goal questions again',
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (_) => const OnboardingScreen(recalculateOnly: true),
+                        ),
+                      );
+                    },
+                    colorScheme: colorScheme,
+                    customColors: customColors,
+                  ),
+                  Consumer<WeightUnitProvider>(
+                    builder: (context, units, _) => _buildListTile(
+                      icon: CupertinoIcons.arrow_up_arrow_down,
+                      iconColor: Colors.orange,
+                      title: 'Units',
+                      subtitle: units.isMetric
+                          ? 'Metric (kg, g, cm)'
+                          : 'Imperial (lb, oz, ft)',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _showUnitPicker();
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                  ),
                 ],
               ),
 
@@ -609,25 +682,6 @@ class _AccountDashboardState extends State<AccountDashboard>
               ),
 
               // Add new Data Management section
-              _buildSection(
-                title: 'Data Management',
-                icon: CupertinoIcons.arrow_counterclockwise,
-                colorScheme: colorScheme,
-                customColors: customColors,
-                children: [
-                  _buildListTile(
-                    icon: CupertinoIcons.refresh,
-                    iconColor: Colors.purple,
-                    title: 'Reset Onboarding',
-                    subtitle: 'Recalculate your macros and goals',
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _confirmResetOnboarding,
-                    colorScheme: colorScheme,
-                    customColors: customColors,
-                  ),
-                ],
-              ),
-
               // Support section
               _buildSection(
                 title: 'Support',
@@ -635,6 +689,21 @@ class _AccountDashboardState extends State<AccountDashboard>
                 colorScheme: colorScheme,
                 customColors: customColors,
                 children: [
+                  // Only inside the app shell, where Home is a tab.
+                  if (context.findAncestorStateOfType<AppShellState>() != null)
+                    _buildListTile(
+                      icon: CupertinoIcons.sparkles,
+                      iconColor: const Color(0xFFFFC107),
+                      title: 'Show app tour',
+                      subtitle: 'A quick look at the basics',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        context.findAncestorStateOfType<AppShellState>()?.startTour();
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
                   _buildListTile(
                     icon: CupertinoIcons.envelope_fill,
                     iconColor: Colors.teal,
@@ -701,10 +770,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                                 actions: [
                                   TextButton(
                                     onPressed: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                                       Navigator.of(context).pop();
                                       // Show toast/snackbar
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      messenger.showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                               'Sending local notification...'),
@@ -717,8 +786,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                             .scheduleTestLocalNotification();
 
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                   'Local notification sent!'),
@@ -729,8 +797,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                   'Error: ${e.toString()}'),
@@ -750,10 +817,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                                   ),
                                   TextButton(
                                     onPressed: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                                       Navigator.of(context).pop();
                                       // Show toast/snackbar
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      messenger.showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                               'Sending FCM/APN notification...'),
@@ -766,8 +833,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                             .testFirebaseCloudMessaging();
 
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                   'FCM/APN notification sent! Check device notifications.'),
@@ -778,8 +844,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                   'Error: ${e.toString()}'),
@@ -826,13 +891,14 @@ class _AccountDashboardState extends State<AccountDashboard>
                       trailing: ElevatedButton(
                         child: const Text('Copy'),
                         onPressed: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                           try {
                             final fcmToken =
                                 await NotificationService1().getFcmToken();
                             if (fcmToken != null) {
                               await Clipboard.setData(
                                   ClipboardData(text: fcmToken));
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content:
                                       Text('FCM token copied to clipboard!'),
@@ -840,7 +906,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                 ),
                               );
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content:
                                       Text('Failed to retrieve FCM token.'),
@@ -849,7 +915,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                               );
                             }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text('Error: $e'),
                                 backgroundColor: Colors.red,
@@ -922,6 +988,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                               : 'No Subscription',
                           trailing: ElevatedButton(
                             onPressed: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                               HapticFeedback.mediumImpact();
                               // Toggle the subscription status (for testing only)
                               final prefs =
@@ -933,7 +1000,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                               await subscriptionProvider
                                   .refreshSubscriptionStatus();
 
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(!isCurrentlyPro
                                       ? 'Pro access enabled (DEBUG)'
@@ -1368,6 +1435,9 @@ class _AccountDashboardState extends State<AccountDashboard>
               onTap: () async {
                 if (needsSync || lastSync == null) {
                   HapticFeedback.lightImpact();
+                  // Grab these before awaiting; the screen may be gone after.
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
                   try {
                     // Show loading indicator with appropriate message
                     final isFirstTime = foodEntryProvider.isFirstTimeSync;
@@ -1390,10 +1460,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                     
                     await foodEntryProvider.forceFoodEntrySync();
                     
-                    Navigator.of(context).pop(); // Close loading dialog
+                    navigator.pop(); // Close loading dialog
                     
                     // Show success message
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(isFirstTime 
                             ? 'Food entries backed up successfully!'
@@ -1403,10 +1473,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                       ),
                     );
                   } catch (e) {
-                    Navigator.of(context).pop(); // Close loading dialog
+                    navigator.pop(); // Close loading dialog
                     
                     // Show error message
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text('Sync failed: ${e.toString()}'),
                         backgroundColor: Colors.red,
@@ -1597,21 +1667,21 @@ class _AccountDashboardState extends State<AccountDashboard>
       context: context,
       builder: (BuildContext context) => CupertinoActionSheet(
         title: const Text('Select Unit System'),
-        message: const Text('Choose your preferred measurement system'),
+        message: const Text('Used for body weight, food amounts and height. Defaults to your region.'),
         actions: [
           CupertinoActionSheetAction(
-            child: const Text('Metric (kg, cm)'),
+            child: const Text('Metric (kg, g, cm)'),
             onPressed: () {
               HapticFeedback.lightImpact();
-              setState(() => _selectedUnit = 'Metric');
+              Provider.of<WeightUnitProvider>(context, listen: false).setMetric(true);
               Navigator.pop(context);
             },
           ),
           CupertinoActionSheetAction(
-            child: const Text('Imperial (lb, in)'),
+            child: const Text('Imperial (lb, oz, ft)'),
             onPressed: () {
               HapticFeedback.lightImpact();
-              setState(() => _selectedUnit = 'Imperial');
+              Provider.of<WeightUnitProvider>(context, listen: false).setMetric(false);
               Navigator.pop(context);
             },
           ),
@@ -1666,183 +1736,6 @@ class _AccountDashboardState extends State<AccountDashboard>
         colorScheme: colorScheme,
         customColors: customColors,
       );
-    }
-  }
-
-  void _confirmResetOnboarding() {
-    HapticFeedback.lightImpact();
-
-    // Show confirmation dialog
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Reset Onboarding?',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Text(
-            'This will reset all your macro calculations. You\'ll need to complete the onboarding process again. This action cannot be undone.',
-            style: GoogleFonts.poppins(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _resetOnboarding();
-              },
-              child: Text(
-                'Reset',
-                style: GoogleFonts.poppins(
-                  color: Theme.of(context).colorScheme.error,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _resetOnboarding() async {
-    try {
-      // First get the provider to ensure access to it even if there's an error later
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
-
-      // Clear macro data from SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('macro_results');
-
-      // Clear relevant goal keys from Hive (StorageService)
-      StorageService().delete('nutrition_goals');
-      StorageService().delete('calories_goal');
-      StorageService().delete('protein_goal');
-      StorageService().delete('carbs_goal');
-      StorageService().delete('fat_goal');
-      StorageService().delete('goal_weight_kg');
-      StorageService().delete('current_weight');
-      // Add any other specific goal keys stored in Hive if necessary
-
-      // Reset provider data and goals locally first - this sets defaults
-      foodEntryProvider.clearEntries(); // Clear food logs
-      foodEntryProvider.resetGoalsToDefault(); // Reset goals in provider state
-
-      // Now sync the default values to Supabase
-      final currentUser = _supabase.auth.currentUser;
-      if (currentUser != null) {
-        try {
-          debugPrint('Starting Supabase sync with default values...');
-          debugPrint(
-              'Default calories goal: ${foodEntryProvider.caloriesGoal}');
-          debugPrint('Default protein goal: ${foodEntryProvider.proteinGoal}');
-
-          // Instead of setting null values, use the default values from the provider
-          await _supabase.from('user_macros').update({
-            'calories_goal': foodEntryProvider.caloriesGoal,
-            'protein_goal': foodEntryProvider.proteinGoal,
-            'carbs_goal': foodEntryProvider.carbsGoal,
-            'fat_goal': foodEntryProvider.fatGoal,
-            'goal_type': foodEntryProvider.goalType,
-            'deficit_surplus': foodEntryProvider.deficitSurplus,
-            'steps_goal': foodEntryProvider.stepsGoal,
-            'bmr': foodEntryProvider.bmr,
-            'tdee': foodEntryProvider.tdee,
-            'goal_weight_kg': foodEntryProvider.goalWeightKg,
-            'current_weight_kg': foodEntryProvider.currentWeightKg,
-            'updated_at': DateTime.now().toIso8601String(),
-            // Add macro_results field with default values
-            'macro_results': {
-              'bmr': foodEntryProvider.bmr,
-              'tdee': foodEntryProvider.tdee,
-              'target_calories': foodEntryProvider.caloriesGoal,
-              'protein_g': foodEntryProvider.proteinGoal,
-              'fat_g': foodEntryProvider.fatGoal,
-              'carb_g': foodEntryProvider.carbsGoal,
-              'protein_calories': foodEntryProvider.proteinGoal * 4,
-              'fat_calories': foodEntryProvider.fatGoal * 9,
-              'carb_calories': foodEntryProvider.carbsGoal * 4,
-              'protein_percent': 20,
-              'fat_percent': 25,
-              'carb_percent': 55,
-              'weekly_weight_change': 0.0,
-              'formula_used': "Mifflin-St Jeor",
-              'formula_code': 1,
-              'updated_at': DateTime.now().toIso8601String()
-            },
-            // Set other fields to null as they should be re-entered during onboarding
-            'gender': null,
-            'weight': null,
-            'height': null,
-            'age': null,
-            'activity_level': null,
-            'protein_ratio': null,
-            'fat_ratio': null,
-          }).eq('id', currentUser.id);
-
-          // Verify the sync by fetching the updated record
-          final verification = await _supabase
-              .from('user_macros')
-              .select('calories_goal, protein_goal, macro_results')
-              .eq('id', currentUser.id)
-              .single();
-
-          if (verification != null) {
-            debugPrint('Sync verification successful');
-            debugPrint(
-                'Verified calories goal: ${verification['calories_goal']}');
-            debugPrint(
-                'Verified protein goal: ${verification['protein_goal']}');
-            if (verification['macro_results'] != null) {
-              debugPrint('Verified macro_results exists in Supabase');
-            } else {
-              debugPrint('Warning: macro_results field is null in Supabase');
-            }
-          } else {
-            debugPrint('Warning: Could not verify sync - no record returned');
-          }
-
-          debugPrint(
-              'Successfully reset and synced default values to Supabase');
-        } catch (e) {
-          // Show error to the user if Supabase update fails
-          if (mounted) {
-            _showError(
-                'Error resetting your data on the server: ${e.toString()}');
-          }
-          // Optionally re-throw or return early if the error is critical
-          return; // Stop execution if Supabase update failed
-        }
-      }
-
-      // Navigate to onboarding screen with replacement
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-          (route) => false, // This removes all previous routes
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error resetting data: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 

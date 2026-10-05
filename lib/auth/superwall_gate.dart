@@ -169,6 +169,7 @@ class _SuperwallGateContentState extends State<_SuperwallGateContent> {
         await Future.delayed(const Duration(milliseconds: 500));
         
         // Check if user now has access after refresh
+        if (!mounted) return;
         final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
         
         if (subscriptionProvider.isProUser) {
@@ -376,7 +377,7 @@ class SuperwallFeatureGate extends StatelessWidget {
       );
     } catch (e) {
       debugPrint('[SuperwallFeatureGate] Error registering feature placement: $e');
-      // Show error snackbar
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Unable to load paywall. Please try again.'),

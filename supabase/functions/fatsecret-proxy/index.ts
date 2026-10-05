@@ -167,6 +167,7 @@ serve(async (req: Request) => {
             fatSecretApiUrl.searchParams.set('method', 'foods.search.v3'); // Use v3 search
             fatSecretApiUrl.searchParams.set('search_expression', queryParams as string);
             fatSecretApiUrl.searchParams.set('flag_default_serving', 'true');
+            fatSecretApiUrl.searchParams.set('include_food_images', 'true'); // Include food images
             // Add other search parameters as needed (e.g., page_number, max_results)
             break;
         case 'autocomplete':
@@ -177,6 +178,7 @@ serve(async (req: Request) => {
         case 'get':
             fatSecretApiUrl.searchParams.set('method', 'food.get.v4'); // Use v4 get
             fatSecretApiUrl.searchParams.set('food_id', queryParams as string); // Assuming query is the food_id for 'get'
+            fatSecretApiUrl.searchParams.set('include_food_images', 'true'); // Include food images
             break;
         default:
             return new Response(JSON.stringify({ error: `Unsupported endpoint: ${endpointToCall}` }), {

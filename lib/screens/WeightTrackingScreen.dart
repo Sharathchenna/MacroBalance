@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:macrotracker/utils/weight_range.dart';
+import 'package:macrotracker/widgets/weight_range_selector.dart';
+import 'package:macrotracker/services/weight_sync_service.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -53,7 +58,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
   bool _isLoading = false;
   double _currentWeight = 70.0;
   double _targetWeight = 65.0;
-  String _selectedTimeFrame = 'Month';
+  WeightRange _selectedTimeFrame = WeightRange.month;
   List<Map<String, dynamic>> _weightData = [];
   late AnimationController _pageController;
   final _scrollController = ScrollController();
@@ -94,7 +99,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
       _currentWeight = foodEntryProvider.currentWeightKg;
-      _targetWeight = foodEntryProvider.goalWeightKg;
+      // No goal weight (e.g. a "maintain" goal): aim to stay at the current weight.
+      _targetWeight = foodEntryProvider.goalWeightKg > 0
+          ? foodEntryProvider.goalWeightKg
+          : _currentWeight;
 
       // --- Load Weight History from StorageService (Hive) ---
       final String? weightHistoryJson = StorageService().get('weight_history');
@@ -107,7 +115,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
             if (_weightData.isNotEmpty) {
               _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
                   .compareTo(DateTime.parse(b['date'] as String)));
-              _currentWeight = _weightData.last['weight'] as double;
+              _currentWeight = (_weightData.last['weight'] as num).toDouble();
               // Update provider if history's latest differs from provider's initial load
               if (foodEntryProvider.currentWeightKg != _currentWeight) {
                 foodEntryProvider.currentWeightKg = _currentWeight;
@@ -132,8 +140,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         StorageService().put('weight_history', json.encode(_weightData));
       }
 
-      // No need to load from cache or Supabase directly for goals anymore
-      // No need to create sample data here, handle empty state in UI
+      _mergeWeightHistoryWithCloud();
     } catch (e) {
       print('Error loading weight data: $e');
       // Ensure weightData is initialized even on error
@@ -151,6 +158,26 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     }
   }
 
+  /// Brings back history from the cloud (after a reinstall or from another
+  /// device) and uploads anything this device hasn't sent yet.
+  Future<void> _mergeWeightHistoryWithCloud() async {
+    final merged = await WeightSyncService()
+        .mergeWithCloud(List<Map<String, dynamic>>.from(_weightData));
+    if (merged == null || !mounted) return;
+    setState(() {
+      _weightData = merged;
+      if (_weightData.isNotEmpty) {
+        _currentWeight = (_weightData.last['weight'] as num).toDouble();
+      }
+    });
+    StorageService().put('weight_history', json.encode(_weightData));
+    final foodEntryProvider =
+        Provider.of<FoodEntryProvider>(context, listen: false);
+    if (_currentWeight > 0 && foodEntryProvider.currentWeightKg != _currentWeight) {
+      foodEntryProvider.currentWeightKg = _currentWeight;
+    }
+  }
+
   double _getProgressPercentage() {
     if (_targetWeight <= 0)
       return 0.0; // Avoid division by zero or negative target
@@ -161,7 +188,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
     if (_weightData.isNotEmpty) {
       _weightData.sort((a, b) => DateTime.parse(a['date'] as String)
           .compareTo(DateTime.parse(b['date'] as String)));
-      initialWeight = _weightData.first['weight'] as double;
+      initialWeight = (_weightData.first['weight'] as num).toDouble();
     }
 
     final totalTargetChange = (initialWeight - _targetWeight).abs();
@@ -236,7 +263,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           _buildWeightHistory(customColors),
                           const SizedBox(height: 24),
                           _buildWeightGoalCard(customColors),
-                          const SizedBox(height: 50),
+                          const SizedBox(height: AppBottomBar.scrollClearance),
                         ],
                       ),
                     ),
@@ -323,7 +350,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            DateFormat('EEEE, MMMM d').format(DateTime.now()),
+                            DateFormat.MMMMEEEEd().format(DateTime.now()),
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               color: customColors.textSecondary,
@@ -585,79 +612,16 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       builder: (context, child) {
         return Transform.translate(
           offset: Offset(0, 30 * (1 - _pageController.value)),
-          child: Opacity(
-            opacity: _pageController.value,
-            child: Container(
-              width: double.infinity, // Make container full width
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              decoration: BoxDecoration(
-                color: customColors.dateNavigatorBackground,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: ['Week', 'Month', 'Year'].map((timeFrame) {
-                  final isSelected = _selectedTimeFrame == timeFrame;
-                  return Expanded(
-                    // Make each button take equal space
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        child: TextButton(
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            setState(() {
-                              _selectedTimeFrame = timeFrame;
-                            });
-                          },
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(
-                              isSelected
-                                  ? customColors.cardBackground
-                                  : Colors.transparent,
-                            ),
-                            shape: MaterialStateProperty.all(
-                              RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            padding: MaterialStateProperty.all(
-                              const EdgeInsets.symmetric(
-                                  horizontal: 18, vertical: 10),
-                            ),
-                            overlayColor: MaterialStateProperty.all(
-                              customColors.accentPrimary.withOpacity(0.1),
-                            ),
-                          ),
-                          child: Text(
-                            timeFrame,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              color: isSelected
-                                  ? customColors.accentPrimary
-                                  : customColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
+          child: Opacity(opacity: _pageController.value, child: child),
         );
       },
+      child: WeightRangeSelector(
+        selected: _selectedTimeFrame,
+        onChanged: (range) {
+          HapticFeedback.selectionClick();
+          setState(() => _selectedTimeFrame = range);
+        },
+      ),
     );
   }
 
@@ -681,8 +645,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
         final lastEntry = filteredData.last;
 
         // Calculate change
-        final startWeight = firstEntry['weight'] as double;
-        final endWeight = lastEntry['weight'] as double;
+        final startWeight = (firstEntry['weight'] as num).toDouble();
+        final endWeight = (lastEntry['weight'] as num).toDouble();
         weightChange = endWeight - startWeight;
 
         // Format time description
@@ -820,7 +784,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'No data for this ${_selectedTimeFrame.toLowerCase()}',
+                                    _selectedTimeFrame == WeightRange.all
+                                        ? 'No weight logged yet'
+                                        : 'No weight logged ${_selectedTimeFrame.description}',
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
@@ -838,7 +804,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                         weightPoints: _weightData
                             .map((data) => WeightPoint(
                                   date: DateTime.parse(data['date'] as String),
-                                  weight: data['weight'] as double,
+                                  weight: (data['weight'] as num).toDouble(),
                                 ))
                             .toList(),
                         isMetric: unitProvider.isKg,
@@ -882,51 +848,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
   List<Map<String, dynamic>> _filterWeightDataByTimeFrame(
       List<Map<String, dynamic>> data) {
-    if (data.isEmpty) return [];
-
-    final now = DateTime.now();
-    final oneWeekAgo = now.subtract(const Duration(days: 7));
-    final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
-    final threeMonthsAgo = DateTime(now.year, now.month - 3, now.day);
-    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
-    final yearAgo = DateTime(now.year - 1, now.month, now.day);
-
-    // Make a copy to avoid modifying the original
-    final filteredData = List<Map<String, dynamic>>.from(data);
-
-    // Filter based on selected timeframe
-    switch (_selectedTimeFrame) {
-      case 'Week':
-        return filteredData.where((entry) {
-          final date = DateTime.parse(entry['date'] as String);
-          return date.isAfter(oneWeekAgo) || date.isAtSameMomentAs(oneWeekAgo);
-        }).toList();
-      case 'Month':
-        return filteredData.where((entry) {
-          final date = DateTime.parse(entry['date'] as String);
-          return date.isAfter(oneMonthAgo) ||
-              date.isAtSameMomentAs(oneMonthAgo);
-        }).toList();
-      case '3 Months':
-        return filteredData.where((entry) {
-          final date = DateTime.parse(entry['date'] as String);
-          return date.isAfter(threeMonthsAgo) ||
-              date.isAtSameMomentAs(threeMonthsAgo);
-        }).toList();
-      case '6 Months':
-        return filteredData.where((entry) {
-          final date = DateTime.parse(entry['date'] as String);
-          return date.isAfter(sixMonthsAgo) ||
-              date.isAtSameMomentAs(sixMonthsAgo);
-        }).toList();
-      case 'Year':
-        return filteredData.where((entry) {
-          final date = DateTime.parse(entry['date'] as String);
-          return date.isAfter(yearAgo) || date.isAtSameMomentAs(yearAgo);
-        }).toList();
-      default:
-        return filteredData;
-    }
+    return _selectedTimeFrame.filter(
+        data, (entry) => DateTime.parse(entry['date'] as String));
   }
 
   Widget _buildWeightHistory(CustomColors customColors) {
@@ -968,7 +891,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                     itemCount: math.min(5, _weightData.length),
                     itemBuilder: (context, index) {
                       final data = _weightData[_weightData.length - 1 - index];
-                      final weight = data['weight'] as double;
+                      final weight = (data['weight'] as num).toDouble();
                       final date = DateTime.parse(data['date'] as String);
 
                       return Padding(
@@ -986,7 +909,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    DateFormat('d').format(date),
+                                    DateFormat.d().format(date),
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -994,7 +917,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                     ),
                                   ),
                                   Text(
-                                    DateFormat('MMM').format(date),
+                                    DateFormat.MMM().format(date),
                                     style: GoogleFonts.inter(
                                       fontSize: 12,
                                       color: customColors.textSecondary,
@@ -1009,7 +932,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    DateFormat('EEEE').format(date),
+                                    DateFormat.EEEE().format(date),
                                     style: GoogleFonts.inter(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
@@ -1269,7 +1192,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           );
                         },
                         child: Text(
-                          DateFormat('MMM d, yyyy').format(selectedDate),
+                          DateFormat.yMMMd().format(selectedDate),
                           style: GoogleFonts.inter(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -1329,7 +1252,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
                       // Update current weight to the latest entry's weight after sorting
                       if (_weightData.isNotEmpty) {
-                        _currentWeight = _weightData.last['weight'] as double;
+                        _currentWeight = (_weightData.last['weight'] as num).toDouble();
                       }
                     });
 
@@ -1347,6 +1270,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
 
                     Navigator.pop(context);
                     await _saveWeightChanges();
+                    WeightSyncService().upsertDay(selectedDate, newWeight);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: customColors.accentPrimary,
@@ -1416,7 +1340,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
               });
               // Save the changes
               await _saveWeightChanges();
-              Navigator.pop(context);
+              if (context.mounted) Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: customColors.accentPrimary,
@@ -1439,7 +1363,7 @@ class CustomWeightChart extends StatefulWidget {
   final bool isMetric;
   final CustomColors customColors;
   final double targetWeight;
-  final String timeFrame;
+  final WeightRange timeFrame;
 
   const CustomWeightChart({
     Key? key,
@@ -1458,6 +1382,13 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
   // Removed SingleTickerProviderStateMixin
   // late AnimationController _animationController; // Removed AnimationController
   TouchData? _touchData;
+  Timer? _hideTouchTimer;
+
+  @override
+  void dispose() {
+    _hideTouchTimer?.cancel();
+    super.dispose();
+  }
   // final List<Offset> _animatedPoints = []; // This is calculated in paint now
 
   double _zoomLevel = 1.0; // Default zoom level
@@ -1482,59 +1413,7 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
   }
 
   List<WeightPoint> _getFilteredData() {
-    final now = DateTime.now();
-    final oneWeekAgo = now.subtract(const Duration(days: 7));
-    final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
-    final threeMonthsAgo = DateTime(now.year, now.month - 3, now.day);
-    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
-    final yearAgo = DateTime(now.year - 1, now.month, now.day);
-
-    List<WeightPoint> filteredPoints;
-
-    switch (widget.timeFrame) {
-      case 'Week':
-        filteredPoints = widget.weightPoints
-            .where((point) =>
-                point.date.isAfter(oneWeekAgo) ||
-                point.date.isAtSameMomentAs(oneWeekAgo))
-            .toList();
-        break;
-      case 'Month':
-        filteredPoints = widget.weightPoints
-            .where((point) =>
-                point.date.isAfter(oneMonthAgo) ||
-                point.date.isAtSameMomentAs(oneMonthAgo))
-            .toList();
-        break;
-      case '3 Months':
-        filteredPoints = widget.weightPoints
-            .where((point) =>
-                point.date.isAfter(threeMonthsAgo) ||
-                point.date.isAtSameMomentAs(threeMonthsAgo))
-            .toList();
-        break;
-      case '6 Months':
-        filteredPoints = widget.weightPoints
-            .where((point) =>
-                point.date.isAfter(sixMonthsAgo) ||
-                point.date.isAtSameMomentAs(sixMonthsAgo))
-            .toList();
-        break;
-      case 'Year':
-        filteredPoints = widget.weightPoints
-            .where((point) =>
-                point.date.isAfter(yearAgo) ||
-                point.date.isAtSameMomentAs(yearAgo))
-            .toList();
-        break;
-      default:
-        filteredPoints = widget.weightPoints;
-    }
-
-    // Sort points by date just to be sure
-    filteredPoints.sort((a, b) => a.date.compareTo(b.date));
-
-    return filteredPoints;
+    return widget.timeFrame.filter(widget.weightPoints, (point) => point.date);
   }
 
   String _formatWeight(double weight) {
@@ -1586,7 +1465,8 @@ class _CustomWeightChartState extends State<CustomWeightChart> {
           },
           onTapUp: (details) {
             // Optional: Hide touch data after a delay
-            Future.delayed(Duration(seconds: 2), () {
+            _hideTouchTimer?.cancel();
+            _hideTouchTimer = Timer(const Duration(seconds: 2), () {
               if (mounted) setState(() => _touchData = null);
             });
           },
@@ -1781,7 +1661,7 @@ class _WeightChartPainter extends CustomPainter {
   final bool isMetric;
   final double zoomLevel;
   final double panOffset;
-  final String timeFrame;
+  final WeightRange timeFrame;
   // Removed late final size, minWeight, maxWeight, visibleRange, animatedPoints
   // Paints and text painters will be initialized directly or within paint
 
@@ -1826,63 +1706,10 @@ class _WeightChartPainter extends CustomPainter {
   // Removed _initializeValues method
 
   List<WeightPoint> _getFilteredData() {
-    // Similar to the method in CustomWeightChart
-    final now = DateTime.now();
-    final oneWeekAgo = now.subtract(const Duration(days: 7));
-    final oneMonthAgo = DateTime(now.year, now.month - 1, now.day);
-    final threeMonthsAgo = DateTime(now.year, now.month - 3, now.day);
-    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
-    final yearAgo = DateTime(now.year - 1, now.month, now.day);
-
-    List<WeightPoint> filteredPoints;
-
-    switch (timeFrame) {
-      case 'Week':
-        filteredPoints = weightPoints
-            .where((point) =>
-                point.date.isAfter(oneWeekAgo) ||
-                point.date.isAtSameMomentAs(oneWeekAgo))
-            .toList();
-        break;
-      case 'Month':
-        filteredPoints = weightPoints
-            .where((point) =>
-                point.date.isAfter(oneMonthAgo) ||
-                point.date.isAtSameMomentAs(oneMonthAgo))
-            .toList();
-        break;
-      case '3 Months':
-        filteredPoints = weightPoints
-            .where((point) =>
-                point.date.isAfter(threeMonthsAgo) ||
-                point.date.isAtSameMomentAs(threeMonthsAgo))
-            .toList();
-        break;
-      case '6 Months':
-        filteredPoints = weightPoints
-            .where((point) =>
-                point.date.isAfter(sixMonthsAgo) ||
-                point.date.isAtSameMomentAs(sixMonthsAgo))
-            .toList();
-        break;
-      case 'Year':
-        filteredPoints = weightPoints
-            .where((point) =>
-                point.date.isAfter(yearAgo) ||
-                point.date.isAtSameMomentAs(yearAgo))
-            .toList();
-        break;
-      default:
-        filteredPoints = weightPoints;
-    }
-
-    // Sort points by date just to be sure
-    filteredPoints.sort((a, b) => a.date.compareTo(b.date));
-
-    return filteredPoints;
+    return timeFrame.filter(weightPoints, (point) => point.date);
   }
 
-  String getTimeFrame() {
+  WeightRange getTimeFrame() {
     return timeFrame;
   }
 
@@ -2064,7 +1891,9 @@ class _WeightChartPainter extends CustomPainter {
       fontWeight: FontWeight.w500,
     );
 
-    final text = 'No weight data for this ${timeFrame.toLowerCase()}';
+    final text = timeFrame == WeightRange.all
+        ? 'No weight logged yet'
+        : 'No weight logged ${timeFrame.description}';
     final textSpan = TextSpan(text: text, style: textStyle);
     final textPainter = TextPainter(
       text: textSpan,
@@ -2154,15 +1983,7 @@ class _WeightChartPainter extends CustomPainter {
               chartWidth, size, zoomLevel, panOffset, leftPadding); // Pass leftPadding
 
           // Format date based on time frame
-          String dateLabel;
-          final timeFrame = getTimeFrame();
-          if (timeFrame == 'Week') {
-            dateLabel = DateFormat('E').format(point.date);
-          } else if (timeFrame == 'Month') {
-            dateLabel = DateFormat('d').format(point.date);
-          } else {
-            dateLabel = DateFormat('MMM d').format(point.date);
-          }
+          final String dateLabel = getTimeFrame().axisLabel(point.date);
 
           labelPainter // Use the instance painter
             ..text = TextSpan(
@@ -2412,7 +2233,7 @@ class _WeightChartPainter extends CustomPainter {
     final weightText = isMetric
         ? '${weightPoint.weight.toStringAsFixed(1)} kg'
         : '${(weightPoint.weight * 2.20462).toStringAsFixed(1)} lbs';
-    final dateText = DateFormat('MMM d, yyyy').format(weightPoint.date);
+    final dateText = DateFormat.yMMMd().format(weightPoint.date);
 
     // Prepare text painters
     final weightPainter = TextPainter(

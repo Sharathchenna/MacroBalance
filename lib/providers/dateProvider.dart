@@ -3,12 +3,39 @@
 import 'package:flutter/foundation.dart';
 
 class DateProvider with ChangeNotifier {
-  DateTime _selectedDate = DateTime.now();
+  /// [now] defaults to the system clock; tests pass a fake one.
+  DateProvider({DateTime Function()? now}) : _now = now ?? DateTime.now {
+    _selectedDate = _today();
+  }
+
+  final DateTime Function() _now;
+
+  late DateTime _selectedDate;
+
+  // True while the user is looking at "today" rather than a day they picked.
+  bool _followsToday = true;
 
   DateTime get selectedDate => _selectedDate;
 
+  DateTime _today() {
+    final now = _now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
   void setDate(DateTime date) {
     _selectedDate = DateTime(date.year, date.month, date.day);
+    _followsToday = _selectedDate == _today();
     notifyListeners();
+  }
+
+  /// Call when the app returns to the foreground. If the user was on "today"
+  /// and the calendar day has changed since, move to the new today so food
+  /// isn't logged against yesterday.
+  void refreshIfNewDay() {
+    final today = _today();
+    if (_followsToday && _selectedDate != today) {
+      _selectedDate = today;
+      notifyListeners();
+    }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+import '../utils/number_format.dart';
 
 class QuantitySelector extends StatelessWidget {
   final List<double> presetMultipliers;
@@ -53,7 +54,7 @@ class QuantitySelector extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                "${multiplier}x",
+                "${formatServings(multiplier)}×",
                 style: TextStyle(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? Colors.white

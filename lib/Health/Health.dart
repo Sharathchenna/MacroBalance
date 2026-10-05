@@ -163,7 +163,7 @@ class HealthService {
 
         result.add({
           'date': startOfDay,
-          'day': DateFormat('E').format(startOfDay),
+          'day': DateFormat.E().format(startOfDay),
           'steps': steps
         });
       }
@@ -372,7 +372,7 @@ class HealthService {
 
         result.add({
           'date': startOfDay,
-          'day': DateFormat('d').format(startOfDay), // Just the day number
+          'day': DateFormat.d().format(startOfDay), // Just the day number
           'steps': steps
         });
       }
@@ -497,7 +497,7 @@ class HealthService {
 
         result.add({
           'date': startOfMonth,
-          'month': DateFormat('MMM').format(startOfMonth), // Month abbreviation
+          'month': DateFormat.MMM().format(startOfMonth), // Month abbreviation
           'steps': totalSteps
         });
       }

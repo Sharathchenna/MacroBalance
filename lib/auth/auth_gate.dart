@@ -1,4 +1,3 @@
-import 'package:macrotracker/screens/dashboard.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,7 +7,7 @@ import 'package:macrotracker/auth/superwall_gate.dart'; // Import the SuperwallG
 import 'dart:convert'; // Add for JSON parsing
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/services/posthog_service.dart'; // Added PostHogService import
-import 'package:macrotracker/services/supabase_service.dart'; // Import SupabaseService
+import 'package:macrotracker/screens/app_shell.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -19,7 +18,6 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   late final Future<bool> _hasLocalDataFuture;
-  bool _syncTriggered = false;
 
   @override
   void initState() {
@@ -125,13 +123,8 @@ class _AuthGateState extends State<AuthGate> {
 
         final session = authSnapshot.data?.session;
 
-        if (session != null && !_syncTriggered) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            SupabaseService().syncOnAppStart(session.user.id);
-          });
-          _syncTriggered = true;
-        }
-        
+        // Food entries sync from FoodEntryProvider.loadEntriesForCurrentUser.
+
         if (authSnapshot.hasError) {
           return const Scaffold(
               body: Center(child: Text("Error in authentication stream")));
@@ -177,7 +170,7 @@ class _AuthGateState extends State<AuthGate> {
             }
 
             return SuperwallGate(
-              child: const Dashboard(),
+              child: const AppShell(),
             );
           },
         );

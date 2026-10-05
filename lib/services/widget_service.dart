@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'dart:convert'; // Ensure dart:convert is imported
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:macrotracker/main.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:macrotracker/models/foodEntry.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
 
 // Constants for app group and widget kinds
 const String APP_GROUP = 'group.app.macrobalance.com';
@@ -88,34 +86,28 @@ class WidgetService {
     }
   }
 
-  /// Update widget with recent meals
-  static Future<void> updateRecentMeals(List<FoodEntry> entries) async {
+  /// Update widget with today's most recent meals. [caloriesOf] must be the
+  /// provider's own calculation so servings and AI foods are counted correctly.
+  static Future<void> updateRecentMeals(
+    List<FoodEntry> todayEntries,
+    double Function(FoodEntry entry) caloriesOf,
+  ) async {
     try {
-      // Only take meals from today to ensure widget data is current
-      final todayStart = DateTime(
-          DateTime.now().year, DateTime.now().month, DateTime.now().day);
-      final todayEntries =
-          entries.where((entry) => entry.date.isAfter(todayStart)).toList();
+      // Entries are dated at midnight of their day, so stamp them with "now"
+      // (offset per item: the widget keys rows by name + timestamp).
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final recent = todayEntries.reversed.take(5).toList();
+      final meals = [
+        for (var i = 0; i < recent.length; i++)
+          {
+            'name': recent[i].food.name,
+            'calories': caloriesOf(recent[i]),
+            'meal': recent[i].meal,
+            'timestamp': now - i,
+          }
+      ];
 
-      final meals = todayEntries
-          .take(5)
-          .map((entry) => {
-                'name': entry.food.name,
-                'calories': entry.food.calories * entry.quantity / 100,
-                'meal': entry.meal,
-                'timestamp': entry.date.millisecondsSinceEpoch,
-              })
-          .toList();
-
-      final jsonData = jsonEncode(meals);
-
-      // Save using HomeWidget plugin
-      await _saveWithHomeWidget(DAILY_MEALS_KEY, jsonData);
-      // Backup save method removed as it used the wrong container
-
-      debugPrint('Widget meal data updated with ${meals.length} meals');
-
-      // Trigger widget update
+      await _saveWithHomeWidget(DAILY_MEALS_KEY, jsonEncode(meals));
       await _updateWidgets();
     } catch (e) {
       debugPrint('Error updating meals widget: $e');

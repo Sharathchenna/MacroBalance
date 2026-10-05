@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/food.dart';
 import '../models/saved_food.dart';
 import '../services/saved_food_repository.dart';
+import '../services/storage_service.dart';
 import '../screens/searchPage.dart' as search;
 
 class SavedFoodProvider with ChangeNotifier {
@@ -125,7 +126,7 @@ class SavedFoodProvider with ChangeNotifier {
 
       if (!_disposed) {
         // Merge cloud and local data
-        final mergedFoods = _mergeFoodLists(_savedFoods, cloudFoods);
+        final mergedFoods = mergeFoodLists(_savedFoods, cloudFoods);
         _updateFoodsList(mergedFoods);
         _lastSyncTime = DateTime.now();
         await _repository.saveToLocal(_savedFoods);
@@ -142,8 +143,9 @@ class SavedFoodProvider with ChangeNotifier {
     }
   }
 
-  // Merge food lists with conflict resolution
-  List<SavedFood> _mergeFoodLists(
+  /// Merges two lists by id, newest first. Cloud copies win conflicts.
+  @visibleForTesting
+  static List<SavedFood> mergeFoodLists(
       List<SavedFood> local, List<SavedFood> cloud) {
     final Map<String, SavedFood> merged = {};
 
@@ -204,7 +206,8 @@ class SavedFoodProvider with ChangeNotifier {
         _hasMoreData = false;
       } else {
         _currentPage++;
-        _updateFoodsList([..._savedFoods, ...nextPage]);
+        // Local storage already holds earlier pages; merge by id, don't append.
+        _updateFoodsList(mergeFoodLists(_savedFoods, nextPage));
       }
     } catch (e) {
       debugPrint('Error loading more saved foods: $e');
@@ -341,6 +344,20 @@ class SavedFoodProvider with ChangeNotifier {
     }
   }
 
+  /// Saved foods whose name or brand contains [query], at most [limit], for
+  /// the "Your foods" section of search.
+  static List<SavedFood> matching(List<SavedFood> saved, String query,
+      {int limit = 5}) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+    return saved
+        .where((s) =>
+            s.food.name.toLowerCase().contains(q) ||
+            s.food.brandName.toLowerCase().contains(q))
+        .take(limit)
+        .toList();
+  }
+
   // Check if a food is already saved
   bool isFoodSaved(String foodId) {
     final isSaved = _savedFoods.any((savedFood) => savedFood.food.id == foodId);
@@ -419,12 +436,17 @@ class SavedFoodProvider with ChangeNotifier {
     _safeNotifyListeners();
 
     try {
-      final cloudFoods = await _repository.loadFromCloud(
-        page: 0,
-        pageSize: _pageSize,
-      );
+      // Replace with the complete cloud list (not just page one), so foods past
+      // the first page aren't dropped from local storage.
+      final List<SavedFood> cloudFoods = [];
+      for (int page = 0;; page++) {
+        final batch =
+            await _repository.loadFromCloud(page: page, pageSize: _pageSize);
+        cloudFoods.addAll(batch);
+        if (batch.length < _pageSize) break;
+      }
 
-      _updateFoodsList(cloudFoods);
+      _updateFoodsList(mergeFoodLists(const [], cloudFoods));
       await _repository.saveToLocal(_savedFoods);
       _lastSyncTime = DateTime.now();
     } catch (e) {
@@ -433,6 +455,20 @@ class SavedFoodProvider with ChangeNotifier {
       _isLoading = false;
       _safeNotifyListeners();
     }
+  }
+
+  /// Forgets the signed-in user's saved foods (on logout or account deletion),
+  /// so the next account on this device starts clean and reloads its own.
+  Future<void> clearUserData() async {
+    _savedFoods = [];
+    _foodCache.clear();
+    _cacheTimestamps.clear();
+    _isInitialized = false;
+    _lastSyncTime = null;
+    _currentPage = 0;
+    _hasMoreData = true;
+    await StorageService().delete('saved_foods');
+    _safeNotifyListeners();
   }
 
   @override

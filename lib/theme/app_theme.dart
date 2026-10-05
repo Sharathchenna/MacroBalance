@@ -4,6 +4,12 @@ import 'typography.dart';
 
 class AppTheme {
   static ThemeData lightTheme = ThemeData(
+    // Floating snackbars (Undo, "Added to…") sit above the dashboard's
+    // floating nav bar instead of under it, where Undo couldn't be tapped.
+    snackBarTheme: const SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      insetPadding: EdgeInsets.fromLTRB(16, 8, 16, 100),
+    ),
     // useMaterial3: true, // Enable Material 3
     brightness: Brightness.light,
     scaffoldBackgroundColor: const Color(0xFFF8F7F3),
@@ -50,6 +56,12 @@ class AppTheme {
   );
 
   static ThemeData darkTheme = ThemeData(
+    // Floating snackbars (Undo, "Added to…") sit above the dashboard's
+    // floating nav bar instead of under it, where Undo couldn't be tapped.
+    snackBarTheme: const SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      insetPadding: EdgeInsets.fromLTRB(16, 8, 16, 100),
+    ),
     // useMaterial3: true, // Enable Material 3
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF121212),

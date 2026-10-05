@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:macrotracker/services/test_accounts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/theme/typography.dart';
@@ -102,6 +103,24 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         setState(() => isLoading = false); // Reset loading state
         return;
       }
+      // Test accounts (@mbtest.ai, test builds only) are created already
+      // confirmed, so no email is sent, and are signed in straight away.
+      if (TestAccounts.isTestEmail(email)) {
+        await TestAccounts.createConfirmedAccount(
+          email: email,
+          password: _passwordController.text,
+          username: _nameController.text,
+        );
+        await _supabase.auth.signInWithPassword(
+            email: email, password: _passwordController.text);
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthGate()),
+          (route) => false,
+        );
+        return;
+      }
+
       final response = await _supabase.auth.signUp(
           email: email, // Use trimmed email
           password: _passwordController.text,
@@ -141,9 +160,11 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         ),
       );
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -201,7 +222,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         ),
       );
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         isLoading = false;
       });
     }
@@ -246,7 +267,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         ),
       );
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         isLoading = false;
       });
     }

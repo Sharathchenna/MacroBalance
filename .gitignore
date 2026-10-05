@@ -46,3 +46,6 @@ app.*.map.json
 ios/Runner.xcodeproj/project.pbxproj
 .env
 .gitignore
+
+# Supabase CLI link state
+supabase/.temp/
