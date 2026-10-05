@@ -47,14 +47,14 @@ class AppBottomBar extends StatelessWidget {
   /// close button in step with the menu.
   final Animation<double>? menuAnimation;
 
-  static const double height = 52;
-  static const double _slot = 60;
-  static const double _dot = 40;
-  static const double _inset = 5;
+  static const double height = 64;
+  static const double _slot = 74;
+  static const double _dot = 50;
+  static const double _inset = 6;
 
   /// Space to leave at the end of a tab's scrolling content so its last
   /// item can scroll clear of the bar.
-  static const double scrollClearance = 110;
+  static const double scrollClearance = 124;
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +183,7 @@ class _TabItem extends StatelessWidget {
                 child: Icon(
                   selected ? tab.selectedIcon : tab.icon,
                   key: ValueKey(selected),
-                  size: 23,
+                  size: 28,
                   color: color,
                 ),
               ),
@@ -246,7 +246,7 @@ class _AddButton extends StatelessWidget {
               turns: Tween(begin: 0.0, end: 0.125).animate(
                 CurvedAnimation(parent: animation, curve: kNavCurve),
               ),
-              child: const Icon(CupertinoIcons.add, color: Colors.black, size: 26),
+              child: const Icon(CupertinoIcons.add, color: Colors.black, size: 30),
             ),
           ),
         ),

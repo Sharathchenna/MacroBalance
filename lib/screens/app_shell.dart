@@ -37,7 +37,7 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
   late final AnimationController _menu = AnimationController(
     vsync: this,
     // Unhurried in, brisk out; curves are applied by the menu and the +.
-    duration: const Duration(milliseconds: 460),
+    duration: const Duration(milliseconds: 520),
     reverseDuration: const Duration(milliseconds: 260),
   )..addStatusListener((_) => setState(() {}));
 
