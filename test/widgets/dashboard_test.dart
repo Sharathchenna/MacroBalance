@@ -33,9 +33,10 @@ void main() {
       expect(find.bySemanticsLabel(tab.label), findsOneWidget);
     }
     expect(current(tester), AppTab.home);
-    // Only the selected tab shows its name.
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Profile'), findsNothing);
+    // Icons only: no tab names on screen.
+    for (final tab in AppTab.values) {
+      expect(find.text(tab.label), findsNothing);
+    }
     // The old camera and plus icons are gone from the bar; logging is the
     // single add button.
     expect(find.bySemanticsLabel('Log food'), findsOneWidget);
@@ -49,48 +50,59 @@ void main() {
       await tester.tap(find.bySemanticsLabel(tab.label));
       await pumpFrames(tester, seconds: 1);
       expect(current(tester), tab);
-      expect(find.text(tab.label), findsWidgets, reason: 'selected tab shows its name');
       expect(tester.takeException(), isNull, reason: tab.label);
     }
   });
 
-  testWidgets('add button only shows on Home', (tester) async {
+  testWidgets('add button stays on every tab', (tester) async {
     await pumpShell(tester);
-    expect(find.bySemanticsLabel('Log food'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Progress'));
-    await pumpFrames(tester, seconds: 1);
-    expect(find.bySemanticsLabel('Log food'), findsNothing);
-    await tester.tap(find.bySemanticsLabel('Profile'));
-    await pumpFrames(tester, seconds: 1);
-    expect(find.bySemanticsLabel('Log food'), findsNothing);
+    for (final tab in [AppTab.progress, AppTab.profile, AppTab.home]) {
+      await tester.tap(find.bySemanticsLabel(tab.label));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.bySemanticsLabel('Log food'), findsOneWidget, reason: tab.label);
+    }
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('add button opens Log food with Scan first, and it closes',
+  testWidgets('add button opens the menu with Scan first; + turns into close',
       (tester) async {
     await pumpShell(tester);
     await tester.tap(find.bySemanticsLabel('Log food'));
     await pumpFrames(tester, seconds: 1);
-    expect(find.text('Scan a meal'), findsOneWidget);
-    for (final option in ['Search', 'Saved', 'Describe']) {
-      expect(find.text(option), findsOneWidget);
+    for (final option in ['Scan a meal', 'Saved', 'Search', 'Describe']) {
+      expect(find.bySemanticsLabel(option), findsOneWidget, reason: option);
     }
-    // Scan sits above the other options.
-    expect(tester.getTopLeft(find.text('Scan a meal')).dy,
-        lessThan(tester.getTopLeft(find.text('Search')).dy));
-    await tester.tapAt(const Offset(200, 100));
+    expect(tester.getTopLeft(find.bySemanticsLabel('Scan a meal')).dy,
+        lessThan(tester.getTopLeft(find.bySemanticsLabel('Search')).dy));
+    expect(find.bySemanticsLabel('Close'), findsOneWidget);
+
+    // The close button shuts it again.
+    await tester.tap(find.bySemanticsLabel('Close'));
     await pumpFrames(tester, seconds: 1);
-    expect(find.text('Scan a meal'), findsNothing);
+    expect(find.bySemanticsLabel('Scan a meal'), findsNothing);
+    expect(find.bySemanticsLabel('Log food'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Scan in the sheet opens the camera', (tester) async {
+  testWidgets('tapping the blurred background closes the menu', (tester) async {
     await pumpShell(tester);
     await tester.tap(find.bySemanticsLabel('Log food'));
     await pumpFrames(tester, seconds: 1);
-    await tester.tap(find.text('Scan a meal'));
+    await tester.tapAt(const Offset(200, 120));
     await pumpFrames(tester, seconds: 1);
-    expect(find.text('Scan a meal'), findsNothing);
+    expect(find.bySemanticsLabel('Scan a meal'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Scan from another tab goes to Home and opens the camera',
+      (tester) async {
+    await pumpShell(tester, tab: AppTab.profile);
+    await tester.tap(find.bySemanticsLabel('Log food'));
+    await pumpFrames(tester, seconds: 1);
+    await tester.tap(find.bySemanticsLabel('Scan a meal'));
+    await pumpFrames(tester, seconds: 1);
+    expect(find.bySemanticsLabel('Scan a meal'), findsNothing);
+    expect(current(tester), AppTab.home);
     expect(tester.takeException(), isNull);
   });
 
@@ -99,13 +111,24 @@ void main() {
     for (final option in ['Search', 'Describe']) {
       await tester.tap(find.bySemanticsLabel('Log food'));
       await pumpFrames(tester, seconds: 1);
-      await tester.tap(find.text(option));
+      await tester.tap(find.bySemanticsLabel(option));
       await pumpFrames(tester, seconds: 1);
-      expect(find.text('Scan a meal'), findsNothing);
+      expect(find.bySemanticsLabel('Scan a meal'), findsNothing);
       tester.state<NavigatorState>(find.byType(Navigator).first).pop();
       await pumpFrames(tester, seconds: 1);
       expect(tester.takeException(), isNull, reason: option);
     }
+  });
+
+  testWidgets('switching tabs while the menu is open closes it', (tester) async {
+    await pumpShell(tester);
+    await tester.tap(find.bySemanticsLabel('Log food'));
+    await pumpFrames(tester, seconds: 1);
+    await tester.tap(find.bySemanticsLabel('Progress'));
+    await pumpFrames(tester, seconds: 1);
+    expect(find.bySemanticsLabel('Scan a meal'), findsNothing);
+    expect(current(tester), AppTab.progress);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Progress has its tabs at the top and no back button',
@@ -117,6 +140,13 @@ void main() {
     expect(find.byType(BackButton), findsNothing);
     final tabBarTop = tester.getTopLeft(find.byType(TabBar)).dy;
     expect(tabBarTop, lessThan(300), reason: 'tabs sit at the top');
+    // No tab is cut off at the screen edge.
+    final screenWidth = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    for (final t in ['Weight', 'Calories', 'Steps', 'Workouts']) {
+      final r = tester.getRect(find.text(t));
+      expect(r.left, greaterThanOrEqualTo(0), reason: t);
+      expect(r.right, lessThanOrEqualTo(screenWidth), reason: t);
+    }
     for (final t in ['Calories', 'Steps', 'Workouts', 'Weight']) {
       await tester.tap(find.widgetWithText(Tab, t));
       await pumpFrames(tester, seconds: 1);
@@ -153,6 +183,19 @@ void main() {
     await tester.tap(find.text('Back to today'));
     await pumpFrames(tester, seconds: 1);
     expect(find.text('Today'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('menu fits a small phone (iPhone SE) in light mode', (tester) async {
+    tester.view.physicalSize = const Size(750, 1334);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+        testApp(const AppShell(), foodEntryProvider: provider, dark: false));
+    await pumpFrames(tester);
+    await tester.tap(find.bySemanticsLabel('Log food'));
+    await pumpFrames(tester, seconds: 1);
+    expect(find.bySemanticsLabel('Describe'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

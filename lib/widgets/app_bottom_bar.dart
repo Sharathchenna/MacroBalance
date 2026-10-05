@@ -20,8 +20,7 @@ enum AppTab {
 const _accent = Color(0xFFFFC107);
 
 /// Floating bottom bar shared by every section: a blurred pill with the
-/// sections (the selected one shows its name) and, when [onAdd] is set, a
-/// round add button beside it.
+/// section icons and, when [onAdd] is set, a round add button beside it.
 class AppBottomBar extends StatelessWidget {
   const AppBottomBar({
     super.key,
@@ -29,12 +28,16 @@ class AppBottomBar extends StatelessWidget {
     required this.onSelect,
     this.onAdd,
     this.onAddLongPress,
+    this.addOpen = false,
   });
 
   final AppTab current;
   final ValueChanged<AppTab> onSelect;
   final VoidCallback? onAdd;
   final VoidCallback? onAddLongPress;
+
+  /// The log-food menu is open: the + turns into a close button.
+  final bool addOpen;
 
   static const double height = 52;
 
@@ -94,7 +97,8 @@ class AppBottomBar extends StatelessWidget {
               : Padding(
                   key: const ValueKey('add'),
                   padding: const EdgeInsets.only(left: 10),
-                  child: _AddButton(onTap: onAdd!, onLongPress: onAddLongPress),
+                  child: _AddButton(
+                      onTap: onAdd!, onLongPress: onAddLongPress, open: addOpen),
                 ),
         ),
       ],
@@ -117,7 +121,8 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final idle = isLight ? Colors.black54 : Colors.white60;
+    // Icon only, like the original bar: the selected section gets a filled
+    // icon on a soft accent circle.
     return Semantics(
       button: true,
       selected: selected,
@@ -126,40 +131,26 @@ class _TabItem extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.symmetric(horizontal: selected ? 14 : 16),
-          decoration: BoxDecoration(
-            color: selected ? _accent.withOpacity(isLight ? 0.22 : 0.18) : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppBottomBar.height / 2),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
+        child: SizedBox(
+          width: 60,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? _accent.withOpacity(0.2) : Colors.transparent,
+              ),
+              child: Icon(
                 selected ? tab.selectedIcon : tab.icon,
-                size: 22,
-                color: selected ? (isLight ? const Color(0xFF9A7300) : _accent) : idle,
+                size: 23,
+                color: selected
+                    ? _accent
+                    : (isLight ? Colors.black45 : Colors.white54),
               ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                child: selected
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Text(
-                          tab.label,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isLight ? const Color(0xFF9A7300) : _accent,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -168,7 +159,9 @@ class _TabItem extends StatelessWidget {
 }
 
 class _AddButton extends StatelessWidget {
-  const _AddButton({required this.onTap, this.onLongPress});
+  const _AddButton({required this.onTap, this.onLongPress, this.open = false});
+
+  final bool open;
 
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
@@ -177,7 +170,7 @@ class _AddButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Log food',
+      label: open ? 'Close' : 'Log food',
       hint: onLongPress == null ? null : 'Long press to open the camera',
       excludeSemantics: true,
       child: Material(
@@ -197,10 +190,15 @@ class _AddButton extends StatelessWidget {
                   HapticFeedback.mediumImpact();
                   onLongPress!();
                 },
-          child: const SizedBox(
+          child: SizedBox(
             width: AppBottomBar.height,
             height: AppBottomBar.height,
-            child: Icon(CupertinoIcons.add, color: Colors.black, size: 26),
+            child: AnimatedRotation(
+              turns: open ? 0.125 : 0,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutBack,
+              child: const Icon(CupertinoIcons.add, color: Colors.black, size: 26),
+            ),
           ),
         ),
       ),

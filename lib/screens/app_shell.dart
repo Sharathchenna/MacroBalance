@@ -1,17 +1,21 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/camera_service.dart';
 import '../services/posthog_service.dart';
 import '../widgets/app_bottom_bar.dart';
-import '../widgets/quick_add_sheet.dart';
+import '../widgets/log_food_menu.dart';
 import 'TrackingPagesScreen.dart';
 import 'accountdashboard.dart';
+import 'askAI.dart';
 import 'dashboard_screen.dart';
+import 'searchPage.dart';
 
 export '../widgets/app_bottom_bar.dart' show AppTab;
 
-/// The signed-in app: Home, Progress and Profile behind one bottom bar.
+/// The signed-in app: Home, Progress and Profile behind one bottom bar, with
+/// the log-food button beside it on every tab.
 ///
 /// Tabs live in an IndexedStack so each keeps its scroll position and state.
 /// A tab is only built the first time it's opened, so Progress (which asks
@@ -26,13 +30,27 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => AppShellState();
 }
 
-class AppShellState extends State<AppShell> {
+class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin {
   late AppTab _tab = widget.initialTab;
   late final Set<AppTab> _opened = {widget.initialTab};
 
+  late final AnimationController _menu = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+    reverseDuration: const Duration(milliseconds: 220),
+  )..addStatusListener((_) => setState(() {}));
+
   AppTab get currentTab => _tab;
+  bool get menuOpen => _menu.status != AnimationStatus.dismissed;
+
+  @override
+  void dispose() {
+    _menu.dispose();
+    super.dispose();
+  }
 
   void select(AppTab tab) {
+    _closeMenu();
     if (tab == _tab) return;
     setState(() {
       _tab = tab;
@@ -40,6 +58,42 @@ class AppShellState extends State<AppShell> {
     });
     PostHogService.trackScreen('tab_${tab.name}');
   }
+
+  void _toggleMenu() {
+    if (_menu.isForwardOrCompleted) {
+      _menu.reverse();
+    } else {
+      PostHogService.trackEvent('log_food_menu_opened', properties: {'tab': _tab.name});
+      _menu.forward();
+    }
+  }
+
+  void _closeMenu() {
+    if (_menu.isForwardOrCompleted) _menu.reverse();
+  }
+
+  /// Closes the menu, then runs [action] once it has animated away.
+  Future<void> _thenClose(VoidCallback action) async {
+    await _menu.reverse();
+    if (mounted) action();
+  }
+
+  Future<void> _openCamera() async {
+    // Results arrive on Home (photo progress card, barcode results), so go
+    // there first; this also builds Home if it hasn't been opened yet.
+    select(AppTab.home);
+    try {
+      await CameraService().showNativeCamera();
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn\'t open the camera: ${e.message}')),
+      );
+    }
+  }
+
+  void _push(Widget Function() screen) =>
+      Navigator.of(context).push(CupertinoPageRoute(builder: (_) => screen()));
 
   Widget _buildTab(AppTab tab) {
     if (!_opened.contains(tab)) return const SizedBox.shrink();
@@ -53,45 +107,51 @@ class AppShellState extends State<AppShell> {
     }
   }
 
-  Future<void> _openCamera() async {
-    try {
-      // Results come back to the Home tab's camera listener.
-      await CameraService().showNativeCamera();
-    } on PlatformException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Couldn\'t open the camera: ${e.message}')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).size.height * 0.04;
-    return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _tab.index,
-            children: [for (final tab in AppTab.values) _buildTab(tab)],
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: bottom,
-            child: Center(
-              child: AppBottomBar(
-                current: _tab,
-                onSelect: select,
-                // Logging food belongs on Home; the other tabs stay uncluttered.
-                onAdd: _tab == AppTab.home
-                    ? () => showQuickAddSheet(context, onScan: _openCamera)
-                    : null,
-                onAddLongPress: _tab == AppTab.home ? _openCamera : null,
+    final barBottom = MediaQuery.of(context).size.height * 0.04;
+    return PopScope(
+      // Back (Android, or a swipe gesture) closes the menu first.
+      canPop: !menuOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _closeMenu();
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            IndexedStack(
+              index: _tab.index,
+              children: [for (final tab in AppTab.values) _buildTab(tab)],
+            ),
+            if (menuOpen)
+              Positioned.fill(
+                child: LogFoodMenu(
+                  animation: _menu,
+                  bottomOffset: barBottom + AppBottomBar.height,
+                  onClose: _closeMenu,
+                  onScan: () => _thenClose(_openCamera),
+                  onSaved: () => _thenClose(
+                      () => Navigator.of(context).pushNamed('/savedFoods')),
+                  onSearch: () => _thenClose(() => _push(() => const FoodSearchPage())),
+                  onDescribe: () => _thenClose(() => _push(() => const Askai())),
+                ),
+              ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: barBottom,
+              child: Center(
+                child: AppBottomBar(
+                  current: _tab,
+                  onSelect: select,
+                  onAdd: _toggleMenu,
+                  onAddLongPress: _openCamera,
+                  addOpen: _menu.isForwardOrCompleted,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

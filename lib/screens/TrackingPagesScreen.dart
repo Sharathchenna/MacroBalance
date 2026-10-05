@@ -97,6 +97,12 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          // Sized to their labels from the left edge, so "Workouts" isn't
+          // clipped on narrower phones or with larger text.
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           dividerColor: Colors.transparent,
           indicatorSize: TabBarIndicatorSize.label,
           indicator: UnderlineTabIndicator(
