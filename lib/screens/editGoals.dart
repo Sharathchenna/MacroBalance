@@ -85,7 +85,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
       // Wait for provider to initialize if needed
       await foodEntryProvider.ensureInitialized();
 
-      setState(() {
+      if (mounted) setState(() {
         calorieGoal = foodEntryProvider.caloriesGoal.round();
         proteinGoal = foodEntryProvider.proteinGoal.round();
         carbGoal = foodEntryProvider.carbsGoal.round();
@@ -164,7 +164,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           });
         }
       } else {
-        setState(() {
+        if (mounted) setState(() {
           caloriesConsumed = 0;
           proteinConsumed = 0;
           carbsConsumed = 0;
@@ -200,7 +200,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           totalCalories += nutrient('calories');
         }
 
-        setState(() {
+        if (mounted) setState(() {
           caloriesConsumed = totalCalories.round();
           carbsConsumed = totalCarbs.round();
           fatConsumed = totalFat.round();

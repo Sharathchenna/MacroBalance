@@ -45,7 +45,7 @@ class _HealthPermissionsScreenState extends State<HealthPermissionsScreen> {
     try {
       for (var type in _permissions.keys) {
         bool? authorized = await health.hasPermissions([type]);
-        setState(() {
+        if (mounted) setState(() {
           _permissions[type] = authorized ?? false;
         });
       }
@@ -59,7 +59,7 @@ class _HealthPermissionsScreenState extends State<HealthPermissionsScreen> {
 
     try {
       bool authorized = await health.requestAuthorization([type]);
-      setState(() {
+      if (mounted) setState(() {
         _permissions[type] = authorized;
       });
     } catch (e) {

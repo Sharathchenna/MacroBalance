@@ -77,7 +77,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     try {
       final resending = isEmailSent;
       await _authService.resetPassword(_emailController.text.trim());
-      setState(() {
+      if (mounted) setState(() {
         isEmailSent = true;
       });
       _startCooldown();
@@ -98,7 +98,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
         ),
       );
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         isLoading = false;
       });
     }

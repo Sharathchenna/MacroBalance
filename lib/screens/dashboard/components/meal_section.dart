@@ -253,7 +253,10 @@ class _MealSectionState extends State<MealSection> {
       meal: mealType,
     );
     if (copied.isEmpty) return;
-    setState(() => _userExpanded[_expandKey(date, mealType)] = true);
+    // The card may have been rebuilt or removed while the copy was saving.
+    if (mounted) {
+      setState(() => _userExpanded[_expandKey(date, mealType)] = true);
+    }
     PostHogService.trackEvent('meal_copied', properties: {
       'meal_type': mealType,
       'item_count': copied.length,

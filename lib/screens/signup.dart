@@ -222,7 +222,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         ),
       );
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         isLoading = false;
       });
     }
@@ -267,7 +267,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
         ),
       );
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         isLoading = false;
       });
     }

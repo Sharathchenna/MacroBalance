@@ -49,10 +49,14 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         throw Exception('User not found');
       }
 
-      // 1. Delete user data from all tables
-      await _deleteUserData(currentUser.id);
+      // Look up providers now; the screen can be torn down while awaiting.
+      final foodEntryProvider =
+          Provider.of<FoodEntryProvider>(context, listen: false);
+      final savedFoodProvider =
+          Provider.of<SavedFoodProvider>(context, listen: false);
 
-      // 2. For email/password users, verify password before proceeding
+      // 1. For email/password users, verify the password before deleting
+      // anything (a mistyped password used to wipe the data anyway).
       final bool isOAuthUser =
           currentUser.appMetadata.containsKey('provider') &&
               currentUser.appMetadata['provider'] != 'email';
@@ -80,6 +84,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           throw Exception('Password verification failed: ${e.toString()}');
         }
       }
+
+      // 2. Delete user data from all tables
+      await _deleteUserData(currentUser.id);
 
       // 3. Call the Edge Function to delete the user account with proper authorization
       try {
@@ -143,12 +150,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         // 4. Clear local data using StorageService
         await StorageService().clearAllPreferences(); // Clear Hive data
 
-        // Clear local provider data (now synchronous)
-        final foodEntryProvider =
-            Provider.of<FoodEntryProvider>(context, listen: false);
+        // Clear local provider data
         await foodEntryProvider.clearUserData();
-        await Provider.of<SavedFoodProvider>(context, listen: false)
-            .clearUserData();
+        await savedFoodProvider.clearUserData();
 
         // Sign out regardless of outcome
         await _supabase.auth.signOut();
@@ -177,7 +181,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         throw Exception('Could not delete account. Please contact support.');
       }
     } catch (e) {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
 

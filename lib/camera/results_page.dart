@@ -7,7 +7,6 @@ import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/widgets/ai_estimate_badge.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -73,18 +72,11 @@ class ResultsPage extends StatelessWidget {
               )
             : ListView.builder(
                 key: ValueKey<int>(foods.length),
-                itemCount: foods.length + 1,
+                itemCount: foods.length,
                 padding:
                     const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: AIEstimateBadge(showNote: true),
-                    );
-                  }
-                  final food = foods[index - 1];
-                  return _buildFoodCard(context, food, index - 1);
+                  return _buildFoodCard(context, foods[index], index);
                 },
               ),
       ),

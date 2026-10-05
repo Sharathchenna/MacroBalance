@@ -86,7 +86,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
       final weeklyStepsData = await _healthService.getStepsForLastWeek();
       final monthlyStepsData = await _healthService.getStepsForLastMonth();
 
-      setState(() {
+      if (mounted) setState(() {
         _todaySteps = todaySteps;
         _weeklyStepsData = weeklyStepsData;
         _monthlyStepsData = monthlyStepsData;
@@ -99,7 +99,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
         _isLoading = false;
       });
     } catch (e) {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
       print('Error loading step data: $e');

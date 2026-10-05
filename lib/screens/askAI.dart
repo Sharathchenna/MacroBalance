@@ -2,7 +2,6 @@
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:macrotracker/widgets/ai_estimate_badge.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -737,16 +736,6 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Please note: AI results are estimates and should be verified for accuracy.',
-                                    style: GoogleFonts.roboto(
-                                      color: customColors?.textSecondary,
-                                      fontSize: 12,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
                                   if (_hasSearched)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 24),
@@ -778,18 +767,12 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
                         )
                       : ListView.builder(
                           key: ValueKey<int>(_foodItems.length),
-                          itemCount: _foodItems.length + 1,
+                          itemCount: _foodItems.length,
                           padding: const EdgeInsets.symmetric(
                               vertical: 8, horizontal: 16),
                           itemBuilder: (context, index) {
-                            if (index == 0) {
-                              return const Padding(
-                                padding: EdgeInsets.only(bottom: 8),
-                                child: AIEstimateBadge(showNote: true),
-                              );
-                            }
-                            final food = _foodItems[index - 1];
-                            return _buildFoodCard(context, food, index - 1);
+                            return _buildFoodCard(
+                                context, _foodItems[index], index);
                           },
                         ),
             ),

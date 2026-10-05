@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/utils/meal_time.dart';
 import 'package:macrotracker/utils/number_format.dart';
-import 'package:macrotracker/widgets/ai_estimate_badge.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/models/food.dart';
@@ -425,8 +424,6 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                const AIEstimateBadge(showNote: true),
 
                                 const SizedBox(height: 16),
 

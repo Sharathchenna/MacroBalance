@@ -17,20 +17,22 @@ class AppleHealthPage extends StatelessWidget {
 
   Future<void> _handleConnect(BuildContext context) async {
     final healthService = HealthService();
+    // Captured before the permission prompt; the page may rebuild meanwhile.
+    final messenger = ScaffoldMessenger.of(context);
     try {
       bool granted = await healthService.requestPermissions();
       StorageService().put('healthConnected', granted);
       if (granted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Successfully connected to Health')),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Health permissions were not granted')),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error connecting to Health: ${e.toString()}')),
       );
     } finally {

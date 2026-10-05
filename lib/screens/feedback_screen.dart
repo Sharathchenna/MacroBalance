@@ -46,14 +46,14 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        setState(() {
+        if (mounted) setState(() {
           _screenshotFile = image;
           _errorMessage = ''; // Clear error on new selection
         });
       }
     } catch (e) {
       print("Error picking screenshot: $e");
-      setState(() {
+      if (mounted) setState(() {
         _errorMessage = 'Failed to pick screenshot.';
       });
     }
@@ -130,7 +130,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         screenshotUrl =
             await _supabaseService.uploadScreenshot(_screenshotFile!);
         if (screenshotUrl == null) {
-          setState(() {
+          if (mounted) setState(() {
             _errorMessage = 'Failed to upload screenshot. Please try again.';
             _isLoading = false;
           });
@@ -155,7 +155,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       // Use the existing addFeedback method in SupabaseService
       await _supabaseService.addFeedback(feedbackData);
 
-      setState(() {
+      if (mounted) setState(() {
         _successMessage = _selectedType == app_feedback.FeedbackType.feedback
             ? 'Feedback submitted successfully! Thank you.'
             : 'Bug report submitted successfully! Thank you.';
@@ -170,11 +170,11 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       // });
     } catch (e) {
       print('Error submitting feedback: $e');
-      setState(() {
+      if (mounted) setState(() {
         _errorMessage = 'Failed to submit feedback. Please try again.';
       });
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
     }

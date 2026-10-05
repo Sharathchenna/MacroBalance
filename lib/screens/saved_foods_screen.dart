@@ -86,7 +86,7 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
 
     _filterSavedFoods();
 
-    setState(() {
+    if (mounted) setState(() {
       _isLoading = false;
     });
 
@@ -177,7 +177,7 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
         .firstOrNull;
     await savedFoodProvider.removeSavedFood(savedFoodId);
 
-    setState(() {
+    if (mounted) setState(() {
       _filterSavedFoods();
     });
 

@@ -106,6 +106,7 @@ flutter:
     - assets/splash_screen/
     - assets/images/
     - assets/animations/
+    - assets/google_fonts/ # Bundled so text never depends on the network
     - assets/privacy_policy.html
     - assets/terms.html
     - shorebird.yaml # Added terms and conditions

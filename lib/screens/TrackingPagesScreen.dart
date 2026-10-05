@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui'; // Added for ImageFilter
 import 'package:flutter/cupertino.dart'; // Added for CupertinoIcons, HapticFeedback
 import 'package:flutter/material.dart';
@@ -38,28 +39,25 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     // Track screen view
     PostHogService.trackScreen('tracking_pages_screen');
 
-    // Show swipe hint after a short delay
-    Future.delayed(const Duration(milliseconds: 800), () {
+    // Show swipe hint after a short delay, then hide it after 3 seconds.
+    _hintTimer = Timer(const Duration(milliseconds: 800), () {
       if (mounted && _isInitialLoad) {
         setState(() {
           _isInitialLoad = false;
           _showSwipeHint = true;
         });
-
-        // Hide the hint after 3 seconds
-        Future.delayed(const Duration(seconds: 3), () {
-          if (mounted) {
-            setState(() {
-              _showSwipeHint = false;
-            });
-          }
+        _hintTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _showSwipeHint = false);
         });
       }
     });
   }
 
+  Timer? _hintTimer;
+
   @override
   void dispose() {
+    _hintTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }

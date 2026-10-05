@@ -1,3 +1,4 @@
+import 'package:google_fonts/google_fonts.dart';
 // ignore_for_file: unused_import
 
 import 'package:firebase_core/firebase_core.dart';
@@ -91,6 +92,9 @@ class Routes {
 Future<void> main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+  // Fonts ship in assets/google_fonts. Fetching them at runtime threw on a
+  // first launch without internet (and fell back to the system font).
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Format dates and times in the phone's language and region.
   await _initLocaleFormatting();

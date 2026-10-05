@@ -656,7 +656,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                   }
                 } catch (_) {
                   // The provider rolls the change back; say why the icon flipped back.
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(isSaved

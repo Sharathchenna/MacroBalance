@@ -75,7 +75,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
     } catch (e) {
       print('Error loading workout data: $e');
     } finally {
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
       });
     }
@@ -188,7 +188,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       
       // If the workout is for a different month, switch to that month
       if (workoutMonth != currentDisplayedMonth) {
-        setState(() {
+        if (mounted) setState(() {
           _currentMonth = workoutMonth;
         });
       }
@@ -202,10 +202,11 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       // Reload month data for the currently displayed month (which might have changed)
       await _loadMonthData(_currentMonth);
       
-      setState(() {});
+      if (mounted) setState(() {});
       
     } catch (e) {
       print('Error saving workout: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving workout: $e')),
       );
@@ -292,10 +293,11 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       await _loadTodayWorkouts();
       await _loadMonthData(_currentMonth);
       
-      setState(() {});
+      if (mounted) setState(() {});
       
     } catch (e) {
       print('Error deleting workout: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error deleting workout: $e')),
       );
@@ -1383,16 +1385,20 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                                   createdAt: DateTime.now(),
                                 );
                                   
+                                  // The sheet's context is gone once it closes;
+                                  // use the screen's messenger instead.
+                                  final messenger = ScaffoldMessenger.of(this.context);
                                   if (isEditing) {
                                     // Delete old workout first, then add new one
                                     await _deleteWorkout(editingWorkout);
                                   }
                                   
                                   await _saveWorkoutEntry(workout);
+                                  if (!context.mounted) return;
                                   Navigator.pop(context);
                                   
                                   HapticFeedback.heavyImpact();
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  messenger.showSnackBar(
                                     SnackBar(
                                       content: Text(
                                         isEditing 
@@ -1466,10 +1472,12 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
           TextButton(
             onPressed: () async {
               HapticFeedback.heavyImpact();
+              // Capture before closing: the dialog's context is unusable after.
+              final messenger = ScaffoldMessenger.of(this.context);
               Navigator.pop(context);
               await _deleteWorkout(workout);
               
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(
                   content: Text('Workout deleted'),
                   backgroundColor: Colors.red,

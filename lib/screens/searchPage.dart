@@ -11,7 +11,6 @@ import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/utils/quick_log.dart';
 import 'package:macrotracker/widgets/quick_log_tile.dart';
-import 'package:macrotracker/widgets/ai_estimate_badge.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/utils/meal_time.dart';
@@ -276,7 +275,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
     if (mounted && generation == _searchGeneration) {
       // Check if the widget is still in the tree
-      setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
         // Don't reset _searchButtonClicked here to keep animation state consistent
       });
@@ -664,8 +663,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
               sliver: SliverToBoxAdapter(
                 child: Row(
                   children: [
-                    const AIEstimateBadge(),
-                    const SizedBox(width: 8),
                     const SizedBox(
                       width: 12,
                       height: 12,
@@ -691,8 +688,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const AIEstimateBadge(showNote: true),
-                    const SizedBox(height: 8),
                     // Featured AI Result Card
                     _buildFeaturedAICard(_aiSearchResults.first),
                   ],
@@ -921,39 +916,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                             child: _buildFoodIcon(food.name, accentColor, 24),
                           ),
                         ),
-                        // AI badge
-                        if (isAI)
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.purple.withOpacity(0.9),
-                                    Colors.blue.withOpacity(0.9),
-                                  ],
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.purple.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  Icons.auto_awesome_rounded,
-                                  color: Colors.white,
-                                  size: 10,
-                                ),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                     const SizedBox(width: 16),
@@ -1647,38 +1609,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                             child: _buildFoodIcon(food.name, accentColor, 24),
                           ),
                         ),
-                        // Subtle AI indicator
-                        Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.purple.withOpacity(0.9),
-                                    Colors.blue.withOpacity(0.9),
-                                  ],
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.purple.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                            child: Center(
-                              child: Icon(
-                                Icons.auto_awesome_rounded,
-                                color: Colors.white,
-                                size: 8,
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(width: 16),
@@ -1764,7 +1694,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.auto_awesome_rounded,
+                    Icons.unfold_more_rounded,
                     size: 14,
                     color: isDarkMode? Colors.grey.shade500 : Colors.black,
                   ),

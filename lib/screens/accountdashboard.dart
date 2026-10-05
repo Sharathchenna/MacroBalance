@@ -103,7 +103,7 @@ class _AccountDashboardState extends State<AccountDashboard>
 
   Future<void> _checkHealthConnection() async {
     final isAvailable = await _healthService.isHealthDataAvailable();
-    setState(() {
+    if (mounted) setState(() {
       _healthConnected = isAvailable;
     });
   }
@@ -173,7 +173,7 @@ class _AccountDashboardState extends State<AccountDashboard>
             .maybeSingle();
 
         if (response != null) {
-          setState(() {
+          if (mounted) setState(() {
             _notificationSettings['mealReminders'] =
                 response['meal_reminders'] ?? true;
             // _notificationSettings['weeklyReports'] =
@@ -747,10 +747,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                                 actions: [
                                   TextButton(
                                     onPressed: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                                       Navigator.of(context).pop();
                                       // Show toast/snackbar
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      messenger.showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                               'Sending local notification...'),
@@ -763,8 +763,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                             .scheduleTestLocalNotification();
 
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                   'Local notification sent!'),
@@ -775,8 +774,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                   'Error: ${e.toString()}'),
@@ -796,10 +794,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                                   ),
                                   TextButton(
                                     onPressed: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                                       Navigator.of(context).pop();
                                       // Show toast/snackbar
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      messenger.showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                               'Sending FCM/APN notification...'),
@@ -812,8 +810,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                             .testFirebaseCloudMessaging();
 
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                   'FCM/APN notification sent! Check device notifications.'),
@@ -824,8 +821,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          messenger.showSnackBar(
                                             SnackBar(
                                               content: Text(
                                                   'Error: ${e.toString()}'),
@@ -872,13 +868,14 @@ class _AccountDashboardState extends State<AccountDashboard>
                       trailing: ElevatedButton(
                         child: const Text('Copy'),
                         onPressed: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                           try {
                             final fcmToken =
                                 await NotificationService1().getFcmToken();
                             if (fcmToken != null) {
                               await Clipboard.setData(
                                   ClipboardData(text: fcmToken));
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content:
                                       Text('FCM token copied to clipboard!'),
@@ -886,7 +883,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                                 ),
                               );
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content:
                                       Text('Failed to retrieve FCM token.'),
@@ -895,7 +892,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                               );
                             }
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text('Error: $e'),
                                 backgroundColor: Colors.red,
@@ -968,6 +965,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                               : 'No Subscription',
                           trailing: ElevatedButton(
                             onPressed: () async {
+                                      final messenger = ScaffoldMessenger.of(context);
                               HapticFeedback.mediumImpact();
                               // Toggle the subscription status (for testing only)
                               final prefs =
@@ -979,7 +977,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                               await subscriptionProvider
                                   .refreshSubscriptionStatus();
 
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(!isCurrentlyPro
                                       ? 'Pro access enabled (DEBUG)'
@@ -1414,6 +1412,9 @@ class _AccountDashboardState extends State<AccountDashboard>
               onTap: () async {
                 if (needsSync || lastSync == null) {
                   HapticFeedback.lightImpact();
+                  // Grab these before awaiting; the screen may be gone after.
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
                   try {
                     // Show loading indicator with appropriate message
                     final isFirstTime = foodEntryProvider.isFirstTimeSync;
@@ -1436,10 +1437,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                     
                     await foodEntryProvider.forceFoodEntrySync();
                     
-                    Navigator.of(context).pop(); // Close loading dialog
+                    navigator.pop(); // Close loading dialog
                     
                     // Show success message
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(isFirstTime 
                             ? 'Food entries backed up successfully!'
@@ -1449,10 +1450,10 @@ class _AccountDashboardState extends State<AccountDashboard>
                       ),
                     );
                   } catch (e) {
-                    Navigator.of(context).pop(); // Close loading dialog
+                    navigator.pop(); // Close loading dialog
                     
                     // Show error message
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text('Sync failed: ${e.toString()}'),
                         backgroundColor: Colors.red,

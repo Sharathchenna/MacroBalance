@@ -219,7 +219,7 @@ class _DashboardState extends State<Dashboard> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
-          height: 56,
+          height: 45,
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14.0),
@@ -302,28 +302,22 @@ class _DashboardState extends State<Dashboard> {
     bool isActive = false,
   }) {
     return Expanded(
+      // Icon-only, as before; the label is read out by VoiceOver.
       child: Semantics(
         button: true,
         label: label,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: const Color(0xFFFFC107), size: 22),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? Colors.black87
-                      : Colors.white70,
-                ),
-              ),
-            ],
+          customBorder: const CircleBorder(),
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? const Color(0xFFFFC107).withOpacity(0.2)
+                  : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: const Color(0xFFFFC107), size: 24),
           ),
         ),
       ),
