@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/screens/app_shell.dart';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 
 import '../helpers/test_app.dart';
 
@@ -196,6 +197,25 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Log food'));
     await pumpFrames(tester, seconds: 1);
     expect(find.bySemanticsLabel('Describe'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the highlight glides to the selected tab', (tester) async {
+    await pumpShell(tester);
+    Finder highlight() => find.descendant(
+        of: find.descendant(
+            of: find.byType(AppBottomBar), matching: find.byType(AnimatedPositioned)),
+        matching: find.byType(DecoratedBox));
+    for (final tab in [AppTab.profile, AppTab.progress, AppTab.home]) {
+      await tester.tap(find.bySemanticsLabel(tab.label));
+      // Partway through, the highlight is between tabs (it moves, not jumps).
+      await tester.pump(const Duration(milliseconds: 120));
+      await pumpFrames(tester, seconds: 1);
+      final dot = tester.getCenter(highlight()).dx;
+      final icon = tester.getCenter(find.descendant(
+          of: find.byType(AppBottomBar), matching: find.byIcon(tab.selectedIcon))).dx;
+      expect((dot - icon).abs(), lessThan(1), reason: tab.label);
+    }
     expect(tester.takeException(), isNull);
   });
 }

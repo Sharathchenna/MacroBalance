@@ -36,8 +36,9 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
 
   late final AnimationController _menu = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 420),
-    reverseDuration: const Duration(milliseconds: 220),
+    // Unhurried in, brisk out; curves are applied by the menu and the +.
+    duration: const Duration(milliseconds: 460),
+    reverseDuration: const Duration(milliseconds: 260),
   )..addStatusListener((_) => setState(() {}));
 
   AppTab get currentTab => _tab;
@@ -146,7 +147,7 @@ class AppShellState extends State<AppShell> with SingleTickerProviderStateMixin 
                   onSelect: select,
                   onAdd: _toggleMenu,
                   onAddLongPress: _openCamera,
-                  addOpen: _menu.isForwardOrCompleted,
+                  menuAnimation: _menu,
                 ),
               ),
             ),

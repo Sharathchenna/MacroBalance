@@ -35,17 +35,26 @@ class LogFoodMenu extends StatelessWidget {
   /// Distance from the bottom of the screen to the top of the bottom bar.
   final double bottomOffset;
 
-  /// [index]'s slice of the open animation, so tiles arrive in turn.
+  /// [index]'s slice of the open animation, so tiles arrive in turn. On the
+  /// way out every tile fades with the panel, all together.
   Animation<double> _stagger(int index) => CurvedAnimation(
         parent: animation,
-        curve: Interval(0.15 + index * 0.12, (0.6 + index * 0.12).clamp(0, 1),
-            curve: Curves.easeOutCubic),
+        curve: Interval(0.2 + index * 0.08, (0.75 + index * 0.08).clamp(0, 1),
+            curve: Curves.easeOutQuart),
+        reverseCurve: Curves.easeInCubic,
       );
 
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final panel = CurvedAnimation(parent: animation, curve: Curves.easeOutBack,
+    // Smooth deceleration in, quick ease out: no overshoot anywhere.
+    final panel = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutQuart,
+        reverseCurve: Curves.easeInCubic);
+    final backdrop = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic);
 
     return Stack(
@@ -55,12 +64,12 @@ class LogFoodMenu extends StatelessWidget {
           child: GestureDetector(
             onTap: onClose,
             child: AnimatedBuilder(
-              animation: animation,
+              animation: backdrop,
               builder: (context, _) => BackdropFilter(
                 filter: ImageFilter.blur(
-                    sigmaX: 8 * animation.value, sigmaY: 8 * animation.value),
+                    sigmaX: 8 * backdrop.value, sigmaY: 8 * backdrop.value),
                 child: ColoredBox(
-                  color: Colors.black.withOpacity(0.35 * animation.value),
+                  color: Colors.black.withOpacity(0.35 * backdrop.value),
                 ),
               ),
             ),
@@ -70,46 +79,67 @@ class LogFoodMenu extends StatelessWidget {
           left: 16,
           right: 16,
           bottom: bottomOffset + 14,
-          child: ScaleTransition(
-            scale: panel,
-            alignment: Alignment.bottomRight, // grows from the + button
-            child: FadeTransition(
-              opacity: CurvedAnimation(parent: animation, curve: const Interval(0, 0.4)),
-              child: _GlassPanel(
-                isLight: isLight,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _Arrive(
-                      animation: _stagger(0),
-                      child: _ScanTile(onTap: onScan),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        for (final (i, option) in [
-                          (CupertinoIcons.bookmark, 'Saved', 'Your foods', onSaved),
-                          (CupertinoIcons.search, 'Search', 'Database', onSearch),
-                          (CupertinoIcons.text_bubble, 'Describe', 'Tell AI', onDescribe),
-                        ].indexed) ...[
-                          if (i > 0) const SizedBox(width: 10),
-                          Expanded(
-                            child: _Arrive(
-                              animation: _stagger(i + 1),
-                              child: _OptionTile(
-                                icon: option.$1,
-                                title: option.$2,
-                                subtitle: option.$3,
-                                onTap: option.$4,
-                                isLight: isLight,
+          // Rises a little and settles from the + button's corner while it
+          // fades in; sinks back and fades on the way out.
+          child: SlideTransition(
+            position: Tween(begin: const Offset(0, 0.06), end: Offset.zero)
+                .animate(panel),
+            child: ScaleTransition(
+              scale: Tween(begin: 0.92, end: 1.0).animate(panel),
+              alignment: Alignment.bottomRight,
+              child: FadeTransition(
+                opacity: panel,
+                child: _GlassPanel(
+                  isLight: isLight,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Arrive(
+                        animation: _stagger(0),
+                        child: _ScanTile(onTap: onScan),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          for (final (i, option) in [
+                            (
+                              CupertinoIcons.bookmark,
+                              'Saved',
+                              'Your foods',
+                              onSaved
+                            ),
+                            (
+                              CupertinoIcons.search,
+                              'Search',
+                              'Database',
+                              onSearch
+                            ),
+                            (
+                              CupertinoIcons.text_bubble,
+                              'Describe',
+                              'Tell AI',
+                              onDescribe
+                            ),
+                          ].indexed) ...[
+                            if (i > 0) const SizedBox(width: 10),
+                            Expanded(
+                              child: _Arrive(
+                                animation: _stagger(i + 1),
+                                child: _OptionTile(
+                                  icon: option.$1,
+                                  title: option.$2,
+                                  subtitle: option.$3,
+                                  onTap: option.$4,
+                                  isLight: isLight,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -132,7 +162,8 @@ class _Arrive extends StatelessWidget {
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
-        position: Tween(begin: const Offset(0, 0.35), end: Offset.zero).animate(animation),
+        position: Tween(begin: const Offset(0, 0.15), end: Offset.zero)
+            .animate(animation),
         child: child,
       ),
     );
@@ -159,8 +190,14 @@ class _GlassPanel extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: isLight
-                  ? [Colors.white.withOpacity(0.92), Colors.grey.shade50.withOpacity(0.85)]
-                  : [Colors.grey.shade900.withOpacity(0.7), Colors.grey.shade900.withOpacity(0.88)],
+                  ? [
+                      Colors.white.withOpacity(0.92),
+                      Colors.grey.shade50.withOpacity(0.85)
+                    ]
+                  : [
+                      Colors.grey.shade900.withOpacity(0.7),
+                      Colors.grey.shade900.withOpacity(0.88)
+                    ],
             ),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
@@ -253,7 +290,8 @@ class _ScanTile extends StatelessWidget {
                                   color: Colors.black)),
                           Text('Snap your meal or a barcode',
                               style: GoogleFonts.poppins(
-                                  fontSize: 12.5, color: Colors.black.withOpacity(0.7))),
+                                  fontSize: 12.5,
+                                  color: Colors.black.withOpacity(0.7))),
                         ],
                       ),
                     ),
@@ -306,7 +344,10 @@ class _OptionTile extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: isLight
                     ? [Colors.white, Colors.grey.shade50]
-                    : [Colors.white.withOpacity(0.07), Colors.white.withOpacity(0.03)],
+                    : [
+                        Colors.white.withOpacity(0.07),
+                        Colors.white.withOpacity(0.03)
+                      ],
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
@@ -318,7 +359,10 @@ class _OptionTile extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 22, color: isLight ? Colors.grey.shade900 : Colors.grey.shade200),
+                Icon(icon,
+                    size: 22,
+                    color:
+                        isLight ? Colors.grey.shade900 : Colors.grey.shade200),
                 const SizedBox(height: 8),
                 Text(title,
                     maxLines: 1,
@@ -326,14 +370,18 @@ class _OptionTile extends StatelessWidget {
                     style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: isLight ? Colors.black87 : Colors.white.withOpacity(0.95))),
+                        color: isLight
+                            ? Colors.black87
+                            : Colors.white.withOpacity(0.95))),
                 const SizedBox(height: 2),
                 Text(subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
                         fontSize: 11,
-                        color: isLight ? Colors.grey.shade600 : Colors.grey.shade400)),
+                        color: isLight
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade400)),
               ],
             ),
           ),

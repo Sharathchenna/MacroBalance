@@ -19,8 +19,15 @@ enum AppTab {
 
 const _accent = Color(0xFFFFC107);
 
+/// Motion shared by the bar and the log-food menu, so they move as one.
+const kNavMotion = Duration(milliseconds: 320);
+const kNavCurve = Curves.easeInOutCubic;
+
 /// Floating bottom bar shared by every section: a blurred pill with the
-/// section icons and, when [onAdd] is set, a round add button beside it.
+/// section icons and a round add button beside it.
+///
+/// Switching sections slides the highlight from the old icon to the new one
+/// while the icons cross-fade between outline and filled.
 class AppBottomBar extends StatelessWidget {
   const AppBottomBar({
     super.key,
@@ -28,7 +35,7 @@ class AppBottomBar extends StatelessWidget {
     required this.onSelect,
     this.onAdd,
     this.onAddLongPress,
-    this.addOpen = false,
+    this.menuAnimation,
   });
 
   final AppTab current;
@@ -36,10 +43,14 @@ class AppBottomBar extends StatelessWidget {
   final VoidCallback? onAdd;
   final VoidCallback? onAddLongPress;
 
-  /// The log-food menu is open: the + turns into a close button.
-  final bool addOpen;
+  /// The log-food menu's open progress (0 closed, 1 open). Turns the + into a
+  /// close button in step with the menu.
+  final Animation<double>? menuAnimation;
 
   static const double height = 52;
+  static const double _slot = 60;
+  static const double _dot = 40;
+  static const double _inset = 5;
 
   /// Space to leave at the end of a tab's scrolling content so its last
   /// item can scroll clear of the bar.
@@ -57,7 +68,7 @@ class AppBottomBar extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
               height: height,
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(_inset),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(height / 2),
                 color: isLight
@@ -70,37 +81,55 @@ class AppBottomBar extends StatelessWidget {
                   width: 0.5,
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final tab in AppTab.values)
-                    _TabItem(
-                      tab: tab,
-                      selected: tab == current,
-                      isLight: isLight,
-                      onTap: () {
-                        if (tab != current) HapticFeedback.selectionClick();
-                        onSelect(tab);
-                      },
+              child: SizedBox(
+                width: _slot * AppTab.values.length,
+                child: Stack(
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    // The highlight glides to the selected section.
+                    AnimatedPositioned(
+                      duration: kNavMotion,
+                      curve: kNavCurve,
+                      left: current.index * _slot + (_slot - _dot) / 2,
+                      top: (height - 2 * _inset - _dot) / 2,
+                      width: _dot,
+                      height: _dot,
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0x33FFC107),
+                        ),
+                      ),
                     ),
-                ],
+                    Row(
+                      children: [
+                        for (final tab in AppTab.values)
+                          _TabItem(
+                            tab: tab,
+                            selected: tab == current,
+                            isLight: isLight,
+                            onTap: () {
+                              if (tab != current) HapticFeedback.selectionClick();
+                              onSelect(tab);
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          transitionBuilder: (child, animation) =>
-              ScaleTransition(scale: animation, child: child),
-          child: onAdd == null
-              ? const SizedBox.shrink()
-              : Padding(
-                  key: const ValueKey('add'),
-                  padding: const EdgeInsets.only(left: 10),
-                  child: _AddButton(
-                      onTap: onAdd!, onLongPress: onAddLongPress, open: addOpen),
-                ),
-        ),
+        if (onAdd != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 10),
+            child: _AddButton(
+              onTap: onAdd!,
+              onLongPress: onAddLongPress,
+              animation: menuAnimation ?? const AlwaysStoppedAnimation(0),
+            ),
+          ),
       ],
     );
   }
@@ -121,8 +150,7 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Icon only, like the original bar: the selected section gets a filled
-    // icon on a soft accent circle.
+    final idle = isLight ? Colors.black45 : Colors.white54;
     return Semantics(
       button: true,
       selected: selected,
@@ -132,23 +160,32 @@ class _TabItem extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: SizedBox(
-          width: 60,
+          width: AppBottomBar._slot,
+          height: double.infinity,
           child: Center(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected ? _accent.withOpacity(0.2) : Colors.transparent,
-              ),
-              child: Icon(
-                selected ? tab.selectedIcon : tab.icon,
-                size: 23,
-                color: selected
-                    ? _accent
-                    : (isLight ? Colors.black45 : Colors.white54),
+            // Outline and filled icons cross-fade while the colour eases, so
+            // the icon "lights up" as the highlight arrives.
+            child: TweenAnimationBuilder<Color?>(
+              tween: ColorTween(end: selected ? _accent : idle),
+              duration: kNavMotion,
+              curve: kNavCurve,
+              builder: (context, color, _) => AnimatedSwitcher(
+                duration: kNavMotion,
+                switchInCurve: kNavCurve,
+                switchOutCurve: kNavCurve,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween(begin: 0.85, end: 1.0).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: Icon(
+                  selected ? tab.selectedIcon : tab.icon,
+                  key: ValueKey(selected),
+                  size: 23,
+                  color: color,
+                ),
               ),
             ),
           ),
@@ -159,20 +196,30 @@ class _TabItem extends StatelessWidget {
 }
 
 class _AddButton extends StatelessWidget {
-  const _AddButton({required this.onTap, this.onLongPress, this.open = false});
-
-  final bool open;
+  const _AddButton({
+    required this.onTap,
+    required this.animation,
+    this.onLongPress,
+  });
 
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final Animation<double> animation;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: open ? 'Close' : 'Log food',
-      hint: onLongPress == null ? null : 'Long press to open the camera',
-      excludeSemantics: true,
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final open = animation.value > 0.5;
+        return Semantics(
+          button: true,
+          label: open ? 'Close' : 'Log food',
+          hint: onLongPress == null || open ? null : 'Long press to open the camera',
+          excludeSemantics: true,
+          child: child,
+        );
+      },
       child: Material(
         color: _accent,
         shape: const CircleBorder(),
@@ -193,10 +240,12 @@ class _AddButton extends StatelessWidget {
           child: SizedBox(
             width: AppBottomBar.height,
             height: AppBottomBar.height,
-            child: AnimatedRotation(
-              turns: open ? 0.125 : 0,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutBack,
+            // Rotates with the menu itself: same timing and the same smooth
+            // curve opening and closing, no overshoot.
+            child: RotationTransition(
+              turns: Tween(begin: 0.0, end: 0.125).animate(
+                CurvedAnimation(parent: animation, curve: kNavCurve),
+              ),
               child: const Icon(CupertinoIcons.add, color: Colors.black, size: 26),
             ),
           ),
