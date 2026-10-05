@@ -10,6 +10,7 @@ import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart';
 import 'package:macrotracker/screens/WorkoutTrackingScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
+import 'package:macrotracker/screens/app_shell.dart';
 import 'package:macrotracker/screens/askAI.dart';
 import 'package:macrotracker/screens/dashboard_screen.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart';
@@ -77,6 +78,9 @@ void main() {
   );
 
   final screens = <String, Widget Function()>{
+    'App shell (Home)': () => const AppShell(),
+    'App shell (Progress)': () => const AppShell(initialTab: AppTab.progress),
+    'App shell (Profile)': () => const AppShell(initialTab: AppTab.profile),
     'Dashboard': () => const Dashboard(),
     'Food search': () => const FoodSearchPage(selectedMeal: 'Lunch'),
     'Saved foods': () => const SavedFoodsScreen(),
@@ -124,7 +128,7 @@ void main() {
     tester.view.physicalSize = const Size(750, 1334);
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
-    for (final name in ['Dashboard', 'Weight', 'Goals', 'Settings', 'Food detail']) {
+    for (final name in ['App shell (Home)', 'App shell (Progress)', 'App shell (Profile)', 'Weight', 'Goals', 'Food detail']) {
       await tester.pumpWidget(testApp(screens[name]!(), foodEntryProvider: provider));
       await pumpFrames(tester);
       expect(tester.takeException(), isNull, reason: name);

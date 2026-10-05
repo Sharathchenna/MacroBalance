@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -344,7 +345,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                           _buildContributionGraph(customColors),
                           const SizedBox(height: 32),
                           _buildTodaySection(customColors),
-                          const SizedBox(height: 50),
+                          const SizedBox(height: AppBottomBar.scrollClearance),
                         ],
                       ),
                     ),

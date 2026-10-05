@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +35,10 @@ import 'package:macrotracker/services/posthog_service.dart'; // Import PostHogSe
 import 'package:macrotracker/services/superwall_service.dart'; // Import SuperwallService
 
 class AccountDashboard extends StatefulWidget {
-  const AccountDashboard({super.key});
+  const AccountDashboard({super.key, this.showBackButton = true});
+
+  /// False when shown as the Profile tab of the app shell.
+  final bool showBackButton;
 
   @override
   State<AccountDashboard> createState() => _AccountDashboardState();
@@ -357,20 +361,23 @@ class _AccountDashboardState extends State<AccountDashboard>
             systemOverlayStyle: isDarkMode
                 ? SystemUiOverlayStyle.light
                 : SystemUiOverlayStyle.dark,
-            leading: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(CupertinoIcons.back,
-                    color: colorScheme.primary, size: 18),
-              ),
-              onPressed: () => Navigator.pop(context),
-            ),
+            automaticallyImplyLeading: false,
+            leading: !widget.showBackButton
+                ? null
+                : IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(CupertinoIcons.back,
+                          color: colorScheme.primary, size: 18),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
             title: Text(
-              'Settings',
+              widget.showBackButton ? 'Settings' : 'Profile',
               style: GoogleFonts.poppins(
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
@@ -381,8 +388,8 @@ class _AccountDashboardState extends State<AccountDashboard>
           ),
           // Use a regular ListView instead of a Stack to avoid layout issues
           body: ListView(
-            padding:
-                const EdgeInsets.only(top: 8), // Add some padding at the top
+            // Bottom room so the last row scrolls clear of the bottom bar.
+            padding: EdgeInsets.only(top: 8, bottom: widget.showBackButton ? 24 : AppBottomBar.scrollClearance),
             children: [
               // Profile header
               _buildProfileHeader(colorScheme, customColors),

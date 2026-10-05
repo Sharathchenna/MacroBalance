@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -449,7 +450,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
                       // _buildStepsHistoryList(customColors),
                       // const SizedBox(height: 16),
                       _buildActivityInsights(customColors),
-                      const SizedBox(height: 50)
+                      const SizedBox(height: AppBottomBar.scrollClearance)
                     ],
                   ),
                 ),

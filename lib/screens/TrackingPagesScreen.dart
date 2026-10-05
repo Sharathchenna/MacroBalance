@@ -1,6 +1,3 @@
-import 'dart:async';
-import 'dart:ui'; // Added for ImageFilter
-import 'package:flutter/cupertino.dart'; // Added for CupertinoIcons, HapticFeedback
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,67 +10,56 @@ import 'MacroTrackingScreen.dart';
 import 'WorkoutTrackingScreen.dart';
 import '../services/posthog_service.dart';
 
+/// Progress: weight, calories, steps and workouts, switched with tabs at the
+/// top (or by swiping).
 class TrackingPagesScreen extends StatefulWidget {
-  const TrackingPagesScreen({Key? key}) : super(key: key);
+  const TrackingPagesScreen({super.key, this.embedded = false, this.initialPage = 0});
+
+  /// Shown as a tab of the app shell: no back button.
+  final bool embedded;
+  final int initialPage;
 
   @override
   State<TrackingPagesScreen> createState() => _TrackingPagesScreenState();
 }
 
 class _TrackingPagesScreenState extends State<TrackingPagesScreen>
-    with AutomaticKeepAliveClientMixin {
-  late PageController _pageController;
-  int _currentPage = 0;
-  final List<String> _titles = ['Weight', 'Calories', 'Steps', 'Workouts'];
-  bool _showSwipeHint = true;
-  bool _isInitialLoad = true;
+    with SingleTickerProviderStateMixin {
+  static const _tabs = ['Weight', 'Calories', 'Steps', 'Workouts'];
 
-  @override
-  bool get wantKeepAlive => true; // Keep the state alive
+  late final TabController _tabController = TabController(
+    length: _tabs.length,
+    vsync: this,
+    initialIndex: widget.initialPage.clamp(0, _tabs.length - 1),
+  );
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _currentPage);
-    
-    // Track screen view
     PostHogService.trackScreen('tracking_pages_screen');
-
-    // Show swipe hint after a short delay, then hide it after 3 seconds.
-    _hintTimer = Timer(const Duration(milliseconds: 800), () {
-      if (mounted && _isInitialLoad) {
-        setState(() {
-          _isInitialLoad = false;
-          _showSwipeHint = true;
-        });
-        _hintTimer = Timer(const Duration(seconds: 3), () {
-          if (mounted) setState(() => _showSwipeHint = false);
-        });
-      }
+    // Rebuild for the Weight-only unit toggle in the app bar.
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging && mounted) setState(() {});
     });
   }
 
-  Timer? _hintTimer;
-
   @override
   void dispose() {
-    _hintTimer?.cancel();
-    _pageController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required by AutomaticKeepAliveClientMixin
     final theme = Theme.of(context);
     final customColors = theme.extension<CustomColors>()!;
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         centerTitle: false,
         title: Text(
-          _titles[_currentPage],
+          'Progress',
           style: GoogleFonts.inter(
             fontSize: 24,
             fontWeight: FontWeight.w700,
@@ -81,29 +67,23 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           ),
         ),
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         systemOverlayStyle: theme.brightness == Brightness.light
             ? SystemUiOverlayStyle.dark
             : SystemUiOverlayStyle.light,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: customColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        iconTheme: IconThemeData(color: customColors.textPrimary),
         actions: [
-          if (_currentPage == 0) // Weight screen unit toggle
+          if (_tabController.index == 0)
             Padding(
-              padding: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.only(right: 12),
               child: Consumer<WeightUnitProvider>(
                 builder: (context, unitProvider, _) => TextButton.icon(
                   onPressed: () {
                     HapticFeedback.lightImpact();
                     unitProvider.toggleUnit();
                   },
-                  icon: Icon(
-                    Icons.scale,
-                    color: customColors.textPrimary,
-                    size: 20,
-                  ),
+                  icon: Icon(Icons.scale, color: customColors.textPrimary, size: 20),
                   label: Text(
                     unitProvider.unitLabel,
                     style: TextStyle(
@@ -114,277 +94,38 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
                 ),
               ),
             ),
-          // Navigation hint icon in app bar
-          // Padding(
-          //   padding: const EdgeInsets.only(right: 16),
-          //   child: Icon(
-          //     Icons.swipe,
-          //     size: 20,
-          //     color: customColors.textSecondary.withOpacity(0.6),
-          //   ),
-          // ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          dividerColor: Colors.transparent,
+          indicatorSize: TabBarIndicatorSize.label,
+          indicator: UnderlineTabIndicator(
+            borderSide: BorderSide(width: 2.5, color: customColors.accentPrimary),
+            borderRadius: BorderRadius.circular(2),
+          ),
+          labelColor: customColors.textPrimary,
+          unselectedLabelColor: customColors.textSecondary,
+          labelStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
+          onTap: (_) => HapticFeedback.selectionClick(),
+          tabs: [for (final t in _tabs) Tab(text: t, height: 40)],
+        ),
       ),
-      // Removed bottomNavigationBar, using Stack for floating effect
-      body: Stack(
-        // Parent Stack for PageView and Floating Nav
-        children: [
-          // Main Content Area (PageView) with bottom padding
-          // Add padding ONLY to the PageView container to prevent overlap with floating bar
-          PageView(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-                _showSwipeHint = false; // Hide hint when user swipes
-              });
-            },
-            children: [
-              KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
-              KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
-              KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
-              KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
-            ],
-          ),
-
-          // Subtle edge indicators for swipe navigation (keep these)
-          // if (_currentPage < _titles.length - 1)
-          //   _buildEdgeGradient(customColors, false),
-
-          // if (_currentPage > 0) _buildEdgeGradient(customColors, true),
-
-          // Initial swipe hint - more elegant and minimal (keep this)
-          // if (_showSwipeHint) _buildSwipeHint(customColors, size),
-
-          // Positioned Floating Navigation Bar
-          Positioned(
-            // Use similar positioning as Dashboard
-            bottom: size.height * 0.04, // Adjust as needed
-            left: size.width * 0.18, // Adjust as needed
-            right: size.width * 0.18, // Adjust as needed
-            child: _buildPageIndicator(
-                theme, customColors), // This now builds the floating bar
-          ),
+      body: TabBarView(
+        controller: _tabController,
+        children: const [
+          KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
+          KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
+          KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
+          KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
         ],
-      ),
-    );
-  }
-
-  // --- Helper Methods (Defined ONCE) ---
-
-  Widget _buildEdgeGradient(CustomColors customColors, bool isLeft) {
-    return Positioned(
-      top: 0,
-      bottom: 0,
-      left: isLeft ? 0 : null,
-      right: isLeft ? null : 0,
-      child: Container(
-        width: 40,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: isLeft ? Alignment.centerRight : Alignment.centerLeft,
-            end: isLeft ? Alignment.centerLeft : Alignment.centerRight,
-            colors: [
-              Colors.transparent,
-              customColors.cardBackground.withOpacity(0.02),
-              customColors.cardBackground.withOpacity(0.05),
-            ],
-          ),
-        ),
-        child: Center(
-          child: Container(
-            height: 50,
-            width: 24,
-            decoration: BoxDecoration(
-              color: customColors.cardBackground.withOpacity(0.5),
-              borderRadius: BorderRadius.horizontal(
-                left: Radius.circular(isLeft ? 0 : 4),
-                right: Radius.circular(isLeft ? 4 : 0),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Icon(
-                isLeft ? Icons.chevron_left : Icons.chevron_right,
-                size: 18,
-                color: customColors.accentPrimary.withOpacity(0.7),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwipeHint(CustomColors customColors, Size size) {
-    return Positioned(
-      bottom: 100, // Keep this above the floating nav bar
-      left: 0,
-      right: 0,
-      child: Center(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 1000),
-          curve: Curves.easeOutCubic,
-          builder: (context, value, child) {
-            return Opacity(
-              opacity: value,
-              child: Transform.translate(
-                offset: Offset(0, 20 * (1 - value)),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: customColors.cardBackground,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: customColors.accentPrimary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.swipe,
-                          size: 18,
-                          color: customColors.accentPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Swipe between tracking pages',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: customColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 12,
-                        color: customColors.textSecondary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  // This function builds the floating bar content
-  Widget _buildPageIndicator(ThemeData theme, CustomColors customColors) {
-    final List<IconData> icons = [
-      Icons.monitor_weight_outlined, // Weight
-      Icons.pie_chart_outline_rounded, // Macros
-      Icons.directions_walk, // Steps
-      Icons.fitness_center, // Workouts
-    ];
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-        child: Container(
-          height: 45,
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14.0),
-            color: theme.brightness == Brightness.light
-                ? Colors.grey.shade50.withOpacity(0.4)
-                : Colors.black.withOpacity(0.4),
-            border: Border.all(
-              color: theme.brightness == Brightness.light
-                  ? Colors.grey.withOpacity(0.2)
-                  : Colors.white.withOpacity(0.1),
-              width: 0.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: theme.brightness == Brightness.light
-                    ? Colors.black.withOpacity(0.05)
-                    : Colors.black.withOpacity(0.2),
-                blurRadius: 10,
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(_titles.length, (index) {
-              return _buildTrackingNavItem(
-                context: context,
-                icon: icons[index],
-                isActive: _currentPage == index,
-                onTap: () {
-                  if (_currentPage != index) {
-                    HapticFeedback.lightImpact();
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  }
-                },
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Helper function for individual nav items
-  Widget _buildTrackingNavItem({
-    required BuildContext context,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: isActive
-                ? const Color(0xFFFFC107).withOpacity(0.2)
-                : Colors.transparent,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: const Color(0xFFFFC107),
-            size: 24,
-          ),
-        ),
       ),
     );
   }
 }
 
-// --- KeepAlivePage Class (Defined ONCE) ---
+/// Keeps a tab's state while another tab is showing.
 class KeepAlivePage extends StatefulWidget {
   final Widget child;
 

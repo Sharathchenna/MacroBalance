@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -247,7 +248,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                  child: _buildMacroGoals(customColors,
                                      targetCalories), // Pass calculated target calories
                                ),
-                               const SizedBox(height: 50),
+                               const SizedBox(height: AppBottomBar.scrollClearance),
                              ],
                            ),
                          ),

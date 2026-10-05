@@ -37,6 +37,7 @@ const _pluginChannels = [
   'dev.fluttercommunity.plus/package_info',
   'dev.fluttercommunity.plus/device_info',
   'com.llfbandit.app_links/messages',
+  'com.macrotracker/native_camera_view',
   'com.llfbandit.app_links/events',
 ];
 

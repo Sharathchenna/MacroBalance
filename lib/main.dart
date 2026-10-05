@@ -53,6 +53,7 @@ import 'package:macrotracker/services/superwall_service.dart';
 import 'package:macrotracker/services/photo_analysis_service.dart';
 import 'package:macrotracker/screens/dashboard/components/photo_job_card.dart';
 import 'package:lottie/lottie.dart';
+import 'package:macrotracker/screens/app_shell.dart';
 
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -562,15 +563,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           routes: {
             Routes.initial: (context) => const AuthGate(),
             Routes.onboarding: (context) => const OnboardingScreen(),
-            Routes.home: (context) => const SuperwallGate(child: Dashboard()),
+            Routes.home: (context) => const SuperwallGate(child: AppShell()),
             Routes.dashboard: (context) =>
-                const SuperwallGate(child: Dashboard()),
+                const SuperwallGate(child: AppShell()),
             Routes.goals: (context) =>
                 const SuperwallGate(child: StepTrackingScreen()),
             Routes.search: (context) =>
                 const SuperwallGate(child: FoodSearchPage()),
             Routes.account: (context) =>
-                const SuperwallGate(child: AccountDashboard()),
+                const SuperwallGate(child: AppShell(initialTab: AppTab.profile)),
             Routes.weightTracking: (context) =>
                 const SuperwallGate(child: WeightTrackingScreen()),
             Routes.macroTracking: (context) =>

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:macrotracker/screens/dashboard_screen.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart';
 import 'package:macrotracker/screens/MacroTrackingScreen.dart';
@@ -7,6 +6,7 @@ import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/camera/camera.dart';
 import 'route_constants.dart';
+import 'package:macrotracker/screens/app_shell.dart';
 
 class Routes {
   static const String onboarding = '/onboarding';
@@ -25,7 +25,7 @@ class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case RouteNames.dashboard:
-        return MaterialPageRoute(builder: (_) => const Dashboard());
+        return MaterialPageRoute(builder: (_) => const AppShell());
       case RouteNames.stepTracking:
         return MaterialPageRoute(builder: (_) => const StepTrackingScreen());
       case RouteNames.weightTracking:

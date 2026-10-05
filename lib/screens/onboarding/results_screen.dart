@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'pages/acquisition_source_page.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:macrotracker/screens/dashboard_screen.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
@@ -12,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/screens/app_shell.dart';
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -147,7 +147,7 @@ class _ResultsScreenState extends State<ResultsScreen>
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => const Dashboard(),
+              builder: (context) => const AppShell(),
             ),
           );
         }

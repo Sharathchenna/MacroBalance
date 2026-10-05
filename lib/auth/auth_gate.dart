@@ -1,4 +1,3 @@
-import 'package:macrotracker/screens/dashboard_screen.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,6 +7,7 @@ import 'package:macrotracker/auth/superwall_gate.dart'; // Import the SuperwallG
 import 'dart:convert'; // Add for JSON parsing
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/services/posthog_service.dart'; // Added PostHogService import
+import 'package:macrotracker/screens/app_shell.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -170,7 +170,7 @@ class _AuthGateState extends State<AuthGate> {
             }
 
             return SuperwallGate(
-              child: const Dashboard(),
+              child: const AppShell(),
             );
           },
         );

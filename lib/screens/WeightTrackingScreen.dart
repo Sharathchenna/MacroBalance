@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/utils/weight_range.dart';
@@ -262,7 +263,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
                           _buildWeightHistory(customColors),
                           const SizedBox(height: 24),
                           _buildWeightGoalCard(customColors),
-                          const SizedBox(height: 50),
+                          const SizedBox(height: AppBottomBar.scrollClearance),
                         ],
                       ),
                     ),
