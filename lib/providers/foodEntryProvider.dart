@@ -453,8 +453,10 @@ class FoodEntryProvider with ChangeNotifier {
         'tdee': _tdee,
         'goal_type': _goalType,
         'deficit_surplus': _deficitSurplus,
-        'goal_weight_kg': _goalWeightKg,
-        'current_weight_kg': _currentWeightKg,
+        // A 0 here means "not loaded", not a real goal; sending it would wipe
+        // the goal weight saved at onboarding.
+        if (_goalWeightKg > 0) 'goal_weight_kg': _goalWeightKg,
+        if (_currentWeightKg > 0) 'current_weight_kg': _currentWeightKg,
         'macro_targets': {
           'calories': _caloriesGoal,
           'protein': _proteinGoal,

@@ -104,6 +104,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     // _updateProgressAnimation(); // Removed redundant call
     _animationController.forward();
     _goalWeightKg = _weightKg; // Initialize goal weight
+    // Start from the unit the user already uses (their Settings choice, or
+    // the region default), so finishing doesn't silently switch it.
+    _isMetricWeight = Provider.of<WeightUnitProvider>(context, listen: false).isMetric;
     if (widget.recalculateOnly) _prefillFromCurrentGoals();
   }
 
@@ -468,11 +471,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Back button
-                  _currentPage > 0
+                  // When recalculating from Settings, the first step's
+                  // Back leaves the flow; otherwise there'd be no way out.
+                  _currentPage > 0 || widget.recalculateOnly
                       ? TextButton(
-                          onPressed: _previousPage,
+                          onPressed: _currentPage > 0
+                              ? _previousPage
+                              : () => Navigator.of(context).maybePop(),
                           child: Text(
-                            'Back',
+                            _currentPage > 0 ? 'Back' : 'Cancel',
                             style: AppTypography.onboardingButton.copyWith(
                               color: customColors?.textSecondary ??
                                   theme.colorScheme.secondary,

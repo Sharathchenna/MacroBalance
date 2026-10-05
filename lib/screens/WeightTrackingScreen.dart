@@ -95,7 +95,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen>
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
       _currentWeight = foodEntryProvider.currentWeightKg;
-      _targetWeight = foodEntryProvider.goalWeightKg;
+      // No goal weight (e.g. a "maintain" goal): aim to stay at the current weight.
+      _targetWeight = foodEntryProvider.goalWeightKg > 0
+          ? foodEntryProvider.goalWeightKg
+          : _currentWeight;
 
       // --- Load Weight History from StorageService (Hive) ---
       final String? weightHistoryJson = StorageService().get('weight_history');
