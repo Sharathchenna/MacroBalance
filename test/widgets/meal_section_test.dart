@@ -56,18 +56,10 @@ void main() {
     await settle(tester);
   }
 
-  /// Expands [meal] if it isn't already.
+  /// Scrolls [meal]'s card into view. Meals with food start open and empty
+  /// ones show their suggestion inline, so there's nothing to expand.
   Future<void> openMeal(WidgetTester tester, String meal) async {
-    // Collapsed meals still build their (hidden) content, so look for the
-    // add button on screen, not just in the tree.
     await tester.ensureVisible(find.text(meal));
-    await settle(tester);
-    final addButton = find.text('Add Food to $meal');
-    if (tester.getSize(addButton).width == 0) {
-      await tester.tap(find.text(meal));
-      await settle(tester);
-    }
-    await tester.ensureVisible(addButton);
     await settle(tester);
   }
 
@@ -80,7 +72,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('empty meals with no routine just say so', (tester) async {
+  testWidgets('empty meals are one quiet row with no add button',
+      (tester) async {
     // Eaten only once: not a routine.
     await tester.runAsync(() => provider.addEntry(
         testEntry(name: 'Toast', meal: 'Lunch', date: yesterday)));
@@ -89,7 +82,21 @@ void main() {
       await openMeal(tester, meal);
       expect(usualCard(meal), findsNothing, reason: meal);
     }
-    expect(find.text('No entries yet'), findsWidgets);
+    expect(find.text('Nothing logged yet'), findsNWidgets(MealTime.meals.length));
+    expect(find.textContaining('Add Food to'), findsNothing);
+    expect(find.text('0 items'), findsNothing);
+    expect(find.byIcon(Icons.keyboard_arrow_down), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('meals with food have no add button', (tester) async {
+    await tester.runAsync(() => provider.addEntry(
+        testEntry(name: 'Salad', meal: 'Lunch', date: today)));
+    await pumpMeals(tester);
+    await openMeal(tester, 'Lunch');
+    expect(find.text('Salad'), findsOneWidget);
+    expect(find.text('1 item'), findsOneWidget);
+    expect(find.textContaining('Add Food to'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -137,15 +144,12 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a collapsed meal shows its usual once opened', (tester) async {
-    // A meal that isn't the one for this time of day, so it starts closed.
+  testWidgets('any empty routine meal shows its usual without opening',
+      (tester) async {
+    // A meal that isn't the one for this time of day.
     final meal = MealTime.meals.firstWhere((m) => m != MealTime.forTime(DateTime.now()));
     await addRoutine(tester, meal, ['Apple']);
     await pumpMeals(tester);
-    await tester.ensureVisible(find.text(meal));
-    await settle(tester);
-    expect(usualCard(meal), findsNothing);
-
     await openMeal(tester, meal);
     expect(usualCard(meal), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -160,7 +164,7 @@ void main() {
     await tester.tap(find.text('Not today').hitTestable());
     await settle(tester);
     expect(usualCard('Snacks'), findsNothing);
-    expect(find.text('No entries yet').hitTestable(), findsWidgets);
+    expect(find.text('Nothing logged yet').hitTestable(), findsWidgets);
     expect(provider.getEntriesForMeal(today, 'Snacks'), isEmpty);
     expect(RoutineDismissals().isHidden('Snacks', today), isTrue);
     expect(tester.takeException(), isNull);
@@ -226,7 +230,7 @@ void main() {
     await settle(tester);
     await openMeal(tester, 'Snacks');
     expect(usualCard('Snacks'), findsNothing);
-    expect(find.text('No entries yet').hitTestable(), findsWidgets);
+    expect(find.text('Nothing logged yet').hitTestable(), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 

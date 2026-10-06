@@ -14,7 +14,6 @@ import '../../../theme/typography.dart';
 import '../../../services/photo_analysis_service.dart';
 import '../../../services/posthog_service.dart';
 import '../../../utils/meal_routine.dart';
-import '../../../utils/meal_time.dart';
 import '../../foodDetail.dart';
 import 'photo_job_card.dart';
 import '../../../utils/quick_log.dart';
@@ -29,9 +28,8 @@ class MealSection extends StatefulWidget {
 }
 
 class _MealSectionState extends State<MealSection> {
-  // Only what the user toggled by hand, per day and meal. Anything not here
-  // follows the default: open when it has food, a photo in progress, or is
-  // the current meal of today.
+  // Only what the user toggled by hand, per day and meal. Meals with food
+  // start open; empty meals have nothing to open.
   final Map<String, bool> _userExpanded = {};
 
   final _dismissals = RoutineDismissals();
@@ -39,13 +37,8 @@ class _MealSectionState extends State<MealSection> {
   String _expandKey(DateTime date, String meal) =>
       '${date.year}-${date.month}-${date.day}-$meal';
 
-  bool _isExpanded(DateTime date, String meal, bool hasContent) {
-    final manual = _userExpanded[_expandKey(date, meal)];
-    if (manual != null) return manual;
-    if (hasContent) return true;
-    return DateUtils.isSameDay(date, DateTime.now()) &&
-        meal == MealTime.forTime(DateTime.now());
-  }
+  bool _isExpanded(DateTime date, String meal) =>
+      _userExpanded[_expandKey(date, meal)] ?? true;
 
   @override
   Widget build(BuildContext context) {
@@ -79,13 +72,14 @@ class _MealSectionState extends State<MealSection> {
         final date = dateProvider.selectedDate;
         final entries = foodEntryProvider.getEntriesForMeal(date, mealType);
         final photoJobs = photoService.jobsFor(date, mealType);
-        final expanded =
-            _isExpanded(date, mealType, entries.isNotEmpty || photoJobs.isNotEmpty);
+        final empty = entries.isEmpty && photoJobs.isEmpty;
+        final expanded = !empty && _isExpanded(date, mealType);
 
         double totalCalories = entries.fold(
             0.0,
             (sum, entry) =>
-                sum + foodEntryProvider.calculateNutrientForEntry(entry, 'calories'));
+                sum +
+                foodEntryProvider.calculateNutrientForEntry(entry, 'calories'));
 
         IconData getMealIcon() {
           switch (mealType) {
@@ -102,8 +96,22 @@ class _MealSectionState extends State<MealSection> {
           }
         }
 
+        final colors = Theme.of(context).extension<CustomColors>();
+        // An empty meal of today that the user eats most days offers "the usual".
+        final now = DateTime.now();
+        final usual = empty && !_dismissals.isHidden(mealType, now)
+            ? MealRoutine.suggest(
+                meal: mealType,
+                viewedDate: date,
+                today: now,
+                entriesFor: (day) =>
+                    foodEntryProvider.getEntriesForMeal(day, mealType),
+              )
+            : null;
+
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: Theme.of(context).extension<CustomColors>()?.cardBackground,
             borderRadius: BorderRadius.circular(16),
@@ -120,96 +128,119 @@ class _MealSectionState extends State<MealSection> {
           ),
           child: Column(
             children: [
-              InkWell(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _userExpanded[_expandKey(date, mealType)] = !expanded);
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.light
-                              ? const Color(0xFFFFC107).withOpacity(0.1)
-                              : const Color(0xFFFFC107).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          getMealIcon(),
-                          color: const Color(0xFFFFC107),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              mealType,
-                              style: AppTypography.h3.copyWith(
-                                color: Theme.of(context)
-                                    .extension<CustomColors>()
-                                    ?.textPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${entries.length} ${entries.length == 1 ? 'item' : 'items'}',
-                              style: AppTypography.body2.copyWith(
-                                color: Theme.of(context)
-                                    .extension<CustomColors>()
-                                    ?.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${totalCalories.toStringAsFixed(0)}',
-                            style: AppTypography.body1.copyWith(
-                              color: const Color(0xFFFFC107),
-                              fontWeight: FontWeight.bold,
-                            ),
+              Semantics(
+                button: true,
+                label: empty ? '$mealType, nothing logged yet. Add food' : null,
+                excludeSemantics: empty,
+                child: InkWell(
+                  onTap: () {
+                    if (empty) {
+                      _openSearch(mealType);
+                      return;
+                    }
+                    HapticFeedback.selectionClick();
+                    setState(() =>
+                        _userExpanded[_expandKey(date, mealType)] = !expanded);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? const Color(0xFFFFC107).withOpacity(0.1)
+                                    : const Color(0xFFFFC107).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          Text(
-                            'cals',
-                            style: AppTypography.caption.copyWith(
+                          child: Icon(
+                            getMealIcon(),
+                            color: const Color(0xFFFFC107),
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                mealType,
+                                style: AppTypography.h3.copyWith(
+                                  color: Theme.of(context)
+                                      .extension<CustomColors>()
+                                      ?.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                empty
+                                    ? 'Nothing logged yet'
+                                    : '${entries.length} ${entries.length == 1 ? 'item' : 'items'}',
+                                style: AppTypography.body2.copyWith(
+                                  color: colors?.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (empty)
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colors?.textSecondary.withOpacity(0.12),
+                            ),
+                            child: Icon(Icons.add_rounded,
+                                size: 20, color: colors?.textSecondary),
+                          )
+                        else ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${totalCalories.toStringAsFixed(0)}',
+                                style: AppTypography.body1.copyWith(
+                                  color: const Color(0xFFFFC107),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'cals',
+                                style: AppTypography.caption.copyWith(
+                                  color: Theme.of(context)
+                                      .extension<CustomColors>()
+                                      ?.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 8),
+                          AnimatedRotation(
+                            turns: expanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              Icons.keyboard_arrow_down,
                               color: Theme.of(context)
                                   .extension<CustomColors>()
                                   ?.textSecondary,
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(width: 8),
-                      AnimatedRotation(
-                        turns: expanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 200),
-                        child: Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Theme.of(context)
-                              .extension<CustomColors>()
-                              ?.textSecondary,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
+              if (usual != null) _buildUsualMeal(usual, foodEntryProvider),
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
-                secondChild:
-                    _buildExpandedContent(
-                    entries, foodEntryProvider, mealType, photoJobs, date),
+                secondChild: _buildExpandedContent(
+                    entries, foodEntryProvider, photoJobs),
                 crossFadeState: expanded
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
@@ -237,16 +268,19 @@ class _MealSectionState extends State<MealSection> {
       counts[e.food.name] = (counts[e.food.name] ?? 0) + 1;
     }
     final names = [
-      for (final c in counts.entries) c.value > 1 ? '${c.key} ×${c.value}' : c.key
+      for (final c in counts.entries)
+        c.value > 1 ? '${c.key} ×${c.value}' : c.key
     ];
     final summary = names.length <= 2
         ? names.join(' and ')
         : '${names.take(2).join(', ')} and ${names.length - 2} more';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Material(
-        color: isLight ? Colors.black.withOpacity(0.03) : Colors.white.withOpacity(0.04),
+        color: isLight
+            ? Colors.black.withOpacity(0.03)
+            : Colors.white.withOpacity(0.04),
         borderRadius: BorderRadius.circular(14),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -262,7 +296,8 @@ class _MealSectionState extends State<MealSection> {
                   padding: const EdgeInsets.fromLTRB(14, 12, 10, 4),
                   child: Row(
                     children: [
-                      Icon(Icons.history_rounded, size: 20, color: colors?.textSecondary),
+                      Icon(Icons.history_rounded,
+                          size: 20, color: colors?.textSecondary),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -311,7 +346,8 @@ class _MealSectionState extends State<MealSection> {
                 child: TextButton(
                   onPressed: () => _dismissUsual(mealType),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     minimumSize: const Size(0, 32),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     foregroundColor: colors?.textSecondary,
@@ -333,7 +369,8 @@ class _MealSectionState extends State<MealSection> {
     );
   }
 
-  Future<void> _addUsual(RoutineSuggestion usual, FoodEntryProvider provider) async {
+  Future<void> _addUsual(
+      RoutineSuggestion usual, FoodEntryProvider provider) async {
     HapticFeedback.mediumImpact();
     final messenger = ScaffoldMessenger.of(context);
     final mealType = usual.meal;
@@ -402,76 +439,29 @@ class _MealSectionState extends State<MealSection> {
     Navigator.push(
       context,
       CupertinoPageRoute(
-        builder: (context) => FoodDetailPage(food: entry.food, existingEntry: entry),
+        builder: (context) =>
+            FoodDetailPage(food: entry.food, existingEntry: entry),
       ),
     );
   }
 
-  Widget _buildExpandedContent(List<FoodEntry> entries, FoodEntryProvider provider,
-      String mealType, List<PhotoJob> photoJobs, DateTime date) {
-    final empty = entries.isEmpty && photoJobs.isEmpty;
-    final now = DateTime.now();
-    // An empty meal of today that the user eats most days offers "the usual".
-    final usual = empty && !_dismissals.isHidden(mealType, now)
-        ? MealRoutine.suggest(
-            meal: mealType,
-            viewedDate: date,
-            today: now,
-            entriesFor: (day) => provider.getEntriesForMeal(day, mealType),
-          )
-        : null;
+  Widget _buildExpandedContent(List<FoodEntry> entries,
+      FoodEntryProvider provider, List<PhotoJob> photoJobs) {
     return Column(
       children: [
-        ...photoJobs.map((job) => PhotoJobCard(key: ValueKey(job.id), job: job)),
-        if (usual != null)
-          _buildUsualMeal(usual, provider)
-        else if (empty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: Text(
-                'No entries yet',
-                style: AppTypography.body2.copyWith(
-                  color: Theme.of(context).extension<CustomColors>()?.textSecondary,
-                ),
-              ),
-            ),
-          ),
+        ...photoJobs
+            .map((job) => PhotoJobCard(key: ValueKey(job.id), job: job)),
         ...entries.map((entry) => _buildFoodEntryTile(entry, provider)),
-        _buildAddFoodButton(mealType),
       ],
     );
   }
 
-  Widget _buildAddFoodButton(String mealType) {
-    final primary = Theme.of(context).colorScheme.primary;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: TextButton.icon(
-        icon: Icon(Icons.add_circle_outline, size: 18, color: primary),
-        label: Text(
-          'Add Food to $mealType',
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: primary,
-          ),
-        ),
-        style: TextButton.styleFrom(
-          backgroundColor: primary.withOpacity(0.1),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          minimumSize: const Size(double.infinity, 40),
-        ),
-        onPressed: () {
-          HapticFeedback.lightImpact();
-          Navigator.push(
-            context,
-            CupertinoPageRoute(
-              builder: (context) => FoodSearchPage(selectedMeal: mealType),
-            ),
-          );
-        },
+  void _openSearch(String mealType) {
+    HapticFeedback.lightImpact();
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => FoodSearchPage(selectedMeal: mealType),
       ),
     );
   }
@@ -515,7 +505,9 @@ class _MealSectionState extends State<MealSection> {
                     Text(
                       entry.food.name,
                       style: AppTypography.body1.copyWith(
-                        color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+                        color: Theme.of(context)
+                            .extension<CustomColors>()
+                            ?.textPrimary,
                         fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
@@ -525,7 +517,9 @@ class _MealSectionState extends State<MealSection> {
                     Text(
                       describeEntryAmount(entry),
                       style: AppTypography.caption.copyWith(
-                        color: Theme.of(context).extension<CustomColors>()?.textSecondary,
+                        color: Theme.of(context)
+                            .extension<CustomColors>()
+                            ?.textSecondary,
                       ),
                     ),
                   ],
@@ -535,7 +529,8 @@ class _MealSectionState extends State<MealSection> {
               Text(
                 '${calories.toStringAsFixed(0)} cals',
                 style: AppTypography.body2.copyWith(
-                  color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+                  color:
+                      Theme.of(context).extension<CustomColors>()?.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
