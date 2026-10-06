@@ -50,8 +50,11 @@ class AppBottomBar extends StatelessWidget {
 
   static const double height = 64;
   static const double _slot = 74;
-  static const double _dot = 50;
   static const double _inset = 6;
+
+  /// The highlight fills a slot's full inner height, rounded so its ends sit
+  /// concentric with the bar's own rounded ends at the first and last tab.
+  static const double _highlightRadius = height / 2 - _inset;
 
   /// Space to leave at the end of a tab's scrolling content so its last
   /// item can scroll clear of the bar.
@@ -91,14 +94,14 @@ class AppBottomBar extends StatelessWidget {
                     AnimatedPositioned(
                       duration: kNavMotion,
                       curve: kNavCurve,
-                      left: current.index * _slot + (_slot - _dot) / 2,
-                      top: (height - 2 * _inset - _dot) / 2,
-                      width: _dot,
-                      height: _dot,
-                      child: const DecoratedBox(
+                      left: current.index * _slot,
+                      top: 0,
+                      bottom: 0,
+                      width: _slot,
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0x33FFC107),
+                          borderRadius: BorderRadius.circular(_highlightRadius),
+                          color: const Color(0x33FFC107),
                         ),
                       ),
                     ),
