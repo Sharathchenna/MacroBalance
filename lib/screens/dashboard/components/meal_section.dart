@@ -126,127 +126,135 @@ class _MealSectionState extends State<MealSection> {
               ),
             ],
           ),
-          child: Column(
-            children: [
-              Semantics(
-                button: true,
-                label: empty ? '$mealType, nothing logged yet. Add food' : null,
-                excludeSemantics: empty,
-                child: InkWell(
-                  onTap: () {
-                    if (empty) {
-                      _openSearch(mealType);
-                      return;
-                    }
-                    HapticFeedback.selectionClick();
-                    setState(() =>
-                        _userExpanded[_expandKey(date, mealType)] = !expanded);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).brightness == Brightness.light
-                                    ? const Color(0xFFFFC107).withOpacity(0.1)
-                                    : const Color(0xFFFFC107).withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            getMealIcon(),
-                            color: const Color(0xFFFFC107),
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                mealType,
-                                style: AppTypography.h3.copyWith(
-                                  color: Theme.of(context)
-                                      .extension<CustomColors>()
-                                      ?.textPrimary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                empty
-                                    ? 'Nothing logged yet'
-                                    : '${entries.length} ${entries.length == 1 ? 'item' : 'items'}',
-                                style: AppTypography.body2.copyWith(
-                                  color: colors?.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (empty)
+          // Taps ripple on the card itself, inside its rounded clip, rather
+          // than as a square on the page behind it.
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
+              children: [
+                Semantics(
+                  button: true,
+                  label:
+                      empty ? '$mealType, nothing logged yet. Add food' : null,
+                  excludeSemantics: empty,
+                  // No ripple: the haptic and the expanding list are the feedback.
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (empty) {
+                        _openSearch(mealType);
+                        return;
+                      }
+                      HapticFeedback.selectionClick();
+                      setState(() => _userExpanded[_expandKey(date, mealType)] =
+                          !expanded);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
                           Container(
-                            width: 32,
-                            height: 32,
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: colors?.textSecondary.withOpacity(0.12),
+                              color: Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? const Color(0xFFFFC107).withOpacity(0.1)
+                                  : const Color(0xFFFFC107).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Icon(Icons.add_rounded,
-                                size: 20, color: colors?.textSecondary),
-                          )
-                        else ...[
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${totalCalories.toStringAsFixed(0)}',
-                                style: AppTypography.body1.copyWith(
-                                  color: const Color(0xFFFFC107),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'cals',
-                                style: AppTypography.caption.copyWith(
-                                  color: Theme.of(context)
-                                      .extension<CustomColors>()
-                                      ?.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 8),
-                          AnimatedRotation(
-                            turns: expanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 200),
                             child: Icon(
-                              Icons.keyboard_arrow_down,
-                              color: Theme.of(context)
-                                  .extension<CustomColors>()
-                                  ?.textSecondary,
+                              getMealIcon(),
+                              color: const Color(0xFFFFC107),
+                              size: 24,
                             ),
                           ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  mealType,
+                                  style: AppTypography.h3.copyWith(
+                                    color: Theme.of(context)
+                                        .extension<CustomColors>()
+                                        ?.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  empty
+                                      ? 'Nothing logged yet'
+                                      : '${entries.length} ${entries.length == 1 ? 'item' : 'items'}',
+                                  style: AppTypography.body2.copyWith(
+                                    color: colors?.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (empty)
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colors?.textSecondary.withOpacity(0.12),
+                              ),
+                              child: Icon(Icons.add_rounded,
+                                  size: 20, color: colors?.textSecondary),
+                            )
+                          else ...[
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${totalCalories.toStringAsFixed(0)}',
+                                  style: AppTypography.body1.copyWith(
+                                    color: const Color(0xFFFFC107),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'cals',
+                                  style: AppTypography.caption.copyWith(
+                                    color: Theme.of(context)
+                                        .extension<CustomColors>()
+                                        ?.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 8),
+                            AnimatedRotation(
+                              turns: expanded ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 200),
+                              child: Icon(
+                                Icons.keyboard_arrow_down,
+                                color: Theme.of(context)
+                                    .extension<CustomColors>()
+                                    ?.textSecondary,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (usual != null) _buildUsualMeal(usual, foodEntryProvider),
-              AnimatedCrossFade(
-                firstChild: const SizedBox.shrink(),
-                secondChild: _buildExpandedContent(
-                    entries, foodEntryProvider, photoJobs),
-                crossFadeState: expanded
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 200),
-              ),
-            ],
+                if (usual != null) _buildUsualMeal(usual, foodEntryProvider),
+                AnimatedCrossFade(
+                  firstChild: const SizedBox.shrink(),
+                  secondChild: _buildExpandedContent(
+                      entries, foodEntryProvider, photoJobs),
+                  crossFadeState: expanded
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  duration: const Duration(milliseconds: 200),
+                ),
+              ],
+            ),
           ),
         );
       },
