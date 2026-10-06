@@ -997,7 +997,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
       child: Row(
         children: [
           _buildNutrientChip(
-            '${calories.toStringAsFixed(0)} cal',
+            '${calories.toStringAsFixed(0)} cals',
             Icons.local_fire_department_rounded,
             Colors.green,
           ),
@@ -1087,7 +1087,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
           title: template.food.name,
           subtitle: describeEntryAmount(template),
           trailingLabel:
-              '${FoodEntryProvider.nutrientForEntry(template, 'calories').round()} kcal',
+              '${FoodEntryProvider.nutrientForEntry(template, 'calories').round()} cals',
           addTooltip: 'Add to $meal',
           onAdd: () => quickLogAgain(context, template, meal: meal),
           onOpen: () => Navigator.push(
@@ -1798,7 +1798,7 @@ class FoodList extends StatelessWidget {
             ),
           ),
           subtitle: Text(
-            '${food.calories.round()} calories',
+            '${food.calories.round()} cals',
             style: TextStyle(
               color: customColors?.textSecondary,
             ),

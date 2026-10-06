@@ -559,7 +559,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                       },
                                     ),
                                     Text(
-                                      'kcal',
+                                      'cals',
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -1026,7 +1026,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                       ),
                     ),
                     Text(
-                      ' • ${(grams * (label == 'Fat' ? 9 : 4)).round()} calories', // Use round()
+                      ' • ${(grams * (label == 'Fat' ? 9 : 4)).round()} cals', // Use round()
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: customColors.textSecondary,
@@ -1195,7 +1195,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${targetCalories.round()} calories', // Use passed targetCalories and round()
+                        '${targetCalories.round()} cals', // Use passed targetCalories and round()
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -1392,7 +1392,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                     },
                                   ),
                                   Text(
-                                    ' kcal',
+                                    ' cals',
                                     style: GoogleFonts.inter(
                                       // Corrected style
                                       fontSize: 32,
@@ -1689,7 +1689,7 @@ class _MacroTrackingScreenState extends State<MacroTrackingScreen>
                                     },
                                   ),
                                   Text(
-                                    ' kcal',
+                                    ' cals',
                                     style: GoogleFonts.inter(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,

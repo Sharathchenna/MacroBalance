@@ -181,7 +181,7 @@ class _MealSectionState extends State<MealSection> {
                             ),
                           ),
                           Text(
-                            'kcal',
+                            'cals',
                             style: AppTypography.caption.copyWith(
                               color: Theme.of(context)
                                   .extension<CustomColors>()
@@ -254,7 +254,7 @@ class _MealSectionState extends State<MealSection> {
           children: [
             Semantics(
               button: true,
-              label: 'Add $usualName: $summary, ${kcal.round()} kcal',
+              label: 'Add $usualName: $summary, ${kcal.round()} cals',
               excludeSemantics: true,
               child: InkWell(
                 onTap: () => _addUsual(usual, provider),
@@ -278,7 +278,7 @@ class _MealSectionState extends State<MealSection> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '$summary · ${kcal.round()} kcal',
+                              '$summary · ${kcal.round()} cals',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.poppins(
@@ -478,7 +478,6 @@ class _MealSectionState extends State<MealSection> {
 
   Widget _buildFoodEntryTile(FoodEntry entry, FoodEntryProvider provider) {
     final calories = provider.calculateNutrientForEntry(entry, 'calories');
-    final protein = provider.calculateNutrientForEntry(entry, 'Protein');
 
     return Dismissible(
       key: ValueKey(entry.id),
@@ -532,23 +531,13 @@ class _MealSectionState extends State<MealSection> {
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${calories.toStringAsFixed(0)} kcal',
-                    style: AppTypography.body2.copyWith(
-                      color: Theme.of(context).extension<CustomColors>()?.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '${protein.toStringAsFixed(1)}g protein',
-                    style: AppTypography.caption.copyWith(
-                      color: Theme.of(context).extension<CustomColors>()?.textSecondary,
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Text(
+                '${calories.toStringAsFixed(0)} cals',
+                style: AppTypography.body2.copyWith(
+                  color: Theme.of(context).extension<CustomColors>()?.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),

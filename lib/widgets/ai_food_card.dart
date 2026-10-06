@@ -50,7 +50,7 @@ class AIFoodCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${food.calories[0].toStringAsFixed(0)} calories per ${food.servingSizes[0]}',
+                      '${food.calories[0].toStringAsFixed(0)} cals per ${food.servingSizes[0]}',
                       style: TextStyle(
                         color: Colors.grey[800],
                         fontSize: 14,

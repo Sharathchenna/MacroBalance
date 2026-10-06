@@ -101,7 +101,7 @@ void main() {
     await openMeal(tester, 'Dinner');
 
     expect(usualCard('Dinner'), findsOneWidget);
-    expect(find.text('Toast and Soup · 150 kcal'), findsOneWidget);
+    expect(find.text('Toast and Soup · 150 cals'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Add your usual dinner: Toast and Soup')),
         findsOneWidget);
     expect(find.bySemanticsLabel('Not today, hide your usual dinner'), findsOneWidget);
@@ -170,7 +170,7 @@ void main() {
     await addRoutine(tester, 'Breakfast', ['Oats', 'Milk', 'Banana', 'Honey'], calories: 50);
     await pumpMeals(tester);
     await openMeal(tester, 'Breakfast');
-    expect(find.text('Oats, Milk and 2 more · 200 kcal'), findsOneWidget);
+    expect(find.text('Oats, Milk and 2 more · 200 cals'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -240,6 +240,6 @@ void main() {
     }
     await pumpMeals(tester);
     await openMeal(tester, 'Dinner');
-    expect(find.text('Toast ×3 · 225 kcal'), findsOneWidget);
+    expect(find.text('Toast ×3 · 225 cals'), findsOneWidget);
   });
 }

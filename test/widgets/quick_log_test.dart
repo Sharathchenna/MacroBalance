@@ -111,7 +111,7 @@ void main() {
         body: QuickLogTile(
           title: 'Banana',
           subtitle: '1 medium',
-          trailingLabel: '105 kcal',
+          trailingLabel: '105 cals',
           addTooltip: 'Add to Snacks',
           onAdd: () => added++,
           onOpen: () => opened++,
@@ -119,7 +119,7 @@ void main() {
       )));
       expect(find.text('Banana'), findsOneWidget);
       expect(find.text('1 medium'), findsOneWidget);
-      expect(find.text('105 kcal'), findsOneWidget);
+      expect(find.text('105 cals'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Add to Snacks'));
       expect((added, opened), (1, 0));

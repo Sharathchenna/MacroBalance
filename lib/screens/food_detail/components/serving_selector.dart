@@ -206,7 +206,7 @@ class ServingSelectorSheet extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  "kcal",
+                                  "cals",
                                   style: AppTypography.caption.copyWith(
                                     color: customColors.textSecondary,
                                   ),

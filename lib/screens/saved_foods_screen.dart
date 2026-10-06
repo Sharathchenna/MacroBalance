@@ -688,7 +688,7 @@ class _SavedFoodsScreenState extends State<SavedFoodsScreen>
 
   Widget _buildMacroRow(dynamic food, CustomColors? customColors, ColorScheme colorScheme) {
     final macros = [
-      {'label': 'Cal', 'value': food.calories.toInt().toString(), 'icon': Icons.local_fire_department_rounded, 'color': Colors.orange},
+      {'label': 'Cals', 'value': food.calories.toInt().toString(), 'icon': Icons.local_fire_department_rounded, 'color': Colors.orange},
       {'label': 'Protein', 'value': '${food.protein.toInt()}g', 'icon': Icons.fitness_center_rounded, 'color': Colors.blue},
       {'label': 'Carbs', 'value': '${food.carbs.toInt()}g', 'icon': Icons.grain_rounded, 'color': Colors.green},
       {'label': 'Fat', 'value': '${food.fat.toInt()}g', 'icon': Icons.opacity_rounded, 'color': Colors.purple},

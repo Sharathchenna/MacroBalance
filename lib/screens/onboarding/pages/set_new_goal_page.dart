@@ -107,7 +107,7 @@ class SetNewGoalPage extends StatelessWidget {
                                   context,
                                   '${targetCalories?.round() ?? '...'}',
                                   'Daily Budget',
-                                  'kcal',
+                                  'cals',
                                   Icons.local_fire_department_rounded,
                                 ),
                               ),

@@ -51,7 +51,7 @@ void main() {
 
     final dashboardCalories = provider.getTotalCaloriesForDate(today).round();
     expect(dashboardCalories, 375);
-    expect(find.text('375 / 2000 kcal'), findsOneWidget);
+    expect(find.text('375 / 2000 cals'), findsOneWidget);
     // testEntry has 5 g protein, 10 g carbs and 3 g fat per serving: 3 servings.
     expect(find.text('15 / 150 g'), findsOneWidget);
     expect(find.text('30 / 200 g'), findsOneWidget);
@@ -60,38 +60,38 @@ void main() {
   });
 
   group('macro check', () {
-    testWidgets('within 10 kcal says the macros match', (tester) async {
+    testWidgets('within 10 cals says the macros match', (tester) async {
       await pumpGoals(tester, protein: 150, carbs: 200, fat: 67); // 2003 kcal
-      expect(find.text('Your macros add up to 2003 kcal'), findsOneWidget);
-      expect(find.text('This matches your 2000 kcal goal.'), findsOneWidget);
+      expect(find.text('Your macros add up to 2003 cals'), findsOneWidget);
+      expect(find.text('This matches your 2000 cals goal.'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
     });
 
     testWidgets('up to 5% off says how close it is', (tester) async {
       await pumpGoals(tester, protein: 150, carbs: 200, fat: 70); // 2030 kcal
-      expect(find.text('Within 30 kcal of your 2000 kcal goal.'), findsOneWidget);
+      expect(find.text('Within 30 cals of your 2000 cals goal.'), findsOneWidget);
       expect(find.textContaining('Set calories to'), findsNothing);
     });
 
     testWidgets('just under 5% off is still within', (tester) async {
       // 600 + 900 + 594 = 2094: 94 kcal over, under the 100 kcal (5%) limit.
       await pumpGoals(tester, protein: 150, carbs: 225, fat: 66);
-      expect(find.text('Within 94 kcal of your 2000 kcal goal.'), findsOneWidget);
+      expect(find.text('Within 94 cals of your 2000 cals goal.'), findsOneWidget);
     });
 
     testWidgets('editing a goal updates the check', (tester) async {
       await pumpGoals(tester, protein: 150, carbs: 200, fat: 67);
-      expect(find.text('This matches your 2000 kcal goal.'), findsOneWidget);
+      expect(find.text('This matches your 2000 cals goal.'), findsOneWidget);
       provider.fatGoal = 90; // 2210 kcal
       await settle(tester);
-      expect(find.textContaining('210 kcal more than your 2000 kcal goal.'), findsOneWidget);
+      expect(find.textContaining('210 cals more than your 2000 cals goal.'), findsOneWidget);
     });
 
     testWidgets('more than 5% off explains the mismatch and offers fixes',
         (tester) async {
       await pumpGoals(tester, protein: 150, carbs: 75, fat: 80); // 1620 kcal
-      expect(find.text('Your macros add up to 1620 kcal'), findsOneWidget);
-      expect(find.textContaining('380 kcal less than your 2000 kcal goal.'), findsOneWidget);
+      expect(find.text('Your macros add up to 1620 cals'), findsOneWidget);
+      expect(find.textContaining('380 cals less than your 2000 cals goal.'), findsOneWidget);
       expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
       expect(find.text('Set calories to 1620'), findsOneWidget);
     });

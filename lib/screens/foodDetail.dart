@@ -252,7 +252,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
 
   Map<String, String> getAdditionalNutrients() {
     final result = <String, String>{
-      'Calories': '${formatNumber(_nutrient('calories'))} kcal',
+      'Calories': '${formatNumber(_nutrient('calories'))} cals',
       'Protein': '${formatNumber(_nutrient('Protein'))}g',
       'Carbohydrates': '${formatNumber(_nutrient('Carbohydrate, by difference'))}g',
       'Fat': '${formatNumber(_nutrient('Total lipid (fat)'))}g',
@@ -948,7 +948,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       badge: "${index + 1}",
       title: serving.description,
       subtitle: showAmount ? "${formatNumber(serving.metricAmount)} ${serving.metricUnit}" : null,
-      trailing: "${serving.calories.toStringAsFixed(0)} kcal",
+      trailing: "${serving.calories.toStringAsFixed(0)} cals",
       onTap: () => _selectServing(serving),
       customColors: customColors,
       primaryColor: primaryColor,
@@ -1229,7 +1229,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
               children: [
                 NutrientRow(
                   name: 'Calories',
-                  value: nutrients['Calories'] ?? '0 kcal',
+                  value: nutrients['Calories'] ?? '0 cals',
                   isHighlighted: true,
                 ),
                 Divider(color: customColors.dateNavigatorBackground),

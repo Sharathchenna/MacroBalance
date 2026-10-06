@@ -341,7 +341,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                           ),
                         ),
                         Text(
-                          'cal/day',
+                          'cals/day',
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -751,7 +751,7 @@ class _ResultsScreenState extends State<ResultsScreen>
             ],
             _buildInfoRow(
               'Basal Metabolic Rate (BMR)',
-              '${widget.results['bmr']} calories/day',
+              '${widget.results['bmr']} cals/day',
               Icons.hotel_rounded,
               Colors.amber.shade700,
               'This is how many calories your body needs at complete rest.',
@@ -759,7 +759,7 @@ class _ResultsScreenState extends State<ResultsScreen>
             SizedBox(height: 16),
             _buildInfoRow(
               'Total Daily Energy Expenditure',
-              '${widget.results['tdee']} calories/day',
+              '${widget.results['tdee']} cals/day',
               Icons.directions_run_rounded,
               Colors.green.shade600,
               'This is your BMR plus calories burned through daily activity.',

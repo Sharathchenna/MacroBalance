@@ -182,7 +182,7 @@ class ResultsPage extends StatelessWidget {
                         _buildNutritionChip(
                             context,
                             Icons.local_fire_department_outlined,
-                            '${calories.toStringAsFixed(0)} kcal'),
+                            '${calories.toStringAsFixed(0)} cals'),
                         const SizedBox(width: 8),
                         _buildNutritionChip(
                             context,
@@ -212,7 +212,7 @@ class ResultsPage extends StatelessWidget {
       BuildContext context, IconData icon, String label) {
     // Define specific colors for each nutrient type
     Color chipColor;
-    if (label.contains('kcal')) {
+    if (label.contains('cals')) {
       chipColor = Colors.green.shade500;
     } else if (label.contains('protein')) {
       chipColor = Colors.red.shade500;

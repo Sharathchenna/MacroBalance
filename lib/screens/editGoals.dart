@@ -662,13 +662,13 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'title': 'Daily Calorie Goal',
         'value': calorieGoal,
         'currentValue': caloriesConsumed,
-        'unit': 'kcal',
+        'unit': 'cals',
         'icon': Icons.local_fire_department_rounded,
         'color': Colors.green,
         'onEdit': () => _showEditDialog(
               'Daily Calorie Goal',
               calorieGoal,
-              'kcal',
+              'cals',
               (value) => setState(() => calorieGoal = value),
             ),
       },
@@ -807,7 +807,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Your macros add up to $implied kcal',
+                  'Your macros add up to $implied cals',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: customColors?.textPrimary,
@@ -819,11 +819,11 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
           const SizedBox(height: 4),
           Text(
             mismatch
-                ? '${diff.abs()} kcal ${diff > 0 ? 'more' : 'less'} than your $calorieGoal kcal goal. '
+                ? '${diff.abs()} cals ${diff > 0 ? 'more' : 'less'} than your $calorieGoal cals goal. '
                     'Protein ${proteinGoal}g × 4 + carbs ${carbGoal}g × 4 + fat ${fatGoal}g × 9.'
                 : diff.abs() <= 10
-                    ? 'This matches your $calorieGoal kcal goal.'
-                    : 'Within ${diff.abs()} kcal of your $calorieGoal kcal goal.',
+                    ? 'This matches your $calorieGoal cals goal.'
+                    : 'Within ${diff.abs()} cals of your $calorieGoal cals goal.',
             style: theme.textTheme.bodySmall?.copyWith(color: customColors?.textSecondary),
           ),
           const SizedBox(height: 8),
@@ -895,7 +895,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
                 ],
               );
           return AlertDialog(
-            title: Text('Split $calorieGoal kcal'),
+            title: Text('Split $calorieGoal cals'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

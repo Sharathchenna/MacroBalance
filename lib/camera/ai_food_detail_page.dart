@@ -793,7 +793,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                                               ),
                                               const Spacer(),
                                               Text(
-                                                "$calories kcal",
+                                                "$calories cals",
                                                 style: AppTypography.caption
                                                     .copyWith(
                                                   color: isSelected
@@ -923,7 +923,7 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
                             title: "Macronutrients",
                             nutrients: [
                               MapEntry("Calories",
-                                  "${nutrition.calories.toStringAsFixed(0)} kcal"),
+                                  "${nutrition.calories.toStringAsFixed(0)} cals"),
                               MapEntry("Protein",
                                   "${nutrition.protein.toStringAsFixed(1)}g"),
                               MapEntry("Carbohydrates",

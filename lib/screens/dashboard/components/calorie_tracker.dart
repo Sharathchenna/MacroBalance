@@ -397,7 +397,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                                     ),
                                   ),
                                   Text(
-                                    'cal left',
+                                    'cals left',
                                     style: GoogleFonts.poppins(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w500,

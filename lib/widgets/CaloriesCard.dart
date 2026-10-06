@@ -101,7 +101,7 @@ class CaloriesCard extends StatelessWidget {
               ),
             ),
             Text(
-              '/ $goalCalories kcal',
+              '/ $goalCalories cals',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -120,7 +120,7 @@ class CaloriesCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '$remainingCalories kcal remaining',
+              '$remainingCalories cals remaining',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

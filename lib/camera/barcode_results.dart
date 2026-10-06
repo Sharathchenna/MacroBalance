@@ -1286,7 +1286,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                                 const SizedBox(height: 4),
                                 // Calories
                                 Text(
-                                  "${serving.calories.toStringAsFixed(0)} kcal",
+                                  "${serving.calories.toStringAsFixed(0)} cals",
                                   style: AppTypography.caption.copyWith(
                                     color: isSelected
                                         ? textColor
@@ -1499,7 +1499,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
                     children: [
                       NutrientRow(
                         name: 'Calories',
-                        value: _formatNutrientValue('energy-kcal_100g', 'kcal'),
+                        value: _formatNutrientValue('energy-kcal_100g', 'cals'),
                         isHighlighted: true,
                       ),
                       Divider(color: customColors.dateNavigatorBackground),
