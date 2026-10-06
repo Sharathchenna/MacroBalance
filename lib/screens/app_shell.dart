@@ -129,10 +129,13 @@ class AppShellState extends State<AppShell>
     if (_menu.isForwardOrCompleted) _menu.reverse();
   }
 
-  /// Closes the menu, then runs [action] once it has animated away.
-  Future<void> _thenClose(VoidCallback action) async {
-    await _menu.reverse();
-    if (mounted) action();
+  /// Starts closing the menu and runs [action] in the same frame, so the
+  /// next screen slides in while the menu fades out underneath it. Taps that
+  /// land while the menu is already closing are ignored (no double pushes).
+  void _thenClose(VoidCallback action) {
+    if (_menu.status == AnimationStatus.reverse) return;
+    _menu.reverse();
+    action();
   }
 
   Future<void> _openCamera() async {

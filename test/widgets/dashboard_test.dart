@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/screens/app_shell.dart';
+import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/widgets/app_bottom_bar.dart';
 
 import '../helpers/test_app.dart';
@@ -216,6 +217,25 @@ void main() {
           of: find.byType(AppBottomBar), matching: find.byIcon(tab.selectedIcon))).dx;
       expect((dot - icon).abs(), lessThan(1), reason: tab.label);
     }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a menu option opens its screen at once, and only once', (tester) async {
+    await pumpShell(tester);
+    await tester.tap(find.bySemanticsLabel('Log food'));
+    await pumpFrames(tester, seconds: 1);
+
+    await tester.tap(find.bySemanticsLabel('Search'));
+    // The screen is pushed right away, while the menu is still closing.
+    // (Its first frame is built offstage, as every new route is.)
+    await tester.pump();
+    expect(find.byType(FoodSearchPage, skipOffstage: false), findsOneWidget);
+    expect(tester.state<AppShellState>(find.byType(AppShell)).menuOpen, isTrue,
+        reason: 'pushed before the menu finished closing');
+    // A second tap while the menu closes doesn't push it again.
+    await tester.tap(find.bySemanticsLabel('Search'), warnIfMissed: false);
+    await pumpFrames(tester, seconds: 1);
+    expect(find.byType(FoodSearchPage, skipOffstage: false), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
