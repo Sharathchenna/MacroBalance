@@ -22,9 +22,17 @@ class DateProvider with ChangeNotifier {
     return DateTime(now.year, now.month, now.day);
   }
 
+  /// Today, as a date. The latest day the user can look at.
+  DateTime get today => _today();
+
+  bool get isOnToday => _selectedDate == _today();
+
+  /// Selects [date]'s day. Future days aren't allowed; they become today.
   void setDate(DateTime date) {
-    _selectedDate = DateTime(date.year, date.month, date.day);
-    _followsToday = _selectedDate == _today();
+    final day = DateTime(date.year, date.month, date.day);
+    final today = _today();
+    _selectedDate = day.isAfter(today) ? today : day;
+    _followsToday = _selectedDate == today;
     notifyListeners();
   }
 

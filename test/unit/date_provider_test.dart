@@ -20,6 +20,14 @@ void main() {
     expect(notified, 1);
   });
 
+  test('future days are not allowed; they become today', () {
+    final provider = dates()..setDate(DateTime(2026, 5, 7));
+    expect(provider.isOnToday, isFalse);
+    provider.setDate(DateTime(2026, 5, 12));
+    expect(provider.selectedDate, DateTime(2026, 5, 10));
+    expect(provider.isOnToday, isTrue);
+  });
+
   test('after midnight, a user on today moves to the new today', () {
     final provider = dates();
     var notified = 0;
