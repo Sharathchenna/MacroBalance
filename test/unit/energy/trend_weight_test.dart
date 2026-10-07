@@ -148,6 +148,35 @@ void main() {
       expect(s.points[15].ignored, isFalse);
     });
 
+    test('a fresh spike on the same side after a shift is still ignored', () {
+      // The run moved the level to 84; 100 is far beyond it, not a follow-on.
+      final s = TrendSeries.compute(daily([80, 84, 84, 84, 100]));
+      expect(s.points.map((p) => p.ignored), [false, false, false, false, true]);
+      expect(s.points[4].trendKg, closeTo(s.points[3].trendKg, 1e-9));
+    });
+
+    test('readings near the new level keep being accepted around a spike', () {
+      final s =
+          TrendSeries.compute(daily([80, 84, 84, 84, 100, 84.5, 83.6, 84.2]));
+      expect(s.points.map((p) => p.ignored),
+          [false, false, false, false, true, false, false, false]);
+    });
+
+    test('a follow-on reading is judged within kOutlierPct of the new level',
+        () {
+      // Still an outlier against the lagging trend (~81.1), but 86.4 is within
+      // 3% of the run's 84 and 86.6 isn't.
+      final ok = TrendSeries.compute(daily([80, 84, 84, 84, 86.4]));
+      expect(ok.points[4].ignored, isFalse);
+      final spike = TrendSeries.compute(daily([80, 84, 84, 84, 86.6]));
+      expect(spike.points[4].ignored, isTrue);
+    });
+
+    test('three fresh spikes in a row are a second shift', () {
+      final s = TrendSeries.compute(daily([80, 84, 84, 84, 92, 92, 92]));
+      expect(s.points.where((p) => p.ignored), isEmpty);
+    });
+
     test('after a long gap, a real change is accepted on the third reading',
         () {
       final s = TrendSeries.compute([

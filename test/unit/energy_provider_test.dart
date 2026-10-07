@@ -77,7 +77,9 @@ void main() {
     expect(rowsToUpload(fresh.estimates, cache), isEmpty);
   });
 
-  test('food saved for a past day changes that day onwards, not before', () async {
+  // Day d's food is in day d + 1's weigh-in, so it shows from the next row.
+  test('food saved for a past day changes the rows after it, not before',
+      () async {
     final p = provider()..inputs = () => inputs();
     await p.refresh();
     final before = {for (final r in p.estimates) r.day: r.tdee};
@@ -89,11 +91,12 @@ void main() {
     p.inputs = () => inputs(food: edited);
     await p.refresh();
     for (final r in p.estimates) {
-      if (r.day.isBefore(day(20))) {
+      if (!r.day.isAfter(day(20))) {
         expect(r.tdee, before[r.day], reason: '${r.day}');
       }
     }
-    expect(p.estimates.firstWhere((r) => r.day == day(20)).avgIntake,
+    expect(p.estimates.firstWhere((r) => r.day == day(20)).avgIntake, 2200);
+    expect(p.estimates.firstWhere((r) => r.day == day(21)).avgIntake,
         isNot(2200));
   });
 

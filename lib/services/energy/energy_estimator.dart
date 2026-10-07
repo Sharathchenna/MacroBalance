@@ -148,10 +148,11 @@ class EnergyEstimate {
   /// OLS slope of the window's weigh-ins, kg/day.
   final double? slopeKgPerDay;
 
-  /// Mean cals of the window's complete and fasting days.
+  /// Mean cals of the window's complete and fasting days, up to the day
+  /// before [day] (that day's food isn't in its weigh-in yet).
   final double? avgIntake;
 
-  /// Complete and fasting days in the window.
+  /// Complete and fasting days in the window, up to the day before [day].
   final int completeDays;
 
   /// Weigh-ins in the window the trend didn't ignore.
@@ -352,8 +353,11 @@ class EnergyEstimator {
       final windowStart =
           _later(_addDays(d, 1 - kWindowDays), _addDays(_lastSwitch(d), kSwitchSettleDays));
 
+      // A weigh-in is taken in the morning, before that day's food, so the
+      // weights on [windowStart, d] reflect the intake on [windowStart, d − 1]:
+      // day d's intake only counts from day d + 1.
       final intakes = <double>[];
-      for (var x = windowStart; !x.isAfter(d); x = _addDays(x, 1)) {
+      for (var x = windowStart; x.isBefore(d); x = _addDays(x, 1)) {
         final c = classify(x);
         if (c != null && c.countsInIntake) {
           intakes.add(c.intakeCals(_food[x]?.loggedCals ?? 0));
