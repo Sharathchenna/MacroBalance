@@ -30,10 +30,12 @@ const double kPartialFraction = 0.5;
 const double kPriorSd = 300;
 const double kProcessSdPerDay = 15;
 /// Observation variance multiplier for overlapping windows. Tuned in the
-/// simulation harness (test/unit/energy/simulated_user.dart): 16 puts the
-/// truth within ±1.28 sd on 80% of seed-days (the spec's starting value, 7,
-/// gave 71%).
-const double kOverlapInflation = 16;
+/// simulation harness (test/unit/energy/simulated_user.dart) for calibration
+/// and accuracy together: at 12 the truth is within ±1.28 sd on 77% of
+/// seed-days (tuning seeds) and 80% (held-out seeds), inside the 75–85% band,
+/// and day-28 accuracy is as good as anywhere in 4–25 (the spec's starting
+/// value, 7, gave 71% calibration; 16 was well calibrated but less accurate).
+const double kOverlapInflation = 12;
 const double kIntakeBiasSd = 50;
 const double kMaxDailyTdeeStep = 50;
 const double kConfidentSd = 200;

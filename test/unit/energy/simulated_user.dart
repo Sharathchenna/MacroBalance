@@ -185,38 +185,85 @@ class SimulatedUser {
   final List<double> loggedBasisTdee;
 
   /// The estimator's rows for every simulated day.
-  List<EnergyEstimate> estimate({double overlapInflation = kOverlapInflation}) {
+  ///
+  /// [knownReporting] is a comparator, not the spec: it scales the energy
+  /// density by `1 − underReporting`, so the observation becomes
+  /// `intake − 0.85·slope·ED`, which is unbiased for the logged-basis TDEE.
+  /// It measures how much of the error the spec's observation bias explains.
+  List<EnergyEstimate> estimate({
+    double overlapInflation = kOverlapInflation,
+    double? knownReporting,
+  }) {
     final s = inputs.learningStartedOn;
     final last =
         DateTime(s.year, s.month, s.day + loggedBasisTdee.length - 1);
-    return EnergyEstimator(inputs, overlapInflation: overlapInflation)
+    final i = knownReporting == null
+        ? inputs
+        : EstimatorInputs(
+            learningStartedOn: inputs.learningStartedOn,
+            formulaTdee: inputs.formulaTdee,
+            body: _ScaledBody(inputs.body, 1 - knownReporting),
+            food: inputs.food,
+            weights: inputs.weights,
+          );
+    return EnergyEstimator(i, overlapInflation: overlapInflation)
         .replay(through: last)
         .estimates;
   }
 }
 
+class _ScaledBody extends BodyProfile {
+  _ScaledBody(BodyProfile b, this.factor)
+      : super(
+            sex: b.sex,
+            heightCm: b.heightCm,
+            age: b.age,
+            bodyFatPct: b.bodyFatPct);
+
+  final double factor;
+
+  @override
+  double energyDensityAt(double weightKg) =>
+      factor * super.energyDensityAt(weightKg);
+}
+
+/// The seeds the harness was tuned on. Ablations and the bias checks use
+/// [kHeldOutSeeds] instead.
+const int kTuningSeeds = 200;
+
+/// A seed range never used for tuning: seeds 10,000 … 10,999.
+const int kHeldOutFirstSeed = 10000;
+const int kHeldOutSeeds = 1000;
+
 /// What the acceptance bar looks at, over many seeds.
 class SimReport {
   SimReport._({
     required this.seeds,
-    required this.day28Errors,
+    required this.errors,
+    required this.goals,
     required this.calibration,
     required this.maxStep,
   });
 
-  /// Runs seeds `0 … seeds − 1`.
+  /// Runs seeds `firstSeed … firstSeed + seeds − 1`.
   factory SimReport.run({
-    int seeds = 200,
+    int firstSeed = 0,
+    int seeds = kTuningSeeds,
     SimConfig config = const SimConfig(),
     double overlapInflation = kOverlapInflation,
+    bool knownReporting = false,
   }) {
-    final errors = <double>[];
+    final errors = <List<double>>[];
+    final goals = <GoalKind>[];
     var inBand = 0, seedDays = 0;
     var maxStep = 0.0;
-    for (var seed = 0; seed < seeds; seed++) {
+    for (var seed = firstSeed; seed < firstSeed + seeds; seed++) {
       final user = SimulatedUser.generate(seed, config);
-      final rows = user.estimate(overlapInflation: overlapInflation);
+      final rows = user.estimate(
+          overlapInflation: overlapInflation,
+          knownReporting: knownReporting ? config.underReporting : null);
       var prev = user.inputs.formulaTdee;
+      final e = <double>[];
       for (var d = 0; d < rows.length; d++) {
         final r = rows[d];
         final truth = user.loggedBasisTdee[d];
@@ -224,24 +271,25 @@ class SimReport {
         seedDays++;
         maxStep = math.max(maxStep, (r.tdee - prev).abs());
         prev = r.tdee;
+        e.add(r.tdee - truth);
       }
-      errors.add((rows[day28Index].tdee - user.loggedBasisTdee[day28Index]).abs());
+      errors.add(e);
+      goals.add(user.goal);
     }
     return SimReport._(
       seeds: seeds,
-      day28Errors: errors,
+      errors: errors,
+      goals: goals,
       calibration: inBand / seedDays,
       maxStep: maxStep,
     );
   }
 
-  /// Day 28 counting the learning start as day 1.
-  static const int day28Index = 27;
-
   final int seeds;
 
-  /// `|estimate − logged-basis TDEE|` on day 28, one per seed.
-  final List<double> day28Errors;
+  /// `estimate − logged-basis TDEE` per seed, per day (index 0 = day 1).
+  final List<List<double>> errors;
+  final List<GoalKind> goals;
 
   /// Share of seed-days with the truth within ±1.28 sd of the estimate.
   final double calibration;
@@ -249,59 +297,39 @@ class SimReport {
   /// Largest day-to-day change of any seed (day 1 against the formula).
   final double maxStep;
 
-  /// Share of seeds within [cals] of the truth on day 28.
-  double within(double cals) =>
-      day28Errors.where((e) => e <= cals).length / day28Errors.length;
+  /// `|error|` on [day] (counting the learning start as day 1), per seed.
+  List<double> absErrorsOn(int day) =>
+      [for (final e in errors) e[day - 1].abs()];
+
+  /// Share of seeds within [cals] of the truth on [day].
+  double within(double cals, {int day = 28}) {
+    final a = absErrorsOn(day);
+    return a.where((e) => e <= cals).length / a.length;
+  }
+
+  /// Mean signed error on [day] for the seeds with [goal].
+  double meanError(GoalKind goal, {int day = 28}) {
+    var sum = 0.0, n = 0;
+    for (var i = 0; i < errors.length; i++) {
+      if (goals[i] != goal) continue;
+      sum += errors[i][day - 1];
+      n++;
+    }
+    return n == 0 ? 0 : sum / n;
+  }
+
+  /// [p] quantile of `|error|` on [day].
+  double quantile(double p, {int day = 28}) {
+    final a = absErrorsOn(day)..sort();
+    return a[((a.length - 1) * p).round()];
+  }
 
   @override
-  String toString() {
-    final sorted = [...day28Errors]..sort();
-    double q(double p) => sorted[((sorted.length - 1) * p).round()];
-    return 'seeds $seeds · day 28 within 150: '
-        '${(within(150) * 100).toStringAsFixed(1)}% '
-        '(median ${q(0.5).round()}, p90 ${q(0.9).round()}) · '
-        'calibration ${(calibration * 100).toStringAsFixed(1)}% · '
-        'max step ${maxStep.toStringAsFixed(1)}';
-  }
-}
-
-/// The share of users an ideal estimator gets within [cals] on day 28 when
-/// only the scale noise is in the way: no glycogen, no under-reporting, every
-/// day logged in full at a constant intake, expenditure that doesn't drift.
-/// It fits all 28 raw weigh-ins by OLS with the true energy density and
-/// combines that with the formula prior, each weighted by its true variance.
-///
-/// This bounds what any estimator can reach in the spec's scenario.
-double noiseOnlyOracleWithin(double cals, {int seeds = 2000}) {
-  const clean = SimConfig(
-    days: 28,
-    glycogenKg: 0,
-    underReporting: 0,
-    untrackedRate: 0,
-    partialRate: 0,
-    intakeDayCv: 0,
-    adaptationPerKg: 0,
-  );
-  const n = 28;
-  final xs = [for (var i = 0; i < n; i++) i];
-  final priorVar = clean.formulaErrorSd * clean.formulaErrorSd;
-  var hits = 0;
-  for (var seed = 0; seed < seeds; seed++) {
-    final u = SimulatedUser.generate(seed, clean);
-    final weights = [for (final w in u.inputs.weights) w.weightKg];
-    final slope = olsFit(xs, weights)!.slope;
-    final intake = u.inputs.food.values.first.loggedCals;
-    final ed = u.inputs.body.energyDensityAt(weights.first);
-    final obs = intake - slope * ed;
-    // Var of an OLS slope over n daily points: σ² / Sxx, Sxx = n(n²−1)/12.
-    final obsVar = clean.weightNoiseSdKg *
-        clean.weightNoiseSdKg /
-        (n * (n * n - 1) / 12) *
-        ed *
-        ed;
-    final best = (obs / obsVar + u.inputs.formulaTdee / priorVar) /
-        (1 / obsVar + 1 / priorVar);
-    if ((best - u.loggedBasisTdee.last).abs() <= cals) hits++;
-  }
-  return hits / seeds;
+  String toString() =>
+      'seeds $seeds · day 28 within 150: '
+      '${(within(150) * 100).toStringAsFixed(1)}%, within 250: '
+      '${(within(250) * 100).toStringAsFixed(1)}% '
+      '(median ${quantile(0.5).round()}, p90 ${quantile(0.9).round()}) · '
+      'calibration ${(calibration * 100).toStringAsFixed(1)}% · '
+      'max step ${maxStep.toStringAsFixed(1)}';
 }
