@@ -54,8 +54,11 @@ class WeeklyChange {
 /// - A reading more than [kOutlierPct] of the trend away is ignored.
 /// - [kOutlierRunToAccept] ignored readings in a row on the same side are a
 ///   real shift: they're accepted and replayed from the first of them. Until a
-///   reading comes back within [kOutlierPct], readings on that side of the
-///   trend keep being accepted, so the trend can catch up with the new level.
+///   reading comes back within [kOutlierPct] of the trend, the lagging trend
+///   isn't the reference on that side: a reading is accepted when it's within
+///   [kOutlierPct] of the new level (the mean of the last
+///   [kOutlierRunToAccept] accepted readings), so the trend can catch up.
+///   One further off is a fresh outlier and is ignored.
 class TrendSeries {
   TrendSeries._(this.points);
 
@@ -73,6 +76,7 @@ class TrendSeries {
     final run = <int>[]; // indexes of the pending same-side outliers
     var runSide = 0;
     var shiftSide = 0; // side of an accepted shift still being followed
+    final level = <double>[]; // last accepted readings while following it
 
     void use(int i) {
       final day = days[i];
@@ -111,9 +115,15 @@ class TrendSeries {
         continue;
       }
       if (side == shiftSide) {
-        run.clear();
-        use(i);
-        continue;
+        final ref = level.reduce((a, b) => a + b) / level.length;
+        if ((w - ref).abs() <= kOutlierPct * ref + 1e-9) {
+          run.clear();
+          use(i);
+          level
+            ..add(w)
+            ..removeAt(0);
+          continue;
+        }
       }
 
       if (run.isNotEmpty && runSide != side) run.clear();
@@ -128,6 +138,9 @@ class TrendSeries {
         for (final j in run) {
           use(j);
         }
+        level
+          ..clear()
+          ..addAll(run.map((j) => byDay[days[j]]!));
         run.clear();
         shiftSide = side;
       }
