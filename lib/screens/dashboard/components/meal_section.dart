@@ -15,6 +15,7 @@ import '../../../services/photo_analysis_service.dart';
 import '../../../services/posthog_service.dart';
 import '../../../utils/meal_routine.dart';
 import '../../foodDetail.dart';
+import 'finish_day_row.dart';
 import 'photo_job_card.dart';
 import '../../../utils/quick_log.dart';
 
@@ -57,6 +58,7 @@ class _MealSectionState extends State<MealSection> {
                     key: ValueKey('Snacks-${dateProvider.selectedDate}')),
                 _buildMealCard('Dinner',
                     key: ValueKey('Dinner-${dateProvider.selectedDate}')),
+                const FinishDayRow(),
               ],
             ),
           ),

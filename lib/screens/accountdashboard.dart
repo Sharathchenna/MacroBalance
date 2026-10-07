@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:macrotracker/providers/day_status_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
@@ -234,6 +235,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
       final goals = Provider.of<GoalsProvider>(context, listen: false);
+      final dayStatus = Provider.of<DayStatusProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
       var backedUp = true;
@@ -255,6 +257,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       // next account on this device starts from its own data.
       await foodEntryProvider.clearUserData();
       await goals.clearUserData();
+      await dayStatus.clearUserData();
       await savedFoodProvider.clearUserData();
 
       // Then sign out from Supabase

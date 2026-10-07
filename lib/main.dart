@@ -48,6 +48,7 @@ import 'package:macrotracker/services/storage_service.dart'; // Added StorageSer
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/screens/reset_password_screen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
+import 'package:macrotracker/providers/day_status_provider.dart';
 import 'package:macrotracker/services/superwall_service.dart';
 import 'package:macrotracker/services/photo_analysis_service.dart';
 import 'package:macrotracker/screens/dashboard/components/photo_job_card.dart';
@@ -189,6 +190,18 @@ Future<void> main() async {
               final goals = GoalsProvider(userId: user?.id);
               if (user != null) goals.restoreWeightHistory();
               return goals;
+            },
+          ),
+          // Day status belongs to one account too.
+          ChangeNotifierProxyProvider<User?, DayStatusProvider>(
+            create: (_) => DayStatusProvider(),
+            update: (context, user, previous) {
+              if (previous != null && previous.userId == user?.id) {
+                return previous;
+              }
+              final status = DayStatusProvider(userId: user?.id);
+              if (user != null) status.refresh();
+              return status;
             },
           ),
           // Use ChangeNotifierProxyProvider linked to the User? stream

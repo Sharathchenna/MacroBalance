@@ -9,6 +9,7 @@ import 'package:macrotracker/services/storage_service.dart'; // Import StorageSe
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:macrotracker/providers/day_status_provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -54,6 +55,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
       final goals = Provider.of<GoalsProvider>(context, listen: false);
+      final dayStatus = Provider.of<DayStatusProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
 
@@ -155,6 +157,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         // Clear local provider data
         await foodEntryProvider.clearUserData();
         await goals.clearUserData();
+      await dayStatus.clearUserData();
         await savedFoodProvider.clearUserData();
 
         // Sign out regardless of outcome
