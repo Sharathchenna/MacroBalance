@@ -184,6 +184,9 @@ class AppShellState extends State<AppShell>
       child: TourTargets(
         keys: _tourKeys,
         child: Scaffold(
+          // The bar stays put under the keyboard instead of riding up behind
+          // dialogs; each tab's own Scaffold makes room for the keyboard.
+          resizeToAvoidBottomInset: false,
           body: Stack(
             children: [
               IndexedStack(

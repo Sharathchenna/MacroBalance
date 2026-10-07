@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
@@ -6,6 +8,7 @@ import 'package:macrotracker/screens/WeightTrackingScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/delete_account_screen.dart';
 import 'package:macrotracker/services/storage_service.dart';
+import 'package:macrotracker/widgets/weight_chart.dart';
 
 import '../helpers/test_app.dart';
 
@@ -78,30 +81,25 @@ void main() {
     });
   });
 
-  group('Weight target', () {
-    Future<void> pumpWeight(WidgetTester tester) async {
+  group('Weight screen', () {
+    Future<void> pumpWeight(WidgetTester tester, {bool metric = true}) async {
       phone(tester);
       await tester.pumpWidget(testApp(const WeightTrackingScreen(),
           foodEntryProvider: provider,
-          weightUnitProvider: WeightUnitProvider()..setMetric(true)));
+          weightUnitProvider: WeightUnitProvider()..setMetric(metric)));
       await pumpFrames(tester, seconds: 2);
     }
 
-    /// The value shown under a progress label such as "Target".
-    Finder valueUnder(String label) => find.descendant(
-        of: find.ancestor(of: find.text(label), matching: find.byType(Column)).first,
-        matching: find.byType(Text));
-
-    testWidgets('with no goal weight, the target is the current weight', (tester) async {
+    testWidgets('with no goal weight, offers to set one', (tester) async {
       provider
         ..currentWeightKg = 82.4
         ..goalWeightKg = 0;
       await pumpWeight(tester);
 
-      final texts = tester.widgetList<Text>(valueUnder('Target')).map((t) => t.data);
-      expect(texts, ['Target', '82.4 kg']);
-      expect(find.text('0.0 kg'), findsNothing);
-      expect(find.text('To Go'), findsNothing);
+      expect(find.text('82.4 kg'), findsWidgets);
+      expect(find.text('Set goal'), findsOneWidget);
+      expect(find.textContaining('0.0 kg'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('with a goal weight, shows it and how far to go', (tester) async {
@@ -109,11 +107,84 @@ void main() {
         ..currentWeightKg = 82.4
         ..goalWeightKg = 75;
       await pumpWeight(tester);
+      await tester.scrollUntilVisible(find.text('Goal weight'), 200,
+          scrollable: find.byType(Scrollable).first);
+      await pumpFrames(tester, seconds: 1);
 
-      expect(tester.widgetList<Text>(valueUnder('Target')).map((t) => t.data),
-          ['Target', '75.0 kg']);
-      expect(tester.widgetList<Text>(valueUnder('To Go')).map((t) => t.data),
-          ['To Go', '7.4 kg']);
+      expect(find.text('75.0 kg'), findsWidgets);
+      expect(find.text('7.4 kg to go'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('imperial shows pounds everywhere', (tester) async {
+      provider
+        ..currentWeightKg = 82.4
+        ..goalWeightKg = 75;
+      await pumpWeight(tester, metric: false);
+      await tester.scrollUntilVisible(find.text('Goal weight'), 200,
+          scrollable: find.byType(Scrollable).first);
+      await pumpFrames(tester, seconds: 1);
+
+      expect(find.text('181.7 lbs'), findsWidgets); // 82.4 kg
+      expect(find.text('165.3 lbs'), findsWidgets); // 75 kg
+      expect(find.text('16.3 lbs to go'), findsOneWidget);
+      expect(find.textContaining(' kg'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('logging a weight in pounds stores kilograms', (tester) async {
+      provider
+        ..currentWeightKg = 82.4
+        ..goalWeightKg = 75;
+      await pumpWeight(tester, metric: false);
+
+      await tester.tap(find.text('Log'));
+      await pumpFrames(tester, seconds: 1);
+      await tester.enterText(find.byType(TextField), '180');
+      await tester.tap(find.text('Save'));
+      await pumpFrames(tester, seconds: 1);
+
+      expect(find.text('180.0 lbs'), findsWidgets);
+      expect(provider.currentWeightKg, closeTo(81.65, 0.01));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('tapping a weigh-in can delete it', (tester) async {
+      final now = DateTime.now();
+      await StorageService().put('weight_history', jsonEncode([
+        {'date': now.subtract(const Duration(days: 10)).toIso8601String(), 'weight': 71.0},
+        {'date': now.toIso8601String(), 'weight': 95.0},
+      ]));
+      provider.currentWeightKg = 95;
+      await pumpWeight(tester);
+      expect(find.text('95.0 kg'), findsWidgets);
+
+      // Today's weigh-in sits at the right end of the plot.
+      final chart = tester.getRect(find.byType(WeightChart));
+      await tester.tapAt(Offset(chart.right - 40 - chart.width * 0.03, chart.center.dy));
+      await pumpFrames(tester, seconds: 1);
+      await tester.tap(find.text('Delete weigh-in'));
+      await pumpFrames(tester, seconds: 1);
+
+      expect(find.text('71.0 kg'), findsWidgets);
+      expect(find.textContaining('95.0'), findsNothing);
+      expect(provider.currentWeightKg, 71.0);
+      expect(StorageService().get('weight_history'), isNot(contains('95.0')));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('rejects an impossible weight', (tester) async {
+      provider.currentWeightKg = 82.4;
+      await pumpWeight(tester);
+
+      await tester.tap(find.text('Log'));
+      await pumpFrames(tester, seconds: 1);
+      await tester.enterText(find.byType(TextField), '5');
+      await tester.tap(find.text('Save'));
+      await pumpFrames(tester, seconds: 1);
+
+      expect(find.textContaining('Enter a weight between'), findsOneWidget);
+      expect(provider.currentWeightKg, 82.4);
     });
   });
 

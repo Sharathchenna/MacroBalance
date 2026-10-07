@@ -136,7 +136,7 @@ void main() {
   testWidgets('Progress has its tabs at the top and no back button',
       (tester) async {
     await pumpShell(tester, tab: AppTab.progress);
-    for (final t in ['Weight', 'Calories', 'Steps', 'Workouts']) {
+    for (final t in ['Weight', 'Nutrition', 'Steps', 'Workouts']) {
       expect(find.widgetWithText(Tab, t), findsOneWidget);
     }
     expect(find.byType(BackButton), findsNothing);
@@ -144,12 +144,12 @@ void main() {
     expect(tabBarTop, lessThan(300), reason: 'tabs sit at the top');
     // No tab is cut off at the screen edge.
     final screenWidth = tester.view.physicalSize.width / tester.view.devicePixelRatio;
-    for (final t in ['Weight', 'Calories', 'Steps', 'Workouts']) {
+    for (final t in ['Weight', 'Nutrition', 'Steps', 'Workouts']) {
       final r = tester.getRect(find.text(t));
       expect(r.left, greaterThanOrEqualTo(0), reason: t);
       expect(r.right, lessThanOrEqualTo(screenWidth), reason: t);
     }
-    for (final t in ['Calories', 'Steps', 'Workouts', 'Weight']) {
+    for (final t in ['Nutrition', 'Steps', 'Workouts', 'Weight']) {
       await tester.tap(find.widgetWithText(Tab, t));
       await pumpFrames(tester, seconds: 1);
       expect(tester.takeException(), isNull, reason: t);

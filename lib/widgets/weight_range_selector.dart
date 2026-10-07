@@ -3,17 +3,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/utils/weight_range.dart';
 
-/// Segmented control for the weight chart's date range: one pill track with
-/// a highlight that slides to the selected range.
+/// Segmented control for a chart's date range: one pill track with a
+/// highlight that slides to the selected range.
 class WeightRangeSelector extends StatelessWidget {
   const WeightRangeSelector({
     super.key,
     required this.selected,
     required this.onChanged,
+    this.ranges = WeightRange.values,
   });
 
   final WeightRange selected;
   final ValueChanged<WeightRange> onChanged;
+
+  /// The ranges offered, in order.
+  final List<WeightRange> ranges;
 
   static const double _height = 36;
 
@@ -24,7 +28,6 @@ class WeightRangeSelector extends StatelessWidget {
     final thumb = colors?.cardBackground ?? Theme.of(context).cardColor;
     final active = colors?.accentPrimary ?? Theme.of(context).colorScheme.primary;
     final inactive = colors?.textSecondary ?? Colors.grey;
-    const ranges = WeightRange.values;
     final index = ranges.indexOf(selected);
 
     return Container(

@@ -38,7 +38,7 @@ import 'package:app_links/app_links.dart';
 import 'dart:io' show Platform;
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:macrotracker/screens/MacroTrackingScreen.dart';
+import 'package:macrotracker/screens/NutritionTrendsScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for date formatting
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/expenditure_screen.dart'; // Added ExpenditureScreen
@@ -575,7 +575,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             Routes.weightTracking: (context) =>
                 const SuperwallGate(child: WeightTrackingScreen()),
             Routes.macroTracking: (context) =>
-                const SuperwallGate(child: MacroTrackingScreen()),
+                const SuperwallGate(child: NutritionTrendsScreen()),
             Routes.savedFoods: (context) =>
                 const SuperwallGate(child: SavedFoodsScreen()),
             // Routes.expenditure: (context) => const SuperwallGate(

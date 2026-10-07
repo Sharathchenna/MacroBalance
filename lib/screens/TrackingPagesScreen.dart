@@ -6,11 +6,11 @@ import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import '../theme/app_theme.dart';
 import 'WeightTrackingScreen.dart';
-import 'MacroTrackingScreen.dart';
+import 'NutritionTrendsScreen.dart';
 import 'WorkoutTrackingScreen.dart';
 import '../services/posthog_service.dart';
 
-/// Progress: weight, calories, steps and workouts, switched with tabs at the
+/// Progress: weight, nutrition, steps and workouts, switched with tabs at the
 /// top (or by swiping).
 class TrackingPagesScreen extends StatefulWidget {
   const TrackingPagesScreen({super.key, this.embedded = false, this.initialPage = 0});
@@ -25,7 +25,7 @@ class TrackingPagesScreen extends StatefulWidget {
 
 class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with SingleTickerProviderStateMixin {
-  static const _tabs = ['Weight', 'Calories', 'Steps', 'Workouts'];
+  static const _tabs = ['Weight', 'Nutrition', 'Steps', 'Workouts'];
 
   late final TabController _tabController = TabController(
     length: _tabs.length,
@@ -122,7 +122,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
         controller: _tabController,
         children: const [
           KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
-          KeepAlivePage(child: MacroTrackingScreen(hideAppBar: true)),
+          KeepAlivePage(child: NutritionTrendsScreen(hideAppBar: true)),
           KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
           KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
         ],

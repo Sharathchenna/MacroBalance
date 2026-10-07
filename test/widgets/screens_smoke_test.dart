@@ -4,7 +4,7 @@ import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:macrotracker/camera/results_page.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
-import 'package:macrotracker/screens/MacroTrackingScreen.dart';
+import 'package:macrotracker/screens/NutritionTrendsScreen.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart';
@@ -86,7 +86,7 @@ void main() {
     'Saved foods': () => const SavedFoodsScreen(),
     'Progress pager': () => const TrackingPagesScreen(),
     'Weight': () => const WeightTrackingScreen(),
-    'Macros': () => const MacroTrackingScreen(),
+    'Nutrition': () => const NutritionTrendsScreen(),
     'Steps': () => const StepTrackingScreen(),
     'Workouts': () => const WorkoutTrackingScreen(),
     'Goals': () => const EditGoalsScreen(),
