@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:macrotracker/services/energy/bmr.dart';
 import 'package:macrotracker/services/energy/body_composition.dart';
 import 'package:macrotracker/services/energy/targets.dart';
@@ -55,7 +53,7 @@ class MacroCalculatorService {
     required int age,
     required int activityLevel,
     required String goal,
-    int? deficit, // daily cals below (lose) or above (gain) expenditure
+    double? pacePct, // % of body weight a week; null: the recommended pace
     double? proteinRatio,
     double? fatRatio,
     double? goalWeightKg,
@@ -78,18 +76,27 @@ class MacroCalculatorService {
       bodyFatPct: bodyFatPercentage,
     );
 
-    final adjustment = deficit ?? 500;
-    final double targetCalories = switch (goal) {
-      // Ticket 03 replaces this floor with the safety limits.
-      GOAL_LOSE => max(1200.0, tdee - adjustment),
-      GOAL_GAIN => tdee + adjustment,
-      _ => tdee,
-    }
-        .roundToDouble();
+    final kcalPerKg = energyDensityFor(
+      gender: gender,
+      weightKg: weightKg,
+      heightCm: heightCm,
+      age: age,
+      bodyFatPercentage: bodyFatPercentage,
+    );
+    final goalKind = goalKindOf(goal);
+    final target = targetForPace(
+      goal: goalKind,
+      pacePct: pacePct ?? defaultPacePct(goalKind),
+      tdee: tdee,
+      sex: sex,
+      weightKg: weightKg,
+      energyDensity: kcalPerKg,
+    );
+    final targetCalories = target.cals;
 
     final macros = splitMacros(
       cals: targetCalories,
-      goal: goalKindOf(goal),
+      goal: goalKind,
       weightKg: weightKg,
       heightCm: heightCm,
       bodyFatPct: bodyFatPercentage,
@@ -100,31 +107,29 @@ class MacroCalculatorService {
     final carbCalories = macros.carbsG * 4;
     final fatCalories = macros.fatG * 9;
 
-    final kcalPerKg = energyDensityFor(
-      gender: gender,
-      weightKg: weightKg,
-      heightCm: heightCm,
-      age: age,
-      bodyFatPercentage: bodyFatPercentage,
-    );
     final weeklyWeightChange =
         goal == GOAL_MAINTAIN ? 0.0 : (targetCalories - tdee) * 7 / kcalPerKg;
 
     Map<String, dynamic> weightStats = {};
-    if (goalWeightKg != null && goal != GOAL_MAINTAIN && weeklyWeightChange.abs() > 1e-6) {
-      final weightDifference =
-          goal == GOAL_LOSE ? weightKg - goalWeightKg : goalWeightKg - weightKg;
-      final weeksToGoal =
-          weightDifference > 0 ? weightDifference / weeklyWeightChange.abs() : 0.0;
+    final weeks = goalWeightKg == null || goal == GOAL_MAINTAIN
+        ? null
+        : weeksToGoal(
+            weightKg: weightKg,
+            goalWeightKg: goalWeightKg,
+            tdee: tdee,
+            cals: targetCalories,
+            energyDensity: kcalPerKg,
+          );
+    if (weeks != null) {
       weightStats = {
         'current_weight': weightKg,
         'goal_weight': goalWeightKg,
-        'weight_difference': weightDifference,
+        'weight_difference': (goalWeightKg! - weightKg).abs(),
         'weekly_change': weeklyWeightChange,
-        'weeks_to_goal': weeksToGoal,
-        'days_to_goal': weeksToGoal * 7,
+        'weeks_to_goal': weeks,
+        'days_to_goal': weeks * 7,
         'goal_date':
-            DateTime.now().add(Duration(days: (weeksToGoal * 7).round())).toIso8601String(),
+            DateTime.now().add(Duration(days: (weeks * 7).round())).toIso8601String(),
       };
     }
 
@@ -146,6 +151,9 @@ class MacroCalculatorService {
       'fat_percent': percentOf(fatCalories),
       'carb_percent': percentOf(carbCalories),
       'weekly_weight_change': weeklyWeightChange,
+      'pace_pct_per_week': target.pacePct,
+      'effective_pace_pct': target.effectivePacePct,
+      'limit_hit': target.limitHit?.name,
       'energy_density': kcalPerKg.round(),
       'weight_stats': weightStats,
       'formula_used': bodyFatPercentage == null

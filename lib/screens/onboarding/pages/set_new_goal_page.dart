@@ -2,26 +2,69 @@ import 'dart:math' show max;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:macrotracker/services/energy/constants.dart';
+import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/widgets/onboarding/unit_selector.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:intl/intl.dart';
-import 'package:syncfusion_flutter_sliders/sliders.dart';
-import 'package:syncfusion_flutter_core/theme.dart';
+
+/// One pace on offer: its target after the safety limits, and about how many
+/// weeks it takes to reach the goal weight (null if it doesn't get there).
+class PaceChoice {
+  const PaceChoice({required this.target, this.weeks});
+
+  final PaceTarget target;
+  final double? weeks;
+}
+
+/// Plain words for why a pace was slowed down, or null if it wasn't.
+String? paceLimitExplanation(PaceTarget target) {
+  final limit = target.limitHit;
+  if (limit == null) return null;
+  final pace = '${_pctText(target.effectivePacePct)}%/week';
+  final cals = NumberFormat.decimalPattern().format(target.cals.round());
+  return switch (limit) {
+    SafetyLimit.floor => target.effectivePacePct < 0.05
+        ? 'We\'ve kept your target at $cals cals, our minimum, so you may lose little weight at this activity level.'
+        : 'We\'ve set your pace to $pace so your target doesn\'t go below $cals cals, our minimum.',
+    SafetyLimit.maxDeficit =>
+      'We\'ve set your pace to $pace so you eat no more than ${(kMaxDeficitFrac * 100).round()}% below what you burn.',
+    SafetyLimit.maxLossPace =>
+      'We\'ve set your pace to $pace, the fastest we recommend for losing weight.',
+    SafetyLimit.maxSurplus =>
+      'We\'ve set your pace to $pace so you eat no more than ${(kMaxSurplusFrac * 100).round()}% above what you burn.',
+    SafetyLimit.maxGainPace =>
+      'We\'ve set your pace to $pace, the fastest we recommend for gaining weight.',
+    SafetyLimit.checkinStep => 'We\'ve changed your target gradually, to $cals cals.',
+  };
+}
+
+/// 0.25 → "0.25", 0.5 → "0.5", 0.42 → "0.4", 1.0 → "1".
+String _pctText(double pct) {
+  final rounded = pct >= 0.2 ? (pct * 10).round() / 10 : (pct * 100).round() / 100;
+  final options = [...kLosePaceOptions, ...kGainPaceOptions];
+  final value = options.contains(pct) ? pct : rounded;
+  return value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toString();
+}
 
 class SetNewGoalPage extends StatelessWidget {
   final String currentGoal;
   final double currentWeightKg;
   final double goalWeightKg;
-  final int deficit;
-  /// Cals per kg of weight change for this body (energy density).
-  final double kcalPerKg;
+  /// The paces on offer for the goal, slowest first.
+  final List<PaceChoice> paceChoices;
+  /// The chosen pace, % of body weight a week.
+  final double pacePct;
+  final double recommendedPacePct;
   final bool isMetricWeight;
   final DateTime? projectedDate;
   final double? targetCalories;
   final ValueChanged<double> onGoalWeightChanged;
-  final ValueChanged<int> onDeficitChanged;
+  final ValueChanged<double> onPaceChanged;
   final ValueChanged<bool> onWeightUnitChanged;
 
   const SetNewGoalPage({
@@ -29,13 +72,14 @@ class SetNewGoalPage extends StatelessWidget {
     required this.currentGoal,
     required this.currentWeightKg,
     required this.goalWeightKg,
-    required this.deficit,
-    required this.kcalPerKg,
+    required this.paceChoices,
+    required this.pacePct,
+    required this.recommendedPacePct,
     required this.isMetricWeight,
     this.projectedDate,
     this.targetCalories,
     required this.onGoalWeightChanged,
-    required this.onDeficitChanged,
+    required this.onPaceChanged,
     required this.onWeightUnitChanged,
   });
 
@@ -263,46 +307,26 @@ class SetNewGoalPage extends StatelessWidget {
 
                   const SizedBox(height: 10),
 
-                  // Goal Rate Section
-                  Row(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Rate',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: customColors?.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            isMetricWeight
-                                ? (currentGoal ==
-                                        MacroCalculatorService.GOAL_LOSE
-                                    ? '-${(currentWeightKg - goalWeightKg).toStringAsFixed(1)} kg'
-                                    : '+${(goalWeightKg - currentWeightKg).toStringAsFixed(1)} kg')
-                                : (currentGoal ==
-                                        MacroCalculatorService.GOAL_LOSE
-                                    ? '-${(_imperialCurrentWeightLbs - _imperialGoalWeightLbs)} lbs'
-                                    : '+${(_imperialGoalWeightLbs - _imperialCurrentWeightLbs)} lbs'),
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: currentGoal ==
-                                      MacroCalculatorService.GOAL_LOSE
-                                  ? Colors.red.shade400
-                                  : Colors.green.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  // Pace Section
+                  Text(
+                    'Pace',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: customColors?.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'How fast to ${currentGoal == MacroCalculatorService.GOAL_LOSE ? 'lose' : 'gain'} '
+                    '${isMetricWeight ? (goalWeightKg - currentWeightKg).abs().toStringAsFixed(1) : (_imperialGoalWeightLbs - _imperialCurrentWeightLbs).abs()} '
+                    '${isMetricWeight ? 'kg' : 'lbs'}, as a share of your body weight each week',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: customColors?.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                     decoration: BoxDecoration(
                       color: customColors?.cardBackground ?? theme.cardColor,
                       borderRadius: BorderRadius.circular(16),
@@ -310,42 +334,53 @@ class SetNewGoalPage extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        SfSliderTheme(
-                          data: SfSliderThemeData(
-                            activeTrackHeight: 8.0,
-                            inactiveTrackHeight: 8.0,
-                            thumbRadius: 14.0,
-                            overlayRadius: 24.0,
-                            activeTrackColor: customColors?.accentPrimary ??
-                                theme.colorScheme.primary,
-                            inactiveTrackColor: (customColors?.accentPrimary ??
-                                    theme.colorScheme.primary)
-                                .withOpacity(0.2),
-                            thumbColor: customColors?.accentPrimary ??
-                                theme.colorScheme.primary,
-                            overlayColor: (customColors?.accentPrimary ??
-                                    theme.colorScheme.primary)
-                                .withOpacity(0.12),
-                          ),
-                          child: SfSlider(
-                            min: 250.0,
-                            max: 750.0,
-                            value: deficit.toDouble(),
-                            interval: 50,
-                            stepSize: 50,
-                            showLabels: false,
-                            enableTooltip: false,
-                            onChanged: (value) {
+                        for (var i = 0; i < paceChoices.length; i++) ...[
+                          if (i > 0)
+                            Divider(
+                              height: 1,
+                              indent: 52,
+                              color: Colors.grey.withValues(alpha: 0.15),
+                            ),
+                          _PaceOptionTile(
+                            choice: paceChoices[i],
+                            selected: paceChoices[i].target.pacePct == pacePct,
+                            recommended:
+                                paceChoices[i].target.pacePct == recommendedPacePct,
+                            weeklyChange: _weeklyChangeText(paceChoices[i].target),
+                            onTap: () {
                               HapticFeedback.selectionClick();
-                              onDeficitChanged(value.round());
+                              onPaceChanged(paceChoices[i].target.pacePct);
                             },
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        _buildRateDisplay(context),
+                        ],
                       ],
                     ),
                   ),
+                  if (_selectedExplanation != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 18,
+                          color: customColors?.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _selectedExplanation!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.35,
+                              color: customColors?.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -353,6 +388,23 @@ class SetNewGoalPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String? get _selectedExplanation {
+    for (final choice in paceChoices) {
+      if (choice.target.pacePct == pacePct) {
+        return paceLimitExplanation(choice.target);
+      }
+    }
+    return null;
+  }
+
+  /// The weight a pace really moves a week, in the user's unit.
+  String _weeklyChangeText(PaceTarget target) {
+    final kg = target.effectivePacePct / 100 * currentWeightKg;
+    return isMetricWeight
+        ? '${kg.toStringAsFixed(2)} kg a week'
+        : '${(kg * 2.20462).toStringAsFixed(1)} lbs a week';
   }
 
   Widget _buildNumberWheel(
@@ -381,84 +433,6 @@ class SetNewGoalPage extends StatelessWidget {
         color: (customColors?.textSecondary ?? Colors.grey).withOpacity(0.5),
         fontSize: isLarge ? 20 : 18,
       ),
-    );
-  }
-
-  Map<String, double> _calculateRates() {
-    double weeklyKcalChange = deficit * 7.0;
-    double weeklyKgChange = weeklyKcalChange / kcalPerKg;
-    double weeklyBwChange = (weeklyKgChange / currentWeightKg) * 100;
-    double monthlyKgChange = weeklyKgChange * 4.33;
-    double monthlyBwChange = weeklyBwChange * 4.33;
-
-    return {
-      'weeklyKg': weeklyKgChange.abs(),
-      'weeklyBw': weeklyBwChange.abs(),
-      'monthlyKg': monthlyKgChange.abs(),
-      'monthlyBw': monthlyBwChange.abs(),
-    };
-  }
-
-  Widget _buildRateDisplay(BuildContext context) {
-    final rates = _calculateRates();
-    final customColors = Theme.of(context).extension<CustomColors>();
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Weekly',
-              style: TextStyle(
-                color: customColors?.textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Row(
-              children: [
-                _RateValueBox(
-                  value: rates['weeklyKg']?.toStringAsFixed(1) ?? '0.0',
-                  unit: 'kg',
-                ),
-                const SizedBox(width: 8),
-                _RateValueBox(
-                  value: rates['weeklyBw']?.toStringAsFixed(1) ?? '0.0',
-                  unit: '% BW',
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Monthly',
-              style: TextStyle(
-                color: customColors?.textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Row(
-              children: [
-                _RateValueBox(
-                  value: rates['monthlyKg']?.toStringAsFixed(1) ?? '0.0',
-                  unit: 'kg',
-                ),
-                const SizedBox(width: 8),
-                _RateValueBox(
-                  value: rates['monthlyBw']?.toStringAsFixed(1) ?? '0.0',
-                  unit: '% BW',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -531,44 +505,128 @@ class SetNewGoalPage extends StatelessWidget {
   }
 }
 
-class _RateValueBox extends StatelessWidget {
-  final String value;
-  final String unit;
+class _PaceOptionTile extends StatelessWidget {
+  final PaceChoice choice;
+  final bool selected;
+  final bool recommended;
+  final String weeklyChange;
+  final VoidCallback onTap;
 
-  const _RateValueBox({required this.value, required this.unit});
+  const _PaceOptionTile({
+    required this.choice,
+    required this.selected,
+    required this.recommended,
+    required this.weeklyChange,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final customColors = Theme.of(context).extension<CustomColors>();
+    final customColors = theme.extension<CustomColors>();
+    final accent = customColors?.accentPrimary ?? theme.colorScheme.primary;
+    final target = choice.target;
+    final weeks = choice.weeks;
+    final details = [
+      target.clamped
+          ? 'Capped at ${_pctText(target.effectivePacePct)}%'
+          : weeklyChange,
+      if (weeks != null) 'about ${max(1, weeks.round())} weeks',
+    ].join(' · ');
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: (customColors?.accentPrimary ?? theme.colorScheme.primary)
-            .withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: customColors?.accentPrimary ?? theme.colorScheme.primary,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 22,
+                color: selected
+                    ? accent
+                    : (customColors?.textSecondary ?? Colors.grey).withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          '${_pctText(target.pacePct)}% a week',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: customColors?.textPrimary,
+                          ),
+                        ),
+                        if (recommended)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Recommended',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: accent,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      details,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: customColors?.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: NumberFormat.decimalPattern()
+                          .format(target.cals.round()),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: customColors?.textPrimary,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' cals',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: customColors?.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Text(
-            unit,
-            style: TextStyle(
-              color: customColors?.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

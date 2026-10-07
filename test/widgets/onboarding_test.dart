@@ -8,6 +8,7 @@ import 'package:macrotracker/screens/onboarding/pages/goal_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/set_new_goal_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/weight_page.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
+import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 
@@ -197,6 +198,132 @@ void main() {
       expect(page.goalWeightKg, lessThan(page.currentWeightKg));
     });
   }
+
+  group('pace picker', () {
+    Future<SetNewGoalPage> openGoalDetails(WidgetTester tester) async {
+      await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
+      for (var i = 0; i < 6; i++) {
+        await next(tester);
+      }
+      expect(visible(SetNewGoalPage), findsOneWidget);
+      return tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage));
+    }
+
+    testWidgets('losing offers four paces with 0.5% picked and recommended', (tester) async {
+      goals
+        ..currentWeightKg = 80
+        ..goalWeightKg = 72
+        ..goalType = MacroCalculatorService.GOAL_LOSE;
+      final page = await openGoalDetails(tester);
+      expect(page.paceChoices.map((c) => c.target.pacePct), [0.25, 0.5, 0.75, 1.0]);
+      expect(page.pacePct, 0.5);
+      expect(page.recommendedPacePct, 0.5);
+      for (final label in ['0.25% a week', '0.5% a week', '0.75% a week', '1% a week']) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+      expect(find.text('Recommended'), findsOneWidget);
+      // Every option shows its cals and about how many weeks to the goal.
+      for (final choice in page.paceChoices) {
+        expect(choice.weeks, isNotNull);
+      }
+      expect(find.textContaining('weeks'), findsNWidgets(4));
+
+      // A slower pace means more cals.
+      final before = page.targetCalories!;
+      await tester.tap(find.text('0.25% a week'));
+      await pumpFrames(tester, seconds: 1);
+      final after = tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage));
+      expect(after.pacePct, 0.25);
+      expect(after.targetCalories!, greaterThan(before));
+    });
+
+    testWidgets('gaining offers three paces with 0.25% picked', (tester) async {
+      goals
+        ..currentWeightKg = 70
+        ..goalWeightKg = 75
+        ..goalType = MacroCalculatorService.GOAL_GAIN;
+      final page = await openGoalDetails(tester);
+      expect(page.paceChoices.map((c) => c.target.pacePct), [0.1, 0.25, 0.5]);
+      expect(page.pacePct, 0.25);
+    });
+
+    testWidgets('recalculating starts from the saved pace', (tester) async {
+      goals
+        ..currentWeightKg = 80
+        ..goalWeightKg = 72
+        ..goalType = MacroCalculatorService.GOAL_LOSE
+        ..pacePctPerWeek = 0.75;
+      final page = await openGoalDetails(tester);
+      expect(page.pacePct, 0.75);
+    });
+  });
+
+  group('pace limit explanation', () {
+    PaceTarget clamped(SafetyLimit limit, double effective, double cals) => PaceTarget(
+        pacePct: 1.0, cals: cals, effectivePacePct: effective, limitsHit: [limit]);
+
+    test('is empty when no limit applied', () {
+      expect(
+          paceLimitExplanation(const PaceTarget(
+              pacePct: 0.5, cals: 2000, effectivePacePct: 0.5, limitsHit: [])),
+          isNull);
+    });
+
+    test('says plainly which limit slowed the pace', () {
+      expect(paceLimitExplanation(clamped(SafetyLimit.floor, 0.6, 1200)),
+          "We've set your pace to 0.6%/week so your target doesn't go below 1,200 cals, our minimum.");
+      expect(paceLimitExplanation(clamped(SafetyLimit.floor, 0, 1200)),
+          contains('kept your target at 1,200 cals, our minimum'));
+      expect(paceLimitExplanation(clamped(SafetyLimit.maxDeficit, 0.42, 1900)),
+          "We've set your pace to 0.4%/week so you eat no more than 25% below what you burn.");
+      expect(paceLimitExplanation(clamped(SafetyLimit.maxSurplus, 0.38, 3000)),
+          contains('no more than 15% above what you burn'));
+      expect(paceLimitExplanation(clamped(SafetyLimit.maxLossPace, 1.0, 2000)),
+          contains('the fastest we recommend for losing weight'));
+      expect(paceLimitExplanation(clamped(SafetyLimit.maxGainPace, 0.5, 3000)),
+          contains('the fastest we recommend for gaining weight'));
+    });
+  });
+
+  testWidgets('a clamped pace shows why on the page', (tester) async {
+    await tester.pumpWidget(testApp(
+      Scaffold(
+        body: SetNewGoalPage(
+          currentGoal: MacroCalculatorService.GOAL_LOSE,
+          currentWeightKg: 110,
+          goalWeightKg: 90,
+          paceChoices: const [
+            PaceChoice(
+              target: PaceTarget(
+                  pacePct: 0.5, cals: 2100, effectivePacePct: 0.5, limitsHit: []),
+              weeks: 36,
+            ),
+            PaceChoice(
+              target: PaceTarget(
+                  pacePct: 1.0,
+                  cals: 1950,
+                  effectivePacePct: 0.62,
+                  limitsHit: [SafetyLimit.maxDeficit]),
+              weeks: 29,
+            ),
+          ],
+          pacePct: 1.0,
+          recommendedPacePct: 0.5,
+          isMetricWeight: true,
+          targetCalories: 1950,
+          onGoalWeightChanged: (_) {},
+          onPaceChanged: (_) {},
+          onWeightUnitChanged: (_) {},
+        ),
+      ),
+      goalsProvider: goals,
+    ));
+    await pumpFrames(tester, seconds: 1);
+    expect(find.textContaining('Capped at 0.6%'), findsOneWidget);
+    expect(find.text(
+            "We've set your pace to 0.6%/week so you eat no more than 25% below what you burn."),
+        findsOneWidget);
+  });
 
   testWidgets('"How did you hear about us?" can be skipped', (tester) async {
     await pumpFromHome(tester, const AcquisitionSourceStep());

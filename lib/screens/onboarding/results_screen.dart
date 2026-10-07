@@ -748,7 +748,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                 '${goalTimeframeWeeks.toString()} weeks',
                 Icons.calendar_today_rounded,
                 Colors.purple.shade300,
-                'This is how long it may take to reach your goal weight at your current deficit/surplus.',
+                'This is how long it may take to reach your goal weight at your chosen pace.',
               ),
               SizedBox(height: 16),
             ],

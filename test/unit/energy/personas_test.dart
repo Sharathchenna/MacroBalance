@@ -4,14 +4,15 @@ import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'personas.dart';
 
 /// Reviewed snapshot of onboarding targets for the reference personas
-/// (ticket 02). A change here is a change to what new users are told to eat:
+/// (ticket 02; paces and safety limits from ticket 03). The obese woman and
+/// the large man are held at a 25% deficit. A change here is a change to what new users are told to eat:
 /// review the new numbers before updating them.
 const _snapshot = {
   'small lean woman, maintaining': [1180, 1623, 1623, 80, 225, 45],
-  'small obese woman, losing': [1533, 1839, 1339, 120, 132, 37],
-  'tall lean man, gaining': [1803, 3109, 3409, 115, 524, 95],
-  'large obese man, losing': [2561, 3522, 2772, 171, 349, 77],
-  'woman with a scanned body fat, losing': [1404, 2176, 1876, 124, 228, 52],
+  'small obese woman, losing': [1533, 1839, 1379, 120, 139, 38],
+  'tall lean man, gaining': [1803, 3109, 3248, 115, 495, 90],
+  'large obese man, losing': [2561, 3522, 2641, 171, 325, 73],
+  'woman with a scanned body fat, losing': [1404, 2176, 1842, 124, 222, 51],
   'lean man with a scanned body fat, maintaining': [1828, 2833, 2833, 141, 390, 79],
 };
 

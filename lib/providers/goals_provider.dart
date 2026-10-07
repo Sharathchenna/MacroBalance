@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:macrotracker/services/energy/body_composition.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
@@ -30,6 +30,8 @@ class GoalsProvider with ChangeNotifier {
   static const String _proteinKey = 'protein_goal';
   static const String _carbsKey = 'carbs_goal';
   static const String _fatKey = 'fat_goal';
+  // The goal settings from `user_macros`, in `nutrition_goals`' key names.
+  static const String _settingsKey = 'goal_settings';
 
   static const double _defaultCalories = 2000.0;
   static const double _defaultProtein = 150.0;
@@ -51,10 +53,14 @@ class GoalsProvider with ChangeNotifier {
   double _goalWeightKg = 0.0;
   double _currentWeightKg = 0.0;
   String _goalType = MacroCalculatorService.GOAL_MAINTAIN;
-  int _deficitSurplus = 500;
+  double? _pacePct; // % of body weight a week; null: the recommended pace
 
-  // Macro split inputs for [recalculateMacroGoals], saved by onboarding.
-  // Null means unknown or "use the default".
+  // The profile and settings [recalculateMacroGoals] works from, saved by
+  // onboarding. Null means unknown or "use the default".
+  String? _sex; // MacroCalculatorService.MALE / FEMALE
+  int? _age;
+  int? _activityLevel; // 1–5
+  double? _formulaTdee; // expenditure from the BMR formula and activity
   double _heightCm = 0.0;
   double? _bodyFatPct; // only from a scan or smart scale
   double? _proteinRatio; // g per kg of reference weight
@@ -71,7 +77,10 @@ class GoalsProvider with ChangeNotifier {
   double get goalWeightKg => _goalWeightKg;
   double get currentWeightKg => _currentWeightKg;
   String get goalType => _goalType;
-  int get deficitSurplus => _deficitSurplus;
+
+  /// The chosen pace, % of body weight a week (0 when maintaining).
+  double get pacePctPerWeek =>
+      _pacePct ?? defaultPacePct(MacroCalculatorService.goalKindOf(_goalType));
 
   int get goalTypeAsInt {
     switch (_goalType) {
@@ -136,9 +145,9 @@ class GoalsProvider with ChangeNotifier {
     };
   }
 
-  set deficitSurplus(int value) {
-    if (_deficitSurplus == value) return;
-    _deficitSurplus = value;
+  set pacePctPerWeek(double value) {
+    if (_pacePct == value) return;
+    _pacePct = value;
     _commit();
     recalculateMacroGoals(_tdee);
   }
@@ -163,29 +172,41 @@ class GoalsProvider with ChangeNotifier {
     _commit();
   }
 
-  /// Sets the calorie and macro targets from [tdee] and the weight goal.
+  /// Sets the calorie and macro targets from [tdee] and the weight goal at
+  /// the chosen pace, through the safety limits.
   Future<void> recalculateMacroGoals(double tdee) async {
     debugPrint('[Goals] Recalculating with TDEE ${tdee.round()}');
     _tdee = tdee;
-
-    final double targetCalories;
-    if (_goalType == MacroCalculatorService.GOAL_LOSE) {
-      // Ticket 03 replaces this floor with the safety limits.
-      targetCalories = max(1200, _tdee - _deficitSurplus).roundToDouble();
-    } else if (_goalType == MacroCalculatorService.GOAL_GAIN) {
-      targetCalories = (_tdee + _deficitSurplus).roundToDouble();
-    } else {
-      targetCalories = _tdee.roundToDouble();
-    }
 
     if (_currentWeightKg <= 0) {
       debugPrint('[Goals] Cannot recalculate: current weight is not set.');
       return;
     }
 
+    // Accounts from before onboarding saved the profile: an unknown sex gets
+    // the lower (1,200) floor they had before, and an unknown height or age
+    // the onboarding defaults.
+    final goal = MacroCalculatorService.goalKindOf(_goalType);
+    final sex = _sex == null ? Sex.female : MacroCalculatorService.sexOf(_sex!);
+    final energyDensityPerKg = energyDensity(fatMassKg(
+      weightKg: _currentWeightKg,
+      heightCm: _heightCm > 0 ? _heightCm : 170,
+      age: _age ?? 30,
+      sex: sex,
+      bodyFatPct: _bodyFatPct,
+    ));
+    final targetCalories = targetForPace(
+      goal: goal,
+      pacePct: pacePctPerWeek,
+      tdee: _tdee,
+      sex: sex,
+      weightKg: _currentWeightKg,
+      energyDensity: energyDensityPerKg,
+    ).cals;
+
     final macros = splitMacros(
       cals: targetCalories,
-      goal: MacroCalculatorService.goalKindOf(_goalType),
+      goal: goal,
       weightKg: _currentWeightKg,
       heightCm: _heightCm > 0 ? _heightCm : null,
       bodyFatPct: _bodyFatPct,
@@ -218,7 +239,8 @@ class GoalsProvider with ChangeNotifier {
       final storage = StorageService();
       final String? saved = storage.get(_storageKey);
       bool loadedMacros = false;
-      if (saved != null && saved.isNotEmpty) {
+      final bool hasDeviceGoals = saved != null && saved.isNotEmpty;
+      if (hasDeviceGoals) {
         final Map<String, dynamic> goals = jsonDecode(saved);
 
         // Older builds of Edit Goals wrote a flat {calories, protein, ...} map.
@@ -237,15 +259,10 @@ class GoalsProvider with ChangeNotifier {
             _asDouble(goals['steps_goal'] ?? goals['steps'])?.toInt() ?? _stepsGoal;
         _bmr = _asDouble(goals['bmr']) ?? _bmr;
         _tdee = _asDouble(goals['tdee']) ?? _tdee;
-        _goalWeightKg = _asDouble(goals['goal_weight_kg']) ?? _goalWeightKg;
-        _currentWeightKg = _asDouble(goals['current_weight_kg']) ?? _currentWeightKg;
-        _goalType = goals['goal_type'] as String? ?? _goalType;
-        _deficitSurplus =
-            (goals['deficit_surplus'] as num?)?.toInt() ?? _deficitSurplus;
-        _heightCm = _asDouble(goals['height_cm']) ?? _heightCm;
-        _bodyFatPct = _asDouble(goals['body_fat_pct']);
-        _proteinRatio = _asDouble(goals['protein_ratio']);
-        _fatRatio = _asDouble(goals['fat_ratio']);
+        _readSettings(goals);
+      } else {
+        final String? settings = storage.get(_settingsKey);
+        if (settings != null && settings.isNotEmpty) _readSettings(jsonDecode(settings));
       }
 
       if (!loadedMacros) {
@@ -260,6 +277,23 @@ class GoalsProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('[Goals] Error loading goals: $e');
     }
+  }
+
+  /// The weight goal, pace and profile, from `nutrition_goals` or the
+  /// sign-in fallback (same keys).
+  void _readSettings(Map<String, dynamic> goals) {
+    _goalWeightKg = _asDouble(goals['goal_weight_kg']) ?? _goalWeightKg;
+    _currentWeightKg = _asDouble(goals['current_weight_kg']) ?? _currentWeightKg;
+    _goalType = goals['goal_type'] as String? ?? _goalType;
+    _pacePct = _asDouble(goals['pace_pct_per_week']);
+    _sex = goals['sex'] as String?;
+    _age = _asDouble(goals['age'])?.toInt();
+    _activityLevel = _asDouble(goals['activity_level'])?.toInt();
+    _formulaTdee = _asDouble(goals['formula_tdee']);
+    _heightCm = _asDouble(goals['height_cm']) ?? _heightCm;
+    _bodyFatPct = _asDouble(goals['body_fat_pct']);
+    _proteinRatio = _asDouble(goals['protein_ratio']);
+    _fatRatio = _asDouble(goals['fat_ratio']);
   }
 
   static double? _asDouble(dynamic value) {
@@ -280,7 +314,11 @@ class GoalsProvider with ChangeNotifier {
           'goal_weight_kg': _goalWeightKg,
           'current_weight_kg': _currentWeightKg,
           'goal_type': _goalType,
-          'deficit_surplus': _deficitSurplus,
+          'pace_pct_per_week': _pacePct,
+          'sex': _sex,
+          'age': _age,
+          'activity_level': _activityLevel,
+          'formula_tdee': _formulaTdee,
           if (_heightCm > 0) 'height_cm': _heightCm,
           'body_fat_pct': _bodyFatPct,
           'protein_ratio': _proteinRatio,
@@ -321,11 +359,21 @@ class GoalsProvider with ChangeNotifier {
         'bmr': _bmr,
         'tdee': _tdee,
         'goal_type': _goalType,
-        'deficit_surplus': _deficitSurplus,
-        // A 0 here means "not loaded", not a real goal; sending it would wipe
-        // the goal weight saved at onboarding.
+        'pace_pct_per_week':
+            _goalType == MacroCalculatorService.GOAL_MAINTAIN ? null : pacePctPerWeek,
+        // A 0 or null here means "not known on this device", not a real value;
+        // sending it would wipe what onboarding saved.
         if (_goalWeightKg > 0) 'goal_weight_kg': _goalWeightKg,
         if (_currentWeightKg > 0) 'current_weight_kg': _currentWeightKg,
+        if (_sex != null) 'sex': _sex,
+        if (_age != null) 'age': _age,
+        if (_activityLevel != null) 'activity_level': _activityLevel,
+        if (_heightCm > 0) 'height_cm': _heightCm,
+        if (_formulaTdee != null) 'formula_tdee': _formulaTdee!.round(),
+        // Null is a real choice for these: not measured, or the default.
+        'body_fat_pct': _bodyFatPct,
+        'protein_g_per_kg': _proteinRatio,
+        'fat_ratio': _fatRatio,
         'macro_targets': _macroTargets(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
@@ -349,14 +397,34 @@ class GoalsProvider with ChangeNotifier {
     }
   }
 
-  /// Keeps an account's `user_macros` targets on this device as the fallback
-  /// [load] reads when the device has no goals of its own (sign-in restore).
+  /// Keeps an account's `user_macros` targets and goal settings on this
+  /// device as the fallback [load] reads when the device has no goals of its
+  /// own (sign-in restore).
   static Future<void> cacheUserMacros(Map<String, dynamic> row) async {
     final storage = StorageService();
     await storage.put(_caloriesKey, row['calories_goal'] ?? _defaultCalories);
     await storage.put(_proteinKey, row['protein_goal'] ?? _defaultProtein);
     await storage.put(_carbsKey, row['carbs_goal'] ?? _defaultCarbs);
     await storage.put(_fatKey, row['fat_goal'] ?? _defaultFat);
+    await storage.put(
+        _settingsKey,
+        jsonEncode({
+          for (final key in [
+            'goal_weight_kg',
+            'current_weight_kg',
+            'goal_type',
+            'pace_pct_per_week',
+            'sex',
+            'age',
+            'activity_level',
+            'formula_tdee',
+            'height_cm',
+            'body_fat_pct',
+            'fat_ratio',
+          ])
+            if (row[key] != null) key: row[key],
+          if (row['protein_g_per_kg'] != null) 'protein_ratio': row['protein_g_per_kg'],
+        }));
   }
 
   // --- Weight ---
@@ -388,7 +456,11 @@ class GoalsProvider with ChangeNotifier {
     _goalWeightKg = 0.0;
     _currentWeightKg = 0.0;
     _goalType = MacroCalculatorService.GOAL_MAINTAIN;
-    _deficitSurplus = 500;
+    _pacePct = null;
+    _sex = null;
+    _age = null;
+    _activityLevel = null;
+    _formulaTdee = null;
     _heightCm = 0.0;
     _bodyFatPct = null;
     _proteinRatio = null;
@@ -400,6 +472,7 @@ class GoalsProvider with ChangeNotifier {
       _proteinKey,
       _carbsKey,
       _fatKey,
+      _settingsKey,
       'macro_results',
       'weight_history',
       'last_sync_timestamp',

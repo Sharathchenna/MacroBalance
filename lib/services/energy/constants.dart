@@ -34,6 +34,12 @@ const double kConfidentSd = 200;
 const int kPausedAfterDays = 7;
 const int algoVersion = 1;
 
+// --- Pace (% of body weight per week) ---
+const List<double> kLosePaceOptions = [0.25, 0.5, 0.75, 1.0];
+const List<double> kGainPaceOptions = [0.1, 0.25, 0.5];
+const double kDefaultLosePace = 0.5;
+const double kDefaultGainPace = 0.25;
+
 // --- Safety limits ---
 const double kFloorFemale = 1200;
 const double kFloorMale = 1500;

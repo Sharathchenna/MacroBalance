@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'body_composition.dart';
 import 'constants.dart';
 
 enum GoalKind { lose, maintain, gain }
@@ -90,4 +91,179 @@ MacroSplit splitMacros({
   final f = fat.floor();
   final c = (cals - p * kKcalPerGramProtein - f * kKcalPerGramFat) / kKcalPerGramCarbs;
   return MacroSplit(proteinG: p, carbsG: max(0, c.round()), fatG: f);
+}
+
+// --- Calories for a goal (spec §6.6) ---
+
+/// The pace offered first: 0.5%/week to lose, 0.25%/week to gain.
+double defaultPacePct(GoalKind goal) => switch (goal) {
+      GoalKind.lose => kDefaultLosePace,
+      GoalKind.gain => kDefaultGainPace,
+      GoalKind.maintain => 0,
+    };
+
+/// Daily cals that move [pacePct] % of [weightKg] a week.
+double paceDeltaCals({
+  required double pacePct,
+  required double weightKg,
+  required double energyDensity,
+}) =>
+    pacePct / 100 * weightKg * energyDensity / 7;
+
+/// The weekly change, in % of body weight, that eating [cals] against [tdee]
+/// gives: negative when losing.
+double impliedPacePct({
+  required double cals,
+  required double tdee,
+  required double weightKg,
+  required double energyDensity,
+}) =>
+    (cals - tdee) * 7 / energyDensity / weightKg * 100;
+
+/// A safety limit that changed a target.
+enum SafetyLimit { maxDeficit, maxLossPace, maxSurplus, maxGainPace, floor, checkinStep }
+
+class SafeTarget {
+  const SafeTarget(this.cals, this.limitsHit);
+
+  final double cals;
+
+  /// Every limit that changed the target, in the order applied.
+  final List<SafetyLimit> limitsHit;
+
+  /// The limit that set the final target.
+  SafetyLimit? get limitHit => limitsHit.isEmpty ? null : limitsHit.last;
+}
+
+/// Keeps a calorie target safe (spec §6.6), in order:
+/// 1. Below [tdee]: a deficit of at most 25% and a loss of at most 1% of body
+///    weight a week. Above it: a surplus of at most 15% and a gain of at most
+///    0.5% a week.
+/// 2. At least the floor for [sex].
+/// 3. Only for ordinary check-ins, which pass [currentCals]: at most 150 cals
+///    from the current target.
+SafeTarget applySafetyLimits({
+  required double cals,
+  required double tdee,
+  required Sex sex,
+  required double weightKg,
+  required double energyDensity,
+  double? currentCals,
+}) {
+  final hit = <SafetyLimit>[];
+  void raiseTo(double bound, SafetyLimit limit) {
+    if (cals < bound) {
+      cals = bound;
+      hit.add(limit);
+    }
+  }
+
+  void lowerTo(double bound, SafetyLimit limit) {
+    if (cals > bound) {
+      cals = bound;
+      hit.add(limit);
+    }
+  }
+
+  double maxDelta(double pct) =>
+      paceDeltaCals(pacePct: pct, weightKg: weightKg, energyDensity: energyDensity);
+
+  if (cals < tdee) {
+    raiseTo(tdee * (1 - kMaxDeficitFrac), SafetyLimit.maxDeficit);
+    raiseTo(tdee - maxDelta(kMaxLossPct), SafetyLimit.maxLossPace);
+  } else if (cals > tdee) {
+    lowerTo(tdee * (1 + kMaxSurplusFrac), SafetyLimit.maxSurplus);
+    lowerTo(tdee + maxDelta(kMaxGainPct), SafetyLimit.maxGainPace);
+  }
+
+  raiseTo(sex == Sex.female ? kFloorFemale : kFloorMale, SafetyLimit.floor);
+
+  if (currentCals != null) {
+    raiseTo(currentCals - kMaxCheckinStep, SafetyLimit.checkinStep);
+    lowerTo(currentCals + kMaxCheckinStep, SafetyLimit.checkinStep);
+  }
+  return SafeTarget(cals, hit);
+}
+
+/// The daily target for a goal at a chosen pace, after the safety limits.
+class PaceTarget {
+  const PaceTarget({
+    required this.pacePct,
+    required this.cals,
+    required this.effectivePacePct,
+    required this.limitsHit,
+  });
+
+  /// The pace the user chose, % of body weight a week.
+  final double pacePct;
+
+  /// Whole cals a day.
+  final double cals;
+
+  /// The pace [cals] really gives, towards the goal (never negative). Lower
+  /// than [pacePct] when a limit applied.
+  final double effectivePacePct;
+
+  final List<SafetyLimit> limitsHit;
+
+  SafetyLimit? get limitHit => limitsHit.isEmpty ? null : limitsHit.last;
+  bool get clamped => limitsHit.isNotEmpty;
+}
+
+/// Onboarding and recalculation: `tdee ∓ pace`, then the safety limits
+/// (without the check-in step).
+PaceTarget targetForPace({
+  required GoalKind goal,
+  required double pacePct,
+  required double tdee,
+  required Sex sex,
+  required double weightKg,
+  required double energyDensity,
+}) {
+  final delta =
+      paceDeltaCals(pacePct: pacePct, weightKg: weightKg, energyDensity: energyDensity);
+  final raw = switch (goal) {
+    GoalKind.lose => tdee - delta,
+    GoalKind.gain => tdee + delta,
+    GoalKind.maintain => tdee,
+  };
+  final safe = applySafetyLimits(
+    cals: raw,
+    tdee: tdee,
+    sex: sex,
+    weightKg: weightKg,
+    energyDensity: energyDensity,
+  );
+  final cals = safe.cals.roundToDouble();
+  final implied = impliedPacePct(
+      cals: cals, tdee: tdee, weightKg: weightKg, energyDensity: energyDensity);
+  final effective = switch (goal) {
+    GoalKind.lose => max(0.0, -implied),
+    GoalKind.gain => max(0.0, implied),
+    GoalKind.maintain => 0.0,
+  };
+  return PaceTarget(
+    pacePct: goal == GoalKind.maintain ? 0 : pacePct,
+    cals: cals,
+    // Rounding the cals shouldn't read as a slower pace.
+    effectivePacePct: safe.limitsHit.isEmpty ? pacePct : effective,
+    limitsHit: safe.limitsHit,
+  );
+}
+
+/// About how many weeks eating [cals] takes to get from [weightKg] to
+/// [goalWeightKg], at today's energy balance. Null when the target doesn't
+/// move towards the goal. (A simple estimate until the projection, which also
+/// lets expenditure fall with weight, replaces it.)
+double? weeksToGoal({
+  required double weightKg,
+  required double goalWeightKg,
+  required double tdee,
+  required double cals,
+  required double energyDensity,
+}) {
+  final toGo = goalWeightKg - weightKg;
+  final dailyBalance = cals - tdee;
+  if (toGo == 0 || dailyBalance == 0 || toGo.sign != dailyBalance.sign) return null;
+  return toGo * energyDensity / (dailyBalance * 7);
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:macrotracker/services/energy/body_composition.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 
@@ -18,6 +19,7 @@ void main() {
       'protein_goal',
       'carbs_goal',
       'fat_goal',
+      'goal_settings',
     ]) {
       await StorageService().delete(key);
     }
@@ -134,7 +136,9 @@ void main() {
             'macro_targets': {'calories': 2500, 'protein': 150, 'carbs': 250, 'fat': 70},
             'current_weight_kg': 120,
             'goal_type': MacroCalculatorService.GOAL_LOSE,
-            'deficit_surplus': 500,
+            'pace_pct_per_week': 0.25,
+            'sex': MacroCalculatorService.MALE,
+            'age': 30,
             'height_cm': 180,
             'body_fat_pct': null,
             'protein_ratio': null,
@@ -142,9 +146,12 @@ void main() {
           }));
       final g = GoalsProvider();
       await g.recalculateMacroGoals(2800);
-      expect(g.caloriesGoal, 2300);
+      final ed = energyDensity(
+          fatMassKg(weightKg: 120, heightCm: 180, age: 30, sex: Sex.male));
+      final cals = (2800 - 0.0025 * 120 * ed / 7).roundToDouble();
+      expect(g.caloriesGoal, cals);
       expect(g.proteinGoal, 162); // 81 × 2.0
-      expect(g.proteinGoal * 4 + g.carbsGoal * 4 + g.fatGoal * 9, closeTo(2300, 5));
+      expect(g.proteinGoal * 4 + g.carbsGoal * 4 + g.fatGoal * 9, closeTo(cals, 5));
     });
 
     test('keeps the split inputs when it saves', () async {
@@ -165,6 +172,106 @@ void main() {
       expect(saved['protein_ratio'], 2.2);
       expect(saved['fat_ratio'], 0.3);
       expect(g.proteinGoal, (70 * 0.82 * 2.2).round());
+    });
+
+    test('goes through the safety limits: never under the floor for the sex', () async {
+      await StorageService().put(
+          'nutrition_goals',
+          jsonEncode({
+            'current_weight_kg': 60,
+            'goal_type': MacroCalculatorService.GOAL_LOSE,
+            'pace_pct_per_week': 1.0,
+            'sex': MacroCalculatorService.MALE,
+            'age': 50,
+            'height_cm': 165,
+          }));
+      final g = GoalsProvider();
+      await g.recalculateMacroGoals(1700);
+      expect(g.caloriesGoal, 1500);
+    });
+
+    test('changing the pace recalculates the targets', () async {
+      await StorageService().put(
+          'nutrition_goals',
+          jsonEncode({
+            'current_weight_kg': 80,
+            'goal_type': MacroCalculatorService.GOAL_LOSE,
+            'sex': MacroCalculatorService.MALE,
+            'age': 30,
+            'height_cm': 180,
+            'tdee': 2800,
+          }));
+      final g = GoalsProvider();
+      expect(g.pacePctPerWeek, 0.5); // recommended
+      await g.recalculateMacroGoals(2800);
+      final atHalf = g.caloriesGoal;
+      g.pacePctPerWeek = 0.25;
+      await Future<void>.delayed(Duration.zero);
+      expect(g.caloriesGoal, greaterThan(atHalf));
+      final saved = jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
+      expect(saved['pace_pct_per_week'], 0.25);
+      expect(saved.containsKey('deficit_surplus'), isFalse);
+    });
+  });
+
+  group('sync', () {
+    test('sends the pace and goal settings, and no deficit', () async {
+      await StorageService().put(
+          'nutrition_goals',
+          jsonEncode({
+            'current_weight_kg': 80,
+            'goal_type': MacroCalculatorService.GOAL_LOSE,
+            'pace_pct_per_week': 0.75,
+            'sex': MacroCalculatorService.FEMALE,
+            'age': 34,
+            'activity_level': 3,
+            'formula_tdee': 2210.4,
+            'height_cm': 168,
+            'body_fat_pct': 28,
+            'protein_ratio': 2.2,
+            'fat_ratio': 0.3,
+          }));
+      final payload = GoalsProvider().userMacrosPayload();
+      expect(payload['pace_pct_per_week'], 0.75);
+      expect(payload['sex'], 'female');
+      expect(payload['age'], 34);
+      expect(payload['activity_level'], 3);
+      expect(payload['formula_tdee'], 2210);
+      expect(payload['height_cm'], 168);
+      expect(payload['body_fat_pct'], 28);
+      expect(payload['protein_g_per_kg'], 2.2);
+      expect(payload['fat_ratio'], 0.3);
+      expect(payload.containsKey('deficit_surplus'), isFalse);
+    });
+
+    test('maintaining sends no pace; an unknown profile is not sent', () {
+      final payload = goals.userMacrosPayload();
+      expect(payload['pace_pct_per_week'], isNull);
+      for (final key in ['sex', 'age', 'activity_level', 'height_cm', 'formula_tdee']) {
+        expect(payload.containsKey(key), isFalse, reason: key);
+      }
+    });
+
+    test('sign-in restores the pace and settings from the account', () async {
+      await GoalsProvider.cacheUserMacros({
+        'calories_goal': 1900,
+        'goal_type': MacroCalculatorService.GOAL_GAIN,
+        'pace_pct_per_week': 0.1,
+        'sex': 'male',
+        'age': 41,
+        'height_cm': 181.5,
+        'protein_g_per_kg': 1.8,
+        'current_weight_kg': 70,
+      });
+      final g = GoalsProvider();
+      expect(g.caloriesGoal, 1900);
+      expect(g.goalType, MacroCalculatorService.GOAL_GAIN);
+      expect(g.pacePctPerWeek, 0.1);
+      final payload = g.userMacrosPayload();
+      expect(payload['sex'], 'male');
+      expect(payload['age'], 41);
+      expect(payload['height_cm'], 181.5);
+      expect(payload['protein_g_per_kg'], 1.8);
     });
   });
 }

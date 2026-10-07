@@ -11,7 +11,7 @@ void main() {
     int age = 30,
     int activity = 3,
     String goal = MacroCalculatorService.GOAL_MAINTAIN,
-    int? deficit,
+    double? pacePct,
     double? goalWeightKg,
   }) =>
       calc.calculateAll(
@@ -21,7 +21,7 @@ void main() {
         age: age,
         activityLevel: activity,
         goal: goal,
-        deficit: deficit,
+        pacePct: pacePct,
         goalWeightKg: goalWeightKg,
       );
 
@@ -64,10 +64,12 @@ void main() {
   });
 
   test('weekly change uses the body\'s energy density, not 7,700 per kg', () {
-    final r = run(goal: MacroCalculatorService.GOAL_LOSE, deficit: 500, goalWeightKg: 75);
+    final r = run(goal: MacroCalculatorService.GOAL_LOSE, pacePct: 0.5, goalWeightKg: 75);
     final ed = n(r, 'energy_density');
     expect(ed, isNot(7700));
-    expect(n(r, 'weekly_weight_change'), closeTo(-500 * 7 / ed, 0.01));
+    expect(n(r, 'weekly_weight_change'),
+        closeTo((n(r, 'target_calories') - n(r, 'tdee')) * 7 / ed, 0.01));
+    expect(n(r, 'weekly_weight_change'), closeTo(-0.4, 0.01)); // 0.5% of 80 kg
   });
 
   test('women get a lower BMR than men of the same size', () {
@@ -81,9 +83,9 @@ void main() {
 
   test('losing targets fewer calories than maintaining, gaining more', () {
     final maintain = n(run(), 'target_calories');
-    expect(n(run(goal: MacroCalculatorService.GOAL_LOSE, deficit: 500, goalWeightKg: 75),
+    expect(n(run(goal: MacroCalculatorService.GOAL_LOSE, pacePct: 0.5, goalWeightKg: 75),
         'target_calories'), lessThan(maintain));
-    expect(n(run(goal: MacroCalculatorService.GOAL_GAIN, deficit: 300, goalWeightKg: 85),
+    expect(n(run(goal: MacroCalculatorService.GOAL_GAIN, pacePct: 0.25, goalWeightKg: 85),
         'target_calories'), greaterThan(maintain));
   });
 
@@ -93,7 +95,7 @@ void main() {
       MacroCalculatorService.GOAL_MAINTAIN,
       MacroCalculatorService.GOAL_GAIN,
     ]) {
-      final r = run(goal: goal, deficit: 400, goalWeightKg: 78);
+      final r = run(goal: goal, pacePct: 0.5, goalWeightKg: 78);
       final macroKcal = n(r, 'protein_g') * 4 + n(r, 'carb_g') * 4 + n(r, 'fat_g') * 9;
       expect(macroKcal, closeTo(n(r, 'target_calories'), 5), reason: goal);
     }
@@ -103,12 +105,53 @@ void main() {
     for (final r in [
       run(weightKg: 40, heightCm: 145, age: 80, activity: 1),
       run(weightKg: 200, heightCm: 210, age: 18, activity: 5),
-      run(goal: MacroCalculatorService.GOAL_LOSE, deficit: 1000, weightKg: 50, goalWeightKg: 45),
+      run(goal: MacroCalculatorService.GOAL_LOSE, pacePct: 1.0, weightKg: 50, goalWeightKg: 45),
     ]) {
       for (final key in ['bmr', 'tdee', 'target_calories', 'protein_g', 'carb_g', 'fat_g']) {
         final v = r[key] as num;
         expect(v.isFinite && v >= 0, isTrue, reason: '$key = $v');
       }
     }
+  });
+
+  test('the target comes from the pace, through the safety limits', () {
+    final r = run(goal: MacroCalculatorService.GOAL_LOSE, pacePct: 0.5, goalWeightKg: 75);
+    final ed = n(r, 'energy_density');
+    expect(n(r, 'target_calories'), closeTo(n(r, 'tdee') - 0.005 * 80 * ed / 7, 1));
+    expect(r['pace_pct_per_week'], 0.5);
+    expect(r['limit_hit'], isNull);
+
+    // 1%/week is more than a 25% deficit for this man.
+    final fast = run(goal: MacroCalculatorService.GOAL_LOSE, pacePct: 1.0, goalWeightKg: 75);
+    expect(n(fast, 'target_calories'), closeTo(n(fast, 'tdee') * 0.75, 1));
+    expect(fast['limit_hit'], 'maxDeficit');
+    expect(n(fast, 'effective_pace_pct'), lessThan(1.0));
+  });
+
+  test('no pace means the recommended one', () {
+    expect(run(goal: MacroCalculatorService.GOAL_LOSE, goalWeightKg: 75)['pace_pct_per_week'], 0.5);
+    expect(run(goal: MacroCalculatorService.GOAL_GAIN, goalWeightKg: 85)['pace_pct_per_week'], 0.25);
+  });
+
+  test('a small woman is never set below 1,200 cals', () {
+    final r = run(
+      gender: MacroCalculatorService.FEMALE,
+      weightKg: 45,
+      heightCm: 150,
+      age: 60,
+      activity: 1,
+      goal: MacroCalculatorService.GOAL_LOSE,
+      pacePct: 1.0,
+      goalWeightKg: 42,
+    );
+    expect(n(r, 'target_calories'), 1200);
+    expect(r['limit_hit'], 'floor');
+  });
+
+  test('weeks to goal follow the target', () {
+    final r = run(goal: MacroCalculatorService.GOAL_LOSE, pacePct: 0.5, goalWeightKg: 75);
+    final stats = r['weight_stats'] as Map;
+    expect(stats['weeks_to_goal'] as num,
+        closeTo(5 / (n(r, 'weekly_weight_change').abs()), 0.01));
   });
 }

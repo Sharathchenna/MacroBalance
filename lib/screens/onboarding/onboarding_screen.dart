@@ -3,6 +3,8 @@ import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:flutter/services.dart';
+import 'package:macrotracker/services/energy/bmr.dart';
+import 'package:macrotracker/services/energy/constants.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
@@ -11,7 +13,6 @@ import 'package:macrotracker/services/storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'dart:math'; // For min/max
-import 'package:intl/intl.dart'; // For date formatting
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/services/posthog_service.dart';
@@ -63,7 +64,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   int _age = 30;
   int _activityLevel = MacroCalculatorService.MODERATELY_ACTIVE;
   String _goal = MacroCalculatorService.GOAL_MAINTAIN;
-  int _deficit = 500;
+  double _pacePct = kDefaultLosePace; // % of body weight a week
   double? _proteinRatio; // null: the default for the goal
   double _fatRatio = 0.25;
   double _goalWeightKg = 70;
@@ -80,6 +81,51 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   double get _defaultProteinRatio => defaultProteinPerKg(
       goal: MacroCalculatorService.goalKindOf(_goal),
       bodyFatKnown: _knownBodyFat != null);
+
+  GoalKind get _goalKind => MacroCalculatorService.goalKindOf(_goal);
+
+  double get _formulaTdee => formulaTdee(
+        sex: MacroCalculatorService.sexOf(_gender),
+        weightKg: _weightKg,
+        heightCm: _heightCm,
+        age: _age,
+        activityLevel: _activityLevel,
+        bodyFatPct: _knownBodyFat,
+      );
+
+  /// The target a pace gives today, after the safety limits.
+  PaceTarget _targetFor(double pacePct, {double? tdee, double? kcalPerKg}) =>
+      targetForPace(
+        goal: _goalKind,
+        pacePct: pacePct,
+        tdee: tdee ?? _formulaTdee,
+        sex: MacroCalculatorService.sexOf(_gender),
+        weightKg: _weightKg,
+        energyDensity: kcalPerKg ?? _kcalPerKg,
+      );
+
+  /// Every pace offered for the goal, with its cals and weeks to the goal.
+  List<PaceChoice> _paceChoices() {
+    final tdee = _formulaTdee;
+    final kcalPerKg = _kcalPerKg;
+    final options = _goalKind == GoalKind.gain ? kGainPaceOptions : kLosePaceOptions;
+    return [
+      for (final pace in options)
+        () {
+          final target = _targetFor(pace, tdee: tdee, kcalPerKg: kcalPerKg);
+          return PaceChoice(
+            target: target,
+            weeks: weeksToGoal(
+              weightKg: _weightKg,
+              goalWeightKg: _goalWeightKg,
+              tdee: tdee,
+              cals: target.cals,
+              energyDensity: kcalPerKg,
+            ),
+          );
+        }(),
+    ];
+  }
 
   double get _kcalPerKg => MacroCalculatorService.energyDensityFor(
         gender: _gender,
@@ -117,7 +163,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final goals = Provider.of<GoalsProvider>(context, listen: false);
     if (goals.currentWeightKg > 0) _weightKg = goals.currentWeightKg;
     _goal = goals.goalType;
-    _deficit = _goal == MacroCalculatorService.GOAL_MAINTAIN ? 0 : goals.deficitSurplus;
+    _pacePct = _validPace(goals.pacePctPerWeek);
     _goalWeightKg = goals.goalWeightKg > 0 ? goals.goalWeightKg : _weightKg;
     // A saved goal weight can be on the wrong side of the current weight (no
     // goal weight saved, or the user has since passed it). Bring it back in
@@ -148,67 +194,26 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   // --- Helper Functions for Projected Date ---
-  double _calculateWeeklyRate() {
-    if (_goal == MacroCalculatorService.GOAL_MAINTAIN || _deficit == 0)
-      return 0.0;
-    double weeklyKcalChange =
-        _deficit * 7.0 * (_goal == MacroCalculatorService.GOAL_LOSE ? -1 : 1);
-    return weeklyKcalChange / _kcalPerKg;
+  /// [pace] if it's offered for the goal, else the recommended pace.
+  double _validPace(double pace) {
+    final options = _goalKind == GoalKind.gain ? kGainPaceOptions : kLosePaceOptions;
+    return options.contains(pace) ? pace : defaultPacePct(_goalKind);
   }
 
   DateTime? _calculateProjectedDate() {
     if (_goal == MacroCalculatorService.GOAL_MAINTAIN) return null;
-    double weeklyRate = _calculateWeeklyRate();
-    if (weeklyRate.abs() < 0.01) return null;
-    double weightDifference = _goalWeightKg - _weightKg;
-    if ((_goal == MacroCalculatorService.GOAL_LOSE && weightDifference >= 0) ||
-        (_goal == MacroCalculatorService.GOAL_GAIN && weightDifference <= 0))
-      return null;
-    if (weightDifference.abs() < 0.1) return DateTime.now();
-    if ((weeklyRate < 0 && _goal == MacroCalculatorService.GOAL_GAIN) ||
-        (weeklyRate > 0 && _goal == MacroCalculatorService.GOAL_LOSE))
-      return null;
-    double numberOfWeeks = weightDifference / weeklyRate;
-    if (numberOfWeeks <= 0) return DateTime.now();
-    if (numberOfWeeks > 52 * 10) numberOfWeeks = 52 * 10;
-    int numberOfDays = (numberOfWeeks * 7).round();
-    try {
-      return DateTime.now().add(Duration(days: numberOfDays));
-    } catch (e) {
-      debugPrint("Error calculating projected date: $e");
-      return null;
-    }
-  }
-
-  // Helper function to calculate target calories based on current inputs
-  double? _calculateTargetCalories() {
-    // Use the main calculation method to get consistent results
-    final calculatorService = MacroCalculatorService();
-    // Call calculateAll with current state to get the target calories
-    final results = calculatorService.calculateAll(
-      gender: _gender,
+    final tdee = _formulaTdee;
+    final weeks = weeksToGoal(
       weightKg: _weightKg,
-      heightCm: _heightCm,
-      age: _age,
-      activityLevel: _activityLevel,
-      goal: _goal, // Pass the goal
-      deficit: _deficit, // Pass the deficit/surplus
-      proteinRatio: _proteinRatio,
-      fatRatio: _fatRatio,
-      goalWeightKg:
-          _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
-      bodyFatPercentage: _knownBodyFat,
+      goalWeightKg: _goalWeightKg,
+      tdee: tdee,
+      cals: _targetFor(_pacePct, tdee: tdee).cals,
+      energyDensity: _kcalPerKg,
     );
-
-    // Extract target calories from the results map
-    final targetCalories = results['target_calories'];
-
-    // Ensure it's a double or null
-    if (targetCalories is num) {
-      return targetCalories.toDouble();
-    }
-    return null;
+    if (weeks == null) return null;
+    return DateTime.now().add(Duration(days: (min(weeks, 52 * 10) * 7).round()));
   }
+
   // --- End Helper Functions ---
 
   // --- Navigation ---
@@ -272,7 +277,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       age: _age,
       activityLevel: _activityLevel,
       goal: _goal,
-      deficit: _deficit,
+      pacePct: _pacePct,
       proteinRatio: _proteinRatio,
       fatRatio: _fatRatio,
       goalWeightKg:
@@ -280,6 +285,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       bodyFatPercentage: _knownBodyFat,
     );
     
+    if (_goal != MacroCalculatorService.GOAL_MAINTAIN) {
+      PostHogService.trackEvent('pace_chosen', properties: {
+        'pct': _pacePct,
+        'clamped': results['limit_hit'] != null,
+      });
+    }
     PostHogService.trackEvent(
         widget.recalculateOnly ? 'goals_recalculated' : 'onboarding_completed',
         properties: {
@@ -331,21 +342,23 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'protein_goal': (macroResults['protein_g'] ?? 0).toDouble(),
           'carbs_goal': (macroResults['carb_g'] ?? 0).toDouble(),
           'fat_goal': (macroResults['fat_g'] ?? 0).toDouble(),
-          'gender': _gender,
+          'sex': _gender,
           'weight': _weightKg.toDouble(),
-          'height': _heightCm.toDouble(),
+          'height_cm': _heightCm.toDouble(),
           'age': _age,
           'activity_level': _activityLevel,
           'goal_type': _goal,
-          'deficit_surplus': _deficit,
-          'protein_ratio': _proteinRatio,
+          'pace_pct_per_week':
+              _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _pacePct,
+          'protein_g_per_kg': _proteinRatio,
           'fat_ratio': _fatRatio.toDouble(),
+          'formula_tdee': macroResults['tdee'],
           'goal_weight_kg': _goalWeightKg.toDouble(),
           'current_weight_kg': _weightKg.toDouble(),
           'bmr': macroResults['bmr']?.toDouble(),
           'tdee': macroResults['tdee']?.toDouble(),
           'steps_goal': macroResults['recommended_steps'] ?? 10000,
-          'body_fat_percentage': _knownBodyFat,
+          'body_fat_pct': _knownBodyFat,
           'updated_at': DateTime.now().toIso8601String(),
           'macro_targets': {
             'calories': (macroResults['target_calories'] ?? 0).toDouble(),
@@ -382,7 +395,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'goal_weight_kg': _goalWeightKg,
       'current_weight_kg': _weightKg,
       'goal_type': _goal,
-      'deficit_surplus': _deficit,
+      'pace_pct_per_week':
+          _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _pacePct,
+      'sex': _gender,
+      'age': _age,
+      'activity_level': _activityLevel,
+      'formula_tdee': macroResults['tdee']?.toDouble(),
       'height_cm': _heightCm,
       'body_fat_pct': _knownBodyFat,
       'protein_ratio': _proteinRatio,
@@ -578,9 +596,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             _goal = newGoal;
             if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
               _goalWeightKg = _weightKg;
-              _deficit = 0;
             } else {
-              _deficit = 500;
+              _pacePct = defaultPacePct(_goalKind);
               _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
                   ? max(40.0, _weightKg * 0.9)
                   : min(150.0, _weightKg * 1.1);
@@ -593,16 +610,21 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           currentGoal: _goal,
           currentWeightKg: _weightKg,
           goalWeightKg: _goalWeightKg,
-          deficit: _deficit,
-          kcalPerKg: _kcalPerKg,
+          paceChoices: _goal == MacroCalculatorService.GOAL_MAINTAIN
+              ? const []
+              : _paceChoices(),
+          pacePct: _pacePct,
+          recommendedPacePct: defaultPacePct(_goalKind),
           isMetricWeight: _isMetricWeight,
           projectedDate: _calculateProjectedDate(),
-          targetCalories: _calculateTargetCalories(),
+          targetCalories: _goal == MacroCalculatorService.GOAL_MAINTAIN
+              ? null
+              : _targetFor(_pacePct).cals,
           onGoalWeightChanged: (newWeight) => setState(() {
             _goalWeightKg = newWeight;
             _validateRanges();
           }),
-          onDeficitChanged: (newDeficit) => setState(() => _deficit = newDeficit),
+          onPaceChanged: (pace) => setState(() => _pacePct = pace),
           onWeightUnitChanged: (isMetric) =>
               setState(() => _isMetricWeight = isMetric),
         );
@@ -632,7 +654,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           age: _age,
           activityLevel: _activityLevel,
           goal: _goal,
-          deficit: _deficit,
+          pacePct: _pacePct,
           proteinRatio: _proteinRatio ?? _defaultProteinRatio,
           fatRatio: _fatRatio,
           goalWeightKg: _goalWeightKg,

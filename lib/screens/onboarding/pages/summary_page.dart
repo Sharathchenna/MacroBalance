@@ -12,7 +12,7 @@ class SummaryPage extends StatelessWidget {
   final int age;
   final int activityLevel;
   final String goal;
-  final int deficit;
+  final double pacePct; // % of body weight a week
   final double proteinRatio;
   final double fatRatio;
   final double goalWeightKg;
@@ -27,7 +27,7 @@ class SummaryPage extends StatelessWidget {
     required this.age,
     required this.activityLevel,
     required this.goal,
-    required this.deficit,
+    required this.pacePct,
     required this.proteinRatio,
     required this.fatRatio,
     required this.goalWeightKg,
@@ -64,6 +64,9 @@ class SummaryPage extends StatelessWidget {
         return 'Unknown';
     }
   }
+
+  String _paceText() =>
+      pacePct == pacePct.roundToDouble() ? pacePct.toStringAsFixed(0) : '$pacePct';
 
   @override
   Widget build(BuildContext context) {
@@ -113,11 +116,9 @@ class SummaryPage extends StatelessWidget {
     ];
     if (goal != MacroCalculatorService.GOAL_MAINTAIN) {
       activityGoalsItems.add({
-        'label': goal == MacroCalculatorService.GOAL_LOSE
-            ? 'Calorie Deficit'
-            : 'Calorie Surplus',
-        'value': '$deficit cals/day',
-        'page': goalPageIndex
+        'label': 'Pace',
+        'value': '${_paceText()}% a week',
+        'page': OnboardingStep.setNewGoal
       });
       activityGoalsItems.add({
         'label': 'Target Weight',

@@ -42,7 +42,7 @@ class _AuthGateState extends State<AuthGate> {
         // Check if user has macro data in Supabase
         final response = await Supabase.instance.client
             .from('user_macros')
-            .select('calories_goal, protein_goal, carbs_goal, fat_goal')
+            .select() // the targets and the goal settings
             .eq('id', currentUser.id)
             .maybeSingle();
         

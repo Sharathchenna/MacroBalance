@@ -11,7 +11,7 @@ class Persona {
     required this.age,
     required this.activityLevel,
     required this.goal,
-    this.deficit = 0,
+    this.pacePct,
     this.goalWeightKg,
     this.bodyFatPct,
   });
@@ -23,7 +23,8 @@ class Persona {
   final int age;
   final int activityLevel;
   final String goal;
-  final int deficit;
+  /// % of body weight a week; null: the recommended pace.
+  final double? pacePct;
   final double? goalWeightKg;
   final double? bodyFatPct;
 
@@ -35,7 +36,7 @@ class Persona {
         age: age,
         activityLevel: activityLevel,
         goal: goal,
-        deficit: deficit,
+        pacePct: pacePct,
         goalWeightKg: goalWeightKg,
         bodyFatPercentage: bodyFatPct,
       );
@@ -59,7 +60,7 @@ const personas = [
     age: 45,
     activityLevel: MacroCalculatorService.SEDENTARY,
     goal: MacroCalculatorService.GOAL_LOSE,
-    deficit: 500,
+    pacePct: 0.5,
     goalWeightKg: 80,
   ),
   Persona(
@@ -70,7 +71,7 @@ const personas = [
     age: 22,
     activityLevel: MacroCalculatorService.VERY_ACTIVE,
     goal: MacroCalculatorService.GOAL_GAIN,
-    deficit: 300,
+    pacePct: 0.25,
     goalWeightKg: 80,
   ),
   Persona(
@@ -81,7 +82,7 @@ const personas = [
     age: 40,
     activityLevel: MacroCalculatorService.LIGHTLY_ACTIVE,
     goal: MacroCalculatorService.GOAL_LOSE,
-    deficit: 750,
+    pacePct: 0.75,
     goalWeightKg: 120,
   ),
   Persona(
@@ -92,7 +93,7 @@ const personas = [
     age: 32,
     activityLevel: MacroCalculatorService.MODERATELY_ACTIVE,
     goal: MacroCalculatorService.GOAL_LOSE,
-    deficit: 300,
+    pacePct: 0.5,
     goalWeightKg: 62,
     bodyFatPct: 30,
   ),
