@@ -29,7 +29,11 @@ const int kMinWeighIns = 4;
 const double kPartialFraction = 0.5;
 const double kPriorSd = 300;
 const double kProcessSdPerDay = 15;
-const double kOverlapInflation = 7;
+/// Observation variance multiplier for overlapping windows. Tuned in the
+/// simulation harness (test/unit/energy/simulated_user.dart): 16 puts the
+/// truth within ±1.28 sd on 80% of seed-days (the spec's starting value, 7,
+/// gave 71%).
+const double kOverlapInflation = 16;
 const double kIntakeBiasSd = 50;
 const double kMaxDailyTdeeStep = 50;
 const double kConfidentSd = 200;
