@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/widgets/onboarding/tooltip_icon.dart';
 
+/// Nobody younger than this can use the calculator.
+const int kMinimumAge = 18;
+
 class AgePage extends StatefulWidget {
   final int currentAge;
   final ValueChanged<int> onAgeChanged;
@@ -25,8 +28,14 @@ class _AgePageState extends State<AgePage> {
   void initState() {
     super.initState();
     // Initialize with the current age
-    _selectedDate =
-        DateTime.now().subtract(Duration(days: widget.currentAge * 365));
+    _selectedDate = _yearsAgo(widget.currentAge.clamp(kMinimumAge, 80));
+  }
+
+  /// Today's date [years] ago, to the day (so the youngest pickable birthday
+  /// is exactly 18 years back, not a day short of it).
+  static DateTime _yearsAgo(int years) {
+    final now = DateTime.now();
+    return DateTime(now.year - years, now.month, now.day);
   }
 
   int calculateAge(DateTime birthDate) {
@@ -188,15 +197,13 @@ class _AgePageState extends State<AgePage> {
           itemExtent: 36.0, // Slightly reduced item height
           mode: CupertinoDatePickerMode.date,
           initialDateTime: _selectedDate,
-          minimumDate: DateTime.now()
-              .subtract(const Duration(days: 29200)), // 80 years ago
-          maximumDate: DateTime.now()
-              .subtract(const Duration(days: 6570)), // 18 years ago
+          minimumDate: _yearsAgo(80),
+          maximumDate: _yearsAgo(kMinimumAge),
           backgroundColor: Colors.transparent,
           onDateTimeChanged: (DateTime newDate) {
             _selectedDate = newDate;
             final age = calculateAge(newDate);
-            if (age >= 18 && age <= 80) {
+            if (age >= kMinimumAge && age <= 80) {
               HapticFeedback.selectionClick();
               widget.onAgeChanged(age);
             }

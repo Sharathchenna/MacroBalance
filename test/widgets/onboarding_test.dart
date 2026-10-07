@@ -90,7 +90,7 @@ void main() {
       final units = WeightUnitProvider()..setMetric(metric);
       await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true),
           units: units);
-      await next(tester); // gender -> weight
+      // Recalculating starts at the weight.
       expect(visible(WeightPage), findsOneWidget);
       expect(tester.widget<WeightPage>(find.byType(WeightPage)).isMetric, metric);
     });
@@ -99,8 +99,8 @@ void main() {
   testWidgets('maintaining skips the goal-weight step both ways', (tester) async {
     goals.goalType = MacroCalculatorService.GOAL_MAINTAIN;
     await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
-    // gender -> weight -> height -> age -> activity -> goal
-    for (var i = 0; i < 5; i++) {
+    // weight -> activity -> goal
+    for (var i = 0; i < 2; i++) {
       await next(tester);
     }
     expect(visible(GoalPage), findsOneWidget);
@@ -117,7 +117,7 @@ void main() {
   testWidgets('losing weight asks for a goal weight after the goal', (tester) async {
     goals.goalType = MacroCalculatorService.GOAL_LOSE;
     await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 3; i++) {
       await next(tester);
     }
     expect(visible(SetNewGoalPage), findsOneWidget);
@@ -133,7 +133,7 @@ void main() {
         ..goalType = MacroCalculatorService.GOAL_LOSE;
       await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true),
           units: WeightUnitProvider()..setMetric(metric));
-      for (var i = 0; i < 6; i++) {
+      for (var i = 0; i < 3; i++) {
         await next(tester);
       }
       expect(visible(SetNewGoalPage), findsOneWidget);
@@ -202,7 +202,7 @@ void main() {
   group('pace picker', () {
     Future<SetNewGoalPage> openGoalDetails(WidgetTester tester) async {
       await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
-      for (var i = 0; i < 6; i++) {
+      for (var i = 0; i < 3; i++) {
         await next(tester);
       }
       expect(visible(SetNewGoalPage), findsOneWidget);

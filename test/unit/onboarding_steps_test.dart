@@ -23,11 +23,31 @@ void main() {
       final steps = onboardingStepsFor(recalculateOnly: true);
       expect(steps, isNot(contains(OnboardingStep.welcome)));
       expect(steps, isNot(contains(OnboardingStep.appleHealth)));
-      expect(steps.first, OnboardingStep.gender);
+      expect(steps.first, OnboardingStep.weight);
       expect(steps.last, OnboardingStep.summary);
       final full = onboardingStepsFor(recalculateOnly: false);
       expect(steps, full.where(steps.contains).toList());
     });
+  });
+
+  test('recalculating no longer asks sex, height or age', () {
+    final steps = onboardingStepsFor(recalculateOnly: true);
+    for (final step in [OnboardingStep.gender, OnboardingStep.height, OnboardingStep.age]) {
+      expect(steps, isNot(contains(step)), reason: step.name);
+    }
+    expect(steps, [
+      OnboardingStep.weight,
+      OnboardingStep.activity,
+      OnboardingStep.goal,
+      OnboardingStep.setNewGoal,
+      OnboardingStep.advanced,
+      OnboardingStep.summary,
+    ]);
+  });
+
+  test('new users are still asked sex, height and age', () {
+    final steps = onboardingStepsFor(recalculateOnly: false);
+    expect(steps, containsAll([OnboardingStep.gender, OnboardingStep.height, OnboardingStep.age]));
   });
 
   group('isOnboardingStepSkipped', () {

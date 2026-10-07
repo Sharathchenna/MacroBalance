@@ -18,6 +18,9 @@ class SummaryPage extends StatelessWidget {
   final double goalWeightKg;
   final double? bodyFatPercentage; // only when the user entered one
   final void Function(OnboardingStep step) onEdit; // Jumps back to a step to edit it
+  /// The steps that can be jumped to; rows for other steps are read-only.
+  /// Null means all of them.
+  final Set<OnboardingStep>? editableSteps;
 
   const SummaryPage({
     super.key,
@@ -33,6 +36,7 @@ class SummaryPage extends StatelessWidget {
     required this.goalWeightKg,
     this.bodyFatPercentage,
     required this.onEdit,
+    this.editableSteps,
   });
 
   String _getActivityLevelText() {
@@ -237,11 +241,14 @@ class SummaryPage extends StatelessWidget {
       {required String label, required String value, required OnboardingStep page}) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
+    final editable = editableSteps?.contains(page) ?? true;
     return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onEdit(page);
-      },
+      onTap: !editable
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              onEdit(page);
+            },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Row(children: [
@@ -262,7 +269,7 @@ class SummaryPage extends StatelessWidget {
                           theme.colorScheme.onBackground,
                     ))
               ])),
-          Icon(Icons.edit, size: 16, color: theme.colorScheme.primary)
+          if (editable) Icon(Icons.edit, size: 16, color: theme.colorScheme.primary)
         ]),
       ),
     );

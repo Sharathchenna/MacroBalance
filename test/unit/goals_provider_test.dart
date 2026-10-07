@@ -274,4 +274,95 @@ void main() {
       expect(payload['protein_g_per_kg'], 1.8);
     });
   });
+  group('profile (sex, height, age)', () {
+    Future<void> seed({String? recordedOn}) => StorageService().put(
+        'nutrition_goals',
+        jsonEncode({
+          'macro_targets': {'calories': 2000, 'protein': 150, 'carbs': 200, 'fat': 60},
+          'current_weight_kg': 80,
+          'goal_weight_kg': 75,
+          'goal_type': MacroCalculatorService.GOAL_LOSE,
+          'pace_pct_per_week': 0.5,
+          'sex': MacroCalculatorService.MALE,
+          'age': 30,
+          'age_recorded_on': recordedOn,
+          'activity_level': 3,
+          'height_cm': 180,
+        }));
+
+    test('the age in use goes up with the whole years since it was recorded', () async {
+      await seed(recordedOn: '2025-06-15');
+      expect(GoalsProvider(clock: () => DateTime(2026, 6, 14)).age, 30);
+      expect(GoalsProvider(clock: () => DateTime(2026, 6, 15)).age, 31);
+    });
+
+    test('an age with no record date is used as it is', () async {
+      await seed();
+      expect(GoalsProvider(clock: () => DateTime(2040, 1, 1)).age, 30);
+    });
+
+    test('saving an age records today and syncs both', () async {
+      await seed(recordedOn: '2020-01-01');
+      final g = GoalsProvider(clock: () => DateTime(2026, 3, 9));
+      await g.saveProfile(age: 45);
+      expect(g.age, 45);
+      final payload = g.userMacrosPayload();
+      expect(payload['age'], 45);
+      expect(payload['age_recorded_on'], '2026-03-09');
+      final saved = jsonDecode(StorageService().get('nutrition_goals'));
+      expect(saved['age_recorded_on'], '2026-03-09');
+      expect(GoalsProvider(clock: () => DateTime(2027, 3, 9)).age, 46);
+    });
+
+    test('previewing changes nothing; the preview matches what saving does', () async {
+      await seed();
+      final g = GoalsProvider(clock: () => DateTime(2026, 3, 9));
+      final change = g.previewProfile(heightCm: 160)!;
+      expect(change.before.calories, 2000);
+      expect(change.after.calories, isNot(2000));
+      expect(g.caloriesGoal, 2000);
+      expect(g.heightCm, 180);
+      await g.saveProfile(heightCm: 160);
+      expect(g.heightCm, 160);
+      expect(g.caloriesGoal, change.after.calories);
+      expect(g.proteinGoal, change.after.protein);
+      expect(g.carbsGoal, change.after.carbs);
+      expect(g.fatGoal, change.after.fat);
+    });
+
+    test('a lower height or a switch to female lowers the targets; older age too', () async {
+      await seed();
+      final g = GoalsProvider(clock: () => DateTime(2026, 3, 9));
+      expect(g.previewProfile(heightCm: 165)!.after.calories,
+          lessThan(g.previewProfile(heightCm: 180)!.after.calories));
+      expect(g.previewProfile(sex: MacroCalculatorService.FEMALE)!.after.calories,
+          lessThan(g.previewProfile(sex: MacroCalculatorService.MALE)!.after.calories));
+      expect(g.previewProfile(age: 50)!.after.calories,
+          lessThan(g.previewProfile(age: 30)!.after.calories));
+    });
+
+    test('the new targets come from the formula expenditure at the chosen pace', () async {
+      await seed();
+      final g = GoalsProvider(clock: () => DateTime(2026, 3, 9));
+      await g.saveProfile(sex: MacroCalculatorService.FEMALE);
+      // Mifflin: 10·80 + 6.25·180 − 5·30 − 161 = 1614 → × 1.55
+      expect(g.tdee, closeTo(1614 * 1.55, 0.01));
+      expect(g.bmr, closeTo(1614, 0.01));
+      expect(g.userMacrosPayload()['sex'], 'female');
+    });
+
+    test('there is nothing to preview without a current weight', () {
+      expect(goals.previewProfile(age: 40), isNull);
+    });
+
+    test('sign-in restores the age record date', () async {
+      await GoalsProvider.cacheUserMacros({
+        'calories_goal': 1900,
+        'age': 41,
+        'age_recorded_on': '2025-01-02',
+      });
+      final g = GoalsProvider(clock: () => DateTime(2026, 1, 2));
+      expect(g.age, 42);
+    });
+  });
 }

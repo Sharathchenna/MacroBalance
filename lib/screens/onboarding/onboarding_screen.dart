@@ -162,6 +162,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void _prefillFromCurrentGoals() {
     final goals = Provider.of<GoalsProvider>(context, listen: false);
     if (goals.currentWeightKg > 0) _weightKg = goals.currentWeightKg;
+    // Sex, height and age aren't asked again: they come from the account.
+    _gender = goals.sex ?? _gender;
+    _heightCm = goals.heightCm ?? _heightCm;
+    _age = goals.age ?? _age;
+    _activityLevel = goals.activityLevel ?? _activityLevel;
     _goal = goals.goalType;
     _pacePct = _validPace(goals.pacePctPerWeek);
     _goalWeightKg = goals.goalWeightKg > 0 ? goals.goalWeightKg : _weightKg;
@@ -346,6 +351,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'weight': _weightKg.toDouble(),
           'height_cm': _heightCm.toDouble(),
           'age': _age,
+          'age_recorded_on': _today(),
           'activity_level': _activityLevel,
           'goal_type': _goal,
           'pace_pct_per_week':
@@ -384,6 +390,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     }
   }
 
+  /// The day the age was recorded, as a date for `user_macros`.
+  String _today() => DateTime.now().toIso8601String().substring(0, 10);
+
   void _saveLocalGoals(Map<String, dynamic> macroResults) {
     final nutritionGoals = {
       'macro_targets': {
@@ -399,6 +408,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _pacePct,
       'sex': _gender,
       'age': _age,
+      'age_recorded_on': _today(),
       'activity_level': _activityLevel,
       'formula_tdee': macroResults['tdee']?.toDouble(),
       'height_cm': _heightCm,
@@ -660,6 +670,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           goalWeightKg: _goalWeightKg,
           bodyFatPercentage: _knownBodyFat,
           onEdit: _goToStep,
+          editableSteps: _steps.toSet(),
         );
     }
   }

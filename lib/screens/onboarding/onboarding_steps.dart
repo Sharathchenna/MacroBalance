@@ -17,15 +17,13 @@ enum OnboardingStep {
 }
 
 /// The steps shown, in order. Recalculating goals from Settings skips the
-/// welcome and Apple Health steps. "How did you hear about us?" is not a step:
+/// welcome and Apple Health steps, and the static facts (sex, height, age):
+/// those are edited on the account screen. "How did you hear about us?" is not a step:
 /// new users are asked it after the results screen.
 List<OnboardingStep> onboardingStepsFor({required bool recalculateOnly}) =>
     recalculateOnly
         ? const [
-            OnboardingStep.gender,
             OnboardingStep.weight,
-            OnboardingStep.height,
-            OnboardingStep.age,
             OnboardingStep.activity,
             OnboardingStep.goal,
             OnboardingStep.setNewGoal,

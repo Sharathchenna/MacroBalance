@@ -71,6 +71,7 @@ void main() {
       await pumpFrames(tester, seconds: 1);
       await tester.scrollUntilVisible(find.text('Units'), 200,
           scrollable: find.byType(Scrollable).first);
+      await pumpFrames(tester, seconds: 1);
       await tester.tap(find.text('Units'));
       await pumpFrames(tester, seconds: 1);
       await tester.tap(find.text('Cancel').last);

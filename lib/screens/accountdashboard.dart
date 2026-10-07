@@ -12,6 +12,8 @@ import 'package:macrotracker/providers/day_status_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
+import 'package:macrotracker/screens/setting_screens/edit_profile_field_screen.dart';
+import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -435,6 +437,61 @@ class _AccountDashboardState extends State<AccountDashboard>
                   ),
                   _buildHealthAppTile(colorScheme, customColors),
                 ],
+              ),
+
+              // Sex, height and age: what the energy maths starts from
+              Consumer2<GoalsProvider, WeightUnitProvider>(
+                builder: (context, goals, units, _) => _buildSection(
+                  title: 'Body',
+                  icon: CupertinoIcons.person_crop_circle_fill,
+                  colorScheme: colorScheme,
+                  customColors: customColors,
+                  children: [
+                    for (final (field, icon, title, value) in [
+                      (
+                        ProfileField.sex,
+                        CupertinoIcons.person_2_fill,
+                        'Sex',
+                        switch (goals.sex) {
+                          MacroCalculatorService.MALE => 'Male',
+                          MacroCalculatorService.FEMALE => 'Female',
+                          _ => 'Not set',
+                        }
+                      ),
+                      (
+                        ProfileField.height,
+                        CupertinoIcons.arrow_up_down,
+                        'Height',
+                        _heightText(goals.heightCm, units.isMetric)
+                      ),
+                      (
+                        ProfileField.age,
+                        CupertinoIcons.calendar,
+                        'Age',
+                        goals.age == null ? 'Not set' : '${goals.age} years'
+                      ),
+                    ])
+                      _buildListTile(
+                        icon: icon,
+                        iconColor: colorScheme.primary,
+                        title: title,
+                        subtitle: value,
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) =>
+                                  EditProfileFieldScreen(field: field),
+                            ),
+                          );
+                        },
+                        colorScheme: colorScheme,
+                        customColors: customColors,
+                      ),
+                  ],
+                ),
               ),
 
               // Nutrition & Goals section
@@ -1488,6 +1545,14 @@ class _AccountDashboardState extends State<AccountDashboard>
         );
       },
     );
+  }
+
+  /// "180 cm" or "5′11″"; "Not set" when unknown.
+  static String _heightText(double? cm, bool isMetric) {
+    if (cm == null) return 'Not set';
+    if (isMetric) return '${cm.round()} cm';
+    final inches = (cm / 2.54).round();
+    return '${inches ~/ 12}\u2032${inches % 12}\u2033';
   }
 
   Widget _buildListTile({
