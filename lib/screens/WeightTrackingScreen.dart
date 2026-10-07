@@ -17,11 +17,17 @@ import 'package:provider/provider.dart';
 
 import '../providers/goals_provider.dart';
 import '../providers/weight_unit_provider.dart';
+import '../services/energy/constants.dart';
+import '../services/energy/trend_weight.dart';
+import '../services/macro_calculator_service.dart';
 import '../services/posthog_service.dart';
 import '../theme/app_theme.dart';
 
 /// Progress › Weight: where your weight is, where it's heading, and how far
 /// off the goal is. Shown in kg or lbs from the unit setting; stored in kg.
+///
+/// "Where your weight is" means the trend weight ([TrendSeries]), not the
+/// last scale reading: the headline, the pace and goal progress all use it.
 class WeightTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
 
@@ -41,6 +47,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   /// Stored rows (`{date, weight}` in kg), kept as-is for storage and sync.
   List<Map<String, dynamic>> _weightData = [];
   List<WeightEntry> _entries = [];
+  TrendSeries _series = TrendSeries.compute(const []);
+
+  /// Trend weight at each of [_entries].
   List<double> _trend = [];
 
   /// Index into the visible entries while the chart is being touched.
@@ -59,11 +68,24 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   void _setHistory(List<Map<String, dynamic>> rows) {
     _weightData = rows;
     _entries = parseWeightHistory(rows);
-    _trend = weightTrend(_entries);
+    _series = trendSeries(_entries);
+    _trend = [for (final p in _series.points) p.trendKg];
   }
 
+  bool _ignored(int i) => _series.points[i].ignored;
+
+  /// The last scale reading.
   double get _latestKg =>
       _entries.isNotEmpty ? _entries.last.kg : _goals.currentWeightKg;
+
+  /// The trend weight now.
+  double get _trendKg => _trend.isNotEmpty ? _trend.last : _latestKg;
+
+  /// Weigh-ins the trend used, for the rate behind the goal projection.
+  List<WeightEntry> get _usedEntries => [
+        for (var i = 0; i < _entries.length; i++)
+          if (!_ignored(i)) _entries[i],
+      ];
 
   double? get _goalKg => _goals.goalWeightKg > 0 ? _goals.goalWeightKg : null;
 
@@ -124,15 +146,24 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     return '$sign$text ${_units.unitLabel}';
   }
 
-  /// Colour for a change: green toward the goal, amber away from it.
+  /// Colour for a change: green toward the goal, otherwise neutral. Moving
+  /// away from the goal is information, not failure, so it's never amber or
+  /// red.
   Color _changeColor(double deltaKg, CustomColors colors) {
     final goal = _goalKg;
     if (goal == null || deltaKg.abs() < 0.05 || _entries.isEmpty) {
       return colors.textPrimary;
     }
-    final wantDown = goal < _trend.last;
+    final wantDown = goal < _trendKg;
     final towardGoal = wantDown ? deltaKg < 0 : deltaKg > 0;
-    return towardGoal ? colors.accentPrimary : Colors.orange.shade700;
+    return towardGoal ? colors.accentPrimary : colors.textPrimary;
+  }
+
+  /// A percentage with a real minus sign, trailing zeros dropped (−0.5, 0.25).
+  static String _pct(double value, {bool signed = true}) {
+    var text = value.abs().toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+    if (text == '0' || !signed) return text;
+    return value < 0 ? '−$text' : '+$text';
   }
 
   /// "Sep 7", or "Sep 7, 2025" when it isn't this year.
@@ -228,20 +259,22 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
 
   Widget _buildSummary(CustomColors colors) {
     final hasEntries = _entries.isNotEmpty;
-    final rateEntries = recentForRate(_entries, _today);
-    final weekly = weeklyRateKg(rateEntries);
     final latest = hasEntries ? _entries.last : null;
 
-    String weighedIn() {
+    String scale() {
       if (latest == null) return 'No weigh-ins yet';
       final days = _today.difference(latest.day).inDays;
-      if (days == 0) return 'Weighed in today';
-      if (days == 1) return 'Weighed in yesterday';
-      if (days < 7) return 'Weighed in ${DateFormat.EEEE().format(latest.date)}';
-      return 'Weighed in ${_day(latest.date)}';
+      final when = days == 0
+          ? 'today'
+          : days == 1
+              ? 'yesterday'
+              : days < 7
+                  ? DateFormat.EEEE().format(latest.date)
+                  : _day(latest.date);
+      return 'Scale ${_fmt(latest.kg)} · $when';
     }
 
-    final number = _units.convertFromKg(_latestKg).toStringAsFixed(1);
+    final number = _units.convertFromKg(_trendKg).toStringAsFixed(1);
 
     return ProgressCard(
       child: Column(
@@ -254,16 +287,31 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Current weight',
-                      style: GoogleFonts.inter(
-                          fontSize: 13, color: colors.textSecondary),
+                    Row(
+                      children: [
+                        Text(
+                          'Trend weight',
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: colors.textSecondary),
+                        ),
+                        // Full-size tap target without pushing the
+                        // number down.
+                        const SizedBox(
+                          width: 30,
+                          height: 16,
+                          child: OverflowBox(
+                            maxWidth: 30,
+                            maxHeight: 30,
+                            child: InfoButton(_trendInfo),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text.rich(
                       TextSpan(children: [
                         TextSpan(
-                          text: _latestKg > 0 ? number : '—',
+                          text: _trendKg > 0 ? number : '—',
                           style: GoogleFonts.inter(
                             fontSize: 34,
                             fontWeight: FontWeight.w700,
@@ -283,7 +331,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      weighedIn(),
+                      scale(),
                       style: GoogleFonts.inter(
                           fontSize: 13, color: colors.textSecondary),
                     ),
@@ -295,53 +343,100 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
           ),
           if (hasEntries) ...[
             const SizedBox(height: 16),
-            Divider(height: 1, color: colors.textSecondary.withOpacity(0.15)),
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: ProgressStat(
-                    label: 'Trend',
-                    value: _fmt(_trend.last),
-                    caption: 'smoothed',
-                  ),
-                ),
-                Expanded(
-                  child: ProgressStat(
-                    label: 'Weekly rate',
-                    value: weekly == null
-                        ? '—'
-                        : '${_fmt(weekly, signed: true)}/wk',
-                    valueColor: weekly == null
-                        ? null
-                        : _changeColor(weekly, colors),
-                    caption: weekly == null
-                        ? 'needs 1 week'
-                        : 'since ${_day(rateEntries.first.date)}',
-                  ),
-                ),
-                Expanded(
-                  child: ProgressStat(
-                    label: 'Total change',
-                    value: _entries.length < 2
-                        ? '—'
-                        : _fmt(_entries.last.kg - _entries.first.kg,
-                            signed: true),
-                    valueColor: _entries.length < 2
-                        ? null
-                        : _changeColor(
-                            _entries.last.kg - _entries.first.kg, colors),
-                    caption: _entries.length < 2
-                        ? null
-                        : 'since ${_day(_entries.first.date)}',
-                  ),
-                ),
-              ],
-            ),
+            _buildPaceRow(colors),
           ],
         ],
       ),
+    );
+  }
+
+  static const _trendInfo = ProgressInfo('Trend weight', [
+    InfoSection(
+      'Your weight swings a kilo or two from day to day with water, salt and '
+      'food in your stomach. The trend smooths those swings out: each '
+      'weigh-in moves it a tenth of the way toward the scale, so it shows '
+      'where your weight is really heading.',
+    ),
+    InfoSection(
+      'A reading more than 3% away from the trend is usually a slip, like '
+      'weighing in clothes or a typo, so it\'s left out and drawn as a grey '
+      'ring. Three in a row on the same side are a real change, and the '
+      'trend follows them.',
+      heading: 'Ignored readings',
+    ),
+    InfoSection(
+      'Your pace is how much the trend moved over the last week. It reads as '
+      'on pace within 0.15% a week of your goal pace.',
+      heading: 'Pace',
+    ),
+  ]);
+
+  /// "−0.3 kg/wk (−0.4%) · Goal −0.5%/wk". Neutral within
+  /// [kPaceTolerancePct] of the goal pace, a soft accent otherwise; never red.
+  Widget _buildPaceRow(CustomColors colors) {
+    final goals = context.watch<GoalsProvider>();
+    final goalPct = signedGoalPacePct(
+        MacroCalculatorService.goalKindOf(goals.goalType),
+        goals.pacePctPerWeek);
+    final change = _series.weeklyChange();
+    final onPace = change == null ||
+        isOnPace(actualPctPerWeek: change.pct, goalPctPerWeek: goalPct);
+    final emphasis = onPace ? colors.textPrimary : colors.accentPrimary;
+    final quiet = onPace ? colors.textSecondary : colors.accentPrimary;
+
+    return Container(
+      key: const Key('weight_pace_row'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: onPace
+            ? colors.textSecondary.withValues(alpha: 0.08)
+            : colors.accentPrimary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: change == null
+          ? Text(
+              'Your weekly pace shows after a week of weigh-ins',
+              style: GoogleFonts.inter(fontSize: 13, color: quiet),
+            )
+          : Row(
+              children: [
+                Icon(
+                  change.kg.abs() < 0.05
+                      ? Icons.trending_flat_rounded
+                      : change.kg < 0
+                          ? Icons.trending_down_rounded
+                          : Icons.trending_up_rounded,
+                  size: 18,
+                  color: emphasis,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '${_fmt(change.kg, signed: true)}/wk '
+                      '(${_pct(double.parse(change.pct.toStringAsFixed(1)))}%)',
+                      maxLines: 1,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: emphasis,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  goalPct == 0
+                      ? 'Goal: hold steady'
+                      : 'Goal ${_pct(goalPct)}%/wk',
+                  style: GoogleFonts.inter(fontSize: 13, color: quiet),
+                ),
+              ],
+            ),
     );
   }
 
@@ -349,10 +444,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final now = DateTime.now();
     final inRange = <WeightEntry>[];
     final trendInRange = <double>[];
+    final ignoredInRange = <bool>[];
     for (var i = 0; i < _entries.length; i++) {
       if (_range.includes(_entries[i].date, now)) {
         inRange.add(_entries[i]);
         trendInRange.add(_trend[i]);
+        ignoredInRange.add(_ignored(i));
       }
     }
     final scrubbed =
@@ -367,16 +464,21 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       final e = inRange[scrubbed];
       header = _ChartHeader(
         value: _fmt(e.kg),
-        detail: showsTrend
-            ? '${_day(e.date)} · trend ${_fmt(trendInRange[scrubbed])}'
-            : '${_day(e.date)} · tap to edit',
+        detail: ignoredInRange[scrubbed]
+            ? '${_day(e.date)} · ignored for trend'
+            : showsTrend
+                ? '${_day(e.date)} · trend ${_fmt(trendInRange[scrubbed])}'
+                : '${_day(e.date)} · tap to edit',
       );
     } else if (inRange.length >= 2) {
-      final delta = inRange.last.kg - inRange.first.kg;
+      // How far the trend moved, so one light morning doesn't count.
+      final delta = trendInRange.last - trendInRange.first;
       header = _ChartHeader(
         value: _fmt(delta, signed: true),
         valueColor: _changeColor(delta, colors),
-        detail: _rangePhrase,
+        detail: _range == WeightRange.all
+            ? 'trend $_rangePhrase'
+            : 'trend over the $_rangePhrase',
       );
     } else {
       header = _ChartHeader(
@@ -419,9 +521,13 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     end: _today,
                     isMetric: _units.isMetric,
                     goalKg: _goalKg,
+                    ignored: ignoredInRange,
                     colors: colors,
                     onScrub: (i) => setState(() => _scrubbed = i),
-                    onTapEntry: (i) => _editEntry(inRange[i], colors),
+                    onTapEntry: (i) => _editEntry(inRange[i], colors,
+                        offTrendKg: ignoredInRange[i]
+                            ? inRange[i].kg - trendInRange[i]
+                            : null),
                   ),
                 ),
                 if (inRange.isEmpty)
@@ -446,6 +552,11 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 const SizedBox(width: 14),
                 _LegendLine(color: colors.accentPrimary),
                 _legendText('Trend', colors),
+              ],
+              if (ignoredInRange.contains(true)) ...[
+                const SizedBox(width: 14),
+                _LegendDot(color: colors.textSecondary, ring: true),
+                _legendText('Ignored', colors),
               ],
               if (WeightChart.showsGoal(inRange, trendInRange, _goalKg)) ...[
                 const SizedBox(width: 14),
@@ -497,8 +608,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       );
     }
 
-    final startKg = _entries.first.kg;
-    final nowKg = _latestKg;
+    // Progress is on the trend, which starts at the first weigh-in.
+    final startKg = _trend.first;
+    final nowKg = _trendKg;
     final total = (goal - startKg).abs();
     final done = total < 0.05
         ? 1.0
@@ -506,9 +618,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final left = (goal - nowKg).abs();
     final reached = left < 0.25 || done >= 1.0;
 
-    final weekly = weeklyRateKg(recentForRate(_entries, _today));
+    final weekly = weeklyRateKg(recentForRate(_usedEntries, _today));
     final eta = projectedGoalDate(
-        currentKg: _trend.last, goalKg: goal, weeklyKg: weekly, from: _today);
+        currentKg: nowKg, goalKg: goal, weeklyKg: weekly, from: _today);
 
     String outlook;
     if (reached) {
@@ -523,7 +635,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
           : DateFormat.yMMMd().format(eta);
       outlook = 'At your current pace you\'ll get there around $when'
           '${weeks >= 2 ? ' (about $weeks weeks)' : ''}.';
-    } else if ((goal - _trend.last).sign != weekly.sign && weekly.abs() >= 0.05) {
+    } else if ((goal - nowKg).sign != weekly.sign && weekly.abs() >= 0.05) {
       outlook = 'Your trend is moving away from your goal right now.';
     } else {
       outlook = 'Your weight is holding steady. At this pace it\'ll be a while.';
@@ -539,7 +651,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: ProgressStat(label: 'Start', value: _fmt(startKg))),
-              Expanded(child: ProgressStat(label: 'Now', value: _fmt(nowKg))),
+              Expanded(child: ProgressStat(label: 'Trend', value: _fmt(nowKg))),
               Expanded(child: ProgressStat(label: 'Goal', value: _fmt(goal))),
             ],
           ),
@@ -630,13 +742,23 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     WeightSyncService().upsertDay(date, kg);
   }
 
-  /// Tapped weigh-in: change its weight or delete it.
-  Future<void> _editEntry(WeightEntry entry, CustomColors colors) async {
+  /// Tapped weigh-in: change its weight or delete it. For a reading the
+  /// trend left out, [offTrendKg] (scale minus trend) explains why.
+  Future<void> _editEntry(WeightEntry entry, CustomColors colors,
+      {double? offTrendKg}) async {
     HapticFeedback.lightImpact();
     final action = await showCupertinoModalPopup<String>(
       context: context,
       builder: (sheet) => CupertinoActionSheet(
         title: Text('${_fmt(entry.kg)} · ${_day(entry.date)}'),
+        message: offTrendKg == null
+            ? null
+            : Text(
+                'Ignored for trend: ${_fmt(offTrendKg.abs())} '
+                '${offTrendKg > 0 ? 'over' : 'under'} your trend. Readings '
+                'more than ${(kOutlierPct * 100).round()}% off are usually '
+                'water, clothes or a typo. If it was real, the next few '
+                'weigh-ins will bring the trend along.'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(sheet, 'edit'),

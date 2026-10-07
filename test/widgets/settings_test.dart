@@ -157,7 +157,8 @@ void main() {
       ]));
       goals.currentWeightKg = 95;
       await pumpWeight(tester);
-      expect(find.text('95.0 kg'), findsWidgets);
+      // 95 is far off the trend, so it's the scale reading, not the headline.
+      expect(find.text('Scale 95.0 kg · today'), findsOneWidget);
 
       // Today's weigh-in sits at the right end of the plot.
       final chart = tester.getRect(find.byType(WeightChart));

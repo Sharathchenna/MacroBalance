@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:macrotracker/services/energy/trend_weight.dart';
+
 /// Pounds in a kilogram. Weight is stored in kg; everything shown in lbs goes
 /// through this.
 const double lbsPerKg = 2.20462262;
@@ -40,22 +42,17 @@ int _daysBetween(DateTime a, DateTime b) =>
         .difference(DateTime.utc(a.year, a.month, a.day))
         .inDays;
 
+/// The trend over [entries] (one per day, oldest first, as from
+/// [parseWeightHistory]): one point per entry, in the same order.
+TrendSeries trendSeries(List<WeightEntry> entries) =>
+    TrendSeries.compute([for (final e in entries) WeightReading(e.date, e.kg)]);
+
 /// Smoothed weight at each weigh-in: every day the trend moves 10% of the way
 /// to the scale, so water and salt swings settle out. Gaps count as the days
-/// they span, so a weekly weigh-in moves the trend about half way.
-List<double> weightTrend(List<WeightEntry> entries) {
-  final trend = <double>[];
-  for (var i = 0; i < entries.length; i++) {
-    if (i == 0) {
-      trend.add(entries[i].kg);
-      continue;
-    }
-    final days = math.max(1, _daysBetween(entries[i - 1].date, entries[i].date));
-    final alpha = 1 - math.pow(0.9, days).toDouble();
-    trend.add(trend[i - 1] + alpha * (entries[i].kg - trend[i - 1]));
-  }
-  return trend;
-}
+/// they span, so a weekly weigh-in moves the trend about half way. Readings
+/// more than 3% off the trend are left out ([TrendSeries]).
+List<double> weightTrend(List<WeightEntry> entries) =>
+    [for (final p in trendSeries(entries).points) p.trendKg];
 
 /// Change in kg per week across [entries], from a least-squares fit, or null
 /// when they span less than [minDays].

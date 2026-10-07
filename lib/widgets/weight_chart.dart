@@ -12,6 +12,9 @@ import 'package:macrotracker/utils/weight_trend.dart';
 /// frequent enough for day-to-day swings to be noise ([showsTrend]), the line
 /// follows the smoothed trend instead and the dots show the scale readings.
 ///
+/// Readings the trend left out as outliers ([ignored]) are drawn as grey
+/// hollow rings off the line.
+///
 /// Dates are placed by time, so gaps between weigh-ins read as gaps. Axis
 /// values are round numbers in the unit shown (kg or lbs). Touch and drag to
 /// read a weigh-in; [onScrub] reports its index, then null on release. A tap
@@ -26,6 +29,7 @@ class WeightChart extends StatefulWidget {
     required this.isMetric,
     required this.colors,
     this.goalKg,
+    this.ignored = const [],
     this.onScrub,
     this.onTapEntry,
   });
@@ -40,6 +44,9 @@ class WeightChart extends StatefulWidget {
   final bool isMetric;
   final CustomColors colors;
   final double? goalKg;
+
+  /// Whether each of [entries] was left out of the trend. Empty means none.
+  final List<bool> ignored;
   final ValueChanged<int?>? onScrub;
   final ValueChanged<int>? onTapEntry;
 
@@ -55,6 +62,8 @@ class WeightChart extends StatefulWidget {
 
   /// Whether the goal line is drawn: only when it's within about twice the
   /// data's spread, so a far-off goal doesn't flatten the line.
+  bool isIgnored(int i) => i < ignored.length && ignored[i];
+
   static bool showsGoal(
       List<WeightEntry> entries, List<double> trend, double? goalKg) {
     if (goalKg == null || entries.isEmpty) return false;
@@ -246,10 +255,13 @@ class _WeightChartPainter extends CustomPainter {
         0, 0, plot.left + (plot.width + 8) * reveal, size.height));
 
     final accent = colors.accentPrimary;
+    // Ignored readings stay off the line joining the weigh-ins; the trend
+    // carries through them.
     final points = [
       for (var i = 0; i < chart.entries.length; i++)
-        Offset(l.x(chart.entries[i].date),
-            l.y(l.trend ? chart.trend[i] : chart.entries[i].kg)),
+        if (l.trend || !chart.isIgnored(i))
+          Offset(l.x(chart.entries[i].date),
+              l.y(l.trend ? chart.trend[i] : chart.entries[i].kg)),
     ];
 
     // In trend mode the weigh-ins are faint context under the line;
@@ -285,6 +297,7 @@ class _WeightChartPainter extends CustomPainter {
     }
 
     if (!l.trend) _drawWeighIns(canvas, l, faint: false);
+    _drawIgnored(canvas, l);
     canvas.restore();
 
     if (selected != null && selected! < chart.entries.length) {
@@ -300,7 +313,9 @@ class _WeightChartPainter extends CustomPainter {
       // Behind the trend: small solid dots, smaller still when crowded.
       final r = spacing < 3 ? 1.2 : 2.2;
       final paint = Paint()..color = accent.withOpacity(spacing < 3 ? 0.3 : 0.45);
-      for (final e in chart.entries) {
+      for (var i = 0; i < n; i++) {
+        if (chart.isIgnored(i)) continue;
+        final e = chart.entries[i];
         canvas.drawCircle(Offset(l.x(e.date), l.y(e.kg)), r, paint);
       }
       return;
@@ -311,7 +326,27 @@ class _WeightChartPainter extends CustomPainter {
       ..color = accent
       ..style = PaintingStyle.stroke
       ..strokeWidth = spacing < 10 ? 1.4 : 1.8;
-    for (final e in chart.entries) {
+    for (var i = 0; i < n; i++) {
+      if (chart.isIgnored(i)) continue;
+      final e = chart.entries[i];
+      final p = Offset(l.x(e.date), l.y(e.kg));
+      canvas.drawCircle(p, r, fill);
+      canvas.drawCircle(p, r, ring);
+    }
+  }
+
+  /// Readings left out of the trend: grey hollow rings, on top of the line.
+  void _drawIgnored(Canvas canvas, _ChartLayout l) {
+    final spacing = l.plot.width / chart.entries.length;
+    final r = spacing < 10 ? 3.0 : 4.0;
+    final fill = Paint()..color = colors.cardBackground;
+    final ring = Paint()
+      ..color = colors.textSecondary.withValues(alpha: 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    for (var i = 0; i < chart.entries.length; i++) {
+      if (!chart.isIgnored(i)) continue;
+      final e = chart.entries[i];
       final p = Offset(l.x(e.date), l.y(e.kg));
       canvas.drawCircle(p, r, fill);
       canvas.drawCircle(p, r, ring);
@@ -396,13 +431,14 @@ class _WeightChartPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, l.y(chart.trend[i])), 4, Paint()..color = accent);
     }
     final p = Offset(x, l.y(e.kg));
-    canvas.drawCircle(p, 9, Paint()..color = accent.withOpacity(0.2));
+    final ring = chart.isIgnored(i) ? colors.textSecondary : accent;
+    canvas.drawCircle(p, 9, Paint()..color = ring.withValues(alpha: 0.2));
     canvas.drawCircle(p, 5.5, Paint()..color = colors.cardBackground);
     canvas.drawCircle(
       p,
       5.5,
       Paint()
-        ..color = accent
+        ..color = ring
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5,
     );
