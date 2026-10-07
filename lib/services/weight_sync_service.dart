@@ -19,6 +19,7 @@ class WeightSyncService {
   static const String _table = 'weight_entries';
   static const String _pendingKey = 'pending_weight_days';
   static const String _backfillKey = 'weight_backfill_done';
+  static const String _deletedKey = 'deleted_weight_days';
   static const String _historyKey = 'weight_history';
   static final DateFormat _dayFormat = DateFormat('yyyy-MM-dd');
 
@@ -39,6 +40,20 @@ class WeightSyncService {
   Future<void> _savePendingDays(Set<String> days) =>
       StorageService().put(_pendingKey, jsonEncode(days.toList()));
 
+  /// Days deleted on this device whose cloud row may still exist.
+  Set<String> _deletedDays() {
+    final raw = StorageService().get(_deletedKey);
+    if (raw is! String || raw.isEmpty) return <String>{};
+    try {
+      return (jsonDecode(raw) as List).map((e) => e.toString()).toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> _saveDeletedDays(Set<String> days) =>
+      StorageService().put(_deletedKey, jsonEncode(days.toList()));
+
   Map<String, dynamic> _row(String userId, String day, double kg) => {
         'user_id': userId,
         'recorded_on': day,
@@ -51,6 +66,7 @@ class WeightSyncService {
   Future<void> upsertDay(DateTime date, double weightKg) async {
     final day = dayKey(date);
     await _savePendingDays(_pendingDays()..add(day));
+    await _saveDeletedDays(_deletedDays()..remove(day));
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return;
     try {
@@ -61,6 +77,27 @@ class WeightSyncService {
       await _savePendingDays(_pendingDays()..remove(day));
     } catch (e) {
       debugPrint('[WeightSync] Upload of $day queued for retry: $e');
+    }
+  }
+
+  /// Deletes one day's weight. Until the cloud row is gone, merges leave the
+  /// day out so it doesn't come back.
+  Future<void> deleteDay(DateTime date) async {
+    final day = dayKey(date);
+    await _savePendingDays(_pendingDays()..remove(day));
+    await _saveDeletedDays(_deletedDays()..add(day));
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await _client
+          .from(_table)
+          .delete()
+          .eq('user_id', userId)
+          .eq('recorded_on', day)
+          .timeout(const Duration(seconds: 15));
+      await _saveDeletedDays(_deletedDays()..remove(day));
+    } catch (e) {
+      debugPrint('[WeightSync] Delete of $day queued for retry: $e');
     }
   }
 
@@ -97,6 +134,18 @@ class WeightSyncService {
       await _savePendingDays(<String>{});
       await StorageService().put(_backfillKey, true);
 
+      // Retry deletes that didn't reach the cloud.
+      final deleted = _deletedDays();
+      if (deleted.isNotEmpty) {
+        await _client
+            .from(_table)
+            .delete()
+            .eq('user_id', userId)
+            .inFilter('recorded_on', deleted.toList())
+            .timeout(const Duration(seconds: 20));
+        await _saveDeletedDays(<String>{});
+      }
+
       final rows = await _client
           .from(_table)
           .select('recorded_on, weight_kg')
@@ -104,7 +153,9 @@ class WeightSyncService {
           .order('recorded_on')
           .timeout(const Duration(seconds: 20));
 
-      return mergeHistory(local, rows);
+      return mergeHistory(
+          local.where((e) => !deleted.contains(dayKey(DateTime.parse(e['date'] as String)))).toList(),
+          rows);
     } catch (e) {
       debugPrint('[WeightSync] Merge failed, keeping local history: $e');
       return null;
@@ -173,5 +224,6 @@ class WeightSyncService {
   Future<void> clearLocalState() async {
     await StorageService().delete(_pendingKey);
     await StorageService().delete(_backfillKey);
+    await StorageService().delete(_deletedKey);
   }
 }

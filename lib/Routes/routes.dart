@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart';
-import 'package:macrotracker/screens/MacroTrackingScreen.dart';
+import 'package:macrotracker/screens/NutritionTrendsScreen.dart';
 import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/camera/camera.dart';
@@ -31,7 +31,7 @@ class AppRouter {
       case RouteNames.weightTracking:
         return MaterialPageRoute(builder: (_) => const WeightTrackingScreen());
       case RouteNames.macroTracking:
-        return MaterialPageRoute(builder: (_) => const MacroTrackingScreen());
+        return MaterialPageRoute(builder: (_) => const NutritionTrendsScreen());
       case RouteNames.settings:
         return MaterialPageRoute(builder: (_) => const AccountDashboard());
       case RouteNames.search:

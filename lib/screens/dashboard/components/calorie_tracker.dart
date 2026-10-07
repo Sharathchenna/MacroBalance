@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../Health/Health.dart';
 import '../../../providers/dateProvider.dart';
 import '../../../providers/foodEntryProvider.dart';
-import '../../../screens/MacroTrackingScreen.dart';
+import '../../../screens/NutritionTrendsScreen.dart';
 import '../../../screens/StepsTrackingScreen.dart';
 import '../../../services/storage_service.dart';
 import '../../../theme/app_theme.dart';
@@ -150,7 +150,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         } else if (['Carbs', 'Protein', 'Fat'].contains(label)) {
           Navigator.push(
             context,
-            CupertinoPageRoute(builder: (context) => const MacroTrackingScreen()),
+            CupertinoPageRoute(builder: (context) => const NutritionTrendsScreen()),
           );
         }
       },
@@ -342,7 +342,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                           Navigator.push(
                             context,
                             CupertinoPageRoute(
-                              builder: (context) => const MacroTrackingScreen(),
+                              builder: (context) => const NutritionTrendsScreen(),
                             ),
                           );
                         },
