@@ -18,6 +18,8 @@ const List<double> kActivityFactors = [1.2, 1.375, 1.55, 1.725, 1.9];
 const double kTrendAlpha = 0.10;
 const double kOutlierPct = 0.03;
 const int kOutlierRunToAccept = 3;
+/// Weight tab: actual pace within this many %/wk of the goal pace reads as on pace.
+const double kPaceTolerancePct = 0.15;
 
 // --- Expenditure estimator ---
 const int kWindowDays = 21;
