@@ -14,10 +14,14 @@ import '../../services/energy/constants.dart';
 import '../../services/energy/day_status.dart';
 import '../../services/energy/energy_estimator.dart';
 import '../../services/energy/energy_summary.dart';
+import '../../services/energy/expenditure_series.dart';
 import '../../services/posthog_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/weight_range.dart';
 import '../../widgets/app_bottom_bar.dart';
+import '../../widgets/expenditure_chart.dart';
 import '../../widgets/progress_card.dart';
+import '../../widgets/weight_range_selector.dart';
 
 /// Progress → Energy: the learned daily expenditure, how it was worked out,
 /// how good the data behind it is, and "Reset learning" (spec 7.1).
@@ -71,6 +75,14 @@ class EnergyTab extends StatelessWidget {
             learningStartedOn: goals.learningStartedOn,
             onLogWeight: noWeighIns ? onLogWeight : null,
           ),
+          if (energy.estimates.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            ExpenditureCard(
+              estimates: energy.estimates,
+              learningStartedOn: goals.learningStartedOn,
+              formulaTdee: goals.formulaTdee ?? goals.tdee,
+            ),
+          ],
           if (summary.breakdown != null) ...[
             const SizedBox(height: 16),
             _HowCard(breakdown: summary.breakdown!, summary: summary),
@@ -507,6 +519,209 @@ class _RingPainter extends CustomPainter {
       old.outerColor != outerColor ||
       old.innerColor != innerColor ||
       old.track != track;
+}
+
+// --- Expenditure chart ------------------------------------------------------
+
+/// The estimate over time with its range and the starting estimate, with
+/// 1M / 3M / 6M / All chips (spec 7.1 R2). Laid out like the Weight tab's
+/// chart card: a header that reads the touched day, the chips, the chart,
+/// then the legend.
+class ExpenditureCard extends StatefulWidget {
+  const ExpenditureCard({
+    super.key,
+    required this.estimates,
+    required this.learningStartedOn,
+    required this.formulaTdee,
+  });
+
+  final List<EnergyEstimate> estimates;
+  final DateTime? learningStartedOn;
+  final double formulaTdee;
+
+  static const ranges = [
+    WeightRange.month,
+    WeightRange.threeMonths,
+    WeightRange.sixMonths,
+    WeightRange.all,
+  ];
+
+  @override
+  State<ExpenditureCard> createState() => _ExpenditureCardState();
+}
+
+class _ExpenditureCardState extends State<ExpenditureCard> {
+  WeightRange _range = WeightRange.month;
+  EnergyEstimate? _scrubbed;
+
+  static const _info = ProgressInfo('Your expenditure over time', [
+    InfoSection(
+      'The line is your daily expenditure as it was estimated each day. The '
+      'shaded band is its likely range: it starts wide and narrows as your '
+      'food and weigh-ins add up.',
+    ),
+    InfoSection(
+      'The dashed line is the formula\'s estimate from your height, weight, '
+      'age and activity, where learning started. The gap between the two is '
+      'what your own data taught it.',
+      heading: 'Starting estimate',
+    ),
+    InfoSection(
+      'Resetting learning starts again from the formula. Earlier days stay '
+      'on the chart in grey, after a break in the line, but no longer count.',
+      heading: 'Resets',
+    ),
+  ]);
+
+  String get _phrase => switch (_range) {
+        WeightRange.month => 'over the past month',
+        WeightRange.threeMonths => 'over the past 3 months',
+        WeightRange.sixMonths => 'over the past 6 months',
+        _ => 'so far',
+      };
+
+  ChartHeader _header(ExpenditureSeries series) {
+    final s = _scrubbed;
+    if (s != null) {
+      final preReset = widget.learningStartedOn != null &&
+          s.day.isBefore(widget.learningStartedOn!);
+      final note = preReset
+          ? 'before you reset'
+          : switch (s.state) {
+              EnergyState.learning => 'starting estimate',
+              EnergyState.paused => '± ${roundToTen(s.tdeeSd)} · paused',
+              _ => '± ${roundToTen(s.tdeeSd)}',
+            };
+      return ChartHeader(
+        value: '${_cals.format(s.tdee.round())} cals',
+        detail: '${_date(s.day)} · $note',
+      );
+    }
+    final change = series.change;
+    if (change != null) {
+      return ChartHeader(
+        value: change.delta.abs() < 10
+            ? 'No change'
+            : '${_signed(change.delta)} cals',
+        detail: change.fromRunStart || _range == WeightRange.all
+            ? 'since ${_date(change.from)}'
+            : _phrase,
+      );
+    }
+    final rows = series.rows;
+    if (rows.isEmpty) {
+      return const ChartHeader(value: 'No estimates', detail: 'in this range');
+    }
+    final last = rows.last;
+    return ChartHeader(
+      value: '${_cals.format(last.tdee.round())} cals',
+      detail: series.segments.last.preReset
+          ? 'before you reset on ${_date(series.last!)}'
+          : _date(last.day),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<CustomColors>()!;
+    final all = ExpenditureSeries.from(widget.estimates,
+        learningStartedOn: widget.learningStartedOn);
+    final now = DateTime.now();
+    final end = all.last ?? DateTime(now.year, now.month, now.day - 1);
+    final start = _range.start(now) ?? all.first ?? end;
+    final series = all.since(start);
+    final showsFormula =
+        !series.isEmpty && series.scale(formula: widget.formulaTdee).showsFormula;
+    final hasPast = series.segments.any((s) => s.preReset);
+
+    return ProgressCard(
+      padding: const EdgeInsets.fromLTRB(18, 18, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 52),
+                  child: _header(series),
+                ),
+              ),
+              const InfoButton(_info),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: WeightRangeSelector(
+              selected: _range,
+              ranges: ExpenditureCard.ranges,
+              onChanged: (r) {
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _range = r;
+                  _scrubbed = null;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 220,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ExpenditureChart(
+                    series: series,
+                    start: start,
+                    end: end,
+                    formulaTdee: widget.formulaTdee,
+                    colors: colors,
+                    onScrub: (r) => setState(() => _scrubbed = r),
+                  ),
+                ),
+                if (series.isEmpty)
+                  Center(
+                    child: Text(
+                      'No estimates $_phrase',
+                      style: GoogleFonts.inter(
+                          fontSize: 14, color: colors.textSecondary),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              LegendItem(
+                swatch: LegendLine(color: colors.accentPrimary),
+                label: 'Expenditure',
+              ),
+              LegendItem(
+                swatch: LegendBand(color: colors.accentPrimary),
+                label: 'Likely range',
+              ),
+              if (showsFormula)
+                LegendItem(
+                  swatch: LegendLine(color: colors.textSecondary, dashed: true),
+                  label: 'Starting estimate',
+                ),
+              if (hasPast)
+                LegendItem(
+                  swatch: LegendLine(
+                      color: colors.textSecondary.withValues(alpha: 0.6)),
+                  label: 'Before reset',
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // --- How we got this --------------------------------------------------------

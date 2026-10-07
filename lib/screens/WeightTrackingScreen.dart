@@ -468,7 +468,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     Widget header;
     if (scrubbed != null) {
       final e = inRange[scrubbed];
-      header = _ChartHeader(
+      header = ChartHeader(
         value: _fmt(e.kg),
         detail: ignoredInRange[scrubbed]
             ? '${_day(e.date)} · ignored for trend'
@@ -479,7 +479,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     } else if (inRange.length >= 2) {
       // How far the trend moved, so one light morning doesn't count.
       final delta = trendInRange.last - trendInRange.first;
-      header = _ChartHeader(
+      header = ChartHeader(
         value: _fmt(delta, signed: true),
         valueColor: _changeColor(delta, colors),
         detail: _range == WeightRange.all
@@ -487,7 +487,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             : 'trend over the $_rangePhrase',
       );
     } else {
-      header = _ChartHeader(
+      header = ChartHeader(
         value: inRange.isEmpty ? 'No weigh-ins' : _fmt(inRange.first.kg),
         detail: inRange.isEmpty ? within : 'one weigh-in $within',
       );
@@ -552,21 +552,21 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
           const SizedBox(height: 10),
           Row(
             children: [
-              _LegendDot(color: colors.accentPrimary, ring: true),
+              LegendDot(color: colors.accentPrimary, ring: true),
               _legendText('Weigh-ins', colors),
               if (showsTrend) ...[
                 const SizedBox(width: 14),
-                _LegendLine(color: colors.accentPrimary),
+                LegendLine(color: colors.accentPrimary),
                 _legendText('Trend', colors),
               ],
               if (ignoredInRange.contains(true)) ...[
                 const SizedBox(width: 14),
-                _LegendDot(color: colors.textSecondary, ring: true),
+                LegendDot(color: colors.textSecondary, ring: true),
                 _legendText('Ignored', colors),
               ],
               if (WeightChart.showsGoal(inRange, trendInRange, _goalKg)) ...[
                 const SizedBox(width: 14),
-                _LegendLine(color: colors.textSecondary, dashed: true),
+                LegendLine(color: colors.textSecondary, dashed: true),
                 _legendText('Goal', colors),
               ],
             ],
@@ -818,42 +818,6 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   }
 }
 
-class _ChartHeader extends StatelessWidget {
-  const _ChartHeader({required this.value, required this.detail, this.valueColor});
-
-  final String value;
-  final String detail;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<CustomColors>()!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            color: valueColor ?? colors.textPrimary,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          detail,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.inter(fontSize: 13, color: colors.textSecondary),
-        ),
-      ],
-    );
-  }
-}
-
 class _LogButton extends StatelessWidget {
   const _LogButton({required this.onTap});
 
@@ -923,51 +887,6 @@ class _GoalBar extends StatelessWidget {
       ),
     );
   }
-}
-
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, this.ring = false});
-
-  final Color color;
-  final bool ring;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 9,
-        height: 9,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: ring ? Border.all(color: color, width: 1.8) : null,
-          color: ring ? null : color,
-        ),
-      );
-}
-
-class _LegendLine extends StatelessWidget {
-  const _LegendLine({required this.color, this.dashed = false});
-
-  final Color color;
-  final bool dashed;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 16,
-        height: 3,
-        child: dashed
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  for (var i = 0; i < 3; i++)
-                    Container(width: 4, height: 1.5, color: color),
-                ],
-              )
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-      );
 }
 
 /// Asks for a weight in the user's unit (and optionally a date); pops

@@ -271,7 +271,7 @@ class _WeightChartPainter extends CustomPainter {
     if (points.length > 1) {
       // Monotone, so the curve never overshoots: every peak and dip on the
       // line is a real reading.
-      final line = _smoothPath(points);
+      final line = monotonePath(points);
       final fill = Path.from(line)
         ..lineTo(points.last.dx, plot.bottom)
         ..lineTo(points.first.dx, plot.bottom)
@@ -444,60 +444,62 @@ class _WeightChartPainter extends CustomPainter {
     );
   }
 
-  /// Monotone cubic through [points], so the line never overshoots a value.
-  /// 0 joins points with straight lines; 1 is a full monotone curve.
-  static const double _curviness = 0.5;
-
-  static Path _smoothPath(List<Offset> points) {
-    final n = points.length;
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    final slopes = List<double>.filled(n - 1, 0);
-    for (var i = 0; i < n - 1; i++) {
-      final dx = points[i + 1].dx - points[i].dx;
-      slopes[i] = dx == 0 ? 0 : (points[i + 1].dy - points[i].dy) / dx;
-    }
-    final tangents = List<double>.filled(n, 0);
-    tangents[0] = slopes.first;
-    tangents[n - 1] = slopes.last;
-    for (var i = 1; i < n - 1; i++) {
-      tangents[i] = slopes[i - 1] * slopes[i] <= 0
-          ? 0
-          : (slopes[i - 1] + slopes[i]) / 2;
-    }
-    for (var i = 0; i < n - 1; i++) {
-      if (slopes[i] == 0) {
-        tangents[i] = 0;
-        tangents[i + 1] = 0;
-        continue;
-      }
-      final a = tangents[i] / slopes[i];
-      final b = tangents[i + 1] / slopes[i];
-      final h = math.sqrt(a * a + b * b);
-      if (h > 3) {
-        tangents[i] = 3 / h * a * slopes[i];
-        tangents[i + 1] = 3 / h * b * slopes[i];
-      }
-    }
-    for (var i = 0; i < n - 1; i++) {
-      final p0 = points[i], p1 = points[i + 1];
-      final dx = p1.dx - p0.dx;
-      if (dx == 0) {
-        path.lineTo(p1.dx, p1.dy);
-        continue;
-      }
-      // Pull each end's tangent halfway toward the segment's own slope:
-      // softer than a full curve, without the corners of straight lines.
-      final t0 = slopes[i] + (tangents[i] - slopes[i]) * _curviness;
-      final t1 = slopes[i] + (tangents[i + 1] - slopes[i]) * _curviness;
-      path.cubicTo(p0.dx + dx / 3, p0.dy + t0 * dx / 3,
-          p1.dx - dx / 3, p1.dy - t1 * dx / 3, p1.dx, p1.dy);
-    }
-    return path;
-  }
-
   @override
   bool shouldRepaint(_WeightChartPainter old) =>
       old.chart != chart || old.selected != selected || old.reveal != reveal;
+}
+
+/// How curved [monotonePath] is: 0 joins points with straight lines; 1 is a
+/// full monotone curve.
+const double _curviness = 0.5;
+
+/// Monotone cubic through [points] (at least two), so a line never
+/// overshoots a value. Shared by the Progress charts.
+Path monotonePath(List<Offset> points) {
+  final n = points.length;
+  final path = Path()..moveTo(points.first.dx, points.first.dy);
+  final slopes = List<double>.filled(n - 1, 0);
+  for (var i = 0; i < n - 1; i++) {
+    final dx = points[i + 1].dx - points[i].dx;
+    slopes[i] = dx == 0 ? 0 : (points[i + 1].dy - points[i].dy) / dx;
+  }
+  final tangents = List<double>.filled(n, 0);
+  tangents[0] = slopes.first;
+  tangents[n - 1] = slopes.last;
+  for (var i = 1; i < n - 1; i++) {
+    tangents[i] = slopes[i - 1] * slopes[i] <= 0
+        ? 0
+        : (slopes[i - 1] + slopes[i]) / 2;
+  }
+  for (var i = 0; i < n - 1; i++) {
+    if (slopes[i] == 0) {
+      tangents[i] = 0;
+      tangents[i + 1] = 0;
+      continue;
+    }
+    final a = tangents[i] / slopes[i];
+    final b = tangents[i + 1] / slopes[i];
+    final h = math.sqrt(a * a + b * b);
+    if (h > 3) {
+      tangents[i] = 3 / h * a * slopes[i];
+      tangents[i + 1] = 3 / h * b * slopes[i];
+    }
+  }
+  for (var i = 0; i < n - 1; i++) {
+    final p0 = points[i], p1 = points[i + 1];
+    final dx = p1.dx - p0.dx;
+    if (dx == 0) {
+      path.lineTo(p1.dx, p1.dy);
+      continue;
+    }
+    // Pull each end's tangent halfway toward the segment's own slope:
+    // softer than a full curve, without the corners of straight lines.
+    final t0 = slopes[i] + (tangents[i] - slopes[i]) * _curviness;
+    final t1 = slopes[i] + (tangents[i + 1] - slopes[i]) * _curviness;
+    path.cubicTo(p0.dx + dx / 3, p0.dy + t0 * dx / 3,
+        p1.dx - dx / 3, p1.dy - t1 * dx / 3, p1.dx, p1.dy);
+  }
+  return path;
 }
 
 /// Labelled dates for an axis from [start] to [end]: days for about a week,

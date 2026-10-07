@@ -241,7 +241,8 @@ void main() {
         await pumpTab(tester,
             rows: learningRows(), start: ago(9), weighed: [8, 3], dark: dark);
 
-        expect(find.text('Starting estimate'), findsOneWidget);
+        // The headline's label; the chart's legend has one too.
+        expect(find.text('Starting estimate').first, findsOneWidget);
         expect(find.text('2,300'), findsOneWidget);
         expect(find.text('± 300'), findsNothing);
         expect(find.text('Learning'), findsOneWidget);
@@ -312,9 +313,9 @@ void main() {
     expect(goals.learningStartedOn, _today);
     expect(energy.estimates, hasLength(30), reason: 'history is kept');
     expect(captured('learning_reset'), hasLength(1));
-    await tester.scrollUntilVisible(find.text('Starting estimate'), -200,
+    await tester.scrollUntilVisible(find.text('Learning'), -200,
         scrollable: find.byType(Scrollable).first);
-    expect(find.text('Starting estimate'), findsOneWidget);
+    expect(find.text('Starting estimate').first, findsOneWidget);
     expect(find.text('Learning'), findsOneWidget);
     expect(find.text('How we got this'), findsNothing);
   });
