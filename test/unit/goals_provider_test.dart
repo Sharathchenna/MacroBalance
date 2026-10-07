@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
@@ -121,5 +123,48 @@ void main() {
     expect(goals.caloriesGoal, 2000);
     expect(goals.goalWeightKg, 0);
     expect(GoalsProvider().caloriesGoal, 2000);
+  });
+
+  group('recalculateMacroGoals', () {
+    test('uses the profile onboarding saved: protein from the capped reference weight', () async {
+      // 120 kg at 180 cm: reference weight is the BMI-25 weight, 81 kg.
+      await StorageService().put(
+          'nutrition_goals',
+          jsonEncode({
+            'macro_targets': {'calories': 2500, 'protein': 150, 'carbs': 250, 'fat': 70},
+            'current_weight_kg': 120,
+            'goal_type': MacroCalculatorService.GOAL_LOSE,
+            'deficit_surplus': 500,
+            'height_cm': 180,
+            'body_fat_pct': null,
+            'protein_ratio': null,
+            'fat_ratio': null,
+          }));
+      final g = GoalsProvider();
+      await g.recalculateMacroGoals(2800);
+      expect(g.caloriesGoal, 2300);
+      expect(g.proteinGoal, 162); // 81 × 2.0
+      expect(g.proteinGoal * 4 + g.carbsGoal * 4 + g.fatGoal * 9, closeTo(2300, 5));
+    });
+
+    test('keeps the split inputs when it saves', () async {
+      await StorageService().put(
+          'nutrition_goals',
+          jsonEncode({
+            'current_weight_kg': 70,
+            'height_cm': 175,
+            'body_fat_pct': 18,
+            'protein_ratio': 2.2,
+            'fat_ratio': 0.3,
+          }));
+      final g = GoalsProvider();
+      await g.recalculateMacroGoals(2400);
+      final saved = jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
+      expect(saved['height_cm'], 175);
+      expect(saved['body_fat_pct'], 18);
+      expect(saved['protein_ratio'], 2.2);
+      expect(saved['fat_ratio'], 0.3);
+      expect(g.proteinGoal, (70 * 0.82 * 2.2).round());
+    });
   });
 }

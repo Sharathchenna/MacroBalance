@@ -15,6 +15,8 @@ class SetNewGoalPage extends StatelessWidget {
   final double currentWeightKg;
   final double goalWeightKg;
   final int deficit;
+  /// Cals per kg of weight change for this body (energy density).
+  final double kcalPerKg;
   final bool isMetricWeight;
   final DateTime? projectedDate;
   final double? targetCalories;
@@ -28,6 +30,7 @@ class SetNewGoalPage extends StatelessWidget {
     required this.currentWeightKg,
     required this.goalWeightKg,
     required this.deficit,
+    required this.kcalPerKg,
     required this.isMetricWeight,
     this.projectedDate,
     this.targetCalories,
@@ -382,7 +385,6 @@ class SetNewGoalPage extends StatelessWidget {
   }
 
   Map<String, double> _calculateRates() {
-    const kcalPerKg = 7700.0;
     double weeklyKcalChange = deficit * 7.0;
     double weeklyKgChange = weeklyKcalChange / kcalPerKg;
     double weeklyBwChange = (weeklyKgChange / currentWeightKg) * 100;

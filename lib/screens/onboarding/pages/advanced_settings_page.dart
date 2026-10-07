@@ -5,13 +5,14 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/widgets/onboarding/tooltip_icon.dart';
 
 class AdvancedSettingsPage extends StatelessWidget {
-  final bool isAthlete;
   final bool showBodyFatInput;
-  final double bodyFatPercentage;
-  final double proteinRatio;
+  /// Null until the user sets a value: no body fat is ever assumed.
+  final double? bodyFatPercentage;
+  /// Null means the default for the goal, [defaultProteinRatio].
+  final double? proteinRatio;
+  final double defaultProteinRatio;
   final double fatRatio;
   final String gender; // Needed for body fat range display
-  final ValueChanged<bool> onAthleteChanged;
   final ValueChanged<bool> onShowBodyFatChanged;
   final ValueChanged<double> onBodyFatChanged;
   final ValueChanged<double> onProteinRatioChanged;
@@ -19,23 +20,27 @@ class AdvancedSettingsPage extends StatelessWidget {
 
   const AdvancedSettingsPage({
     super.key,
-    required this.isAthlete,
     required this.showBodyFatInput,
     required this.bodyFatPercentage,
     required this.proteinRatio,
+    required this.defaultProteinRatio,
     required this.fatRatio,
     required this.gender,
-    required this.onAthleteChanged,
     required this.onShowBodyFatChanged,
     required this.onBodyFatChanged,
     required this.onProteinRatioChanged,
     required this.onFatRatioChanged,
   });
 
+  // Where the body fat slider starts before the user has set a value.
+  double get _bodyFatStart => gender == MacroCalculatorService.MALE ? 20 : 28;
+
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
+    final bodyFat = bodyFatPercentage;
+    final protein = proteinRatio ?? defaultProteinRatio;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -61,39 +66,28 @@ class AdvancedSettingsPage extends StatelessWidget {
           const SizedBox(height: 24),
           _CollapsedSettings(
             summary: [
-              isAthlete ? 'Athlete' : 'Not an athlete',
-              showBodyFatInput
-                  ? 'Body fat ${bodyFatPercentage.round()}%'
+              showBodyFatInput && bodyFat != null
+                  ? 'Body fat ${bodyFat.round()}%'
                   : 'Body fat not used',
-              'Protein ${proteinRatio.toStringAsFixed(1)} g/kg',
-              'Fat ${(fatRatio * 100).round()}% of calories',
+              'Protein ${protein.toStringAsFixed(1)} g/kg'
+                  '${proteinRatio == null ? ' (recommended)' : ''}',
+              'Fat ${(fatRatio * 100).round()}% of cals',
             ],
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
           const SizedBox(height: 8),
 
-          // Athletic status selection
-          _buildSectionHeader(context, 'Are you an athlete?',
-              'Select "Yes" if you regularly engage in intense sports or training'),
-          const SizedBox(height: 16),
-          _buildToggleContainer(context, [
-            _buildToggleOption(
-                context: context,
-                label: 'No',
-                isSelected: !isAthlete,
-                onTap: () => onAthleteChanged(false)),
-            _buildToggleOption(
-                context: context,
-                label: 'Yes',
-                isSelected: isAthlete,
-                onTap: () => onAthleteChanged(true)),
-          ]),
-
           // Body Fat Percentage Input (Optional)
-          const SizedBox(height: 24),
           _buildSectionHeader(context, 'Body Fat Percentage (Optional)',
-              'If you know your body fat percentage, enter it here for more accurate calculations'),
+              'Only enter a reading from a body scan (like DEXA) or a smart scale. Estimates by eye are often off by 5% or more and make your targets less accurate.'),
+          const SizedBox(height: 4),
+          Text(
+            'From a scan or smart scale',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: customColors?.textSecondary ?? theme.textTheme.bodySmall?.color,
+            ),
+          ),
           const SizedBox(height: 8),
           _buildToggleContainer(context, [
             _buildToggleOption(
@@ -113,8 +107,8 @@ class AdvancedSettingsPage extends StatelessWidget {
             const SizedBox(height: 16),
             _buildSliderContainer(
               context: context,
-              label: '${bodyFatPercentage.round()}%',
-              value: bodyFatPercentage,
+              label: bodyFat == null ? 'Set your %' : '${bodyFat.round()}%',
+              value: bodyFat ?? _bodyFatStart,
               min: 5,
               max: 50,
               divisions: 45,
@@ -123,51 +117,54 @@ class AdvancedSettingsPage extends StatelessWidget {
                 onBodyFatChanged(value);
               },
               onDecrement: () {
-                if (bodyFatPercentage > 5)
-                  onBodyFatChanged(bodyFatPercentage - 1);
+                final current = bodyFat ?? _bodyFatStart;
+                if (current > 5) onBodyFatChanged(current - 1);
               },
               onIncrement: () {
-                if (bodyFatPercentage < 50)
-                  onBodyFatChanged(bodyFatPercentage + 1);
+                final current = bodyFat ?? _bodyFatStart;
+                if (current < 50) onBodyFatChanged(current + 1);
               },
-              rangeText: gender == MacroCalculatorService.MALE
-                  ? 'Athletic: 6-13% | Healthy: 14-24%'
-                  : 'Athletic: 14-20% | Healthy: 21-31%',
+              rangeText: bodyFat == null
+                  ? 'Move the slider to your reading. Until then it isn\'t used.'
+                  : gender == MacroCalculatorService.MALE
+                      ? 'Athletic: 6-13% | Healthy: 14-24%'
+                      : 'Athletic: 14-20% | Healthy: 21-31%',
             ),
           ],
 
           const SizedBox(height: 32),
 
           // Protein ratio slider
-          _buildSectionHeader(context, 'Protein (g per kg of bodyweight)',
-              'Higher protein intake supports muscle maintenance and growth'),
+          _buildSectionHeader(context, 'Protein (g per kg)',
+              'Per kg of lean mass when you enter body fat, otherwise per kg of body weight (counted up to a healthy weight for your height). Higher protein helps keep muscle while losing weight.'),
           const SizedBox(height: 8),
           _buildSliderContainer(
             context: context,
-            label: '${proteinRatio.toStringAsFixed(1)} g/kg',
-            value: proteinRatio,
-            min: 1.2, max: 2.4, divisions: 12, // 0.1 increments
+            label: '${protein.toStringAsFixed(1)} g/kg',
+            value: protein,
+            min: 1.2, max: 2.6, divisions: 14, // 0.1 increments
             onChanged: (value) {
               HapticFeedback.selectionClick();
               onProteinRatioChanged(value);
             },
             onDecrement: () {
-              if (proteinRatio > 1.2)
+              if (protein > 1.2)
                 onProteinRatioChanged(
-                    double.parse((proteinRatio - 0.1).toStringAsFixed(1)));
+                    double.parse((protein - 0.1).toStringAsFixed(1)));
             },
             onIncrement: () {
-              if (proteinRatio < 2.4)
+              if (protein < 2.6)
                 onProteinRatioChanged(
-                    double.parse((proteinRatio + 0.1).toStringAsFixed(1)));
+                    double.parse((protein + 0.1).toStringAsFixed(1)));
             },
-            rangeText: 'Recommended: 1.6-2.2 g/kg',
+            rangeText:
+                'Recommended for your goal: ${defaultProteinRatio.toStringAsFixed(1)} g/kg',
           ),
 
           const SizedBox(height: 24),
 
           // Fat ratio slider
-          _buildSectionHeader(context, 'Fat (% of total calories)',
+          _buildSectionHeader(context, 'Fat (% of total cals)',
               'Fat is essential for hormone production and vitamin absorption'),
           const SizedBox(height: 8),
           _buildSliderContainer(

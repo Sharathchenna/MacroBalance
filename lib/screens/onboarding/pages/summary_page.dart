@@ -16,9 +16,7 @@ class SummaryPage extends StatelessWidget {
   final double proteinRatio;
   final double fatRatio;
   final double goalWeightKg;
-  final bool isAthlete;
-  final bool showBodyFatInput;
-  final double bodyFatPercentage;
+  final double? bodyFatPercentage; // only when the user entered one
   final void Function(OnboardingStep step) onEdit; // Jumps back to a step to edit it
 
   const SummaryPage({
@@ -33,9 +31,7 @@ class SummaryPage extends StatelessWidget {
     required this.proteinRatio,
     required this.fatRatio,
     required this.goalWeightKg,
-    required this.isAthlete,
-    required this.showBodyFatInput,
-    required this.bodyFatPercentage,
+    this.bodyFatPercentage,
     required this.onEdit,
   });
 
@@ -99,15 +95,10 @@ class SummaryPage extends StatelessWidget {
         'page': heightPageIndex
       },
       {'label': 'Age', 'value': '$age years', 'page': agePageIndex},
-      {
-        'label': 'Athletic Status',
-        'value': isAthlete ? 'Athlete' : 'Non-Athlete',
-        'page': advancedSettingsPageIndex
-      },
-      if (showBodyFatInput)
+      if (bodyFatPercentage != null)
         {
           'label': 'Body Fat %',
-          'value': '${bodyFatPercentage.round()}%',
+          'value': '${bodyFatPercentage!.round()}%',
           'page': advancedSettingsPageIndex
         },
     ];
@@ -125,7 +116,7 @@ class SummaryPage extends StatelessWidget {
         'label': goal == MacroCalculatorService.GOAL_LOSE
             ? 'Calorie Deficit'
             : 'Calorie Surplus',
-        'value': '$deficit calories/day',
+        'value': '$deficit cals/day',
         'page': goalPageIndex
       });
       activityGoalsItems.add({
@@ -143,7 +134,7 @@ class SummaryPage extends StatelessWidget {
       },
       {
         'label': 'Fat Ratio',
-        'value': '${(fatRatio * 100).round()}% of calories',
+        'value': '${(fatRatio * 100).round()}% of cals',
         'page': advancedSettingsPageIndex
       },
       {

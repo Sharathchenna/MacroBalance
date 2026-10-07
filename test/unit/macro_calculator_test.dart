@@ -38,6 +38,18 @@ void main() {
 
   test('Mifflin-St Jeor BMR for an 80 kg, 180 cm, 30-year-old man', () {
     // 10*80 + 6.25*180 - 5*30 + 5 = 1780
+    final r = run();
+    expect(n(r, 'bmr'), closeTo(1780, 1));
+    expect(r['formula_used'], 'Mifflin-St Jeor');
+  });
+
+  test('Mifflin-St Jeor is used for every body shape: no formula switching', () {
+    // Underweight (BMI 15.4) used to switch to Harris-Benedict.
+    final r = run(weightKg: 50, heightCm: 180);
+    expect(n(r, 'bmr'), closeTo(10 * 50 + 6.25 * 180 - 5 * 30 + 5, 1));
+  });
+
+  test('a scanned body fat % averages in Katch-McArdle', () {
     final r = calc.calculateAll(
       gender: MacroCalculatorService.MALE,
       weightKg: 80,
@@ -45,9 +57,17 @@ void main() {
       age: 30,
       activityLevel: 3,
       goal: MacroCalculatorService.GOAL_MAINTAIN,
-      bmrFormula: MacroCalculatorService.FORMULA_MIFFLIN_ST_JEOR,
+      bodyFatPercentage: 15,
     );
-    expect(n(r, 'bmr'), closeTo(1780, 1));
+    expect(n(r, 'bmr'), closeTo((1780 + 370 + 21.6 * 68) / 2, 1));
+    expect(r['formula_used'], 'Mifflin-St Jeor + Katch-McArdle');
+  });
+
+  test('weekly change uses the body\'s energy density, not 7,700 per kg', () {
+    final r = run(goal: MacroCalculatorService.GOAL_LOSE, deficit: 500, goalWeightKg: 75);
+    final ed = n(r, 'energy_density');
+    expect(ed, isNot(7700));
+    expect(n(r, 'weekly_weight_change'), closeTo(-500 * 7 / ed, 0.01));
   });
 
   test('women get a lower BMR than men of the same size', () {
@@ -67,7 +87,7 @@ void main() {
         'target_calories'), greaterThan(maintain));
   });
 
-  test('macro calories roughly add up to the calorie target', () {
+  test('macro calories add up to the calorie target', () {
     for (final goal in [
       MacroCalculatorService.GOAL_LOSE,
       MacroCalculatorService.GOAL_MAINTAIN,
@@ -75,8 +95,7 @@ void main() {
     ]) {
       final r = run(goal: goal, deficit: 400, goalWeightKg: 78);
       final macroKcal = n(r, 'protein_g') * 4 + n(r, 'carb_g') * 4 + n(r, 'fat_g') * 9;
-      expect(macroKcal, closeTo(n(r, 'target_calories'), n(r, 'target_calories') * 0.05),
-          reason: goal);
+      expect(macroKcal, closeTo(n(r, 'target_calories'), 5), reason: goal);
     }
   });
 

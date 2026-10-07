@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 import 'package:macrotracker/services/weight_sync_service.dart';
@@ -52,11 +53,12 @@ class GoalsProvider with ChangeNotifier {
   String _goalType = MacroCalculatorService.GOAL_MAINTAIN;
   int _deficitSurplus = 500;
 
-  // Macro split inputs for [recalculateMacroGoals]. Not stored yet, so the
-  // calculator's own defaults apply.
-  final String _gender = MacroCalculatorService.MALE;
-  final double? _proteinRatio = null; // g/kg
-  final double? _fatRatio = null; // share of calories
+  // Macro split inputs for [recalculateMacroGoals], saved by onboarding.
+  // Null means unknown or "use the default".
+  double _heightCm = 0.0;
+  double? _bodyFatPct; // only from a scan or smart scale
+  double? _proteinRatio; // g per kg of reference weight
+  double? _fatRatio; // share of cals
 
   // --- Getters ---
   double get caloriesGoal => _caloriesGoal;
@@ -168,11 +170,12 @@ class GoalsProvider with ChangeNotifier {
 
     final double targetCalories;
     if (_goalType == MacroCalculatorService.GOAL_LOSE) {
-      targetCalories = max(1200, _tdee - _deficitSurplus);
+      // Ticket 03 replaces this floor with the safety limits.
+      targetCalories = max(1200, _tdee - _deficitSurplus).roundToDouble();
     } else if (_goalType == MacroCalculatorService.GOAL_GAIN) {
-      targetCalories = _tdee + _deficitSurplus;
+      targetCalories = (_tdee + _deficitSurplus).roundToDouble();
     } else {
-      targetCalories = _tdee;
+      targetCalories = _tdee.roundToDouble();
     }
 
     if (_currentWeightKg <= 0) {
@@ -180,18 +183,20 @@ class GoalsProvider with ChangeNotifier {
       return;
     }
 
-    final macros = MacroCalculatorService.distributeMacros(
-      targetCalories: targetCalories,
+    final macros = splitMacros(
+      cals: targetCalories,
+      goal: MacroCalculatorService.goalKindOf(_goalType),
       weightKg: _currentWeightKg,
-      gender: _gender,
-      proteinRatio: _proteinRatio,
+      heightCm: _heightCm > 0 ? _heightCm : null,
+      bodyFatPct: _bodyFatPct,
+      proteinPerKg: _proteinRatio,
       fatRatio: _fatRatio,
     );
 
-    _caloriesGoal = targetCalories.roundToDouble();
-    _proteinGoal = macros['protein_g']!.roundToDouble();
-    _carbsGoal = macros['carb_g']!.roundToDouble();
-    _fatGoal = macros['fat_g']!.roundToDouble();
+    _caloriesGoal = targetCalories;
+    _proteinGoal = macros.proteinG.toDouble();
+    _carbsGoal = macros.carbsG.toDouble();
+    _fatGoal = macros.fatG.toDouble();
     debugPrint(
         '[Goals] Cals=$_caloriesGoal, P=$_proteinGoal, C=$_carbsGoal, F=$_fatGoal');
     _commit();
@@ -237,6 +242,10 @@ class GoalsProvider with ChangeNotifier {
         _goalType = goals['goal_type'] as String? ?? _goalType;
         _deficitSurplus =
             (goals['deficit_surplus'] as num?)?.toInt() ?? _deficitSurplus;
+        _heightCm = _asDouble(goals['height_cm']) ?? _heightCm;
+        _bodyFatPct = _asDouble(goals['body_fat_pct']);
+        _proteinRatio = _asDouble(goals['protein_ratio']);
+        _fatRatio = _asDouble(goals['fat_ratio']);
       }
 
       if (!loadedMacros) {
@@ -272,6 +281,10 @@ class GoalsProvider with ChangeNotifier {
           'current_weight_kg': _currentWeightKg,
           'goal_type': _goalType,
           'deficit_surplus': _deficitSurplus,
+          if (_heightCm > 0) 'height_cm': _heightCm,
+          'body_fat_pct': _bodyFatPct,
+          'protein_ratio': _proteinRatio,
+          'fat_ratio': _fatRatio,
           'updated_at': DateTime.now().toIso8601String(),
         }));
     // Keep the sign-in fallback keys in step so they can never resurrect old goals.
@@ -376,6 +389,10 @@ class GoalsProvider with ChangeNotifier {
     _currentWeightKg = 0.0;
     _goalType = MacroCalculatorService.GOAL_MAINTAIN;
     _deficitSurplus = 500;
+    _heightCm = 0.0;
+    _bodyFatPct = null;
+    _proteinRatio = null;
+    _fatRatio = null;
 
     for (final key in [
       _storageKey,

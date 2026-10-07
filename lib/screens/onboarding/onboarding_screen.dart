@@ -3,6 +3,7 @@ import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:flutter/services.dart';
+import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -63,16 +64,30 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   int _activityLevel = MacroCalculatorService.MODERATELY_ACTIVE;
   String _goal = MacroCalculatorService.GOAL_MAINTAIN;
   int _deficit = 500;
-  double _proteinRatio = 1.8;
+  double? _proteinRatio; // null: the default for the goal
   double _fatRatio = 0.25;
   double _goalWeightKg = 70;
-  double _bodyFatPercentage = 20.0;
-  bool _isAthlete = false;
+  double? _bodyFatPercentage; // null until the user sets one
   bool _showBodyFatInput = false;
   // Start in the unit system of the phone's region.
   bool _isMetricWeight = WeightUnitProvider.localeDefaultIsMetric();
   bool _isMetricHeight = WeightUnitProvider.localeDefaultIsMetric();
   // --- End State Variables ---
+
+  /// Body fat counts only once the user has chosen to enter it and set a value.
+  double? get _knownBodyFat => _showBodyFatInput ? _bodyFatPercentage : null;
+
+  double get _defaultProteinRatio => defaultProteinPerKg(
+      goal: MacroCalculatorService.goalKindOf(_goal),
+      bodyFatKnown: _knownBodyFat != null);
+
+  double get _kcalPerKg => MacroCalculatorService.energyDensityFor(
+        gender: _gender,
+        weightKg: _weightKg,
+        heightCm: _heightCm,
+        age: _age,
+        bodyFatPercentage: _knownBodyFat,
+      );
 
   @override
   void initState() {
@@ -136,10 +151,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   double _calculateWeeklyRate() {
     if (_goal == MacroCalculatorService.GOAL_MAINTAIN || _deficit == 0)
       return 0.0;
-    const kcalPerKg = 7700.0;
     double weeklyKcalChange =
         _deficit * 7.0 * (_goal == MacroCalculatorService.GOAL_LOSE ? -1 : 1);
-    return weeklyKcalChange / kcalPerKg;
+    return weeklyKcalChange / _kcalPerKg;
   }
 
   DateTime? _calculateProjectedDate() {
@@ -179,14 +193,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       activityLevel: _activityLevel,
       goal: _goal, // Pass the goal
       deficit: _deficit, // Pass the deficit/surplus
-      proteinRatio:
-          _proteinRatio, // Pass ratios, though not needed for calories
+      proteinRatio: _proteinRatio,
       fatRatio: _fatRatio,
-      // Goal weight isn't strictly needed for TDEE/Target Cals but pass for completeness if available
       goalWeightKg:
           _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
-      bodyFatPercentage: _showBodyFatInput ? _bodyFatPercentage : null,
-      isAthlete: _isAthlete,
+      bodyFatPercentage: _knownBodyFat,
     );
 
     // Extract target calories from the results map
@@ -266,8 +277,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       fatRatio: _fatRatio,
       goalWeightKg:
           _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
-      bodyFatPercentage: _showBodyFatInput ? _bodyFatPercentage : null,
-      isAthlete: _isAthlete,
+      bodyFatPercentage: _knownBodyFat,
     );
     
     PostHogService.trackEvent(
@@ -328,15 +338,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'activity_level': _activityLevel,
           'goal_type': _goal,
           'deficit_surplus': _deficit,
-          'protein_ratio': _proteinRatio.toDouble(),
+          'protein_ratio': _proteinRatio,
           'fat_ratio': _fatRatio.toDouble(),
           'goal_weight_kg': _goalWeightKg.toDouble(),
           'current_weight_kg': _weightKg.toDouble(),
           'bmr': macroResults['bmr']?.toDouble(),
           'tdee': macroResults['tdee']?.toDouble(),
           'steps_goal': macroResults['recommended_steps'] ?? 10000,
-          'body_fat_percentage':
-              _showBodyFatInput ? _bodyFatPercentage.toDouble() : null,
+          'body_fat_percentage': _knownBodyFat,
           'updated_at': DateTime.now().toIso8601String(),
           'macro_targets': {
             'calories': (macroResults['target_calories'] ?? 0).toDouble(),
@@ -374,6 +383,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'current_weight_kg': _weightKg,
       'goal_type': _goal,
       'deficit_surplus': _deficit,
+      'height_cm': _heightCm,
+      'body_fat_pct': _knownBodyFat,
       'protein_ratio': _proteinRatio,
       'fat_ratio': _fatRatio,
       'steps_goal': macroResults['recommended_steps'] ?? 10000,
@@ -583,6 +594,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           currentWeightKg: _weightKg,
           goalWeightKg: _goalWeightKg,
           deficit: _deficit,
+          kcalPerKg: _kcalPerKg,
           isMetricWeight: _isMetricWeight,
           projectedDate: _calculateProjectedDate(),
           targetCalories: _calculateTargetCalories(),
@@ -596,13 +608,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         );
       case OnboardingStep.advanced:
         return AdvancedSettingsPage(
-          isAthlete: _isAthlete,
           showBodyFatInput: _showBodyFatInput,
           bodyFatPercentage: _bodyFatPercentage,
           proteinRatio: _proteinRatio,
+          defaultProteinRatio: _defaultProteinRatio,
           fatRatio: _fatRatio,
           gender: _gender,
-          onAthleteChanged: (isAthlete) => setState(() => _isAthlete = isAthlete),
           onShowBodyFatChanged: (show) => setState(() => _showBodyFatInput = show),
           onBodyFatChanged: (bfp) => setState(() => _bodyFatPercentage = bfp),
           onProteinRatioChanged: (ratio) => setState(() => _proteinRatio = ratio),
@@ -622,12 +633,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           activityLevel: _activityLevel,
           goal: _goal,
           deficit: _deficit,
-          proteinRatio: _proteinRatio,
+          proteinRatio: _proteinRatio ?? _defaultProteinRatio,
           fatRatio: _fatRatio,
           goalWeightKg: _goalWeightKg,
-          isAthlete: _isAthlete,
-          showBodyFatInput: _showBodyFatInput,
-          bodyFatPercentage: _bodyFatPercentage,
+          bodyFatPercentage: _knownBodyFat,
           onEdit: _goToStep,
         );
     }

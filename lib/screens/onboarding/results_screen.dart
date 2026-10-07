@@ -966,8 +966,10 @@ class _ResultsScreenState extends State<ResultsScreen>
               'Formula Used',
               widget.results.containsKey('formula_used')
                   ? '${widget.results['formula_used']}'
-                  : 'Automatically selected formula',
-              'Our system selected the most accurate formula for your body type',
+                  : 'Mifflin-St Jeor',
+              widget.results['body_fat_percentage'] != null
+                  ? 'Averaged with Katch-McArdle, which uses your scanned body fat'
+                  : 'The most accurate everyday formula for estimating metabolism',
               Icons.functions_rounded,
               Colors.indigo.shade400,
             ),
@@ -985,22 +987,6 @@ class _ResultsScreenState extends State<ResultsScreen>
                     'Used for more accurate metabolic calculations',
                     Icons.monitor_weight_outlined,
                     Colors.orange.shade500,
-                  ),
-                  SizedBox(height: 16),
-                ],
-              ),
-
-            // Show athletic status if provided
-            if (widget.results.containsKey('is_athlete') &&
-                widget.results['is_athlete'] == true)
-              Column(
-                children: [
-                  _buildMethodCard(
-                    'Athletic Status',
-                    'Athlete',
-                    'Athletic individuals may have higher metabolic rates',
-                    Icons.sports_rounded,
-                    Colors.green.shade500,
                   ),
                   SizedBox(height: 16),
                 ],
@@ -1028,10 +1014,10 @@ class _ResultsScreenState extends State<ResultsScreen>
             ),
             SizedBox(height: 10),
             Text(
-              '• BMR Formulas: Mifflin-St Jeor (1990), Harris-Benedict (1919), Katch-McArdle (1996)\n'
+              '• BMR: Mifflin-St Jeor (1990), Katch-McArdle (1996)\n'
               '• Protein: International Society of Sports Nutrition\n'
               '• Fat & Carbs: Harvard School of Public Health\n'
-              '• Weight change rate: National Institutes of Health',
+              '• Weight change rate: Hall (2008), Forbes body composition',
               style: TextStyle(
                 fontSize: 13,
                 color: customColors?.textSecondary,
