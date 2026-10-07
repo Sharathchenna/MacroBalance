@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:macrotracker/screens/onboarding/pages/advanced_settings_page.dart';
@@ -14,14 +14,13 @@ import 'package:macrotracker/services/storage_service.dart';
 import '../helpers/test_app.dart';
 
 void main() {
-  late FoodEntryProvider provider;
+  late GoalsProvider goals;
 
   setUp(() async {
     await setUpTestEnvironment();
     await StorageService().delete('nutrition_goals');
     await StorageService().delete('unit_system');
-    provider = FoodEntryProvider();
-    await provider.ensureInitialized();
+    goals = GoalsProvider();
   });
 
   /// A home screen that opens [screen], as Settings opens Recalculate Goals.
@@ -42,7 +41,7 @@ void main() {
           ),
         ),
       ),
-      foodEntryProvider: provider,
+      goalsProvider: goals,
       weightUnitProvider: units,
     ));
     await tester.tap(find.text('Open'));
@@ -97,7 +96,7 @@ void main() {
   }
 
   testWidgets('maintaining skips the goal-weight step both ways', (tester) async {
-    provider.goalType = MacroCalculatorService.GOAL_MAINTAIN;
+    goals.goalType = MacroCalculatorService.GOAL_MAINTAIN;
     await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
     // gender -> weight -> height -> age -> activity -> goal
     for (var i = 0; i < 5; i++) {
@@ -115,7 +114,7 @@ void main() {
   });
 
   testWidgets('losing weight asks for a goal weight after the goal', (tester) async {
-    provider.goalType = MacroCalculatorService.GOAL_LOSE;
+    goals.goalType = MacroCalculatorService.GOAL_LOSE;
     await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
     for (var i = 0; i < 6; i++) {
       await next(tester);
@@ -127,7 +126,7 @@ void main() {
     testWidgets(
         'a saved goal weight past the current weight is brought back in range '
         '(${metric ? 'kg' : 'lbs'})', (tester) async {
-      provider
+      goals
         ..currentWeightKg = 70.5
         ..goalWeightKg = 75
         ..goalType = MacroCalculatorService.GOAL_LOSE;

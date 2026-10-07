@@ -15,7 +15,7 @@ import 'package:macrotracker/widgets/weight_chart.dart';
 import 'package:macrotracker/widgets/weight_range_selector.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/foodEntryProvider.dart';
+import '../providers/goals_provider.dart';
 import '../providers/weight_unit_provider.dart';
 import '../services/posthog_service.dart';
 import '../theme/app_theme.dart';
@@ -53,8 +53,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadWeightData());
   }
 
-  FoodEntryProvider get _food =>
-      Provider.of<FoodEntryProvider>(context, listen: false);
+  GoalsProvider get _goals =>
+      Provider.of<GoalsProvider>(context, listen: false);
 
   void _setHistory(List<Map<String, dynamic>> rows) {
     _weightData = rows;
@@ -63,9 +63,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   }
 
   double get _latestKg =>
-      _entries.isNotEmpty ? _entries.last.kg : _food.currentWeightKg;
+      _entries.isNotEmpty ? _entries.last.kg : _goals.currentWeightKg;
 
-  double? get _goalKg => _food.goalWeightKg > 0 ? _food.goalWeightKg : null;
+  double? get _goalKg => _goals.goalWeightKg > 0 ? _goals.goalWeightKg : null;
 
   Future<void> _loadWeightData() async {
     var rows = <Map<String, dynamic>>[];
@@ -79,7 +79,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       }
     }
     // First visit: start the history from the weight given at onboarding.
-    final profileKg = _food.currentWeightKg;
+    final profileKg = _goals.currentWeightKg;
     if (rows.isEmpty && profileKg > 0) {
       rows.add({'date': DateTime.now().toIso8601String(), 'weight': profileKg});
       StorageService().put('weight_history', json.encode(rows));
@@ -107,8 +107,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   /// The profile's current weight follows the latest weigh-in.
   void _syncProfileWeight() {
     if (_entries.isEmpty) return;
-    if (_food.currentWeightKg != _entries.last.kg) {
-      _food.currentWeightKg = _entries.last.kg;
+    if (_goals.currentWeightKg != _entries.last.kg) {
+      _goals.currentWeightKg = _entries.last.kg;
     }
   }
 
@@ -182,7 +182,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final colors = theme.extension<CustomColors>()!;
     // Rebuild on unit and goal changes.
     context.watch<WeightUnitProvider>();
-    context.select<FoodEntryProvider, double>((p) => p.goalWeightKg);
+    context.select<GoalsProvider, double>((p) => p.goalWeightKg);
 
     final Widget body = _isLoading
         ? Center(child: CupertinoActivityIndicator(color: colors.textSecondary))
@@ -684,7 +684,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       ),
     );
     if (result == null || !mounted) return;
-    _food.goalWeightKg = result.$2;
+    _goals.goalWeightKg = result.$2;
     setState(() {});
   }
 }

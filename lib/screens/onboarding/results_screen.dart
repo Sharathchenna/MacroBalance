@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/app_shell.dart';
 
 class ResultsScreen extends StatefulWidget {
@@ -90,13 +91,15 @@ class _ResultsScreenState extends State<ResultsScreen>
     // Get providers
     final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
     final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+    final goals = Provider.of<GoalsProvider>(context, listen: false);
 
     // Prepare nutrition goals sync helper
     Future<void> syncNutritionGoals() async {
-      await foodEntryProvider.loadNutritionGoals();
+      await goals.load();
       try {
         debugPrint('Syncing nutrition goals to Supabase after onboarding');
-        await foodEntryProvider.syncAllDataWithSupabase();
+        await goals.syncToCloud();
+        await foodEntryProvider.syncWithCloud();
         debugPrint('Completed sync of nutrition goals to Supabase');
       } catch (e) {
         debugPrint('Error syncing nutrition goals to Supabase: $e');

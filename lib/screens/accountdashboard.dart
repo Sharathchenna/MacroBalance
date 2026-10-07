@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
@@ -232,6 +233,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       // Push any queued changes before this device forgets them.
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
+      final goals = Provider.of<GoalsProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
       var backedUp = true;
@@ -252,6 +254,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       // Clear goals, entries, weight history, saved foods and sync state so the
       // next account on this device starts from its own data.
       await foodEntryProvider.clearUserData();
+      await goals.clearUserData();
       await savedFoodProvider.clearUserData();
 
       // Then sign out from Supabase
@@ -457,21 +460,10 @@ class _AccountDashboardState extends State<AccountDashboard>
 
                       // If goals were saved (result is true), refresh provider data
                       if (result == true && context.mounted) {
-                        debugPrint(
-                            "Goals saved, refreshing FoodEntryProvider state...");
-                        // Access the provider and trigger a reload of goals from storage
-                        // Note: _loadNutritionGoals is private, but we can call notifyListeners
-                        // or create a public refresh method. Let's try notifyListeners first.
-                        // Alternatively, re-calling _loadNutritionGoals ensures latest data.
-                        // Making _loadNutritionGoals public or creating a public wrapper is cleaner.
-                        // For now, let's just call notifyListeners as the provider state *should*
-                        // already be updated by the EditGoalsScreen save.
-                        // Explicitly reload goals from storage to update the provider's state
-                        await Provider.of<FoodEntryProvider>(context,
-                                listen: false)
-                            .loadNutritionGoals();
-                        debugPrint(
-                            "FoodEntryProvider goals reloaded after EditGoalsScreen.");
+                        // Reload goals from storage so every screen shows the saved ones.
+                        await Provider.of<GoalsProvider>(context, listen: false)
+                            .load();
+                        debugPrint("Goals reloaded after EditGoalsScreen.");
                       }
                     },
                     colorScheme: colorScheme,

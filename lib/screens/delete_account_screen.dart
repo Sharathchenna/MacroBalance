@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -52,6 +53,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       // Look up providers now; the screen can be torn down while awaiting.
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
+      final goals = Provider.of<GoalsProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
 
@@ -152,6 +154,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
         // Clear local provider data
         await foodEntryProvider.clearUserData();
+        await goals.clearUserData();
         await savedFoodProvider.clearUserData();
 
         // Sign out regardless of outcome

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/camera/barcode_results.dart' hide Serving;
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../services/camera_service.dart';
@@ -37,13 +38,13 @@ class _DashboardState extends State<Dashboard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+        final goals = Provider.of<GoalsProvider>(context, listen: false);
         final shouldForceSync = foodEntryProvider.entries.isEmpty ||
-            (foodEntryProvider.caloriesGoal == 2000.0 &&
-                foodEntryProvider.proteinGoal == 150.0);
+            (goals.caloriesGoal == 2000.0 && goals.proteinGoal == 150.0);
 
         if (shouldForceSync) {
-          foodEntryProvider.forceSyncAndDiagnose().then((_) {
-            print('Dashboard: FoodEntryProvider refreshed on first launch');
+          goals.load().then((_) {
+            print('Dashboard: goals refreshed on first launch');
             if (mounted) setState(() {});
           });
         }

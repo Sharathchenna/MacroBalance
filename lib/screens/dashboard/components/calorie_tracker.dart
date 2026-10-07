@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../Health/Health.dart';
 import '../../../providers/dateProvider.dart';
 import '../../../providers/foodEntryProvider.dart';
+import '../../../providers/goals_provider.dart';
 import '../../../screens/NutritionTrendsScreen.dart';
 import '../../../screens/StepsTrackingScreen.dart';
 import '../../../services/storage_service.dart';
@@ -270,13 +271,13 @@ class _CalorieTrackerState extends State<CalorieTracker> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<FoodEntryProvider, DateProvider>(
-      builder: (context, foodEntryProvider, dateProvider, child) {
-        final caloriesGoal = foodEntryProvider.caloriesGoal.toInt();
-        final proteinGoal = foodEntryProvider.proteinGoal.toInt();
-        final carbGoal = foodEntryProvider.carbsGoal.toInt();
-        final fatGoal = foodEntryProvider.fatGoal.toInt();
-        final stepsGoal = foodEntryProvider.stepsGoal.toInt();
+    return Consumer3<FoodEntryProvider, GoalsProvider, DateProvider>(
+      builder: (context, foodEntryProvider, goals, dateProvider, child) {
+        final caloriesGoal = goals.caloriesGoal.toInt();
+        final proteinGoal = goals.proteinGoal.toInt();
+        final carbGoal = goals.carbsGoal.toInt();
+        final fatGoal = goals.fatGoal.toInt();
+        final stepsGoal = goals.stepsGoal.toInt();
 
         final nutrientTotals = foodEntryProvider.getNutrientTotalsForDate(dateProvider.selectedDate);
         final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;

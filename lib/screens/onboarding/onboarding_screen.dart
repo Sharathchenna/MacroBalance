@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:flutter/services.dart';
@@ -99,7 +99,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   /// Starts recalculation from what the app already knows.
   void _prefillFromCurrentGoals() {
-    final goals = Provider.of<FoodEntryProvider>(context, listen: false);
+    final goals = Provider.of<GoalsProvider>(context, listen: false);
     if (goals.currentWeightKg > 0) _weightKg = goals.currentWeightKg;
     _goal = goals.goalType;
     _deficit = _goal == MacroCalculatorService.GOAL_MAINTAIN ? 0 : goals.deficitSurplus;

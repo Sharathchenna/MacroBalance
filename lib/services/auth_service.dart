@@ -1,5 +1,6 @@
 import 'package:macrotracker/main.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/services/storage_service.dart';
@@ -29,24 +30,17 @@ class AuthService {
         }
 
         if (macroResponse != null && StorageService().get('nutrition_goals') == null) {
-          StorageService()
-              .put('calories_goal', macroResponse['calories_goal'] ?? 2000.0);
-          StorageService()
-              .put('protein_goal', macroResponse['protein_goal'] ?? 150.0);
-          StorageService()
-              .put('carbs_goal', macroResponse['carbs_goal'] ?? 225.0);
-          StorageService().put('fat_goal', macroResponse['fat_goal'] ?? 65.0);
+          await GoalsProvider.cacheUserMacros(macroResponse);
         }
 
-        final foodEntryProvider = navigatorKey.currentContext != null
-            ? Provider.of<FoodEntryProvider>(navigatorKey.currentContext!,
-                listen: false)
-            : null;
-
-        if (foodEntryProvider != null) {
+        final context = navigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          final foodEntryProvider =
+              Provider.of<FoodEntryProvider>(context, listen: false);
+          final goals = Provider.of<GoalsProvider>(context, listen: false);
           // Loads local entries, then merges in the user's cloud entries.
           await foodEntryProvider.loadEntriesForCurrentUser();
-          await foodEntryProvider.loadNutritionGoals();
+          await goals.load();
         }
       }
     } on AuthException catch (e) {

@@ -10,41 +10,18 @@ import 'dart:async'; // Added for Timer
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart'; // Import for MethodChannel
-import 'package:macrotracker/services/macro_calculator_service.dart'; // Import MacroCalculatorService
 import 'package:macrotracker/services/widget_service.dart';
-import 'package:macrotracker/services/weight_sync_service.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 
 // Define the channel name consistently
 const String _statsChannelName = 'app.macrobalance.com/stats';
 const MethodChannel _statsChannel = MethodChannel(_statsChannelName);
 
+/// The food entries the user has logged: stored on the device and synced to
+/// `food_entries`. Goals live in [GoalsProvider].
 class FoodEntryProvider with ChangeNotifier {
   List<FoodEntry> _entries = [];
   static const String _storageKey = 'food_entries';
-
-  // Daily nutrition goals - Can be set manually or calculated
-  double _caloriesGoal = 2000.0;
-  double _proteinGoal = 150.0;
-  double _carbsGoal = 225.0;
-  double _fatGoal = 65.0;
-
-  // User profile/goal parameters needed for macro calculation
-  String _gender = MacroCalculatorService.MALE;
-  int _age = 30;
-  double _heightCm = 175;
-  int _activityLevel = MacroCalculatorService.LIGHTLY_ACTIVE;
-  double? _proteinRatio; // g/kg
-  double? _fatRatio; // percentage
-
-  // Other goals and parameters
-  int _stepsGoal = 10000;
-  double _bmr = 1500.0;
-  double _tdee =
-      2000.0; // Can be calculated by ExpenditureService or MacroCalculatorService
-  double _goalWeightKg = 0.0;
-  double _currentWeightKg = 0.0;
-  String _goalType = MacroCalculatorService.GOAL_MAINTAIN;
-  int _deficitSurplus = 500;
 
   // Cache for date entries
   final Map<String, List<FoodEntry>> _dateEntriesCache = {};
@@ -73,10 +50,6 @@ class FoodEntryProvider with ChangeNotifier {
     _entries.clear();
     await _clearDateCache();
     debugPrint("[Provider Init] Cleared entries and cache.");
-    // Load non-user-specific data or defaults if necessary
-    await loadNutritionGoals(); // Load goals (might be user-specific, ensure cleared on logout too)
-    debugPrint("[Provider Init] Loaded nutrition goals.");
-    
     // Initialize daily sync functionality
     await _initializeDailySync();
     debugPrint("[Provider Init] Daily sync initialized.");
@@ -95,210 +68,6 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   List<FoodEntry> get entries => _entries;
-
-  // --- Getters ---
-  double get caloriesGoal => _caloriesGoal;
-  double get proteinGoal => _proteinGoal;
-  double get carbsGoal => _carbsGoal;
-  double get fatGoal => _fatGoal;
-  int get stepsGoal => _stepsGoal;
-  double get bmr => _bmr;
-  double get tdee => _tdee;
-  double get goalWeightKg => _goalWeightKg;
-  double get currentWeightKg => _currentWeightKg;
-  String get goalType => _goalType;
-  int get deficitSurplus => _deficitSurplus;
-
-  int get goalTypeAsInt {
-    switch (_goalType) {
-      case MacroCalculatorService.GOAL_MAINTAIN:
-        return 1;
-      case MacroCalculatorService.GOAL_LOSE:
-        return 2;
-      case MacroCalculatorService.GOAL_GAIN:
-        return 3;
-      default:
-        return 1;
-    }
-  }
-
-  // --- Setters (Restored) ---
-  set caloriesGoal(double value) {
-    _caloriesGoal = value;
-    _saveNutritionGoals();
-    notifyListeners();
-    _updateWidgets();
-    _syncNutritionGoalsToSupabase();
-  }
-
-  set proteinGoal(double value) {
-    _proteinGoal = value;
-    _saveNutritionGoals();
-    notifyListeners();
-    _updateWidgets();
-    _syncNutritionGoalsToSupabase();
-  }
-
-  set carbsGoal(double value) {
-    _carbsGoal = value;
-    _saveNutritionGoals();
-    notifyListeners();
-    _updateWidgets();
-    _syncNutritionGoalsToSupabase();
-  }
-
-  set fatGoal(double value) {
-    _fatGoal = value;
-    _saveNutritionGoals();
-    notifyListeners();
-    _updateWidgets();
-    _syncNutritionGoalsToSupabase();
-  }
-
-  set stepsGoal(int value) {
-    _stepsGoal = value;
-    _saveNutritionGoals();
-    notifyListeners();
-    _syncNutritionGoalsToSupabase();
-  }
-
-  set goalWeightKg(double value) {
-    _goalWeightKg = value;
-    _saveNutritionGoals();
-    notifyListeners();
-    _syncNutritionGoalsToSupabase();
-  }
-
-  // Restore setter for current weight
-  set currentWeightKg(double value) {
-    if (_currentWeightKg != value) {
-      _currentWeightKg = value;
-      _saveNutritionGoals();
-      notifyListeners();
-      _syncNutritionGoalsToSupabase();
-      // TODO: Consider triggering TDEE recalculation here via ExpenditureProvider if needed
-    }
-  }
-
-  // Method to update current weight (alternative to setter)
-  Future<void> updateCurrentWeight(double newWeightKg) async {
-    currentWeightKg = newWeightKg; // Use the setter
-  }
-
-  set goalType(String value) {
-    if (_goalType != value) {
-      _goalType = value;
-      _saveNutritionGoals();
-      notifyListeners();
-      _syncNutritionGoalsToSupabase();
-      recalculateMacroGoals(_tdee); // Recalculate when goal type changes
-    }
-  }
-
-  set goalTypeAsInt(int value) {
-    String newGoalType;
-    switch (value) {
-      case 1:
-        newGoalType = MacroCalculatorService.GOAL_MAINTAIN;
-        break;
-      case 2:
-        newGoalType = MacroCalculatorService.GOAL_LOSE;
-        break;
-      case 3:
-        newGoalType = MacroCalculatorService.GOAL_GAIN;
-        break;
-      default:
-        newGoalType = MacroCalculatorService.GOAL_MAINTAIN;
-    }
-    if (_goalType != newGoalType) {
-      goalType = newGoalType;
-    }
-  }
-
-  set deficitSurplus(int value) {
-    if (_deficitSurplus != value) {
-      _deficitSurplus = value;
-      _saveNutritionGoals();
-      notifyListeners();
-      _syncNutritionGoalsToSupabase();
-      recalculateMacroGoals(_tdee); // Recalculate when deficit changes
-    }
-  }
-
-  // Restore updateNutritionGoals method (used by editGoals screen)
-  Future<void> updateNutritionGoals({
-    required double calories,
-    required double protein,
-    required double carbs,
-    required double fat,
-    required int steps,
-    required double bmr,
-    required double tdee,
-    // Add other goals if needed (e.g., weight)
-  }) async {
-    _caloriesGoal = calories;
-    _proteinGoal = protein;
-    _carbsGoal = carbs;
-    _fatGoal = fat;
-    _stepsGoal = steps;
-    _bmr = bmr;
-    _tdee = tdee; // Update TDEE if provided manually
-
-    _saveNutritionGoals(); // Save locally
-    notifyListeners(); // Notify UI
-    _updateWidgets(); // Update widgets (if applicable)
-    _syncNutritionGoalsToSupabase(); // Sync to Supabase
-  }
-
-  // --- Dynamic Goal Recalculation ---
-  Future<void> recalculateMacroGoals(double calculatedTDEE) async {
-    debugPrint(
-        "Recalculating macro goals with TDEE: ${calculatedTDEE.round()}");
-    _tdee = calculatedTDEE; // Store the dynamically calculated TDEE
-
-    // Calculate target calories based on goal and TDEE
-    double targetCalories;
-    int calorieAdjustment = _deficitSurplus;
-    if (_goalType == MacroCalculatorService.GOAL_LOSE) {
-      targetCalories = _tdee - calorieAdjustment;
-      targetCalories = max(1200, targetCalories);
-    } else if (_goalType == MacroCalculatorService.GOAL_GAIN) {
-      targetCalories = _tdee + calorieAdjustment;
-    } else {
-      targetCalories = _tdee;
-    }
-
-    // Ensure currentWeightKg is loaded before calling this
-    if (_currentWeightKg <= 0) {
-      debugPrint("Cannot recalculate goals: Current weight is not set.");
-      // TODO: Optionally load weight here if needed or use a default/fallback
-      return;
-    }
-
-    // Use the static helper method from MacroCalculatorService
-    // Corrected call to use public static method
-    final Map<String, double> macros = MacroCalculatorService.distributeMacros(
-      targetCalories: targetCalories,
-      weightKg: _currentWeightKg,
-      gender: _gender,
-      proteinRatio: _proteinRatio,
-      fatRatio: _fatRatio,
-    );
-
-    // Update provider state with calculated goals
-    _caloriesGoal = targetCalories.roundToDouble();
-    _proteinGoal = macros['protein_g']!.roundToDouble();
-    _carbsGoal = macros['carb_g']!.roundToDouble();
-    _fatGoal = macros['fat_g']!.roundToDouble();
-
-    debugPrint(
-        "Calculated Goals: Cals=$_caloriesGoal, P=$_proteinGoal, C=$_carbsGoal, F=$_fatGoal");
-
-    _saveNutritionGoals();
-    notifyListeners();
-    _updateWidgets();
-    _syncNutritionGoalsToSupabase();
-  }
 
   // --- Load/Save Methods (LOCAL ONLY) ---
   Future<void> loadEntries() async {
@@ -345,138 +114,6 @@ class FoodEntryProvider with ChangeNotifier {
     }
   }
 
-  /// Loads goals from local storage.
-  ///
-  /// `nutrition_goals` is written on every goal change, so it wins. The
-  /// individual `*_goal` keys are only a fallback: they are filled from
-  /// `user_macros` at sign-in, before `nutrition_goals` exists on this device.
-  Future<void> loadNutritionGoals() async {
-    try {
-      final String? nutritionGoalsString =
-          StorageService().get('nutrition_goals');
-      bool loadedMacros = false;
-      if (nutritionGoalsString != null && nutritionGoalsString.isNotEmpty) {
-        final Map<String, dynamic> nutritionGoals =
-            jsonDecode(nutritionGoalsString);
-
-        // Older builds of Edit Goals wrote a flat {calories, protein, ...} map.
-        final macroTargets = nutritionGoals['macro_targets'] is Map
-            ? nutritionGoals['macro_targets'] as Map
-            : nutritionGoals;
-        final calories = _asDouble(macroTargets['calories']);
-        if (calories != null && calories > 0) {
-          _caloriesGoal = calories;
-          _proteinGoal = _asDouble(macroTargets['protein']) ?? _proteinGoal;
-          _carbsGoal = _asDouble(macroTargets['carbs']) ?? _carbsGoal;
-          _fatGoal = _asDouble(macroTargets['fat']) ?? _fatGoal;
-          loadedMacros = true;
-        }
-
-        _stepsGoal = _asDouble(nutritionGoals['steps_goal'] ?? nutritionGoals['steps'])
-                ?.toInt() ??
-            _stepsGoal;
-        _bmr = _asDouble(nutritionGoals['bmr']) ?? _bmr;
-        _tdee = _asDouble(nutritionGoals['tdee']) ?? _tdee;
-        _goalWeightKg = _asDouble(nutritionGoals['goal_weight_kg']) ?? _goalWeightKg;
-        _currentWeightKg =
-            _asDouble(nutritionGoals['current_weight_kg']) ?? _currentWeightKg;
-        _goalType = nutritionGoals['goal_type'] as String? ?? _goalType;
-        _deficitSurplus =
-            (nutritionGoals['deficit_surplus'] as num?)?.toInt() ?? _deficitSurplus;
-      }
-
-      if (!loadedMacros) {
-        final calories = _asDouble(StorageService().get('calories_goal'));
-        if (calories != null && calories > 0) {
-          _caloriesGoal = calories;
-          _proteinGoal = _asDouble(StorageService().get('protein_goal')) ?? _proteinGoal;
-          _carbsGoal = _asDouble(StorageService().get('carbs_goal')) ?? _carbsGoal;
-          _fatGoal = _asDouble(StorageService().get('fat_goal')) ?? _fatGoal;
-        }
-      }
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error loading nutrition goals: $e');
-    }
-  }
-
-  static double? _asDouble(dynamic value) {
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
-    return null;
-  }
-
-  void _saveNutritionGoals() {
-    final Map<String, dynamic> goals = {
-      'macro_targets': {
-        'calories': _caloriesGoal,
-        'protein': _proteinGoal,
-        'carbs': _carbsGoal,
-        'fat': _fatGoal,
-      },
-      'steps_goal': _stepsGoal,
-      'bmr': _bmr,
-      'tdee': _tdee,
-      'goal_weight_kg': _goalWeightKg,
-      'current_weight_kg': _currentWeightKg,
-      'goal_type': _goalType,
-      'deficit_surplus': _deficitSurplus,
-      'updated_at': DateTime.now().toIso8601String(),
-    };
-
-    StorageService().put('nutrition_goals', jsonEncode(goals));
-    // Keep the sign-in fallback keys in step so they can never resurrect old goals.
-    StorageService().put('calories_goal', _caloriesGoal);
-    StorageService().put('protein_goal', _proteinGoal);
-    StorageService().put('carbs_goal', _carbsGoal);
-    StorageService().put('fat_goal', _fatGoal);
-  }
-
-  /// The goals row written to `user_macros` whenever a goal changes.
-  @visibleForTesting
-  Map<String, dynamic> nutritionGoalsPayload() => {
-        'calories_goal': _caloriesGoal,
-        'protein_goal': _proteinGoal,
-        'carbs_goal': _carbsGoal,
-        'fat_goal': _fatGoal,
-        'steps_goal': _stepsGoal,
-        'bmr': _bmr,
-        'tdee': _tdee,
-        'goal_type': _goalType,
-        'deficit_surplus': _deficitSurplus,
-        // A 0 here means "not loaded", not a real goal; sending it would wipe
-        // the goal weight saved at onboarding.
-        if (_goalWeightKg > 0) 'goal_weight_kg': _goalWeightKg,
-        if (_currentWeightKg > 0) 'current_weight_kg': _currentWeightKg,
-        'macro_targets': {
-          'calories': _caloriesGoal,
-          'protein': _proteinGoal,
-          'carbs': _carbsGoal,
-          'fat': _fatGoal,
-        },
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      };
-
-  Future<void> _syncNutritionGoalsToSupabase() async {
-    // Keep nutrition goals sync - this is for daily macros/calories tracking
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      debugPrint('[Provider Sync] Cannot sync nutrition goals: User not logged in.');
-      return;
-    }
-
-    try {
-      // user_macros is the only goals table (there is no nutrition_goals
-      // table); sign-in and AuthGate restore goals from it.
-      await Supabase.instance.client
-          .from('user_macros')
-          .update(nutritionGoalsPayload())
-          .eq('id', userId);
-      debugPrint('[Provider Sync] Synced nutrition goals to Supabase successfully.');
-    } catch (e) {
-      debugPrint('[Provider Sync] Error syncing nutrition goals to Supabase: $e');
-    }
-  }
 
   Future<void> saveEntries() async {
     debugPrint("[Provider Save] Starting saveEntries to local storage...");
@@ -839,21 +476,48 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   // --- Widget and Platform Integration ---
+
+  /// The goals shown beside today's totals on the home-screen widget.
+  GoalsProvider? _goals;
+
+  /// The targets last sent to the widget, so it refreshes only when they change.
+  (double, double, double, double)? _widgetTargets;
+
+  /// Links the user's goals so the home-screen widget can show them.
+  void attachGoals(GoalsProvider goals) {
+    if (identical(_goals, goals)) return;
+    _goals?.removeListener(_onGoalsChanged);
+    _goals = goals..addListener(_onGoalsChanged);
+    _widgetTargets = _targetsOf(goals);
+  }
+
+  static (double, double, double, double) _targetsOf(GoalsProvider goals) =>
+      (goals.caloriesGoal, goals.proteinGoal, goals.carbsGoal, goals.fatGoal);
+
+  void _onGoalsChanged() {
+    final goals = _goals;
+    if (goals != null && _targetsOf(goals) != _widgetTargets) _updateWidgets();
+  }
+
   Future<void> _updateWidgets() async {
     try {
       // Home-screen widget reads today's totals from the shared app group.
       final today = DateTime.now();
-      final totals = getNutrientTotalsForDate(today);
-      await WidgetService.updateMacroWidget(
-        totals['calories'] ?? 0,
-        totals['protein'] ?? 0,
-        totals['carbs'] ?? 0,
-        totals['fat'] ?? 0,
-        _caloriesGoal,
-        _proteinGoal,
-        _carbsGoal,
-        _fatGoal,
-      );
+      final goals = _goals;
+      if (goals != null) {
+        final totals = getNutrientTotalsForDate(today);
+        _widgetTargets = _targetsOf(goals);
+        await WidgetService.updateMacroWidget(
+          totals['calories'] ?? 0,
+          totals['protein'] ?? 0,
+          totals['carbs'] ?? 0,
+          totals['fat'] ?? 0,
+          goals.caloriesGoal,
+          goals.proteinGoal,
+          goals.carbsGoal,
+          goals.fatGoal,
+        );
+      }
       await WidgetService.updateRecentMeals(getAllEntriesForDate(today),
           (entry) => calculateNutrientForEntry(entry, 'calories'));
       await _notifyNativeStatsChanged();
@@ -890,7 +554,6 @@ class FoodEntryProvider with ChangeNotifier {
 
     // Pull anything logged on other devices (or before a reinstall).
     syncWithCloud().catchError((e) => debugPrint('[Food Sync] $e'));
-    _syncWeightHistory();
     debugPrint("[Provider Load] loadEntriesForCurrentUser finished.");
   }
 
@@ -914,69 +577,7 @@ class FoodEntryProvider with ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> forceSyncAndDiagnose() async {
-    final diagnosticInfo = <String, dynamic>{
-      'timestamp': DateTime.now().toIso8601String(),
-      'syncStarted': true,
-      'localEntriesCount': _entries.length,
-      'errors': <String>[],
-      'warnings': <String>[],
-      'success': false
-    };
 
-    try {
-      await loadNutritionGoals();
-      diagnosticInfo['loadedFromNutritionGoals'] = true;
-      diagnosticInfo['success'] = true;
-    } catch (e) {
-      diagnosticInfo['errors'].add('General error: ${e.toString()}');
-      debugPrint("FoodEntryProvider forceSyncAndDiagnose error: $e");
-    }
-
-    return diagnosticInfo;
-  }
-
-  // --- Cleanup Methods ---
-  Future<void> resetGoalsToDefault() async {
-    debugPrint("[Provider Reset] Resetting goals to default values...");
-    
-    // Reset goals to defaults
-    _caloriesGoal = 2000.0;
-    _proteinGoal = 150.0;
-    _carbsGoal = 225.0;
-    _fatGoal = 65.0;
-    _stepsGoal = 10000;
-    _bmr = 1500.0;
-    _tdee = 2000.0;
-    _goalWeightKg = 0.0;
-    _currentWeightKg = 0.0;
-    _goalType = MacroCalculatorService.GOAL_MAINTAIN;
-    _deficitSurplus = 500;
-    
-    // Save the reset goals
-    _saveNutritionGoals();
-    
-    notifyListeners();
-    debugPrint("[Provider Reset] Goals reset to default values.");
-  }
-
-  Future<void> syncAllDataWithSupabase() async {
-    await _syncNutritionGoalsToSupabase();
-    await syncWithCloud();
-  }
-
-  /// Backs up weight history kept on this device and restores it after a
-  /// reinstall; keeps the current weight in step with the latest entry.
-  Future<void> _syncWeightHistory() async {
-    try {
-      final merged = await WeightSyncService().syncLocalHistory();
-      if (merged == null || merged.isEmpty) return;
-      final latest = (merged.last['weight'] as num).toDouble();
-      if (latest > 0 && latest != _currentWeightKg) currentWeightKg = latest;
-    } catch (e) {
-      debugPrint('[WeightSync] $e');
-    }
-  }
 
   // --- Cloud sync for food entries ---
   //
@@ -1210,39 +811,12 @@ class FoodEntryProvider with ChangeNotifier {
     _entries.clear();
     await _clearDateCache();
     
-    // Reset goals to defaults
-    _caloriesGoal = 2000.0;
-    _proteinGoal = 150.0;
-    _carbsGoal = 225.0;
-    _fatGoal = 65.0;
-    _stepsGoal = 10000;
-    _bmr = 1500.0;
-    _tdee = 2000.0;
-    _goalWeightKg = 0.0;
-    _currentWeightKg = 0.0;
-    _goalType = MacroCalculatorService.GOAL_MAINTAIN;
-    _deficitSurplus = 500;
-    
     // Clear local storage
     await StorageService().delete(_storageKey);
-    await StorageService().delete('nutrition_goals');
     await StorageService().delete(_lastSyncKey);
     await StorageService().delete(_pendingUpsertsKey);
     await StorageService().delete(_pendingDeletesKey);
     await StorageService().delete(_initialUploadKey);
-    for (final key in [
-      'calories_goal',
-      'protein_goal',
-      'carbs_goal',
-      'fat_goal',
-      'macro_results',
-      'weight_history',
-      'last_sync_timestamp',
-      'pending_weight_days',
-      'weight_backfill_done',
-    ]) {
-      await StorageService().delete(key);
-    }
     
     notifyListeners();
     debugPrint("[Provider Clear] All user data cleared.");
@@ -1250,6 +824,7 @@ class FoodEntryProvider with ChangeNotifier {
 
   @override
   void dispose() {
+    _goals?.removeListener(_onGoalsChanged);
     super.dispose();
   }
 }

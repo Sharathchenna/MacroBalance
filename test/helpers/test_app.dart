@@ -9,6 +9,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
@@ -79,15 +80,18 @@ Future<void> setUpTestEnvironment() async {
 Widget testApp(
   Widget child, {
   FoodEntryProvider? foodEntryProvider,
+  GoalsProvider? goalsProvider,
   DateProvider? dateProvider,
   PhotoAnalysisService? photoAnalysisService,
   WeightUnitProvider? weightUnitProvider,
   bool dark = true,
 }) {
+  final goals = goalsProvider ?? GoalsProvider();
   return MultiProvider(
     providers: [
+      ChangeNotifierProvider<GoalsProvider>.value(value: goals),
       ChangeNotifierProvider<FoodEntryProvider>.value(
-          value: foodEntryProvider ?? FoodEntryProvider()),
+          value: (foodEntryProvider ?? FoodEntryProvider())..attachGoals(goals)),
       ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ChangeNotifierProvider<DateProvider>.value(
           value: dateProvider ?? DateProvider()),
