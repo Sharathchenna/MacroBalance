@@ -9,6 +9,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/day_status_provider.dart';
+import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
@@ -85,6 +86,7 @@ Widget testApp(
   DateProvider? dateProvider,
   PhotoAnalysisService? photoAnalysisService,
   WeightUnitProvider? weightUnitProvider,
+  EnergyProvider? energyProvider,
   bool dark = true,
 }) {
   final goals = goalsProvider ?? GoalsProvider();
@@ -94,6 +96,9 @@ Widget testApp(
       ChangeNotifierProvider(create: (_) => DayStatusProvider()),
       ChangeNotifierProvider<FoodEntryProvider>.value(
           value: (foodEntryProvider ?? FoodEntryProvider())..attachGoals(goals)),
+      // No inputs unless a test sets them, so it never runs on its own.
+      ChangeNotifierProvider<EnergyProvider>.value(
+          value: energyProvider ?? EnergyProvider(inBackground: false)),
       ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ChangeNotifierProvider<DateProvider>.value(
           value: dateProvider ?? DateProvider()),

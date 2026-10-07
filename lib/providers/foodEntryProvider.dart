@@ -69,6 +69,25 @@ class FoodEntryProvider with ChangeNotifier {
 
   List<FoodEntry> get entries => _entries;
 
+  /// True once this account's entries have been read from the device.
+  bool get isLoaded => _isLoaded;
+  bool _isLoaded = false;
+
+  /// Called after the log changes: with the entry's day for an add, edit or
+  /// delete, or null when the whole log may have changed (load, cloud merge).
+  /// The energy estimate refreshes from it.
+  void Function(DateTime? day)? onEntriesChanged;
+
+  /// Total cals logged on each day that has entries.
+  Map<DateTime, double> caloriesByDay() {
+    final out = <DateTime, double>{};
+    for (final e in _entries) {
+      final day = DateTime(e.date.year, e.date.month, e.date.day);
+      out[day] = (out[day] ?? 0) + calculateNutrientForEntry(e, 'calories');
+    }
+    return out;
+  }
+
   // --- Load/Save Methods (LOCAL ONLY) ---
   Future<void> loadEntries() async {
     debugPrint("[Provider Load] Starting loadEntries from local storage...");
@@ -346,12 +365,17 @@ class FoodEntryProvider with ChangeNotifier {
     notifyListeners(); // Notify after saving and clearing cache
     _updateWidgets();
     _pushUpsert(entry);
+    onEntriesChanged?.call(entry.date);
     debugPrint("[Provider Add] Entry ${entry.id} added locally.");
   }
 
   Future<void> removeEntry(String entryId) async {
     debugPrint("[Provider Remove] Removing entry $entryId...");
     final initialLength = _entries.length;
+    final removedDays = [
+      for (final entry in _entries)
+        if (entry.id == entryId) entry.date,
+    ];
     _entries.removeWhere((entry) => entry.id == entryId);
     if (_entries.length < initialLength) {
       debugPrint(
@@ -361,6 +385,9 @@ class FoodEntryProvider with ChangeNotifier {
       await saveEntries();
       _updateWidgets();
       _pushDelete(entryId);
+      for (final day in removedDays) {
+        onEntriesChanged?.call(day);
+      }
     } else {
       debugPrint("[Provider Remove] Entry $entryId not found in list.");
     }
@@ -382,6 +409,7 @@ class FoodEntryProvider with ChangeNotifier {
         "[Provider Update] Received updatedEntry: ID=${updatedEntry.id}, Name=${updatedEntry.food.name}, Quantity=${updatedEntry.quantity}, Unit=${updatedEntry.unit}, FoodCalories=${updatedEntry.food.calories}, FoodBrand=${updatedEntry.food.brandName}");
     if (index != -1) {
       debugPrint("[Provider Update] Found entry ${updatedEntry.id} at index $index. Old entry: ${_entries[index].food.name}, Quantity: ${_entries[index].quantity}");
+      final oldDay = _entries[index].date;
       _entries[index] = updatedEntry;
       debugPrint("[Provider Update] Updated entry ${updatedEntry.id}. New entry: ${_entries[index].food.name}, Quantity: ${_entries[index].quantity}");
       await _clearDateCache(); // Clear cache as entries changed
@@ -390,6 +418,13 @@ class FoodEntryProvider with ChangeNotifier {
       await saveEntries();
       _updateWidgets();
       _pushUpsert(updatedEntry);
+      onEntriesChanged?.call(oldDay);
+      final newDay = updatedEntry.date;
+      if (oldDay.year != newDay.year ||
+          oldDay.month != newDay.month ||
+          oldDay.day != newDay.day) {
+        onEntriesChanged?.call(updatedEntry.date);
+      }
     } else {
       debugPrint("[Provider Update] Entry ${updatedEntry.id} not found for update.");
     }
@@ -550,7 +585,9 @@ class FoodEntryProvider with ChangeNotifier {
     debugPrint("[Provider Load] Loaded entries from local storage.");
     
     await _initializeDailySync();
+    _isLoaded = true;
     notifyListeners();
+    onEntriesChanged?.call(null);
 
     // Pull anything logged on other devices (or before a reinstall).
     syncWithCloud().catchError((e) => debugPrint('[Food Sync] $e'));
@@ -741,6 +778,7 @@ class FoodEntryProvider with ChangeNotifier {
       _lastFoodEntrySyncDate = DateTime.now();
       await StorageService().put(_lastSyncKey, _lastFoodEntrySyncDate!.toIso8601String());
       notifyListeners();
+      onEntriesChanged?.call(null);
     } catch (e) {
       debugPrint('[Food Sync] Sync failed, will retry next launch: $e');
       rethrow;
@@ -807,7 +845,8 @@ class FoodEntryProvider with ChangeNotifier {
     debugPrint("[Provider Clear] Clearing all user data...");
     
     _lastFoodEntrySyncDate = null;
-    
+    _isLoaded = false;
+
     _entries.clear();
     await _clearDateCache();
     

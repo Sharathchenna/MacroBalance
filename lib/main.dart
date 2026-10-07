@@ -7,6 +7,7 @@ import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/auth/superwall_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
@@ -211,6 +212,31 @@ Future<void> main() async {
                 _foodEntryProviderFor(user, previousProvider)
                   ..attachGoals(Provider.of<GoalsProvider>(context, listen: false)),
           ), // Added comma here
+          // Expenditure estimates (shadow mode): one account at a time, fed
+          // by the goals, food log, day status and weight history above.
+          // Not lazy: it has to exist to hear the triggers at app open.
+          ChangeNotifierProxyProvider<User?, EnergyProvider>(
+            lazy: false,
+            create: (_) => EnergyProvider(),
+            update: (context, user, previous) {
+              final goals = Provider.of<GoalsProvider>(context, listen: false);
+              final energy = previous != null && previous.userId == user?.id
+                  ? previous
+                  : EnergyProvider(userId: user?.id);
+              energy.attach(
+                goals: goals,
+                food: Provider.of<FoodEntryProvider>(context, listen: false),
+                dayStatus: Provider.of<DayStatusProvider>(context, listen: false),
+              );
+              if (user != null && !identical(energy, previous)) {
+                // App open: runs once the food log is read; again once the
+                // weight history has come back from the cloud.
+                energy.scheduleRefresh();
+                goals.weightHistoryRestored.then((_) => energy.scheduleRefresh());
+              }
+              return energy;
+            },
+          ),
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => DateProvider()),
           ChangeNotifierProvider(
@@ -544,6 +570,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // When app resumes, reset any stale presentation state
       NativeStatsScreen.resetState();
       Provider.of<DateProvider>(context, listen: false).refreshIfNewDay();
+      // A new day may have started: estimate the days since.
+      Provider.of<EnergyProvider>(context, listen: false).scheduleRefresh();
     }
   }
 

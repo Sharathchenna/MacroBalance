@@ -71,6 +71,10 @@ class GoalsProvider with ChangeNotifier {
   double? _bodyFatPct; // only from a scan or smart scale
   double? _proteinRatio; // g per kg of reference weight
   double? _fatRatio; // share of cals
+  DateTime? _learningStartedOn; // the estimator's day 0; see [learningStartedOn]
+
+  // The weight history restore started for this account, if any.
+  Future<void>? _weightRestore;
 
   // --- Getters ---
   double get caloriesGoal => _caloriesGoal;
@@ -98,6 +102,28 @@ class GoalsProvider with ChangeNotifier {
   int? get age => _age == null
       ? null
       : effectiveAge(age: _age!, recordedOn: _ageRecordedOn, today: _clock());
+
+  /// Body fat % from a scan or smart scale; null estimates it.
+  double? get bodyFatPct => _bodyFatPct;
+
+  /// The expenditure the BMR formula and activity give (the estimator's
+  /// prior). Null for accounts from before it was saved.
+  double? get formulaTdee => _formulaTdee;
+
+  /// The day the expenditure estimator starts learning from: set when
+  /// onboarding completes and on "Reset learning", never by a recalculation.
+  /// Null for accounts from before it existed.
+  DateTime? get learningStartedOn => _learningStartedOn;
+
+  /// Starts (or restarts) learning on [day], today by default.
+  void startLearning([DateTime? day]) {
+    _learningStartedOn = _dateOnly(day ?? _clock());
+    _commit();
+  }
+
+  /// Completes when the weight history restore started at sign-in has
+  /// finished (at once if none was started).
+  Future<void> get weightHistoryRestored => _weightRestore ?? Future.value();
 
   /// The chosen pace, % of body weight a week (0 when maintaining).
   double get pacePctPerWeek =>
@@ -412,6 +438,8 @@ class GoalsProvider with ChangeNotifier {
     _bodyFatPct = _asDouble(goals['body_fat_pct']);
     _proteinRatio = _asDouble(goals['protein_ratio']);
     _fatRatio = _asDouble(goals['fat_ratio']);
+    final learning = DateTime.tryParse('${goals['learning_started_on'] ?? ''}');
+    _learningStartedOn = learning == null ? null : _dateOnly(learning);
   }
 
   static String? _dateString(DateTime? d) => d == null
@@ -446,6 +474,7 @@ class GoalsProvider with ChangeNotifier {
           'body_fat_pct': _bodyFatPct,
           'protein_ratio': _proteinRatio,
           'fat_ratio': _fatRatio,
+          'learning_started_on': _dateString(_learningStartedOn),
           'updated_at': DateTime.now().toIso8601String(),
         }));
     // Keep the sign-in fallback keys in step so they can never resurrect old goals.
@@ -494,6 +523,8 @@ class GoalsProvider with ChangeNotifier {
         if (_activityLevel != null) 'activity_level': _activityLevel,
         if (_heightCm > 0) 'height_cm': _heightCm,
         if (_formulaTdee != null) 'formula_tdee': _formulaTdee!.round(),
+        if (_learningStartedOn != null)
+          'learning_started_on': _dateString(_learningStartedOn),
         // Null is a real choice for these: not measured, or the default.
         'body_fat_pct': _bodyFatPct,
         'protein_g_per_kg': _proteinRatio,
@@ -546,6 +577,7 @@ class GoalsProvider with ChangeNotifier {
             'height_cm',
             'body_fat_pct',
             'fat_ratio',
+            'learning_started_on',
           ])
             if (row[key] != null) key: row[key],
           if (row['protein_g_per_kg'] != null) 'protein_ratio': row['protein_g_per_kg'],
@@ -556,7 +588,9 @@ class GoalsProvider with ChangeNotifier {
 
   /// Backs up weight history kept on this device and restores it after a
   /// reinstall; keeps the current weight in step with the latest entry.
-  Future<void> restoreWeightHistory() async {
+  Future<void> restoreWeightHistory() => _weightRestore = _restoreWeightHistory();
+
+  Future<void> _restoreWeightHistory() async {
     try {
       final merged = await WeightSyncService().syncLocalHistory();
       if (merged == null || merged.isEmpty) return;
@@ -591,6 +625,7 @@ class GoalsProvider with ChangeNotifier {
     _bodyFatPct = null;
     _proteinRatio = null;
     _fatRatio = null;
+    _learningStartedOn = null;
 
     for (final key in [
       _storageKey,

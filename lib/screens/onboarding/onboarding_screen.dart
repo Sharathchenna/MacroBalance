@@ -365,6 +365,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'tdee': macroResults['tdee']?.toDouble(),
           'steps_goal': macroResults['recommended_steps'] ?? 10000,
           'body_fat_pct': _knownBodyFat,
+          // Learning starts when onboarding completes; a recalculation
+          // never resets it (the upsert leaves the column alone).
+          if (!widget.recalculateOnly) 'learning_started_on': _today(),
           'updated_at': DateTime.now().toIso8601String(),
           'macro_targets': {
             'calories': (macroResults['target_calories'] ?? 0).toDouble(),
@@ -388,6 +391,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       // Consider showing an error message to the user here
       // rethrow; // Rethrowing might crash the app if not caught higher up
     }
+  }
+
+  /// The learning start already saved, kept through a recalculation.
+  String? _learningStartedOn() {
+    final day =
+        Provider.of<GoalsProvider>(context, listen: false).learningStartedOn;
+    return day?.toIso8601String().substring(0, 10);
   }
 
   /// The day the age was recorded, as a date for `user_macros`.
@@ -415,6 +425,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'body_fat_pct': _knownBodyFat,
       'protein_ratio': _proteinRatio,
       'fat_ratio': _fatRatio,
+      'learning_started_on': widget.recalculateOnly
+          ? _learningStartedOn()
+          : _today(),
       'steps_goal': macroResults['recommended_steps'] ?? 10000,
       'bmr': macroResults['bmr']?.toDouble(),
       'tdee': macroResults['tdee']?.toDouble(),

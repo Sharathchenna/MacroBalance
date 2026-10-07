@@ -9,6 +9,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/day_status_provider.dart';
+import 'package:macrotracker/providers/energy_provider.dart';
+import 'package:macrotracker/screens/energy/energy_debug_screen.dart';
+import 'package:macrotracker/services/test_accounts.dart';
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
@@ -238,6 +241,7 @@ class _AccountDashboardState extends State<AccountDashboard>
           Provider.of<FoodEntryProvider>(context, listen: false);
       final goals = Provider.of<GoalsProvider>(context, listen: false);
       final dayStatus = Provider.of<DayStatusProvider>(context, listen: false);
+      final energy = Provider.of<EnergyProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
       var backedUp = true;
@@ -260,6 +264,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       await foodEntryProvider.clearUserData();
       await goals.clearUserData();
       await dayStatus.clearUserData();
+      await energy.clearUserData();
       await savedFoodProvider.clearUserData();
 
       // Then sign out from Supabase
@@ -1011,6 +1016,35 @@ class _AccountDashboardState extends State<AccountDashboard>
                   ),
                 ],
               ),
+
+              // Developer tools: debug builds and test accounts only.
+              if (kDebugMode || TestAccounts.isActive)
+                _buildSection(
+                  title: 'Developer',
+                  icon: CupertinoIcons.hammer_fill,
+                  colorScheme: colorScheme,
+                  customColors: customColors,
+                  children: [
+                    _buildListTile(
+                      icon: CupertinoIcons.flame_fill,
+                      iconColor: Colors.orange,
+                      title: 'Energy estimates',
+                      subtitle: 'Expenditure estimator, shadow mode',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder: (_) => const EnergyDebugScreen(),
+                          ),
+                        );
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                  ],
+                ),
 
               // Logout button and spacing at the bottom
               const SizedBox(height: 24),

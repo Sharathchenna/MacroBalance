@@ -21,7 +21,18 @@ class DayStatusProvider with ChangeNotifier {
   static final DateFormat _dayFormat = DateFormat('yyyy-MM-dd');
   static String dayKey(DateTime day) => _dayFormat.format(day);
 
+  /// Called after a status changes: with the day when the user sets one, or
+  /// null when the cloud copy is merged in. The energy estimate refreshes
+  /// from it.
+  void Function(DateTime? day)? onChanged;
+
   ExplicitDayStatus? statusFor(DateTime day) => _status[dayKey(day)];
+
+  /// Every day with a status, keyed by calendar day.
+  Map<DateTime, ExplicitDayStatus> get statuses => {
+        for (final e in _status.entries)
+          if (DateTime.tryParse(e.key) case final day?) day: e.value,
+      };
 
   bool isFinished(DateTime day) => _status.containsKey(dayKey(day));
 
@@ -31,6 +42,7 @@ class DayStatusProvider with ChangeNotifier {
     if (merged == null) return;
     _status = merged;
     notifyListeners();
+    onChanged?.call(null);
   }
 
   /// Sets [day]'s status, or clears it with null ("Not finished").
@@ -50,6 +62,7 @@ class DayStatusProvider with ChangeNotifier {
         'inferred_was': inferredWas?.name ?? 'none',
       });
     }
+    onChanged?.call(day);
     await _sync.set(key, status);
   }
 

@@ -15,6 +15,7 @@ import 'package:macrotracker/widgets/weight_chart.dart';
 import 'package:macrotracker/widgets/weight_range_selector.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/energy_provider.dart';
 import '../providers/goals_provider.dart';
 import '../providers/weight_unit_provider.dart';
 import '../services/energy/constants.dart';
@@ -124,7 +125,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     setState(() => _setHistory(merged));
     StorageService().put('weight_history', json.encode(_weightData));
     _syncProfileWeight();
+    _refreshEnergy();
   }
+
+  /// The expenditure estimate reads the stored weight history.
+  void _refreshEnergy() =>
+      Provider.of<EnergyProvider>(context, listen: false).scheduleRefresh();
 
   /// The profile's current weight follows the latest weigh-in.
   void _syncProfileWeight() {
@@ -733,6 +739,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     });
     StorageService().put('weight_history', json.encode(_weightData));
     _syncProfileWeight();
+    _refreshEnergy();
   }
 
   /// Sets [date]'s weight, replacing any weigh-in that day.

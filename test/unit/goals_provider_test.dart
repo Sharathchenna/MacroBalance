@@ -365,4 +365,39 @@ void main() {
       expect(g.age, 42);
     });
   });
+
+  group('learning start', () {
+    test('starts today by default, saves and syncs, survives a reload', () {
+      final g = GoalsProvider(clock: () => DateTime(2026, 10, 7, 15));
+      expect(g.learningStartedOn, isNull);
+      expect(g.userMacrosPayload().containsKey('learning_started_on'), isFalse);
+
+      g.startLearning();
+      expect(g.learningStartedOn, DateTime(2026, 10, 7));
+      expect(g.userMacrosPayload()['learning_started_on'], '2026-10-07');
+      expect(GoalsProvider().learningStartedOn, DateTime(2026, 10, 7));
+    });
+
+    test('comes back from user_macros at sign-in', () async {
+      await GoalsProvider.cacheUserMacros({
+        'calories_goal': 2100,
+        'learning_started_on': '2026-09-07',
+      });
+      expect(GoalsProvider().learningStartedOn, DateTime(2026, 9, 7));
+    });
+
+    test('a recalculation keeps it', () async {
+      final g = GoalsProvider()..currentWeightKg = 80;
+      g.startLearning(DateTime(2026, 9, 7));
+      await g.recalculateMacroGoals(2600);
+      expect(g.learningStartedOn, DateTime(2026, 9, 7));
+    });
+
+    test('forgotten on sign-out', () async {
+      final g = GoalsProvider()..startLearning(DateTime(2026, 9, 7));
+      await g.clearUserData();
+      expect(g.learningStartedOn, isNull);
+      expect(GoalsProvider().learningStartedOn, isNull);
+    });
+  });
 }
