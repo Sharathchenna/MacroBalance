@@ -80,12 +80,13 @@ void main() {
   group('window and gate', () {
     test('first update needs the settle days, 7 complete days and 4 weigh-ins '
         'spanning 7 days', () {
-      // Window starts on day kSwitchSettleDays (4); 7 complete days end day 10.
+      // Window starts on day kSwitchSettleDays (4); intake counts through
+      // d − 1, so the 7th complete day (day 10) is first used on day 11.
       final rows =
           run(inputs(food: eat(everyDay, 2000), weights: weigh(everyDay)), 20);
-      expect(firstUpdate(rows), kSwitchSettleDays + kMinCompleteDays - 1);
-      expect(rows[9].completeDays, 6);
-      expect(rows[10].completeDays, 7);
+      expect(firstUpdate(rows), kSwitchSettleDays + kMinCompleteDays);
+      expect(rows[10].completeDays, 6);
+      expect(rows[11].completeDays, 7);
     });
 
     // Settle-day weigh-ins still feed the trend (and so the energy density),
@@ -107,8 +108,16 @@ void main() {
     test('the window covers at most kWindowDays days', () {
       final rows = run(
           inputs(food: eat(everyDay, 2000), weights: weigh(everyDay)), 40);
-      expect(rows[40].completeDays, kWindowDays);
-      expect(rows[40].weighIns, kWindowDays);
+      expect(rows[40].completeDays, kWindowDays - 1); // d − 20 … d − 1
+      expect(rows[40].weighIns, kWindowDays); // d − 20 … d
+    });
+
+    test("weight on day d reflects intake through d − 1: day d's own intake "
+        'waits for the next day', () {
+      final food = {...eat(everyDay, 2000), ...eat([20], 9000)};
+      final rows = run(inputs(food: food, weights: weigh(everyDay)), 21);
+      expect(rows[20].avgIntake, closeTo(2000, 1e-9));
+      expect(rows[21].avgIntake, closeTo(2000 + 7000 / 17, 1e-9)); // 4 … 20
     });
 
     test('a phase start restarts the settle period', () {
@@ -119,11 +128,11 @@ void main() {
             phaseStarts: [day(30)],
           ),
           45);
-      // Window restarts on day 34: 7 complete days again by day 40.
-      expect(rows[39].updated, isFalse);
-      expect(rows[39].completeDays, 6);
-      expect(rows[40].updated, isTrue);
-      expect(rows[29].completeDays, 21);
+      // Window restarts on day 34: 7 complete days (34 … 40) by day 41.
+      expect(rows[40].updated, isFalse);
+      expect(rows[40].completeDays, 6);
+      expect(rows[41].updated, isTrue);
+      expect(rows[29].completeDays, 20);
       expect(rows[30].completeDays, 0); // window starts on day 34
     });
 
@@ -162,9 +171,9 @@ void main() {
 
     test('4 weigh-ins spanning 7 days pass the gate', () {
       final rows = run(
-          inputs(food: eat(everyDay, 2000), weights: weigh([4, 5, 6, 10])), 10);
-      expect(rows[10].updated, isTrue);
-      expect(rows[10].weighIns, 4);
+          inputs(food: eat(everyDay, 2000), weights: weigh([4, 5, 6, 10])), 11);
+      expect(rows[11].updated, isTrue);
+      expect(rows[11].weighIns, 4);
     });
 
     test('ignored weigh-ins do not count', () {
@@ -177,21 +186,21 @@ void main() {
               WeightReading(day(10), 88),
             ],
           ),
-          10);
-      expect(rows[10].weighIns, 3);
-      expect(rows[10].updated, isFalse);
+          11);
+      expect(rows[11].weighIns, 3);
+      expect(rows[11].updated, isFalse);
     });
   });
 
   group('observation', () {
     test('intake mean minus OLS slope times energy density', () {
       final rows = run(
-          inputs(food: eat(everyDay, 2000), weights: weigh(everyDay)), 10);
-      final r = rows[10];
+          inputs(food: eat(everyDay, 2000), weights: weigh(everyDay)), 11);
+      final r = rows[11];
       expect(r.avgIntake, closeTo(2000, 1e-9));
       expect(r.slopeKgPerDay, closeTo(-0.1, 1e-9));
-      final trend = TrendSeries.compute(weigh(List.generate(11, (i) => i)))
-          .trendOn(day(10))!;
+      final trend = TrendSeries.compute(weigh(List.generate(12, (i) => i)))
+          .trendOn(day(11))!;
       expect(r.trendWeightKg, closeTo(trend, 1e-9));
       final ed = body.energyDensityAt(trend);
       expect(r.energyDensity, closeTo(ed, 1e-9));
@@ -204,8 +213,8 @@ void main() {
           inputs(
               food: eat(everyDay, 2000),
               weights: weigh(everyDay, perDay: -0.2)),
-          10);
-      expect(rows[10].slopeKgPerDay, closeTo(-0.2, 1e-9));
+          11);
+      expect(rows[11].slopeKgPerDay, closeTo(-0.2, 1e-9));
     });
 
     test('fasting counts as 0 cals; partial and untracked days are left out',
@@ -216,12 +225,12 @@ void main() {
         day(6): const FoodDay(loggedCals: 2600, explicit: ExplicitDayStatus.partial),
         day(7): const FoodDay(loggedCals: 900), // inferred partial (< 0.5 × 2500)
       }..remove(day(8)); // untracked
-      final rows = run(inputs(food: food, weights: weigh(everyDay)), 13);
-      // Days 4..13: 10 days, minus 6, 7, 8 → 7 counted, one of them 0.
-      expect(rows[13].completeDays, 7);
-      expect(rows[13].avgIntake, closeTo(2000 * 6 / 7, 1e-9));
-      expect(rows[12].updated, isFalse);
-      expect(rows[13].updated, isTrue);
+      final rows = run(inputs(food: food, weights: weigh(everyDay)), 14);
+      // Intake days 4..13: 10 days, minus 6, 7, 8 → 7 counted, one of them 0.
+      expect(rows[14].completeDays, 7);
+      expect(rows[14].avgIntake, closeTo(2000 * 6 / 7, 1e-9));
+      expect(rows[13].updated, isFalse);
+      expect(rows[14].updated, isTrue);
     });
 
     test('a day with entries but no cals is untracked only if it has none',
@@ -232,8 +241,8 @@ void main() {
         ...eat(everyDay, 2000),
         day(5): const FoodDay(loggedCals: 0, hasEntries: true),
       };
-      final rows = run(inputs(food: food, weights: weigh(everyDay)), 11);
-      expect(rows[11].completeDays, 7);
+      final rows = run(inputs(food: food, weights: weigh(everyDay)), 12);
+      expect(rows[12].completeDays, 7);
     });
 
     test('the partial threshold uses the estimate as of that day', () {
@@ -331,7 +340,7 @@ void main() {
         expect((r.tdee - prev).abs(), lessThanOrEqualTo(kMaxDailyTdeeStep + 1e-9));
         prev = r.tdee;
       }
-      expect(rows[10].tdee, 3400 - kMaxDailyTdeeStep);
+      expect(rows[11].tdee, 3400 - kMaxDailyTdeeStep);
       expect(rows.last.tdee, lessThan(2300));
     });
   });
@@ -339,9 +348,9 @@ void main() {
   group('state', () {
     test('learning until the first update, then estimated', () {
       final rows = run(
-          inputs(food: eat(everyDay, 2000), weights: weigh(everyDay)), 11);
-      expect(rows[9].state, EnergyState.learning);
-      expect(rows[10].state, isNot(EnergyState.learning));
+          inputs(food: eat(everyDay, 2000), weights: weigh(everyDay)), 12);
+      expect(rows[10].state, EnergyState.learning);
+      expect(rows[11].state, isNot(EnergyState.learning));
     });
 
     test('confident once the sd is at most kConfidentSd', () {
@@ -464,8 +473,8 @@ void main() {
     test('rows carry the window stats even when the gate fails', () {
       final rows = run(
           inputs(food: eat(everyDay, 2000), weights: weigh(everyDay)), 8);
-      expect(rows[8].completeDays, 5);
-      expect(rows[8].weighIns, 5);
+      expect(rows[8].completeDays, 4); // days 4 … 7
+      expect(rows[8].weighIns, 5); // days 4 … 8
       expect(rows[8].updated, isFalse);
     });
   });
