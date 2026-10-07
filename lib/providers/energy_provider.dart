@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../services/energy/body_composition.dart';
 import '../services/energy/energy_estimator.dart';
+import '../services/energy/energy_summary.dart';
 import '../services/energy/estimate_rows.dart';
 import '../services/energy/trend_weight.dart';
 import '../services/energy_sync_service.dart';
@@ -75,6 +76,22 @@ class EnergyProvider with ChangeNotifier {
       if (out == null || r.day.isAfter(out.day)) out = r;
     }
     return out;
+  }
+
+  /// The data-quality strip (spec 7.1 R4): the 21 days through yesterday,
+  /// from the inputs of the last refresh. Empty before the first.
+  List<QualityDay> dataQuality() {
+    final inputs = _lastInputs;
+    if (inputs == null) return const [];
+    final now = _clock();
+    return qualityStrip(
+      through: DateTime(now.year, now.month, now.day - 1),
+      learningStartedOn: inputs.learningStartedOn,
+      food: inputs.food,
+      weighInDays: [for (final w in inputs.weights) w.day],
+      tdeeByDay: {for (final r in _rows.values) r.day: r.tdee},
+      formulaTdee: inputs.formulaTdee,
+    );
   }
 
   EstimatorInputs? get lastInputs => _lastInputs;

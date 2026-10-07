@@ -5,15 +5,24 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import '../theme/app_theme.dart';
+import 'energy/energy_tab.dart';
 import 'WeightTrackingScreen.dart';
 import 'NutritionTrendsScreen.dart';
 import 'WorkoutTrackingScreen.dart';
 import '../services/posthog_service.dart';
 
-/// Progress: weight, nutrition, steps and workouts, switched with tabs at the
-/// top (or by swiping).
+/// Progress: energy, weight, nutrition, steps and workouts, switched with
+/// tabs at the top (or by swiping).
 class TrackingPagesScreen extends StatefulWidget {
-  const TrackingPagesScreen({super.key, this.embedded = false, this.initialPage = 0});
+  const TrackingPagesScreen(
+      {super.key, this.embedded = false, this.initialPage = energyTab});
+
+  // Tab indexes, for [initialPage].
+  static const energyTab = 0;
+  static const weightTab = 1;
+  static const nutritionTab = 2;
+  static const stepsTab = 3;
+  static const workoutsTab = 4;
 
   /// Shown as a tab of the app shell: no back button.
   final bool embedded;
@@ -25,7 +34,7 @@ class TrackingPagesScreen extends StatefulWidget {
 
 class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with SingleTickerProviderStateMixin {
-  static const _tabs = ['Weight', 'Nutrition', 'Steps', 'Workouts'];
+  static const _tabs = ['Energy', 'Weight', 'Nutrition', 'Steps', 'Workouts'];
 
   late final TabController _tabController = TabController(
     length: _tabs.length,
@@ -37,11 +46,27 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
   void initState() {
     super.initState();
     PostHogService.trackScreen('tracking_pages_screen');
-    // Rebuild for the Weight-only unit toggle in the app bar.
+    _shown = _tabController.index;
+    if (_shown == TrackingPagesScreen.energyTab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) EnergyTab.trackViewed(context);
+      });
+    }
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging && mounted) setState(() {});
+      if (_tabController.indexIsChanging || !mounted) return;
+      if (_tabController.index != _shown) {
+        _shown = _tabController.index;
+        if (_shown == TrackingPagesScreen.energyTab) {
+          EnergyTab.trackViewed(context);
+        }
+      }
+      // Rebuild for the Weight-only unit toggle in the app bar.
+      setState(() {});
     });
   }
+
+  /// The tab last settled on, so each visit to Energy is counted once.
+  late int _shown;
 
   @override
   void dispose() {
@@ -74,7 +99,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
             : SystemUiOverlayStyle.light,
         iconTheme: IconThemeData(color: customColors.textPrimary),
         actions: [
-          if (_tabController.index == 0)
+          if (_tabController.index == TrackingPagesScreen.weightTab)
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Consumer<WeightUnitProvider>(
@@ -120,11 +145,17 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
-          KeepAlivePage(child: NutritionTrendsScreen(hideAppBar: true)),
-          KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
-          KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
+        children: [
+          KeepAlivePage(
+            child: EnergyTab(
+              onLogWeight: () =>
+                  _tabController.animateTo(TrackingPagesScreen.weightTab),
+            ),
+          ),
+          const KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
+          const KeepAlivePage(child: NutritionTrendsScreen(hideAppBar: true)),
+          const KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
+          const KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
         ],
       ),
     );
