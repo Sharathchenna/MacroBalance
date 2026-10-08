@@ -108,6 +108,18 @@ void main() {
           DateTime(2026, 10, 12));
     });
 
+    test('after a learning reset, the next check-in is still a week after the last one', () {
+      // Checked in Monday Sep 28, reset learning Sunday Oct 4.
+      expect(
+          nextCheckinDay(
+            weekday: DateTime.monday,
+            today: DateTime(2026, 10, 4),
+            learningStartedOn: DateTime(2026, 10, 4),
+            lastCheckin: DateTime(2026, 9, 28),
+          ),
+          DateTime(2026, 10, 5));
+    });
+
     test('moving the weekday right after a check-in waits a full week', () {
       // Checked in Monday Oct 12, then moved to Thursday: not Oct 15.
       expect(
@@ -167,6 +179,24 @@ void main() {
           isNull);
       expect(due(DateTime(2026, 10, 22, 9), last: DateTime(2026, 10, 12), weekday: DateTime.thursday),
           DateTime(2026, 10, 22));
+    });
+
+    test('a learning reset doesn\'t delay the next check-in (only the first waits a week)', () {
+      // Checked in Monday Sep 28, reset learning on Sunday Oct 4: Monday's
+      // check-in still runs (spec 6.8 row 5 gives it the "insufficient" sheet).
+      final reset = DateTime(2026, 10, 4);
+      expect(due(DateTime(2026, 10, 5, 9), last: DateTime(2026, 9, 28), learning: reset),
+          DateTime(2026, 10, 5));
+      // Reset on the check-in day itself, before opening the app.
+      expect(due(DateTime(2026, 10, 5, 9), last: DateTime(2026, 9, 28), learning: DateTime(2026, 10, 5)),
+          DateTime(2026, 10, 5));
+    });
+
+    test('a late-week catch-up keeps the schedule: the next boundary is the next weekday', () {
+      // Missed Monday Oct 5, caught up Thursday Oct 8 (week_start Oct 5).
+      expect(due(DateTime(2026, 10, 8, 9), last: DateTime(2026, 9, 28)), DateTime(2026, 10, 5));
+      expect(due(DateTime(2026, 10, 11, 23), last: DateTime(2026, 10, 5)), isNull);
+      expect(due(DateTime(2026, 10, 12, 4), last: DateTime(2026, 10, 5)), DateTime(2026, 10, 12));
     });
 
     test('no learning start: nothing to check in on', () {

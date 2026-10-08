@@ -41,7 +41,7 @@ class EnergyProvider with ChangeNotifier {
     this.inBackground = true,
     this.debounce = const Duration(milliseconds: 400),
   })  : _sync = sync ?? EnergySyncService(),
-        _checkinSync = checkinSync ?? CheckinSyncService(),
+        _checkinSync = checkinSync ?? CheckinSyncService(userId: userId),
         _clock = clock ?? DateTime.now {
     _rows = _sync.loadCache();
     _checkins = _checkinSync.loadCache();
@@ -71,6 +71,9 @@ class EnergyProvider with ChangeNotifier {
   GoalsProvider? goals;
   Map<String, GoalCheckin> _checkins = {};
   bool _checkinsPulled = false;
+
+  // Bumped on logout: work started before it stops at its next step.
+  int _generation = 0;
 
   // What the debug screen shows about the last run.
   EstimatorInputs? _lastInputs;
@@ -279,70 +282,82 @@ class EnergyProvider with ChangeNotifier {
     );
   }
 
-  /// Runs the check-in if one is due. The `goal_checkins` row's existence
-  /// is what makes it run once: across restarts here, and across devices
-  /// through the cloud copy, which wins.
+  /// Runs the check-in if one is due, and finishes any whose targets aren't
+  /// applied yet. The `goal_checkins` row's existence is what makes it run
+  /// once: across restarts here, and across devices through the cloud copy,
+  /// which wins.
+  ///
+  /// The row is recorded on the device first and the targets are applied
+  /// from it, so a restart at any point finishes the same check-in rather
+  /// than deciding (and stepping) again. `user_macros` is written only once
+  /// the row is the account's, so a device that loses the week never
+  /// overwrites the winner's targets.
   Future<void> _checkIn(DateTime now) async {
     final g = goals;
     if (g == null || g.userId == null) return;
+    final generation = _generation;
+    bool gone() => generation != _generation || _disposed;
     DateTime? due() => dueCheckinWeek(
           weekday: g.checkinWeekday,
           now: now,
           learningStartedOn: g.learningStartedOn,
           lastCheckin: lastCheckin?.weekStart,
         );
-    final week = due();
-    final wanted = week != null && _decide(g, now) != null;
-    // Pull once for the history, and before every check-in: another device
-    // may have run it already.
-    if (!_checkinsPulled || wanted) {
+    bool wanted() => due() != null && _decide(g, now) != null;
+    // Pull once for the history, before every check-in (another device may
+    // have run it already), and while anything waits to upload.
+    if (!_checkinsPulled || wanted() || _checkinSync.hasWork) {
       _checkinsPulled = true;
-      await _syncCheckins(g);
-    }
-    if (!wanted) return;
-    final key = dayKey(week);
-    final existing = _checkins[key];
-    if (existing != null) {
-      _adopt(g, existing, ifCurrent: existing.oldTargets);
-      return;
-    }
-    // A later check-in came down from the cloud.
-    if (due() != week) return;
-
-    final decision = _decide(g, now)!;
-    if (decision.changesTargets) {
-      await g.applyCheckinTargets(decision.newTargets, tdee: decision.reason.tdee);
-    }
-    final mine = GoalCheckin.fromDecision(decision, weekStart: week, createdAt: now);
-    _checkins[key] = mine;
-    _notify();
-    final stored = await _checkinSync.add(mine);
-    if (!identical(stored, mine)) {
-      _checkins[key] = stored;
-      _adopt(g, stored, ifCurrent: mine.newTargets);
+      await _checkinSync.sync();
+      if (gone()) return;
+      _checkins = _checkinSync.loadCache();
       _notify();
     }
+    // Asked again with what came down: a row for the week means it ran, and
+    // the history decides when the next one is due.
+    final week = due();
+    if (week != null && _decide(g, now) != null) {
+      final decision = _decide(g, now)!;
+      final mine = GoalCheckin.fromDecision(decision, weekStart: week, createdAt: now);
+      await _checkinSync.stage(mine);
+      if (gone()) return;
+      _checkins = _checkinSync.loadCache();
+      await _applyCheckins(g, gone);
+      if (gone()) return;
+      _notify();
+      await _checkinSync.upload();
+      if (gone()) return;
+      _checkins = _checkinSync.loadCache();
+    }
+    await _applyCheckins(g, gone);
+    if (!gone()) _notify();
   }
 
-  /// Pulls the account's check-ins. A week this device also checked in, but
-  /// another device stored first, takes the other device's targets.
-  Future<void> _syncCheckins(GoalsProvider g) async {
-    final before = Map.of(_checkins);
-    final result = await _checkinSync.sync();
-    if (result == null) return;
-    _checkins = Map.of(result.rows);
-    result.adopted.forEach((week, winner) {
-      final mine = before[week];
-      if (mine != null) _adopt(g, winner, ifCurrent: mine.newTargets);
-    });
-    _notify();
-  }
-
-  /// Takes [checkin]'s targets when the goals are still [ifCurrent] (so a
-  /// change the user made since is never overwritten).
-  void _adopt(GoalsProvider g, GoalCheckin checkin, {required CheckinTargets ifCurrent}) {
-    if (g.checkinTargets != ifCurrent || g.checkinTargets == checkin.newTargets) return;
-    g.applyCheckinTargets(checkin.newTargets, tdee: checkin.reason.tdee);
+  /// Applies the queued check-in targets on this device, then confirms them
+  /// in `user_macros` once the row is the account's. A check-in another one
+  /// has replaced, or targets the user has changed since, are left alone.
+  Future<void> _applyCheckins(GoalsProvider g, bool Function() gone) async {
+    final latest = lastCheckin;
+    for (final MapEntry(key: week, value: ifCurrent) in _checkinSync.applyQueue().entries) {
+      if (gone()) return;
+      final c = _checkins[week];
+      final now = g.checkinTargets;
+      final stale = c == null ||
+          latest == null ||
+          c.weekStart != latest.weekStart ||
+          (now != c.newTargets && !ifCurrent.contains(now));
+      if (stale) {
+        await _checkinSync.settleApply(week);
+        continue;
+      }
+      if (now != c.newTargets) {
+        g.applyCheckinTargets(c.newTargets,
+            tdee: c.variant == CheckinVariant.changed ? c.reason.tdee : c.reason.tdeePrev);
+      }
+      if (_checkinSync.pendingInserts().contains(week)) continue;
+      final confirmed = await g.uploadCheckinTargets(c);
+      if (confirmed && !gone()) await _checkinSync.settleApply(week);
+    }
   }
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -406,6 +421,7 @@ class EnergyProvider with ChangeNotifier {
 
   /// Forgets this account's estimates on the device (logout, delete).
   Future<void> clearUserData() async {
+    _generation++;
     _timer?.cancel();
     _rows = {};
     _checkins = {};

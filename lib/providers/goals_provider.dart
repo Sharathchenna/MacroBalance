@@ -80,6 +80,9 @@ class GoalsProvider with ChangeNotifier {
   // The weight history restore started for this account, if any.
   Future<void>? _weightRestore;
 
+  // Logged out: a check-in still in flight must not write these goals back.
+  bool _cleared = false;
+
   // --- Getters ---
   double get caloriesGoal => _caloriesGoal;
   double get proteinGoal => _proteinGoal;
@@ -189,24 +192,116 @@ class GoalsProvider with ChangeNotifier {
         fat: _fatGoal.round(),
       );
 
-  /// Applies a check-in's new targets, set from the learned expenditure
-  /// [tdee], and waits for `user_macros` to be written (the check-in row
-  /// comes after it, spec 6.8).
+  /// Applies a check-in's new targets on this device, set from the learned
+  /// expenditure [tdee]. `user_macros` follows through
+  /// [uploadCheckinTargets] once the check-in row is the account's.
   ///
   /// [tdee] becomes the expenditure the targets came from. The estimator's
   /// prior falls back to it when there's no formula TDEE, so an account
   /// without one first keeps the old value as its formula TDEE: a check-in
-  /// never moves the starting estimate.
-  Future<void> applyCheckinTargets(CheckinTargets targets, {required double tdee}) async {
+  /// never moves the starting estimate. Does nothing after logout.
+  void applyCheckinTargets(CheckinTargets targets, {required double tdee}) {
+    if (_cleared) return;
     _formulaTdee ??= _tdee;
     _tdee = tdee;
-    _caloriesGoal = targets.cals.toDouble();
-    _proteinGoal = targets.protein.toDouble();
-    _carbsGoal = targets.carbs.toDouble();
-    _fatGoal = targets.fat.toDouble();
+    _setTargets(targets);
     _save();
     notifyListeners();
-    await syncToCloud();
+  }
+
+  void _setTargets(CheckinTargets t) {
+    _caloriesGoal = t.cals.toDouble();
+    _proteinGoal = t.protein.toDouble();
+    _carbsGoal = t.carbs.toDouble();
+    _fatGoal = t.fat.toDouble();
+  }
+
+  /// Brings `user_macros` in step with [checkin], whose targets this device
+  /// has applied, without overwriting a newer change from another device:
+  /// - the account already has them: done;
+  /// - the row changed after the check-in, to something other than the
+  ///   targets it started from: that change is newer, so it's taken here;
+  /// - otherwise only the target fields are written, and only if the row is
+  ///   still the one just read (another write in between retries).
+  ///
+  /// Returns false when it has to be tried again (offline, a write raced,
+  /// signed out).
+  Future<bool> uploadCheckinTargets(GoalCheckin checkin) async {
+    final uid = userId;
+    if (uid == null || _cleared) return false;
+    try {
+      final server = await fetchRemoteTargets(uid);
+      if (_cleared) return false;
+      if (server == null) return true; // no row to keep in step
+      if (server.targets == checkin.newTargets) return true;
+      final changed = server.updatedAt;
+      if (changed != null &&
+          changed.isAfter(checkin.createdAt) &&
+          server.targets != checkin.oldTargets) {
+        _setTargets(server.targets);
+        if (server.tdee != null) _tdee = server.tdee!;
+        _save();
+        notifyListeners();
+        return true;
+      }
+      final written = await writeRemoteTargets(uid, _targetsPayload(), ifUpdatedAt: changed);
+      if (!written) debugPrint('[Goals] user_macros changed meanwhile; check-in targets retry.');
+      return written;
+    } catch (e) {
+      debugPrint('[Goals] Check-in targets not in user_macros yet, will retry: $e');
+      return false;
+    }
+  }
+
+  /// Only the fields a check-in changes.
+  Map<String, dynamic> _targetsPayload() => {
+        'calories_goal': _caloriesGoal,
+        'protein_goal': _proteinGoal,
+        'carbs_goal': _carbsGoal,
+        'fat_goal': _fatGoal,
+        'macro_targets': _macroTargets(),
+        'tdee': _tdee,
+        if (_formulaTdee != null) 'formula_tdee': _formulaTdee!.round(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+  /// The account's `user_macros` targets and when the row last changed, or
+  /// null without a row.
+  @visibleForTesting
+  Future<RemoteTargets?> fetchRemoteTargets(String uid) async {
+    final client = Supabase.instance.client;
+    if (client.auth.currentUser?.id != uid) throw StateError('not signed in as $uid');
+    final row = await client
+        .from('user_macros')
+        .select('calories_goal, protein_goal, carbs_goal, fat_goal, tdee, updated_at')
+        .eq('id', uid)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 15));
+    final cals = _asDouble(row?['calories_goal']);
+    if (row == null || cals == null) return null;
+    int n(String key) => (_asDouble(row[key]) ?? 0).round();
+    return RemoteTargets(
+      CheckinTargets(
+          cals: cals.round(), protein: n('protein_goal'), carbs: n('carbs_goal'), fat: n('fat_goal')),
+      tdee: _asDouble(row['tdee']),
+      updatedAt: DateTime.tryParse('${row['updated_at'] ?? ''}'),
+    );
+  }
+
+  /// Writes [payload] to `user_macros` if its `updated_at` is still
+  /// [ifUpdatedAt]. Returns whether it was written.
+  @visibleForTesting
+  Future<bool> writeRemoteTargets(String uid, Map<String, dynamic> payload,
+      {required DateTime? ifUpdatedAt}) async {
+    final client = Supabase.instance.client;
+    if (client.auth.currentUser?.id != uid) throw StateError('not signed in as $uid');
+    final query = client.from('user_macros').update(payload).eq('id', uid);
+    final rows = await (ifUpdatedAt == null
+            ? query.isFilter('updated_at', null)
+            : query.eq('updated_at', ifUpdatedAt.toUtc().toIso8601String()))
+        .select('id')
+        .timeout(const Duration(seconds: 15));
+    return rows.isNotEmpty;
   }
 
   /// Completes when the weight history restore started at sign-in has
@@ -703,6 +798,7 @@ class GoalsProvider with ChangeNotifier {
 
   /// Back to defaults, and forgets the goals and weight history on this device.
   Future<void> clearUserData() async {
+    _cleared = true;
     _caloriesGoal = _defaultCalories;
     _proteinGoal = _defaultProtein;
     _carbsGoal = _defaultCarbs;
@@ -744,6 +840,18 @@ class GoalsProvider with ChangeNotifier {
     }
     notifyListeners();
   }
+}
+
+/// The account's `user_macros` targets, as a check-in compares them.
+@visibleForTesting
+class RemoteTargets {
+  const RemoteTargets(this.targets, {this.tdee, this.updatedAt});
+
+  final CheckinTargets targets;
+  final double? tdee;
+
+  /// When the row last changed (null if never recorded).
+  final DateTime? updatedAt;
 }
 
 /// Daily calorie and macro targets.

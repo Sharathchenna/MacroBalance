@@ -125,6 +125,16 @@ void main() {
       expect(decide(latest: row(tdee: 1976))!.variant, CheckinVariant.unchanged);
     });
 
+    test('fractions: the target is rounded to whole cals first, then compared', () {
+      expect(decide(latest: row(tdee: 2024.4))!.variant, CheckinVariant.unchanged); // 2,024
+      final up = decide(latest: row(tdee: 2024.5))!; // 2,025
+      expect(up.variant, CheckinVariant.changed);
+      expect(up.newTargets.cals, 2025);
+      // Halves round up, so 1,975.5 is 1,976: 24 away.
+      expect(decide(latest: row(tdee: 1975.5))!.variant, CheckinVariant.unchanged);
+      expect(decide(latest: row(tdee: 1975.4))!.newTargets.cals, 1975);
+    });
+
     test('exactly 25 away: changed', () {
       final up = decide(latest: row(tdee: 2025))!;
       expect(up.variant, CheckinVariant.changed);

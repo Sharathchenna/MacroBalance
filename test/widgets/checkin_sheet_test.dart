@@ -34,7 +34,7 @@ class _SeededCheckins extends CheckinSyncService {
       rows[dayKey(weekStart)] = rows[dayKey(weekStart)]!.copyWith(seenAt: at);
 
   @override
-  Future<CheckinSyncResult?> sync() async => null;
+  Future<bool> sync() async => false;
 }
 
 class _FixtureSync extends EnergySyncService {

@@ -5,9 +5,9 @@ import 'constants.dart';
 int defaultCheckinWeekday(DateTime finishedOn) => finishedOn.weekday;
 
 /// The next check-in day: the first [weekday] on or after [today], no sooner
-/// than [kFirstCheckinAfterDays] after [learningStartedOn] (the first
-/// check-in needs a week of data) and, once a check-in has run, no sooner
-/// than a week after [lastCheckin]. Returned as a date at midnight.
+/// than [kFirstCheckinAfterDays] after [learningStartedOn] for the first
+/// check-in (it needs a week of data) and, once a check-in has run, no
+/// sooner than a week after [lastCheckin]. Returned as a date at midnight.
 DateTime nextCheckinDay({
   required int weekday,
   required DateTime today,
@@ -28,9 +28,10 @@ DateTime nextCheckinDay({
 /// The week starts on the latest scheduled [weekday] (from [kCheckinHour] on
 /// that day), so a user who doesn't open the app on the day gets it at the
 /// first open later that week, and every device agrees on the date. It's due
-/// when that day is at least a week after learning started and a week after
-/// [lastCheckin] (the latest `week_start` with a row): a check-in that has
-/// run, here or on another device, never runs again.
+/// a week after [lastCheckin] (the latest `week_start` with a row), so a
+/// check-in that has run, here or on another device, never runs again. Only
+/// the first check-in waits a week after learning started: after a reset the
+/// schedule carries on and row 5 explains the learning (spec 6.8).
 DateTime? dueCheckinWeek({
   required int weekday,
   required DateTime now,
@@ -47,15 +48,11 @@ DateTime? dueCheckinWeek({
   return scheduled.isBefore(earliest) ? null : scheduled;
 }
 
-/// The first day a check-in may fall on, or null with nothing to wait for.
+/// The first day a check-in may fall on: a week after the last check-in,
+/// else (the first) a week after learning started; null with neither.
 DateTime? _earliest(DateTime? learningStartedOn, DateTime? lastCheckin) {
-  DateTime? out;
-  for (final d in [learningStartedOn, lastCheckin]) {
-    if (d == null) continue;
-    final day = DateTime(d.year, d.month, d.day + kFirstCheckinAfterDays);
-    if (out == null || day.isAfter(out)) out = day;
-  }
-  return out;
+  final d = lastCheckin ?? learningStartedOn;
+  return d == null ? null : DateTime(d.year, d.month, d.day + kFirstCheckinAfterDays);
 }
 
 void _checkWeekday(int weekday) {
