@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../providers/energy_provider.dart';
 import '../../providers/goals_provider.dart';
 import '../../providers/weight_unit_provider.dart';
+import '../../services/energy/checkin.dart';
 import '../../services/energy/constants.dart';
 import '../../services/energy/day_status.dart';
 import '../../services/energy/energy_estimator.dart';
@@ -22,6 +23,8 @@ import '../../widgets/app_bottom_bar.dart';
 import '../../widgets/expenditure_chart.dart';
 import '../../widgets/progress_card.dart';
 import '../../widgets/weight_range_selector.dart';
+import 'checkin_history.dart';
+import 'checkin_sheet.dart';
 import 'goals_card.dart';
 
 /// Progress → Energy: the learned daily expenditure, how it was worked out,
@@ -83,6 +86,7 @@ class EnergyTab extends StatelessWidget {
               estimates: energy.estimates,
               learningStartedOn: goals.learningStartedOn,
               formulaTdee: goals.formulaTdee ?? goals.tdee,
+              checkins: energy.checkins,
             ),
           ],
           if (summary.breakdown != null) ...[
@@ -95,6 +99,10 @@ class EnergyTab extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           const GoalsCard(),
+          if (energy.checkins.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const CheckinHistoryCard(),
+          ],
           const SizedBox(height: 20),
           _ResetLearning(formulaTdee: goals.formulaTdee ?? goals.tdee),
         ],
@@ -537,11 +545,15 @@ class ExpenditureCard extends StatefulWidget {
     required this.estimates,
     required this.learningStartedOn,
     required this.formulaTdee,
+    this.checkins = const [],
   });
 
   final List<EnergyEstimate> estimates;
   final DateTime? learningStartedOn;
   final double formulaTdee;
+
+  /// Marked on the chart; tapping one reopens its sheet.
+  final List<GoalCheckin> checkins;
 
   static const ranges = [
     WeightRange.month,
@@ -575,6 +587,11 @@ class _ExpenditureCardState extends State<ExpenditureCard> {
       'on the chart in grey, after a break in the line, but no longer count.',
       heading: 'Resets',
     ),
+    InfoSection(
+      'The dots under the line are your weekly check-ins. Tap one to see '
+      'what changed that week.',
+      heading: 'Check-ins',
+    ),
   ]);
 
   String get _phrase => switch (_range) {
@@ -596,9 +613,10 @@ class _ExpenditureCardState extends State<ExpenditureCard> {
               EnergyState.paused => '± ${roundToTen(s.tdeeSd)} · paused',
               _ => '± ${roundToTen(s.tdeeSd)}',
             };
+      final checkin = widget.checkins.any((c) => c.weekStart == s.day);
       return ChartHeader(
         value: '${_cals.format(s.tdee.round())} cals',
-        detail: '${_date(s.day)} · $note',
+        detail: '${_date(s.day)} · $note${checkin ? ' · check-in' : ''}',
       );
     }
     final change = series.change;
@@ -631,12 +649,19 @@ class _ExpenditureCardState extends State<ExpenditureCard> {
     final all = ExpenditureSeries.from(widget.estimates,
         learningStartedOn: widget.learningStartedOn);
     final now = DateTime.now();
-    final end = all.last ?? DateTime(now.year, now.month, now.day - 1);
+    var end = all.last ?? DateTime(now.year, now.month, now.day - 1);
+    // Today's check-in has no estimate yet, but still gets its dot.
+    final lastCheckin = widget.checkins.isEmpty ? null : widget.checkins.first.weekStart;
+    if (lastCheckin != null && lastCheckin.isAfter(end) && !lastCheckin.isAfter(now)) {
+      end = lastCheckin;
+    }
     final start = _range.start(now) ?? all.first ?? end;
     final series = all.since(start);
     final showsFormula =
         !series.isEmpty && series.scale(formula: widget.formulaTdee).showsFormula;
     final hasPast = series.segments.any((s) => s.preReset);
+    final hasCheckins = !series.isEmpty &&
+        widget.checkins.any((c) => !c.weekStart.isBefore(start) && !c.weekStart.isAfter(end));
 
     return ProgressCard(
       padding: const EdgeInsets.fromLTRB(18, 18, 14, 14),
@@ -683,6 +708,13 @@ class _ExpenditureCardState extends State<ExpenditureCard> {
                     formulaTdee: widget.formulaTdee,
                     colors: colors,
                     onScrub: (r) => setState(() => _scrubbed = r),
+                    checkins: [for (final c in widget.checkins) c.weekStart],
+                    onCheckin: (day) {
+                      final c = widget.checkins.where((c) => c.weekStart == day).firstOrNull;
+                      if (c != null) {
+                        showCheckinSheet(context, c, source: CheckinSheetSource.chart);
+                      }
+                    },
                   ),
                 ),
                 if (series.isEmpty)
@@ -713,6 +745,11 @@ class _ExpenditureCardState extends State<ExpenditureCard> {
                 LegendItem(
                   swatch: LegendLine(color: colors.textSecondary, dashed: true),
                   label: 'Starting estimate',
+                ),
+              if (hasCheckins)
+                LegendItem(
+                  swatch: LegendDot(color: colors.accentPrimary),
+                  label: 'Check-in',
                 ),
               if (hasPast)
                 LegendItem(

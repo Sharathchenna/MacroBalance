@@ -4,6 +4,7 @@ import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 
+import '../services/checkin_notifier.dart';
 import '../services/checkin_sync_service.dart';
 import '../services/energy/body_composition.dart';
 import '../services/energy/checkin.dart';
@@ -36,6 +37,9 @@ import 'goals_provider.dart';
 /// starts a fresh sequence ([replan]), a check-in moves to the next phase,
 /// and the check-in sheet's choices change it ([keepLosing], [extendBreak]).
 ///
+/// It keeps the "check-in ready" notification (spec 8) scheduled for the
+/// next check-in day, after every refresh and whenever the goals change.
+///
 /// Each refresh replays from the learning start through yesterday. The
 /// estimator is deterministic and causal, so an unchanged day always gives
 /// the same row (only changed rows upload), and a late edit to a past day
@@ -46,12 +50,14 @@ class EnergyProvider with ChangeNotifier {
     EnergySyncService? sync,
     CheckinSyncService? checkinSync,
     PhaseSyncService? phaseSync,
+    CheckinNotifier? checkinNotifier,
     DateTime Function()? clock,
     this.inBackground = true,
     this.debounce = const Duration(milliseconds: 400),
   })  : _sync = sync ?? EnergySyncService(),
         _checkinSync = checkinSync ?? CheckinSyncService(userId: userId),
         _phaseSync = phaseSync ?? PhaseSyncService(userId: userId),
+        _notifier = checkinNotifier ?? CheckinNotifier.device,
         _clock = clock ?? DateTime.now {
     _rows = _sync.loadCache();
     _checkins = _checkinSync.loadCache();
@@ -63,6 +69,7 @@ class EnergyProvider with ChangeNotifier {
   final EnergySyncService _sync;
   final CheckinSyncService _checkinSync;
   final PhaseSyncService _phaseSync;
+  final CheckinNotifier _notifier;
   final DateTime Function() _clock;
 
   /// Replay on a background isolate (off in tests).
@@ -79,8 +86,20 @@ class EnergyProvider with ChangeNotifier {
   bool _pulled = false;
   bool _disposed = false;
 
-  /// The goals check-ins read and change; set by [attach].
-  GoalsProvider? goals;
+  /// The goals check-ins read and change; set by [attach]. A change to
+  /// them (check-in day, adaptive goals, plan) reschedules the notification.
+  GoalsProvider? get goals => _goals;
+  GoalsProvider? _goals;
+
+  set goals(GoalsProvider? value) {
+    if (identical(value, _goals)) return;
+    _goals?.removeListener(_queueNotification);
+    _goals = value;
+    value?.addListener(_queueNotification);
+    _queueNotification();
+  }
+
+  bool _notificationQueued = false;
   Map<String, GoalCheckin> _checkins = {};
   bool _checkinsPulled = false;
   List<GoalPhase> _phases = const [];
@@ -216,6 +235,8 @@ class EnergyProvider with ChangeNotifier {
     _lastInputs = inputs;
     _lastRunAt = now;
     _lastRunTook = watch.elapsed;
+    // After each check-in (or none), for the next one.
+    _queueNotification();
   }
 
   // --- Weekly check-in (spec 6.8) ---
@@ -253,6 +274,39 @@ class EnergyProvider with ChangeNotifier {
 
   /// The next check-in day, a week after the last one at the earliest.
   DateTime? get nextCheckinDay => goals?.nextCheckinDayAfter(lastCheckin?.weekStart);
+
+  /// When the "Your weekly check-in is ready" notification should go out:
+  /// 08:00 on the next check-in day (spec 8), or null for none (signed out,
+  /// or adaptive goals off with a steady plan).
+  ///
+  /// With adaptive goals off, a phased or breaks plan only gets a check-in
+  /// when a phase changes, so it's the first check-in day (up to a year on)
+  /// that would change one as things stand. A loss phase that ends by weight
+  /// may come sooner than that; the notification moves when it does.
+  DateTime? get checkinNotificationTime {
+    final g = goals;
+    if (g == null || g.userId == null || g.learningStartedOn == null) return null;
+    if (!g.adaptiveGoals && g.planStyle == PlanStyle.steady) return null;
+    final now = _clock();
+    var at = checkinNotificationAt(day: g.nextCheckinDayAfter(lastCheckin?.weekStart), now: now);
+    if (g.adaptiveGoals) return at;
+    for (var week = 0; week < 52; week++) {
+      if (_decide(g, now, on: _dateOnly(at))?.variant.isPhaseChange ?? false) return at;
+      at = DateTime(at.year, at.month, at.day + 7, at.hour);
+    }
+    return null;
+  }
+
+  /// Reschedules the notification once the current change is done (goals
+  /// notify several times in a row).
+  void _queueNotification() {
+    if (_notificationQueued || _disposed) return;
+    _notificationQueued = true;
+    scheduleMicrotask(() {
+      _notificationQueued = false;
+      if (!_disposed) _notifier.update(checkinNotificationTime);
+    });
+  }
 
   /// What a check-in would decide if it ran now (the goals card's "likely
   /// +50 cals"), or null with adaptive goals off or nothing to go on.
@@ -563,6 +617,7 @@ class EnergyProvider with ChangeNotifier {
     await _sync.clearLocalState();
     await _checkinSync.clearLocalState();
     await _phaseSync.clearLocalState();
+    await _notifier.update(null);
     _notify();
   }
 
@@ -570,6 +625,7 @@ class EnergyProvider with ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    _goals?.removeListener(_queueNotification);
     super.dispose();
   }
 }

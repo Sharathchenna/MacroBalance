@@ -453,6 +453,31 @@ class NotificationService {
     }
   }
 
+  /// Whether the user lets the app show notifications. Only checks; never
+  /// asks.
+  Future<bool> notificationsAllowed() async {
+    if (Platform.isIOS) {
+      final options = await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.checkPermissions();
+      return options != null && (options.isEnabled || options.isProvisionalEnabled);
+    }
+    if (Platform.isAndroid) {
+      return await _flutterLocalNotificationsPlugin
+              .resolvePlatformSpecificImplementation<
+                  AndroidFlutterLocalNotificationsPlugin>()
+              ?.areNotificationsEnabled() ??
+          false;
+    }
+    return false;
+  }
+
+  /// The ids of the local notifications waiting to be shown.
+  Future<List<int>> pendingNotificationIds() async => [
+        for (final r in await _flutterLocalNotificationsPlugin.pendingNotificationRequests()) r.id,
+      ];
+
   Future<void> cancelNotification(int id) async {
     await _flutterLocalNotificationsPlugin.cancel(id);
     debugPrint('[NotificationService] Cancelled notification with ID: $id');

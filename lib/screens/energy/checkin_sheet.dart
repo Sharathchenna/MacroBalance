@@ -16,7 +16,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/plan_style_choice.dart';
 
 /// Where a check-in sheet was opened from, for `checkin_shown`.
-enum CheckinSheetSource { auto, chip, history }
+enum CheckinSheetSource { auto, chip, history, chart }
 
 /// Shows [checkin]'s sheet (plan 9.5). Dismissing it, any way, records
 /// `seen_at`. Tracks `checkin_shown{variant}` and
@@ -70,7 +70,7 @@ class CheckinSheet extends StatelessWidget {
     final units = context.watch<WeightUnitProvider>();
     final energy = context.watch<EnergyProvider?>();
     final copy = CheckinCopy(checkin,
-        isKg: units.isKg, lossPhaseNumber: _lossPhaseNumber(energy?.phases ?? const []));
+        isKg: units.isKg, lossPhaseNumber: lossPhaseNumber(checkin, energy?.phases ?? const []));
     final changed = checkin.variant.appliesTargets;
     final phaseChange = checkin.variant.isPhaseChange;
     final canChange = phaseChange && (energy?.canChangePhase(checkin) ?? false);
@@ -269,13 +269,6 @@ class CheckinSheet extends StatelessWidget {
     }
     navigator.pop();
   }
-
-  /// G's "Ready for phase N": the loss phases before the one it started, + 1.
-  int? _lossPhaseNumber(List<GoalPhase> phases) {
-    final next = checkin.reason.phase?.next;
-    if (next == null || next.kind != PhaseKind.lose || phases.isEmpty) return null;
-    return phases.where((p) => p.kind == PhaseKind.lose && p.seq < next.seq).length + 1;
-  }
 }
 
 /// A tinted line set apart from the rest: the limit line, what's missing.
@@ -300,6 +293,14 @@ class _Note extends StatelessWidget {
       ),
     );
   }
+}
+
+/// G's "Ready for phase N": the loss phases before the one [checkin]
+/// started, + 1; null when it didn't start one or the phases aren't known.
+int? lossPhaseNumber(GoalCheckin checkin, List<GoalPhase> phases) {
+  final next = checkin.reason.phase?.next;
+  if (next == null || next.kind != PhaseKind.lose || phases.isEmpty) return null;
+  return phases.where((p) => p.kind == PhaseKind.lose && p.seq < next.seq).length + 1;
 }
 
 String fmtCals(num cals) => NumberFormat.decimalPattern().format(cals.round());
@@ -366,6 +367,33 @@ class CheckinCopy {
       parts.add('$weeks weeks until your next break');
     }
     return parts.join(' · ');
+  }
+
+  /// One line for the check-in history (spec 7.1 R6): why it changed, or
+  /// why it didn't.
+  String get summary {
+    switch (checkin.variant) {
+      case CheckinVariant.changed:
+        final diff = ((_r.tdee - _r.tdeePrev) / 10).round() * 10;
+        return diff.abs() < 10
+            ? 'Adjusted to your trend weight'
+            : 'Burning about ${fmtCals(diff.abs())} cals '
+                '${diff > 0 ? 'more' : 'less'} than expected';
+      case CheckinVariant.unchanged:
+        return 'Right on track, no change';
+      case CheckinVariant.insufficient:
+        return _r.state == EnergyState.paused
+            ? 'Estimate paused, targets kept'
+            : 'Not enough data yet, targets kept';
+      case CheckinVariant.phaseToMaintain:
+        return 'Maintenance break started';
+      case CheckinVariant.phaseToLose:
+        return lossPhaseNumber == null
+            ? 'Next loss phase started'
+            : 'Phase $lossPhaseNumber started';
+      default:
+        return 'Weekly check-in';
+    }
   }
 
   /// The sheet's main button.

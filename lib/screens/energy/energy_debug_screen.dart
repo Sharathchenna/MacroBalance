@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/energy_provider.dart';
+import '../../services/checkin_notifier.dart';
 import '../../services/energy/constants.dart';
 import '../../services/energy/energy_estimator.dart';
 import '../../services/energy/estimate_rows.dart';
@@ -80,6 +81,8 @@ class EnergyDebugScreen extends StatelessWidget {
 
 final _day = DateFormat('EEE d MMM');
 final _time = DateFormat('HH:mm:ss');
+
+String _when(DateTime? t) => t == null ? 'none' : DateFormat('EEE MMM d, HH:mm').format(t);
 
 String _n(num? v, {int places = 0}) =>
     v == null ? '—' : NumberFormat.decimalPatternDigits(decimalDigits: places).format(v);
@@ -229,6 +232,18 @@ class _StateCard extends StatelessWidget {
                     '${took == null ? '' : ' · ${took.inMilliseconds} ms'}',
           ),
           if (energy.lastError != null) _Line('Error', energy.lastError!),
+          _Line('Check-in notification', _when(energy.checkinNotificationTime)),
+          FutureBuilder<bool>(
+            future: CheckinNotifier.device.isPending().catchError((_) => false),
+            builder: (context, pending) => _Line(
+              'Scheduled on device',
+              pending.data == null
+                  ? '…'
+                  : pending.data!
+                      ? _when(CheckinNotifier.device.scheduledFor)
+                      : 'no',
+            ),
+          ),
         ],
       ),
     );

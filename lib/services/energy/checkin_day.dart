@@ -48,6 +48,17 @@ DateTime? dueCheckinWeek({
   return scheduled.isBefore(earliest) ? null : scheduled;
 }
 
+/// When the "check-in ready" notification for [day] (the next check-in day)
+/// goes out: [kCheckinNotificationHour] on that day, or on the same weekday
+/// a week on, and so on, if that has already passed at [now] (spec 8).
+DateTime checkinNotificationAt({required DateTime day, required DateTime now}) {
+  var at = DateTime(day.year, day.month, day.day, kCheckinNotificationHour);
+  while (!at.isAfter(now)) {
+    at = DateTime(at.year, at.month, at.day + 7, kCheckinNotificationHour);
+  }
+  return at;
+}
+
 /// The first day a check-in may fall on: a week after the last check-in,
 /// else (the first) a week after learning started; null with neither.
 DateTime? _earliest(DateTime? learningStartedOn, DateTime? lastCheckin) {

@@ -66,6 +66,10 @@ const int kFirstCheckinAfterDays = 7;
 /// the check-in day (6.8).
 const int kCheckinHour = 4;
 
+/// "Your weekly check-in is ready" goes out at this hour (local) on the
+/// check-in day (spec 8).
+const int kCheckinNotificationHour = 8;
+
 // --- Recalculate ---
 /// A weigh-in this recent (today and the 2 days before) makes the trend a
 /// one-tap weight in recalculate (plan 10.4).

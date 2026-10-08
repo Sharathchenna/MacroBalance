@@ -206,4 +206,42 @@ void main() {
           isNull);
     });
   });
+
+  group('checkinNotificationAt', () {
+    final monday = DateTime(2026, 10, 12);
+
+    test('is 08:00 on the next check-in day', () {
+      expect(kCheckinNotificationHour, 8);
+      expect(checkinNotificationAt(day: monday, now: DateTime(2026, 10, 8, 21)),
+          DateTime(2026, 10, 12, 8));
+    });
+
+    test('is today at 08:00 when the day is today and it is earlier', () {
+      expect(checkinNotificationAt(day: monday, now: DateTime(2026, 10, 12, 7, 59)),
+          DateTime(2026, 10, 12, 8));
+    });
+
+    test('moves a week on once 08:00 has passed on the day', () {
+      expect(checkinNotificationAt(day: monday, now: DateTime(2026, 10, 12, 8)),
+          DateTime(2026, 10, 19, 8));
+      expect(checkinNotificationAt(day: monday, now: DateTime(2026, 10, 12, 18)),
+          DateTime(2026, 10, 19, 8));
+    });
+
+    test('a day already past lands on its weekday after now', () {
+      expect(checkinNotificationAt(day: monday, now: DateTime(2026, 10, 21, 9)),
+          DateTime(2026, 10, 26, 8));
+    });
+
+    test('ignores the time of day on the day it is given', () {
+      expect(checkinNotificationAt(day: DateTime(2026, 10, 12, 23), now: DateTime(2026, 10, 9)),
+          DateTime(2026, 10, 12, 8));
+    });
+
+    test('keeps 08:00 local across a DST change', () {
+      // Nov 1 2026: clocks go back in the US.
+      expect(checkinNotificationAt(day: DateTime(2026, 10, 26), now: DateTime(2026, 10, 26, 10)),
+          DateTime(2026, 11, 2, 8));
+    });
+  });
 }

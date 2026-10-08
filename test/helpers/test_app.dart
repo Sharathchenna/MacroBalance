@@ -18,6 +18,7 @@ import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/searchPage.dart' show FoodItem, Serving;
 import 'package:macrotracker/services/photo_analysis_service.dart';
+import 'package:macrotracker/services/checkin_notifier.dart';
 import 'package:macrotracker/services/storage_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:provider/provider.dart';
@@ -57,6 +58,7 @@ Future<void> setUpTestEnvironment() async {
   for (final name in _pluginChannels) {
     messenger.setMockMethodCallHandler(MethodChannel(name), (call) async => null);
   }
+  CheckinNotifier.device = _NoNotifications();
   if (_ready) return;
   SharedPreferences.setMockInitialValues({});
   final dir = await Directory.systemTemp.createTemp('macrotracker_test');
@@ -198,4 +200,16 @@ Future<void> _loadAppFonts() async {
     if (parts.first == 'Roboto') roboto.addFont(Future.value(ByteData.view(bytes.buffer)));
   }
   await roboto.load();
+}
+
+/// The check-in notification, kept off the (absent) device.
+class _NoNotifications extends CheckinNotifier {
+  @override
+  Future<bool> allowed() async => false;
+
+  @override
+  Future<void> schedule(DateTime at) async {}
+
+  @override
+  Future<void> cancel() async {}
 }

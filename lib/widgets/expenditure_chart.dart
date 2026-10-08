@@ -17,6 +17,9 @@ import 'package:macrotracker/widgets/weight_chart.dart';
 /// marker, and history from before the current learning start is drawn in
 /// grey: it's kept, but it no longer counts.
 ///
+/// Check-in days are dots on the baseline (spec 7.1 R2); tapping one calls
+/// [onCheckin] with its day.
+///
 /// Built like [WeightChart]: days placed by time, round-number axis on the
 /// right, drawn in from the left, and touch and drag to read a day
 /// ([onScrub] reports it, then null on release).
@@ -29,6 +32,8 @@ class ExpenditureChart extends StatefulWidget {
     required this.colors,
     this.formulaTdee,
     this.onScrub,
+    this.checkins = const [],
+    this.onCheckin,
   });
 
   /// The rows in range.
@@ -40,6 +45,13 @@ class ExpenditureChart extends StatefulWidget {
   /// The starting estimate, drawn dashed when it shares the scale.
   final double? formulaTdee;
   final ValueChanged<EnergyEstimate?>? onScrub;
+
+  /// Check-in days to mark.
+  final List<DateTime> checkins;
+  final ValueChanged<DateTime>? onCheckin;
+
+  /// The width of a check-in's touch target.
+  static const double checkinTarget = 32;
 
   @override
   State<ExpenditureChart> createState() => _ExpenditureChartState();
@@ -87,7 +99,8 @@ class _ExpenditureChartState extends State<ExpenditureChart> {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final size = constraints.biggest;
-      return GestureDetector(
+      final layout = _ChartLayout(widget, size);
+      final chart = GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (d) => _select(d.localPosition, size),
         onTapUp: (_) => _clear(),
@@ -112,6 +125,36 @@ class _ExpenditureChartState extends State<ExpenditureChart> {
             ),
           ),
         ),
+      );
+      final ticks = widget.onCheckin == null || widget.series.isEmpty
+          ? const <DateTime>[]
+          : layout.visibleCheckins();
+      if (ticks.isEmpty) return chart;
+      // Each check-in gets a target around its dot, over the date labels;
+      // it wins the tap over scrubbing.
+      return Stack(
+        children: [
+          Positioned.fill(child: chart),
+          for (final d in ticks)
+            Positioned(
+              left: layout.x(d) - ExpenditureChart.checkinTarget / 2,
+              top: layout.plot.bottom - 18,
+              width: ExpenditureChart.checkinTarget,
+              bottom: 0,
+              child: Semantics(
+                button: true,
+                label: 'Check-in ${DateFormat.MMMd().format(d)}',
+                child: GestureDetector(
+                  key: ValueKey('expenditure_checkin_${d.toIso8601String()}'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    widget.onCheckin!(d);
+                  },
+                ),
+              ),
+            ),
+        ],
       );
     });
   }
@@ -155,6 +198,12 @@ class _ChartLayout {
   }
 
   double get dayWidth => day / (t1 - t0) * plot.width;
+
+  /// The check-in days that fall on the plot.
+  List<DateTime> visibleCheckins() => [
+        for (final d in chart.checkins)
+          if (x(d) >= plot.left - 1 && x(d) <= plot.right + 1) d,
+      ];
 
   double y(double cals) =>
       plot.bottom - (cals - yMin) / (yMax - yMin) * plot.height;
@@ -202,6 +251,9 @@ class _ExpenditurePainter extends CustomPainter {
 
     for (final d in chart.series.resets) {
       _drawReset(canvas, l, d);
+    }
+    for (final d in l.visibleCheckins()) {
+      _drawCheckin(canvas, l, d);
     }
     if (selected != null) _drawSelection(canvas, l, selected!);
   }
@@ -350,6 +402,14 @@ class _ExpenditurePainter extends CustomPainter {
       Paint()..color = colors.cardBackground,
     );
     tp.paint(canvas, Offset(left, labelTop));
+  }
+
+  /// A check-in: an accent dot on the baseline, ringed in the card colour so
+  /// it sits on top of the grid.
+  void _drawCheckin(Canvas canvas, _ChartLayout l, DateTime d) {
+    final p = Offset(l.x(d), l.plot.bottom);
+    canvas.drawCircle(p, 5, Paint()..color = colors.cardBackground);
+    canvas.drawCircle(p, 3.5, Paint()..color = colors.accentPrimary);
   }
 
   void _drawSelection(Canvas canvas, _ChartLayout l, EnergyEstimate r) {
