@@ -225,11 +225,14 @@ void main() {
       expect(decide(s: settings(adaptive: false), on: week(5), latest: row(trendKg: 88)), isNull);
     });
 
-    test('steady plans, no plan, and the goal reached (row 1, ticket 15) fall through', () {
+    test('steady plans and no plan fall through', () {
       expect(decide(style: PlanStyle.steady)!.variant, CheckinVariant.changed);
       expect(decide(noPlan: true)!.variant, CheckinVariant.changed);
-      expect(decide(s: settings(goalKg: 86))!.variant, isNot(CheckinVariant.phaseToMaintain));
-      expect(decide(s: settings(adaptive: false, goalKg: 86)), isNull);
+    });
+
+    test('the goal reached (row 1) comes before a phase ending', () {
+      expect(decide(s: settings(goalKg: 86))!.variant, CheckinVariant.goalReached);
+      expect(decide(s: settings(adaptive: false, goalKg: 86))!.variant, CheckinVariant.goalReached);
     });
   });
 

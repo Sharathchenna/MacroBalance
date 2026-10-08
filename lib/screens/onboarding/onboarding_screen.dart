@@ -46,7 +46,11 @@ class OnboardingScreen extends StatefulWidget {
   /// questions, prefilled, and nothing else about the account changes.
   final bool recalculateOnly;
 
-  const OnboardingScreen({super.key, this.recalculateOnly = false});
+  /// Opened from "Set a new goal" on the goal-reached check-in: whatever is
+  /// chosen starts a fresh plan, even with the same goal and pace.
+  final bool goalReached;
+
+  const OnboardingScreen({super.key, this.recalculateOnly = false, this.goalReached = false});
 
   @override
   _OnboardingScreenState createState() => _OnboardingScreenState();
@@ -475,6 +479,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final pace = _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _pacePct;
     final saved = _savedPlan;
     final unchanged = widget.recalculateOnly &&
+        !widget.goalReached &&
         saved != null &&
         energy.currentPhase != null &&
         saved.style == _planStyle &&

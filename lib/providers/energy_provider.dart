@@ -13,7 +13,7 @@ import '../services/energy/energy_estimator.dart';
 import '../services/energy/energy_summary.dart';
 import '../services/energy/estimate_rows.dart';
 import '../services/energy/phase_engine.dart';
-import '../services/energy/phase_engine.dart' as engine show currentPhase, keepLosing, extendBreak;
+import '../services/energy/phase_engine.dart' as engine show currentPhase, keepLosing, extendBreak, switchToMaintenance;
 import '../services/energy/targets.dart';
 import '../services/energy/trend_weight.dart';
 import '../services/energy_sync_service.dart';
@@ -279,19 +279,22 @@ class EnergyProvider with ChangeNotifier {
   /// 08:00 on the next check-in day (spec 8), or null for none (signed out,
   /// or adaptive goals off with a steady plan).
   ///
-  /// With adaptive goals off, a phased or breaks plan only gets a check-in
-  /// when a phase changes, so it's the first check-in day (up to a year on)
-  /// that would change one as things stand. A loss phase that ends by weight
+  /// With adaptive goals off, a check-in only comes when the goal is reached
+  /// or a phased or breaks plan changes phase, so it's the first check-in day
+  /// (up to a year on) that would do either as things stand. A loss phase that ends by weight
   /// may come sooner than that; the notification moves when it does.
   DateTime? get checkinNotificationTime {
     final g = goals;
     if (g == null || g.userId == null || g.learningStartedOn == null) return null;
-    if (!g.adaptiveGoals && g.planStyle == PlanStyle.steady) return null;
     final now = _clock();
     var at = checkinNotificationAt(day: g.nextCheckinDayAfter(lastCheckin?.weekStart), now: now);
     if (g.adaptiveGoals) return at;
-    for (var week = 0; week < 52; week++) {
-      if (_decide(g, now, on: _dateOnly(at))?.variant.isPhaseChange ?? false) return at;
+    // Fixed targets: a check-in only when a phase changes or the goal is
+    // reached. Steady plans have no phases to end.
+    final weeks = g.planStyle == PlanStyle.steady ? 1 : 52;
+    for (var week = 0; week < weeks; week++) {
+      final v = _decide(g, now, on: _dateOnly(at))?.variant;
+      if (v != null && (v.isPhaseChange || v == CheckinVariant.goalReached)) return at;
       at = DateTime(at.year, at.month, at.day + 7, at.hour);
     }
     return null;
@@ -374,6 +377,53 @@ class EnergyProvider with ChangeNotifier {
     final edit = engine.extendBreak(_phases);
     if (edit.isEmpty) return;
     await _userPhaseChange(checkin, edit, checkin.oldTargets, tdee: checkin.reason.tdeePrev);
+  }
+
+  // --- Goal reached (spec 6.8 row 1, variant D) ---
+
+  /// Whether [checkin]'s goal-reached choice can still be made: it's the
+  /// latest check-in and the goal it reached is still the account's (not
+  /// switched to maintenance or replaced by a new goal weight, here or on
+  /// another device).
+  bool canChooseGoal(GoalCheckin checkin) {
+    final g = goals;
+    final latest = lastCheckin;
+    if (g == null || checkin.variant != CheckinVariant.goalReached) return false;
+    if (latest == null || latest.weekStart != checkin.weekStart) return false;
+    final r = checkin.reason;
+    return g.checkinSettings.goal == r.goal &&
+        r.goalWeightKg != null &&
+        (g.goalWeightKg - r.goalWeightKg!).abs() < 0.06;
+  }
+
+  /// What "Switch to maintenance" would set for [checkin]: the expenditure it
+  /// carries at the trend weight, with no step cap.
+  CheckinTargets? maintenanceTargets(GoalCheckin checkin) {
+    final g = goals;
+    final weight = checkin.reason.trendWeightKg;
+    if (g == null || weight == null || weight <= 0) return null;
+    return phaseTargets(
+            kind: PhaseKind.maintain,
+            settings: g.checkinSettings,
+            tdee: checkin.reason.tdee,
+            weightKg: weight)
+        .targets;
+  }
+
+  /// "Switch to maintenance": the plan becomes a steady maintain phase and
+  /// the targets maintenance targets. The phases go first, through their
+  /// durable queue, then the goals; both are idempotent, and the sheet stays
+  /// unseen until this returns, so an interrupted choice is offered again.
+  Future<void> switchToMaintenance(GoalCheckin checkin) async {
+    final g = goals;
+    final targets = maintenanceTargets(checkin);
+    if (g == null || targets == null || !canChooseGoal(checkin)) return;
+    final trend = checkin.reason.trendWeightKg!;
+    await _editPhases(
+        engine.switchToMaintenance(_phases, on: _dateOnly(_clock()), trendKg: trend),
+        upload: false);
+    g.switchToMaintenance(targets, tdee: checkin.reason.tdee);
+    await _phaseSync.upload();
   }
 
   /// "End phase early": the open phase ends at the next check-in.

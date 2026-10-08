@@ -20,7 +20,8 @@ enum CheckinVariant {
   /// C: the estimate is still learning or paused.
   insufficient('insufficient'),
 
-  /// D (ticket 15).
+  /// D: the trend weight crossed the goal weight. Targets stay until the
+  /// user picks Switch to maintenance or Set a new goal.
   goalReached('goal_reached'),
 
   /// F: a phase ended into a maintenance break.
@@ -327,7 +328,8 @@ class CheckinDecision {
 
 /// The weekly check-in decision (spec 6.8), first match wins:
 ///
-/// 1.   Goal reached: ticket 15 adds it here, above rows 2–3.
+/// 1.   The trend weight has crossed the goal weight: [CheckinVariant.goalReached]
+///      (D), targets unchanged until the user chooses. Adaptive or not.
 /// 2–3. [plan]'s open phase is due to end (spec 6.7): the next phase's
 ///      targets, [CheckinVariant.phaseToMaintain] (F) or
 ///      [CheckinVariant.phaseToLose] (G), with no step cap. With adaptive
@@ -386,6 +388,18 @@ CheckinDecision? decideCheckin({
       latest.state == EnergyState.learning ||
       latest.state == EnergyState.paused;
 
+  // Adaptive: what we've learned; otherwise (or before there's an estimate)
+  // the formula at today's weight.
+  double tdeeAt(double kg) =>
+      settings.adaptive && !learning ? latest.tdee : settings.formulaTdeeAt(kg);
+
+  // Row 1: the trend weight has crossed the goal weight. Targets stay as
+  // they are until the user chooses; the maintenance targets come from
+  // [CheckinReason.tdee] then. Only the trend counts, never the profile weight.
+  if (trend != null && trend > 0 && _crossedGoal(settings, trend)) {
+    return keep(CheckinVariant.goalReached, reason(tdee: tdeeAt(trend)));
+  }
+
   // Rows 2–3.
   if (plan != null && weight != null && weight > 0) {
     final t = phaseTransition(
@@ -399,9 +413,7 @@ CheckinDecision? decideCheckin({
       settings: plan.settings,
     );
     if (t != null) {
-      // Adaptive: what we've learned; otherwise (or before there's an
-      // estimate) the formula at today's weight.
-      final tdee = settings.adaptive && !learning ? latest.tdee : settings.formulaTdeeAt(weight);
+      final tdee = tdeeAt(weight);
       final next = phaseTargets(kind: t.next.kind, settings: settings, tdee: tdee, weightKg: weight);
       return CheckinDecision(
         variant: t.toMaintain ? CheckinVariant.phaseToMaintain : CheckinVariant.phaseToLose,
@@ -467,6 +479,18 @@ CheckinDecision? decideCheckin({
         cals: cals, protein: macros.proteinG, carbs: macros.carbsG, fat: macros.fatG),
     reason: why,
   );
+}
+
+/// Whether [trendKg] is at or past the goal weight, in the goal's direction.
+/// Maintaining has no goal to reach.
+bool _crossedGoal(CheckinSettings settings, double trendKg) {
+  final goalKg = settings.goalWeightKg;
+  if (goalKg == null || goalKg <= 0) return false;
+  return switch (settings.goal) {
+    GoalKind.lose => trendKg <= goalKg,
+    GoalKind.gain => trendKg >= goalKg,
+    GoalKind.maintain => false,
+  };
 }
 
 /// Weeks from [weightKg] to [goalKg] eating [cals] against [tdee]; null

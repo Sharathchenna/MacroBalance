@@ -89,9 +89,14 @@ void main() {
         final run = simulate(adaptive: false, style: style, seed: seed);
         // Lose → maintain → lose → … several times before the goal.
         expect(run.boundaryWeeks.length, greaterThanOrEqualTo(4), reason: 'seed $seed');
-        expect(run.variants.toSet(),
-            {CheckinVariant.phaseToMaintain, CheckinVariant.phaseToLose},
-            reason: 'only F and G ever run');
+        // F and G until the goal is reached: that check-in is D, and the last.
+        expect(run.variants.toSet(), {
+          CheckinVariant.phaseToMaintain,
+          CheckinVariant.phaseToLose,
+          CheckinVariant.goalReached,
+        }, reason: 'only F, G and then D ever run');
+        expect(run.variants.last, CheckinVariant.goalReached, reason: 'seed $seed');
+        expect(run.variants.where((v) => v == CheckinVariant.goalReached), hasLength(1));
         expect(run.changeWeeks, run.boundaryWeeks, reason: 'seed $seed');
       }
     });

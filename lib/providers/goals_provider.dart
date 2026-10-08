@@ -242,6 +242,21 @@ class GoalsProvider with ChangeNotifier {
     _commit();
   }
 
+  /// "Switch to maintenance" on the goal-reached check-in: the goal becomes
+  /// maintaining (a steady plan, no pace) with [targets] planned from
+  /// [tdee], with no step cap. The user's own change, so saved and synced
+  /// like any goal edit. Does nothing after logout.
+  void switchToMaintenance(CheckinTargets targets, {required double tdee}) {
+    if (_cleared) return;
+    _formulaTdee ??= _tdee;
+    _tdee = tdee;
+    _goalType = MacroCalculatorService.GOAL_MAINTAIN;
+    _pacePct = null;
+    _planStyle = PlanStyle.steady;
+    _setTargets(targets);
+    _commit();
+  }
+
   void _setTargets(CheckinTargets t) {
     _caloriesGoal = t.cals.toDouble();
     _proteinGoal = t.protein.toDouble();

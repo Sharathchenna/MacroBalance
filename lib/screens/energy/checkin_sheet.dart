@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageRoute;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,6 +15,7 @@ import '../../services/energy/targets.dart';
 import '../../services/posthog_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/plan_style_choice.dart';
+import '../onboarding/onboarding_screen.dart';
 
 /// Where a check-in sheet was opened from, for `checkin_shown`.
 enum CheckinSheetSource { auto, chip, history, chart }
@@ -56,6 +58,9 @@ Future<void> showCheckinSheet(
 /// A: changed, with the limit line (E) when a limit set the target.
 /// B: under 25 cals, unchanged. C: not enough data. Copy is adherence-neutral
 /// (plan 9.5): "you averaged", never "you went over".
+/// D (plan 9.5): the goal weight was reached. The one check-in that asks
+/// instead of applying: Switch to maintenance or Set a new goal, while the
+/// choice is still open.
 /// F and G (plan 9.6): a phase ended into a maintenance break or the next
 /// loss phase. Their second choice ("Keep losing instead", "Extend break")
 /// is offered while it can still be made.
@@ -76,6 +81,9 @@ class CheckinSheet extends StatelessWidget {
     final canChange = phaseChange && (energy?.canChangePhase(checkin) ?? false);
     final phaseBody = copy.phaseBody;
     final alternative = canChange ? copy.secondaryAction : null;
+    final goalReached = checkin.variant == CheckinVariant.goalReached;
+    final canChoose = goalReached && (energy?.canChooseGoal(checkin) ?? false);
+    final maintenance = canChoose ? energy!.maintenanceTargets(checkin) : null;
     final secondary =
         GoogleFonts.inter(fontSize: 14, height: 1.45, color: colors.textSecondary);
     final limitLine = copy.limitLine;
@@ -125,37 +133,43 @@ class CheckinSheet extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(subtitle, style: secondary),
               ],
-              const SizedBox(height: 14),
-              Text.rich(
-                key: const Key('checkin_target'),
-                TextSpan(
-                  children: [
-                    if (changed)
+              if (!goalReached || maintenance != null) ...[
+                const SizedBox(height: 14),
+                if (goalReached) ...[
+                  Text('If you switch to maintenance', style: secondary),
+                  const SizedBox(height: 2),
+                ],
+                Text.rich(
+                  key: const Key('checkin_target'),
+                  TextSpan(
+                    children: [
+                      if (changed || goalReached)
+                        TextSpan(
+                          text: '${fmtCals(checkin.oldTargets.cals)} → ',
+                          style: TextStyle(color: colors.textSecondary),
+                        ),
+                      TextSpan(text: fmtCals((maintenance ?? checkin.newTargets).cals)),
                       TextSpan(
-                        text: '${fmtCals(checkin.oldTargets.cals)} → ',
-                        style: TextStyle(color: colors.textSecondary),
+                        text: ' cals',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: colors.textSecondary,
+                        ),
                       ),
-                    TextSpan(text: fmtCals(checkin.newTargets.cals)),
-                    TextSpan(
-                      text: ' cals',
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: colors.textSecondary,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  style: GoogleFonts.inter(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                    color: colors.textPrimary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
-                style: GoogleFonts.inter(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  color: colors.textPrimary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(copy.macroLine, style: secondary),
+                const SizedBox(height: 4),
+                Text(copy.macroLineFor(maintenance), style: secondary),
+              ],
               if (phaseBody != null) ...[
                 const SizedBox(height: 14),
                 Text(
@@ -217,7 +231,11 @@ class CheckinSheet extends StatelessWidget {
                     if (checkin.variant == CheckinVariant.phaseToMaintain && canChange) {
                       trackPhaseAction(PhaseAction.startBreak);
                     }
-                    Navigator.pop(context);
+                    if (canChoose && maintenance != null) {
+                      _switchToMaintenance(context, energy!);
+                    } else {
+                      Navigator.pop(context);
+                    }
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: colors.accentPrimary,
@@ -226,11 +244,29 @@ class CheckinSheet extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
-                    copy.primaryAction,
+                    canChoose && maintenance != null ? 'Switch to maintenance' : copy.primaryAction,
                     style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
+              if (canChoose) ...[
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    key: const Key('checkin_set_new_goal'),
+                    onPressed: () => _setNewGoal(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.textSecondary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      'Set a new goal',
+                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
               if (alternative != null) ...[
                 const SizedBox(height: 6),
                 SizedBox(
@@ -256,6 +292,25 @@ class CheckinSheet extends StatelessWidget {
     );
   }
 
+  /// D's "Switch to maintenance", then close.
+  Future<void> _switchToMaintenance(BuildContext context, EnergyProvider energy) async {
+    final navigator = Navigator.of(context);
+    trackGoalReachedAction(GoalReachedAction.switchToMaintenance);
+    await energy.switchToMaintenance(checkin);
+    navigator.pop();
+  }
+
+  /// D's "Set a new goal": close, then the recalculate flow.
+  void _setNewGoal(BuildContext context) {
+    HapticFeedback.lightImpact();
+    trackGoalReachedAction(GoalReachedAction.setNewGoal);
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(CupertinoPageRoute<void>(
+      builder: (_) => const OnboardingScreen(recalculateOnly: true, goalReached: true),
+    ));
+  }
+
   /// "Keep losing instead" (F) or "Extend break" (G), then close.
   Future<void> _changePhase(BuildContext context, EnergyProvider energy) async {
     HapticFeedback.lightImpact();
@@ -270,6 +325,20 @@ class CheckinSheet extends StatelessWidget {
     navigator.pop();
   }
 }
+
+/// What the user did on the goal-reached check-in.
+enum GoalReachedAction {
+  switchToMaintenance('switch_to_maintenance'),
+  setNewGoal('set_new_goal');
+
+  const GoalReachedAction(this.code);
+
+  final String code;
+}
+
+/// Sends `goal_reached_action{action}`.
+void trackGoalReachedAction(GoalReachedAction action) =>
+    PostHogService.trackEvent('goal_reached_action', properties: {'action': action.code});
 
 /// A tinted line set apart from the rest: the limit line, what's missing.
 class _Note extends StatelessWidget {
@@ -324,11 +393,19 @@ class CheckinCopy {
         CheckinVariant.changed => 'Your new daily target',
         CheckinVariant.unchanged => "You're right on track",
         CheckinVariant.insufficient => 'Not enough data to update this week',
+        CheckinVariant.goalReached => _goalTitle,
         CheckinVariant.phaseToMaintain => _breakTitle,
         CheckinVariant.phaseToLose =>
           lossPhaseNumber == null ? 'Ready for your next phase' : 'Ready for phase $lossPhaseNumber',
-        _ => 'Weekly check-in',
       };
+
+  /// D's headline: "You've reached 75 kg 🎉".
+  String get _goalTitle {
+    final goal = _r.goalWeightKg;
+    return goal == null
+        ? "You've reached your goal 🎉"
+        : "You've reached ${_weight(goal, places: 1)} 🎉";
+  }
 
   /// F's headline, by why the loss phase ended.
   String get _breakTitle {
@@ -385,14 +462,14 @@ class CheckinCopy {
         return _r.state == EnergyState.paused
             ? 'Estimate paused, targets kept'
             : 'Not enough data yet, targets kept';
+      case CheckinVariant.goalReached:
+        return 'Goal weight reached';
       case CheckinVariant.phaseToMaintain:
         return 'Maintenance break started';
       case CheckinVariant.phaseToLose:
         return lossPhaseNumber == null
             ? 'Next loss phase started'
             : 'Phase $lossPhaseNumber started';
-      default:
-        return 'Weekly check-in';
     }
   }
 
@@ -414,9 +491,32 @@ class CheckinCopy {
       v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
   String? get subtitle => switch (checkin.variant) {
+        CheckinVariant.goalReached => _goalSubtitle,
         CheckinVariant.unchanged || CheckinVariant.insufficient => 'Your targets stay the same.',
         _ => null,
       };
+
+  /// D: where the trend weight is, and that nothing changes until a choice.
+  String get _goalSubtitle {
+    final trend = _r.trendWeightKg;
+    final at = trend == null
+        ? ''
+        : 'Your trend weight is ${_weight(trend, places: 1, keepZero: true)}. ';
+    return '${at}Your targets stay as they are until you choose.';
+  }
+
+  /// [macroLine], or for D the macros of the maintenance [targets] it offers.
+  String macroLineFor(CheckinTargets? targets) {
+    if (targets == null) return macroLine;
+    return CheckinCopy(GoalCheckin(
+      weekStart: checkin.weekStart,
+      variant: checkin.variant,
+      oldTargets: checkin.oldTargets,
+      newTargets: targets,
+      reason: checkin.reason,
+      createdAt: checkin.createdAt,
+    )).macroLine;
+  }
 
   /// "Protein 150 g · Carbs 220 g (+12) · Fat 65 g": a change shows only
   /// when it's 5 g or more.
@@ -515,7 +615,9 @@ class CheckinCopy {
 
   /// "This week: −0.45 kg · Goal 75 kg · about 11 weeks to go".
   String? get footer {
-    if (checkin.variant == CheckinVariant.insufficient || checkin.variant.isPhaseChange) {
+    if (checkin.variant == CheckinVariant.insufficient ||
+        checkin.variant == CheckinVariant.goalReached ||
+        checkin.variant.isPhaseChange) {
       return null;
     }
     final parts = <String>[];

@@ -548,6 +548,27 @@ PhaseEdit closeForGoal(Iterable<GoalPhase> phases, {required DateTime on}) {
       : PhaseEdit(upserts: [open.close(on, PhaseEndReason.goalReached)]);
 }
 
+/// "Switch to maintenance" on the goal-reached check-in (spec 6.8 row 1): the
+/// open phase closes as `goal_reached` and a steady, open-ended maintain
+/// phase starts [on] from [trendKg]. Nothing to do when the plan is already
+/// maintaining (the choice was made, here or on another device).
+PhaseEdit switchToMaintenance(
+  Iterable<GoalPhase> phases, {
+  required DateTime on,
+  required double trendKg,
+}) {
+  final open = currentPhase(phases);
+  if (open != null && open.kind == PhaseKind.maintain && open.plannedWeeks == null) {
+    return PhaseEdit.none;
+  }
+  final seq = phases.fold<int>(0, (m, p) => max(m, p.seq)) + 1;
+  return PhaseEdit(upserts: [
+    if (open != null) open.close(on, PhaseEndReason.goalReached),
+    firstPhase(
+        style: PlanStyle.steady, goal: GoalKind.maintain, seq: seq, on: on, trendKg: trendKg),
+  ]);
+}
+
 /// The days the diet really switched (lose ↔ maintain ↔ gain), for the
 /// estimator's settle period: starts of phases whose kind differs from the
 /// phase before. Phases that never ran (skipped, or ended the day they
