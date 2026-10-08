@@ -367,30 +367,31 @@ class _ResultsScreenState extends State<ResultsScreen>
               },
             ),
             const SizedBox(height: 16),
-            Row(
+            Text.rich(
               key: const Key('results_adaptive_line'),
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  widget.adaptiveGoals
-                      ? Icons.autorenew_rounded
-                      : Icons.lock_outline_rounded,
-                  size: 16,
-                  color: customColors.textSecondary,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    AdaptiveChoiceCopy.resultLine(widget.adaptiveGoals),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+              TextSpan(children: [
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Icon(
+                      widget.adaptiveGoals
+                          ? Icons.autorenew_rounded
+                          : Icons.lock_outline_rounded,
+                      size: 16,
                       color: customColors.textSecondary,
                     ),
                   ),
                 ),
-              ],
+                TextSpan(
+                    text: AdaptiveChoiceCopy.resultLine(widget.adaptiveGoals)),
+              ]),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: customColors.textSecondary,
+              ),
             ),
             const SizedBox(height: 20),
             Container(

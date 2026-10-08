@@ -135,10 +135,7 @@ class GoalsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Semantics(
-            toggled: adaptive,
-            label: 'Weekly updates',
-            excludeSemantics: true,
+          MergeSemantics(
             child: InkWell(
               key: const Key('energy_adaptive_toggle'),
               onTap: () => changeAdaptiveGoals(context, to: !adaptive),

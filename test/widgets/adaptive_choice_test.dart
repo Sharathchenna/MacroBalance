@@ -130,7 +130,7 @@ void main() {
       await tester.tap(find.text('Calculate'));
       await pumpFrames(tester, seconds: 2);
       expect(find.byType(ResultsScreen), findsOneWidget);
-      expect(find.text('Fixed target'), findsOneWidget);
+      expect(find.textContaining('Fixed target', findRichText: true), findsOneWidget);
 
       final saved =
           jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
@@ -162,7 +162,7 @@ void main() {
       expect(find.text('Fixed'), findsOneWidget);
       await tester.tap(find.text('Calculate'));
       await pumpFrames(tester, seconds: 2);
-      expect(find.text('Fixed target'), findsOneWidget);
+      expect(find.textContaining('Fixed target', findRichText: true), findsOneWidget);
 
       await tester.tap(find.text('Save New Goals'));
       await pumpFrames(tester, seconds: 2);
@@ -194,9 +194,9 @@ void main() {
           ),
         );
         expect(
-            find.text(adaptive
+            find.textContaining(adaptive
                 ? 'Updates weekly as we learn your metabolism'
-                : 'Fixed target'),
+                : 'Fixed target', findRichText: true),
             findsOneWidget);
       });
     }
