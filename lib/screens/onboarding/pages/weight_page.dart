@@ -11,16 +11,30 @@ class WeightPage extends StatelessWidget {
   final ValueChanged<double> onWeightChanged;
   final ValueChanged<bool> onUnitChanged;
 
+  /// The trend weight, offered as a one-tap answer when recalculating after
+  /// a recent weigh-in (plan 10.4); null hides it.
+  final double? trendKg;
+
+  /// Takes [trendKg] and moves on.
+  final VoidCallback? onUseTrend;
+
   const WeightPage({
     super.key,
     required this.currentWeightKg,
     required this.isMetric,
     required this.onWeightChanged,
     required this.onUnitChanged,
+    this.trendKg,
+    this.onUseTrend,
   });
 
   // Calculate imperial weight locally for the picker
   int get _imperialWeightLbs => (currentWeightKg * 2.20462).round();
+
+  /// "81.4 kg" or "179 lbs", as the picker shows it.
+  String _weightText(double kg) => isMetric
+      ? '${kg.toStringAsFixed(1)} kg'
+      : '${(kg * 2.20462).round()} lbs';
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +190,49 @@ class WeightPage extends StatelessWidget {
               ],
             ),
           ),
+          if (trendKg != null && onUseTrend != null) ...[
+            const SizedBox(height: 20),
+            _UseTrendButton(
+              label: 'Use ${_weightText(trendKg!)} (your trend)',
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                onUseTrend!();
+              },
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// The soft accent pill (the Log button idiom) for the one-tap trend weight.
+class _UseTrendButton extends StatelessWidget {
+  const _UseTrendButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.extension<CustomColors>()?.accentPrimary ??
+        theme.colorScheme.primary;
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.show_chart_rounded, size: 20),
+        label: Text(label,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        style: TextButton.styleFrom(
+          foregroundColor: accent,
+          iconColor: accent,
+          backgroundColor: accent.withValues(alpha: 0.12),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }

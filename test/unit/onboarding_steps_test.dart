@@ -27,9 +27,12 @@ void main() {
           steps.indexOf(OnboardingStep.adaptive) + 1);
     });
 
-    test('recalculating keeps the saved adaptive choice without asking', () {
-      expect(onboardingStepsFor(recalculateOnly: true),
-          isNot(contains(OnboardingStep.adaptive)));
+    test('recalculating asks the adaptive choice after the goal details', () {
+      final steps = onboardingStepsFor(recalculateOnly: true);
+      expect(steps.indexOf(OnboardingStep.adaptive),
+          steps.indexOf(OnboardingStep.setNewGoal) + 1);
+      expect(steps.indexOf(OnboardingStep.advanced),
+          steps.indexOf(OnboardingStep.adaptive) + 1);
     });
 
     test('recalculating skips welcome and Apple Health but keeps the order', () {
@@ -53,6 +56,7 @@ void main() {
       OnboardingStep.activity,
       OnboardingStep.goal,
       OnboardingStep.setNewGoal,
+      OnboardingStep.adaptive,
       OnboardingStep.advanced,
       OnboardingStep.summary,
     ]);
@@ -65,8 +69,8 @@ void main() {
 
   group('isOnboardingStepSkipped', () {
     test('maintaining skips the goal-weight step', () {
-      expect(isOnboardingStepSkipped(
-              OnboardingStep.setNewGoal, MacroCalculatorService.GOAL_MAINTAIN),
+      expect(isOnboardingStepSkipped(OnboardingStep.setNewGoal,
+              goal: MacroCalculatorService.GOAL_MAINTAIN),
           isTrue);
     });
 
@@ -76,21 +80,48 @@ void main() {
         MacroCalculatorService.GOAL_MAINTAIN,
         MacroCalculatorService.GOAL_GAIN,
       ]) {
-        expect(isOnboardingStepSkipped(OnboardingStep.adaptive, goal), isFalse,
+        expect(isOnboardingStepSkipped(OnboardingStep.adaptive, goal: goal), isFalse,
             reason: goal);
       }
     });
 
     test('losing or gaining asks for a goal weight', () {
       for (final goal in [MacroCalculatorService.GOAL_LOSE, MacroCalculatorService.GOAL_GAIN]) {
-        expect(isOnboardingStepSkipped(OnboardingStep.setNewGoal, goal), isFalse,
+        expect(isOnboardingStepSkipped(OnboardingStep.setNewGoal, goal: goal), isFalse,
             reason: goal);
+      }
+    });
+
+    test('activity is skipped when planning from the learned expenditure', () {
+      for (final goal in [
+        MacroCalculatorService.GOAL_LOSE,
+        MacroCalculatorService.GOAL_MAINTAIN,
+        MacroCalculatorService.GOAL_GAIN,
+      ]) {
+        expect(
+            isOnboardingStepSkipped(OnboardingStep.activity,
+                goal: goal, usesLearnedExpenditure: true),
+            isTrue,
+            reason: goal);
+        expect(isOnboardingStepSkipped(OnboardingStep.activity, goal: goal), isFalse,
+            reason: goal);
+      }
+    });
+
+    test('the learned expenditure skips nothing but activity', () {
+      for (final step in OnboardingStep.values.where((s) => s != OnboardingStep.activity)) {
+        expect(
+            isOnboardingStepSkipped(step,
+                goal: MacroCalculatorService.GOAL_LOSE, usesLearnedExpenditure: true),
+            isFalse,
+            reason: step.name);
       }
     });
 
     test('no other step is ever skipped', () {
       for (final step in OnboardingStep.values.where((s) => s != OnboardingStep.setNewGoal)) {
-        expect(isOnboardingStepSkipped(step, MacroCalculatorService.GOAL_MAINTAIN), isFalse,
+        expect(isOnboardingStepSkipped(step, goal: MacroCalculatorService.GOAL_MAINTAIN),
+            isFalse,
             reason: step.name);
       }
     });

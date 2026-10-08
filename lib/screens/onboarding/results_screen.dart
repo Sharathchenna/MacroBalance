@@ -801,7 +801,9 @@ class _ResultsScreenState extends State<ResultsScreen>
               '${widget.results['tdee']} cals/day',
               Icons.directions_run_rounded,
               Colors.green.shade600,
-              'This is your BMR plus calories burned through daily activity.',
+              widget.results['tdee_learned'] == true
+                  ? 'Learned from your food logs and weigh-ins, so no activity estimate is needed.'
+                  : 'This is your BMR plus calories burned through daily activity.',
             ),
             SizedBox(height: 16),
             _buildInfoRow(

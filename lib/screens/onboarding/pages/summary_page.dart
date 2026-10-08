@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/widgets/targets_change.dart';
 import '../onboarding_steps.dart';
 
 class SummaryPage extends StatelessWidget {
@@ -23,6 +26,15 @@ class SummaryPage extends StatelessWidget {
   /// Null means all of them.
   final Set<OnboardingStep>? editableSteps;
 
+  /// Recalculating: the targets now and what these answers give, shown old →
+  /// new at the top. Null for new users.
+  final GoalTargets? currentTargets;
+  final GoalTargets? newTargets;
+
+  /// The learned expenditure the new targets come from instead of the
+  /// activity level (spec 7.6); null when they come from the formula.
+  final double? learnedTdee;
+
   const SummaryPage({
     super.key,
     required this.gender,
@@ -39,7 +51,15 @@ class SummaryPage extends StatelessWidget {
     this.adaptiveGoals = true,
     required this.onEdit,
     this.editableSteps,
+    this.currentTargets,
+    this.newTargets,
+    this.learnedTdee,
   });
+
+  /// The line under the targets when activity wasn't asked (plan 10.4).
+  static String learnedExpenditureLine(double tdee) =>
+      'Using your learned expenditure (${NumberFormat('#,###').format(tdee.round())} cals) '
+      'instead of an activity estimate.';
 
   String _getActivityLevelText() {
     switch (activityLevel) {
@@ -113,11 +133,13 @@ class SummaryPage extends StatelessWidget {
     ];
 
     final List<Map<String, dynamic>> activityGoalsItems = [
-      {
-        'label': 'Activity Level',
-        'value': _getActivityLevelText(),
-        'page': activityLevelPageIndex
-      },
+      // The learned expenditure stands in for the activity level.
+      if (learnedTdee == null)
+        {
+          'label': 'Activity Level',
+          'value': _getActivityLevelText(),
+          'page': activityLevelPageIndex
+        },
       {'label': 'Goal', 'value': _getGoalText(), 'page': goalPageIndex},
     ];
     if (goal != MacroCalculatorService.GOAL_MAINTAIN) {
@@ -177,6 +199,10 @@ class SummaryPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 32),
+          if (currentTargets != null && newTargets != null) ...[
+            _buildTargetsSection(context),
+            const SizedBox(height: 24),
+          ],
           _buildSummarySection(context,
               title: 'Personal Information',
               icon: Icons.person,
@@ -196,10 +222,63 @@ class SummaryPage extends StatelessWidget {
     );
   }
 
+  /// "Your Targets": each target old → new, and where the new ones come from.
+  Widget _buildTargetsSection(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    final theme = Theme.of(context);
+    return _buildSection(
+      context,
+      title: 'Your Targets',
+      icon: Icons.track_changes,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: TargetsChangeRows(before: currentTargets!, after: newTargets!),
+        ),
+        if (learnedTdee != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1, right: 8),
+                  child: Icon(Icons.autorenew_rounded,
+                      size: 16, color: customColors?.textSecondary),
+                ),
+                Expanded(
+                  child: Text(
+                    learnedExpenditureLine(learnedTdee!),
+                    style: AppTypography.caption.copyWith(
+                      color: customColors?.textSecondary ??
+                          theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildSummarySection(BuildContext context,
+          {required String title,
+          required IconData icon,
+          required List<Map<String, dynamic>> items}) =>
+      _buildSection(context, title: title, icon: icon, children: [
+        ...items.where((item) => item.containsKey('value')).map((item) =>
+            _buildSummaryItem(context,
+                label: item['label'],
+                value: item['value'].toString(),
+                page: item['page'])),
+      ]);
+
+  /// A card with an icon header and [children] under a divider.
+  Widget _buildSection(BuildContext context,
       {required String title,
       required IconData icon,
-      required List<Map<String, dynamic>> items}) {
+      required List<Widget> children}) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
     return Container(
@@ -234,11 +313,7 @@ class SummaryPage extends StatelessWidget {
                     ))
               ])),
           Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.1)),
-          ...items.where((item) => item.containsKey('value')).map((item) =>
-              _buildSummaryItem(context,
-                  label: item['label'],
-                  value: item['value'].toString(),
-                  page: item['page'])),
+          ...children,
         ],
       ),
     );

@@ -13,6 +13,7 @@ void main() {
     String goal = MacroCalculatorService.GOAL_MAINTAIN,
     double? pacePct,
     double? goalWeightKg,
+    double? tdee,
   }) =>
       calc.calculateAll(
         gender: gender,
@@ -23,6 +24,7 @@ void main() {
         goal: goal,
         pacePct: pacePct,
         goalWeightKg: goalWeightKg,
+        tdee: tdee,
       );
 
   num n(Map<String, dynamic> r, String k) => r[k] as num;
@@ -126,6 +128,23 @@ void main() {
     expect(n(fast, 'target_calories'), closeTo(n(fast, 'tdee') * 0.75, 1));
     expect(fast['limit_hit'], 'maxDeficit');
     expect(n(fast, 'effective_pace_pct'), lessThan(1.0));
+  });
+
+  test('a learned expenditure replaces the formula, which is still reported', () {
+    final formula = run(goal: MacroCalculatorService.GOAL_LOSE, pacePct: 0.5, goalWeightKg: 75);
+    expect(formula['tdee_learned'], isFalse);
+    expect(formula['formula_tdee'], formula['tdee']);
+
+    final learned = run(
+        goal: MacroCalculatorService.GOAL_LOSE, pacePct: 0.5, goalWeightKg: 75, tdee: 3000);
+    expect(learned['tdee_learned'], isTrue);
+    expect(learned['tdee'], 3000);
+    expect(learned['formula_tdee'], formula['tdee']);
+    final ed = n(learned, 'energy_density');
+    expect(n(learned, 'target_calories'), closeTo(3000 - 0.005 * 80 * ed / 7, 1));
+    // Weeks to goal and the weekly change follow the learned value too.
+    expect(n(learned, 'weekly_weight_change'),
+        closeTo((n(learned, 'target_calories') - 3000) * 7 / ed, 0.01));
   });
 
   test('no pace means the recommended one', () {

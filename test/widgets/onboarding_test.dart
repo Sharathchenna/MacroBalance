@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
-import 'package:macrotracker/screens/onboarding/pages/advanced_settings_page.dart';
+import 'package:macrotracker/screens/onboarding/pages/adaptive_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/goal_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/set_new_goal_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/weight_page.dart';
@@ -106,7 +106,7 @@ void main() {
     expect(visible(GoalPage), findsOneWidget);
 
     await next(tester);
-    expect(visible(AdvancedSettingsPage), findsOneWidget);
+    expect(visible(AdaptivePage), findsOneWidget);
     expect(visible(SetNewGoalPage), findsNothing);
 
     await tester.tap(find.text('Back'));

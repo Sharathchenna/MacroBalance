@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
@@ -6,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:macrotracker/services/energy/bmr.dart';
 import 'package:macrotracker/services/energy/checkin_day.dart';
 import 'package:macrotracker/services/energy/constants.dart';
+import 'package:macrotracker/services/energy/energy_summary.dart';
+import 'package:macrotracker/services/energy/recalculate.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
@@ -56,7 +59,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   int get _totalPages => _steps.length;
   OnboardingStep get _currentStep => _steps[_currentPage];
 
-  bool _isSkipped(OnboardingStep step) => isOnboardingStepSkipped(step, _goal);
+  bool _isSkipped(OnboardingStep step) => isOnboardingStepSkipped(step,
+      goal: _goal, usesLearnedExpenditure: _usesLearnedTdee);
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
@@ -74,6 +78,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   double? _bodyFatPercentage; // null until the user sets one
   bool _showBodyFatInput = false;
   bool _adaptiveGoals = true; // recommended; see AdaptivePage
+  // Recalculating only (spec 7.6): the targets now, the confident learned
+  // expenditure, and the trend weight offered after a recent weigh-in.
+  GoalTargets? _currentTargets;
+  double? _learnedTdee;
+  double? _recentTrendKg;
   // Start in the unit system of the phone's region.
   bool _isMetricWeight = WeightUnitProvider.localeDefaultIsMetric();
   bool _isMetricHeight = WeightUnitProvider.localeDefaultIsMetric();
@@ -87,6 +96,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       bodyFatKnown: _knownBodyFat != null);
 
   GoalKind get _goalKind => MacroCalculatorService.goalKindOf(_goal);
+
+  /// Plans come from the learned expenditure while adaptive goals are on
+  /// and it's confident; activity isn't asked then (spec 7.6).
+  bool get _usesLearnedTdee => _adaptiveGoals && _learnedTdee != null;
+
+  /// The expenditure the targets come from.
+  double get _tdee => _usesLearnedTdee ? _learnedTdee! : _formulaTdee;
 
   double get _formulaTdee => formulaTdee(
         sex: MacroCalculatorService.sexOf(_gender),
@@ -102,7 +118,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       targetForPace(
         goal: _goalKind,
         pacePct: pacePct,
-        tdee: tdee ?? _formulaTdee,
+        tdee: tdee ?? _tdee,
         sex: MacroCalculatorService.sexOf(_gender),
         weightKg: _weightKg,
         energyDensity: kcalPerKg ?? _kcalPerKg,
@@ -110,7 +126,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   /// Every pace offered for the goal, with its cals and weeks to the goal.
   List<PaceChoice> _paceChoices() {
-    final tdee = _formulaTdee;
+    final tdee = _tdee;
     final kcalPerKg = _kcalPerKg;
     final options = _goalKind == GoalKind.gain ? kGainPaceOptions : kLosePaceOptions;
     return [
@@ -162,10 +178,26 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (widget.recalculateOnly) _prefillFromCurrentGoals();
   }
 
-  /// Starts recalculation from what the app already knows.
+  /// Starts recalculation from what the app already knows: the trend
+  /// weight (else the profile weight), the account profile, the goal
+  /// settings and, once confident, the learned expenditure.
   void _prefillFromCurrentGoals() {
     final goals = Provider.of<GoalsProvider>(context, listen: false);
+    final energy = Provider.of<EnergyProvider>(context, listen: false);
     if (goals.currentWeightKg > 0) _weightKg = goals.currentWeightKg;
+    final trend =
+        weightPrefill(EnergyProvider.storedWeights(), today: DateTime.now());
+    if (trend != null) {
+      // To the picker's 0.1 kg.
+      _weightKg = (trend.kg * 10).round() / 10;
+      if (trend.recent) _recentTrendKg = _weightKg;
+    }
+    _currentTargets = goals.targets;
+    _learnedTdee = learnedTdee(EnergySummary.from(
+      estimates: energy.estimates,
+      learningStartedOn: goals.learningStartedOn,
+      formulaTdee: goals.formulaTdee ?? goals.tdee,
+    ));
     // Sex, height and age aren't asked again: they come from the account.
     _gender = goals.sex ?? _gender;
     _heightCm = goals.heightCm ?? _heightCm;
@@ -212,7 +244,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   DateTime? _calculateProjectedDate() {
     if (_goal == MacroCalculatorService.GOAL_MAINTAIN) return null;
-    final tdee = _formulaTdee;
+    final tdee = _tdee;
     final weeks = weeksToGoal(
       weightKg: _weightKg,
       goalWeightKg: _goalWeightKg,
@@ -278,9 +310,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // --- End Navigation ---
 
   // --- Calculation & Saving ---
-  void _calculateAndShowResults() async {
-    final calculatorService = MacroCalculatorService();
-    final results = calculatorService.calculateAll(
+  /// The plan the answers so far give.
+  Map<String, dynamic> _calculate() => MacroCalculatorService().calculateAll(
       gender: _gender,
       weightKg: _weightKg,
       heightCm: _heightCm,
@@ -293,8 +324,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       goalWeightKg:
           _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
       bodyFatPercentage: _knownBodyFat,
+      tdee: _usesLearnedTdee ? _learnedTdee : null,
     );
-    
+
+  GoalTargets _targetsOf(Map<String, dynamic> results) => GoalTargets(
+        calories: (results['target_calories'] as num).toDouble(),
+        protein: (results['protein_g'] as num).toDouble(),
+        carbs: (results['carb_g'] as num).toDouble(),
+        fat: (results['fat_g'] as num).toDouble(),
+      );
+
+  void _calculateAndShowResults() async {
+    final results = _calculate();
+
     if (_goal != MacroCalculatorService.GOAL_MAINTAIN) {
       PostHogService.trackEvent('pace_chosen', properties: {
         'pct': _pacePct,
@@ -316,6 +358,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'age': _age,
       'activity_level': _activityLevel,
       'target_calories': results['target_calories'],
+      'tdee_learned': results['tdee_learned'],
       'timestamp': DateTime.now().toIso8601String(),
     });
     
@@ -403,7 +446,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'body_fat_pct': _knownBodyFat,
       'protein_g_per_kg': _proteinRatio,
       'fat_ratio': _fatRatio.toDouble(),
-      'formula_tdee': macroResults['tdee']?.toDouble(),
+      'formula_tdee': _keepsFormulaTdee
+          ? goals.formulaTdee ?? goals.tdee
+          : macroResults['formula_tdee']?.toDouble(),
       'bmr': macroResults['bmr']?.toDouble(),
       'tdee': macroResults['tdee']?.toDouble(),
       'steps_goal': macroResults['recommended_steps'] ?? 10000,
@@ -415,6 +460,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           : defaultCheckinWeekday(DateTime.now()),
     };
   }
+
+  /// Planning from the learned expenditure asks no activity level, so the
+  /// formula TDEE (the estimator's starting point) stays as it is and the
+  /// learned history replays unchanged.
+  bool get _keepsFormulaTdee => widget.recalculateOnly && _usesLearnedTdee;
 
   Map<String, dynamic> _macroTargets(Map<String, dynamic> macroResults) => {
         'calories': (macroResults['target_calories'] ?? 0).toDouble(),
@@ -606,6 +656,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             _validateRanges();
           }),
           onUnitChanged: (isMetric) => setState(() => _isMetricWeight = isMetric),
+          trendKg: _recentTrendKg,
+          onUseTrend: () {
+            setState(() {
+              _weightKg = _recentTrendKg!;
+              _validateRanges();
+            });
+            _nextPage();
+          },
         );
       case OnboardingStep.height:
         return HeightPage(
@@ -703,6 +761,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           adaptiveGoals: _adaptiveGoals,
           onEdit: _goToStep,
           editableSteps: _steps.toSet(),
+          currentTargets: _currentTargets,
+          newTargets:
+              _currentTargets == null ? null : _targetsOf(_calculate()),
+          learnedTdee: _usesLearnedTdee ? _learnedTdee : null,
         );
     }
   }

@@ -58,6 +58,7 @@ class MacroCalculatorService {
     double? fatRatio,
     double? goalWeightKg,
     double? bodyFatPercentage,
+    double? tdee, // expenditure to plan from; null: the formula's
   }) {
     final sex = sexOf(gender);
     final bmr = basalMetabolicRate(
@@ -67,7 +68,7 @@ class MacroCalculatorService {
       age: age,
       bodyFatPct: bodyFatPercentage,
     );
-    final tdee = formulaTdee(
+    final formula = formulaTdee(
       sex: sex,
       weightKg: weightKg,
       heightCm: heightCm,
@@ -75,6 +76,8 @@ class MacroCalculatorService {
       activityLevel: activityLevel,
       bodyFatPct: bodyFatPercentage,
     );
+    final learned = tdee;
+    tdee ??= formula;
 
     final kcalPerKg = energyDensityFor(
       gender: gender,
@@ -140,6 +143,8 @@ class MacroCalculatorService {
       'goal': goal,
       'bmr': bmr.round(),
       'tdee': tdee.round(),
+      'formula_tdee': formula.round(),
+      'tdee_learned': learned != null,
       'target_calories': targetCalories.round(),
       'protein_g': macros.proteinG,
       'fat_g': macros.fatG,

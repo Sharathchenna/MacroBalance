@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:macrotracker/widgets/targets_change.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/onboarding/pages/age_page.dart';
@@ -129,33 +129,10 @@ class _TargetsChangeDialog extends StatelessWidget {
 
   final ProfileChange change;
 
-  static final _grouped = NumberFormat('#,###');
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final customColors = theme.extension<CustomColors>();
-    final before = change.before;
-    final after = change.after;
-
-    Widget row(String label, double old, double next, String unit) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                        color: customColors?.textSecondary)),
-              ),
-              Text(
-                '${_grouped.format(old.round())} → ${_grouped.format(next.round())} $unit',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        );
-
     return AlertDialog(
       title: const Text('Update your targets?'),
       content: Column(
@@ -166,10 +143,7 @@ class _TargetsChangeDialog extends StatelessWidget {
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: customColors?.textSecondary)),
           const SizedBox(height: 12),
-          row('Calories', before.calories, after.calories, 'cals'),
-          row('Protein', before.protein, after.protein, 'g'),
-          row('Carbs', before.carbs, after.carbs, 'g'),
-          row('Fat', before.fat, after.fat, 'g'),
+          TargetsChangeRows(before: change.before, after: change.after),
         ],
       ),
       actions: [

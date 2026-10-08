@@ -146,7 +146,8 @@ void main() {
           [{'choice': 'fixed', 'context': 'onboarding'}]);
     });
 
-    testWidgets('recalculating keeps the saved choice and check-in day', (tester) async {
+    testWidgets('recalculating asks the choice, prefilled, and keeps the check-in day',
+        (tester) async {
       goals
         ..currentWeightKg = 80
         ..goalType = MacroCalculatorService.GOAL_MAINTAIN
@@ -154,8 +155,14 @@ void main() {
         ..checkinWeekday = DateTime.friday;
       goals.startLearning(DateTime(2026, 9, 7));
       await pump(tester, const OnboardingScreen(recalculateOnly: true));
-      // weight, activity, goal (maintain), advanced -> summary
-      for (var i = 0; i < 4; i++) {
+      // weight, activity, goal (maintain) -> adaptive
+      for (var i = 0; i < 3; i++) {
+        await next(tester);
+      }
+      expect(visible(AdaptivePage), findsOneWidget);
+      expect(tester.widget<AdaptivePage>(find.byType(AdaptivePage)).adaptive, isFalse);
+      // advanced -> summary
+      for (var i = 0; i < 2; i++) {
         await next(tester);
       }
       expect(visible(SummaryPage), findsOneWidget);
@@ -171,8 +178,8 @@ void main() {
       expect(saved['adaptive_goals'], isFalse);
       expect(saved['checkin_weekday'], DateTime.friday);
       expect(saved['learning_started_on'], '2026-09-07');
-      // Not asked, so no choice was made.
-      expect(captured('adaptive_choice_made'), isEmpty);
+      expect(captured('adaptive_choice_made').map(choiceEvent),
+          [{'choice': 'fixed', 'context': 'recalculate'}]);
     });
   });
 
