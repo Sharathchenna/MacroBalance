@@ -88,5 +88,92 @@ void main() {
       expect(() => nextCheckinDay(weekday: 0, today: wednesday), throwsArgumentError);
       expect(() => nextCheckinDay(weekday: 8, today: wednesday), throwsArgumentError);
     });
+
+    test('after a check-in, the next one is a week later at the earliest', () {
+      // Monday Oct 12's check-in has run: Monday's card reads next week.
+      expect(
+          nextCheckinDay(
+              weekday: DateTime.monday,
+              today: DateTime(2026, 10, 12, 9),
+              learningStartedOn: DateTime(2026, 9, 1),
+              lastCheckin: DateTime(2026, 10, 12)),
+          DateTime(2026, 10, 19));
+      // An older check-in doesn't hold today's back.
+      expect(
+          nextCheckinDay(
+              weekday: DateTime.monday,
+              today: DateTime(2026, 10, 12, 9),
+              learningStartedOn: DateTime(2026, 9, 1),
+              lastCheckin: DateTime(2026, 10, 5)),
+          DateTime(2026, 10, 12));
+    });
+
+    test('moving the weekday right after a check-in waits a full week', () {
+      // Checked in Monday Oct 12, then moved to Thursday: not Oct 15.
+      expect(
+          nextCheckinDay(
+              weekday: DateTime.thursday,
+              today: DateTime(2026, 10, 13),
+              lastCheckin: DateTime(2026, 10, 12)),
+          DateTime(2026, 10, 22));
+    });
+  });
+
+  group('dueCheckinWeek', () {
+    final start = DateTime(2026, 9, 7); // a Monday
+
+    DateTime? due(DateTime now, {DateTime? last, int weekday = DateTime.monday, DateTime? learning}) =>
+        dueCheckinWeek(
+          weekday: weekday,
+          now: now,
+          learningStartedOn: learning ?? start,
+          lastCheckin: last,
+        );
+
+    test('on the check-in day from 04:00, the week starts that day', () {
+      expect(due(DateTime(2026, 10, 12, 4)), DateTime(2026, 10, 12));
+      expect(due(DateTime(2026, 10, 12, 23, 59), last: DateTime(2026, 10, 5)),
+          DateTime(2026, 10, 12));
+    });
+
+    test('before 04:00 on the check-in day, nothing is due yet', () {
+      expect(due(DateTime(2026, 10, 12, 3, 59), last: DateTime(2026, 10, 5)), isNull);
+    });
+
+    test('this week has run: nothing is due (restarts, other devices)', () {
+      expect(due(DateTime(2026, 10, 12, 9), last: DateTime(2026, 10, 12)), isNull);
+      expect(due(DateTime(2026, 10, 15), last: DateTime(2026, 10, 12)), isNull);
+    });
+
+    test('missed the day: the first open later that week runs it', () {
+      // Never opened on Monday Oct 12; opens Wednesday.
+      expect(due(DateTime(2026, 10, 14, 8), last: DateTime(2026, 10, 5)),
+          DateTime(2026, 10, 12));
+      // Away for weeks: one check-in, for the latest scheduled day.
+      expect(due(DateTime(2026, 11, 4), last: DateTime(2026, 10, 5)),
+          DateTime(2026, 11, 2));
+    });
+
+    test('not before a week of learning', () {
+      // Learning started Wednesday Oct 7; the first Monday is Oct 12, too soon.
+      final learning = DateTime(2026, 10, 7);
+      expect(due(DateTime(2026, 10, 12, 9), learning: learning), isNull);
+      expect(due(DateTime(2026, 10, 19, 9), learning: learning), DateTime(2026, 10, 19));
+    });
+
+    test('a weekday moved after a check-in waits a week from it', () {
+      // Checked in Monday Oct 12, moved to Thursday: Oct 15 is too soon.
+      expect(due(DateTime(2026, 10, 15, 9), last: DateTime(2026, 10, 12), weekday: DateTime.thursday),
+          isNull);
+      expect(due(DateTime(2026, 10, 22, 9), last: DateTime(2026, 10, 12), weekday: DateTime.thursday),
+          DateTime(2026, 10, 22));
+    });
+
+    test('no learning start: nothing to check in on', () {
+      expect(
+          dueCheckinWeek(
+              weekday: DateTime.monday, now: DateTime(2026, 10, 12, 9), learningStartedOn: null),
+          isNull);
+    });
   });
 }

@@ -62,6 +62,10 @@ const double kNoChangeThreshold = 25;
 /// The first check-in is at least this many days after onboarding (6.8).
 const int kFirstCheckinAfterDays = 7;
 
+/// The check-in runs at the first app open at or after this hour (local) on
+/// the check-in day (6.8).
+const int kCheckinHour = 4;
+
 // --- Phases ---
 const double kPhasedLossPctObese = 10;
 const double kPhasedLossPct = 5;

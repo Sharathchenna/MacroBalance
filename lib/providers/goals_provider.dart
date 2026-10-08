@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:macrotracker/services/energy/age.dart';
 import 'package:macrotracker/services/energy/bmr.dart';
 import 'package:macrotracker/services/energy/body_composition.dart';
+import 'package:macrotracker/services/energy/checkin.dart';
 import 'package:macrotracker/services/energy/checkin_day.dart' as checkin;
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
@@ -155,6 +156,58 @@ class GoalsProvider with ChangeNotifier {
         today: _clock(),
         learningStartedOn: _learningStartedOn,
       );
+
+  /// The next check-in day once the check-in for [lastCheckin]'s week has
+  /// run: a week after it at the earliest.
+  DateTime nextCheckinDayAfter(DateTime? lastCheckin) => checkin.nextCheckinDay(
+        weekday: checkinWeekday,
+        today: _clock(),
+        learningStartedOn: _learningStartedOn,
+        lastCheckin: lastCheckin,
+      );
+
+  /// What a weekly check-in works from (spec 6.8).
+  CheckinSettings get checkinSettings => CheckinSettings(
+        adaptive: _adaptiveGoals,
+        goal: MacroCalculatorService.goalKindOf(_goalType),
+        pacePct: pacePctPerWeek,
+        // As in [_targetsFor]: an unknown sex gets the 1,200 floor.
+        sex: _sex == null ? Sex.female : MacroCalculatorService.sexOf(_sex!),
+        heightCm: heightCm,
+        age: age,
+        bodyFatPct: _bodyFatPct,
+        proteinPerKg: _proteinRatio,
+        fatRatio: _fatRatio,
+        goalWeightKg: _goalWeightKg > 0 ? _goalWeightKg : null,
+      );
+
+  /// The daily targets in whole cals and grams, as a check-in records them.
+  CheckinTargets get checkinTargets => CheckinTargets(
+        cals: _caloriesGoal.round(),
+        protein: _proteinGoal.round(),
+        carbs: _carbsGoal.round(),
+        fat: _fatGoal.round(),
+      );
+
+  /// Applies a check-in's new targets, set from the learned expenditure
+  /// [tdee], and waits for `user_macros` to be written (the check-in row
+  /// comes after it, spec 6.8).
+  ///
+  /// [tdee] becomes the expenditure the targets came from. The estimator's
+  /// prior falls back to it when there's no formula TDEE, so an account
+  /// without one first keeps the old value as its formula TDEE: a check-in
+  /// never moves the starting estimate.
+  Future<void> applyCheckinTargets(CheckinTargets targets, {required double tdee}) async {
+    _formulaTdee ??= _tdee;
+    _tdee = tdee;
+    _caloriesGoal = targets.cals.toDouble();
+    _proteinGoal = targets.protein.toDouble();
+    _carbsGoal = targets.carbs.toDouble();
+    _fatGoal = targets.fat.toDouble();
+    _save();
+    notifyListeners();
+    await syncToCloud();
+  }
 
   /// Completes when the weight history restore started at sign-in has
   /// finished (at once if none was started).

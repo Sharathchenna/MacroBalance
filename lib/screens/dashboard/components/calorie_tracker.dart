@@ -8,10 +8,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../Health/Health.dart';
 import '../../../providers/dateProvider.dart';
+import '../../../providers/energy_provider.dart';
 import '../../../providers/foodEntryProvider.dart';
 import '../../../providers/goals_provider.dart';
 import '../../../screens/NutritionTrendsScreen.dart';
 import '../../../screens/StepsTrackingScreen.dart';
+import '../../../screens/energy/checkin_sheet.dart';
+import '../../../services/energy/checkin.dart';
 import '../../../services/storage_service.dart';
 import '../../../theme/app_theme.dart';
 
@@ -320,16 +323,21 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                         : Colors.grey.shade400,
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    "Today's Nutrition and Activity",
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.grey.shade700
-                          : Colors.grey.shade400,
+                  Flexible(
+                    child: Text(
+                      "Today's Nutrition and Activity",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade400,
+                      ),
                     ),
                   ),
+                  const CheckinChip(),
                 ]),
               ),
               Column(
@@ -456,6 +464,53 @@ class _CalorieTrackerState extends State<CalorieTracker> {
           ),
         );
       },
+    );
+  }
+}
+
+/// "Targets updated" on the day a check-in ran (spec 7.4): reopens its sheet
+/// until the day ends. Check-ins that kept the targets read "Weekly check-in".
+class CheckinChip extends StatelessWidget {
+  const CheckinChip({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final checkin = context.watch<EnergyProvider>().todaysCheckin;
+    if (checkin == null) return const SizedBox.shrink();
+    final colors = Theme.of(context).extension<CustomColors>()!;
+    final changed = checkin.variant == CheckinVariant.changed;
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Material(
+        color: colors.accentPrimary.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: const Key('checkin_chip'),
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            showCheckinSheet(context, checkin, source: CheckinSheetSource.chip);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.autorenew_rounded, size: 14, color: colors.accentPrimary),
+                const SizedBox(width: 4),
+                Text(
+                  changed ? 'Targets updated' : 'Weekly check-in',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: colors.accentPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

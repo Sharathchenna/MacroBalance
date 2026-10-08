@@ -4,14 +4,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/energy_provider.dart';
 import '../../providers/goals_provider.dart';
+import '../../services/energy/checkin.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/adaptive_choice.dart';
 import '../../widgets/progress_card.dart';
 
 /// Energy tab → the targets and how they're kept up to date (spec 7.1 R5).
 ///
-/// Adaptive on: the current target and the next check-in day. Adaptive off:
+/// Adaptive on: the current target, the next check-in day and what a
+/// check-in would likely do if it ran today (plan 9.2 item 5). Adaptive off:
 /// the fixed target. Both have the "Weekly updates" switch, which confirms
 /// with the onboarding question before changing anything.
 class GoalsCard extends StatelessWidget {
@@ -44,6 +47,8 @@ class GoalsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<CustomColors>()!;
     final goals = context.watch<GoalsProvider>();
+    final energy = context.watch<EnergyProvider>();
+    final likely = goals.adaptiveGoals ? likelyChangeText(energy.previewCheckin()) : null;
     final cals = NumberFormat.decimalPattern().format(goals.caloriesGoal.round());
     final adaptive = goals.adaptiveGoals;
     final secondary =
@@ -116,12 +121,18 @@ class GoalsCard extends StatelessWidget {
                               const TextSpan(text: 'Next check-in: '),
                               TextSpan(
                                 text: checkinDayText(
-                                    goals.nextCheckinDay, DateTime.now()),
+                                    energy.nextCheckinDay ?? goals.nextCheckinDay,
+                                    DateTime.now()),
                                 style: const TextStyle(fontWeight: FontWeight.w600),
                               ),
                               const TextSpan(
                                   text: '. Your targets will update from this '
                                       'estimate.'),
+                              if (likely != null)
+                                TextSpan(
+                                  text: ' $likely',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
                             ],
                           ),
                         )
@@ -167,6 +178,22 @@ class GoalsCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// What a check-in would do if it ran today: "Likely +50 cals.", "Likely no
+/// change.", or null when there isn't enough data to say.
+@visibleForTesting
+String? likelyChangeText(CheckinDecision? preview) {
+  if (preview == null) return null;
+  switch (preview.variant) {
+    case CheckinVariant.changed:
+      final d = preview.newTargets.cals - preview.oldTargets.cals;
+      return 'Likely ${d > 0 ? '+' : '−'}${NumberFormat.decimalPattern().format(d.abs())} cals.';
+    case CheckinVariant.unchanged:
+      return 'Likely no change.';
+    default:
+      return null;
   }
 }
 

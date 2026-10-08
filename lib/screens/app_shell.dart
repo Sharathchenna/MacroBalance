@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/energy_provider.dart';
 import '../services/camera_service.dart';
 import '../services/posthog_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,6 +15,7 @@ import 'TrackingPagesScreen.dart';
 import 'accountdashboard.dart';
 import 'askAI.dart';
 import 'dashboard_screen.dart';
+import 'energy/checkin_sheet.dart';
 import 'searchPage.dart';
 
 export '../widgets/app_bottom_bar.dart' show AppTab;
@@ -58,6 +61,33 @@ class AppShellState extends State<AppShell>
 
   String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
+  // The weekly check-in sheet shows on its own once a check-in has run.
+  EnergyProvider? _energy;
+  bool _showingCheckin = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final energy = Provider.of<EnergyProvider>(context);
+    if (!identical(energy, _energy)) {
+      _energy?.removeListener(_maybeShowCheckin);
+      _energy = energy..addListener(_maybeShowCheckin);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowCheckin());
+    }
+  }
+
+  /// Shows this week's check-in sheet while it hasn't been dismissed, once
+  /// nothing else (the tour, the log menu, a pushed screen) is in the way.
+  void _maybeShowCheckin() {
+    final checkin = _energy?.checkinToShow;
+    if (checkin == null || _showingCheckin || !mounted) return;
+    if (_touring || menuOpen || HomeTour.shouldShow(_userId)) return;
+    if (ModalRoute.of(context)?.isCurrent == false) return;
+    _showingCheckin = true;
+    showCheckinSheet(context, checkin)
+        .whenComplete(() => _showingCheckin = false);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -95,12 +125,14 @@ class AppShellState extends State<AppShell>
   void _endTour(bool completed) {
     setState(() => _touring = false);
     HomeTour.markSeen(_userId);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowCheckin());
     PostHogService.trackEvent(
         completed ? 'home_tour_completed' : 'home_tour_skipped');
   }
 
   @override
   void dispose() {
+    _energy?.removeListener(_maybeShowCheckin);
     _menu.dispose();
     super.dispose();
   }
