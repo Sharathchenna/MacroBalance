@@ -22,9 +22,11 @@ import '../../widgets/app_bottom_bar.dart';
 import '../../widgets/expenditure_chart.dart';
 import '../../widgets/progress_card.dart';
 import '../../widgets/weight_range_selector.dart';
+import 'goals_card.dart';
 
 /// Progress → Energy: the learned daily expenditure, how it was worked out,
-/// how good the data behind it is, and "Reset learning" (spec 7.1).
+/// how good the data behind it is, the targets it feeds, and "Reset
+/// learning" (spec 7.1).
 class EnergyTab extends StatelessWidget {
   const EnergyTab({super.key, this.onLogWeight});
 
@@ -91,6 +93,8 @@ class EnergyTab extends StatelessWidget {
             const SizedBox(height: 16),
             _QualityCard(strip: strip),
           ],
+          const SizedBox(height: 16),
+          const GoalsCard(),
           const SizedBox(height: 20),
           _ResetLearning(formulaTdee: goals.formulaTdee ?? goals.tdee),
         ],

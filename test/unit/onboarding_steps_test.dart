@@ -19,6 +19,19 @@ void main() {
           steps.indexOf(OnboardingStep.summary) - 1);
     });
 
+    test('the adaptive question comes after the goal details, before advanced settings', () {
+      final steps = onboardingStepsFor(recalculateOnly: false);
+      expect(steps.indexOf(OnboardingStep.adaptive),
+          steps.indexOf(OnboardingStep.setNewGoal) + 1);
+      expect(steps.indexOf(OnboardingStep.advanced),
+          steps.indexOf(OnboardingStep.adaptive) + 1);
+    });
+
+    test('recalculating keeps the saved adaptive choice without asking', () {
+      expect(onboardingStepsFor(recalculateOnly: true),
+          isNot(contains(OnboardingStep.adaptive)));
+    });
+
     test('recalculating skips welcome and Apple Health but keeps the order', () {
       final steps = onboardingStepsFor(recalculateOnly: true);
       expect(steps, isNot(contains(OnboardingStep.welcome)));
@@ -55,6 +68,17 @@ void main() {
       expect(isOnboardingStepSkipped(
               OnboardingStep.setNewGoal, MacroCalculatorService.GOAL_MAINTAIN),
           isTrue);
+    });
+
+    test('the adaptive question is asked for every goal', () {
+      for (final goal in [
+        MacroCalculatorService.GOAL_LOSE,
+        MacroCalculatorService.GOAL_MAINTAIN,
+        MacroCalculatorService.GOAL_GAIN,
+      ]) {
+        expect(isOnboardingStepSkipped(OnboardingStep.adaptive, goal), isFalse,
+            reason: goal);
+      }
     });
 
     test('losing or gaining asks for a goal weight', () {

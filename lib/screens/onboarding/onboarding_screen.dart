@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/services/energy/bmr.dart';
+import 'package:macrotracker/services/energy/checkin_day.dart';
 import 'package:macrotracker/services/energy/constants.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
@@ -16,6 +17,7 @@ import 'dart:math'; // For min/max
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/services/posthog_service.dart';
+import 'package:macrotracker/widgets/adaptive_choice.dart';
 
 // Import Page Widgets
 import 'pages/welcome_page.dart';
@@ -27,6 +29,7 @@ import 'pages/activity_level_page.dart';
 import 'pages/goal_page.dart';
 import 'pages/set_new_goal_page.dart'; // Import the new goal details page
 // Removed TargetSummaryPage import
+import 'pages/adaptive_page.dart';
 import 'pages/advanced_settings_page.dart';
 import 'pages/apple_health_page.dart'; // Import the new Apple Health page
 import 'pages/summary_page.dart';
@@ -70,6 +73,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   double _goalWeightKg = 70;
   double? _bodyFatPercentage; // null until the user sets one
   bool _showBodyFatInput = false;
+  bool _adaptiveGoals = true; // recommended; see AdaptivePage
   // Start in the unit system of the phone's region.
   bool _isMetricWeight = WeightUnitProvider.localeDefaultIsMetric();
   bool _isMetricHeight = WeightUnitProvider.localeDefaultIsMetric();
@@ -169,6 +173,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _activityLevel = goals.activityLevel ?? _activityLevel;
     _goal = goals.goalType;
     _pacePct = _validPace(goals.pacePctPerWeek);
+    _adaptiveGoals = goals.adaptiveGoals;
     _goalWeightKg = goals.goalWeightKg > 0 ? goals.goalWeightKg : _weightKg;
     // A saved goal weight can be on the wrong side of the current weight (no
     // goal weight saved, or the user has since passed it). Bring it back in
@@ -296,6 +301,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         'clamped': results['limit_hit'] != null,
       });
     }
+    if (_steps.contains(OnboardingStep.adaptive)) {
+      trackAdaptiveChoice(
+          _adaptiveGoals,
+          widget.recalculateOnly
+              ? AdaptiveChoiceContext.recalculate
+              : AdaptiveChoiceContext.onboarding);
+    }
     PostHogService.trackEvent(
         widget.recalculateOnly ? 'goals_recalculated' : 'onboarding_completed',
         properties: {
@@ -316,6 +328,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ResultsScreen(
             results: results,
             recalculateOnly: widget.recalculateOnly,
+            adaptiveGoals: _adaptiveGoals,
             onSave: widget.recalculateOnly ? () => saveMacroResults(results) : null,
           ),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -335,6 +348,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Future<void> saveMacroResults(Map<String, dynamic> macroResults) async {
     // Keep the unit system the user chose for their weight.
     Provider.of<WeightUnitProvider>(context, listen: false).setMetric(_isMetricWeight);
+    final settings = _goalSettings(macroResults);
     try {
       StorageService().put('macro_results', json.encode(macroResults));
       final currentUser = Supabase.instance.client.auth.currentUser;
@@ -347,44 +361,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'protein_goal': (macroResults['protein_g'] ?? 0).toDouble(),
           'carbs_goal': (macroResults['carb_g'] ?? 0).toDouble(),
           'fat_goal': (macroResults['fat_g'] ?? 0).toDouble(),
-          'sex': _gender,
           'weight': _weightKg.toDouble(),
-          'height_cm': _heightCm.toDouble(),
-          'age': _age,
-          'age_recorded_on': _today(),
-          'activity_level': _activityLevel,
-          'goal_type': _goal,
-          'pace_pct_per_week':
-              _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _pacePct,
-          'protein_g_per_kg': _proteinRatio,
-          'fat_ratio': _fatRatio.toDouble(),
-          'formula_tdee': macroResults['tdee'],
-          'goal_weight_kg': _goalWeightKg.toDouble(),
-          'current_weight_kg': _weightKg.toDouble(),
-          'bmr': macroResults['bmr']?.toDouble(),
-          'tdee': macroResults['tdee']?.toDouble(),
-          'steps_goal': macroResults['recommended_steps'] ?? 10000,
-          'body_fat_pct': _knownBodyFat,
+          ...settings,
           // Learning starts when onboarding completes; a recalculation
           // never resets it (the upsert leaves the column alone).
           if (!widget.recalculateOnly) 'learning_started_on': _today(),
           'updated_at': DateTime.now().toIso8601String(),
-          'macro_targets': {
-            'calories': (macroResults['target_calories'] ?? 0).toDouble(),
-            'protein': (macroResults['protein_g'] ?? 0).toDouble(),
-            'carbs': (macroResults['carb_g'] ?? 0).toDouble(),
-            'fat': (macroResults['fat_g'] ?? 0).toDouble(),
-          },
+          'macro_targets': _macroTargets(macroResults),
         };
         supabaseData
             .removeWhere((_, v) => v is double && (v.isNaN || v.isInfinite));
-        if (supabaseData['macro_targets'] != null)
-          (supabaseData['macro_targets'] as Map<String, dynamic>)
-              .removeWhere((_, v) => v is double && (v.isNaN || v.isInfinite));
+        (supabaseData['macro_targets'] as Map<String, dynamic>)
+            .removeWhere((_, v) => v is double && (v.isNaN || v.isInfinite));
         await Supabase.instance.client.from('user_macros').upsert(supabaseData);
         debugPrint('Successfully saved macro results to Supabase');
       }
-      _saveLocalGoals(macroResults);
+      _saveLocalGoals(macroResults, settings);
     } catch (e) {
       debugPrint('Error saving macro results: $e');
       if (e is PostgrestException) debugPrint('Supabase error: ${e.message}');
@@ -392,6 +384,44 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       // rethrow; // Rethrowing might crash the app if not caught higher up
     }
   }
+
+  /// The goal settings this flow saves, in `user_macros` column names: the
+  /// account row and the device copy are both built from it.
+  Map<String, dynamic> _goalSettings(Map<String, dynamic> macroResults) {
+    final goals = Provider.of<GoalsProvider>(context, listen: false);
+    return {
+      'sex': _gender,
+      'height_cm': _heightCm.toDouble(),
+      'age': _age,
+      'age_recorded_on': _today(),
+      'activity_level': _activityLevel,
+      'goal_type': _goal,
+      'pace_pct_per_week':
+          _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _pacePct,
+      'goal_weight_kg': _goalWeightKg.toDouble(),
+      'current_weight_kg': _weightKg.toDouble(),
+      'body_fat_pct': _knownBodyFat,
+      'protein_g_per_kg': _proteinRatio,
+      'fat_ratio': _fatRatio.toDouble(),
+      'formula_tdee': macroResults['tdee']?.toDouble(),
+      'bmr': macroResults['bmr']?.toDouble(),
+      'tdee': macroResults['tdee']?.toDouble(),
+      'steps_goal': macroResults['recommended_steps'] ?? 10000,
+      'adaptive_goals': _adaptiveGoals,
+      // Check-ins fall on the weekday onboarding finished; a recalculation
+      // keeps the day already in use.
+      'checkin_weekday': widget.recalculateOnly
+          ? goals.checkinWeekday
+          : defaultCheckinWeekday(DateTime.now()),
+    };
+  }
+
+  Map<String, dynamic> _macroTargets(Map<String, dynamic> macroResults) => {
+        'calories': (macroResults['target_calories'] ?? 0).toDouble(),
+        'protein': (macroResults['protein_g'] ?? 0).toDouble(),
+        'carbs': (macroResults['carb_g'] ?? 0).toDouble(),
+        'fat': (macroResults['fat_g'] ?? 0).toDouble(),
+      };
 
   /// The learning start already saved, kept through a recalculation.
   String? _learningStartedOn() {
@@ -403,34 +433,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   /// The day the age was recorded, as a date for `user_macros`.
   String _today() => DateTime.now().toIso8601String().substring(0, 10);
 
-  void _saveLocalGoals(Map<String, dynamic> macroResults) {
+  /// The device copy (`nutrition_goals`), which GoalsProvider reads.
+  void _saveLocalGoals(
+      Map<String, dynamic> macroResults, Map<String, dynamic> settings) {
     final nutritionGoals = {
-      'macro_targets': {
-        'calories': (macroResults['target_calories'] ?? 0).toDouble(),
-        'protein': (macroResults['protein_g'] ?? 0).toDouble(),
-        'carbs': (macroResults['carb_g'] ?? 0).toDouble(),
-        'fat': (macroResults['fat_g'] ?? 0).toDouble(),
-      },
-      'goal_weight_kg': _goalWeightKg,
-      'current_weight_kg': _weightKg,
-      'goal_type': _goal,
-      'pace_pct_per_week':
-          _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _pacePct,
-      'sex': _gender,
-      'age': _age,
-      'age_recorded_on': _today(),
-      'activity_level': _activityLevel,
-      'formula_tdee': macroResults['tdee']?.toDouble(),
-      'height_cm': _heightCm,
-      'body_fat_pct': _knownBodyFat,
-      'protein_ratio': _proteinRatio,
-      'fat_ratio': _fatRatio,
+      'macro_targets': _macroTargets(macroResults),
+      for (final e in settings.entries)
+        // The device copy keeps the protein override as `protein_ratio`.
+        (e.key == 'protein_g_per_kg' ? 'protein_ratio' : e.key): e.value,
       'learning_started_on': widget.recalculateOnly
           ? _learningStartedOn()
           : _today(),
-      'steps_goal': macroResults['recommended_steps'] ?? 10000,
-      'bmr': macroResults['bmr']?.toDouble(),
-      'tdee': macroResults['tdee']?.toDouble(),
       'updated_at': DateTime.now().toIso8601String(),
     };
     StorageService().put('nutrition_goals', json.encode(nutritionGoals));
@@ -651,6 +664,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           onWeightUnitChanged: (isMetric) =>
               setState(() => _isMetricWeight = isMetric),
         );
+      case OnboardingStep.adaptive:
+        return AdaptivePage(
+          adaptive: _adaptiveGoals,
+          onChanged: (adaptive) => setState(() => _adaptiveGoals = adaptive),
+        );
       case OnboardingStep.advanced:
         return AdvancedSettingsPage(
           showBodyFatInput: _showBodyFatInput,
@@ -682,6 +700,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           fatRatio: _fatRatio,
           goalWeightKg: _goalWeightKg,
           bodyFatPercentage: _knownBodyFat,
+          adaptiveGoals: _adaptiveGoals,
           onEdit: _goToStep,
           editableSteps: _steps.toSet(),
         );

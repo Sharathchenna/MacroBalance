@@ -11,6 +11,7 @@ enum OnboardingStep {
   activity,
   goal,
   setNewGoal,
+  adaptive,
   advanced,
   appleHealth,
   summary,
@@ -18,7 +19,8 @@ enum OnboardingStep {
 
 /// The steps shown, in order. Recalculating goals from Settings skips the
 /// welcome and Apple Health steps, and the static facts (sex, height, age):
-/// those are edited on the account screen. "How did you hear about us?" is not a step:
+/// those are edited on the account screen. Recalculating keeps the adaptive
+/// choice already saved. "How did you hear about us?" is not a step:
 /// new users are asked it after the results screen.
 List<OnboardingStep> onboardingStepsFor({required bool recalculateOnly}) =>
     recalculateOnly

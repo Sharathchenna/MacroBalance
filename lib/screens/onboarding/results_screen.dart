@@ -13,6 +13,7 @@ import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/app_shell.dart';
+import 'package:macrotracker/widgets/adaptive_choice.dart';
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -24,8 +25,16 @@ class ResultsScreen extends StatefulWidget {
   /// save up front.
   final Future<void> Function()? onSave;
 
+  /// Whether the target will follow the learned expenditure (adaptive goals)
+  /// or stay fixed: one line under the target says which.
+  final bool adaptiveGoals;
+
   const ResultsScreen(
-      {Key? key, required this.results, this.recalculateOnly = false, this.onSave})
+      {Key? key,
+      required this.results,
+      this.recalculateOnly = false,
+      this.onSave,
+      this.adaptiveGoals = true})
       : super(key: key);
 
   @override
@@ -357,7 +366,33 @@ class _ResultsScreenState extends State<ResultsScreen>
                 );
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            Row(
+              key: const Key('results_adaptive_line'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  widget.adaptiveGoals
+                      ? Icons.autorenew_rounded
+                      : Icons.lock_outline_rounded,
+                  size: 16,
+                  color: customColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    AdaptiveChoiceCopy.resultLine(widget.adaptiveGoals),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: customColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(

@@ -17,6 +17,7 @@ class SummaryPage extends StatelessWidget {
   final double fatRatio;
   final double goalWeightKg;
   final double? bodyFatPercentage; // only when the user entered one
+  final bool adaptiveGoals;
   final void Function(OnboardingStep step) onEdit; // Jumps back to a step to edit it
   /// The steps that can be jumped to; rows for other steps are read-only.
   /// Null means all of them.
@@ -35,6 +36,7 @@ class SummaryPage extends StatelessWidget {
     required this.fatRatio,
     required this.goalWeightKg,
     this.bodyFatPercentage,
+    this.adaptiveGoals = true,
     required this.onEdit,
     this.editableSteps,
   });
@@ -130,6 +132,11 @@ class SummaryPage extends StatelessWidget {
         'page': goalPageIndex
       });
     }
+    activityGoalsItems.add({
+      'label': 'Targets',
+      'value': adaptiveGoals ? 'Update weekly' : 'Fixed',
+      'page': OnboardingStep.adaptive
+    });
 
     final List<Map<String, dynamic>> macroSettingsItems = [
       {

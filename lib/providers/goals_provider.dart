@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:macrotracker/services/energy/age.dart';
 import 'package:macrotracker/services/energy/bmr.dart';
 import 'package:macrotracker/services/energy/body_composition.dart';
+import 'package:macrotracker/services/energy/checkin_day.dart' as checkin;
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
@@ -72,6 +73,8 @@ class GoalsProvider with ChangeNotifier {
   double? _proteinRatio; // g per kg of reference weight
   double? _fatRatio; // share of cals
   DateTime? _learningStartedOn; // the estimator's day 0; see [learningStartedOn]
+  bool _adaptiveGoals = true; // targets follow the learned expenditure
+  int? _checkinWeekday; // ISO, 1 = Monday; see [checkinWeekday]
 
   // The weight history restore started for this account, if any.
   Future<void>? _weightRestore;
@@ -120,6 +123,38 @@ class GoalsProvider with ChangeNotifier {
     _learningStartedOn = _dateOnly(day ?? _clock());
     _commit();
   }
+
+  /// Whether weekly check-ins move the targets with the learned expenditure
+  /// (adaptive goals). Off means the targets stay as calculated. On by
+  /// default, as onboarding recommends.
+  bool get adaptiveGoals => _adaptiveGoals;
+
+  set adaptiveGoals(bool value) {
+    if (_adaptiveGoals == value) return;
+    _adaptiveGoals = value;
+    _commit();
+  }
+
+  /// The ISO weekday (1 = Monday) check-ins fall on: the one chosen, else the
+  /// weekday learning started (onboarding), else Monday for accounts from
+  /// before either was kept.
+  int get checkinWeekday =>
+      _checkinWeekday ?? _learningStartedOn?.weekday ?? DateTime.monday;
+
+  set checkinWeekday(int value) {
+    RangeError.checkValueInInterval(value, DateTime.monday, DateTime.sunday, 'checkinWeekday');
+    if (_checkinWeekday == value) return;
+    _checkinWeekday = value;
+    _commit();
+  }
+
+  /// The next scheduled check-in day (today on the check-in weekday), at
+  /// least a week after learning started.
+  DateTime get nextCheckinDay => checkin.nextCheckinDay(
+        weekday: checkinWeekday,
+        today: _clock(),
+        learningStartedOn: _learningStartedOn,
+      );
 
   /// Completes when the weight history restore started at sign-in has
   /// finished (at once if none was started).
@@ -440,6 +475,10 @@ class GoalsProvider with ChangeNotifier {
     _fatRatio = _asDouble(goals['fat_ratio']);
     final learning = DateTime.tryParse('${goals['learning_started_on'] ?? ''}');
     _learningStartedOn = learning == null ? null : _dateOnly(learning);
+    _adaptiveGoals = goals['adaptive_goals'] as bool? ?? true;
+    final weekday = _asDouble(goals['checkin_weekday'])?.toInt();
+    _checkinWeekday =
+        weekday != null && weekday >= 1 && weekday <= 7 ? weekday : null;
   }
 
   static String? _dateString(DateTime? d) => d == null
@@ -475,6 +514,8 @@ class GoalsProvider with ChangeNotifier {
           'protein_ratio': _proteinRatio,
           'fat_ratio': _fatRatio,
           'learning_started_on': _dateString(_learningStartedOn),
+          'adaptive_goals': _adaptiveGoals,
+          'checkin_weekday': _checkinWeekday,
           'updated_at': DateTime.now().toIso8601String(),
         }));
     // Keep the sign-in fallback keys in step so they can never resurrect old goals.
@@ -525,6 +566,8 @@ class GoalsProvider with ChangeNotifier {
         if (_formulaTdee != null) 'formula_tdee': _formulaTdee!.round(),
         if (_learningStartedOn != null)
           'learning_started_on': _dateString(_learningStartedOn),
+        'adaptive_goals': _adaptiveGoals,
+        if (_checkinWeekday != null) 'checkin_weekday': _checkinWeekday,
         // Null is a real choice for these: not measured, or the default.
         'body_fat_pct': _bodyFatPct,
         'protein_g_per_kg': _proteinRatio,
@@ -578,6 +621,8 @@ class GoalsProvider with ChangeNotifier {
             'body_fat_pct',
             'fat_ratio',
             'learning_started_on',
+            'adaptive_goals',
+            'checkin_weekday',
           ])
             if (row[key] != null) key: row[key],
           if (row['protein_g_per_kg'] != null) 'protein_ratio': row['protein_g_per_kg'],
@@ -626,6 +671,8 @@ class GoalsProvider with ChangeNotifier {
     _proteinRatio = null;
     _fatRatio = null;
     _learningStartedOn = null;
+    _adaptiveGoals = true;
+    _checkinWeekday = null;
 
     for (final key in [
       _storageKey,

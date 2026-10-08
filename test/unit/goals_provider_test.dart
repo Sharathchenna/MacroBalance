@@ -400,4 +400,87 @@ void main() {
       expect(GoalsProvider().learningStartedOn, isNull);
     });
   });
+
+  group('adaptive goals and check-in day', () {
+    test('adaptive is on by default and sent with the goals', () {
+      expect(goals.adaptiveGoals, isTrue);
+      expect(goals.userMacrosPayload()['adaptive_goals'], isTrue);
+      // No weekday chosen yet: not sent, so it can't wipe the account's.
+      expect(goals.userMacrosPayload().containsKey('checkin_weekday'), isFalse);
+    });
+
+    test('turning it off is saved, synced and survives a reload', () {
+      var notified = 0;
+      goals.addListener(() => notified++);
+      goals.adaptiveGoals = false;
+      expect(notified, 1);
+      expect(goals.userMacrosPayload()['adaptive_goals'], isFalse);
+      expect(GoalsProvider().adaptiveGoals, isFalse);
+
+      goals.adaptiveGoals = true;
+      expect(GoalsProvider().adaptiveGoals, isTrue);
+    });
+
+    test('setting the same value changes nothing', () {
+      var notified = 0;
+      goals.addListener(() => notified++);
+      goals.adaptiveGoals = true;
+      goals.checkinWeekday = goals.checkinWeekday;
+      expect(notified, 1); // the weekday was only a fallback before
+      goals.checkinWeekday = goals.checkinWeekday;
+      expect(notified, 1);
+    });
+
+    test('the check-in weekday falls back to the day learning started, then Monday', () {
+      expect(goals.checkinWeekday, DateTime.monday);
+      goals.startLearning(DateTime(2026, 10, 7)); // a Wednesday
+      expect(goals.checkinWeekday, DateTime.wednesday);
+      goals.checkinWeekday = DateTime.friday;
+      expect(goals.checkinWeekday, DateTime.friday);
+      expect(goals.userMacrosPayload()['checkin_weekday'], DateTime.friday);
+      expect(GoalsProvider().checkinWeekday, DateTime.friday);
+    });
+
+    test('rejects a weekday outside 1–7', () {
+      expect(() => goals.checkinWeekday = 0, throwsRangeError);
+      expect(() => goals.checkinWeekday = 8, throwsRangeError);
+    });
+
+    test('the next check-in is on the weekday, a week after learning started', () {
+      final g = GoalsProvider(clock: () => DateTime(2026, 10, 7, 9));
+      g.startLearning(); // Wednesday Oct 7: the first check-in is next week
+      expect(g.nextCheckinDay, DateTime(2026, 10, 14));
+      g.checkinWeekday = DateTime.monday;
+      expect(g.nextCheckinDay, DateTime(2026, 10, 19));
+      g.startLearning(DateTime(2026, 9, 7));
+      expect(g.nextCheckinDay, DateTime(2026, 10, 12));
+    });
+
+    test('both come back from user_macros at sign-in', () async {
+      await GoalsProvider.cacheUserMacros({
+        'calories_goal': 2100,
+        'adaptive_goals': false,
+        'checkin_weekday': 4,
+      });
+      final g = GoalsProvider();
+      expect(g.adaptiveGoals, isFalse);
+      expect(g.checkinWeekday, DateTime.thursday);
+    });
+
+    test('goals saved before the setting existed read as adaptive', () {
+      StorageService().put('nutrition_goals',
+          jsonEncode({'macro_targets': {'calories': 2100}, 'goal_type': 'lose'}));
+      expect(GoalsProvider().adaptiveGoals, isTrue);
+    });
+
+    test('forgotten on sign-out', () async {
+      goals
+        ..adaptiveGoals = false
+        ..checkinWeekday = DateTime.friday;
+      await goals.clearUserData();
+      expect(goals.adaptiveGoals, isTrue);
+      expect(GoalsProvider().adaptiveGoals, isTrue);
+      expect(GoalsProvider().checkinWeekday, DateTime.monday);
+    });
+  });
 }

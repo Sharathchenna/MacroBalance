@@ -58,6 +58,10 @@ const double kMaxGainPct = 0.5;
 const double kMaxCheckinStep = 150;
 const double kNoChangeThreshold = 25;
 
+// --- Check-ins ---
+/// The first check-in is at least this many days after onboarding (6.8).
+const int kFirstCheckinAfterDays = 7;
+
 // --- Phases ---
 const double kPhasedLossPctObese = 10;
 const double kPhasedLossPct = 5;

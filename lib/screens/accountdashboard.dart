@@ -29,6 +29,7 @@ import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
+import 'package:macrotracker/widgets/adaptive_choice.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/screens/feedback_screen.dart'
@@ -551,6 +552,39 @@ class _AccountDashboardState extends State<AccountDashboard>
                     },
                     colorScheme: colorScheme,
                     customColors: customColors,
+                  ),
+                  // Adaptive goals and the day check-ins fall on
+                  Consumer<GoalsProvider>(
+                    builder: (context, goals, _) => Column(
+                      children: [
+                        _buildSwitchTile(
+                          icon: CupertinoIcons.arrow_2_circlepath,
+                          iconColor: Colors.green,
+                          title: 'Adaptive Goals',
+                          subtitle: goals.adaptiveGoals
+                              ? 'Targets update weekly as we learn'
+                              : 'Targets stay as calculated',
+                          value: goals.adaptiveGoals,
+                          onChanged: (on) => changeAdaptiveGoals(context, to: on),
+                          colorScheme: colorScheme,
+                          customColors: customColors,
+                        ),
+                        if (goals.adaptiveGoals)
+                          _buildListTile(
+                            icon: CupertinoIcons.calendar_today,
+                            iconColor: Colors.blue,
+                            title: 'Check-in Day',
+                            subtitle: weekdayName(goals.checkinWeekday),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              _showCheckinDayPicker(goals);
+                            },
+                            colorScheme: colorScheme,
+                            customColors: customColors,
+                          ),
+                      ],
+                    ),
                   ),
                   Consumer<WeightUnitProvider>(
                     builder: (context, units, _) => _buildListTile(
@@ -1754,6 +1788,36 @@ class _AccountDashboardState extends State<AccountDashboard>
       default:
         return key;
     }
+  }
+
+  /// The weekday weekly check-ins fall on.
+  void _showCheckinDayPicker(GoalsProvider goals) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: const Text('Check-in Day'),
+        message: const Text(
+            'Your targets update once a week, on this day. Pick a day you usually log.'),
+        actions: [
+          for (var day = DateTime.monday; day <= DateTime.sunday; day++)
+            CupertinoActionSheetAction(
+              isDefaultAction: day == goals.checkinWeekday,
+              child: Text(weekdayName(day)),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                goals.checkinWeekday = day;
+                Navigator.pop(context);
+              },
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+            child: const Text('Cancel'),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(context);
+            }),
+      ),
+    );
   }
 
   void _showUnitPicker() {
