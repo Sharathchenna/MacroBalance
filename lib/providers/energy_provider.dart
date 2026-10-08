@@ -11,9 +11,13 @@ import '../services/energy/checkin_day.dart';
 import '../services/energy/energy_estimator.dart';
 import '../services/energy/energy_summary.dart';
 import '../services/energy/estimate_rows.dart';
+import '../services/energy/phase_engine.dart';
+import '../services/energy/phase_engine.dart' as engine show currentPhase, keepLosing, extendBreak;
+import '../services/energy/targets.dart';
 import '../services/energy/trend_weight.dart';
 import '../services/energy_sync_service.dart';
 import '../services/macro_calculator_service.dart';
+import '../services/phase_sync_service.dart';
 import '../services/storage_service.dart';
 import '../utils/weight_trend.dart';
 import 'day_status_provider.dart';
@@ -26,7 +30,11 @@ import 'goals_provider.dart';
 /// It refreshes on app open and resume, when a weight is saved, when a day's
 /// status changes, and when food is saved for a past day. After a refresh it
 /// runs the weekly check-in when one is due (spec 6.8), which is the only
-/// place it changes the goals.
+/// place it changes the goals besides the user's phase choices.
+///
+/// It also keeps the goal phases (spec 6.7, `goal_phases`): a recalculation
+/// starts a fresh sequence ([replan]), a check-in moves to the next phase,
+/// and the check-in sheet's choices change it ([keepLosing], [extendBreak]).
 ///
 /// Each refresh replays from the learning start through yesterday. The
 /// estimator is deterministic and causal, so an unchanged day always gives
@@ -37,20 +45,24 @@ class EnergyProvider with ChangeNotifier {
     this.userId,
     EnergySyncService? sync,
     CheckinSyncService? checkinSync,
+    PhaseSyncService? phaseSync,
     DateTime Function()? clock,
     this.inBackground = true,
     this.debounce = const Duration(milliseconds: 400),
   })  : _sync = sync ?? EnergySyncService(),
         _checkinSync = checkinSync ?? CheckinSyncService(userId: userId),
+        _phaseSync = phaseSync ?? PhaseSyncService(userId: userId),
         _clock = clock ?? DateTime.now {
     _rows = _sync.loadCache();
     _checkins = _checkinSync.loadCache();
+    _phases = _phaseSync.loadCache();
   }
 
   /// The account this belongs to; a new instance is made when it changes.
   final String? userId;
   final EnergySyncService _sync;
   final CheckinSyncService _checkinSync;
+  final PhaseSyncService _phaseSync;
   final DateTime Function() _clock;
 
   /// Replay on a background isolate (off in tests).
@@ -71,6 +83,7 @@ class EnergyProvider with ChangeNotifier {
   GoalsProvider? goals;
   Map<String, GoalCheckin> _checkins = {};
   bool _checkinsPulled = false;
+  List<GoalPhase> _phases = const [];
 
   // Bumped on logout: work started before it stops at its next step.
   int _generation = 0;
@@ -135,6 +148,7 @@ class EnergyProvider with ChangeNotifier {
           dayStatus: dayStatus,
           weights: storedWeights(),
           today: _clock(),
+          phases: _phases,
         );
     food.onEntriesChanged = (day) {
       if (day == null || _isPast(day)) scheduleRefresh();
@@ -247,6 +261,91 @@ class EnergyProvider with ChangeNotifier {
     return g == null ? null : _decide(g, _clock());
   }
 
+  // --- Phases (spec 6.7) ---
+
+  /// Every phase of the account, oldest first.
+  List<GoalPhase> get phases => List.unmodifiable(_phases);
+
+  /// The open phase, or null without a plan.
+  GoalPhase? get currentPhase => engine.currentPhase(_phases);
+
+  /// Starts a fresh phase sequence today from [trendKg] (onboarding, and a
+  /// recalculation that changed the plan style, goal or pace). The open
+  /// phase closes as `replanned`.
+  Future<void> replan({
+    required PlanStyle style,
+    required GoalKind goal,
+    required double trendKg,
+    double? heightCm,
+    PhaseSettings settings = const PhaseSettings(),
+  }) =>
+      _editPhases(replanPhases(_phases,
+          style: style,
+          goal: goal,
+          on: _dateOnly(_clock()),
+          trendKg: trendKg,
+          heightCm: heightCm,
+          settings: settings));
+
+  /// Whether [checkin]'s phase change can still be undone from its sheet
+  /// ("Keep losing", "Extend break"): it's the latest check-in and the phase
+  /// it started is still the open one, untouched.
+  bool canChangePhase(GoalCheckin checkin) {
+    final t = checkin.reason.phase;
+    final latest = lastCheckin;
+    return t != null &&
+        latest != null &&
+        latest.weekStart == checkin.weekStart &&
+        engine.currentPhase(_phases) == t.next;
+  }
+
+  /// "Keep losing" on variant F: skips the maintenance break and goes back
+  /// to lose targets, from the same expenditure the check-in used.
+  Future<void> keepLosing(GoalCheckin checkin) async {
+    final g = goals;
+    if (g == null || !canChangePhase(checkin) || !checkin.reason.phase!.toMaintain) return;
+    final edit = engine.keepLosing(_phases,
+        style: g.planStyle, heightCm: g.heightCm, settings: g.phaseSettings);
+    if (edit.isEmpty) return;
+    final weight = checkin.reason.trendWeightKg ?? checkin.reason.phase!.next.startTrendKg;
+    final lose = phaseTargets(
+        kind: PhaseKind.lose, settings: g.checkinSettings, tdee: checkin.reason.tdee, weightKg: weight);
+    await _userPhaseChange(checkin, edit, lose.targets, tdee: checkin.reason.tdee);
+  }
+
+  /// "Extend break" on variant G: the maintenance break runs
+  /// [kExtendBreakWeeks] longer, on the targets it had.
+  Future<void> extendBreak(GoalCheckin checkin) async {
+    if (!canChangePhase(checkin) || checkin.reason.phase!.toMaintain) return;
+    final edit = engine.extendBreak(_phases);
+    if (edit.isEmpty) return;
+    await _userPhaseChange(checkin, edit, checkin.oldTargets, tdee: checkin.reason.tdeePrev);
+  }
+
+  /// "End phase early": the open phase ends at the next check-in.
+  Future<void> endPhaseEarly() =>
+      _editPhases(requestPhaseEnd(_phases, on: _dateOnly(_clock())));
+
+  /// The user's choice replaces what [checkin] applied: its queued apply is
+  /// dropped so it can't come back, and the targets are saved like any goal
+  /// edit.
+  Future<void> _userPhaseChange(GoalCheckin checkin, PhaseEdit edit, CheckinTargets targets,
+      {required double tdee}) async {
+    final g = goals!;
+    await _checkinSync.settleApply(dayKey(checkin.weekStart));
+    await _editPhases(edit, upload: false);
+    g.applyPhaseTargets(targets, tdee: tdee);
+    await _phaseSync.upload();
+  }
+
+  Future<void> _editPhases(PhaseEdit edit, {bool upload = true}) async {
+    if (edit.isEmpty) return;
+    _phases = await _phaseSync.edit(edit);
+    _notify();
+    scheduleRefresh(); // phase switches restart the estimator's settle period
+    if (upload) await _phaseSync.upload();
+  }
+
   /// Records that [checkin]'s sheet was dismissed.
   Future<void> markCheckinSeen(GoalCheckin checkin) async {
     if (checkin.seenAt != null) return;
@@ -257,18 +356,27 @@ class EnergyProvider with ChangeNotifier {
     if (stored != null) _checkins[key] = stored;
   }
 
-  /// The decision from the latest estimate (yesterday's): null when there
-  /// is none to make (adaptive off) or the estimates aren't up to date.
-  CheckinDecision? _decide(GoalsProvider g, DateTime now) {
+  /// The latest estimate of the current learning, or null before one.
+  EnergyEstimate? _currentEstimate(GoalsProvider g) {
     final latest = this.latest;
-    final today = _dateOnly(now);
-    final yesterday = DateTime(today.year, today.month, today.day - 1);
     final start = g.learningStartedOn;
     // Rows from before a reset belong to the old learning.
-    final current = latest != null && start != null && !latest.day.isBefore(start)
-        ? latest
-        : null;
-    if (current != null && current.day != yesterday) return null;
+    return latest != null && start != null && !latest.day.isBefore(start) ? latest : null;
+  }
+
+  /// Whether the estimates run through yesterday (or there are none yet).
+  bool _upToDate(GoalsProvider g, DateTime now) {
+    final current = _currentEstimate(g);
+    final today = _dateOnly(now);
+    return current == null || current.day == DateTime(today.year, today.month, today.day - 1);
+  }
+
+  /// The decision from the latest estimate (yesterday's) for the check-in
+  /// [on] (today by default): null when there is none to make (adaptive off,
+  /// no phase change) or the estimates aren't up to date.
+  CheckinDecision? _decide(GoalsProvider g, DateTime now, {DateTime? on}) {
+    if (!_upToDate(g, now)) return null;
+    final current = _currentEstimate(g);
     final weekAgo = current == null
         ? null
         : _rows[DateTime(current.day.year, current.day.month, current.day.day - 7)];
@@ -279,6 +387,12 @@ class EnergyProvider with ChangeNotifier {
       latest: current,
       trendWeekAgoKg: weekAgo?.trendWeightKg,
       fallbackWeightKg: g.currentWeightKg > 0 ? g.currentWeightKg : null,
+      plan: CheckinPlan(
+        style: g.planStyle,
+        phases: _phases,
+        on: on ?? _dateOnly(now),
+        settings: g.phaseSettings,
+      ),
     );
   }
 
@@ -297,27 +411,39 @@ class EnergyProvider with ChangeNotifier {
     if (g == null || g.userId == null) return;
     final generation = _generation;
     bool gone() => generation != _generation || _disposed;
-    DateTime? due() => dueCheckinWeek(
-          weekday: g.checkinWeekday,
-          now: now,
-          learningStartedOn: g.learningStartedOn,
-          lastCheckin: lastCheckin?.weekStart,
-        );
-    bool wanted() => due() != null && _decide(g, now) != null;
+    DateTime? due() {
+      final week = dueCheckinWeek(
+        weekday: g.checkinWeekday,
+        now: now,
+        learningStartedOn: g.learningStartedOn,
+        lastCheckin: lastCheckin?.weekStart,
+      );
+      // Decided already, with nothing to record (row 4).
+      return week == null || dayKey(week) == _checkinSync.decidedWithoutRow ? null : week;
+    }
+
+    bool wanted() => due() != null && _decide(g, now, on: due()) != null;
     // Pull once for the history, before every check-in (another device may
-    // have run it already), and while anything waits to upload.
-    if (!_checkinsPulled || wanted() || _checkinSync.hasWork) {
+    // have run it already or moved the phases), and while anything waits to
+    // upload.
+    if (!_checkinsPulled || wanted() || _checkinSync.hasWork || _phaseSync.hasWork) {
       _checkinsPulled = true;
-      await _checkinSync.sync();
+      await Future.wait([_checkinSync.sync(), _phaseSync.sync()]);
       if (gone()) return;
       _checkins = _checkinSync.loadCache();
+      _phases = _phaseSync.loadCache();
       _notify();
     }
     // Asked again with what came down: a row for the week means it ran, and
-    // the history decides when the next one is due.
+    // the history decides when the next one is due. A week with nothing to
+    // record is decided once, so a phase can't end in the middle of it.
     final week = due();
-    if (week != null && _decide(g, now) != null) {
-      final decision = _decide(g, now)!;
+    final decision = week == null || !_upToDate(g, now) ? null : _decide(g, now, on: week);
+    if (week != null && _upToDate(g, now) && decision == null) {
+      await _checkinSync.markDecidedWithoutRow(week);
+      if (gone()) return;
+    }
+    if (week != null && decision != null) {
       final mine = GoalCheckin.fromDecision(decision, weekStart: week, createdAt: now);
       await _checkinSync.stage(mine);
       if (gone()) return;
@@ -352,12 +478,17 @@ class EnergyProvider with ChangeNotifier {
       }
       if (now != c.newTargets) {
         g.applyCheckinTargets(c.newTargets,
-            tdee: c.variant == CheckinVariant.changed ? c.reason.tdee : c.reason.tdeePrev);
+            tdee: c.variant.appliesTargets ? c.reason.tdee : c.reason.tdeePrev);
       }
       if (_checkinSync.pendingInserts().contains(week)) continue;
       final confirmed = await g.uploadCheckinTargets(c);
       if (confirmed && !gone()) await _checkinSync.settleApply(week);
     }
+    // The latest check-in's phase change, made once (here or on another
+    // device): applying it again, or over a choice made since, changes
+    // nothing.
+    final t = latest?.reason.phase;
+    if (t != null && !gone()) await _editPhases(applyTransition(_phases, t));
   }
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -372,6 +503,7 @@ class EnergyProvider with ChangeNotifier {
     required DayStatusProvider dayStatus,
     required List<WeightReading> weights,
     required DateTime today,
+    List<GoalPhase> phases = const [],
   }) {
     if (goals.userId == null || !food.isLoaded) return null;
     final cals = food.caloriesByDay();
@@ -398,6 +530,7 @@ class EnergyProvider with ChangeNotifier {
       ),
       food: foodDaysFrom(calsByDay: cals, statuses: statuses),
       weights: weights,
+      phaseStarts: phaseSwitchDays(phases),
     );
   }
 
@@ -425,9 +558,11 @@ class EnergyProvider with ChangeNotifier {
     _timer?.cancel();
     _rows = {};
     _checkins = {};
+    _phases = const [];
     _lastInputs = null;
     await _sync.clearLocalState();
     await _checkinSync.clearLocalState();
+    await _phaseSync.clearLocalState();
     _notify();
   }
 

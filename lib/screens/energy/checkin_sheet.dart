@@ -9,9 +9,11 @@ import '../../providers/weight_unit_provider.dart';
 import '../../services/energy/checkin.dart';
 import '../../services/energy/constants.dart';
 import '../../services/energy/energy_estimator.dart';
+import '../../services/energy/phase_engine.dart';
 import '../../services/energy/targets.dart';
 import '../../services/posthog_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/plan_style_choice.dart';
 
 /// Where a check-in sheet was opened from, for `checkin_shown`.
 enum CheckinSheetSource { auto, chip, history }
@@ -54,6 +56,9 @@ Future<void> showCheckinSheet(
 /// A: changed, with the limit line (E) when a limit set the target.
 /// B: under 25 cals, unchanged. C: not enough data. Copy is adherence-neutral
 /// (plan 9.5): "you averaged", never "you went over".
+/// F and G (plan 9.6): a phase ended into a maintenance break or the next
+/// loss phase. Their second choice ("Keep losing instead", "Extend break")
+/// is offered while it can still be made.
 class CheckinSheet extends StatelessWidget {
   const CheckinSheet({super.key, required this.checkin});
 
@@ -63,8 +68,14 @@ class CheckinSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<CustomColors>()!;
     final units = context.watch<WeightUnitProvider>();
-    final copy = CheckinCopy(checkin, isKg: units.isKg);
-    final changed = checkin.variant == CheckinVariant.changed;
+    final energy = context.watch<EnergyProvider?>();
+    final copy = CheckinCopy(checkin,
+        isKg: units.isKg, lossPhaseNumber: _lossPhaseNumber(energy?.phases ?? const []));
+    final changed = checkin.variant.appliesTargets;
+    final phaseChange = checkin.variant.isPhaseChange;
+    final canChange = phaseChange && (energy?.canChangePhase(checkin) ?? false);
+    final phaseBody = copy.phaseBody;
+    final alternative = canChange ? copy.secondaryAction : null;
     final secondary =
         GoogleFonts.inter(fontSize: 14, height: 1.45, color: colors.textSecondary);
     final limitLine = copy.limitLine;
@@ -145,6 +156,14 @@ class CheckinSheet extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(copy.macroLine, style: secondary),
+              if (phaseBody != null) ...[
+                const SizedBox(height: 14),
+                Text(
+                  phaseBody,
+                  key: const Key('checkin_phase_body'),
+                  style: GoogleFonts.inter(fontSize: 14, height: 1.45, color: colors.textPrimary),
+                ),
+              ],
               if (limitLine != null) ...[
                 const SizedBox(height: 14),
                 _Note(key: const Key('checkin_limit_line'), text: limitLine),
@@ -195,6 +214,9 @@ class CheckinSheet extends StatelessWidget {
                   key: const Key('checkin_done'),
                   onPressed: () {
                     HapticFeedback.lightImpact();
+                    if (checkin.variant == CheckinVariant.phaseToMaintain && canChange) {
+                      trackPhaseAction(PhaseAction.startBreak);
+                    }
                     Navigator.pop(context);
                   },
                   style: FilledButton.styleFrom(
@@ -204,16 +226,55 @@ class CheckinSheet extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
-                    'Got it',
+                    copy.primaryAction,
                     style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
+              if (alternative != null) ...[
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    key: const Key('checkin_phase_alternative'),
+                    onPressed: () => _changePhase(context, energy!),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.textSecondary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      alternative,
+                      style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// "Keep losing instead" (F) or "Extend break" (G), then close.
+  Future<void> _changePhase(BuildContext context, EnergyProvider energy) async {
+    HapticFeedback.lightImpact();
+    final navigator = Navigator.of(context);
+    if (checkin.variant == CheckinVariant.phaseToMaintain) {
+      trackPhaseAction(PhaseAction.keepLosing);
+      await energy.keepLosing(checkin);
+    } else {
+      trackPhaseAction(PhaseAction.extend);
+      await energy.extendBreak(checkin);
+    }
+    navigator.pop();
+  }
+
+  /// G's "Ready for phase N": the loss phases before the one it started, + 1.
+  int? _lossPhaseNumber(List<GoalPhase> phases) {
+    final next = checkin.reason.phase?.next;
+    if (next == null || next.kind != PhaseKind.lose || phases.isEmpty) return null;
+    return phases.where((p) => p.kind == PhaseKind.lose && p.seq < next.seq).length + 1;
   }
 }
 
@@ -246,10 +307,13 @@ String fmtCals(num cals) => NumberFormat.decimalPattern().format(cals.round());
 /// The sheet's words for a check-in (plan 9.5).
 @visibleForTesting
 class CheckinCopy {
-  CheckinCopy(this.checkin, {this.isKg = true});
+  CheckinCopy(this.checkin, {this.isKg = true, this.lossPhaseNumber});
 
   final GoalCheckin checkin;
   final bool isKg;
+
+  /// G: which loss phase starts, when the phases are known.
+  final int? lossPhaseNumber;
 
   CheckinReason get _r => checkin.reason;
 
@@ -259,8 +323,67 @@ class CheckinCopy {
         CheckinVariant.changed => 'Your new daily target',
         CheckinVariant.unchanged => "You're right on track",
         CheckinVariant.insufficient => 'Not enough data to update this week',
+        CheckinVariant.phaseToMaintain => _breakTitle,
+        CheckinVariant.phaseToLose =>
+          lossPhaseNumber == null ? 'Ready for your next phase' : 'Ready for phase $lossPhaseNumber',
         _ => 'Weekly check-in',
       };
+
+  /// F's headline, by why the loss phase ended.
+  String get _breakTitle {
+    final ended = _r.phase?.ended;
+    return switch (ended?.endReason) {
+      PhaseEndReason.reached when ended?.targetPct != null =>
+        "You've lost ${_pctNum(ended!.targetPct!)}% — time for a maintenance break 🎉",
+      PhaseEndReason.maxDuration =>
+        '${ended!.weeksOn(ended.endedOn!).round()} weeks of losing done — time for a maintenance break',
+      PhaseEndReason.planned =>
+        '${ended!.weeksOn(ended.endedOn!).round()} weeks done — time for a diet break',
+      _ => 'Time for a maintenance break',
+    };
+  }
+
+  /// F and G: what the new phase holds (plan 9.6).
+  String? get phaseBody {
+    final next = _r.phase?.next;
+    if (next == null) return null;
+    final cals = fmtCals(checkin.newTargets.cals);
+    final weeks = _r.phaseWeeks?.round();
+    if (checkin.variant == CheckinVariant.phaseToMaintain) {
+      final rise = isKg ? '0.5–1.5 kg' : '1–3 lbs';
+      final up = checkin.newTargets.cals >= checkin.oldTargets.cals ? 'goes up to' : 'is';
+      final span = weeks == null ? '' : ' for the next $weeks week${weeks == 1 ? '' : 's'}';
+      return 'Your target $up $cals cals$span. Expect the scale to rise $rise in the '
+          'first few days. That\'s water and glycogen, not fat.';
+    }
+    final parts = ['New target $cals cals'];
+    final pct = next.targetPct;
+    if (pct != null) {
+      parts.add('aiming to lose ${_weight(next.startTrendKg * pct / 100, places: 1, keepZero: true)} '
+          '(${_pctNum(pct)}%)');
+      if (weeks != null) parts.add('about $weeks week${weeks == 1 ? '' : 's'}');
+    } else if (weeks != null) {
+      parts.add('$weeks weeks until your next break');
+    }
+    return parts.join(' · ');
+  }
+
+  /// The sheet's main button.
+  String get primaryAction => switch (checkin.variant) {
+        CheckinVariant.phaseToMaintain => 'Start break',
+        CheckinVariant.phaseToLose => "Let's go",
+        _ => 'Got it',
+      };
+
+  /// F and G's other choice.
+  String? get secondaryAction => switch (checkin.variant) {
+        CheckinVariant.phaseToMaintain => 'Keep losing instead',
+        CheckinVariant.phaseToLose => 'Extend break $kExtendBreakWeeks weeks',
+        _ => null,
+      };
+
+  static String _pctNum(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
   String? get subtitle => switch (checkin.variant) {
         CheckinVariant.unchanged || CheckinVariant.insufficient => 'Your targets stay the same.',
@@ -285,9 +408,9 @@ class CheckinCopy {
     ].join(' · ');
   }
 
-  /// Variant E: the limit that set the new target.
+  /// Variant E: the limit that set the new target (A, and F/G).
   String? get limitLine {
-    if (checkin.variant != CheckinVariant.changed) return null;
+    if (!checkin.variant.appliesTargets) return null;
     final cals = fmtCals(checkin.newTargets.cals);
     return switch (_r.limitHit) {
       SafetyLimit.floor =>
@@ -364,7 +487,9 @@ class CheckinCopy {
 
   /// "This week: −0.45 kg · Goal 75 kg · about 11 weeks to go".
   String? get footer {
-    if (checkin.variant == CheckinVariant.insufficient) return null;
+    if (checkin.variant == CheckinVariant.insufficient || checkin.variant.isPhaseChange) {
+      return null;
+    }
     final parts = <String>[];
     final change = _r.trendChangeKg;
     if (change != null) {
@@ -381,10 +506,10 @@ class CheckinCopy {
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
-  String _weight(double kg, {int places = 2}) {
+  String _weight(double kg, {int places = 2, bool keepZero = false}) {
     final v = isKg ? kg : kg * 2.20462;
     var s = v.toStringAsFixed(places);
-    if (s.contains('.')) s = s.replaceFirst(RegExp(r'\.?0+$'), '');
+    if (s.contains('.') && !keepZero) s = s.replaceFirst(RegExp(r'\.?0+$'), '');
     return '$s ${isKg ? 'kg' : 'lbs'}';
   }
 

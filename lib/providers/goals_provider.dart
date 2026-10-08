@@ -6,6 +6,8 @@ import 'package:macrotracker/services/energy/bmr.dart';
 import 'package:macrotracker/services/energy/body_composition.dart';
 import 'package:macrotracker/services/energy/checkin.dart';
 import 'package:macrotracker/services/energy/checkin_day.dart' as checkin;
+import 'package:macrotracker/services/energy/constants.dart';
+import 'package:macrotracker/services/energy/phase_engine.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
@@ -76,6 +78,12 @@ class GoalsProvider with ChangeNotifier {
   DateTime? _learningStartedOn; // the estimator's day 0; see [learningStartedOn]
   bool _adaptiveGoals = true; // targets follow the learned expenditure
   int? _checkinWeekday; // ISO, 1 = Monday; see [checkinWeekday]
+  PlanStyle _planStyle = PlanStyle.steady; // lose goals only; see [planStyle]
+  // Phase settings; null keeps the default (spec §5).
+  double? _phaseLossPct;
+  int? _maintenanceWeeks;
+  int? _breakEveryWeeks;
+  int? _breakWeeks;
 
   // The weight history restore started for this account, if any.
   Future<void>? _weightRestore;
@@ -169,6 +177,19 @@ class GoalsProvider with ChangeNotifier {
         lastCheckin: lastCheckin,
       );
 
+  /// How the weight goal is arranged into phases. Only lose goals have
+  /// phased or diet-break plans; anything else is steady.
+  PlanStyle get planStyle =>
+      _goalType == MacroCalculatorService.GOAL_LOSE ? _planStyle : PlanStyle.steady;
+
+  /// The phase lengths and loss per phase, defaults where not set.
+  PhaseSettings get phaseSettings => PhaseSettings(
+        lossPct: _phaseLossPct,
+        maintenanceWeeks: _maintenanceWeeks ?? kMaintenanceWeeks,
+        breakEveryWeeks: _breakEveryWeeks ?? kBreakEveryWeeks,
+        breakWeeks: _breakWeeks ?? kBreakWeeks,
+      );
+
   /// What a weekly check-in works from (spec 6.8).
   CheckinSettings get checkinSettings => CheckinSettings(
         adaptive: _adaptiveGoals,
@@ -178,6 +199,7 @@ class GoalsProvider with ChangeNotifier {
         sex: _sex == null ? Sex.female : MacroCalculatorService.sexOf(_sex!),
         heightCm: heightCm,
         age: age,
+        activityLevel: _activityLevel,
         bodyFatPct: _bodyFatPct,
         proteinPerKg: _proteinRatio,
         fatRatio: _fatRatio,
@@ -207,6 +229,17 @@ class GoalsProvider with ChangeNotifier {
     _setTargets(targets);
     _save();
     notifyListeners();
+  }
+
+  /// Sets targets the user chose from a phase change ("Keep losing",
+  /// "Extend break"), planned from [tdee]. An ordinary goal edit: saved and
+  /// synced. Does nothing after logout.
+  void applyPhaseTargets(CheckinTargets targets, {required double tdee}) {
+    if (_cleared) return;
+    _formulaTdee ??= _tdee;
+    _tdee = tdee;
+    _setTargets(targets);
+    _commit();
   }
 
   void _setTargets(CheckinTargets t) {
@@ -627,6 +660,11 @@ class GoalsProvider with ChangeNotifier {
     final weekday = _asDouble(goals['checkin_weekday'])?.toInt();
     _checkinWeekday =
         weekday != null && weekday >= 1 && weekday <= 7 ? weekday : null;
+    _planStyle = PlanStyle.fromCode(goals['plan_style']);
+    _phaseLossPct = _asDouble(goals['phase_loss_pct']);
+    _maintenanceWeeks = _asDouble(goals['maintenance_weeks'])?.toInt();
+    _breakEveryWeeks = _asDouble(goals['break_every_weeks'])?.toInt();
+    _breakWeeks = _asDouble(goals['break_weeks'])?.toInt();
   }
 
   static String? _dateString(DateTime? d) => d == null
@@ -664,6 +702,11 @@ class GoalsProvider with ChangeNotifier {
           'learning_started_on': _dateString(_learningStartedOn),
           'adaptive_goals': _adaptiveGoals,
           'checkin_weekday': _checkinWeekday,
+          'plan_style': _planStyle.code,
+          'phase_loss_pct': _phaseLossPct,
+          'maintenance_weeks': _maintenanceWeeks,
+          'break_every_weeks': _breakEveryWeeks,
+          'break_weeks': _breakWeeks,
           'updated_at': DateTime.now().toIso8601String(),
         }));
     // Keep the sign-in fallback keys in step so they can never resurrect old goals.
@@ -716,7 +759,12 @@ class GoalsProvider with ChangeNotifier {
           'learning_started_on': _dateString(_learningStartedOn),
         'adaptive_goals': _adaptiveGoals,
         if (_checkinWeekday != null) 'checkin_weekday': _checkinWeekday,
+        'plan_style': _planStyle.code,
         // Null is a real choice for these: not measured, or the default.
+        'phase_loss_pct': _phaseLossPct,
+        'maintenance_weeks': _maintenanceWeeks,
+        'break_every_weeks': _breakEveryWeeks,
+        'break_weeks': _breakWeeks,
         'body_fat_pct': _bodyFatPct,
         'protein_g_per_kg': _proteinRatio,
         'fat_ratio': _fatRatio,
@@ -771,6 +819,11 @@ class GoalsProvider with ChangeNotifier {
             'learning_started_on',
             'adaptive_goals',
             'checkin_weekday',
+            'plan_style',
+            'phase_loss_pct',
+            'maintenance_weeks',
+            'break_every_weeks',
+            'break_weeks',
           ])
             if (row[key] != null) key: row[key],
           if (row['protein_g_per_kg'] != null) 'protein_ratio': row['protein_g_per_kg'],
@@ -822,6 +875,11 @@ class GoalsProvider with ChangeNotifier {
     _learningStartedOn = null;
     _adaptiveGoals = true;
     _checkinWeekday = null;
+    _planStyle = PlanStyle.steady;
+    _phaseLossPct = null;
+    _maintenanceWeeks = null;
+    _breakEveryWeeks = null;
+    _breakWeeks = null;
 
     for (final key in [
       _storageKey,

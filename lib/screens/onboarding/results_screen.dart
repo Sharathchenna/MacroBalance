@@ -29,12 +29,17 @@ class ResultsScreen extends StatefulWidget {
   /// or stay fixed: one line under the target says which.
   final bool adaptiveGoals;
 
+  /// Phased plans: "3 loss phases + 2 breaks · about 34 weeks" under the
+  /// adaptive line (spec 7.5).
+  final String? planLine;
+
   const ResultsScreen(
       {Key? key,
       required this.results,
       this.recalculateOnly = false,
       this.onSave,
-      this.adaptiveGoals = true})
+      this.adaptiveGoals = true,
+      this.planLine})
       : super(key: key);
 
   @override
@@ -393,6 +398,29 @@ class _ResultsScreenState extends State<ResultsScreen>
                 color: customColors.textSecondary,
               ),
             ),
+            if (widget.planLine case final planLine?) ...[
+              const SizedBox(height: 6),
+              Text.rich(
+                key: const Key('results_plan_line'),
+                TextSpan(children: [
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(Icons.timeline_rounded,
+                          size: 16, color: customColors.textSecondary),
+                    ),
+                  ),
+                  TextSpan(text: planLine),
+                ]),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: customColors.textSecondary,
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),

@@ -11,6 +11,7 @@ enum OnboardingStep {
   activity,
   goal,
   setNewGoal,
+  planStyle,
   adaptive,
   advanced,
   appleHealth,
@@ -29,6 +30,7 @@ List<OnboardingStep> onboardingStepsFor({required bool recalculateOnly}) =>
             OnboardingStep.activity,
             OnboardingStep.goal,
             OnboardingStep.setNewGoal,
+            OnboardingStep.planStyle,
             OnboardingStep.adaptive,
             OnboardingStep.advanced,
             OnboardingStep.summary,
@@ -36,7 +38,7 @@ List<OnboardingStep> onboardingStepsFor({required bool recalculateOnly}) =>
         : OnboardingStep.values;
 
 /// Steps passed over for the answers so far: maintaining ([goal]) needs no
-/// goal weight, and planning from a confident learned expenditure
+/// goal weight, only losing has a plan style (spec 7.5), and planning from a confident learned expenditure
 /// ([usesLearnedExpenditure], adaptive goals only) needs no activity level.
 bool isOnboardingStepSkipped(
   OnboardingStep step, {
@@ -45,6 +47,7 @@ bool isOnboardingStepSkipped(
 }) =>
     switch (step) {
       OnboardingStep.setNewGoal => goal == MacroCalculatorService.GOAL_MAINTAIN,
+      OnboardingStep.planStyle => goal != MacroCalculatorService.GOAL_LOSE,
       OnboardingStep.activity => usesLearnedExpenditure,
       _ => false,
     };

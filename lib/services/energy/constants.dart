@@ -78,6 +78,13 @@ const int kMaintenanceWeeks = 4;
 const int kMaxLossPhaseWeeks = 16;
 const int kBreakEveryWeeks = 8;
 const int kBreakWeeks = 2;
+/// "Extend break" on check-in variant G adds this many weeks (spec 6.7).
+const int kExtendBreakWeeks = 2;
+/// A lose goal more than this share of body weight away pre-selects the
+/// phased plan (plan 10.3).
+const double kPhasedDefaultGoalFrac = 0.10;
+/// Longest any plan is walked forward (spec 6.9).
+const int kMaxProjectionWeeks = 156;
 
 // --- Macros ---
 /// The BMI whose weight caps the protein reference weight.

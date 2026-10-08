@@ -20,7 +20,9 @@ import 'storage_service.dart';
 /// - `apply`: check-ins whose targets this device still has to apply and
 ///   confirm in `user_macros`, each with the targets it may replace. It's
 ///   written with the row, so a restart finishes an apply instead of deciding
-///   again, and an adoption isn't lost when a later read fails.
+///   again, and an adoption isn't lost when a later read fails;
+/// - `decided_without_row`: the latest week decided with no row (fixed
+///   targets, no phase change), so it isn't decided again later that week.
 ///
 /// Operations run one at a time, and after [clearLocalState] (logout) an
 /// upload still in flight writes nothing back.
@@ -87,6 +89,16 @@ class CheckinSyncService {
   /// Check-ins whose targets still need applying here or confirming in
   /// `user_macros`, with the targets each may replace.
   Map<String, List<CheckinTargets>> applyQueue() => _read().apply;
+
+  /// The latest week decided without a row, or null.
+  String? get decidedWithoutRow => _read().noRow;
+
+  /// Records that [week] was decided and needed no row (spec 6.8 row 4).
+  Future<void> markDecidedWithoutRow(DateTime week) => _locked(() async {
+        final s = _read();
+        s.noRow = dayKey(week);
+        await _write(s);
+      });
 
   /// Whether anything waits for the cloud.
   bool get hasWork {
@@ -269,14 +281,19 @@ class CheckinSyncService {
 
 /// One account's check-in state on the device.
 class _State {
-  _State({Map<String, GoalCheckin>? rows, Map<String, String>? pending, Map<String, List<CheckinTargets>>? apply})
-      : rows = rows ?? {},
+  _State({
+    Map<String, GoalCheckin>? rows,
+    Map<String, String>? pending,
+    Map<String, List<CheckinTargets>>? apply,
+    this.noRow,
+  })  : rows = rows ?? {},
         pending = pending ?? {},
         apply = apply ?? {};
 
   final Map<String, GoalCheckin> rows;
   final Map<String, String> pending;
   final Map<String, List<CheckinTargets>> apply;
+  String? noRow;
 
   String? get latestWeek {
     String? out;
@@ -296,6 +313,7 @@ class _State {
               for (final t in v as List)
                 if (CheckinTargets.fromJson(t) case final targets?) targets,
             ])),
+        noRow: json['decided_without_row'] as String?,
       );
 
   Map<String, Object?> toJson() {
@@ -306,6 +324,7 @@ class _State {
       'apply': {
         for (final e in apply.entries) e.key: [for (final t in e.value) t.toJson()],
       },
+      if (noRow != null) 'decided_without_row': noRow,
     };
   }
 }

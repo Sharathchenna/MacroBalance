@@ -9,6 +9,8 @@ import 'package:macrotracker/services/energy/body_composition.dart';
 import 'package:macrotracker/services/energy/day_status.dart';
 import 'package:macrotracker/services/energy/energy_estimator.dart';
 import 'package:macrotracker/services/energy/estimate_rows.dart';
+import 'package:macrotracker/services/energy/phase_engine.dart';
+import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/energy/trend_weight.dart';
 import 'package:macrotracker/services/energy_sync_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
@@ -166,6 +168,24 @@ void main() {
       expect(i.learningStartedOn, start);
       expect(goals.learningStartedOn, start);
       expect(i.weights, hasLength(daysToYesterday));
+    });
+
+    test('phase switches restart the estimator\'s settle period (spec 6.4, 6.7)', () async {
+      await food.loadEntriesForCurrentUser();
+      final phases = [
+        firstPhase(style: PlanStyle.phased, goal: GoalKind.lose, seq: 1, on: day(0), trendKg: 80)
+            .close(day(14), PhaseEndReason.reached),
+        GoalPhase(
+            seq: 2, kind: PhaseKind.maintain, startedOn: day(14), startTrendKg: 79.3, plannedWeeks: 4),
+      ];
+      final i = EnergyProvider.inputsFrom(
+          goals: goals,
+          food: food,
+          dayStatus: status,
+          weights: EnergyProvider.storedWeights(),
+          today: now,
+          phases: phases)!;
+      expect(i.phaseStarts, [day(14)]);
     });
 
     test('food for a past day and day status refresh; food for today does not', () async {

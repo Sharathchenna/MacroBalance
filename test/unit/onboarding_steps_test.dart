@@ -22,15 +22,26 @@ void main() {
     test('the adaptive question comes after the goal details, before advanced settings', () {
       final steps = onboardingStepsFor(recalculateOnly: false);
       expect(steps.indexOf(OnboardingStep.adaptive),
-          steps.indexOf(OnboardingStep.setNewGoal) + 1);
+          steps.indexOf(OnboardingStep.planStyle) + 1);
       expect(steps.indexOf(OnboardingStep.advanced),
           steps.indexOf(OnboardingStep.adaptive) + 1);
+    });
+
+    test('the plan style comes right after the goal weight and pace, before adaptive (both flows)',
+        () {
+      for (final recalculateOnly in [false, true]) {
+        final steps = onboardingStepsFor(recalculateOnly: recalculateOnly);
+        expect(steps.indexOf(OnboardingStep.planStyle),
+            steps.indexOf(OnboardingStep.setNewGoal) + 1);
+        expect(steps.indexOf(OnboardingStep.adaptive),
+            steps.indexOf(OnboardingStep.planStyle) + 1);
+      }
     });
 
     test('recalculating asks the adaptive choice after the goal details', () {
       final steps = onboardingStepsFor(recalculateOnly: true);
       expect(steps.indexOf(OnboardingStep.adaptive),
-          steps.indexOf(OnboardingStep.setNewGoal) + 1);
+          steps.indexOf(OnboardingStep.planStyle) + 1);
       expect(steps.indexOf(OnboardingStep.advanced),
           steps.indexOf(OnboardingStep.adaptive) + 1);
     });
@@ -56,6 +67,7 @@ void main() {
       OnboardingStep.activity,
       OnboardingStep.goal,
       OnboardingStep.setNewGoal,
+      OnboardingStep.planStyle,
       OnboardingStep.adaptive,
       OnboardingStep.advanced,
       OnboardingStep.summary,
@@ -68,6 +80,16 @@ void main() {
   });
 
   group('isOnboardingStepSkipped', () {
+    test('the plan style is asked only for a lose goal', () {
+      expect(isOnboardingStepSkipped(OnboardingStep.planStyle,
+              goal: MacroCalculatorService.GOAL_LOSE),
+          isFalse);
+      for (final goal in [MacroCalculatorService.GOAL_MAINTAIN, MacroCalculatorService.GOAL_GAIN]) {
+        expect(isOnboardingStepSkipped(OnboardingStep.planStyle, goal: goal), isTrue,
+            reason: goal);
+      }
+    });
+
     test('maintaining skips the goal-weight step', () {
       expect(isOnboardingStepSkipped(OnboardingStep.setNewGoal,
               goal: MacroCalculatorService.GOAL_MAINTAIN),
@@ -119,7 +141,8 @@ void main() {
     });
 
     test('no other step is ever skipped', () {
-      for (final step in OnboardingStep.values.where((s) => s != OnboardingStep.setNewGoal)) {
+      for (final step in OnboardingStep.values.where(
+          (s) => s != OnboardingStep.setNewGoal && s != OnboardingStep.planStyle)) {
         expect(isOnboardingStepSkipped(step, goal: MacroCalculatorService.GOAL_MAINTAIN),
             isFalse,
             reason: step.name);

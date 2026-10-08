@@ -14,7 +14,6 @@ import '../../../providers/goals_provider.dart';
 import '../../../screens/NutritionTrendsScreen.dart';
 import '../../../screens/StepsTrackingScreen.dart';
 import '../../../screens/energy/checkin_sheet.dart';
-import '../../../services/energy/checkin.dart';
 import '../../../services/storage_service.dart';
 import '../../../theme/app_theme.dart';
 
@@ -478,7 +477,7 @@ class CheckinChip extends StatelessWidget {
     final checkin = context.watch<EnergyProvider>().todaysCheckin;
     if (checkin == null) return const SizedBox.shrink();
     final colors = Theme.of(context).extension<CustomColors>()!;
-    final changed = checkin.variant == CheckinVariant.changed;
+    final changed = checkin.variant.appliesTargets;
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: Material(

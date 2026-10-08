@@ -160,8 +160,8 @@ void main() {
     testWidgets('the summary shows old -> new targets from the learned expenditure',
         (tester) async {
       await open(tester);
-      // weight -> goal -> goal weight -> adaptive -> advanced -> summary
-      await next(tester, 5);
+      // weight -> goal -> goal weight -> plan style -> adaptive -> advanced -> summary
+      await next(tester, 6);
       expect(visible(SummaryPage), findsOneWidget);
 
       final expected = plan(tdee: 2450);
@@ -179,7 +179,7 @@ void main() {
 
     testWidgets('saving plans from the estimate and never resets learning', (tester) async {
       await open(tester);
-      await next(tester, 5);
+      await next(tester, 6);
       final saved = await saveFromSummary(tester);
 
       final expected = plan(tdee: 2450);
@@ -197,7 +197,7 @@ void main() {
     testWidgets('turning adaptive off goes back to the formula and the activity level',
         (tester) async {
       await open(tester);
-      await next(tester, 3);
+      await next(tester, 4);
       expect(visible(AdaptivePage), findsOneWidget);
       tester.widget<AdaptivePage>(find.byType(AdaptivePage)).onChanged(false);
       await pumpFrames(tester, seconds: 1);
@@ -222,7 +222,7 @@ void main() {
       await open(tester, state: state);
       await next(tester);
       expect(visible(ActivityLevelPage), findsOneWidget);
-      await next(tester, 5);
+      await next(tester, 6);
       expect(visible(SummaryPage), findsOneWidget);
       expect(find.textContaining('learned expenditure'), findsNothing);
       expect(find.text('Activity Level'), findsOneWidget);
@@ -254,7 +254,7 @@ void main() {
       await tester.tap(find.text('Use 81.9 kg (your trend)'));
       await pumpFrames(tester, seconds: 1);
       expect(visible(GoalPage), findsOneWidget);
-      await next(tester, 4);
+      await next(tester, 5);
       final saved = await saveFromSummary(tester);
       expect(saved['current_weight_kg'], 81.9);
     });

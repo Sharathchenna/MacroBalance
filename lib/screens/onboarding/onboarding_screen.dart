@@ -8,6 +8,7 @@ import 'package:macrotracker/services/energy/bmr.dart';
 import 'package:macrotracker/services/energy/checkin_day.dart';
 import 'package:macrotracker/services/energy/constants.dart';
 import 'package:macrotracker/services/energy/energy_summary.dart';
+import 'package:macrotracker/services/energy/phase_engine.dart';
 import 'package:macrotracker/services/energy/recalculate.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
@@ -21,6 +22,7 @@ import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/widgets/adaptive_choice.dart';
+import 'package:macrotracker/widgets/plan_style_choice.dart';
 
 // Import Page Widgets
 import 'pages/welcome_page.dart';
@@ -32,6 +34,7 @@ import 'pages/activity_level_page.dart';
 import 'pages/goal_page.dart';
 import 'pages/set_new_goal_page.dart'; // Import the new goal details page
 // Removed TargetSummaryPage import
+import 'pages/plan_style_page.dart';
 import 'pages/adaptive_page.dart';
 import 'pages/advanced_settings_page.dart';
 import 'pages/apple_health_page.dart'; // Import the new Apple Health page
@@ -78,6 +81,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   double? _bodyFatPercentage; // null until the user sets one
   bool _showBodyFatInput = false;
   bool _adaptiveGoals = true; // recommended; see AdaptivePage
+  PlanStyle? _planStyleChoice; // null: the default for the goal's size
+  // Recalculating: the plan as saved, to tell whether it changed.
+  ({PlanStyle style, String goal, double pace})? _savedPlan;
   // Recalculating only (spec 7.6): the targets now, the confident learned
   // expenditure, and the trend weight offered after a recent weigh-in.
   GoalTargets? _currentTargets;
@@ -96,6 +102,32 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       bodyFatKnown: _knownBodyFat != null);
 
   GoalKind get _goalKind => MacroCalculatorService.goalKindOf(_goal);
+
+  /// Only lose goals have a plan style; until the user picks one it's
+  /// phased for a goal more than 10% away, else steady (plan 10.3).
+  PlanStyle get _planStyle => _goal != MacroCalculatorService.GOAL_LOSE
+      ? PlanStyle.steady
+      : _planStyleChoice ?? _defaultPlanStyle;
+
+  PlanStyle get _defaultPlanStyle =>
+      defaultPlanStyle(weightKg: _weightKg, goalWeightKg: _goalWeightKg);
+
+  /// How the plan unfolds at the chosen pace (after the safety limits).
+  PlanOutline? get _planOutline => _goal != MacroCalculatorService.GOAL_LOSE
+      ? null
+      : outlinePlan(
+          style: _planStyle,
+          weightKg: _weightKg,
+          goalWeightKg: _goalWeightKg,
+          pacePct: _targetFor(_pacePct).effectivePacePct,
+          heightCm: _heightCm,
+        );
+
+  /// "3 loss phases + 2 breaks · about 34 weeks" for phased plans.
+  String? get _planLine {
+    final o = _planOutline;
+    return o == null || _planStyle == PlanStyle.steady ? null : PlanStyleCopy.outline(o);
+  }
 
   /// Plans come from the learned expenditure while adaptive goals are on
   /// and it's confident; activity isn't asked then (spec 7.6).
@@ -206,6 +238,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _goal = goals.goalType;
     _pacePct = _validPace(goals.pacePctPerWeek);
     _adaptiveGoals = goals.adaptiveGoals;
+    // A lose goal has had its style chosen; otherwise the default applies
+    // once the user picks lose.
+    if (_goal == MacroCalculatorService.GOAL_LOSE) _planStyleChoice = goals.planStyle;
+    _savedPlan = (style: goals.planStyle, goal: _goal, pace: _pacePct);
     _goalWeightKg = goals.goalWeightKg > 0 ? goals.goalWeightKg : _weightKg;
     // A saved goal weight can be on the wrong side of the current weight (no
     // goal weight saved, or the user has since passed it). Bring it back in
@@ -343,6 +379,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         'clamped': results['limit_hit'] != null,
       });
     }
+    if (_goal == MacroCalculatorService.GOAL_LOSE) trackPlanStyleChosen(_planStyle);
     if (_steps.contains(OnboardingStep.adaptive)) {
       trackAdaptiveChoice(
           _adaptiveGoals,
@@ -372,6 +409,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             results: results,
             recalculateOnly: widget.recalculateOnly,
             adaptiveGoals: _adaptiveGoals,
+            planLine: _planLine,
             onSave: widget.recalculateOnly ? () => saveMacroResults(results) : null,
           ),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -420,12 +458,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         debugPrint('Successfully saved macro results to Supabase');
       }
       _saveLocalGoals(macroResults, settings);
+      await _replanIfChanged();
     } catch (e) {
       debugPrint('Error saving macro results: $e');
       if (e is PostgrestException) debugPrint('Supabase error: ${e.message}');
       // Consider showing an error message to the user here
       // rethrow; // Rethrowing might crash the app if not caught higher up
     }
+  }
+
+  /// Starts a fresh phase sequence from today's weight (spec 6.7) at
+  /// onboarding, and when a recalculation changed the plan style, goal or
+  /// pace (or there's no plan yet). Otherwise the plan carries on.
+  Future<void> _replanIfChanged() async {
+    final energy = Provider.of<EnergyProvider>(context, listen: false);
+    final pace = _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _pacePct;
+    final saved = _savedPlan;
+    final unchanged = widget.recalculateOnly &&
+        saved != null &&
+        energy.currentPhase != null &&
+        saved.style == _planStyle &&
+        saved.goal == _goal &&
+        (pace == null || saved.pace == pace);
+    if (unchanged) return;
+    await energy.replan(
+      style: _planStyle,
+      goal: _goalKind,
+      trendKg: _weightKg,
+      heightCm: _heightCm,
+    );
   }
 
   /// The goal settings this flow saves, in `user_macros` column names: the
@@ -453,6 +514,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'tdee': macroResults['tdee']?.toDouble(),
       'steps_goal': macroResults['recommended_steps'] ?? 10000,
       'adaptive_goals': _adaptiveGoals,
+      'plan_style': _planStyle.code,
       // Check-ins fall on the weekday onboarding finished; a recalculation
       // keeps the day already in use.
       'checkin_weekday': widget.recalculateOnly
@@ -688,6 +750,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           currentGoal: _goal,
           onGoalChanged: (newGoal) => setState(() {
             _goal = newGoal;
+            _planStyleChoice = null;
             if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
               _goalWeightKg = _weightKg;
             } else {
@@ -721,6 +784,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           onPaceChanged: (pace) => setState(() => _pacePct = pace),
           onWeightUnitChanged: (isMetric) =>
               setState(() => _isMetricWeight = isMetric),
+        );
+      case OnboardingStep.planStyle:
+        final style = _planStyle;
+        return PlanStylePage(
+          style: style,
+          lossPct: phaseLossPct(weightKg: _weightKg, heightCm: _heightCm),
+          recommended: _defaultPlanStyle == PlanStyle.phased ? PlanStyle.phased : null,
+          outline: style == PlanStyle.steady ? null : _planOutline,
+          onChanged: (s) => setState(() => _planStyleChoice = s),
         );
       case OnboardingStep.adaptive:
         return AdaptivePage(
@@ -759,6 +831,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           goalWeightKg: _goalWeightKg,
           bodyFatPercentage: _knownBodyFat,
           adaptiveGoals: _adaptiveGoals,
+          planStyle: _goal == MacroCalculatorService.GOAL_LOSE ? _planStyle : null,
+          planLine: _planLine,
           onEdit: _goToStep,
           editableSteps: _steps.toSet(),
           currentTargets: _currentTargets,

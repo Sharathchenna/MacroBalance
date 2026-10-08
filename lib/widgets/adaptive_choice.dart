@@ -65,7 +65,7 @@ class AdaptiveChoiceOptions extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _Option(
+          ChoiceOption(
             key: const Key('adaptive_yes'),
             title: AdaptiveChoiceCopy.yesTitle,
             body: AdaptiveChoiceCopy.yesBody,
@@ -75,7 +75,7 @@ class AdaptiveChoiceOptions extends StatelessWidget {
           ),
           Divider(
               height: 1, indent: 52, color: Colors.grey.withValues(alpha: 0.15)),
-          _Option(
+          ChoiceOption(
             key: const Key('adaptive_no'),
             title: AdaptiveChoiceCopy.noTitle,
             body: AdaptiveChoiceCopy.noBody,
@@ -88,8 +88,11 @@ class AdaptiveChoiceOptions extends StatelessWidget {
   }
 }
 
-class _Option extends StatelessWidget {
-  const _Option({
+/// One row of a radio list: a radio, a title (with an optional Recommended
+/// badge) and a line of explanation. Shared by the adaptive and plan-style
+/// choices.
+class ChoiceOption extends StatelessWidget {
+  const ChoiceOption({
     super.key,
     required this.title,
     required this.body,

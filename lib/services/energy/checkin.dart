@@ -1,7 +1,11 @@
+import 'dart:math';
+
+import 'bmr.dart';
 import 'body_composition.dart';
 import 'constants.dart';
 import 'energy_estimator.dart';
 import 'estimate_rows.dart' show dayKey, parseDay;
+import 'phase_engine.dart';
 import 'targets.dart';
 
 /// What a weekly check-in did (spec 6.8; plan 9.5 variants A–G). The codes
@@ -19,15 +23,22 @@ enum CheckinVariant {
   /// D (ticket 15).
   goalReached('goal_reached'),
 
-  /// F (ticket 17).
+  /// F: a phase ended into a maintenance break.
   phaseToMaintain('phase_to_maintain'),
 
-  /// G (ticket 17).
+  /// G: a maintenance break ended into the next lose phase.
   phaseToLose('phase_to_lose');
 
   const CheckinVariant(this.code);
 
   final String code;
+
+  /// The check-in set new targets (from `reason.tdee`).
+  bool get appliesTargets =>
+      this == changed || this == phaseToMaintain || this == phaseToLose;
+
+  /// F or G.
+  bool get isPhaseChange => this == phaseToMaintain || this == phaseToLose;
 
   static CheckinVariant? fromCode(Object? code) {
     for (final v in values) {
@@ -106,6 +117,7 @@ class CheckinSettings {
     required this.sex,
     this.heightCm,
     this.age,
+    this.activityLevel,
     this.bodyFatPct,
     this.proteinPerKg,
     this.fatRatio,
@@ -121,10 +133,48 @@ class CheckinSettings {
   final Sex sex;
   final double? heightCm;
   final int? age;
+
+  /// 1–5; unknown is moderately active (3), as the profile edit assumes.
+  final int? activityLevel;
   final double? bodyFatPct;
   final double? proteinPerKg;
   final double? fatRatio;
   final double? goalWeightKg;
+
+  /// Energy density at [weightKg] for this profile.
+  double energyDensityAt(double weightKg) => energyDensity(fatMassKg(
+        weightKg: weightKg,
+        heightCm: heightCm ?? 170,
+        age: age ?? 30,
+        sex: sex,
+        bodyFatPct: bodyFatPct,
+      ));
+
+  /// The formula expenditure at [weightKg] (spec 6.5).
+  double formulaTdeeAt(double weightKg) => formulaTdee(
+        sex: sex,
+        weightKg: weightKg,
+        heightCm: heightCm ?? 170,
+        age: age ?? 30,
+        activityLevel: activityLevel ?? 3,
+        bodyFatPct: bodyFatPct,
+      );
+}
+
+/// The phased plan a check-in works from: rows 2–3 run when [phases]' open
+/// phase is due to end [on] (the check-in day).
+class CheckinPlan {
+  const CheckinPlan({
+    required this.style,
+    required this.phases,
+    required this.on,
+    this.settings = const PhaseSettings(),
+  });
+
+  final PlanStyle style;
+  final List<GoalPhase> phases;
+  final DateTime on;
+  final PhaseSettings settings;
 }
 
 /// Why a check-in came out as it did: `goal_checkins.reason`. The spec's
@@ -144,6 +194,8 @@ class CheckinReason {
     this.trendWeightKg,
     this.goalWeightKg,
     this.weeksToGoal,
+    this.phase,
+    this.phaseWeeks,
   });
 
   final EnergyState state;
@@ -172,6 +224,13 @@ class CheckinReason {
   /// At the new target, from today's energy balance.
   final double? weeksToGoal;
 
+  /// F and G: the phase that ended and the one that started. Applying the
+  /// check-in makes this change to the phases, once.
+  final PhaseTransition? phase;
+
+  /// F and G: about how long the new phase runs.
+  final double? phaseWeeks;
+
   Map<String, Object?> toJson() => {
         'avg_intake': avgIntake?.round(),
         'complete_days': completeDays,
@@ -186,6 +245,8 @@ class CheckinReason {
         'goal': goal.name,
         'pace_pct': pacePct,
         'weeks_to_goal': _r(weeksToGoal, 1),
+        if (phase != null) 'phase': phase!.toJson(),
+        if (phaseWeeks != null) 'phase_weeks': _r(phaseWeeks, 1),
       };
 
   static CheckinReason fromJson(Object? json) {
@@ -205,6 +266,8 @@ class CheckinReason {
       goal: GoalKind.values.asNameMap()[m['goal']] ?? GoalKind.maintain,
       pacePct: d('pace_pct') ?? 0,
       weeksToGoal: d('weeks_to_goal'),
+      phase: PhaseTransition.fromJson(m['phase']),
+      phaseWeeks: d('phase_weeks'),
     );
   }
 
@@ -226,13 +289,49 @@ class CheckinDecision {
   final CheckinTargets newTargets;
   final CheckinReason reason;
 
-  bool get changesTargets => variant == CheckinVariant.changed;
+  bool get changesTargets => variant.appliesTargets;
+}
+
+/// Targets for a phase of [kind] at [weightKg] from [tdee]: the chosen pace
+/// for lose and gain, [tdee] for maintenance, through the safety limits but
+/// never the check-in step (phase changes, "Keep losing").
+({CheckinTargets targets, PaceTarget pace}) phaseTargets({
+  required PhaseKind kind,
+  required CheckinSettings settings,
+  required double tdee,
+  required double weightKg,
+}) {
+  final pace = targetForPace(
+    goal: kind.goal,
+    pacePct: settings.pacePct,
+    tdee: tdee,
+    sex: settings.sex,
+    weightKg: weightKg,
+    energyDensity: settings.energyDensityAt(weightKg),
+  );
+  final macros = splitMacros(
+    cals: pace.cals,
+    goal: kind.goal,
+    weightKg: weightKg,
+    heightCm: settings.heightCm,
+    bodyFatPct: settings.bodyFatPct,
+    proteinPerKg: settings.proteinPerKg,
+    fatRatio: settings.fatRatio,
+  );
+  return (
+    targets: CheckinTargets(
+        cals: pace.cals.round(), protein: macros.proteinG, carbs: macros.carbsG, fat: macros.fatG),
+    pace: pace,
+  );
 }
 
 /// The weekly check-in decision (spec 6.8), first match wins:
 ///
-/// 1–3. Goal reached and phase ends: tickets 15 and 17 add them here, above
-///      row 4, since they apply with adaptive goals off too.
+/// 1.   Goal reached: ticket 15 adds it here, above rows 2–3.
+/// 2–3. [plan]'s open phase is due to end (spec 6.7): the next phase's
+///      targets, [CheckinVariant.phaseToMaintain] (F) or
+///      [CheckinVariant.phaseToLose] (G), with no step cap. With adaptive
+///      goals off too: fixed targets change only here.
 /// 4.   Adaptive goals off: null (no row, no sheet).
 /// 5.   No estimate yet, or it's learning or paused: [CheckinVariant.insufficient].
 /// 6.   The new target, after every safety limit, is under
@@ -251,13 +350,18 @@ CheckinDecision? decideCheckin({
   required EnergyEstimate? latest,
   double? trendWeekAgoKg,
   double? fallbackWeightKg,
+  CheckinPlan? plan,
 }) {
-  if (!settings.adaptive) return null;
-
   final trend = latest?.trendWeightKg;
   final weight = trend ?? fallbackWeightKg;
-  final tdee = latest?.tdee ?? tdeePrev;
-  CheckinReason reason({SafetyLimit? limitHit, double? weeksToGoal}) => CheckinReason(
+  CheckinReason reason({
+    required double tdee,
+    SafetyLimit? limitHit,
+    double? weeksToGoal,
+    PhaseTransition? phase,
+    double? phaseWeeks,
+  }) =>
+      CheckinReason(
         state: latest?.state ?? EnergyState.learning,
         avgIntake: latest?.avgIntake,
         completeDays: latest?.completeDays ?? 0,
@@ -272,6 +376,8 @@ CheckinDecision? decideCheckin({
         goal: settings.goal,
         pacePct: settings.goal == GoalKind.maintain ? 0 : settings.pacePct,
         weeksToGoal: weeksToGoal,
+        phase: phase,
+        phaseWeeks: phaseWeeks,
       );
   CheckinDecision keep(CheckinVariant variant, CheckinReason why) => CheckinDecision(
       variant: variant, oldTargets: current, newTargets: current, reason: why);
@@ -279,17 +385,47 @@ CheckinDecision? decideCheckin({
   final learning = latest == null ||
       latest.state == EnergyState.learning ||
       latest.state == EnergyState.paused;
-  if (learning || weight == null || weight <= 0) {
-    return keep(CheckinVariant.insufficient, reason());
+
+  // Rows 2–3.
+  if (plan != null && weight != null && weight > 0) {
+    final t = phaseTransition(
+      phases: plan.phases,
+      style: plan.style,
+      goal: settings.goal,
+      on: plan.on,
+      trendKg: weight,
+      goalWeightKg: settings.goalWeightKg,
+      heightCm: settings.heightCm,
+      settings: plan.settings,
+    );
+    if (t != null) {
+      // Adaptive: what we've learned; otherwise (or before there's an
+      // estimate) the formula at today's weight.
+      final tdee = settings.adaptive && !learning ? latest.tdee : settings.formulaTdeeAt(weight);
+      final next = phaseTargets(kind: t.next.kind, settings: settings, tdee: tdee, weightKg: weight);
+      return CheckinDecision(
+        variant: t.toMaintain ? CheckinVariant.phaseToMaintain : CheckinVariant.phaseToLose,
+        oldTargets: current,
+        newTargets: next.targets,
+        reason: reason(
+          tdee: tdee,
+          limitHit: next.pace.limitHit,
+          weeksToGoal: _weeksTo(settings, weight, tdee, next.targets.cals, settings.goalWeightKg),
+          phase: t,
+          phaseWeeks: _phaseWeeks(t.next, settings, weight, tdee, next.targets.cals),
+        ),
+      );
+    }
   }
 
-  final ed = energyDensity(fatMassKg(
-    weightKg: weight,
-    heightCm: settings.heightCm ?? 170,
-    age: settings.age ?? 30,
-    sex: settings.sex,
-    bodyFatPct: settings.bodyFatPct,
-  ));
+  if (!settings.adaptive) return null;
+
+  final tdee = latest?.tdee ?? tdeePrev;
+  if (learning || weight == null || weight <= 0) {
+    return keep(CheckinVariant.insufficient, reason(tdee: tdee));
+  }
+
+  final ed = settings.energyDensityAt(weight);
   final delta = paceDeltaCals(pacePct: settings.pacePct, weightKg: weight, energyDensity: ed);
   final raw = switch (settings.goal) {
     GoalKind.lose => tdee - delta,
@@ -305,18 +441,10 @@ CheckinDecision? decideCheckin({
     currentCals: current.cals.toDouble(),
   );
   final cals = safe.cals.round();
-  final goalKg = settings.goalWeightKg;
   final why = reason(
+    tdee: tdee,
     limitHit: safe.limitHit,
-    weeksToGoal: settings.goal == GoalKind.maintain || goalKg == null || goalKg <= 0
-        ? null
-        : weeksToGoal(
-            weightKg: weight,
-            goalWeightKg: goalKg,
-            tdee: tdee,
-            cals: cals.toDouble(),
-            energyDensity: ed,
-          ),
+    weeksToGoal: _weeksTo(settings, weight, tdee, cals, settings.goalWeightKg),
   );
 
   if ((cals - current.cals).abs() < kNoChangeThreshold) {
@@ -339,6 +467,38 @@ CheckinDecision? decideCheckin({
         cals: cals, protein: macros.proteinG, carbs: macros.carbsG, fat: macros.fatG),
     reason: why,
   );
+}
+
+/// Weeks from [weightKg] to [goalKg] eating [cals] against [tdee]; null
+/// when maintaining, without a goal weight or when [cals] doesn't head there.
+double? _weeksTo(
+    CheckinSettings settings, double weightKg, double tdee, int cals, double? goalKg) {
+  if (settings.goal == GoalKind.maintain || goalKg == null || goalKg <= 0) return null;
+  return weeksToGoal(
+    weightKg: weightKg,
+    goalWeightKg: goalKg,
+    tdee: tdee,
+    cals: cals.toDouble(),
+    energyDensity: settings.energyDensityAt(weightKg),
+  );
+}
+
+/// How long [next] runs: its planned weeks, or for a phased lose phase the
+/// weeks to its X% at [cals] (at most its cap).
+double? _phaseWeeks(
+    GoalPhase next, CheckinSettings settings, double weightKg, double tdee, int cals) {
+  if (next.plannedWeeks != null) return next.plannedWeeks!.toDouble();
+  final target = next.targetTrendKg;
+  if (target == null) return null;
+  final weeks = weeksToGoal(
+    weightKg: weightKg,
+    goalWeightKg: target,
+    tdee: tdee,
+    cals: cals.toDouble(),
+    energyDensity: settings.energyDensityAt(weightKg),
+  );
+  final cap = (next.maxWeeks ?? kMaxLossPhaseWeeks).toDouble();
+  return weeks == null ? cap : min(weeks, cap);
 }
 
 /// One `goal_checkins` row.

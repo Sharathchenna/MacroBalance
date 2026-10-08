@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:macrotracker/services/energy/phase_engine.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/widgets/plan_style_choice.dart';
 import 'package:macrotracker/widgets/targets_change.dart';
 import '../onboarding_steps.dart';
 
@@ -35,6 +37,11 @@ class SummaryPage extends StatelessWidget {
   /// activity level (spec 7.6); null when they come from the formula.
   final double? learnedTdee;
 
+  /// Lose goals: the plan style, and how a phased plan unfolds ("3 loss
+  /// phases + 2 breaks · about 34 weeks").
+  final PlanStyle? planStyle;
+  final String? planLine;
+
   const SummaryPage({
     super.key,
     required this.gender,
@@ -54,6 +61,8 @@ class SummaryPage extends StatelessWidget {
     this.currentTargets,
     this.newTargets,
     this.learnedTdee,
+    this.planStyle,
+    this.planLine,
   });
 
   /// The line under the targets when activity wasn't asked (plan 10.4).
@@ -153,6 +162,20 @@ class SummaryPage extends StatelessWidget {
         'value': '${goalWeightKg.toStringAsFixed(1)} kg',
         'page': goalPageIndex
       });
+    }
+    if (planStyle != null) {
+      activityGoalsItems.add({
+        'label': 'Plan',
+        'value': PlanStyleCopy.title(planStyle!),
+        'page': OnboardingStep.planStyle
+      });
+      if (planLine != null) {
+        activityGoalsItems.add({
+          'label': 'Plan Length',
+          'value': planLine!,
+          'page': OnboardingStep.planStyle
+        });
+      }
     }
     activityGoalsItems.add({
       'label': 'Targets',
