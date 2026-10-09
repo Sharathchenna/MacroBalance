@@ -547,7 +547,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                     icon: CupertinoIcons.refresh,
                     iconColor: Colors.purple,
                     title: 'Recalculate Goals',
-                    subtitle: 'Answer the body and goal questions again',
+                    subtitle: 'Update your weight, activity and goal',
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       HapticFeedback.lightImpact();

@@ -99,7 +99,9 @@ class GoalsCard extends StatelessWidget {
           ProgressCardTitle(
             'Your targets',
             info: simple ? null : _info,
-            trailing: timeline == null ? null : _PhaseMenu(timeline: timeline),
+            trailing: timeline == null
+                ? null
+                : _PhaseMenu(timeline: timeline, simple: simple),
           ),
           const SizedBox(height: 6),
           Row(
@@ -357,7 +359,7 @@ class PhaseTimelineView extends StatelessWidget {
       key: const Key('phase_timeline'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _TimelineBar(timeline: timeline),
+        _TimelineBar(timeline: timeline, simple: simple),
         const SizedBox(height: 10),
         Text(
           phaseStatusText(timeline, isKg: isKg, simple: simple),
@@ -386,9 +388,10 @@ class PhaseTimelineView extends StatelessWidget {
 Color _maintainColor(CustomColors colors) => colors.textSecondary.withValues(alpha: 0.55);
 
 class _TimelineBar extends StatelessWidget {
-  const _TimelineBar({required this.timeline});
+  const _TimelineBar({required this.timeline, required this.simple});
 
   final PhaseTimeline timeline;
+  final bool simple;
 
   static const _height = 10.0;
   static const _gap = 3.0;
@@ -405,7 +408,7 @@ class _TimelineBar extends StatelessWidget {
     final sum = weights.fold<double>(0, (a, w) => a + w);
 
     return Semantics(
-      label: 'Phase timeline',
+      label: simple ? 'Your plan timeline' : 'Phase timeline',
       child: LayoutBuilder(builder: (context, box) {
         final usable = box.maxWidth - _gap * (segments.length - 1);
         // The marker sits in its own segment, as far along as the phase is.
@@ -522,9 +525,16 @@ String _weeks(int n) => n <= 1 ? '1 week' : '$n weeks';
 /// phase is going to end at the next check-in (asked for, or due anyway) the
 /// item says so and does nothing.
 class _PhaseMenu extends StatelessWidget {
-  const _PhaseMenu({required this.timeline});
+  const _PhaseMenu({required this.timeline, required this.simple});
 
   final PhaseTimeline timeline;
+  final bool simple;
+
+  String get _endLabel => simple
+      ? (timeline.kind == PhaseKind.lose
+          ? 'Start your break early'
+          : 'End your break early')
+      : 'End phase early';
 
   Future<void> _confirm(BuildContext context) async {
     final energy = Provider.of<EnergyProvider>(context, listen: false);
@@ -535,7 +545,9 @@ class _PhaseMenu extends StatelessWidget {
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (dialog) => CupertinoAlertDialog(
-        title: const Text('End this phase early?'),
+        title: Text(simple
+            ? (losing ? 'Start your break early?' : 'End your break early?')
+            : 'End this phase early?'),
         content: Text(
           'At your next check-in ($checkin) '
           '${losing ? 'you will move to a maintenance break' : 'losing will start again'}'
@@ -550,7 +562,9 @@ class _PhaseMenu extends StatelessWidget {
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('End phase'),
+            child: Text(simple
+                ? (losing ? 'Start break' : 'End break')
+                : 'End phase'),
           ),
         ],
       ),
@@ -566,7 +580,7 @@ class _PhaseMenu extends StatelessWidget {
     final pending = timeline.endsAtCheckin;
     return PopupMenuButton<void>(
       key: const Key('phase_menu'),
-      tooltip: 'Phase options',
+      tooltip: simple ? 'Plan options' : 'Phase options',
       padding: EdgeInsets.zero,
       icon: Icon(Icons.more_horiz_rounded, color: colors.textSecondary),
       color: colors.cardBackground,
@@ -578,7 +592,7 @@ class _PhaseMenu extends StatelessWidget {
           enabled: !pending,
           onTap: () => _confirm(context),
           child: Text(
-            pending ? 'Ends at your next check-in' : 'End phase early',
+            pending ? 'Ends at your next check-in' : _endLabel,
             style: GoogleFonts.inter(
               fontSize: 15,
               fontWeight: FontWeight.w500,

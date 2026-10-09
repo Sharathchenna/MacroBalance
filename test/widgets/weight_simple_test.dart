@@ -16,6 +16,7 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/widgets/weight_chart.dart';
 
 import '../helpers/test_app.dart';
+import '../helpers/simple_copy_audit.dart';
 
 /// Fixed estimate rows, as in energy_tab_test.dart.
 class _FixtureSync extends EnergySyncService {
@@ -51,23 +52,6 @@ List<EnergyEstimate> _rows(EnergyState state, {double tdee = 2434}) => [
           updated: state != EnergyState.learning,
         ),
     ];
-
-/// Words simple mode never shows (plan principle 3).
-const _jargon = [
-  'Trend',
-  'trend',
-  'TDEE',
-  'xpenditure',
-  '%',
-  '±',
-  'σ',
-  'Estimated',
-  'Confident',
-  'phase',
-  'Phase',
-  'glycogen',
-  'Ignored',
-];
 
 void main() {
   late GoalsProvider goals;
@@ -122,14 +106,6 @@ void main() {
     await pumpFrames(tester, seconds: 2);
     return detail;
   }
-
-  /// Every string on screen, for the jargon check.
-  List<String> texts(WidgetTester tester) => [
-        for (final w in tester.widgetList<Text>(find.byType(Text)))
-          w.data ?? w.textSpan?.toPlainText() ?? '',
-        for (final w in tester.widgetList<RichText>(find.byType(RichText)))
-          w.text.toPlainText(),
-      ];
 
   Future<void> scrollTo(WidgetTester tester, Finder f) async {
     await tester.scrollUntilVisible(f, 200,
@@ -194,6 +170,10 @@ void main() {
       await history(losing(0.15, days: 21));
       await pump(tester);
       expect(find.text('Faster than planned'), findsOneWidget);
+      expect(
+          tester.widget<Text>(find.byKey(const Key('weight_goal_when'))).data,
+          startsWith('Your plan aims to reach 70 kg'));
+      expect(find.textContaining('On track'), findsNothing);
     });
 
     testWidgets('under a week: no change or pill yet', (tester) async {
@@ -292,6 +272,11 @@ void main() {
       for (final label in ['Ignored', 'Weigh-ins', 'Trend', 'Goal']) {
         expect(find.text(label), findsNothing, reason: label);
       }
+
+      chart.onTapEntry!(chart.entries.length - 1);
+      await pumpFrames(tester, seconds: 1);
+      expect(find.text('This one looked unusual, so it counts less.'), findsOneWidget);
+      expectSimpleCopy(tester);
     });
   });
 
@@ -303,11 +288,9 @@ void main() {
             sync: _FixtureSync(_rows(EnergyState.estimated)),
             inBackground: false),
         onOpenEnergy: () {});
+    expectSimpleCopy(tester);
     await scrollTo(tester, find.byKey(const Key('weight_burn_card')));
-    final all = texts(tester).join('\n');
-    for (final word in _jargon) {
-      expect(all, isNot(contains(word)), reason: word);
-    }
+    expectSimpleCopy(tester);
   });
 
   testWidgets('turning on detailed stats brings the detailed view back',

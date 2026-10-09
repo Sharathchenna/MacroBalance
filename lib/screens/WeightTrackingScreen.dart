@@ -574,7 +574,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     if (weeks == null || date == null || weeks == 0) return null;
     final reach = 'reach ${_amount(goal)} ${roughDate(date, weeks, _today)}';
     return switch (pace) {
-      _Pace.onTrack || _Pace.faster => 'On track to $reach.',
+      _Pace.onTrack => 'On track to $reach.',
+      _Pace.faster => 'Your plan aims to $reach.',
       null => 'Your plan gets you there ${roughDate(date, weeks, _today)}.',
       _ => 'Stick with your plan to $reach.',
     };

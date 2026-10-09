@@ -7,6 +7,7 @@ import 'package:macrotracker/screens/accountdashboard.dart';
 import 'package:macrotracker/services/storage_service.dart';
 
 import '../helpers/test_app.dart';
+import '../helpers/simple_copy_audit.dart';
 
 void main() {
   setUp(() async {
@@ -46,6 +47,14 @@ void main() {
     await tester.pumpWidget(testApp(const AccountDashboard(),
         goalsProvider: GoalsProvider(), detailedStatsProvider: detail));
     await pumpFrames(tester, seconds: 1);
+
+    final recalculate = find.text('Recalculate Goals');
+    await tester.scrollUntilVisible(recalculate, 200,
+        scrollable: find.byType(Scrollable).first);
+    await pumpFrames(tester, seconds: 1);
+    expect(find.text('Update your weight, activity and goal'), findsOneWidget);
+    expect(find.text('Answer the body and goal questions again'), findsNothing);
+    expectSimpleCopy(tester);
 
     final title = find.text('Show detailed stats');
     await tester.scrollUntilVisible(title, 200,

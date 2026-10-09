@@ -14,6 +14,7 @@ import 'package:macrotracker/services/phase_sync_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 
 import '../helpers/test_app.dart';
+import '../helpers/simple_copy_audit.dart';
 
 /// Ticket 19: the phase timeline and "End phase early" on the goals card.
 class _Estimates extends EnergySyncService {
@@ -170,7 +171,41 @@ void main() {
     expect(find.textContaining('Phase 1'), findsNothing);
     expect(find.byKey(const Key('energy_next_checkin')), findsOneWidget);
     expect(find.text('Weekly updates'), findsNothing);
+    expectSimpleCopy(tester);
   });
+
+  for (final isBreak in [false, true]) {
+    testWidgets('simple ${isBreak ? 'break' : 'losing'} plan: plain menu and confirmation',
+        (tester) async {
+      final e = await energy(isBreak ? afterLoss() : [losing()], trend: 82.9);
+      await pump(tester, await goals(), e, simple: true);
+      expectSimpleCopy(tester);
+
+      await tester.tap(find.byKey(const Key('phase_menu')));
+      await pumpFrames(tester, seconds: 1);
+      final action = isBreak ? 'End your break early' : 'Start your break early';
+      expect(find.text(action), findsOneWidget);
+      expectSimpleCopy(tester);
+
+      await tester.tap(find.text(action));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.text('$action?'), findsOneWidget);
+      expectSimpleCopy(tester);
+      expect(e.currentPhase!.endRequestedOn, isNull);
+
+      await tester.tap(find.text(isBreak ? 'End break' : 'Start break'));
+      await pumpFrames(tester, seconds: 1);
+      expect(e.currentPhase!.endRequestedOn, today);
+      expectSimpleCopy(tester);
+      expect(events.where((x) => x['eventName'] == 'phase_action'), hasLength(1));
+
+      await tester.tap(find.byKey(const Key('phase_menu')));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.text('Ends at your next check-in'), findsOneWidget);
+      expect(find.text(action), findsNothing);
+      expectSimpleCopy(tester);
+    });
+  }
 
   testWidgets('pounds in the status line', (tester) async {
     await pump(tester, await goals(), await energy([losing()], trend: 82.9), metric: false);
