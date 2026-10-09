@@ -11,8 +11,11 @@ import 'package:macrotracker/services/storage_service.dart';
 class DetailedStatsProvider extends ChangeNotifier {
   static const String storageKey = 'show_detailed_stats';
 
-  DetailedStatsProvider() {
-    _on = StorageService().get(storageKey, defaultValue: false) == true;
+  /// [showDetailedStats] overrides the stored value without saving it
+  /// (for tests and previews).
+  DetailedStatsProvider({bool? showDetailedStats}) {
+    _on = showDetailedStats ??
+        StorageService().get(storageKey, defaultValue: false) == true;
   }
 
   late bool _on;

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart';
@@ -86,7 +87,10 @@ void main() {
       phone(tester);
       await tester.pumpWidget(testApp(const WeightTrackingScreen(),
           goalsProvider: goals,
-          weightUnitProvider: WeightUnitProvider()..setMetric(metric)));
+          weightUnitProvider: WeightUnitProvider()..setMetric(metric),
+          // Start / Trend / Goal and the scale line are the detailed view;
+          // weight_simple_test.dart covers the simple one.
+          detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true)));
       await pumpFrames(tester, seconds: 2);
     }
 

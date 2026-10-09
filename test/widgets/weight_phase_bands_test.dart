@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart';
@@ -76,7 +77,8 @@ void main() {
         ),
       ];
 
-  Future<void> pump(WidgetTester tester, List<GoalPhase> phases) async {
+  Future<void> pump(WidgetTester tester, List<GoalPhase> phases,
+      {bool detailed = true}) async {
     tester.view.physicalSize = const Size(1179, 2556);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -84,7 +86,10 @@ void main() {
         goalsProvider: goals,
         energyProvider:
             EnergyProvider(inBackground: false, phaseSync: _Phases(phases)),
-        weightUnitProvider: WeightUnitProvider()..setMetric(true)));
+        weightUnitProvider: WeightUnitProvider()..setMetric(true),
+        // The legend and the "Expected" copy are the detailed stats view.
+        detailedStatsProvider:
+            DetailedStatsProvider(showDetailedStats: detailed)));
     await pumpFrames(tester, seconds: 2);
   }
 
@@ -101,6 +106,21 @@ void main() {
     expect(find.text(label), findsOneWidget);
     expect(find.text('Ignored'), findsNothing);
     expect(chart(tester).ignored, everyElement(isFalse));
+  });
+
+  testWidgets('simple view: a quiet band and the plain water note',
+      (tester) async {
+    await history(switchAgo: 5);
+    await pump(tester, phased(5), detailed: false);
+
+    expect(chart(tester).switches, [daysAgo(5)]);
+    expect(chart(tester).simple, isTrue);
+    expect(
+        find.text('Weight often jumps for a few days after a change. '
+            'That\'s water, not fat.'),
+        findsOneWidget);
+    expect(find.text(label), findsNothing);
+    expect(find.text('Phase change'), findsNothing);
   });
 
   testWidgets('no phases: no band or label, and the jump is ignored',

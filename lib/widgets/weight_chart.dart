@@ -20,6 +20,10 @@ import 'package:macrotracker/utils/weight_trend.dart';
 /// [kSwitchExpectedDays] when its water and glycogen shift is expected,
 /// labelled "Expected" when there's room.
 ///
+/// [simple] (the default Progress view, not detailed stats) draws ignored
+/// readings as lighter weigh-in dots instead of grey rings, and the phase
+/// bands fainter and unlabelled.
+///
 /// Dates are placed by time, so gaps between weigh-ins read as gaps. Axis
 /// values are round numbers in the unit shown (kg or lbs). Touch and drag to
 /// read a weigh-in; [onScrub] reports its index, then null on release. A tap
@@ -36,6 +40,7 @@ class WeightChart extends StatefulWidget {
     this.goalKg,
     this.ignored = const [],
     this.switches = const [],
+    this.simple = false,
     this.onScrub,
     this.onTapEntry,
   });
@@ -56,6 +61,9 @@ class WeightChart extends StatefulWidget {
 
   /// Phase switch days to draw as bands (`phaseSwitchDays`).
   final List<DateTime> switches;
+
+  /// Quieter marks for the simple view: see the class docs.
+  final bool simple;
   final ValueChanged<int?>? onScrub;
   final ValueChanged<int>? onTapEntry;
 
@@ -351,8 +359,20 @@ class _WeightChartPainter extends CustomPainter {
   }
 
   /// Readings left out of the trend: grey hollow rings, on top of the line.
+  /// In the simple view, just a lighter weigh-in dot.
   void _drawIgnored(Canvas canvas, _ChartLayout l) {
     final spacing = l.plot.width / chart.entries.length;
+    if (chart.simple) {
+      final faint = Paint()
+        ..color = colors.accentPrimary.withValues(alpha: 0.25);
+      final r = l.trend ? (spacing < 3 ? 1.2 : 2.2) : (spacing < 10 ? 2.5 : 3.5);
+      for (var i = 0; i < chart.entries.length; i++) {
+        if (!chart.isIgnored(i)) continue;
+        final e = chart.entries[i];
+        canvas.drawCircle(Offset(l.x(e.date), l.y(e.kg)), r, faint);
+      }
+      return;
+    }
     final r = spacing < 10 ? 3.0 : 4.0;
     final fill = Paint()..color = colors.cardBackground;
     final ring = Paint()
@@ -379,7 +399,8 @@ class _WeightChartPainter extends CustomPainter {
     if (right <= left) return;
     final color = colors.textSecondary;
     canvas.drawRect(Rect.fromLTRB(left, l.plot.top, right, l.plot.bottom),
-        Paint()..color = color.withValues(alpha: 0.07));
+        Paint()..color = color.withValues(alpha: chart.simple ? 0.05 : 0.07));
+    if (chart.simple) return;
     if (from >= l.plot.left) {
       canvas.drawLine(
         Offset(from, l.plot.top),

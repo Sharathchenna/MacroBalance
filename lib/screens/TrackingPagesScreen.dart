@@ -148,7 +148,13 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
         controller: _tabController,
         // In the order of [_tabs] and the index constants.
         children: [
-          const KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
+          KeepAlivePage(
+            child: WeightTrackingScreen(
+              hideAppBar: true,
+              onOpenEnergy: () =>
+                  _tabController.animateTo(TrackingPagesScreen.energyTab),
+            ),
+          ),
           const KeepAlivePage(child: NutritionTrendsScreen(hideAppBar: true)),
           const KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
           const KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),

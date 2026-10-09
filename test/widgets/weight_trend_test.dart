@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart';
@@ -45,7 +46,9 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(testApp(const WeightTrackingScreen(),
         goalsProvider: goals,
-        weightUnitProvider: WeightUnitProvider()..setMetric(metric)));
+        weightUnitProvider: WeightUnitProvider()..setMetric(metric),
+        // The trend, pace row and legend are the detailed stats view.
+        detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true)));
     await pumpFrames(tester, seconds: 2);
   }
 
