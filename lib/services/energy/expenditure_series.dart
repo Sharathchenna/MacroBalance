@@ -199,10 +199,10 @@ class ExpenditureSeries {
     );
   }
 
-  /// What the y axis covers: every row's ±1 sd band, at least
-  /// [kMinScaleSpan] wide, plus [formula] when it's within about twice the
-  /// data's spread.
-  ExpenditureScale scale({required double? formula}) {
+  /// What the y axis covers: every row's ±1 sd band (just the line when
+  /// [band] is false), at least [kMinScaleSpan] wide, plus [formula] when
+  /// it's within about twice the data's spread.
+  ExpenditureScale scale({required double? formula, bool band = true}) {
     if (isEmpty) {
       final mid = formula ?? 2000;
       return ExpenditureScale(
@@ -214,8 +214,9 @@ class ExpenditureSeries {
     var lo = double.infinity, hi = double.negativeInfinity;
     for (final s in segments) {
       for (final r in s.rows) {
-        if (r.tdee - r.tdeeSd < lo) lo = r.tdee - r.tdeeSd;
-        if (r.tdee + r.tdeeSd > hi) hi = r.tdee + r.tdeeSd;
+        final sd = band ? r.tdeeSd : 0.0;
+        if (r.tdee - sd < lo) lo = r.tdee - sd;
+        if (r.tdee + sd > hi) hi = r.tdee + sd;
       }
     }
     final reach = 2 * (hi - lo < kMinScaleSpan ? kMinScaleSpan : hi - lo);

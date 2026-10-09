@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/TrackingPagesScreen.dart';
@@ -10,6 +11,8 @@ import 'package:macrotracker/services/energy/energy_estimator.dart';
 import 'package:macrotracker/services/energy/trend_weight.dart';
 import 'package:macrotracker/services/energy_sync_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
+import 'package:macrotracker/widgets/expenditure_chart.dart';
+import 'package:macrotracker/widgets/progress_card.dart';
 
 import '../helpers/test_app.dart';
 
@@ -122,6 +125,7 @@ Future<(EnergyProvider, GoalsProvider)> pumpTab(
   Iterable<int>? weighed,
   bool dark = true,
   VoidCallback? onLogWeight,
+  bool detailed = true,
 }) async {
   tester.view.physicalSize = const Size(1179, 2556);
   tester.view.devicePixelRatio = 3;
@@ -142,6 +146,7 @@ Future<(EnergyProvider, GoalsProvider)> pumpTab(
     goalsProvider: goals,
     energyProvider: energy,
     dark: dark,
+    detailedStatsProvider: DetailedStatsProvider(showDetailedStats: detailed),
   ));
   await tester.pump();
   return (energy, goals);
@@ -154,6 +159,49 @@ Future<void> scrollTo(WidgetTester tester, Finder f) async {
 }
 
 const _unitKey = 'unit_system'; // WeightUnitProvider's setting
+
+/// Words simple mode never shows (plan principle 3). "stimate" catches
+/// "estimate" and "Estimated".
+const _jargon = [
+  'xpenditure',
+  'TDEE',
+  'Trend',
+  'trend',
+  '±',
+  'σ',
+  '%',
+  'stimate',
+  'Confident',
+  'Learning',
+  'metabolism',
+  'ata quality',
+  'phase',
+  'Phase',
+  'density',
+  'How we got this',
+];
+
+/// Every string rendered, for the jargon check.
+List<String> texts(WidgetTester tester) => [
+      for (final w in tester.widgetList<Text>(find.byType(Text)))
+        w.data ?? w.textSpan?.toPlainText() ?? '',
+      for (final w in tester.widgetList<RichText>(find.byType(RichText)))
+        w.text.toPlainText(),
+    ];
+
+/// Scans the whole tab, top and bottom, for jargon.
+Future<void> expectNoJargon(WidgetTester tester, {List<String>? allow}) async {
+  final seen = <String>{...texts(tester)};
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, -3000));
+  await pumpFrames(tester, seconds: 1);
+  seen.addAll(texts(tester));
+  for (final t in seen) {
+    for (final word in _jargon) {
+      if (allow?.contains(t) ?? false) continue;
+      expect(t.contains(word), isFalse, reason: '"$t" contains "$word"');
+    }
+  }
+}
 
 void main() {
   final events = <MethodCall>[];
@@ -322,6 +370,201 @@ void main() {
     expect(find.text('How we got this'), findsNothing);
   });
 
+  group('simple mode', () {
+    for (final dark in [true, false]) {
+      testWidgets('learning: getting to know you, the ring and the next step, '
+          'no number (${dark ? 'dark' : 'light'})', (tester) async {
+        await pumpTab(tester,
+            rows: learningRows(),
+            start: ago(9),
+            weighed: [8, 3],
+            dark: dark,
+            detailed: false);
+
+        expect(find.text('Getting to know you'), findsOneWidget);
+        expect(find.byKey(const Key('energy_learning_ring')), findsOneWidget);
+        expect(find.text('3 of 7 days logged'), findsOneWidget);
+        expect(find.text('2 of 4 weigh-ins'), findsOneWidget);
+        expect(find.text('Log your food for 4 more days and weigh in 2 more times.'),
+            findsOneWidget);
+        expect(find.byKey(const Key('energy_how_it_works')), findsOneWidget);
+        // No number, no chart, no tip while learning.
+        expect(find.textContaining('2,300'), findsNothing);
+        expect(find.byKey(const Key('energy_burn_headline')), findsNothing);
+        expect(find.byKey(const Key('energy_simple_chart')), findsNothing);
+        expect(find.byKey(const Key('energy_tip_weighIn')), findsNothing);
+        expect(find.text('Reset learning'), findsNothing);
+        await expectNoJargon(tester);
+        expect(find.text('Your targets'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('ready: you burn about, one sentence, plain chart, targets '
+          '(${dark ? 'dark' : 'light'})', (tester) async {
+        await pumpTab(tester,
+            rows: confidentRows(), start: ago(30), dark: dark, detailed: false);
+
+        expect(find.text('You burn about'), findsOneWidget);
+        expect(find.textContaining('2,450', findRichText: true), findsOneWidget);
+        expect(find.text('Based on what you\'ve logged and how your weight has changed.'),
+            findsOneWidget);
+        expect(find.byKey(const Key('energy_simple_note')), findsNothing,
+            reason: 'confident adds nothing');
+        expect(find.byKey(const Key('energy_simple_chart')), findsOneWidget);
+        expect(find.text('Over time'), findsOneWidget);
+        expect(find.byType(StatePill), findsNothing);
+        expect(find.byKey(const Key('energy_week_change')), findsNothing);
+
+        await scrollTo(tester, find.text('Your targets'));
+        expect(find.byKey(const Key('energy_next_checkin')), findsOneWidget);
+        expect(find.text('Weekly updates'), findsNothing);
+        // Hidden in simple mode.
+        expect(find.byKey(const Key('energy_quality_strip')), findsNothing);
+        expect(find.text('Reset learning'), findsNothing);
+        expect(find.text('Starting estimate'), findsNothing);
+        await expectNoJargon(tester);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('estimated adds "This gets more accurate each week"',
+        (tester) async {
+      await pumpTab(tester, rows: estimatedRows(), start: ago(30), detailed: false);
+      expect(find.textContaining('2,380', findRichText: true), findsOneWidget);
+      expect(find.text('This gets more accurate each week.'), findsOneWidget);
+      await expectNoJargon(tester);
+    });
+
+    testWidgets('paused: log a few days to keep this up to date', (tester) async {
+      await pumpTab(tester, rows: pausedRows(), start: ago(30), detailed: false);
+      expect(find.text('You burn about'), findsOneWidget);
+      expect(find.text('Log a few days to keep this up to date.'), findsOneWidget);
+      expect(find.textContaining('Last updated'), findsNothing);
+      await expectNoJargon(tester);
+    });
+
+    testWidgets('next step names whatever is still missing', (tester) async {
+      await pumpTab(tester,
+          rows: [
+            for (var n = 9; n >= 1; n--)
+              est(n,
+                  state: EnergyState.learning,
+                  updated: false,
+                  completeDays: 9,
+                  weighIns: 3),
+          ],
+          start: ago(9),
+          detailed: false);
+      expect(find.text('7 of 7 days logged'), findsOneWidget);
+      expect(find.text('Weigh in 1 more time.'), findsOneWidget);
+    });
+
+    testWidgets('no weigh-ins while learning offers to log one', (tester) async {
+      var opened = false;
+      await pumpTab(tester,
+          rows: learningRows(),
+          start: ago(9),
+          weighed: [],
+          detailed: false,
+          onLogWeight: () => opened = true);
+      await tester.tap(find.text('Log your weight'));
+      expect(opened, isTrue);
+    });
+
+    testWidgets('one tip at most, in the gentle copy', (tester) async {
+      await pumpTab(tester,
+          rows: confidentRows(),
+          start: ago(30),
+          weighed: [20, 10],
+          detailed: false);
+      await scrollTo(tester, find.byKey(const Key('energy_tip_weighIn')));
+      expect(find.text('Weigh in a couple more times this week'), findsOneWidget);
+      expect(find.byKey(const Key('energy_tip_finishDay')), findsNothing);
+    });
+
+    testWidgets('finish-day tip keeps its reminder button', (tester) async {
+      await pumpTab(tester,
+          rows: confidentRows(),
+          start: ago(30),
+          untracked: {1, 2, 3, 5, 8, 13, 17},
+          detailed: false);
+      await scrollTo(tester, find.byKey(const Key('energy_tip_finishDay')));
+      expect(find.byKey(const Key('finish_reminder_button')), findsOneWidget);
+    });
+
+    testWidgets('no tip when the data is fine', (tester) async {
+      await pumpTab(tester, rows: confidentRows(), start: ago(30), detailed: false);
+      await scrollTo(tester, find.text('Your targets'));
+      expect(find.byKey(const Key('energy_tip_weighIn')), findsNothing);
+      expect(find.byKey(const Key('energy_tip_finishDay')), findsNothing);
+    });
+
+    testWidgets('"How it works" explains in plain words and holds Reset learning',
+        (tester) async {
+      final (energy, goals) =
+          await pumpTab(tester, rows: confidentRows(), start: ago(30), detailed: false);
+
+      await tester.tap(find.byKey(const Key('energy_how_it_works')));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.text('How it works'), findsWidgets);
+      expect(find.text('What helps'), findsOneWidget);
+      final sheet = texts(tester);
+      for (final t in sheet) {
+        for (final word in _jargon) {
+          expect(t.contains(word), isFalse, reason: '"$t" contains "$word"');
+        }
+      }
+
+      await tester.ensureVisible(find.text('Reset learning'));
+      await pumpFrames(tester, seconds: 1);
+      await tester.tap(find.text('Reset learning'));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.text('Reset learning?'), findsOneWidget);
+      expect(find.textContaining('learn again from today'), findsOneWidget);
+      await tester.tap(find.text('Reset'));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await pumpFrames(tester, seconds: 1);
+
+      expect(goals.learningStartedOn, _today);
+      expect(energy.estimates, hasLength(30), reason: 'history is kept');
+      expect(captured('learning_reset'), hasLength(1));
+      expect(find.text('Getting to know you'), findsOneWidget);
+    });
+
+    testWidgets('the chart is one line from learning start, without the '
+        'band, ticks or legend', (tester) async {
+      await pumpTab(tester, rows: confidentRows(), start: ago(20), detailed: false);
+      final chart = tester.widget<ExpenditureChart>(find.byType(ExpenditureChart));
+      expect(chart.simple, isTrue);
+      expect(chart.formulaTdee, isNull);
+      expect(chart.checkins, isEmpty);
+      expect(chart.start, ago(20));
+      expect(find.byType(LegendItem), findsNothing);
+      expect(find.byType(InfoButton), findsNothing);
+    });
+
+    testWidgets('turning detailed stats on brings the full tab back',
+        (tester) async {
+      tester.view.physicalSize = const Size(1179, 2556);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final goals = GoalsProvider()..startLearning(ago(30));
+      final energy =
+          EnergyProvider(sync: _FixtureSync(confidentRows()), inBackground: false);
+      final detail = DetailedStatsProvider(showDetailedStats: false);
+      await tester.pumpWidget(testApp(const Scaffold(body: EnergyTab()),
+          goalsProvider: goals, energyProvider: energy, detailedStatsProvider: detail));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.text('You burn about'), findsOneWidget);
+
+      detail.showDetailedStats = true;
+      addTearDown(() => StorageService().delete(DetailedStatsProvider.storageKey));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.text('Your daily expenditure'), findsOneWidget);
+      expect(find.text('You burn about'), findsNothing);
+    });
+  });
+
   group('Progress tabs', () {
     testWidgets('Weight is first and opens by default; Energy is last and '
         'viewing it is tracked', (tester) async {
@@ -333,7 +576,9 @@ void main() {
           EnergyProvider(sync: _FixtureSync(confidentRows()), inBackground: false);
 
       await tester.pumpWidget(testApp(const TrackingPagesScreen(),
-          goalsProvider: goals, energyProvider: energy));
+          goalsProvider: goals,
+          energyProvider: energy,
+          detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true)));
       await pumpFrames(tester, seconds: 1);
 
       final tabs = tester.widgetList<Tab>(find.byType(Tab)).map((t) => t.text);
@@ -368,7 +613,8 @@ void main() {
       await tester.pumpWidget(testApp(
           const TrackingPagesScreen(initialPage: TrackingPagesScreen.energyTab),
           goalsProvider: goals,
-          energyProvider: energy));
+          energyProvider: energy,
+          detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true)));
       await pumpFrames(tester, seconds: 1);
       expect(find.text('Your daily expenditure'), findsOneWidget);
       expect(find.byIcon(Icons.scale), findsNothing);

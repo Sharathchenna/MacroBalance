@@ -15,6 +15,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/adaptive_choice.dart';
 import '../../widgets/plan_style_choice.dart';
 import '../../widgets/progress_card.dart';
+import 'checkin_history.dart';
 
 /// Energy tab → the targets and how they're kept up to date (spec 7.1 R5).
 ///
@@ -25,8 +26,14 @@ import '../../widgets/progress_card.dart';
 ///
 /// Phased and diet-break plans also get the phase timeline with its status
 /// line, and an overflow menu with "End phase early" (plan 9.6).
+///
+/// [simple] (detailed stats off): just the targets, the next check-in day
+/// and the last check-in as one row ("See all" opens the rest). No info
+/// sheet, no likely change and no switch; the phase line drops its number.
 class GoalsCard extends StatelessWidget {
-  const GoalsCard({super.key});
+  const GoalsCard({super.key, this.simple = false});
+
+  final bool simple;
 
   static const _info = ProgressInfo('Your targets', [
     InfoSection(
@@ -56,7 +63,9 @@ class GoalsCard extends StatelessWidget {
     final colors = Theme.of(context).extension<CustomColors>()!;
     final goals = context.watch<GoalsProvider>();
     final energy = context.watch<EnergyProvider>();
-    final likely = goals.adaptiveGoals ? likelyChangeText(energy.previewCheckin()) : null;
+    final likely = goals.adaptiveGoals && !simple
+        ? likelyChangeText(energy.previewCheckin())
+        : null;
     final cals = NumberFormat.decimalPattern().format(goals.caloriesGoal.round());
     final adaptive = goals.adaptiveGoals;
     final secondary =
@@ -89,7 +98,7 @@ class GoalsCard extends StatelessWidget {
         children: [
           ProgressCardTitle(
             'Your targets',
-            info: _info,
+            info: simple ? null : _info,
             trailing: timeline == null ? null : _PhaseMenu(timeline: timeline),
           ),
           const SizedBox(height: 6),
@@ -126,95 +135,175 @@ class GoalsCard extends StatelessWidget {
           ),
           if (timeline != null) ...[
             const SizedBox(height: 16),
-            PhaseTimelineView(timeline: timeline, isKg: units.isKg),
+            PhaseTimelineView(
+                timeline: timeline, isKg: units.isKg, simple: simple),
           ],
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: BoxDecoration(
-              color: adaptive
-                  ? colors.accentPrimary.withValues(alpha: 0.12)
-                  : colors.textSecondary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  adaptive ? Icons.event_repeat_rounded : Icons.lock_outline_rounded,
-                  size: 18,
-                  color: adaptive ? colors.accentPrimary : colors.textSecondary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: adaptive
-                      ? Text.rich(
-                          key: const Key('energy_next_checkin'),
-                          TextSpan(
-                            style: secondary.copyWith(color: colors.textPrimary),
-                            children: [
-                              const TextSpan(text: 'Next check-in: '),
-                              TextSpan(
-                                text: checkinDayText(
-                                    energy.nextCheckinDay ?? goals.nextCheckinDay,
-                                    DateTime.now()),
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                              const TextSpan(
-                                  text: '. Your targets will update from this '
-                                      'estimate.'),
-                              if (likely != null)
+          if (simple)
+            ..._simpleCheckins(context, colors, goals, energy)
+          else ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              decoration: BoxDecoration(
+                color: adaptive
+                    ? colors.accentPrimary.withValues(alpha: 0.12)
+                    : colors.textSecondary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    adaptive ? Icons.event_repeat_rounded : Icons.lock_outline_rounded,
+                    size: 18,
+                    color: adaptive ? colors.accentPrimary : colors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: adaptive
+                        ? Text.rich(
+                            key: const Key('energy_next_checkin'),
+                            TextSpan(
+                              style: secondary.copyWith(color: colors.textPrimary),
+                              children: [
+                                const TextSpan(text: 'Next check-in: '),
                                 TextSpan(
-                                  text: ' $likely',
+                                  text: checkinDayText(
+                                      energy.nextCheckinDay ?? goals.nextCheckinDay,
+                                      DateTime.now()),
                                   style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
-                            ],
+                                const TextSpan(
+                                    text: '. Your targets will update from this '
+                                        'estimate.'),
+                                if (likely != null)
+                                  TextSpan(
+                                    text: ' $likely',
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                              ],
+                            ),
+                          )
+                        : Text(
+                            'Your targets are fixed at $cals cals. Turn on weekly '
+                            'updates to have them follow your real expenditure.',
+                            style: secondary.copyWith(color: colors.textPrimary),
                           ),
-                        )
-                      : Text(
-                          'Your targets are fixed at $cals cals. Turn on weekly '
-                          'updates to have them follow your real expenditure.',
-                          style: secondary.copyWith(color: colors.textPrimary),
-                        ),
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          MergeSemantics(
-            child: InkWell(
-              key: const Key('energy_adaptive_toggle'),
-              onTap: () => changeAdaptiveGoals(context, to: !adaptive),
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Weekly updates',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: colors.textPrimary,
+            const SizedBox(height: 6),
+            MergeSemantics(
+              child: InkWell(
+                key: const Key('energy_adaptive_toggle'),
+                onTap: () => changeAdaptiveGoals(context, to: !adaptive),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Weekly updates',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: colors.textPrimary,
+                          ),
                         ),
                       ),
-                    ),
-                    CupertinoSwitch(
-                      value: adaptive,
-                      activeTrackColor: colors.accentPrimary,
-                      onChanged: (on) => changeAdaptiveGoals(context, to: on),
-                    ),
-                  ],
+                      CupertinoSwitch(
+                        value: adaptive,
+                        activeTrackColor: colors.accentPrimary,
+                        onChanged: (on) => changeAdaptiveGoals(context, to: on),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
+}
+
+/// Simple mode's lower half: when the next check-in is (or that the targets
+/// are fixed), then the last check-in as one row.
+List<Widget> _simpleCheckins(BuildContext context, CustomColors colors,
+    GoalsProvider goals, EnergyProvider energy) {
+  final quiet =
+      GoogleFonts.inter(fontSize: 14, color: colors.textSecondary, height: 1.4);
+  final last = energy.checkins.firstOrNull;
+  return [
+    const SizedBox(height: 16),
+    Row(
+      children: [
+        Icon(
+          goals.adaptiveGoals
+              ? Icons.event_repeat_rounded
+              : Icons.lock_outline_rounded,
+          size: 18,
+          color: colors.textSecondary,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: goals.adaptiveGoals
+              ? Text.rich(
+                  key: const Key('energy_next_checkin'),
+                  TextSpan(style: quiet, children: [
+                    const TextSpan(text: 'Next check-in '),
+                    TextSpan(
+                      text: checkinDayText(
+                          energy.nextCheckinDay ?? goals.nextCheckinDay,
+                          DateTime.now()),
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary),
+                    ),
+                  ]),
+                )
+              : Text('These stay the same until you change them', style: quiet),
+        ),
+      ],
+    ),
+    if (last != null) ...[
+      const SizedBox(height: 14),
+      Divider(height: 1, color: colors.textSecondary.withValues(alpha: 0.14)),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Last check-in',
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textSecondary),
+            ),
+          ),
+          if (energy.checkins.length > 1)
+            GestureDetector(
+              key: const Key('checkin_see_all'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => showCheckinList(context),
+              child: Text(
+                'See all',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colors.accentPrimary,
+                ),
+              ),
+            ),
+        ],
+      ),
+      CheckinHistoryRow(checkin: last, simple: true),
+    ],
+  ];
 }
 
 /// What a check-in would do if it ran today: "Likely +50 cals.", "Likely no
@@ -248,10 +337,18 @@ String checkinDayText(DateTime day, DateTime now) {
 /// The plan as segments (losing in the accent, maintenance neutral), a
 /// you-are-here marker, a small legend and the status line.
 class PhaseTimelineView extends StatelessWidget {
-  const PhaseTimelineView({super.key, required this.timeline, required this.isKg});
+  const PhaseTimelineView({
+    super.key,
+    required this.timeline,
+    required this.isKg,
+    this.simple = false,
+  });
 
   final PhaseTimeline timeline;
   final bool isKg;
+
+  /// Simple mode: the status line without the phase number.
+  final bool simple;
 
   @override
   Widget build(BuildContext context) {
@@ -263,7 +360,7 @@ class PhaseTimelineView extends StatelessWidget {
         _TimelineBar(timeline: timeline),
         const SizedBox(height: 10),
         Text(
-          phaseStatusText(timeline, isKg: isKg),
+          phaseStatusText(timeline, isKg: isKg, simple: simple),
           key: const Key('phase_status'),
           style: GoogleFonts.inter(
             fontSize: 14,
@@ -379,7 +476,7 @@ class _TimelineBar extends StatelessWidget {
 /// 4.2 kg · about 5 weeks left" or "Maintenance break · week 2 of 4 · then
 /// losing resumes Nov 3".
 @visibleForTesting
-String phaseStatusText(PhaseTimeline t, {required bool isKg}) {
+String phaseStatusText(PhaseTimeline t, {required bool isKg, bool simple = false}) {
   String weight(double kg) {
     final v = isKg ? kg : kg * 2.20462;
     return v.toStringAsFixed(1);
@@ -389,7 +486,7 @@ String phaseStatusText(PhaseTimeline t, {required bool isKg}) {
   final end = t.endsAtCheckin ? 'ends at your next check-in' : null;
 
   if (t.kind == PhaseKind.lose) {
-    final parts = ['Phase ${t.phaseNumber}', 'Losing'];
+    final parts = [if (!simple) 'Phase ${t.phaseNumber}', 'Losing'];
     if (t.phaseGoalKg != null && t.lostKg != null) {
       final done = t.lostKg! > t.phaseGoalKg! ? t.phaseGoalKg! : t.lostKg!;
       parts.add('${weight(done)} of ${weight(t.phaseGoalKg!)} $unit');

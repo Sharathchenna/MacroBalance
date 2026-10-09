@@ -103,13 +103,14 @@ void main() {
   }
 
   Future<void> pump(WidgetTester tester, GoalsProvider g, EnergyProvider e,
-      {bool dark = true, bool metric = true}) async {
+      {bool dark = true, bool metric = true, bool simple = false}) async {
     tester.view.physicalSize = const Size(1179, 2556);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(testApp(
-      const Scaffold(
-          body: SingleChildScrollView(padding: EdgeInsets.all(16), child: GoalsCard())),
+      Scaffold(
+          body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16), child: GoalsCard(simple: simple))),
       goalsProvider: g,
       energyProvider: e,
       weightUnitProvider: WeightUnitProvider()..setMetric(metric),
@@ -161,6 +162,15 @@ void main() {
           findsOneWidget);
     });
   }
+
+  testWidgets('simple mode keeps the bar but drops the phase number', (tester) async {
+    await pump(tester, await goals(), await energy([losing()], trend: 82.9), simple: true);
+    expect(find.byKey(const Key('phase_timeline')), findsOneWidget);
+    expect(find.textContaining('Losing · 1.1 of 4.2 kg · about '), findsOneWidget);
+    expect(find.textContaining('Phase 1'), findsNothing);
+    expect(find.byKey(const Key('energy_next_checkin')), findsOneWidget);
+    expect(find.text('Weekly updates'), findsNothing);
+  });
 
   testWidgets('pounds in the status line', (tester) async {
     await pump(tester, await goals(), await energy([losing()], trend: 82.9), metric: false);

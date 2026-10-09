@@ -104,10 +104,14 @@ class InfoSection {
 /// The explanation behind a card, opened from its info button so the card
 /// itself can stay to the numbers.
 class ProgressInfo {
-  const ProgressInfo(this.title, this.sections);
+  const ProgressInfo(this.title, this.sections, {this.footer});
 
   final String title;
   final List<InfoSection> sections;
+
+  /// Optional content under the sections (e.g. an action), built with the
+  /// sheet's context so it can close the sheet.
+  final Widget Function(BuildContext sheet)? footer;
 
   Future<void> show(BuildContext context) {
     final colors = Theme.of(context).extension<CustomColors>()!;
@@ -170,6 +174,7 @@ class ProgressInfo {
                     ),
                   ),
                 ],
+                if (footer != null) footer!(sheet),
               ],
             ),
           ),

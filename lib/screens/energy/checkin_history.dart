@@ -86,13 +86,83 @@ class _CheckinHistoryCardState extends State<CheckinHistoryCard> {
   }
 }
 
+/// All check-ins, newest first, in a bottom sheet (simple mode's "See all").
+/// Each row opens its week's sheet.
+Future<void> showCheckinList(BuildContext context) {
+  final colors = Theme.of(context).extension<CustomColors>()!;
+  final checkins = Provider.of<EnergyProvider>(context, listen: false).checkins;
+  return showModalBottomSheet<void>(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: colors.cardBackground,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (sheet) => ConstrainedBox(
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(sheet).size.height * 0.75),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          key: const Key('checkin_list_sheet'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.textSecondary.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
+              child: Text(
+                'Weekly check-ins',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: colors.textPrimary,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+                itemCount: checkins.length,
+                separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    color: colors.textSecondary.withValues(alpha: 0.14)),
+                itemBuilder: (_, i) =>
+                    CheckinHistoryRow(checkin: checkins[i], simple: true),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 /// One past check-in: "Mon, Oct 5", "2,507 → 2,451 cals" and its one-line
-/// reason. Opens its sheet.
+/// reason (left out when [simple]). Opens its sheet.
 class CheckinHistoryRow extends StatelessWidget {
-  const CheckinHistoryRow({super.key, required this.checkin, this.lossPhaseNumber});
+  const CheckinHistoryRow({
+    super.key,
+    required this.checkin,
+    this.lossPhaseNumber,
+    this.simple = false,
+  });
 
   final GoalCheckin checkin;
   final int? lossPhaseNumber;
+  final bool simple;
 
   /// "Mon, Oct 5", with the year when it isn't this year's.
   static String dateText(DateTime day, DateTime now) =>
@@ -113,7 +183,7 @@ class CheckinHistoryRow extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'Check-in $date, $cals, $summary',
+      label: simple ? 'Check-in $date, $cals' : 'Check-in $date, $cals, $summary',
       excludeSemantics: true,
       child: InkWell(
         key: Key('checkin_row_${dayKey(checkin.weekStart)}'),
@@ -152,14 +222,16 @@ class CheckinHistoryRow extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      summary,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                          fontSize: 13, height: 1.35, color: colors.textSecondary),
-                    ),
+                    if (!simple) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        summary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                            fontSize: 13, height: 1.35, color: colors.textSecondary),
+                      ),
+                    ],
                   ],
                 ),
               ),

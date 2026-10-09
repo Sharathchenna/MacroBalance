@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/detailed_stats_provider.dart';
 import '../../providers/energy_provider.dart';
 import '../../providers/finish_reminder_provider.dart';
 import '../../providers/goals_provider.dart';
@@ -32,6 +33,11 @@ import 'goals_card.dart';
 /// Progress → Energy: the learned daily expenditure, how it was worked out,
 /// how good the data behind it is, the targets it feeds, and "Reset
 /// learning" (spec 7.1).
+///
+/// With detailed stats off (the default) it's the simple version: "Getting
+/// to know you" while learning, then "You burn about 2,430 cals a day" with
+/// a plain line chart, at most one tip, and the targets with the last
+/// check-in. The rest, Reset learning included, sits behind "How it works".
 class EnergyTab extends StatelessWidget {
   const EnergyTab({super.key, this.onLogWeight});
 
@@ -67,6 +73,49 @@ class EnergyTab extends StatelessWidget {
     final noWeighIns = strip.isNotEmpty &&
         !strip.any((d) => d.weighedIn) &&
         summary.state == EnergyState.learning;
+    final detailed = context.watch<DetailedStatsProvider>().showDetailedStats;
+
+    if (!detailed) {
+      final learning = summary.state == EnergyState.learning ||
+          (summary.state == EnergyState.paused && summary.lastUpdated == null);
+      final tip = learning || strip.isEmpty ? null : qualityTip(strip);
+      return RefreshIndicator(
+        onRefresh: energy.refresh,
+        color: colors.accentPrimary,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics()),
+          padding: const EdgeInsets.fromLTRB(
+              16, 16, 16, AppBottomBar.scrollClearance),
+          children: [
+            if (learning)
+              _GettingToKnowYou(
+                summary: summary,
+                learningStartedOn: goals.learningStartedOn,
+                onLogWeight: noWeighIns ? onLogWeight : null,
+              )
+            else ...[
+              _BurnHeadline(summary: summary),
+              if (energy.estimates.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                ExpenditureCard(
+                  estimates: energy.estimates,
+                  learningStartedOn: goals.learningStartedOn,
+                  formulaTdee: goals.formulaTdee ?? goals.tdee,
+                  simple: true,
+                ),
+              ],
+            ],
+            if (tip != null) ...[
+              const SizedBox(height: 16),
+              _TipLine(tip: tip, simple: true),
+            ],
+            const SizedBox(height: 16),
+            const GoalsCard(simple: true),
+          ],
+        ),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: energy.refresh,
@@ -128,6 +177,352 @@ String _date(DateTime d) => d.year == DateTime.now().year
 
 TextStyle _secondary(CustomColors colors, {double size = 13}) =>
     GoogleFonts.inter(fontSize: size, color: colors.textSecondary, height: 1.4);
+
+// --- Simple mode ------------------------------------------------------------
+
+/// The "How it works" sheet: what the number is, how it's learned, what
+/// helps, and "Reset learning" at the bottom.
+void _showHowItWorks(BuildContext context) {
+  final goals = Provider.of<GoalsProvider>(context, listen: false);
+  final formula = goals.formulaTdee ?? goals.tdee;
+  ProgressInfo(
+    'How it works',
+    const [
+      InfoSection(
+        'This is how many cals you burn in a day, all in: your body at rest, '
+        'digesting food, everyday movement and exercise.',
+      ),
+      InfoSection(
+        'We start from your height, weight, age and activity, then learn '
+        'from you. Eat 2,000 cals a day and stay the same weight, and you '
+        'burn about 2,000. Lose weight eating that, and you burn a bit more.',
+        heading: 'How we work it out',
+      ),
+      InfoSection(
+        'Log everything you eat, and tap Finish day on Home when you\'re '
+        'done. Weigh in a few times a week, ideally first thing in the '
+        'morning.',
+        heading: 'What helps',
+      ),
+      InfoSection(
+        'With weekly check-ins on, your daily target follows this number. '
+        'Changes are small and never go below a safe minimum.',
+        heading: 'Your targets',
+      ),
+      InfoSection(
+        'After something big, like an illness, a pregnancy, a new medication '
+        'or months away from logging, you can start learning again. Your '
+        'history is kept.',
+        heading: 'Starting over',
+      ),
+    ],
+    footer: (sheet) => Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: TextButton(
+        onPressed: () {
+          Navigator.pop(sheet);
+          _confirmReset(context, formula, simple: true);
+        },
+        style: TextButton.styleFrom(
+          foregroundColor:
+              Theme.of(sheet).extension<CustomColors>()!.textSecondary,
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(0, 40),
+        ),
+        child: Text(
+          'Reset learning',
+          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ),
+    ),
+  ).show(context);
+}
+
+/// "How it works ›", the way into the details.
+class _HowItWorksLink extends StatelessWidget {
+  const _HowItWorksLink();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<CustomColors>()!;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        key: const Key('energy_how_it_works'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _showHowItWorks(context);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'How it works',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colors.accentPrimary,
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: colors.accentPrimary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Simple headline: "You burn about / 2,430 cals a day" and one sentence.
+class _BurnHeadline extends StatelessWidget {
+  const _BurnHeadline({required this.summary});
+
+  final EnergySummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<CustomColors>()!;
+    final quiet = GoogleFonts.inter(
+        fontSize: 14, height: 1.45, color: colors.textSecondary);
+    final note = switch (summary.state) {
+      EnergyState.paused => 'Log a few days to keep this up to date.',
+      EnergyState.estimated => 'This gets more accurate each week.',
+      _ => null,
+    };
+
+    return ProgressCard(
+      key: const Key('energy_burn_headline'),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('You burn about',
+              style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textSecondary)),
+          const SizedBox(height: 6),
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: _cals.format(roundToTen(summary.tdee)),
+                style: GoogleFonts.inter(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -1,
+                  color: colors.textPrimary,
+                ),
+              ),
+              TextSpan(
+                text: ' cals a day',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textSecondary,
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Based on what you\'ve logged and how your weight has changed.',
+            style: quiet,
+          ),
+          if (note != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              note,
+              key: const Key('energy_simple_note'),
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          const _HowItWorksLink(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Simple learning card: "Getting to know you", a ring toward the first
+/// number (days logged outside, weigh-ins inside) and what to do next.
+/// No number yet.
+class _GettingToKnowYou extends StatelessWidget {
+  const _GettingToKnowYou({
+    required this.summary,
+    required this.learningStartedOn,
+    this.onLogWeight,
+  });
+
+  final EnergySummary summary;
+  final DateTime? learningStartedOn;
+  final VoidCallback? onLogWeight;
+
+  static String _times(int n, String one, String many) =>
+      n == 1 ? '1 more $one' : '$n more $many';
+
+  /// The one thing to do next.
+  static String nextStep(int days, int weighIns) {
+    final daysLeft = kMinCompleteDays - days;
+    final weighLeft = kMinWeighIns - weighIns;
+    if (daysLeft > 0 && weighLeft > 0) {
+      return 'Log your food for ${_times(daysLeft, 'day', 'days')} and weigh '
+          'in ${_times(weighLeft, 'time', 'times')}.';
+    }
+    if (daysLeft > 0) {
+      return 'Log your food for ${_times(daysLeft, 'day', 'days')}.';
+    }
+    if (weighLeft > 0) return 'Weigh in ${_times(weighLeft, 'time', 'times')}.';
+    return 'Almost there. Keep logging and weighing in.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<CustomColors>()!;
+    final days = math.min(summary.completeDays, kMinCompleteDays);
+    final weighed = math.min(summary.weighIns, kMinWeighIns);
+    // A softer accent than the days ring: one family, two steps.
+    final weighColor = colors.accentPrimary.withValues(alpha: 0.5);
+    final quiet = GoogleFonts.inter(
+        fontSize: 14, height: 1.45, color: colors.textSecondary);
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final countsFrom = learningStartedOn == null
+        ? null
+        : DateTime(learningStartedOn!.year, learningStartedOn!.month,
+            learningStartedOn!.day + kSwitchSettleDays);
+    final settling = countsFrom != null && countsFrom.isAfter(today);
+    final paused = summary.state == EnergyState.paused;
+
+    Widget count(Color color, String text) => Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(text,
+                  style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: colors.textPrimary)),
+            ),
+          ],
+        );
+
+    return ProgressCard(
+      key: const Key('energy_getting_to_know_you'),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Getting to know you',
+            style: GoogleFonts.inter(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+              color: colors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'We\'re learning how many cals you burn from what you log and how '
+            'your weight changes.',
+            style: quiet,
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              SizedBox(
+                width: 84,
+                height: 84,
+                child: CustomPaint(
+                  key: const Key('energy_learning_ring'),
+                  painter: _RingPainter(
+                    outer: days / kMinCompleteDays,
+                    inner: weighed / kMinWeighIns,
+                    outerColor: colors.accentPrimary,
+                    innerColor: weighColor,
+                    track: colors.textSecondary.withValues(alpha: 0.15),
+                    stroke: 8,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    count(colors.accentPrimary,
+                        '$days of $kMinCompleteDays days logged'),
+                    const SizedBox(height: 8),
+                    count(weighColor, '$weighed of $kMinWeighIns weigh-ins'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Text(
+            paused
+                ? 'Log a few days to keep this up to date.'
+                : nextStep(days, weighed),
+            key: const Key('energy_next_step'),
+            style: GoogleFonts.inter(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+              color: colors.textPrimary,
+            ),
+          ),
+          if (settling) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Counting starts ${_date(countsFrom)}, once your first few days '
+              'settle.',
+              style: quiet,
+            ),
+          ],
+          if (onLogWeight != null) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: onLogWeight,
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.accentPrimary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(
+                  'Log your weight',
+                  style: GoogleFonts.inter(
+                      fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          const _HowItWorksLink(),
+        ],
+      ),
+    );
+  }
+}
 
 // --- Headline ---------------------------------------------------------------
 
@@ -496,6 +891,7 @@ class _RingPainter extends CustomPainter {
     required this.outerColor,
     required this.innerColor,
     required this.track,
+    this.stroke = 6,
   });
 
   final double outer;
@@ -503,10 +899,10 @@ class _RingPainter extends CustomPainter {
   final Color outerColor;
   final Color innerColor;
   final Color track;
+  final double stroke;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 6.0;
     final c = size.center(Offset.zero);
     void ring(double radius, double fraction, Color color) {
       final rect = Rect.fromCircle(center: c, radius: radius);
@@ -523,7 +919,7 @@ class _RingPainter extends CustomPainter {
 
     final r = size.shortestSide / 2 - stroke / 2;
     ring(r, outer, outerColor);
-    ring(r - stroke - 3, inner, innerColor);
+    ring(r - stroke - stroke / 2, inner, innerColor);
   }
 
   @override
@@ -548,6 +944,7 @@ class ExpenditureCard extends StatefulWidget {
     required this.learningStartedOn,
     required this.formulaTdee,
     this.checkins = const [],
+    this.simple = false,
   });
 
   final List<EnergyEstimate> estimates;
@@ -556,6 +953,11 @@ class ExpenditureCard extends StatefulWidget {
 
   /// Marked on the chart; tapping one reopens its sheet.
   final List<GoalCheckin> checkins;
+
+  /// Simple mode: an "Over time" title (the touched day while scrubbing),
+  /// the chips and one plain line since learning started. No band, starting
+  /// estimate, check-ins, legend or info.
+  final bool simple;
 
   static const ranges = [
     WeightRange.month,
@@ -645,9 +1047,79 @@ class _ExpenditureCardState extends State<ExpenditureCard> {
     );
   }
 
+  Widget _buildSimple(CustomColors colors) {
+    final all = ExpenditureSeries.from(widget.estimates,
+        learningStartedOn: widget.learningStartedOn);
+    final now = DateTime.now();
+    final end = all.last ?? DateTime(now.year, now.month, now.day - 1);
+    var start = _range.start(now) ?? all.first ?? end;
+    // Only this run: what came before a reset isn't shown.
+    final since = widget.learningStartedOn;
+    if (since != null && since.isAfter(start) && !since.isAfter(end)) {
+      start = since;
+    }
+    final series = all.since(start);
+    final s = _scrubbed;
+    final title = GoogleFonts.inter(
+        fontSize: 17, fontWeight: FontWeight.w600, color: colors.textPrimary);
+
+    return ProgressCard(
+      key: const Key('energy_simple_chart'),
+      padding: const EdgeInsets.fromLTRB(18, 18, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 26,
+            child: s == null
+                ? Text('Over time', style: title)
+                : Text.rich(TextSpan(children: [
+                    TextSpan(
+                        text: '${_cals.format(roundToTen(s.tdee))} cals',
+                        style: title),
+                    TextSpan(
+                      text: '  ${_date(s.day)}',
+                      style: GoogleFonts.inter(
+                          fontSize: 14, color: colors.textSecondary),
+                    ),
+                  ])),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: WeightRangeSelector(
+              selected: _range,
+              ranges: ExpenditureCard.ranges,
+              onChanged: (r) {
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _range = r;
+                  _scrubbed = null;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child: ExpenditureChart(
+              series: series,
+              start: start,
+              end: end,
+              colors: colors,
+              simple: true,
+              onScrub: (r) => setState(() => _scrubbed = r),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<CustomColors>()!;
+    if (widget.simple) return _buildSimple(colors);
     final all = ExpenditureSeries.from(widget.estimates,
         learningStartedOn: widget.learningStartedOn);
     final now = DateTime.now();
@@ -1090,9 +1562,12 @@ class _DotPainter extends CustomPainter {
 }
 
 class _TipLine extends StatelessWidget {
-  const _TipLine({required this.tip});
+  const _TipLine({required this.tip, this.simple = false});
 
   final QualityTip tip;
+
+  /// Simple mode: a card of its own, with the glossary's gentler copy.
+  final bool simple;
 
   @override
   Widget build(BuildContext context) {
@@ -1101,7 +1576,10 @@ class _TipLine extends StatelessWidget {
         fontSize: 13, color: colors.textPrimary, height: 1.4);
     final text = switch (tip) {
       QualityTip.weighIn => TextSpan(
-          text: 'Weigh in 3+ times a week to sharpen this', style: style),
+          text: simple
+              ? 'Weigh in a couple more times this week'
+              : 'Weigh in 3+ times a week to sharpen this',
+          style: style),
       QualityTip.finishDay => TextSpan(style: style, children: [
           const TextSpan(text: 'Tap '),
           TextSpan(
@@ -1113,10 +1591,12 @@ class _TipLine extends StatelessWidget {
     return Container(
       key: Key('energy_tip_${tip.name}'),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: simple
+          ? const EdgeInsets.all(16)
+          : const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: colors.accentPrimary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(simple ? 16 : 12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1145,43 +1625,49 @@ class _TipLine extends StatelessWidget {
 
 // --- Reset learning ---------------------------------------------------------
 
+/// Asks, then restarts learning from today (history is kept).
+Future<void> _confirmReset(BuildContext context, double formulaTdee,
+    {bool simple = false}) async {
+  HapticFeedback.lightImpact();
+  final confirmed = await showCupertinoDialog<bool>(
+    context: context,
+    builder: (dialog) => CupertinoAlertDialog(
+      title: const Text('Reset learning?'),
+      content: Text(
+        simple
+            ? 'We\'ll go back to ${_cals.format(roundToTen(formulaTdee))} '
+                'cals a day and learn again from today. Your history is '
+                'kept.'
+            : 'Your expenditure goes back to the starting estimate of '
+                '${_cals.format(formulaTdee.round())} cals and is learned '
+                'again from today. Your history is kept.',
+      ),
+      actions: [
+        CupertinoDialogAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.pop(dialog, false),
+          child: const Text('Cancel'),
+        ),
+        CupertinoDialogAction(
+          isDestructiveAction: true,
+          onPressed: () => Navigator.pop(dialog, true),
+          child: const Text('Reset'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  final goals = Provider.of<GoalsProvider>(context, listen: false);
+  final energy = Provider.of<EnergyProvider>(context, listen: false);
+  goals.startLearning();
+  PostHogService.trackEvent('learning_reset');
+  await energy.refresh();
+}
+
 class _ResetLearning extends StatelessWidget {
   const _ResetLearning({required this.formulaTdee});
 
   final double formulaTdee;
-
-  Future<void> _reset(BuildContext context) async {
-    HapticFeedback.lightImpact();
-    final confirmed = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (dialog) => CupertinoAlertDialog(
-        title: const Text('Reset learning?'),
-        content: Text(
-          'Your expenditure goes back to the starting estimate of '
-          '${_cals.format(formulaTdee.round())} cals and is learned again '
-          'from today. Your history is kept.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(dialog, false),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    final goals = Provider.of<GoalsProvider>(context, listen: false);
-    final energy = Provider.of<EnergyProvider>(context, listen: false);
-    goals.startLearning();
-    PostHogService.trackEvent('learning_reset');
-    await energy.refresh();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1189,7 +1675,7 @@ class _ResetLearning extends StatelessWidget {
     return Column(
       children: [
         TextButton(
-          onPressed: () => _reset(context),
+          onPressed: () => _confirmReset(context, formulaTdee),
           style: TextButton.styleFrom(foregroundColor: colors.textSecondary),
           child: Text(
             'Reset learning',

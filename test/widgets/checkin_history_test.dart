@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/energy/checkin_history.dart';
@@ -121,7 +122,7 @@ void main() {
       ];
 
   Future<void> pumpTab(WidgetTester tester, List<GoalCheckin> checkins,
-      {bool dark = true}) async {
+      {bool dark = true, bool detailed = true}) async {
     tester.view.physicalSize = const Size(1179, 2556);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -137,6 +138,7 @@ void main() {
       goalsProvider: goals,
       energyProvider: energy,
       dark: dark,
+      detailedStatsProvider: DetailedStatsProvider(showDetailedStats: detailed),
     ));
     await pumpFrames(tester, seconds: 1);
   }
@@ -205,6 +207,48 @@ void main() {
       await pumpFrames(tester, seconds: 1);
       expect(find.byType(CheckinHistoryRow), findsNWidgets(6));
       expect(find.textContaining('Show all'), findsNothing);
+    });
+  });
+
+  group('simple mode', () {
+    testWidgets('the last check-in is one row in the targets card, no reason',
+        (tester) async {
+      await pumpTab(tester, [checkin(7)], detailed: false);
+      await scrollTo(tester, find.text('Last check-in'));
+      expect(find.byKey(const Key('checkin_history')), findsNothing);
+      expect(find.byType(CheckinHistoryRow), findsOneWidget);
+      expect(find.text('2,507 → 2,451 cals'), findsOneWidget);
+      expect(find.text('Burning about 450 cals more than expected'), findsNothing);
+      expect(find.byKey(const Key('checkin_see_all')), findsNothing,
+          reason: 'nothing more to see');
+      expect(find.byKey(ValueKey('expenditure_checkin_${ago(7).toIso8601String()}')),
+          findsNothing, reason: 'no chart ticks in simple mode');
+
+      await tester.tap(find.byType(CheckinHistoryRow));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.byKey(const Key('checkin_sheet_changed')), findsOneWidget);
+    });
+
+    testWidgets('"See all" lists every check-in, newest first, without reasons',
+        (tester) async {
+      await pumpTab(tester, history, detailed: false);
+      await scrollTo(tester, find.byKey(const Key('checkin_see_all')));
+      expect(find.byType(CheckinHistoryRow), findsOneWidget);
+      expect(find.text('2,507 → 2,451 cals'), findsOneWidget, reason: 'the newest');
+
+      await tester.tap(find.byKey(const Key('checkin_see_all')));
+      await pumpFrames(tester, seconds: 1);
+      final sheet = find.byKey(const Key('checkin_list_sheet'));
+      expect(find.descendant(of: sheet, matching: find.text('Weekly check-ins')),
+          findsOneWidget);
+      expect(find.descendant(of: sheet, matching: find.byType(CheckinHistoryRow)),
+          findsNWidgets(3));
+      expect(find.text('Right on track, no change'), findsNothing);
+
+      await tester.tap(find.descendant(
+          of: sheet, matching: find.byKey(Key('checkin_row_${dayKey(ago(14))}'))));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.byKey(const Key('checkin_sheet_unchanged')), findsOneWidget);
     });
   });
 

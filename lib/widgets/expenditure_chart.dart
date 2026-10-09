@@ -34,6 +34,7 @@ class ExpenditureChart extends StatefulWidget {
     this.onScrub,
     this.checkins = const [],
     this.onCheckin,
+    this.simple = false,
   });
 
   /// The rows in range.
@@ -49,6 +50,10 @@ class ExpenditureChart extends StatefulWidget {
   /// Check-in days to mark.
   final List<DateTime> checkins;
   final ValueChanged<DateTime>? onCheckin;
+
+  /// Just the line (simple mode): no band, no reset markers, and no range
+  /// while scrubbing. The y axis fits the line alone.
+  final bool simple;
 
   /// The width of a check-in's touch target.
   static const double checkinTarget = 32;
@@ -163,7 +168,8 @@ class _ExpenditureChartState extends State<ExpenditureChart> {
 /// Where things go: shared by painting and touch.
 class _ChartLayout {
   _ChartLayout(this.chart, this.size) {
-    final scale = chart.series.scale(formula: chart.formulaTdee);
+    final scale =
+        chart.series.scale(formula: chart.formulaTdee, band: !chart.simple);
     showFormula = scale.showsFormula;
     final pad = (scale.hi - scale.lo) * 0.08;
     ticks = niceTicks(scale.lo - pad, scale.hi + pad, count: 4);
@@ -249,8 +255,10 @@ class _ExpenditurePainter extends CustomPainter {
     }
     canvas.restore();
 
-    for (final d in chart.series.resets) {
-      _drawReset(canvas, l, d);
+    if (!chart.simple) {
+      for (final d in chart.series.resets) {
+        _drawReset(canvas, l, d);
+      }
     }
     for (final d in l.visibleCheckins()) {
       _drawCheckin(canvas, l, d);
@@ -272,6 +280,10 @@ class _ExpenditurePainter extends CustomPainter {
       ..color = color.withValues(alpha: s.preReset ? 0.10 : 0.16);
 
     if (line.length == 1) {
+      if (chart.simple) {
+        canvas.drawCircle(line.first, 2.5, Paint()..color = color);
+        return;
+      }
       // A lone day: its range as a short bar, the estimate as a dot.
       final w = math.min(6.0, math.max(2.0, l.dayWidth));
       canvas.drawRRect(
@@ -290,7 +302,7 @@ class _ExpenditurePainter extends CustomPainter {
       ..lineTo(lower.first.dx, lower.first.dy)
       ..extendWithPath(monotonePath(lower), Offset.zero)
       ..close();
-    canvas.drawPath(band, bandPaint);
+    if (!chart.simple) canvas.drawPath(band, bandPaint);
     canvas.drawPath(
       monotonePath(line),
       Paint()
@@ -425,14 +437,16 @@ class _ExpenditurePainter extends CustomPainter {
         .any((s) => s.preReset && !r.day.isBefore(s.first) && !r.day.isAfter(s.last));
     final color = preReset ? colors.textSecondary : colors.accentPrimary;
     // The day's range as a soft bar, the estimate as a ring.
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(x - 3, l.y(r.tdee + r.tdeeSd), x + 3,
-            l.y(r.tdee - r.tdeeSd)),
-        const Radius.circular(3),
-      ),
-      Paint()..color = color.withValues(alpha: 0.25),
-    );
+    if (!chart.simple) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(x - 3, l.y(r.tdee + r.tdeeSd), x + 3,
+              l.y(r.tdee - r.tdeeSd)),
+          const Radius.circular(3),
+        ),
+        Paint()..color = color.withValues(alpha: 0.25),
+      );
+    }
     final p = Offset(x, l.y(r.tdee));
     canvas.drawCircle(p, 9, Paint()..color = color.withValues(alpha: 0.2));
     canvas.drawCircle(p, 5.5, Paint()..color = colors.cardBackground);
