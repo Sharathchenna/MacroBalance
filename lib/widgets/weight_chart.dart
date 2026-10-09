@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:macrotracker/services/energy/constants.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/utils/weight_trend.dart';
 
@@ -14,6 +15,10 @@ import 'package:macrotracker/utils/weight_trend.dart';
 ///
 /// Readings the trend left out as outliers ([ignored]) are drawn as grey
 /// hollow rings off the line.
+///
+/// Each phase switch in [switches] is a faint band over the
+/// [kSwitchExpectedDays] when its water and glycogen shift is expected,
+/// labelled "Expected" when there's room.
 ///
 /// Dates are placed by time, so gaps between weigh-ins read as gaps. Axis
 /// values are round numbers in the unit shown (kg or lbs). Touch and drag to
@@ -30,6 +35,7 @@ class WeightChart extends StatefulWidget {
     required this.colors,
     this.goalKg,
     this.ignored = const [],
+    this.switches = const [],
     this.onScrub,
     this.onTapEntry,
   });
@@ -47,6 +53,9 @@ class WeightChart extends StatefulWidget {
 
   /// Whether each of [entries] was left out of the trend. Empty means none.
   final List<bool> ignored;
+
+  /// Phase switch days to draw as bands (`phaseSwitchDays`).
+  final List<DateTime> switches;
   final ValueChanged<int?>? onScrub;
   final ValueChanged<int>? onTapEntry;
 
@@ -216,6 +225,9 @@ class _ChartLayout {
     return plot.left + (day - t0) / (t1 - t0) * plot.width;
   }
 
+  /// One day's width on the x axis.
+  double get dayWidth => 86400000.0 / (t1 - t0) * plot.width;
+
   double y(double kg) =>
       plot.bottom - (kg * unit - yMin) / (yMax - yMin) * plot.height;
 
@@ -244,6 +256,9 @@ class _WeightChartPainter extends CustomPainter {
     final plot = l.plot;
     if (plot.width <= 0 || plot.height <= 0) return;
 
+    for (final d in chart.switches) {
+      _drawSwitch(canvas, l, d);
+    }
     _drawGrid(canvas, l);
     _drawDates(canvas, l);
     if (l.showGoal) _drawGoal(canvas, l);
@@ -350,6 +365,33 @@ class _WeightChartPainter extends CustomPainter {
       final p = Offset(l.x(e.date), l.y(e.kg));
       canvas.drawCircle(p, r, fill);
       canvas.drawCircle(p, r, ring);
+    }
+  }
+
+  /// A phase switch: a faint band from the switch day through its expected
+  /// days, edged on the switch side, under the grid and the data.
+  void _drawSwitch(Canvas canvas, _ChartLayout l, DateTime d) {
+    final half = l.dayWidth / 2;
+    final from = l.x(d) - half;
+    final to = l.x(DateTime(d.year, d.month, d.day + kSwitchExpectedDays)) - half;
+    final left = math.max(from, l.plot.left);
+    final right = math.min(to, l.plot.right);
+    if (right <= left) return;
+    final color = colors.textSecondary;
+    canvas.drawRect(Rect.fromLTRB(left, l.plot.top, right, l.plot.bottom),
+        Paint()..color = color.withValues(alpha: 0.07));
+    if (from >= l.plot.left) {
+      canvas.drawLine(
+        Offset(from, l.plot.top),
+        Offset(from, l.plot.bottom),
+        Paint()
+          ..color = color.withValues(alpha: 0.3)
+          ..strokeWidth = 1,
+      );
+    }
+    final tp = _text('Expected', size: 10, weight: FontWeight.w600);
+    if (right - left >= tp.width + 10) {
+      tp.paint(canvas, Offset(left + 5, l.plot.top + 2));
     }
   }
 

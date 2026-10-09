@@ -19,6 +19,7 @@ import '../providers/energy_provider.dart';
 import '../providers/goals_provider.dart';
 import '../providers/weight_unit_provider.dart';
 import '../services/energy/constants.dart';
+import '../services/energy/phase_engine.dart' show phaseSwitchDays;
 import '../services/energy/trend_weight.dart';
 import '../services/macro_calculator_service.dart';
 import '../services/posthog_service.dart';
@@ -29,6 +30,10 @@ import '../theme/app_theme.dart';
 ///
 /// "Where your weight is" means the trend weight ([TrendSeries]), not the
 /// last scale reading: the headline, the pace and goal progress all use it.
+///
+/// Phase switches (`phaseSwitchDays`) are faint bands on the chart, and the
+/// days after one are labelled as the expected water and glycogen shift
+/// (spec 7.2). The trend uses the switches as the estimator does.
 class WeightTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
 
@@ -56,6 +61,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   /// Index into the visible entries while the chart is being touched.
   int? _scrubbed;
 
+  /// Phase switch days, and the key they were last read with.
+  List<DateTime> _switches = const [];
+  String? _switchesKey;
+
   @override
   void initState() {
     super.initState();
@@ -69,9 +78,24 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   void _setHistory(List<Map<String, dynamic>> rows) {
     _weightData = rows;
     _entries = parseWeightHistory(rows);
-    _series = trendSeries(_entries);
+    _series = trendSeries(_entries, switches: _switches);
     _trend = [for (final p in _series.points) p.trendKg];
   }
+
+  /// Picks up phase changes: the trend and the bands depend on them.
+  void _watchSwitches() {
+    final key = context.select<EnergyProvider, String>((e) => [
+          for (final d in phaseSwitchDays(e.phases)) d.toIso8601String()
+        ].join(','));
+    if (key == _switchesKey) return;
+    _switchesKey = key;
+    _switches = phaseSwitchDays(
+        Provider.of<EnergyProvider>(context, listen: false).phases);
+    _setHistory(_weightData);
+  }
+
+  /// Whether [day] is in the water and glycogen days after a switch.
+  bool _settling(DateTime day) => settlingAfterSwitch(day, _switches) != null;
 
   bool _ignored(int i) => _series.points[i].ignored;
 
@@ -220,6 +244,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     // Rebuild on unit and goal changes.
     context.watch<WeightUnitProvider>();
     context.select<GoalsProvider, double>((p) => p.goalWeightKg);
+    _watchSwitches();
 
     final Widget body = _isLoading
         ? Center(child: CupertinoActivityIndicator(color: colors.textSecondary))
@@ -458,6 +483,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         ignoredInRange.add(_ignored(i));
       }
     }
+    // Switches whose band reaches into the range.
+    final rangeStart = _rangeStart;
+    final switches = [
+      for (final d in _switches)
+        if (!DateTime(d.year, d.month, d.day + kSwitchExpectedDays)
+            .isBefore(DateTime(rangeStart.year, rangeStart.month, rangeStart.day + 1)))
+          d,
+    ];
     final scrubbed =
         _scrubbed != null && _scrubbed! < inRange.length ? _scrubbed : null;
     final showsTrend = WeightChart.showsTrend(inRange);
@@ -472,6 +505,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         value: _fmt(e.kg),
         detail: ignoredInRange[scrubbed]
             ? '${_day(e.date)} · ignored for trend'
+            : _settling(e.date)
+            ? '${_day(e.date)} · expected water & glycogen'
             : showsTrend
                 ? '${_day(e.date)} · trend ${_fmt(trendInRange[scrubbed])}'
                 : '${_day(e.date)} · tap to edit',
@@ -528,12 +563,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     isMetric: _units.isMetric,
                     goalKg: _goalKg,
                     ignored: ignoredInRange,
+                    switches: switches,
                     colors: colors,
                     onScrub: (i) => setState(() => _scrubbed = i),
                     onTapEntry: (i) => _editEntry(inRange[i], colors,
                         offTrendKg: ignoredInRange[i]
                             ? inRange[i].kg - trendInRange[i]
-                            : null),
+                            : null,
+                        settling: _settling(inRange[i].date)),
                   ),
                 ),
                 if (inRange.isEmpty)
@@ -550,37 +587,54 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
             children: [
-              LegendDot(color: colors.accentPrimary, ring: true),
-              _legendText('Weigh-ins', colors),
-              if (showsTrend) ...[
-                const SizedBox(width: 14),
-                LegendLine(color: colors.accentPrimary),
-                _legendText('Trend', colors),
-              ],
-              if (ignoredInRange.contains(true)) ...[
-                const SizedBox(width: 14),
-                LegendDot(color: colors.textSecondary, ring: true),
-                _legendText('Ignored', colors),
-              ],
-              if (WeightChart.showsGoal(inRange, trendInRange, _goalKg)) ...[
-                const SizedBox(width: 14),
-                LegendLine(color: colors.textSecondary, dashed: true),
-                _legendText('Goal', colors),
-              ],
+              LegendItem(
+                  swatch: LegendDot(color: colors.accentPrimary, ring: true),
+                  label: 'Weigh-ins'),
+              if (showsTrend)
+                LegendItem(
+                    swatch: LegendLine(color: colors.accentPrimary),
+                    label: 'Trend'),
+              if (ignoredInRange.contains(true))
+                LegendItem(
+                    swatch: LegendDot(color: colors.textSecondary, ring: true),
+                    label: 'Ignored'),
+              if (WeightChart.showsGoal(inRange, trendInRange, _goalKg))
+                LegendItem(
+                    swatch:
+                        LegendLine(color: colors.textSecondary, dashed: true),
+                    label: 'Goal'),
+              if (switches.isNotEmpty)
+                LegendItem(
+                    swatch: LegendBand(color: colors.textSecondary),
+                    label: 'Phase change'),
             ],
           ),
+          if (_settling(_today)) ...[
+            const SizedBox(height: 10),
+            Row(
+              key: const Key('weight_settling_note'),
+              children: [
+                Icon(Icons.water_drop_outlined,
+                    size: 15, color: colors.textSecondary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Expected: water & glycogen after your phase change',
+                    style: GoogleFonts.inter(
+                        fontSize: 13, color: colors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
-
-  Widget _legendText(String text, CustomColors colors) => Padding(
-        padding: const EdgeInsets.only(left: 6),
-        child: Text(text,
-            style: GoogleFonts.inter(fontSize: 12, color: colors.textSecondary)),
-      );
 
   Widget _buildGoalCard(CustomColors colors) {
     final goal = _goalKg;
@@ -750,16 +804,23 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   }
 
   /// Tapped weigh-in: change its weight or delete it. For a reading the
-  /// trend left out, [offTrendKg] (scale minus trend) explains why.
+  /// trend left out, [offTrendKg] (scale minus trend) explains why; one in
+  /// the days after a phase switch ([settling]) says the shift is expected.
   Future<void> _editEntry(WeightEntry entry, CustomColors colors,
-      {double? offTrendKg}) async {
+      {double? offTrendKg, bool settling = false}) async {
     HapticFeedback.lightImpact();
     final action = await showCupertinoModalPopup<String>(
       context: context,
       builder: (sheet) => CupertinoActionSheet(
         title: Text('${_fmt(entry.kg)} · ${_day(entry.date)}'),
         message: offTrendKg == null
-            ? null
+            ? (settling
+                ? Text('Expected: water & glycogen after your phase change. '
+                    'The scale often moves '
+                    '${_units.isMetric ? '0.5–1.5 kg' : '1–3 lbs'} in the '
+                    'first days of a new phase. That\'s not fat, and the '
+                    'trend settles within about $kSwitchExpectedDays days.')
+                : null)
             : Text(
                 'Ignored for trend: ${_fmt(offTrendKg.abs())} '
                 '${offTrendKg > 0 ? 'over' : 'under'} your trend. Readings '

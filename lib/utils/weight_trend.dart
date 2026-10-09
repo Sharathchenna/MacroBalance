@@ -43,9 +43,12 @@ int _daysBetween(DateTime a, DateTime b) =>
         .inDays;
 
 /// The trend over [entries] (one per day, oldest first, as from
-/// [parseWeightHistory]): one point per entry, in the same order.
-TrendSeries trendSeries(List<WeightEntry> entries) =>
-    TrendSeries.compute([for (final e in entries) WeightReading(e.date, e.kg)]);
+/// [parseWeightHistory]): one point per entry, in the same order. [switches]
+/// are the phase switch days, as the estimator gets them.
+TrendSeries trendSeries(List<WeightEntry> entries,
+        {List<DateTime> switches = const []}) =>
+    TrendSeries.compute([for (final e in entries) WeightReading(e.date, e.kg)],
+        switches: switches);
 
 /// Smoothed weight at each weigh-in: every day the trend moves 10% of the way
 /// to the scale, so water and salt swings settle out. Gaps count as the days
