@@ -338,6 +338,17 @@ void main() {
       expect(d.reason.toJson().keys, containsAll(
           ['avg_intake', 'complete_days', 'weigh_ins', 'trend_change_kg', 'tdee', 'tdee_prev', 'limit_hit']));
     });
+
+    test('goal snapshots keep the chosen weight through storage and unit conversion', () {
+      const kg = 71.19742925136;
+      final d = decide(
+        s: settings(goal: GoalKind.lose, pacePct: .5, goalWeightKg: kg),
+      )!;
+      final back = CheckinReason.fromJson(d.reason.toJson());
+      expect(back.goalWeightKg, kg);
+      expect((back.goalWeightKg! * 2.20462).toStringAsFixed(1),
+          (kg * 2.20462).toStringAsFixed(1));
+    });
   });
 
   group('GoalCheckin record', () {

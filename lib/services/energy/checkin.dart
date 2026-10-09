@@ -245,7 +245,9 @@ class CheckinReason {
         'limit_hit': limitHit == null ? null : _limitCodes[limitHit],
         'state': state.code,
         'trend_weight_kg': _r(trendWeightKg, 2),
-        'goal_weight_kg': _r(goalWeightKg, 1),
+        // A chosen goal may come from pounds. Rounding kg here changes that
+        // goal when a persisted check-in is converted back for display.
+        'goal_weight_kg': goalWeightKg,
         'goal': goal.name,
         'pace_pct': pacePct,
         'weeks_to_goal': _r(weeksToGoal, 1),

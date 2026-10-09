@@ -194,6 +194,20 @@ void main() {
   });
 
   group('goal', () {
+    for (final goal in ['lose', 'gain']) {
+      testWidgets('$goal does not celebrate just before the goal is crossed',
+          (tester) async {
+        goals
+          ..goalType = goal
+          ..goalWeightKg = 80;
+        await history(List.filled(21, goal == 'lose' ? 80.1 : 79.9));
+        await pump(tester);
+        expect(find.text('You reached 80 kg!'), findsNothing);
+        expect(find.text('Nice work. Keep logging to stay there.'), findsNothing);
+        expect(find.byKey(const Key('weight_goal_progress')), findsOneWidget);
+      });
+    }
+
     testWidgets('gaining shows upward progress and a gain goal date',
         (tester) async {
       goals

@@ -503,7 +503,11 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       final doneKg = total < 0.05
           ? total
           : ((goal - startKg).sign * (_trendKg - startKg)).clamp(0.0, total);
-      final reached = (goal - _trendKg).abs() < 0.25 || doneKg >= total;
+      // Match the check-in engine: celebrate only after crossing the goal
+      // in the chosen direction, even when already very close to it.
+      final reached = goals.goalType == MacroCalculatorService.GOAL_GAIN
+          ? _trendKg >= goal
+          : _trendKg <= goal;
       final verb = goal < startKg ? 'lost' : 'gained';
       if (reached) {
         children.addAll([
