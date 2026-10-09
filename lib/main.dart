@@ -7,6 +7,7 @@ import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/auth/superwall_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
@@ -260,6 +261,7 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => SavedFoodProvider()),
           ChangeNotifierProvider(
               create: (_) => WeightUnitProvider()), // Keep this instance
+          ChangeNotifierProvider(create: (_) => DetailedStatsProvider()),
           // Removed duplicate WeightUnitProvider entry if it existed
         ],
         child: const MyApp(),

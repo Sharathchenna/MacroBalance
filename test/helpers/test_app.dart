@@ -10,6 +10,7 @@ import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/finish_reminder_provider.dart';
 import 'package:macrotracker/services/finish_reminder_notifier.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/day_status_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
@@ -93,6 +94,7 @@ Widget testApp(
   WeightUnitProvider? weightUnitProvider,
   EnergyProvider? energyProvider,
   FinishReminderProvider? finishReminderProvider,
+  DetailedStatsProvider? detailedStatsProvider,
   bool dark = true,
 }) {
   final goals = goalsProvider ?? GoalsProvider();
@@ -120,6 +122,8 @@ Widget testApp(
         ChangeNotifierProvider<WeightUnitProvider>.value(value: weightUnitProvider)
       else
         ChangeNotifierProvider(create: (_) => WeightUnitProvider()),
+      ChangeNotifierProvider<DetailedStatsProvider>.value(
+          value: detailedStatsProvider ?? DetailedStatsProvider()),
     ],
     child: MaterialApp(
       theme: AppTheme.lightTheme,

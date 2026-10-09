@@ -11,18 +11,19 @@ import 'NutritionTrendsScreen.dart';
 import 'WorkoutTrackingScreen.dart';
 import '../services/posthog_service.dart';
 
-/// Progress: energy, weight, nutrition, steps and workouts, switched with
-/// tabs at the top (or by swiping).
+/// Progress: weight, nutrition, steps, workouts and energy, switched with
+/// tabs at the top (or by swiping). Weight opens first: it's where most
+/// people look; Energy (the calories you burn) is last, for the curious.
 class TrackingPagesScreen extends StatefulWidget {
   const TrackingPagesScreen(
-      {super.key, this.embedded = false, this.initialPage = energyTab});
+      {super.key, this.embedded = false, this.initialPage = weightTab});
 
   // Tab indexes, for [initialPage].
-  static const energyTab = 0;
-  static const weightTab = 1;
-  static const nutritionTab = 2;
-  static const stepsTab = 3;
-  static const workoutsTab = 4;
+  static const weightTab = 0;
+  static const nutritionTab = 1;
+  static const stepsTab = 2;
+  static const workoutsTab = 3;
+  static const energyTab = 4;
 
   /// Shown as a tab of the app shell: no back button.
   final bool embedded;
@@ -34,7 +35,7 @@ class TrackingPagesScreen extends StatefulWidget {
 
 class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with SingleTickerProviderStateMixin {
-  static const _tabs = ['Energy', 'Weight', 'Nutrition', 'Steps', 'Workouts'];
+  static const _tabs = ['Weight', 'Nutrition', 'Steps', 'Workouts', 'Energy'];
 
   late final TabController _tabController = TabController(
     length: _tabs.length,
@@ -145,17 +146,18 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
       ),
       body: TabBarView(
         controller: _tabController,
+        // In the order of [_tabs] and the index constants.
         children: [
+          const KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
+          const KeepAlivePage(child: NutritionTrendsScreen(hideAppBar: true)),
+          const KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
+          const KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
           KeepAlivePage(
             child: EnergyTab(
               onLogWeight: () =>
                   _tabController.animateTo(TrackingPagesScreen.weightTab),
             ),
           ),
-          const KeepAlivePage(child: WeightTrackingScreen(hideAppBar: true)),
-          const KeepAlivePage(child: NutritionTrendsScreen(hideAppBar: true)),
-          const KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
-          const KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
         ],
       ),
     );

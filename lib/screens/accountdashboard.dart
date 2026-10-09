@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/day_status_provider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/screens/energy/energy_debug_screen.dart';
 import 'package:macrotracker/services/test_accounts.dart';
@@ -605,6 +606,24 @@ class _AccountDashboardState extends State<AccountDashboard>
                       onTap: () {
                         HapticFeedback.lightImpact();
                         _showUnitPicker();
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                  ),
+                  Consumer<DetailedStatsProvider>(
+                    builder: (context, detail, _) => _buildSwitchTile(
+                      icon: CupertinoIcons.chart_bar_square,
+                      iconColor: Colors.indigo,
+                      title: 'Show detailed stats',
+                      subtitle: 'Extra numbers for the curious: ranges, '
+                          'confidence and how we calculate',
+                      value: detail.showDetailedStats,
+                      onChanged: (on) {
+                        HapticFeedback.lightImpact();
+                        detail.showDetailedStats = on;
+                        PostHogService.trackEvent('detailed_stats_toggled',
+                            properties: {'on': on});
                       },
                       colorScheme: colorScheme,
                       customColors: customColors,

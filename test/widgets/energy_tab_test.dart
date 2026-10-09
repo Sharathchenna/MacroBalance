@@ -323,8 +323,8 @@ void main() {
   });
 
   group('Progress tabs', () {
-    testWidgets('Energy is first and opens by default; viewing it is tracked',
-        (tester) async {
+    testWidgets('Weight is first and opens by default; Energy is last and '
+        'viewing it is tracked', (tester) async {
       tester.view.physicalSize = const Size(1179, 2556);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
@@ -337,12 +337,17 @@ void main() {
       await pumpFrames(tester, seconds: 1);
 
       final tabs = tester.widgetList<Tab>(find.byType(Tab)).map((t) => t.text);
-      expect(tabs, ['Energy', 'Weight', 'Nutrition', 'Steps', 'Workouts']);
+      expect(tabs, ['Weight', 'Nutrition', 'Steps', 'Workouts', 'Energy']);
+      // The unit toggle belongs to the Weight tab, which is showing.
+      expect(find.byIcon(Icons.scale), findsOneWidget);
+      expect(captured('energy_tab_viewed'), isEmpty);
+
+      await tester.tap(find.text('Energy'));
+      await pumpFrames(tester, seconds: 1);
       expect(find.text('Your daily expenditure'), findsOneWidget);
+      expect(find.byIcon(Icons.scale), findsNothing);
       expect(captured('energy_tab_viewed').single['properties'],
           containsPair('state', 'confident'));
-      // The unit toggle belongs to the Weight tab.
-      expect(find.byIcon(Icons.scale), findsNothing);
 
       await tester.tap(find.text('Weight'));
       await pumpFrames(tester, seconds: 1);
@@ -354,11 +359,20 @@ void main() {
     });
 
     testWidgets('initialPage still opens the named tab', (tester) async {
+      tester.view.physicalSize = const Size(1179, 2556);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final goals = GoalsProvider()..startLearning(ago(30));
+      final energy =
+          EnergyProvider(sync: _FixtureSync(confidentRows()), inBackground: false);
       await tester.pumpWidget(testApp(
-          const TrackingPagesScreen(initialPage: TrackingPagesScreen.weightTab)));
+          const TrackingPagesScreen(initialPage: TrackingPagesScreen.energyTab),
+          goalsProvider: goals,
+          energyProvider: energy));
       await pumpFrames(tester, seconds: 1);
-      expect(find.byIcon(Icons.scale), findsOneWidget);
-      expect(captured('energy_tab_viewed'), isEmpty);
+      expect(find.text('Your daily expenditure'), findsOneWidget);
+      expect(find.byIcon(Icons.scale), findsNothing);
+      expect(captured('energy_tab_viewed'), hasLength(1));
     });
   });
 }
