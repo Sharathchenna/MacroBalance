@@ -196,49 +196,107 @@ void main() {
     await tester.tap(find.text('How it works'));
     await tester.pumpAndSettle();
     expect(find.textContaining('weekly check-in'), findsOneWidget);
+    expect(find.text('Your plan. Your choice.'), findsOneWidget);
     expectSimpleCopy(tester);
   });
 
-  testWidgets(
-      'simple recalculate skips standalone plan style both ways, saves Steady and analytics',
-      (tester) async {
-    goals
-      ..goalType = 'lose'
-      ..currentWeightKg = 80
-      ..goalWeightKg = 65
-      ..adaptiveGoals = true;
-    await pump(tester, const OnboardingScreen(recalculateOnly: true));
-    await next(tester, 3);
-    expect(find.byType(SetNewGoalPage).hitTestable(), findsOneWidget);
-    await next(tester);
-    expect(find.byKey(const Key('simple_adaptive_switch')).hitTestable(),
-        findsOneWidget);
-    expect(find.byType(PlanStylePage).hitTestable(), findsNothing);
-    await tester.tap(find.text('Back'));
-    await pumpFrames(tester, seconds: 1);
-    expect(find.byType(SetNewGoalPage).hitTestable(), findsOneWidget);
-    await next(tester, 2);
-    expect(find.byType(SummaryPage).hitTestable(), findsOneWidget);
-    final card =
-        tester.widget<SimplePlanSummary>(find.byType(SimplePlanSummary));
-    expect(card.goalDate, isNotNull);
-    expect(card.adaptive, isTrue);
-    await tester.tap(find.text('Calculate'));
-    await pumpFrames(tester, seconds: 2);
-    expect(find.byType(ResultsScreen), findsOneWidget);
-    expectSimpleCopy(tester);
-    await tester.tap(find.text('Save New Goals'));
-    await pumpFrames(tester, seconds: 2);
-    final saved =
-        jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
-    expect(saved['plan_style'], 'steady');
-    expect(saved['adaptive_goals'], isTrue);
-    final tracked = events.where(
-        (c) => (c.arguments as Map)['eventName'] == 'adaptive_choice_made');
-    expect(tracked.length, 1);
-    expect((tracked.single.arguments as Map)['properties'],
-        containsPair('context', 'recalculate'));
-  });
+  for (final dark in [true, false]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+          'adaptive choice stays usable at 320pt, text scale $scale, ${dark ? 'dark' : 'light'}',
+          (tester) async {
+        bool adaptive = true;
+        await pump(
+            tester,
+            StatefulBuilder(
+                builder: (context, setState) => MediaQuery(
+                    data: MediaQuery.of(context)
+                        .copyWith(textScaler: TextScaler.linear(scale)),
+                    child: Scaffold(
+                        body: SizedBox(
+                            height: 450,
+                            child: AdaptivePage(
+                                adaptive: adaptive,
+                                onChanged: (v) =>
+                                    setState(() => adaptive = v)))))),
+            dark: dark);
+        tester.view.physicalSize = const Size(960, 1704);
+        await tester.pumpAndSettle();
+        expect(find.text('A plan that\nkeeps up.'), findsOneWidget);
+        final switchFinder = find.byKey(const Key('simple_adaptive_switch'));
+        await tester.ensureVisible(switchFinder);
+        await tester.tap(switchFinder);
+        await tester.pumpAndSettle();
+        expect(adaptive, isFalse);
+        expect(find.text('Your targets stay as calculated today.'),
+            findsOneWidget);
+        await tester.ensureVisible(switchFinder);
+        await tester.tap(switchFinder);
+        await tester.pumpAndSettle();
+        expect(adaptive, isTrue);
+        final how = find.byKey(const Key('simple_adaptive_how'));
+        await tester.ensureVisible(how);
+        await tester.tap(how);
+        await tester.pumpAndSettle();
+        expect(find.textContaining('weekly check-in'), findsNWidgets(2));
+        expect(tester.takeException(), isNull);
+        expectSimpleCopy(tester);
+      });
+    }
+  }
+
+  for (final goal in ['lose', 'gain']) {
+    testWidgets(
+        'simple $goal recalculate saves the right targets and keeps optional steps hidden',
+        (tester) async {
+      goals
+        ..goalType = goal
+        ..currentWeightKg = 80
+        ..goalWeightKg = goal == 'gain' ? 85 : 65
+        ..pacePctPerWeek = goal == 'gain' ? .25 : .5
+        ..adaptiveGoals = true;
+      await pump(tester, const OnboardingScreen(recalculateOnly: true));
+      await next(tester, 3);
+      expect(find.byType(SetNewGoalPage).hitTestable(), findsOneWidget);
+      await next(tester);
+      expect(find.byKey(const Key('simple_adaptive_switch')).hitTestable(),
+          findsOneWidget);
+      expect(find.byType(PlanStylePage).hitTestable(), findsNothing);
+      await tester.tap(find.text('Back'));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.byType(SetNewGoalPage).hitTestable(), findsOneWidget);
+      await next(tester, 2);
+      expect(find.byType(SummaryPage).hitTestable(), findsOneWidget);
+      final card =
+          tester.widget<SimplePlanSummary>(find.byType(SimplePlanSummary));
+      expect(card.goalDate, isNotNull);
+      expect(card.adaptive, isTrue);
+      await tester.tap(find.text('Calculate'));
+      await pumpFrames(tester, seconds: 2);
+      expect(find.byType(ResultsScreen), findsOneWidget);
+      final result =
+          tester.widget<ResultsScreen>(find.byType(ResultsScreen)).results;
+      expect(result['goal'], goal);
+      expect(
+          result['target_calories'],
+          goal == 'gain'
+              ? greaterThan(result['tdee'] as num)
+              : lessThan(result['tdee'] as num));
+      expectSimpleCopy(tester);
+      await tester.tap(find.text('Save New Goals'));
+      await pumpFrames(tester, seconds: 2);
+      final saved =
+          jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
+      expect(saved['goal_type'], goal);
+      expect(saved['plan_style'], 'steady');
+      expect(saved['adaptive_goals'], isTrue);
+      final tracked = events.where(
+          (c) => (c.arguments as Map)['eventName'] == 'adaptive_choice_made');
+      expect(tracked.length, 1);
+      expect((tracked.single.arguments as Map)['properties'],
+          containsPair('context', 'recalculate'));
+    });
+  }
 
   testWidgets(
       'choosing In phases under More options keeps that plan in summary',

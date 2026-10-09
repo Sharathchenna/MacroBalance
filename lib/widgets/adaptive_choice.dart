@@ -23,9 +23,8 @@ abstract final class AdaptiveChoiceCopy {
       'this on anytime in Settings.';
 
   /// The one line under the target on the results screen.
-  static String resultLine(bool adaptive) => adaptive
-      ? 'Updates weekly as we learn your metabolism'
-      : 'Fixed target';
+  static String resultLine(bool adaptive) =>
+      adaptive ? 'Updates weekly as we learn your metabolism' : 'Fixed target';
 }
 
 /// Where the choice was made, for `adaptive_choice_made{choice, context}`.
@@ -74,7 +73,9 @@ class AdaptiveChoiceOptions extends StatelessWidget {
             onTap: () => onChanged(true),
           ),
           Divider(
-              height: 1, indent: 52, color: Colors.grey.withValues(alpha: 0.15)),
+              height: 1,
+              indent: 52,
+              color: Colors.grey.withValues(alpha: 0.15)),
           ChoiceOption(
             key: const Key('adaptive_no'),
             title: AdaptiveChoiceCopy.noTitle,
@@ -88,42 +89,139 @@ class AdaptiveChoiceOptions extends StatelessWidget {
   }
 }
 
-/// The simple onboarding choice keeps the explanation behind a tap.
+/// A single reversible choice with the longer explanation behind a tap.
 class SimpleAdaptiveChoice extends StatelessWidget {
-  const SimpleAdaptiveChoice({super.key, required this.adaptive, required this.onChanged});
+  const SimpleAdaptiveChoice({
+    super.key,
+    required this.adaptive,
+    required this.onChanged,
+  });
   final bool adaptive;
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SwitchListTile.adaptive(
-        key: const Key('simple_adaptive_switch'),
-        contentPadding: EdgeInsets.zero,
-        title: const Text('Adjust my targets as I go'),
-        subtitle: const Text('Recommended'),
-        value: adaptive,
-        onChanged: onChanged,
-      ),
-      TextButton(
-        key: const Key('simple_adaptive_how'),
-        onPressed: () => showModalBottomSheet<void>(
-          context: context, isScrollControlled: true, useSafeArea: true,
-          builder: (_) => const Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('How it works', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-              SizedBox(height: 12),
-              Text('Log your food and weigh in regularly. After we get to know you, we’ll adjust your targets at a weekly check-in and tell you why. You can turn this off anytime in Settings.', style: TextStyle(fontSize: 16, height: 1.5)),
-            ]),
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<CustomColors>()!;
+    final accent = colors.accentPrimary;
+    final accentText = Theme.of(context).brightness == Brightness.dark
+        ? accent
+        : const Color(0xFF2E6A3D);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: colors.cardBackground,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: adaptive
+                    ? accent.withValues(alpha: .5)
+                    : colors.textSecondary.withValues(alpha: .2)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 12, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.auto_awesome_outlined, size: 14, color: accent),
+                  const SizedBox(width: 6),
+                  Text('Recommended',
+                      style: TextStyle(
+                          color: accentText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                ]),
+                SwitchListTile.adaptive(
+                  key: const Key('simple_adaptive_switch'),
+                  contentPadding: EdgeInsets.zero,
+                  activeTrackColor: accent,
+                  title: Text('Adjust my targets as I go',
+                      style: GoogleFonts.onest(
+                          color: colors.textPrimary,
+                          fontSize: 17,
+                          height: 1.3,
+                          fontWeight: FontWeight.w600)),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                        adaptive
+                            ? 'Weekly updates, with a clear explanation.'
+                            : 'Your targets stay as calculated today.',
+                        style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 13,
+                            height: 1.4)),
+                  ),
+                  value: adaptive,
+                  onChanged: (value) {
+                    HapticFeedback.selectionClick();
+                    onChanged(value);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
-        child: const Text('How it works'),
-      ),
-    ],
-  );
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.tune_rounded, size: 16, color: colors.textSecondary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('You’re in control. Change this anytime in Settings.',
+                  style: TextStyle(
+                      color: colors.textSecondary, fontSize: 12, height: 1.5)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          key: const Key('simple_adaptive_how'),
+          style: TextButton.styleFrom(
+              foregroundColor: colors.textPrimary,
+              padding: EdgeInsets.zero,
+              alignment: Alignment.centerLeft),
+          onPressed: () => showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            showDragHandle: true,
+            backgroundColor: colors.cardBackground,
+            shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            builder: (_) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('How it works',
+                      style: GoogleFonts.onest(
+                          fontSize: 24, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                  Text(
+                      'Log your food and weigh in regularly. After we get to know you, we’ll adjust your targets at a weekly check-in and tell you why. You can turn this off anytime in Settings.',
+                      style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 16,
+                          height: 1.5)),
+                ],
+              ),
+            ),
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Text('How it works'),
+            SizedBox(width: 6),
+            Icon(Icons.arrow_forward_rounded, size: 16),
+          ]),
+        ),
+      ],
+    );
+  }
 }
 
 /// One row of a radio list: a radio, a title (with an optional Recommended
@@ -314,7 +412,9 @@ class _AdaptiveChoiceSheetState extends State<_AdaptiveChoiceSheet> {
                       borderRadius: BorderRadius.circular(12)),
                 ),
                 child: Text(
-                  _adaptive ? 'Turn on weekly updates' : 'Keep my targets fixed',
+                  _adaptive
+                      ? 'Turn on weekly updates'
+                      : 'Keep my targets fixed',
                   style: GoogleFonts.inter(
                       fontSize: 15, fontWeight: FontWeight.w600),
                 ),
@@ -330,7 +430,8 @@ class _AdaptiveChoiceSheetState extends State<_AdaptiveChoiceSheet> {
 /// A toggle outside onboarding (Settings, the Energy tab): confirms with the
 /// onboarding copy, [to] picked, then saves whatever was chosen. Returns
 /// whether adaptive goals changed.
-Future<bool> changeAdaptiveGoals(BuildContext context, {required bool to}) async {
+Future<bool> changeAdaptiveGoals(BuildContext context,
+    {required bool to}) async {
   HapticFeedback.lightImpact();
   final goals = Provider.of<GoalsProvider>(context, listen: false);
   final choice = await showAdaptiveChoiceSheet(context, initial: to);

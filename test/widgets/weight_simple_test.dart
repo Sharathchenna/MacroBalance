@@ -194,6 +194,42 @@ void main() {
   });
 
   group('goal', () {
+    testWidgets('gaining shows upward progress and a gain goal date',
+        (tester) async {
+      goals
+        ..goalType = MacroCalculatorService.GOAL_GAIN
+        ..pacePctPerWeek = .25
+        ..goalWeightKg = 85;
+      await history([for (var i = 0; i < 60; i++) 80 + .2 / 7 * i]);
+      await pump(tester);
+      expect(find.textContaining(RegExp(r'^↑ \d\.\d kg in the last 4 weeks$')),
+          findsOneWidget);
+      expect(find.text('On track'), findsOneWidget);
+      expect(
+          tester
+              .widget<Text>(find.byKey(const Key('weight_goal_progress')))
+              .data,
+          matches(RegExp(r'^\d\.\d of \d+(\.\d)? kg gained$')));
+      expect(
+          tester.widget<Text>(find.byKey(const Key('weight_goal_when'))).data,
+          startsWith('On track to reach 85 kg'));
+      expectSimpleCopy(tester);
+    });
+
+    testWidgets('a reached gain goal celebrates and does not promise more gain',
+        (tester) async {
+      goals
+        ..goalType = MacroCalculatorService.GOAL_GAIN
+        ..pacePctPerWeek = .25
+        ..goalWeightKg = 81;
+      await history([for (var i = 0; i < 60; i++) 80 + .2 / 7 * i]);
+      await pump(tester);
+      expect(find.text('You reached 81 kg!'), findsOneWidget);
+      expect(
+          find.text('Nice work. Keep logging to stay there.'), findsOneWidget);
+      expectSimpleCopy(tester);
+    });
+
     testWidgets('"X of Y kg lost" and when the plan gets there',
         (tester) async {
       await history(losing(0.4 / 7, days: 60));
