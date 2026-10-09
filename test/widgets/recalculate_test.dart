@@ -1,3 +1,4 @@
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -95,7 +96,7 @@ void main() {
     addTearDown(tester.view.reset);
     final energy = EnergyProvider(
         sync: _FixtureSync(estimates(state)), inBackground: false);
-    await tester.pumpWidget(testApp(
+    await tester.pumpWidget(testApp(detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true),
       Builder(
         builder: (context) => TextButton(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(
@@ -287,7 +288,7 @@ void main() {
     tester.view.physicalSize = const Size(1179, 2556);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(testApp(
+    await tester.pumpWidget(testApp(detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true),
       Scaffold(
         body: SummaryPage(
           gender: MacroCalculatorService.MALE,

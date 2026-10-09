@@ -41,6 +41,7 @@ import 'pages/advanced_settings_page.dart';
 import 'pages/apple_health_page.dart'; // Import the new Apple Health page
 import 'pages/summary_page.dart';
 import 'onboarding_steps.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 
 class OnboardingScreen extends StatefulWidget {
   /// Recalculate goals for an existing user: only the body and goal
@@ -68,7 +69,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   OnboardingStep get _currentStep => _steps[_currentPage];
 
   bool _isSkipped(OnboardingStep step) => isOnboardingStepSkipped(step,
-      goal: _goal, usesLearnedExpenditure: _usesLearnedTdee);
+      goal: _goal, usesLearnedExpenditure: _usesLearnedTdee,
+      showDetailedStats: _detailed);
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
@@ -108,11 +110,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   GoalKind get _goalKind => MacroCalculatorService.goalKindOf(_goal);
 
-  /// Only lose goals have a plan style; until the user picks one it's
-  /// phased for a goal more than 10% away, else steady (plan 10.3).
+  bool get _detailed => context.read<DetailedStatsProvider>().showDetailedStats;
+
+  /// Simple plans start Steady; detailed mode retains the size-based default.
+  /// A saved or explicitly chosen plan keeps its style in either mode.
   PlanStyle get _planStyle => _goal != MacroCalculatorService.GOAL_LOSE
       ? PlanStyle.steady
-      : _planStyleChoice ?? _defaultPlanStyle;
+      : _planStyleChoice ?? (_detailed ? _defaultPlanStyle : PlanStyle.steady);
 
   PlanStyle get _defaultPlanStyle =>
       defaultPlanStyle(weightKg: _weightKg, goalWeightKg: _goalWeightKg);
@@ -184,9 +188,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       for (final pace in options)
         () {
           final target = _targetFor(pace, tdee: tdee, kcalPerKg: kcalPerKg);
+          final projection = _projectionFor(pace, tdee: tdee);
           return PaceChoice(
             target: target,
-            weeks: _projectionFor(pace, tdee: tdee).aboutWeeks,
+            weeks: projection.aboutWeeks,
+            date: projection.date,
           );
         }(),
     ];
@@ -251,6 +257,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _goal = goals.goalType;
     _pacePct = _validPace(goals.pacePctPerWeek);
     _adaptiveGoals = goals.adaptiveGoals;
+    if (!_detailed) {
+      // The simple flow skips nutrition fine tuning, so keep saved overrides.
+      _proteinRatio = goals.checkinSettings.proteinPerKg;
+      _fatRatio = goals.checkinSettings.fatRatio ?? _fatRatio;
+      _bodyFatPercentage = goals.bodyFatPct;
+      _showBodyFatInput = _bodyFatPercentage != null;
+    }
     // A lose goal has had its style chosen; otherwise the default applies
     // once the user picks lose.
     if (_goal == MacroCalculatorService.GOAL_LOSE) _planStyleChoice = goals.planStyle;
@@ -412,6 +425,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             results: results,
             recalculateOnly: widget.recalculateOnly,
             adaptiveGoals: _adaptiveGoals,
+            isMetricWeight: _isMetricWeight,
+            goalWeightKg: _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _goalWeightKg,
             planLine: _planLine,
             onSave: widget.recalculateOnly ? () => saveMacroResults(results) : null,
           ),
@@ -781,6 +796,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           targetCalories: _goal == MacroCalculatorService.GOAL_MAINTAIN
               ? null
               : _targetFor(_pacePct).cals,
+          planStyle: _goal == MacroCalculatorService.GOAL_LOSE ? _planStyle : null,
+          onPlanStyleChanged: (style) => setState(() => _planStyleChoice = style),
           onGoalWeightChanged: (newWeight) => setState(() {
             _goalWeightKg = newWeight;
             _validateRanges();
@@ -839,9 +856,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           planLine: _planLine,
           onEdit: _goToStep,
           editableSteps: _steps.toSet(),
+          isMetricWeight: _isMetricWeight,
+          projectedDate: _calculateProjectedDate(),
+          effectivePacePct: _targetFor(_pacePct).effectivePacePct,
           currentTargets: _currentTargets,
-          newTargets:
-              _currentTargets == null ? null : _targetsOf(_calculate()),
+          newTargets: _targetsOf(_calculate()),
           learnedTdee: _usesLearnedTdee ? _learnedTdee : null,
         );
     }

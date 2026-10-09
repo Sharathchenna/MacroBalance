@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'dart:math' show max;
 
 import 'package:flutter/material.dart';
@@ -7,19 +9,22 @@ import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/widgets/onboarding/unit_selector.dart';
+import 'package:macrotracker/services/energy/phase_engine.dart';
+import 'package:macrotracker/widgets/adaptive_choice.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:intl/intl.dart';
 
 /// One pace on offer: its target after the safety limits, and about how many
 /// weeks it takes to reach the goal weight (null if it doesn't get there).
 class PaceChoice {
-  const PaceChoice({required this.target, this.weeks});
+  const PaceChoice({required this.target, this.weeks, this.date});
 
   final PaceTarget target;
 
   /// "About N weeks" to the goal, from the projection; null when it doesn't
   /// get there.
   final int? weeks;
+  final DateTime? date;
 }
 
 /// Plain words for why a pace was slowed down, or null if it wasn't.
@@ -63,6 +68,8 @@ class SetNewGoalPage extends StatelessWidget {
   /// The chosen pace, % of body weight a week.
   final double pacePct;
   final double recommendedPacePct;
+  final PlanStyle? planStyle;
+  final ValueChanged<PlanStyle>? onPlanStyleChanged;
   final bool isMetricWeight;
   final DateTime? projectedDate;
   final double? targetCalories;
@@ -79,6 +86,8 @@ class SetNewGoalPage extends StatelessWidget {
     required this.pacePct,
     required this.recommendedPacePct,
     required this.isMetricWeight,
+    this.planStyle,
+    this.onPlanStyleChanged,
     this.projectedDate,
     this.targetCalories,
     required this.onGoalWeightChanged,
@@ -93,6 +102,7 @@ class SetNewGoalPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
+    final detailed = context.watch<DetailedStatsProvider>().showDetailedStats;
 
     if (currentGoal == MacroCalculatorService.GOAL_MAINTAIN) {
       return Container(
@@ -142,7 +152,7 @@ class SetNewGoalPage extends StatelessWidget {
                 children: [
                   const SizedBox(height: 12),
                   // Top Cards with animated transitions
-                  TweenAnimationBuilder<double>(
+                  if (detailed) TweenAnimationBuilder<double>(
                     duration: const Duration(milliseconds: 300),
                     tween: Tween<double>(begin: 0, end: 1),
                     builder: (context, value, child) {
@@ -320,16 +330,17 @@ class SetNewGoalPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'How fast to ${currentGoal == MacroCalculatorService.GOAL_LOSE ? 'lose' : 'gain'} '
+                    detailed ? 'How fast to ${currentGoal == MacroCalculatorService.GOAL_LOSE ? 'lose' : 'gain'} '
                     '${isMetricWeight ? (goalWeightKg - currentWeightKg).abs().toStringAsFixed(1) : (_imperialGoalWeightLbs - _imperialCurrentWeightLbs).abs()} '
-                    '${isMetricWeight ? 'kg' : 'lbs'}, as a share of your body weight each week',
+                    '${isMetricWeight ? 'kg' : 'lbs'}, as a share of your body weight each week' : 'Choose a pace that fits your life.',
                     style: TextStyle(
                       fontSize: 14,
                       color: customColors?.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Container(
+                  if (!detailed) ..._simplePaceCards(context),
+                  if (detailed) Container(
                     decoration: BoxDecoration(
                       color: customColors?.cardBackground ?? theme.cardColor,
                       borderRadius: BorderRadius.circular(16),
@@ -359,7 +370,7 @@ class SetNewGoalPage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (_selectedExplanation != null) ...[
+                  if (detailed && _selectedExplanation != null) ...[
                     const SizedBox(height: 12),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,6 +394,7 @@ class SetNewGoalPage extends StatelessWidget {
                       ],
                     ),
                   ],
+                  if (!detailed && planStyle != null) _moreOptions(context),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -392,6 +404,88 @@ class SetNewGoalPage extends StatelessWidget {
       ),
     );
   }
+
+  List<Widget> _simplePaceCards(BuildContext context) {
+    final wanted = currentGoal == MacroCalculatorService.GOAL_GAIN
+        ? kGainPaceOptions : kLosePaceOptions.take(3).toList();
+    // Keep a saved detailed pace selected when recalculating in simple mode.
+    final paces = [...wanted];
+    if (!paces.contains(pacePct) && pacePct > paces.last) paces[2] = pacePct;
+    final names = ['Relaxed', 'Recommended', 'Faster'];
+    final colors = Theme.of(context).extension<CustomColors>();
+    final accent = colors?.accentPrimary ?? Theme.of(context).colorScheme.primary;
+    return [
+      for (var i = 0; i < paces.length; i++)
+        for (final choice in paceChoices.where((c) => c.target.pacePct == paces[i]))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Semantics(
+              selected: pacePct == paces[i], button: true,
+              child: Material(
+                color: colors?.cardBackground ?? Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  key: Key('simple_pace_${names[i].toLowerCase()}'),
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () { HapticFeedback.selectionClick(); onPaceChanged(paces[i]); },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: pacePct == paces[i] ? accent : Colors.grey.withValues(alpha: 0.15), width: pacePct == paces[i] ? 2 : 1),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Expanded(child: Text(names[i], style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: colors?.textPrimary))),
+                        Icon(pacePct == paces[i] ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded, color: pacePct == paces[i] ? accent : colors?.textSecondary, size: 22),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text('About ${_simpleWeeklyChange(choice.target)} a week', style: TextStyle(color: colors?.textPrimary, fontSize: 15)),
+                      const SizedBox(height: 4),
+                      Text(choice.date == null ? 'Your goal may take a little longer at this pace.' : 'Reach $_goalText by ${DateFormat('MMM d').format(choice.date!)}', style: TextStyle(color: colors?.textSecondary, fontSize: 14)),
+                      const SizedBox(height: 8),
+                      Text('${NumberFormat('#,###').format(choice.target.cals.round())} cals a day', style: TextStyle(color: colors?.textSecondary, fontSize: 12)),
+                      if (choice.target.clamped) ...[
+                        const SizedBox(height: 6),
+                        Text('We’ve eased this pace to keep your target healthy.', style: TextStyle(color: colors?.textSecondary, fontSize: 12)),
+                      ],
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+    ];
+  }
+
+  String get _goalText => isMetricWeight ? '${goalWeightKg.toStringAsFixed(1)} kg' : '$_imperialGoalWeightLbs lbs';
+
+  String _simpleWeeklyChange(PaceTarget target) {
+    final kg = target.effectivePacePct / 100 * currentWeightKg;
+    final value = isMetricWeight ? kg : kg * 2.20462;
+    return '${value.toStringAsFixed(value < 0.1 ? 2 : 1)} ${isMetricWeight ? 'kg' : 'lbs'}';
+  }
+
+  Widget _moreOptions(BuildContext context) => ExpansionTile(
+    key: const Key('pace_more_options'),
+    title: const Text('More options'),
+    tilePadding: EdgeInsets.zero,
+    children: [
+      for (final style in PlanStyle.values)
+        ChoiceOption(
+          key: Key('simple_plan_style_${style.code}'),
+          title: switch (style) { PlanStyle.steady => 'Steady', PlanStyle.phased => 'In phases', PlanStyle.breaks => 'Diet breaks' },
+          body: switch (style) {
+            PlanStyle.steady => 'Keep losing at a steady pace until your goal.',
+            PlanStyle.phased => 'Alternate periods of losing with maintenance breaks.',
+            PlanStyle.breaks => 'Take regular maintenance breaks along the way.',
+          },
+          selected: planStyle == style,
+          onTap: () => onPlanStyleChanged?.call(style),
+        ),
+    ],
+  );
 
   String? get _selectedExplanation {
     for (final choice in paceChoices) {

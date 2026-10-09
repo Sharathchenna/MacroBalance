@@ -1,3 +1,4 @@
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
@@ -30,7 +31,7 @@ void main() {
     tester.view.physicalSize = const Size(1179, 2556);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(testApp(
+    await tester.pumpWidget(testApp(detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true),
       Builder(
         builder: (context) => Scaffold(
           body: Center(
@@ -286,7 +287,7 @@ void main() {
   });
 
   testWidgets('a clamped pace shows why on the page', (tester) async {
-    await tester.pumpWidget(testApp(
+    await tester.pumpWidget(testApp(detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true),
       Scaffold(
         body: SetNewGoalPage(
           currentGoal: MacroCalculatorService.GOAL_LOSE,

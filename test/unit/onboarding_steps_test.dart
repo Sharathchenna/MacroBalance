@@ -80,6 +80,11 @@ void main() {
   });
 
   group('isOnboardingStepSkipped', () {
+    test('simple mode skips plan style and nutrition fine tuning only', () {
+      for (final step in OnboardingStep.values) {
+        expect(isOnboardingStepSkipped(step, goal: MacroCalculatorService.GOAL_LOSE, showDetailedStats: false), step == OnboardingStep.planStyle || step == OnboardingStep.advanced, reason: step.name);
+      }
+    });
     test('the plan style is asked only for a lose goal', () {
       expect(isOnboardingStepSkipped(OnboardingStep.planStyle,
               goal: MacroCalculatorService.GOAL_LOSE),

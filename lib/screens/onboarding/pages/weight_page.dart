@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -193,7 +195,9 @@ class WeightPage extends StatelessWidget {
           if (trendKg != null && onUseTrend != null) ...[
             const SizedBox(height: 20),
             _UseTrendButton(
-              label: 'Use ${_weightText(trendKg!)} (your trend)',
+              label: context.watch<DetailedStatsProvider>().showDetailedStats
+                  ? 'Use ${_weightText(trendKg!)} (your trend)'
+                  : 'Use ${_weightText(trendKg!)}',
               onPressed: () {
                 HapticFeedback.selectionClick();
                 onUseTrend!();

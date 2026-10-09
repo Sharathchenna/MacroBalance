@@ -1,3 +1,4 @@
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'dart:convert';
 import 'dart:ui' show SemanticsFlag;
 
@@ -81,7 +82,7 @@ void main() {
     addTearDown(tester.view.reset);
     final energy = EnergyProvider(inBackground: false, phaseSync: _Phases(phases));
     await tester.pumpWidget(
-        testApp(child, goalsProvider: goals, energyProvider: energy, dark: dark));
+        testApp(detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true), child, goalsProvider: goals, energyProvider: energy, dark: dark));
     await pumpFrames(tester, seconds: 1);
     return energy;
   }

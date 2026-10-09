@@ -1,3 +1,4 @@
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'dart:convert';
 import 'dart:ui' show SemanticsFlag;
 
@@ -57,7 +58,7 @@ void main() {
 
   Future<void> pump(WidgetTester tester, Widget child, {bool dark = true}) async {
     phone(tester);
-    await tester.pumpWidget(testApp(child, goalsProvider: goals, dark: dark));
+    await tester.pumpWidget(testApp(detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true), child, goalsProvider: goals, dark: dark));
     await pumpFrames(tester, seconds: 1);
   }
 

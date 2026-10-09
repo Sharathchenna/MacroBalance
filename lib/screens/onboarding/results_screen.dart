@@ -14,6 +14,9 @@ import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/app_shell.dart';
 import 'package:macrotracker/widgets/adaptive_choice.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
+import 'package:macrotracker/providers/weight_unit_provider.dart';
+import 'package:macrotracker/widgets/onboarding/simple_plan_summary.dart';
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -32,6 +35,8 @@ class ResultsScreen extends StatefulWidget {
   /// Phased plans: "3 loss phases + 2 breaks · about 34 weeks" under the
   /// adaptive line (spec 7.5).
   final String? planLine;
+  final bool? isMetricWeight;
+  final double? goalWeightKg;
 
   const ResultsScreen(
       {Key? key,
@@ -39,7 +44,9 @@ class ResultsScreen extends StatefulWidget {
       this.recalculateOnly = false,
       this.onSave,
       this.adaptiveGoals = true,
-      this.planLine})
+      this.planLine,
+      this.isMetricWeight,
+      this.goalWeightKg})
       : super(key: key);
 
   @override
@@ -225,6 +232,7 @@ class _ResultsScreenState extends State<ResultsScreen>
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>()!;
+    final detailed = context.watch<DetailedStatsProvider>().showDetailedStats;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -264,12 +272,13 @@ class _ResultsScreenState extends State<ResultsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-                    _buildDailyCalorieTargetCard(),
+                    if (!detailed) _buildSimplePlan(),
+                    if (detailed) _buildDailyCalorieTargetCard(),
                     const SizedBox(height: 16),
-                    _buildMacroDistributionCard(),
+                    if (detailed) _buildMacroDistributionCard(),
                     const SizedBox(height: 16),
-                    _buildDetailedMetricsToggle(),
-                    if (_showDetailedMetrics) ...[
+                    if (detailed) _buildDetailedMetricsToggle(),
+                    if (detailed && _showDetailedMetrics) ...[
                       const SizedBox(height: 16),
                       _buildGoalRelatedInformation(
                           widget.results['goal_weight_kg'] != null),
@@ -277,8 +286,8 @@ class _ResultsScreenState extends State<ResultsScreen>
                       _buildLifestyleRecommendations(),
                     ],
                     const SizedBox(height: 16),
-                    _buildCalculationDetailsToggle(),
-                    if (_showCalculationDetails) ...[
+                    if (detailed) _buildCalculationDetailsToggle(),
+                    if (detailed && _showCalculationDetails) ...[
                       const SizedBox(height: 16),
                       _buildCalculationDetails(),
                     ],
@@ -291,6 +300,20 @@ class _ResultsScreenState extends State<ResultsScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSimplePlan() {
+    final results = widget.results;
+    final weightStats = results['weight_stats'] as Map<String, dynamic>? ?? const {};
+    final date = weightStats['goal_date'] as String?;
+    return SimplePlanSummary(
+      targets: GoalTargets(calories: (results['target_calories'] as num).toDouble(), protein: (results['protein_g'] as num).toDouble(), carbs: (results['carb_g'] as num).toDouble(), fat: (results['fat_g'] as num).toDouble()),
+      goalDate: date == null ? null : DateTime.tryParse(date),
+      goalWeightKg: widget.goalWeightKg ?? (weightStats['goal_weight'] as num?)?.toDouble(),
+      isMetric: widget.isMetricWeight ?? context.watch<WeightUnitProvider>().isMetric,
+      learned: results['tdee_learned'] == true,
+      adaptive: widget.adaptiveGoals,
     );
   }
 

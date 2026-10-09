@@ -88,6 +88,44 @@ class AdaptiveChoiceOptions extends StatelessWidget {
   }
 }
 
+/// The simple onboarding choice keeps the explanation behind a tap.
+class SimpleAdaptiveChoice extends StatelessWidget {
+  const SimpleAdaptiveChoice({super.key, required this.adaptive, required this.onChanged});
+  final bool adaptive;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SwitchListTile.adaptive(
+        key: const Key('simple_adaptive_switch'),
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Adjust my targets as I go'),
+        subtitle: const Text('Recommended'),
+        value: adaptive,
+        onChanged: onChanged,
+      ),
+      TextButton(
+        key: const Key('simple_adaptive_how'),
+        onPressed: () => showModalBottomSheet<void>(
+          context: context, isScrollControlled: true, useSafeArea: true,
+          builder: (_) => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('How it works', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+              SizedBox(height: 12),
+              Text('Log your food and weigh in regularly. After we get to know you, we’ll adjust your targets at a weekly check-in and tell you why. You can turn this off anytime in Settings.', style: TextStyle(fontSize: 16, height: 1.5)),
+            ]),
+          ),
+        ),
+        child: const Text('How it works'),
+      ),
+    ],
+  );
+}
+
 /// One row of a radio list: a radio, a title (with an optional Recommended
 /// badge) and a line of explanation. Shared by the adaptive and plan-style
 /// choices.

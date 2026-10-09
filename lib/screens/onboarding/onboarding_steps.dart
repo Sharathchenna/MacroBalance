@@ -44,10 +44,12 @@ bool isOnboardingStepSkipped(
   OnboardingStep step, {
   required String goal,
   bool usesLearnedExpenditure = false,
+  bool showDetailedStats = true,
 }) =>
     switch (step) {
       OnboardingStep.setNewGoal => goal == MacroCalculatorService.GOAL_MAINTAIN,
-      OnboardingStep.planStyle => goal != MacroCalculatorService.GOAL_LOSE,
+      OnboardingStep.planStyle => !showDetailedStats || goal != MacroCalculatorService.GOAL_LOSE,
       OnboardingStep.activity => usesLearnedExpenditure,
+      OnboardingStep.advanced => !showDetailedStats,
       _ => false,
     };

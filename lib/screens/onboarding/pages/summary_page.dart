@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +11,7 @@ import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/widgets/plan_style_choice.dart';
 import 'package:macrotracker/widgets/targets_change.dart';
 import '../onboarding_steps.dart';
+import 'package:macrotracker/widgets/onboarding/simple_plan_summary.dart';
 
 class SummaryPage extends StatelessWidget {
   final String gender;
@@ -41,6 +44,9 @@ class SummaryPage extends StatelessWidget {
   /// phases + 2 breaks · about 34 weeks").
   final PlanStyle? planStyle;
   final String? planLine;
+  final DateTime? projectedDate;
+  final bool isMetricWeight;
+  final double? effectivePacePct;
 
   const SummaryPage({
     super.key,
@@ -63,6 +69,9 @@ class SummaryPage extends StatelessWidget {
     this.learnedTdee,
     this.planStyle,
     this.planLine,
+    this.projectedDate,
+    this.isMetricWeight = true,
+    this.effectivePacePct,
   });
 
   /// The line under the targets when activity wasn't asked (plan 10.4).
@@ -105,6 +114,7 @@ class SummaryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!context.watch<DetailedStatsProvider>().showDetailedStats) return _buildSimple(context);
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
 
@@ -242,6 +252,36 @@ class SummaryPage extends StatelessWidget {
               items: macroSettingsItems),
         ],
       ),
+    );
+  }
+
+  Widget _buildSimple(BuildContext context) {
+    final unit = isMetricWeight ? 'kg' : 'lbs';
+    final weekly = (effectivePacePct ?? pacePct) / 100 * weightKg * (isMetricWeight ? 1 : 2.20462);
+    final items = <Map<String, dynamic>>[
+      {'label': 'Goal', 'value': _getGoalText(), 'page': OnboardingStep.goal},
+      if (goal != MacroCalculatorService.GOAL_MAINTAIN)
+        {'label': 'Pace', 'value': 'About ${weekly.toStringAsFixed(weekly < 0.1 ? 2 : 1)} $unit a week', 'page': OnboardingStep.setNewGoal},
+      if (planStyle != null)
+        {'label': 'Plan', 'value': PlanStyleCopy.title(planStyle!), 'page': OnboardingStep.setNewGoal},
+      {'label': 'Targets', 'value': adaptiveGoals ? 'Adjust as I go' : 'Fixed', 'page': OnboardingStep.adaptive},
+    ];
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Your plan', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        if (newTargets != null) ...[
+          SimplePlanSummary(targets: newTargets!, previousCalories: currentTargets?.calories, goalDate: projectedDate, goalWeightKg: goal == MacroCalculatorService.GOAL_MAINTAIN ? null : goalWeightKg, isMetric: isMetricWeight, learned: learnedTdee != null, adaptive: adaptiveGoals),
+          const SizedBox(height: 20),
+        ],
+        _buildSummarySection(context, title: 'Review your plan', icon: Icons.check_circle_outline, items: items),
+        const SizedBox(height: 12),
+        ExpansionTile(title: const Text('Your answers'), tilePadding: EdgeInsets.zero, children: [
+          _buildSummaryItem(context, label: 'Weight', value: isMetricWeight ? '${weightKg.toStringAsFixed(1)} kg' : '${(weightKg * 2.20462).round()} lbs', page: OnboardingStep.weight),
+          if (learnedTdee == null) _buildSummaryItem(context, label: 'Activity Level', value: _getActivityLevelText(), page: OnboardingStep.activity),
+        ]),
+      ]),
     );
   }
 
