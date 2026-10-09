@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/energy/phase_engine.dart';
+import '../services/energy/projection.dart';
 import '../services/posthog_service.dart';
 import '../theme/app_theme.dart';
 import 'adaptive_choice.dart';

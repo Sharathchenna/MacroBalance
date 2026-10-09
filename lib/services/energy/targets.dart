@@ -250,20 +250,3 @@ PaceTarget targetForPace({
     limitsHit: safe.limitsHit,
   );
 }
-
-/// About how many weeks eating [cals] takes to get from [weightKg] to
-/// [goalWeightKg], at today's energy balance. Null when the target doesn't
-/// move towards the goal. (A simple estimate until the projection, which also
-/// lets expenditure fall with weight, replaces it.)
-double? weeksToGoal({
-  required double weightKg,
-  required double goalWeightKg,
-  required double tdee,
-  required double cals,
-  required double energyDensity,
-}) {
-  final toGo = goalWeightKg - weightKg;
-  final dailyBalance = cals - tdee;
-  if (toGo == 0 || dailyBalance == 0 || toGo.sign != dailyBalance.sign) return null;
-  return toGo * energyDensity / (dailyBalance * 7);
-}

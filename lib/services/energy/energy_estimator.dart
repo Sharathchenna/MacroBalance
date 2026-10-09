@@ -38,32 +38,6 @@ class FoodDay {
   final ExplicitDayStatus? explicit;
 }
 
-/// What the energy density of a weight change depends on.
-class BodyProfile {
-  const BodyProfile({
-    required this.sex,
-    required this.heightCm,
-    required this.age,
-    this.bodyFatPct,
-  });
-
-  final Sex sex;
-  final double heightCm;
-  final int age;
-
-  /// From a scan or smart scale; null estimates it with Deurenberg.
-  final double? bodyFatPct;
-
-  /// Cals per kg of weight change at [weightKg] (spec 6.1).
-  double energyDensityAt(double weightKg) => energyDensity(fatMassKg(
-        weightKg: weightKg,
-        heightCm: heightCm,
-        age: age,
-        sex: sex,
-        bodyFatPct: bodyFatPct,
-      ));
-}
-
 /// Everything the estimator reads. Days are calendar days (time ignored).
 class EstimatorInputs {
   const EstimatorInputs({

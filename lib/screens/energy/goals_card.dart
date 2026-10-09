@@ -62,15 +62,23 @@ class GoalsCard extends StatelessWidget {
     final secondary =
         GoogleFonts.inter(fontSize: 13, color: colors.textSecondary, height: 1.4);
     final units = context.watch<WeightUnitProvider>();
+    final settings = goals.checkinSettings;
+    final trendKg = energy.latest?.trendWeightKg;
     final timeline = buildPhaseTimeline(
       phases: energy.phases,
       style: goals.planStyle,
       goal: MacroCalculatorService.goalKindOf(goals.goalType),
       now: DateTime.now(),
-      trendKg: energy.latest?.trendWeightKg,
+      trendKg: trendKg,
       goalWeightKg: goals.goalWeightKg > 0 ? goals.goalWeightKg : null,
       pacePct: goals.pacePctPerWeek,
-      heightCm: goals.heightCm,
+      tdee: planTdee(
+          settings: settings,
+          latest: energy.latest,
+          weightKg: trendKg ?? goals.currentWeightKg),
+      body: settings.body,
+      adaptive: adaptive,
+      cals: goals.caloriesGoal,
       settings: goals.phaseSettings,
     );
 

@@ -107,6 +107,12 @@ const int kExtendBreakWeeks = 2;
 const double kPhasedDefaultGoalFrac = 0.10;
 /// Longest any plan is walked forward (spec 6.9).
 const int kMaxProjectionWeeks = 156;
+/// The projection's range around its weeks to goal (spec 6.9).
+const double kProjectionLowFactor = 0.85;
+const double kProjectionHighFactor = 1.25;
+/// Mifflin–St Jeor's cals per kg of body weight: how much the BMR, and so
+/// expenditure (× activity), falls with each kg lost (spec 6.9).
+const double kMifflinKcalPerKg = 10;
 
 // --- Macros ---
 /// The BMI whose weight caps the protein reference weight.

@@ -13,8 +13,11 @@ import 'package:macrotracker/screens/onboarding/pages/plan_style_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/set_new_goal_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/summary_page.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
+import 'package:macrotracker/services/energy/bmr.dart';
+import 'package:macrotracker/services/energy/body_composition.dart';
 import 'package:macrotracker/services/energy/constants.dart';
 import 'package:macrotracker/services/energy/phase_engine.dart';
+import 'package:macrotracker/services/energy/projection.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/services/phase_sync_service.dart';
@@ -163,6 +166,21 @@ void main() {
       // 70 -> 60 kg: more than 10%.
       tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage)).onGoalWeightChanged(60);
       await pumpFrames(tester, seconds: 1);
+      // The projection for the defaults (male, 170 cm, 30, moderately
+      // active), in phases at the recommended pace, adaptive.
+      const body = BodyProfile(sex: Sex.male, heightCm: 170, age: 30, activityLevel: 3);
+      final projection = projectToGoal(
+          goal: GoalKind.lose,
+          weightKg: 70,
+          goalWeightKg: 60,
+          tdee: formulaTdee(
+              sex: Sex.male, weightKg: 70, heightCm: 170, age: 30, activityLevel: 3),
+          pacePct: kDefaultLosePace,
+          body: body,
+          on: DateTime.now(),
+          style: PlanStyle.phased);
+      // The recommended pace row shows the same weeks as the plan.
+      expect(find.textContaining('about ${projection.aboutWeeks} weeks'), findsOneWidget);
       await next(tester);
       expect(visible(PlanStylePage), findsOneWidget);
       expect(selected(tester, const Key('plan_style_phased')), isTrue);
@@ -171,6 +189,7 @@ void main() {
       expect(outline, findsOneWidget);
       final line = tester.widget<Text>(outline).data!;
       expect(line, matches(RegExp(r'^\d loss phases \+ \d breaks? · about \d+ weeks$')));
+      expect(line, PlanStyleCopy.outline(projection.outline!));
 
       await next(tester);
       expect(visible(AdaptivePage), findsOneWidget);

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 
@@ -167,10 +169,14 @@ void main() {
     expect(r['limit_hit'], 'floor');
   });
 
-  test('weeks to goal follow the target', () {
+  test('weeks to goal come from the projection', () {
     final r = run(goal: MacroCalculatorService.GOAL_LOSE, pacePct: 0.5, goalWeightKg: 75);
     final stats = r['weight_stats'] as Map;
-    expect(stats['weeks_to_goal'] as num,
-        closeTo(5 / (n(r, 'weekly_weight_change').abs()), 0.01));
+    final weeks = (stats['weeks_to_goal'] as num).toDouble();
+    // 0.5% of the current weight a week (adaptive re-plans each week).
+    final from = (stats['current_weight'] as num).toDouble();
+    expect(weeks, closeTo(log(75 / from) / log(0.995), 0.1));
+    expect(stats['weeks_low'], closeTo(0.85 * weeks, 1e-9));
+    expect(stats['weeks_high'], closeTo(1.25 * weeks, 1e-9));
   });
 }

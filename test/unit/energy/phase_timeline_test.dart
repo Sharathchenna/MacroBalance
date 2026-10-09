@@ -1,11 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/services/energy/body_composition.dart';
 import 'package:macrotracker/services/energy/phase_engine.dart';
 import 'package:macrotracker/services/energy/phase_timeline.dart';
+import 'package:macrotracker/services/energy/projection.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 
 void main() {
   final start = DateTime(2026, 9, 7);
   DateTime plus(int days) => DateTime(2026, 9, 7 + days);
+  const body = BodyProfile(sex: Sex.male, heightCm: 178, age: 35, activityLevel: 3);
 
   // Phased: 84 kg, lose 5% (to 79.8), max 16 weeks.
   GoalPhase phasedLose({int seq = 1, DateTime? on, double kg = 84}) => GoalPhase(
@@ -33,6 +36,8 @@ void main() {
         trendKg: trend,
         goalWeightKg: goalKg,
         pacePct: pace,
+        tdee: 2600,
+        body: body,
       );
 
   test('steady plans, other goals and no open phase have no timeline', () {
@@ -58,6 +63,39 @@ void main() {
     expect(t.endRequested, isFalse);
   });
 
+  test('weeks left and the upcoming phases come from the projection', () {
+    for (final adaptive in [true, false]) {
+      final t = buildPhaseTimeline(
+          phases: [phasedLose()],
+          style: PlanStyle.phased,
+          goal: GoalKind.lose,
+          now: plus(21),
+          trendKg: 82.9,
+          goalWeightKg: 70,
+          pacePct: 0.5,
+          tdee: 2600,
+          body: body,
+          adaptive: adaptive,
+          cals: 2150)!;
+      final p = projectToGoal(
+          goal: GoalKind.lose,
+          weightKg: 82.9,
+          goalWeightKg: 70,
+          tdee: 2600,
+          pacePct: 0.5,
+          body: body,
+          on: plus(21),
+          adaptive: adaptive,
+          cals: 2150,
+          style: PlanStyle.phased,
+          phase: phasedLose());
+      expect(t.weeksLeft, p.phases.first.weeks.round());
+      final upcoming = t.segments.where((s) => s.state == SegmentState.upcoming);
+      expect([for (final s in upcoming) s.weeks],
+          [for (final ph in p.phases.skip(1).take(kTimelineUpcoming)) ph.weeks]);
+    }
+  });
+
   test('losing: the length is capped at the longest phase', () {
     final t = build([phasedLose()], now: plus(98), trend: 83.9, pace: 0.05)!;
     // Barely losing: the 16 weeks run out first, 2 weeks from now (week 14).
@@ -74,7 +112,9 @@ void main() {
         now: plus(7),
         trendKg: null,
         goalWeightKg: 70,
-        pacePct: 0.5)!;
+        pacePct: 0.5,
+        tdee: 2600,
+        body: body)!;
     expect(none.lostKg, isNull);
     expect(none.weeksLeft, isNull);
     expect(none.phaseGoalKg, closeTo(4.2, 1e-9));

@@ -9,6 +9,7 @@ import 'package:macrotracker/services/energy/checkin_day.dart';
 import 'package:macrotracker/services/energy/constants.dart';
 import 'package:macrotracker/services/energy/energy_summary.dart';
 import 'package:macrotracker/services/energy/phase_engine.dart';
+import 'package:macrotracker/services/energy/projection.dart';
 import 'package:macrotracker/services/energy/recalculate.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
@@ -116,16 +117,30 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   PlanStyle get _defaultPlanStyle =>
       defaultPlanStyle(weightKg: _weightKg, goalWeightKg: _goalWeightKg);
 
-  /// How the plan unfolds at the chosen pace (after the safety limits).
+  /// How the plan unfolds at the chosen pace, from the projection.
   PlanOutline? get _planOutline => _goal != MacroCalculatorService.GOAL_LOSE
       ? null
-      : outlinePlan(
-          style: _planStyle,
-          weightKg: _weightKg,
-          goalWeightKg: _goalWeightKg,
-          pacePct: _targetFor(_pacePct).effectivePacePct,
+      : _projectionFor(_pacePct).outline;
+
+  /// Weeks to the goal at [pacePct] (spec 6.9): the plan style, adaptive
+  /// choice and safety limits as chosen so far.
+  Projection _projectionFor(double pacePct, {double? tdee}) => projectToGoal(
+        goal: _goalKind,
+        weightKg: _weightKg,
+        goalWeightKg: _goalWeightKg,
+        tdee: tdee ?? _tdee,
+        pacePct: pacePct,
+        body: MacroCalculatorService.bodyFor(
+          gender: _gender,
           heightCm: _heightCm,
-        );
+          age: _age,
+          activityLevel: _activityLevel,
+          bodyFatPercentage: _knownBodyFat,
+        ),
+        on: DateTime.now(),
+        adaptive: _adaptiveGoals,
+        style: _planStyle,
+      );
 
   /// "3 loss phases + 2 breaks · about 34 weeks" for phased plans.
   String? get _planLine {
@@ -171,13 +186,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           final target = _targetFor(pace, tdee: tdee, kcalPerKg: kcalPerKg);
           return PaceChoice(
             target: target,
-            weeks: weeksToGoal(
-              weightKg: _weightKg,
-              goalWeightKg: _goalWeightKg,
-              tdee: tdee,
-              cals: target.cals,
-              energyDensity: kcalPerKg,
-            ),
+            weeks: _projectionFor(pace, tdee: tdee).aboutWeeks,
           );
         }(),
     ];
@@ -282,19 +291,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return options.contains(pace) ? pace : defaultPacePct(_goalKind);
   }
 
-  DateTime? _calculateProjectedDate() {
-    if (_goal == MacroCalculatorService.GOAL_MAINTAIN) return null;
-    final tdee = _tdee;
-    final weeks = weeksToGoal(
-      weightKg: _weightKg,
-      goalWeightKg: _goalWeightKg,
-      tdee: tdee,
-      cals: _targetFor(_pacePct, tdee: tdee).cals,
-      energyDensity: _kcalPerKg,
-    );
-    if (weeks == null) return null;
-    return DateTime.now().add(Duration(days: (min(weeks, 52 * 10) * 7).round()));
-  }
+  DateTime? _calculateProjectedDate() => _projectionFor(_pacePct).date;
 
   // --- End Helper Functions ---
 
@@ -365,6 +362,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           _goal != MacroCalculatorService.GOAL_MAINTAIN ? _goalWeightKg : null,
       bodyFatPercentage: _knownBodyFat,
       tdee: _usesLearnedTdee ? _learnedTdee : null,
+      adaptive: _adaptiveGoals,
+      planStyle: _planStyle,
     );
 
   GoalTargets _targetsOf(Map<String, dynamic> results) => GoalTargets(

@@ -6,6 +6,7 @@ import 'constants.dart';
 import 'energy_estimator.dart';
 import 'estimate_rows.dart' show dayKey, parseDay;
 import 'phase_engine.dart';
+import 'projection.dart';
 import 'targets.dart';
 
 /// What a weekly check-in did (spec 6.8; plan 9.5 variants A–G). The codes
@@ -142,14 +143,16 @@ class CheckinSettings {
   final double? fatRatio;
   final double? goalWeightKg;
 
+  /// The body the projection works from.
+  BodyProfile get body => BodyProfile(
+      sex: sex,
+      heightCm: heightCm,
+      age: age,
+      activityLevel: activityLevel,
+      bodyFatPct: bodyFatPct);
+
   /// Energy density at [weightKg] for this profile.
-  double energyDensityAt(double weightKg) => energyDensity(fatMassKg(
-        weightKg: weightKg,
-        heightCm: heightCm ?? 170,
-        age: age ?? 30,
-        sex: sex,
-        bodyFatPct: bodyFatPct,
-      ));
+  double energyDensityAt(double weightKg) => body.energyDensityAt(weightKg);
 
   /// The formula expenditure at [weightKg] (spec 6.5).
   double formulaTdeeAt(double weightKg) => formulaTdee(
@@ -222,7 +225,7 @@ class CheckinReason {
   final GoalKind goal;
   final double pacePct;
 
-  /// At the new target, from today's energy balance.
+  /// At the new target, from the projection (spec 6.9).
   final double? weeksToGoal;
 
   /// F and G: the phase that ended and the one that started. Applying the
@@ -387,11 +390,25 @@ CheckinDecision? decideCheckin({
   final learning = latest == null ||
       latest.state == EnergyState.learning ||
       latest.state == EnergyState.paused;
+  double tdeeAt(double kg) => planTdee(settings: settings, latest: latest, weightKg: kg);
+  final today = plan?.on ?? latest?.day ?? DateTime.now();
 
-  // Adaptive: what we've learned; otherwise (or before there's an estimate)
-  // the formula at today's weight.
-  double tdeeAt(double kg) =>
-      settings.adaptive && !learning ? latest.tdee : settings.formulaTdeeAt(kg);
+  // Weeks to the goal from [kg] eating [cals], through the projection,
+  // continuing [phase] (the open one) of the plan.
+  Projection project(double kg, double tdee, int cals, GoalPhase? phase) => projectToGoal(
+        goal: settings.goal,
+        weightKg: kg,
+        goalWeightKg: settings.goalWeightKg,
+        tdee: tdee,
+        pacePct: settings.pacePct,
+        body: settings.body,
+        on: today,
+        adaptive: settings.adaptive,
+        cals: cals.toDouble(),
+        style: plan?.style ?? PlanStyle.steady,
+        phase: phase,
+        phaseSettings: plan?.settings ?? const PhaseSettings(),
+      );
 
   // Row 1: the trend weight has crossed the goal weight. Targets stay as
   // they are until the user chooses; the maintenance targets come from
@@ -415,6 +432,7 @@ CheckinDecision? decideCheckin({
     if (t != null) {
       final tdee = tdeeAt(weight);
       final next = phaseTargets(kind: t.next.kind, settings: settings, tdee: tdee, weightKg: weight);
+      final projection = project(weight, tdee, next.targets.cals, t.next);
       return CheckinDecision(
         variant: t.toMaintain ? CheckinVariant.phaseToMaintain : CheckinVariant.phaseToLose,
         oldTargets: current,
@@ -422,9 +440,9 @@ CheckinDecision? decideCheckin({
         reason: reason(
           tdee: tdee,
           limitHit: next.pace.limitHit,
-          weeksToGoal: _weeksTo(settings, weight, tdee, next.targets.cals, settings.goalWeightKg),
+          weeksToGoal: projection.weeks,
           phase: t,
-          phaseWeeks: _phaseWeeks(t.next, settings, weight, tdee, next.targets.cals),
+          phaseWeeks: _phaseWeeks(t.next, projection),
         ),
       );
     }
@@ -456,7 +474,8 @@ CheckinDecision? decideCheckin({
   final why = reason(
     tdee: tdee,
     limitHit: safe.limitHit,
-    weeksToGoal: _weeksTo(settings, weight, tdee, cals, settings.goalWeightKg),
+    weeksToGoal: project(weight, tdee, cals, plan == null ? null : currentPhase(plan.phases))
+        .weeks,
   );
 
   if ((cals - current.cals).abs() < kNoChangeThreshold) {
@@ -493,36 +512,31 @@ bool _crossedGoal(CheckinSettings settings, double trendKg) {
   };
 }
 
-/// Weeks from [weightKg] to [goalKg] eating [cals] against [tdee]; null
-/// when maintaining, without a goal weight or when [cals] doesn't head there.
-double? _weeksTo(
-    CheckinSettings settings, double weightKg, double tdee, int cals, double? goalKg) {
-  if (settings.goal == GoalKind.maintain || goalKg == null || goalKg <= 0) return null;
-  return weeksToGoal(
-    weightKg: weightKg,
-    goalWeightKg: goalKg,
-    tdee: tdee,
-    cals: cals.toDouble(),
-    energyDensity: settings.energyDensityAt(weightKg),
-  );
+/// How long [next] runs: its planned weeks, or for a phased lose phase the
+/// projected weeks to its X% (at most its cap).
+double? _phaseWeeks(GoalPhase next, Projection projection) {
+  if (next.plannedWeeks != null) return next.plannedWeeks!.toDouble();
+  if (next.targetTrendKg == null) return null;
+  final cap = (next.maxWeeks ?? kMaxLossPhaseWeeks).toDouble();
+  final first = projection.phases.isEmpty ? null : projection.phases.first;
+  return first == null || first.seq != next.seq || first.endReason == null
+      ? cap
+      : min(first.weeks, cap);
 }
 
-/// How long [next] runs: its planned weeks, or for a phased lose phase the
-/// weeks to its X% at [cals] (at most its cap).
-double? _phaseWeeks(
-    GoalPhase next, CheckinSettings settings, double weightKg, double tdee, int cals) {
-  if (next.plannedWeeks != null) return next.plannedWeeks!.toDouble();
-  final target = next.targetTrendKg;
-  if (target == null) return null;
-  final weeks = weeksToGoal(
-    weightKg: weightKg,
-    goalWeightKg: target,
-    tdee: tdee,
-    cals: cals.toDouble(),
-    energyDensity: settings.energyDensityAt(weightKg),
-  );
-  final cap = (next.maxWeeks ?? kMaxLossPhaseWeeks).toDouble();
-  return weeks == null ? cap : min(weeks, cap);
+/// The expenditure targets are planned from: what we've learned while
+/// adaptive goals are on and the estimate is past learning; otherwise (or
+/// before there's an estimate) the formula at [weightKg].
+double planTdee({
+  required CheckinSettings settings,
+  required EnergyEstimate? latest,
+  required double weightKg,
+}) {
+  final learned = settings.adaptive &&
+      latest != null &&
+      latest.state != EnergyState.learning &&
+      latest.state != EnergyState.paused;
+  return learned ? latest.tdee : settings.formulaTdeeAt(weightKg);
 }
 
 /// One `goal_checkins` row.

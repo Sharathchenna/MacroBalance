@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/services/energy/phase_engine.dart';
+import 'package:macrotracker/services/energy/projection.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/widgets/plan_style_choice.dart';
 

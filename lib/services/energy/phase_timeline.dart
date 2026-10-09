@@ -1,7 +1,8 @@
 import 'dart:math';
 
-import 'constants.dart';
+import 'body_composition.dart';
 import 'phase_engine.dart';
+import 'projection.dart';
 import 'targets.dart';
 
 /// Where a timeline segment is relative to today.
@@ -65,7 +66,7 @@ class PhaseTimeline {
   /// What a phased lose phase aims to lose.
   final double? phaseGoalKg;
 
-  /// About how many weeks until the phase ends, at the chosen pace.
+  /// About how many weeks until the phase ends, from the projection.
   final int? weeksLeft;
 
   /// A break's last day, when losing resumes.
@@ -84,9 +85,9 @@ const int kTimelineUpcoming = 4;
 /// The phase timeline for a phased or diet-break lose plan, or null for
 /// anything else (steady plans, other goals, no open phase).
 ///
-/// The future is a week-by-week walk through the phase engine, losing
-/// [pacePct] of the trend each lose week, like the plan outline. [trendKg]
-/// is the latest trend weight (null before there is one).
+/// The future comes from the projection (spec 6.9), continuing the open
+/// phase from [trendKg] (the latest trend weight, null before there is one)
+/// with [tdee], [cals] and the chosen pace, as the check-ins would.
 PhaseTimeline? buildPhaseTimeline({
   required Iterable<GoalPhase> phases,
   required PlanStyle style,
@@ -95,14 +96,16 @@ PhaseTimeline? buildPhaseTimeline({
   required double? trendKg,
   required double? goalWeightKg,
   required double pacePct,
-  double? heightCm,
+  required double tdee,
+  required BodyProfile body,
+  bool adaptive = true,
+  double? cals,
   PhaseSettings settings = const PhaseSettings(),
 }) {
   if (style == PlanStyle.steady || goal != GoalKind.lose) return null;
   final open = currentPhase(phases);
   if (open == null) return null;
   final today = DateTime(now.year, now.month, now.day);
-  DateTime inDays(int n) => DateTime(today.year, today.month, today.day + n);
 
   final sorted = phases.toList()..sort((a, b) => a.seq.compareTo(b.seq));
   final segments = <TimelineSegment>[
@@ -116,45 +119,34 @@ PhaseTimeline? buildPhaseTimeline({
   final dueNow = dueToEnd(open,
       on: today, trendKg: trendKg ?? open.startTrendKg, goalWeightKg: goalWeightKg, goal: goal);
 
-  // Walk forward a week at a time from today. The open phase's end gives the
-  // weeks left; the phases after it are the upcoming segments.
-  var phase = open;
-  var weight = trendKg ?? open.startTrendKg;
-  var weeksInPhase = elapsed;
-  int? weeksLeft;
-  double? openLength;
-  final upcoming = <TimelineSegment>[];
-  var more = false;
-  final pace = max(pacePct, 0.0);
-  for (var k = 1; k <= kMaxProjectionWeeks && dueNow != PhaseEndReason.goalReached; k++) {
-    if (phase.kind == PhaseKind.lose) weight *= 1 - pace / 100;
-    weeksInPhase += 1;
-    final reason = dueToEnd(phase,
-        on: inDays(7 * k), trendKg: weight, goalWeightKg: goalWeightKg, goal: goal);
-    if (reason == null) continue;
-    if (phase.seq == open.seq) {
-      weeksLeft = k;
-      openLength = weeksInPhase;
-    } else if (upcoming.length >= kTimelineUpcoming) {
-      more = true;
-      break;
-    } else {
-      upcoming.add(TimelineSegment(phase.kind, weeksInPhase, SegmentState.upcoming));
-    }
-    if (reason == PhaseEndReason.goalReached) break;
-    final next = nextPhase(
-      after: phase,
-      style: style,
-      goal: goal,
-      on: inDays(7 * k),
-      trendKg: weight,
-      heightCm: heightCm,
-      settings: settings,
-    );
-    if (next == null) break;
-    phase = next;
-    weeksInPhase = 0;
-  }
+  // The open phase's projected end gives the weeks left; the phases after
+  // it are the upcoming segments.
+  final projected = dueNow == PhaseEndReason.goalReached
+      ? const <ProjectedPhase>[]
+      : projectToGoal(
+          goal: goal,
+          weightKg: trendKg ?? open.startTrendKg,
+          goalWeightKg: goalWeightKg,
+          tdee: tdee,
+          pacePct: max(pacePct, 0.0),
+          body: body,
+          on: today,
+          adaptive: adaptive,
+          cals: cals,
+          style: style,
+          phase: open,
+          phaseSettings: settings,
+        ).phases;
+  final ended = projected.where((p) => p.endReason != null).toList();
+  final openEnd = ended.isNotEmpty && ended.first.seq == open.seq ? ended.first : null;
+  final weeksLeft = openEnd == null ? null : max(1, openEnd.weeks.round());
+  final openLength = openEnd == null ? null : elapsed + openEnd.weeks;
+  final after = ended.skip(openEnd == null ? 0 : 1).toList();
+  final upcoming = [
+    for (final p in after.take(kTimelineUpcoming))
+      TimelineSegment(p.kind, p.weeks, SegmentState.upcoming),
+  ];
+  final more = after.length > kTimelineUpcoming;
 
   segments.add(TimelineSegment(
       open.kind, max(openLength ?? elapsed, max(elapsed, 0.5)), SegmentState.current));

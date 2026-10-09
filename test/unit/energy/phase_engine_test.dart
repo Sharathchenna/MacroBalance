@@ -462,46 +462,6 @@ void main() {
     });
   });
 
-  group('plan outline (summary line)', () {
-    test('phased: loss phases and breaks until the goal', () {
-      // 100 → 80 kg at 0.5%/week, 180 cm: 10% (BMI 30.9), then 5% phases.
-      final o = outlinePlan(
-          style: PlanStyle.phased,
-          weightKg: 100,
-          goalWeightKg: 80,
-          pacePct: 0.5,
-          heightCm: height)!;
-      // 16 weeks (capped, 92.3 kg), 11, 11, then 7 to the goal.
-      expect(o.lossPhases, 4);
-      expect(o.breaks, 3);
-      expect(o.lossWeeks, 45);
-      expect(o.weeks, 45 + 3 * kMaintenanceWeeks);
-    });
-
-    test('breaks: a 2-week break every 8 weeks', () {
-      final o = outlinePlan(
-          style: PlanStyle.breaks, weightKg: 90, goalWeightKg: 80, pacePct: 0.5)!;
-      // ~24 weeks of losing: 3 phases, 2 breaks between them.
-      expect(o.lossPhases, 3);
-      expect(o.breaks, 2);
-      expect(o.weeks, o.lossWeeks + 2 * kBreakWeeks);
-    });
-
-    test('steady: one phase, no breaks', () {
-      final o = outlinePlan(
-          style: PlanStyle.steady, weightKg: 90, goalWeightKg: 85, pacePct: 0.5)!;
-      expect((o.lossPhases, o.breaks), (1, 0));
-      expect(o.weeks, 12); // 0.995^12 × 90 = 84.7
-    });
-
-    test('nothing to plan: no pace, or the goal isn\'t below the weight', () {
-      expect(outlinePlan(style: PlanStyle.phased, weightKg: 90, goalWeightKg: 80, pacePct: 0),
-          isNull);
-      expect(outlinePlan(style: PlanStyle.phased, weightKg: 80, goalWeightKg: 80, pacePct: 0.5),
-          isNull);
-    });
-  });
-
   test('a phase round-trips through its row', () {
     final p = lose(endRequestedOn: week(1)).close(week(3), PhaseEndReason.userEnded);
     final row = p.toJson();

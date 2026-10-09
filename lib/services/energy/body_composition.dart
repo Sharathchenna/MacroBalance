@@ -1,6 +1,42 @@
+import 'bmr.dart' show activityFactor;
 import 'constants.dart';
 
 enum Sex { male, female }
+
+/// What energy density and the projection's falling expenditure depend on.
+/// Unknown height, age or activity use the onboarding defaults (170 cm, 30,
+/// moderately active).
+class BodyProfile {
+  const BodyProfile({
+    required this.sex,
+    this.heightCm,
+    this.age,
+    this.activityLevel,
+    this.bodyFatPct,
+  });
+
+  final Sex sex;
+  final double? heightCm;
+  final int? age;
+
+  /// 1–5.
+  final int? activityLevel;
+
+  /// From a scan or smart scale; null estimates it with Deurenberg.
+  final double? bodyFatPct;
+
+  /// Cals per kg of weight change at [weightKg] (spec 6.1).
+  double energyDensityAt(double weightKg) => energyDensity(fatMassKg(
+        weightKg: weightKg,
+        heightCm: heightCm ?? 170,
+        age: age ?? 30,
+        sex: sex,
+        bodyFatPct: bodyFatPct,
+      ));
+
+  /// The activity multiplier on the BMR (spec 6.5).
+  double get bmrMultiplier => activityFactor(activityLevel ?? 3);
+}
 
 double bmi({required double weightKg, required double heightCm}) {
   final m = heightCm / 100;

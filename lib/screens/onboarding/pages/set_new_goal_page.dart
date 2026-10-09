@@ -16,7 +16,10 @@ class PaceChoice {
   const PaceChoice({required this.target, this.weeks});
 
   final PaceTarget target;
-  final double? weeks;
+
+  /// "About N weeks" to the goal, from the projection; null when it doesn't
+  /// get there.
+  final int? weeks;
 }
 
 /// Plain words for why a pace was slowed down, or null if it wasn't.
@@ -531,7 +534,7 @@ class _PaceOptionTile extends StatelessWidget {
       target.clamped
           ? 'Capped at ${_pctText(target.effectivePacePct)}%'
           : weeklyChange,
-      if (weeks != null) 'about ${max(1, weeks.round())} weeks',
+      if (weeks != null && weeks > 0) 'about $weeks week${weeks == 1 ? '' : 's'}',
     ].join(' · ');
 
     return Semantics(

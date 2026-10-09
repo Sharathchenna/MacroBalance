@@ -156,25 +156,6 @@ void main() {
     });
   });
 
-  group('weeksToGoal', () {
-    test('is the weight to go over the weekly change', () {
-      // 8 kg × 7000 cals/kg at 500 cals a day = 16 weeks.
-      expect(
-          weeksToGoal(weightKg: 80, goalWeightKg: 72, tdee: 2700, cals: 2200, energyDensity: 7000),
-          closeTo(16, 1e-9));
-      expect(
-          weeksToGoal(weightKg: 70, goalWeightKg: 73, tdee: 2700, cals: 2950, energyDensity: 7000),
-          closeTo(12, 1e-9));
-    });
-
-    test('is null when the target does not move towards the goal', () {
-      expect(weeksToGoal(weightKg: 80, goalWeightKg: 72, tdee: 2700, cals: 2700, energyDensity: 7000),
-          isNull);
-      expect(weeksToGoal(weightKg: 80, goalWeightKg: 72, tdee: 1150, cals: 1200, energyDensity: 7000),
-          isNull);
-    });
-  });
-
   test('the recommended paces are among the options', () {
     expect(kLosePaceOptions, [0.25, 0.5, 0.75, 1.0]);
     expect(kGainPaceOptions, [0.1, 0.25, 0.5]);

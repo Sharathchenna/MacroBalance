@@ -1,5 +1,7 @@
 import 'package:macrotracker/services/energy/bmr.dart';
 import 'package:macrotracker/services/energy/body_composition.dart';
+import 'package:macrotracker/services/energy/phase_engine.dart';
+import 'package:macrotracker/services/energy/projection.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 
 /// Onboarding's view of the goal maths: takes the app's string and int codes
@@ -26,6 +28,22 @@ class MacroCalculatorService {
         GOAL_GAIN => GoalKind.gain,
         _ => GoalKind.maintain,
       };
+
+  /// The body the projection works from.
+  static BodyProfile bodyFor({
+    required String gender,
+    required double heightCm,
+    required int age,
+    required int activityLevel,
+    double? bodyFatPercentage,
+  }) =>
+      BodyProfile(
+        sex: sexOf(gender),
+        heightCm: heightCm,
+        age: age,
+        activityLevel: activityLevel,
+        bodyFatPct: bodyFatPercentage,
+      );
 
   /// Cals per kg of weight change for this body (Hall/Forbes).
   static double energyDensityFor({
@@ -59,6 +77,9 @@ class MacroCalculatorService {
     double? goalWeightKg,
     double? bodyFatPercentage,
     double? tdee, // expenditure to plan from; null: the formula's
+    bool adaptive = true, // the projection re-plans each week when on
+    PlanStyle planStyle = PlanStyle.steady,
+    DateTime? today,
   }) {
     final sex = sexOf(gender);
     final bmr = basalMetabolicRate(
@@ -114,16 +135,25 @@ class MacroCalculatorService {
         goal == GOAL_MAINTAIN ? 0.0 : (targetCalories - tdee) * 7 / kcalPerKg;
 
     Map<String, dynamic> weightStats = {};
-    final weeks = goalWeightKg == null || goal == GOAL_MAINTAIN
-        ? null
-        : weeksToGoal(
-            weightKg: weightKg,
-            goalWeightKg: goalWeightKg,
-            tdee: tdee,
-            cals: targetCalories,
-            energyDensity: kcalPerKg,
-          );
-    if (weeks != null) {
+    final projection = projectToGoal(
+      goal: goalKind,
+      weightKg: weightKg,
+      goalWeightKg: goalWeightKg,
+      tdee: tdee,
+      pacePct: target.pacePct,
+      body: bodyFor(
+          gender: gender,
+          heightCm: heightCm,
+          age: age,
+          activityLevel: activityLevel,
+          bodyFatPercentage: bodyFatPercentage),
+      on: today ?? DateTime.now(),
+      adaptive: adaptive,
+      cals: targetCalories,
+      style: planStyle,
+    );
+    final weeks = projection.weeks;
+    if (weeks != null && weeks > 0) {
       weightStats = {
         'current_weight': weightKg,
         'goal_weight': goalWeightKg,
@@ -131,8 +161,9 @@ class MacroCalculatorService {
         'weekly_change': weeklyWeightChange,
         'weeks_to_goal': weeks,
         'days_to_goal': weeks * 7,
-        'goal_date':
-            DateTime.now().add(Duration(days: (weeks * 7).round())).toIso8601String(),
+        'weeks_low': projection.weeksLow,
+        'weeks_high': projection.weeksHigh,
+        'goal_date': projection.date!.toIso8601String(),
       };
     }
 
