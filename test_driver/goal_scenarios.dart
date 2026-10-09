@@ -40,6 +40,7 @@ import 'package:macrotracker/services/photo_analysis_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'goal_scenario_data.dart';
+import 'qa_remote.dart';
 
 Future<void> main() async {
   _OfflineQABinding();
@@ -63,6 +64,7 @@ Future<void> main() async {
       debug: false);
   CheckinNotifier.device = _NoCheckinNotifications();
   FinishReminderNotifier.device = _NoFinishNotifications();
+  QARemote.start(documents);
   runApp(const _ScenarioApp());
 }
 
