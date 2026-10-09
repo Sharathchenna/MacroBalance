@@ -313,31 +313,44 @@ class _CalorieTrackerState extends State<CalorieTracker> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Row(children: [
-                  Icon(
-                    Icons.pie_chart_outline,
-                    size: 20,
-                    color: Theme.of(context).brightness == Brightness.light
-                        ? Colors.grey.shade700
-                        : Colors.grey.shade400,
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      "Today's Nutrition and Activity",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.grey.shade700
-                            : Colors.grey.shade400,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.pie_chart_outline,
+                              size: 20,
+                              color: Theme.of(context).brightness == Brightness.light
+                                  ? Colors.grey.shade700
+                                  : Colors.grey.shade400,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Nutrition & Activity',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).brightness == Brightness.light
+                                      ? Colors.grey.shade700
+                                      : Colors.grey.shade400,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      const CheckinChip(),
+                    ],
                   ),
-                  const CheckinChip(),
-                ]),
+                ),
               ),
               Column(
                 children: [
@@ -443,8 +456,10 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                   const SizedBox(height: 30),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceAround,
+                      spacing: 4,
+                      runSpacing: 18,
                       children: [
                         _buildMacroProgress(context, 'Carbs', totalCarbs.round(), carbGoal,
                             const Color(0xFF42A5F5), 'g'),
@@ -467,8 +482,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
   }
 }
 
-/// "Targets updated" on the day a check-in ran (spec 7.4): reopens its sheet
-/// until the day ends. Check-ins that kept the targets read "Weekly check-in".
+/// "New target" on the day a check-in ran (spec 7.4): reopens its sheet
+/// until the day ends. Check-ins that kept the targets read "Check-in".
 class CheckinChip extends StatelessWidget {
   const CheckinChip({super.key});
 
@@ -498,7 +513,7 @@ class CheckinChip extends StatelessWidget {
                 Icon(Icons.autorenew_rounded, size: 14, color: colors.accentPrimary),
                 const SizedBox(width: 4),
                 Text(
-                  changed ? 'Targets updated' : 'Weekly check-in',
+                  changed ? 'New target' : 'Check-in',
                   style: GoogleFonts.poppins(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,

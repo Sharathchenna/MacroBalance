@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/energy/checkin_sheet.dart';
@@ -18,6 +19,7 @@ import 'package:macrotracker/services/phase_sync_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 
 import '../helpers/test_app.dart';
+import '../helpers/simple_copy_audit.dart';
 
 class _SeededCheckins extends CheckinSyncService {
   _SeededCheckins(List<GoalCheckin> rows)
@@ -160,9 +162,10 @@ void main() {
     });
   });
 
-  group('sheet', () {
+  for (final showDetails in [true, false]) {
+  group('sheet (detailed: $showDetails)', () {
     Future<(EnergyProvider, GoalsProvider)> open(WidgetTester tester, GoalCheckin c,
-        {List<GoalPhase>? phases, bool dark = true}) async {
+        {List<GoalPhase>? phases, bool dark = true, bool? detailed}) async {
       tester.view.physicalSize = const Size(1206, 2622);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
@@ -186,10 +189,19 @@ void main() {
         ),
         goalsProvider: goals,
         energyProvider: energy,
+        detailedStatsProvider: DetailedStatsProvider(showDetailedStats: detailed ?? showDetails),
         dark: dark,
       ));
       await tester.tap(find.text('Open'));
       await pumpFrames(tester, seconds: 1);
+      if (!(detailed ?? showDetails)) {
+        expectSimpleCopy(tester);
+        await tester.tap(find.byKey(const Key('checkin_why_toggle')));
+        await pumpFrames(tester);
+        expectSimpleCopy(tester);
+        await tester.tap(find.byKey(const Key('checkin_why_toggle')));
+        await pumpFrames(tester);
+      }
       return (energy, goals);
     }
 
@@ -197,8 +209,8 @@ void main() {
       testWidgets('D renders with both choices (${dark ? 'dark' : 'light'})', (tester) async {
         await open(tester, _reached(), dark: dark);
         expect(find.byKey(const Key('checkin_sheet_goal_reached')), findsOneWidget);
-        expect(find.text("You've reached 75 kg 🎉"), findsOneWidget);
-        expect(find.text('If you switch to maintenance'), findsOneWidget);
+        expect(find.text(showDetails ? "You've reached 75 kg 🎉" : "You reached 75 kg! 🎉"), findsOneWidget);
+        expect(find.text(showDetails ? 'If you switch to maintenance' : 'To stay at this weight'), findsOneWidget);
         expect(find.textContaining('2,450', findRichText: true), findsWidgets);
         expect(find.text('Switch to maintenance'), findsOneWidget);
         expect(find.text('Set a new goal'), findsOneWidget);
@@ -224,11 +236,17 @@ void main() {
       // Reopened (the chip, history): chosen already, so only Got it.
       await tester.tap(find.text('Open'));
       await pumpFrames(tester, seconds: 1);
-      expect(find.text("You've reached 75 kg 🎉"), findsOneWidget);
+      expect(find.text(showDetails ? "You've reached 75 kg 🎉" : "You reached 75 kg! 🎉"), findsOneWidget);
       expect(find.text('Got it'), findsOneWidget);
       expect(find.text('Switch to maintenance'), findsNothing);
       expect(find.text('Set a new goal'), findsNothing);
-      expect(find.text('If you switch to maintenance'), findsNothing);
+      expect(find.text(showDetails ? 'If you switch to maintenance' : 'To stay at this weight'), findsNothing);
+      if (!showDetails) {
+        await tester.tap(find.byKey(const Key('checkin_why_toggle')));
+        await pumpFrames(tester);
+        expectSimpleCopy(tester);
+        expect(find.textContaining('until you choose'), findsNothing);
+      }
     });
 
     testWidgets('Set a new goal: opens recalculate, tracked, and changes nothing yet',
@@ -246,4 +264,5 @@ void main() {
       expect(energy.phases.single.isOpen, isTrue);
     });
   });
+  }
 }

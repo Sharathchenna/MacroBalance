@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
@@ -203,7 +204,8 @@ void main() {
   });
 
   group('sheet', () {
-    Future<EnergyProvider> open(WidgetTester tester, GoalCheckin c, {bool dark = true}) async {
+    Future<EnergyProvider> open(WidgetTester tester, GoalCheckin c,
+        {bool dark = true, bool detailed = true}) async {
       tester.view.physicalSize = const Size(1206, 2622);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
@@ -221,6 +223,7 @@ void main() {
         ),
         energyProvider: energy,
         weightUnitProvider: WeightUnitProvider(),
+        detailedStatsProvider: DetailedStatsProvider(showDetailedStats: detailed),
         dark: dark,
       ));
       await tester.tap(find.text('open'));
@@ -288,11 +291,24 @@ void main() {
       expect(energy.lastCheckin!.seenAt, isNotNull);
       expect(captured('checkin_dismissed'), hasLength(1));
     });
+
+    testWidgets('simple Got it dismisses, marks seen and keeps analytics', (tester) async {
+      final energy = await open(tester, checkin(), detailed: false);
+      expect(find.text('New daily target'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('checkin_done')));
+      await settle(tester);
+      expect(find.byKey(const Key('checkin_sheet_changed')), findsNothing);
+      expect(energy.lastCheckin!.seenAt, isNotNull);
+      expect(energy.checkinToShow, isNull);
+      expect(captured('checkin_shown').single['variant'], 'changed');
+      expect(captured('checkin_dismissed').single['variant'], 'changed');
+    });
   });
 
   group('home chip', () {
-    Future<void> pumpCard(WidgetTester tester, EnergyProvider energy) async {
-      tester.view.physicalSize = const Size(1206, 2622);
+    Future<void> pumpCard(WidgetTester tester, EnergyProvider energy,
+        {double width = 402}) async {
+      tester.view.physicalSize = Size(width * 3, 2622);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(testApp(
@@ -302,9 +318,10 @@ void main() {
       await pumpFrames(tester, seconds: 1);
     }
 
-    testWidgets('"Targets updated" the day of a change; reopens the sheet', (tester) async {
+    testWidgets('"New target" the day of a change; reopens the sheet', (tester) async {
       await pumpCard(tester, energyWith([checkin(seenAt: _now)]));
-      expect(find.text('Targets updated'), findsOneWidget);
+      expect(find.text('New target'), findsOneWidget);
+      expect(find.text('Nutrition & Activity'), findsOneWidget);
       await tester.tap(find.byKey(const Key('checkin_chip')));
       await settle(tester);
       expect(find.byKey(const Key('checkin_sheet_changed')), findsOneWidget);
@@ -312,10 +329,25 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('"Weekly check-in" when the targets stayed', (tester) async {
+    testWidgets('"Check-in" when the targets stayed', (tester) async {
       await pumpCard(tester, energyWith([checkin(variant: CheckinVariant.unchanged)]));
-      expect(find.text('Weekly check-in'), findsOneWidget);
-      expect(find.text('Targets updated'), findsNothing);
+      expect(find.text('Check-in'), findsOneWidget);
+      expect(find.text('New target'), findsNothing);
+    });
+
+    testWidgets('narrow Home wraps the chip and macro circles without clipping', (tester) async {
+      await pumpCard(tester, energyWith([checkin(seenAt: _now)]), width: 320);
+      final header = tester.getRect(find.text('Nutrition & Activity'));
+      final chip = tester.getRect(find.byKey(const Key('checkin_chip')));
+      expect(chip.top, greaterThan(header.bottom));
+      expect(find.text('Carbs'), findsOneWidget);
+      expect(find.text('Protein'), findsOneWidget);
+      expect(find.text('Fat'), findsOneWidget);
+      expect(find.text('Steps'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(const Key('checkin_chip')));
+      await settle(tester);
+      expect(find.text('New daily target'), findsOneWidget);
     });
 
     testWidgets('gone the next day, and never without a check-in', (tester) async {
@@ -350,7 +382,7 @@ void main() {
     testWidgets('a dismissed check-in stays closed', (tester) async {
       await pumpShell(tester, energyWith([checkin(seenAt: _now)]));
       expect(find.byKey(const Key('checkin_sheet_changed')), findsNothing);
-      expect(find.text('Targets updated'), findsOneWidget);
+      expect(find.text('New target'), findsOneWidget);
     });
   });
 

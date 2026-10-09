@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/energy/checkin_sheet.dart';
@@ -18,6 +19,7 @@ import 'package:macrotracker/services/phase_sync_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
 
 import '../helpers/test_app.dart';
+import '../helpers/simple_copy_audit.dart';
 
 class _SeededCheckins extends CheckinSyncService {
   _SeededCheckins(List<GoalCheckin> rows)
@@ -244,9 +246,10 @@ void main() {
     });
   });
 
-  group('sheet', () {
+  for (final showDetails in [true, false]) {
+  group('sheet (detailed: $showDetails)', () {
     Future<(EnergyProvider, GoalsProvider)> open(WidgetTester tester, GoalCheckin c,
-        {required List<GoalPhase> phases, bool dark = true}) async {
+        {required List<GoalPhase> phases, bool dark = true, bool? detailed}) async {
       tester.view.physicalSize = const Size(1206, 2622);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
@@ -270,10 +273,19 @@ void main() {
         ),
         goalsProvider: goals,
         energyProvider: energy,
+        detailedStatsProvider: DetailedStatsProvider(showDetailedStats: detailed ?? showDetails),
         dark: dark,
       ));
       await tester.tap(find.text('Open'));
       await pumpFrames(tester, seconds: 1);
+      if (!(detailed ?? showDetails)) {
+        expectSimpleCopy(tester);
+        await tester.tap(find.byKey(const Key('checkin_why_toggle')));
+        await pumpFrames(tester);
+        expectSimpleCopy(tester);
+        await tester.tap(find.byKey(const Key('checkin_why_toggle')));
+        await pumpFrames(tester);
+      }
       return (energy, goals);
     }
 
@@ -283,8 +295,8 @@ void main() {
         await open(tester, f,
             phases: [_toMaintain.ended, _toMaintain.next], dark: dark);
         expect(find.byKey(const Key('checkin_sheet_phase_to_maintain')), findsOneWidget);
-        expect(find.text("You've lost 5% — time for a maintenance break 🎉"), findsOneWidget);
-        expect(find.byKey(const Key('checkin_phase_body')), findsOneWidget);
+        expect(find.text(showDetails ? "You've lost 5% — time for a maintenance break 🎉" : "Time for a maintenance break"), findsOneWidget);
+        expect(find.byKey(Key(showDetails ? 'checkin_phase_body' : 'checkin_why')), findsOneWidget);
         expect(find.text('Start break'), findsOneWidget);
         expect(find.text('Keep losing instead'), findsOneWidget);
         expect(find.textContaining('2,450', findRichText: true), findsWidgets);
@@ -328,7 +340,7 @@ void main() {
       final g = _checkin(_toLose);
       final (energy, goals) = await open(tester, g,
           phases: [..._historyBeforeG, _toLose.ended, _toLose.next], dark: false);
-      expect(find.text('Ready for phase 3'), findsOneWidget);
+      expect(find.text(showDetails ? 'Ready for phase 3' : 'Back to losing'), findsOneWidget);
       expect(find.text("Let's go"), findsOneWidget);
       await tester.tap(find.text('Extend break 2 weeks'));
       await pumpFrames(tester, seconds: 1);
@@ -346,5 +358,19 @@ void main() {
       expect(find.byKey(const Key('checkin_sheet_phase_to_lose')), findsNothing);
       expect(actions(), isEmpty);
     });
+
+    if (!showDetails) {
+      testWidgets('a capped break transition explains the limit under Why', (tester) async {
+        await open(tester, _checkin(_toLose, limit: SafetyLimit.floor),
+            phases: [_toLose.ended, _toLose.next]);
+        expect(find.text('This is the lowest daily target we recommend.'), findsNothing);
+        await tester.tap(find.byKey(const Key('checkin_why_toggle')));
+        await pumpFrames(tester);
+        expect(find.text('This is the lowest daily target we recommend.'), findsOneWidget);
+        expectSimpleCopy(tester);
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
+  }
 }

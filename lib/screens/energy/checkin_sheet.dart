@@ -5,12 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/detailed_stats_provider.dart';
 import '../../providers/energy_provider.dart';
 import '../../providers/finish_reminder_provider.dart';
 import '../../providers/weight_unit_provider.dart';
 import '../../services/energy/checkin.dart';
 import '../../services/energy/constants.dart';
 import '../../services/energy/energy_estimator.dart';
+import '../../services/energy/energy_summary.dart';
 import '../../services/energy/phase_engine.dart';
 import '../../services/energy/targets.dart';
 import '../../services/posthog_service.dart';
@@ -92,6 +94,31 @@ class CheckinSheet extends StatelessWidget {
     final missing = copy.missing;
     final why = copy.whyLines;
     final footer = copy.footer;
+
+    final detailed = context.watch<DetailedStatsProvider?>()?.showDetailedStats ?? false;
+    if (!detailed) {
+      return _SimpleCheckinSheet(
+        checkin: checkin,
+        copy: SimpleCheckinCopy(checkin, isKg: units.isKg),
+        maintenance: maintenance,
+        canChoose: canChoose,
+        alternative: alternative,
+        primaryAction: canChoose && maintenance != null ? 'Switch to maintenance' : copy.primaryAction,
+        onPrimary: () {
+          HapticFeedback.lightImpact();
+          if (checkin.variant == CheckinVariant.phaseToMaintain && canChange) {
+            trackPhaseAction(PhaseAction.startBreak);
+          }
+          if (canChoose && maintenance != null) {
+            _switchToMaintenance(context, energy!);
+          } else {
+            Navigator.pop(context);
+          }
+        },
+        onSetNewGoal: () => _setNewGoal(context),
+        onAlternative: () => _changePhase(context, energy!),
+      );
+    }
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
@@ -331,6 +358,253 @@ class CheckinSheet extends StatelessWidget {
       await energy.extendBreak(checkin);
     }
     navigator.pop();
+  }
+}
+
+/// Simple mode's sheet (SIMP-S4): "Weekly check-in · Oct 5", D/F/G's news,
+/// "New daily target: 2,451 cals", "56 less than before", one sentence of
+/// why, the macros on one quiet line, then the old bullets behind "Why?".
+/// Same keys, buttons and actions as the detailed sheet.
+class _SimpleCheckinSheet extends StatefulWidget {
+  const _SimpleCheckinSheet({
+    required this.checkin,
+    required this.copy,
+    required this.maintenance,
+    required this.canChoose,
+    required this.alternative,
+    required this.primaryAction,
+    required this.onPrimary,
+    required this.onSetNewGoal,
+    required this.onAlternative,
+  });
+
+  final GoalCheckin checkin;
+  final SimpleCheckinCopy copy;
+
+  /// D: the maintenance targets on offer while the choice is open.
+  final CheckinTargets? maintenance;
+  final bool canChoose;
+  final String? alternative;
+  final String primaryAction;
+  final VoidCallback onPrimary;
+  final VoidCallback onSetNewGoal;
+  final VoidCallback onAlternative;
+
+  @override
+  State<_SimpleCheckinSheet> createState() => _SimpleCheckinSheetState();
+}
+
+class _SimpleCheckinSheetState extends State<_SimpleCheckinSheet> {
+  bool _why = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<CustomColors>()!;
+    final copy = widget.copy;
+    final checkin = widget.checkin;
+    final goalReached = checkin.variant == CheckinVariant.goalReached;
+    final headline = copy.headline;
+    final change = copy.changeLine;
+    final details = copy.details(canChooseGoal: widget.canChoose);
+    // D shows the maintenance target it offers, and no target once chosen.
+    final targets = goalReached ? widget.maintenance : checkin.newTargets;
+    final quiet = GoogleFonts.inter(fontSize: 13, height: 1.4, color: colors.textSecondary);
+    final secondaryStyle = GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600);
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(22, 10, 22, 20),
+          child: Column(
+            key: Key('checkin_sheet_${checkin.variant.code}'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.textSecondary.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                copy.title,
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textSecondary,
+                ),
+              ),
+              if (headline != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  headline,
+                  key: const Key('checkin_headline'),
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: colors.textPrimary,
+                  ),
+                ),
+              ],
+              if (targets != null) ...[
+                SizedBox(height: headline == null ? 10 : 14),
+                Text(
+                  goalReached ? 'To stay at this weight' : copy.targetLabel,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: colors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text.rich(
+                  key: const Key('checkin_target'),
+                  TextSpan(children: [
+                    TextSpan(text: fmtCals(targets.cals)),
+                    TextSpan(
+                      text: goalReached ? ' cals a day' : ' cals',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ]),
+                  style: GoogleFonts.inter(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.8,
+                    color: colors.textPrimary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                if (change != null)
+                  Text(change, key: const Key('checkin_change'), style: quiet),
+              ],
+              const SizedBox(height: 14),
+              Text(
+                goalReached && !widget.canChoose ? copy.goalSettled : copy.why,
+                key: const Key('checkin_why'),
+                style: GoogleFonts.inter(fontSize: 15, height: 1.45, color: colors.textPrimary),
+              ),
+              if (checkin.variant == CheckinVariant.insufficient) ...[
+                const SizedBox(height: 12),
+                const FinishReminderButton(source: FinishReminderSource.checkin),
+              ],
+              if (targets != null) ...[
+                const SizedBox(height: 14),
+                Text(copy.macroLine(targets), key: const Key('checkin_macros'), style: quiet),
+              ],
+              if (details.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                InkWell(
+                  key: const Key('checkin_why_toggle'),
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _why = !_why);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Why?',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: colors.accentPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          _why ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                          size: 20,
+                          color: colors.accentPrimary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_why)
+                  Column(
+                    key: const Key('checkin_why_details'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final line in details)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('•  ', style: quiet.copyWith(fontSize: 14)),
+                              Expanded(child: Text(line, style: quiet.copyWith(fontSize: 14))),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const Key('checkin_done'),
+                  onPressed: widget.onPrimary,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.accentPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(widget.primaryAction, style: secondaryStyle),
+                ),
+              ),
+              // D's two choices are equal: the second is a full outlined button.
+              if (widget.canChoose) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    key: const Key('checkin_set_new_goal'),
+                    onPressed: widget.onSetNewGoal,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colors.textPrimary,
+                      side: BorderSide(color: colors.textSecondary.withValues(alpha: 0.35)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text('Set a new goal', style: secondaryStyle),
+                  ),
+                ),
+              ],
+              if (widget.alternative case final alternative?) ...[
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    key: const Key('checkin_phase_alternative'),
+                    onPressed: widget.onAlternative,
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.textSecondary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(alternative, style: secondaryStyle),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -655,5 +929,208 @@ class CheckinCopy {
     var s = p.toStringAsFixed(2);
     s = s.replaceFirst(RegExp(r'\.?0+$'), '');
     return '$s%';
+  }
+}
+
+/// The simple sheet's words (SIMP-S4): a target, one sentence of why and
+/// plain "Why?" details. Every sentence is picked from the check-in's
+/// variant and reason, never free text, and none of it uses the detailed
+/// words (expenditure, trend weight, %, phase).
+@visibleForTesting
+class SimpleCheckinCopy {
+  SimpleCheckinCopy(this.checkin, {this.isKg = true});
+
+  final GoalCheckin checkin;
+  final bool isKg;
+
+  CheckinReason get _r => checkin.reason;
+  CheckinVariant get _v => checkin.variant;
+
+  /// "Weekly check-in · Oct 5".
+  String get title => 'Weekly check-in · ${DateFormat('MMM d').format(checkin.weekStart)}';
+
+  /// D, F and G's news, above the target; null for the weekly ones.
+  String? get headline => switch (_v) {
+        CheckinVariant.goalReached => _r.goalWeightKg == null
+            ? 'You reached your goal! 🎉'
+            : 'You reached ${_weight(_r.goalWeightKg!)}! 🎉',
+        CheckinVariant.phaseToMaintain => _r.phase?.ended.endReason == PhaseEndReason.planned
+            ? 'Time for a diet break'
+            : 'Time for a maintenance break',
+        CheckinVariant.phaseToLose => 'Back to losing',
+        _ => null,
+      };
+
+  /// "New daily target" when the check-in set one, else "Daily target".
+  String get targetLabel => _v.appliesTargets ? 'New daily target' : 'Daily target';
+
+  /// "56 less than before"; null when the target didn't move.
+  String? get changeLine {
+    if (!_v.appliesTargets) return null;
+    final d = checkin.newTargets.cals - checkin.oldTargets.cals;
+    if (d == 0) return null;
+    return '${fmtCals(d.abs())} ${d < 0 ? 'less' : 'more'} than before';
+  }
+
+  /// "Protein 112 g · Carbs 348 g · Fat 68 g", no deltas.
+  String macroLine([CheckinTargets? targets]) {
+    final t = targets ?? checkin.newTargets;
+    return 'Protein ${t.protein} g · Carbs ${t.carbs} g · Fat ${t.fat} g';
+  }
+
+  /// Which way the burn moved against what the old targets came from:
+  /// 1 up, -1 down, 0 about the same (under 10 cals).
+  int get _burnMove {
+    final diff = ((_r.tdee - _r.tdeePrev) / 10).round() * 10;
+    return diff.abs() < 10 ? 0 : diff.sign;
+  }
+
+  /// Which way the target moved: 1 up, -1 down, 0 not at all.
+  int get _targetMove => (checkin.newTargets.cals - checkin.oldTargets.cals).sign;
+
+  /// The one sentence of why, by variant and the reason's limit and burn.
+  String get why {
+    switch (_v) {
+      case CheckinVariant.changed:
+        final burnAgrees = _burnMove != 0 && _burnMove == _targetMove;
+        return switch (_r.limitHit) {
+          SafetyLimit.floor =>
+            "This is the lowest target we recommend, so progress may be a little slower.",
+          SafetyLimit.maxDeficit || SafetyLimit.maxLossPace =>
+            "We've kept your target here so you lose weight at a safe pace.",
+          SafetyLimit.maxSurplus || SafetyLimit.maxGainPace =>
+            "We've kept your target here so you gain weight at a steady pace.",
+          SafetyLimit.checkinStep => !burnAgrees
+              ? "We're moving your target a little at a time to match what you burn."
+              : _burnMove > 0
+                  ? "You burn more than we thought, so we're raising your target a little at a time."
+                  : "You burn less than we thought, so we're lowering your target a little at a time.",
+          null => burnAgrees
+              ? _burnMove > 0
+                  ? 'You burn a bit more than we thought, so you can eat a little more.'
+                  : "You burn a bit less than we thought, so we've eased your target down a little."
+              : _burnMove == 0
+                  ? "Your weight has changed, so we've adjusted your target to match."
+                  : "We've fine-tuned your target to match what you burn.",
+        };
+      case CheckinVariant.unchanged:
+        return _r.limitHit == SafetyLimit.floor
+            ? 'Your target is already the lowest we recommend, so it stays the same.'
+            : 'Your target still fits your plan, so no change this week.';
+      case CheckinVariant.insufficient:
+        return _r.state == EnergyState.paused
+            ? "You haven't logged much lately, so your target stays the same for now."
+            : 'We need a few more days of logging to adjust. Your target stays the same.';
+      case CheckinVariant.goalReached:
+        return 'Great work! Choose what comes next: stay at this weight or set a new goal.';
+      case CheckinVariant.phaseToMaintain:
+        final ended = _r.phase?.ended;
+        return switch (ended?.endReason) {
+          PhaseEndReason.reached when ended?.targetPct != null =>
+            "You've lost about ${_weight(ended!.startTrendKg * ended.targetPct! / 100)}, "
+                'so it\'s time to give your body a rest.',
+          PhaseEndReason.maxDuration =>
+            "You've been losing for ${ended!.weeksOn(ended.endedOn!).round()} weeks, "
+                'so it\'s time to give your body a rest.',
+          PhaseEndReason.planned =>
+            '${ended!.weeksOn(ended.endedOn!).round()} weeks done, so it\'s time for a '
+                'short break from dieting.',
+          _ => "It's time to give your body a rest from dieting.",
+        };
+      case CheckinVariant.phaseToLose:
+        final goal = _r.goalWeightKg;
+        return goal == null
+            ? 'Your break is over, so your target goes back to losing weight.'
+            : 'Your break is over, so your target goes back to losing toward ${_weight(goal)}.';
+    }
+  }
+
+  /// D: what's said instead of [why] once the choice is no longer open.
+  String get goalSettled => 'Great work reaching your goal!';
+
+  String? get _limitNote => switch (_r.limitHit) {
+        SafetyLimit.floor => 'This is the lowest daily target we recommend.',
+        SafetyLimit.maxDeficit || SafetyLimit.maxLossPace =>
+          "We've kept your target here so you lose weight at a safe pace.",
+        SafetyLimit.maxSurplus || SafetyLimit.maxGainPace =>
+          "We've kept your target here so you gain weight at a steady pace.",
+        SafetyLimit.checkinStep =>
+          'We change your target by at most ${kMaxCheckinStep.round()} cals a week.',
+        null => null,
+      };
+
+  /// The "Why?" details: the old sheet's bullets in plain words.
+  List<String> details({bool canChooseGoal = true}) {
+    String n(int v, String one) => '$v $one${v == 1 ? '' : 's'}';
+    switch (_v) {
+      case CheckinVariant.changed:
+      case CheckinVariant.unchanged:
+        final out = <String>[];
+        final avg = _r.avgIntake;
+        if (avg != null && _r.completeDays > 0) {
+          out.add('You averaged ${fmtCals(avg)} cals on ${n(_r.completeDays, 'fully logged day')} '
+              'in the last 3 weeks.');
+        }
+        final change = _r.trendChangeKg;
+        if (change != null) {
+          out.add(change.abs() < 0.05
+              ? 'Your weight held steady this week.'
+              : 'Your weight ${change < 0 ? 'went down' : 'went up'} '
+                  '${_weight(change.abs())} this week.');
+        }
+        out.add('You burn about ${fmtCals(roundToTen(_r.tdee))} cals a day.');
+        if (_v == CheckinVariant.changed && _r.limitHit == SafetyLimit.checkinStep) {
+          out.add('We change your target by at most ${kMaxCheckinStep.round()} cals a week. '
+              "We'll check again next week.");
+        }
+        return out;
+      case CheckinVariant.insufficient:
+        if (_r.state == EnergyState.paused) {
+          return const [
+            'Log your food and weigh in at least once a week to keep your target up to date.'
+          ];
+        }
+        return [
+          'In the last 3 weeks: ${_r.completeDays.clamp(0, kMinCompleteDays)} of '
+              '$kMinCompleteDays days fully logged and '
+              '${_r.weighIns.clamp(0, kMinWeighIns)} of ${n(kMinWeighIns, 'weigh-in')}.',
+          "Tap Finish day on Home when you've logged everything.",
+        ];
+      case CheckinVariant.goalReached:
+        return [
+          if (_r.trendWeightKg != null)
+            'Your weight at this check-in was ${_weight(_r.trendWeightKg!)}.',
+          if (canChooseGoal) 'Your target stays as it is until you choose.',
+        ];
+      case CheckinVariant.phaseToMaintain:
+        final weeks = _r.phaseWeeks?.round();
+        return [
+          if (_limitNote case final note?) note,
+          if (weeks != null)
+            'Your new target lasts about ${n(weeks, 'week')}, then you go back to losing.',
+          "Weight often jumps for a few days after a change. That's water, not fat.",
+        ];
+      case CheckinVariant.phaseToLose:
+        final next = _r.phase?.next;
+        final weeks = _r.phaseWeeks?.round();
+        final pct = next?.targetPct;
+        return [
+          if (_limitNote case final note?) note,
+          if (next != null && pct != null)
+            'Aim to lose about ${_weight(next.startTrendKg * pct / 100)}'
+                '${weeks == null ? '' : ' over about ${n(weeks, 'week')}'}.'
+          else if (weeks != null)
+            'Your next break is in about ${n(weeks, 'week')}.',
+          "Weight often jumps for a few days after a change. That's water, not fat.",
+        ];
+    }
+  }
+
+  /// "65 kg" / "143.3 lbs": one decimal, dropped when it's .0.
+  String _weight(double kg) {
+    final v = isKg ? kg : kg * 2.20462;
+    var s = v.toStringAsFixed(1);
+    if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
+    return '$s ${isKg ? 'kg' : 'lbs'}';
   }
 }
