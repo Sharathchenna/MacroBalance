@@ -126,9 +126,15 @@ serve(async (req) => {
     
     // Prepare notification message
     let title, body
+    let finishDay = false
     if (type === 'meal_reminder') {
       title = 'Time to Log Your Meal'
       body = 'Don\'t forget to record what you\'ve eaten in MacroBalance!'
+      // The finish-day reminder joins the meal reminder instead of a second push.
+      if (preferences.finish_day_reminder) {
+        finishDay = true
+        body += ' Done for today? Tap Finish day on Home.'
+      }
     } else if (type === 'weekly_report') {
       title = 'Weekly Nutrition Report'
       body = 'Check out your progress this week in meeting your nutrition goals!'
@@ -180,6 +186,7 @@ serve(async (req) => {
           },
           data: {
             type,
+            ...(finishDay ? { finish_day: 'true' } : {}),
             click_action: 'FLUTTER_NOTIFICATION_CLICK',
           },
         },

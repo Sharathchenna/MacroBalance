@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/finish_reminder_provider.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
@@ -58,6 +59,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       final goals = Provider.of<GoalsProvider>(context, listen: false);
       final dayStatus = Provider.of<DayStatusProvider>(context, listen: false);
       final energy = Provider.of<EnergyProvider>(context, listen: false);
+      final finishReminder = Provider.of<FinishReminderProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
 
@@ -161,6 +163,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         await goals.clearUserData();
       await dayStatus.clearUserData();
       await energy.clearUserData();
+      await finishReminder.clearUserData();
         await savedFoodProvider.clearUserData();
 
         // Sign out regardless of outcome

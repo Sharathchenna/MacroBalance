@@ -18,6 +18,8 @@ import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
 import 'package:macrotracker/screens/setting_screens/edit_profile_field_screen.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/finish_reminder_provider.dart';
+import 'package:macrotracker/services/energy/finish_reminder.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/Health/Health.dart';
@@ -243,6 +245,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       final goals = Provider.of<GoalsProvider>(context, listen: false);
       final dayStatus = Provider.of<DayStatusProvider>(context, listen: false);
       final energy = Provider.of<EnergyProvider>(context, listen: false);
+      final finishReminder = Provider.of<FinishReminderProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
       var backedUp = true;
@@ -266,6 +269,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       await goals.clearUserData();
       await dayStatus.clearUserData();
       await energy.clearUserData();
+      await finishReminder.clearUserData();
       await savedFoodProvider.clearUserData();
 
       // Then sign out from Supabase
@@ -343,6 +347,9 @@ class _AccountDashboardState extends State<AccountDashboard>
       // _notificationSettings['weeklyReports'] ?? false, // Commented out weekly reports
       false, // Pass false for weekly reports now
     );
+    // The finish-day prompt joins the meal reminder only while that's on.
+    if (!mounted) return;
+    context.read<FinishReminderProvider?>()?.refresh();
   }
 
   // --- Removed Notification Test Functions ---
@@ -719,7 +726,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   );
-                }).toList(),
+                }).toList()
+                  ..addAll(_finishReminderTiles(colorScheme, customColors)),
               ),
 
               // --- Removed Testing Section ---
@@ -1895,6 +1903,89 @@ class _AccountDashboardState extends State<AccountDashboard>
         customColors: customColors,
       );
     }
+  }
+
+  /// Settings → Notifications → "Finish-day reminder": off until turned on
+  /// here or from the prompts that offer it; a time once it's on.
+  List<Widget> _finishReminderTiles(ColorScheme colorScheme, CustomColors? customColors) {
+    final reminder = context.watch<FinishReminderProvider?>();
+    if (reminder == null) return const [];
+    final merged = reminder.mode == FinishReminderMode.mergedIntoMeal;
+    return [
+      _buildSwitchTile(
+        icon: CupertinoIcons.checkmark_circle_fill,
+        iconColor: Colors.teal,
+        title: 'Finish-day reminder',
+        subtitle: merged
+            ? 'Added to your meal reminder'
+            : 'An evening nudge to finish your day',
+        value: reminder.enabled,
+        onChanged: (value) async {
+          HapticFeedback.lightImpact();
+          if (!value) {
+            await reminder.disable();
+            return;
+          }
+          final ok = await reminder.enable(FinishReminderSource.settings);
+          if (!ok && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Allow notifications for this app in your phone\'s Settings first.'),
+            ));
+          }
+        },
+        colorScheme: colorScheme,
+        customColors: customColors,
+      ),
+      if (reminder.enabled && !merged)
+        _buildListTile(
+          icon: CupertinoIcons.clock,
+          iconColor: Colors.teal,
+          title: 'Finish-day reminder time',
+          subtitle: formatReminderTime(reminder.minutes),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _showFinishReminderTimePicker(reminder);
+          },
+          colorScheme: colorScheme,
+          customColors: customColors,
+        ),
+    ];
+  }
+
+  void _showFinishReminderTimePicker(FinishReminderProvider reminder) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.3,
+          padding: const EdgeInsets.only(top: 6.0),
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: CupertinoButton(
+                    child: const Text('Done'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.time,
+                    initialDateTime:
+                        DateTime(2022, 1, 1, reminder.minutes ~/ 60, reminder.minutes % 60),
+                    onDateTimeChanged: (t) => reminder.setMinutes(t.hour * 60 + t.minute),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showMealReminderTimePicker() {

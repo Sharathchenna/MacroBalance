@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/energy_provider.dart';
+import '../../providers/finish_reminder_provider.dart';
 import '../../providers/goals_provider.dart';
 import '../../providers/weight_unit_provider.dart';
 import '../../services/energy/checkin.dart';
@@ -21,6 +22,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/weight_range.dart';
 import '../../widgets/app_bottom_bar.dart';
 import '../../widgets/expenditure_chart.dart';
+import '../../widgets/finish_reminder_button.dart';
 import '../../widgets/progress_card.dart';
 import '../../widgets/weight_range_selector.dart';
 import 'checkin_history.dart';
@@ -1122,7 +1124,19 @@ class _TipLine extends StatelessWidget {
           Icon(Icons.lightbulb_outline_rounded,
               size: 18, color: colors.accentPrimary),
           const SizedBox(width: 8),
-          Expanded(child: Text.rich(text)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text.rich(text),
+                // The data-quality tip is the other place the reminder is offered.
+                if (tip == QualityTip.finishDay) ...[
+                  const SizedBox(height: 8),
+                  const FinishReminderButton(source: FinishReminderSource.dataQualityTip),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

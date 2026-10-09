@@ -6,6 +6,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io' show Platform;
+import 'finish_day_link.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -53,6 +54,12 @@ class NotificationService {
         initializationSettings,
         onDidReceiveNotificationResponse: _onNotificationTap,
       );
+
+      // The app was opened by tapping a reminder: remember where it points.
+      final launch = await _flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp == true) {
+        _openFor(launch?.notificationResponse?.payload);
+      }
 
       // Request permissions
       await _requestPermissions();
@@ -169,19 +176,29 @@ class NotificationService {
       id: message.hashCode,
       title: message.notification?.title ?? 'New Notification',
       body: message.notification?.body ?? 'You have a new message',
-      payload: message.data.toString(),
+      payload: message.data['finish_day'] == 'true'
+          ? FinishDayLink.payload
+          : message.data.toString(),
     );
   }
 
   void _handleMessageTap(RemoteMessage message) {
     debugPrint('[NotificationService] Handling message tap: ${message.data}');
+    // The meal reminder carries the finish-day prompt when the user has both on.
+    if (message.data['finish_day'] == 'true') FinishDayLink.request();
     // Handle navigation based on message data
     // You can add navigation logic here based on message.data
   }
 
   void _onNotificationTap(NotificationResponse notificationResponse) {
     debugPrint('[NotificationService] Local notification tapped: ${notificationResponse.payload}');
-    // Handle local notification tap
+    _openFor(notificationResponse.payload);
+  }
+
+  /// Opens the screen a notification's [payload] points at. The check-in one
+  /// just opens the app, where the check-in sheet shows itself.
+  void _openFor(String? payload) {
+    if (payload == FinishDayLink.payload) FinishDayLink.request();
   }
 
   Future<void> showNotification({

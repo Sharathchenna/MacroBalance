@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:macrotracker/models/foodEntry.dart';
+import 'package:macrotracker/providers/finish_reminder_provider.dart';
+import 'package:macrotracker/services/finish_reminder_notifier.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/day_status_provider.dart';
 import 'package:macrotracker/providers/energy_provider.dart';
@@ -59,6 +61,7 @@ Future<void> setUpTestEnvironment() async {
     messenger.setMockMethodCallHandler(MethodChannel(name), (call) async => null);
   }
   CheckinNotifier.device = _NoNotifications();
+  FinishReminderNotifier.device = NoFinishReminders();
   if (_ready) return;
   SharedPreferences.setMockInitialValues({});
   final dir = await Directory.systemTemp.createTemp('macrotracker_test');
@@ -89,6 +92,7 @@ Widget testApp(
   PhotoAnalysisService? photoAnalysisService,
   WeightUnitProvider? weightUnitProvider,
   EnergyProvider? energyProvider,
+  FinishReminderProvider? finishReminderProvider,
   bool dark = true,
 }) {
   final goals = goalsProvider ?? GoalsProvider();
@@ -96,6 +100,8 @@ Widget testApp(
     providers: [
       ChangeNotifierProvider<GoalsProvider>.value(value: goals),
       ChangeNotifierProvider(create: (_) => DayStatusProvider()),
+      ChangeNotifierProvider<FinishReminderProvider>.value(
+          value: finishReminderProvider ?? FinishReminderProvider()),
       ChangeNotifierProvider<FoodEntryProvider>.value(
           value: (foodEntryProvider ?? FoodEntryProvider())..attachGoals(goals)),
       // No inputs unless a test sets them, so it never runs on its own.
@@ -212,4 +218,20 @@ class _NoNotifications extends CheckinNotifier {
 
   @override
   Future<void> cancel() async {}
+}
+
+/// The finish-day reminder, kept off the (absent) device. Tests can set
+/// [permitted] and read what would have been scheduled.
+class NoFinishReminders extends FinishReminderNotifier {
+  bool permitted = false;
+  List<DateTime> pending = [];
+
+  @override
+  Future<bool> allowed() async => permitted;
+
+  @override
+  Future<void> schedule(int id, DateTime at) async => pending.add(at);
+
+  @override
+  Future<void> cancel() async => pending = [];
 }

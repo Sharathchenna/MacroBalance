@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/dateProvider.dart';
 import '../providers/energy_provider.dart';
+import '../services/finish_day_link.dart';
 import '../services/camera_service.dart';
 import '../services/posthog_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -88,9 +90,37 @@ class AppShellState extends State<AppShell>
         .whenComplete(() => _showingCheckin = false);
   }
 
+  /// The finish-day reminder was tapped: Home, on today, scrolled to the
+  /// Finish day row.
+  void _openFinishDay() {
+    if (!mounted || !FinishDayLink.take()) return;
+    if (ModalRoute.of(context)?.isCurrent == false) {
+      Navigator.of(context).popUntil((r) => r.isFirst);
+    }
+    select(AppTab.home);
+    final dates = Provider.of<DateProvider>(context, listen: false);
+    dates.setDate(dates.today);
+    // Home may have just been built, so wait for it to lay out.
+    void scroll(int tries) {
+      final target = FinishDayLink.rowKey.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(target,
+            alignment: 0.5, duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
+      } else if (tries > 0 && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => scroll(tries - 1));
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => scroll(10));
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
   @override
   void initState() {
     super.initState();
+    FinishDayLink.requests.addListener(_openFinishDay);
+    // Opened from a tap on the reminder while the app was closed.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openFinishDay());
     // Whenever a signed-in account reaches Home without having seen the tour
     // (after onboarding, subscribing, starting a trial, or on a new device),
     // show it once the screen has settled.
@@ -132,6 +162,7 @@ class AppShellState extends State<AppShell>
 
   @override
   void dispose() {
+    FinishDayLink.requests.removeListener(_openFinishDay);
     _energy?.removeListener(_maybeShowCheckin);
     _menu.dispose();
     super.dispose();

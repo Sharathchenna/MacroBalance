@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/energy_provider.dart';
+import '../../providers/finish_reminder_provider.dart';
 import '../../providers/weight_unit_provider.dart';
 import '../../services/energy/checkin.dart';
 import '../../services/energy/constants.dart';
@@ -14,6 +15,7 @@ import '../../services/energy/phase_engine.dart';
 import '../../services/energy/targets.dart';
 import '../../services/posthog_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/finish_reminder_button.dart';
 import '../../widgets/plan_style_choice.dart';
 import '../onboarding/onboarding_screen.dart';
 
@@ -185,6 +187,12 @@ class CheckinSheet extends StatelessWidget {
               if (missing != null) ...[
                 const SizedBox(height: 14),
                 _Note(key: const Key('checkin_missing'), text: missing),
+                // Variant C is about days that weren't finished: the one
+                // place besides the Energy tip that offers the reminder.
+                if (checkin.variant == CheckinVariant.insufficient) ...[
+                  const SizedBox(height: 10),
+                  const FinishReminderButton(source: FinishReminderSource.checkin),
+                ],
               ],
               if (why.isNotEmpty) ...[
                 const SizedBox(height: 20),

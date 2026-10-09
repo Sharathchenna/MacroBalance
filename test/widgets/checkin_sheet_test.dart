@@ -247,6 +247,7 @@ void main() {
       expect(find.text("You're right on track"), findsOneWidget);
       expect(find.text('This week'), findsOneWidget);
       expect(find.textContaining('→', findRichText: true), findsNothing);
+      expect(find.byKey(const Key('finish_reminder_button')), findsNothing);
       await tester.tap(find.byKey(const Key('checkin_done')));
       await settle(tester);
 
@@ -254,7 +255,14 @@ void main() {
           checkin(variant: CheckinVariant.insufficient, state: EnergyState.learning));
       expect(find.text('Not enough data to update this week'), findsOneWidget);
       expect(find.byKey(const Key('checkin_missing')), findsOneWidget);
+      // C is one of the two places that offer the evening reminder.
+      expect(find.text('Remind me in the evening'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('A has no reminder button', (tester) async {
+      await open(tester, checkin());
+      expect(find.byKey(const Key('finish_reminder_button')), findsNothing);
     });
 
     testWidgets('Got it dismisses, sets seen_at and tracks both events', (tester) async {

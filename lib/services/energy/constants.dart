@@ -70,6 +70,16 @@ const int kCheckinHour = 4;
 /// check-in day (spec 8).
 const int kCheckinNotificationHour = 8;
 
+// --- Finish-day reminder (spec 8) ---
+
+/// The evening "Finish day" reminder goes out at this time (minutes after
+/// local midnight) unless the user picks another: 21:00.
+const int kFinishReminderMinutes = 21 * 60;
+
+/// How many days ahead the reminder is scheduled. It's topped up whenever
+/// the app opens or a day is finished.
+const int kFinishReminderDays = 14;
+
 // --- Recalculate ---
 /// A weigh-in this recent (today and the 2 days before) makes the trend a
 /// one-tap weight in recalculate (plan 10.4).

@@ -255,6 +255,7 @@ void main() {
         // Days before the learning start don't count: 2 weigh-ins → tip.
         await scrollTo(tester, find.text('Reset learning'));
         expect(find.byKey(const Key('energy_tip_weighIn')), findsOneWidget);
+        expect(find.byKey(const Key('finish_reminder_button')), findsNothing);
         expect(tester.takeException(), isNull);
       });
     });
@@ -273,6 +274,7 @@ void main() {
         untracked: {1, 2, 3, 5, 8, 13, 17});
     await scrollTo(tester, find.text('Reset learning'));
     expect(find.byKey(const Key('energy_tip_finishDay')), findsOneWidget);
+    expect(find.byKey(const Key('finish_reminder_button')), findsOneWidget);
     expect(find.textContaining('14 complete days'), findsOneWidget);
   });
 

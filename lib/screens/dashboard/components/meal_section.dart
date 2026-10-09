@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../services/finish_day_link.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../searchPage.dart';
@@ -58,7 +59,7 @@ class _MealSectionState extends State<MealSection> {
                     key: ValueKey('Snacks-${dateProvider.selectedDate}')),
                 _buildMealCard('Dinner',
                     key: ValueKey('Dinner-${dateProvider.selectedDate}')),
-                const FinishDayRow(),
+                FinishDayRow(key: FinishDayLink.rowKey),
               ],
             ),
           ),

@@ -23,6 +23,7 @@ import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
 import 'package:macrotracker/services/notification_service.dart';
+import 'package:macrotracker/providers/finish_reminder_provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:macrotracker/services/widget_service.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
@@ -203,6 +204,19 @@ Future<void> main() async {
               final status = DayStatusProvider(userId: user?.id);
               if (user != null) status.refresh();
               return status;
+            },
+          ),
+          // The evening finish-day reminder (off until asked for), per account.
+          ChangeNotifierProxyProvider<User?, FinishReminderProvider>(
+            lazy: false,
+            create: (_) => FinishReminderProvider(),
+            update: (context, user, previous) {
+              final reminder = previous != null && previous.userId == user?.id
+                  ? previous
+                  : FinishReminderProvider(userId: user?.id);
+              reminder.attach(Provider.of<DayStatusProvider>(context, listen: false));
+              if (user != null && !identical(reminder, previous)) reminder.refresh();
+              return reminder;
             },
           ),
           // Use ChangeNotifierProxyProvider linked to the User? stream
