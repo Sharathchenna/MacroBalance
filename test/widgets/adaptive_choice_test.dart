@@ -172,7 +172,7 @@ void main() {
       await pumpFrames(tester, seconds: 2);
       expect(find.textContaining('Fixed target', findRichText: true), findsOneWidget);
 
-      await tester.tap(find.text('Save New Goals'));
+      await tester.tap(find.text('Save new goals'));
       await pumpFrames(tester, seconds: 2);
       final saved =
           jsonDecode(StorageService().get('nutrition_goals') as String) as Map;

@@ -1662,33 +1662,37 @@ class _AccountDashboardState extends State<AccountDashboard>
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+      // Its own Material, so the tap ripple shows above the card colour.
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
-          child: Icon(icon, color: iconColor, size: 22),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w500,
-            fontSize: 15,
+          title: Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: colorScheme.onSurface.withValues(alpha: 0.6),
+          subtitle: Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
+          trailing: trailing,
+          onTap: onTap,
         ),
-        trailing: trailing,
-        onTap: onTap,
       ),
     );
   }
@@ -1706,40 +1710,44 @@ class _AccountDashboardState extends State<AccountDashboard>
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+      // Its own Material, so the tap ripple shows above the card colour.
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
-          child: Icon(icon, color: iconColor, size: 22),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w500,
-            fontSize: 15,
-            color: enabled
-                ? colorScheme.onSurface
-                : colorScheme.onSurface.withOpacity(0.5),
+          title: Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              color: enabled
+                  ? colorScheme.onSurface
+                  : colorScheme.onSurface.withOpacity(0.5),
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: enabled
-                ? colorScheme.onSurface.withValues(alpha: 0.6)
-                : colorScheme.onSurface.withValues(alpha: 0.4),
+          subtitle: Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: enabled
+                  ? colorScheme.onSurface.withValues(alpha: 0.6)
+                  : colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
           ),
-        ),
-        trailing: CupertinoSwitch(
-          value: value,
-          activeTrackColor: colorScheme.primary,
-          onChanged: enabled ? onChanged : null,
+          trailing: CupertinoSwitch(
+            value: value,
+            activeTrackColor: customColors?.accentPrimary ?? colorScheme.primary,
+            onChanged: enabled ? onChanged : null,
+          ),
         ),
       ),
     );

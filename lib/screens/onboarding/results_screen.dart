@@ -3,6 +3,7 @@ import 'package:macrotracker/services/posthog_service.dart';
 import 'pages/acquisition_source_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'dart:async';
@@ -198,30 +199,6 @@ class _ResultsScreenState extends State<ResultsScreen>
     Navigator.of(context).pop(); // Navigate back to previous screen
   }
 
-  void _savePlan() {
-    HapticFeedback.mediumImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              Icons.check_circle,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            const Text('Plan saved successfully!'),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _scrollController.dispose();
@@ -243,7 +220,7 @@ class _ResultsScreenState extends State<ResultsScreen>
           tooltip: 'Back to previous step',
         ),
         title: Text(
-          'Your Nutrition Plan',
+          widget.recalculateOnly ? 'Your new plan' : 'Your plan',
           style: GoogleFonts.poppins(
             color: customColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -312,6 +289,11 @@ class _ResultsScreenState extends State<ResultsScreen>
       goalDate: date == null ? null : DateTime.tryParse(date),
       goalWeightKg: widget.goalWeightKg ?? (weightStats['goal_weight'] as num?)?.toDouble(),
       isMetric: widget.isMetricWeight ?? context.watch<WeightUnitProvider>().isMetric,
+      // Recalculating: show the target being replaced, as the review
+      // step before this one does.
+      previousCalories: widget.recalculateOnly
+          ? context.read<GoalsProvider>().caloriesGoal
+          : null,
       learned: results['tdee_learned'] == true,
       adaptive: widget.adaptiveGoals,
     );
@@ -1441,97 +1423,37 @@ class _ResultsScreenState extends State<ResultsScreen>
   }
 
   Widget _buildBottomButtons() {
+    final customColors = Theme.of(context).extension<CustomColors>()!;
     return SafeArea(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _showPaywallAndProceed,
+            style: ElevatedButton.styleFrom(
+              // Matches onboarding's Next/Calculate button.
+              backgroundColor: customColors.textPrimary,
+              foregroundColor: Theme.of(context).scaffoldBackgroundColor,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
             ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 1,
-              child: OutlinedButton(
-                onPressed: _savePlan,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 1.5,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.bookmark_outline,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      "Save Plan",
-                      style: GoogleFonts.poppins(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+            child: Text(
+              widget.recalculateOnly ? 'Save new goals' : 'Start your journey',
+              style: AppTypography.onboardingButton.copyWith(
+                color: Theme.of(context).scaffoldBackgroundColor,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: ElevatedButton(
-                onPressed: _showPaywallAndProceed,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 2,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.recalculateOnly ? "Save New Goals" : "Start Your Journey",
-                      style: GoogleFonts.poppins(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
-
 
 // Color utility extension
 extension ColorExtension on Color {

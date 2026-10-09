@@ -134,32 +134,36 @@ class SimpleAdaptiveChoice extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w600)),
                 ]),
-                SwitchListTile.adaptive(
-                  key: const Key('simple_adaptive_switch'),
-                  contentPadding: EdgeInsets.zero,
-                  activeTrackColor: accent,
-                  title: Text('Adjust my targets as I go',
-                      style: GoogleFonts.onest(
-                          color: colors.textPrimary,
-                          fontSize: 17,
-                          height: 1.3,
-                          fontWeight: FontWeight.w600)),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                        adaptive
-                            ? 'Weekly updates, with a clear explanation.'
-                            : 'Your targets stay as calculated today.',
-                        style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 13,
-                            height: 1.4)),
+                // Its own Material, so the ripple shows above the card.
+                Material(
+                  type: MaterialType.transparency,
+                  child: SwitchListTile.adaptive(
+                    key: const Key('simple_adaptive_switch'),
+                    contentPadding: EdgeInsets.zero,
+                    activeTrackColor: accent,
+                    title: Text('Adjust my targets as I go',
+                        style: GoogleFonts.onest(
+                            color: colors.textPrimary,
+                            fontSize: 17,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600)),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                          adaptive
+                              ? 'Weekly updates, with a clear explanation.'
+                              : 'Your targets stay as calculated today.',
+                          style: TextStyle(
+                              color: colors.textSecondary,
+                              fontSize: 13,
+                              height: 1.4)),
+                    ),
+                    value: adaptive,
+                    onChanged: (value) {
+                      HapticFeedback.selectionClick();
+                      onChanged(value);
+                    },
                   ),
-                  value: adaptive,
-                  onChanged: (value) {
-                    HapticFeedback.selectionClick();
-                    onChanged(value);
-                  },
                 ),
               ],
             ),
@@ -406,7 +410,7 @@ class _AdaptiveChoiceSheetState extends State<_AdaptiveChoiceSheet> {
                 onPressed: () => Navigator.pop(context, _adaptive),
                 style: FilledButton.styleFrom(
                   backgroundColor: colors.accentPrimary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: colors.onAccent,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),

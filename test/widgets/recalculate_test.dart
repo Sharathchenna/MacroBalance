@@ -142,7 +142,7 @@ void main() {
   Future<Map> saveFromSummary(WidgetTester tester) async {
     await tester.tap(find.text('Calculate'));
     await pumpFrames(tester, seconds: 2);
-    await tester.tap(find.text('Save New Goals'));
+    await tester.tap(find.text('Save new goals'));
     await pumpFrames(tester, seconds: 2);
     return jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
   }

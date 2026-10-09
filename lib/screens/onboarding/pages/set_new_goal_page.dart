@@ -200,7 +200,7 @@ class SetNewGoalPage extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        'Target Weight',
+                        'Target weight',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: customColors?.textPrimary,

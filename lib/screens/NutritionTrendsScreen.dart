@@ -10,6 +10,7 @@ import '../providers/foodEntryProvider.dart';
 import '../providers/goals_provider.dart';
 import '../providers/weight_unit_provider.dart';
 import '../services/posthog_service.dart';
+import '../theme/macro_colors.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/nutrition_stats.dart';
@@ -33,9 +34,9 @@ class NutritionTrendsScreen extends StatefulWidget {
   State<NutritionTrendsScreen> createState() => _NutritionTrendsScreenState();
 }
 
-const _proteinColor = Color(0xFFEF5350);
-const _carbsColor = Color(0xFF42A5F5);
-const _fatColor = Color(0xFFFFA726);
+const _proteinColor = MacroColors.protein;
+const _carbsColor = MacroColors.carbs;
+const _fatColor = MacroColors.fat;
 
 class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
   static const _ranges = [

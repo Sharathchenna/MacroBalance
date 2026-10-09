@@ -503,7 +503,7 @@ class _GettingToKnowYou extends StatelessWidget {
                 onPressed: onLogWeight,
                 style: FilledButton.styleFrom(
                   backgroundColor: colors.accentPrimary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: colors.onAccent,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -669,7 +669,7 @@ class _HeadlineCard extends StatelessWidget {
                 onPressed: onLogWeight,
                 style: FilledButton.styleFrom(
                   backgroundColor: colors.accentPrimary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: colors.onAccent,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),

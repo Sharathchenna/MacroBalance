@@ -274,7 +274,7 @@ class CheckinSheet extends StatelessWidget {
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: colors.accentPrimary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: colors.onAccent,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -560,7 +560,7 @@ class _SimpleCheckinSheetState extends State<_SimpleCheckinSheet> {
                   onPressed: widget.onPrimary,
                   style: FilledButton.styleFrom(
                     backgroundColor: colors.accentPrimary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: colors.onAccent,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),

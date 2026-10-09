@@ -3,7 +3,6 @@ import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/widgets/onboarding/tooltip_icon.dart';
 import 'package:macrotracker/widgets/onboarding/unit_selector.dart';
 import 'package:numberpicker/numberpicker.dart';
 
@@ -59,21 +58,13 @@ class WeightPage extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Used to calculate your daily caloric needs',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: customColors?.textSecondary ??
-                      theme.textTheme.bodyMedium?.color,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const TooltipIcon(
-                  message:
-                      'Your current body weight is used to calculate your daily caloric needs'),
-            ],
+          Text(
+            'Used to calculate your daily caloric needs',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: customColors?.textSecondary ??
+                  theme.textTheme.bodyMedium?.color,
+            ),
           ),
           const SizedBox(height: 40),
           Container(

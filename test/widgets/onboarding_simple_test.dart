@@ -283,7 +283,7 @@ void main() {
               ? greaterThan(result['tdee'] as num)
               : lessThan(result['tdee'] as num));
       expectSimpleCopy(tester);
-      await tester.tap(find.text('Save New Goals'));
+      await tester.tap(find.text('Save new goals'));
       await pumpFrames(tester, seconds: 2);
       final saved =
           jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
@@ -405,7 +405,7 @@ void main() {
     expect(find.byType(AdvancedSettingsPage).hitTestable(), findsNothing);
     await tester.tap(find.text('Calculate'));
     await pumpFrames(tester, seconds: 2);
-    await tester.tap(find.text('Save New Goals'));
+    await tester.tap(find.text('Save new goals'));
     await pumpFrames(tester, seconds: 2);
     final saved =
         jsonDecode(StorageService().get('nutrition_goals') as String) as Map;

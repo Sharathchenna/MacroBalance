@@ -421,7 +421,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                   ],
                 ),
               ),
-              _LogButton(onTap: () => _logWeight(colors)),
+              ProgressAddButton(onTap: () => _logWeight(colors)),
             ],
           ),
           const SizedBox(height: 18),
@@ -681,7 +681,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                   ],
                 ),
               ),
-              _LogButton(onTap: () => _logWeight(colors)),
+              ProgressAddButton(onTap: () => _logWeight(colors)),
             ],
           ),
           if (hasEntries) ...[
@@ -1420,43 +1420,6 @@ class _BurnCard extends StatelessWidget {
               ),
               Icon(Icons.chevron_right_rounded,
                   size: 22, color: colors.textSecondary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LogButton extends StatelessWidget {
-  const _LogButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<CustomColors>()!;
-    return Material(
-      color: colors.accentPrimary.withOpacity(0.12),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.add_rounded, size: 18, color: colors.accentPrimary),
-              const SizedBox(width: 4),
-              Text(
-                'Log',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: colors.accentPrimary,
-                ),
-              ),
             ],
           ),
         ),

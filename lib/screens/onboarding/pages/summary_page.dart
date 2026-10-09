@@ -364,10 +364,14 @@ class SummaryPage extends StatelessWidget {
                 Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        color: (customColors?.accentPrimary ??
+                                theme.colorScheme.primary)
+                            .withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8)),
-                    child:
-                        Icon(icon, color: theme.colorScheme.primary, size: 20)),
+                    child: Icon(icon,
+                        color: customColors?.accentPrimary ??
+                            theme.colorScheme.primary,
+                        size: 20)),
                 const SizedBox(width: 12),
                 Text(title,
                     style: AppTypography.h3.copyWith(
@@ -414,7 +418,11 @@ class SummaryPage extends StatelessWidget {
                           theme.colorScheme.onBackground,
                     ))
               ])),
-          if (editable) Icon(Icons.edit, size: 16, color: theme.colorScheme.primary)
+          if (editable)
+            Icon(Icons.chevron_right_rounded,
+                size: 20,
+                color: customColors?.textSecondary ??
+                    theme.colorScheme.onSurface.withValues(alpha: 0.5))
         ]),
       ),
     );

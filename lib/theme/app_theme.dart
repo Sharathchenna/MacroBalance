@@ -43,6 +43,7 @@ class AppTheme {
         textPrimary: Colors.black, // Changed from black87 to full black
         textSecondary: Color(0xFF666666),
         accentPrimary: Color(0xFF4CAF50), // Added accent primary color
+        onAccent: Colors.white,
       )
     ],
     textTheme: TextTheme(
@@ -97,6 +98,8 @@ class AppTheme {
         textPrimary: Colors.white,
         textSecondary: Color(0xFFAAAAAA),
         accentPrimary: Color(0xFF81C784), // Added accent primary color
+        // The dark accent is light green: white on it is unreadable.
+        onAccent: Color(0xFF0E2A12),
       )
     ],
   );
@@ -113,6 +116,9 @@ class CustomColors extends ThemeExtension<CustomColors> {
   final Color textSecondary;
   final Color accentPrimary; // Added accentPrimary property
 
+  /// Text and icons on an [accentPrimary] fill, e.g. a green button.
+  final Color onAccent;
+
   const CustomColors({
     required this.cardBackground,
     required this.dateNavigatorBackground,
@@ -121,6 +127,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     required this.textPrimary,
     required this.textSecondary,
     required this.accentPrimary, // Added accentPrimary parameter
+    required this.onAccent,
   });
 
   @override
@@ -132,6 +139,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
     Color? textPrimary,
     Color? textSecondary,
     Color? accentPrimary, // Added accentPrimary parameter to copyWith
+    Color? onAccent,
   }) {
     return CustomColors(
       cardBackground: cardBackground ?? this.cardBackground,
@@ -143,6 +151,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
       textPrimary: textPrimary ?? this.textPrimary,
       textSecondary: textSecondary ?? this.textSecondary,
       accentPrimary: accentPrimary ?? this.accentPrimary, // Added accentPrimary
+      onAccent: onAccent ?? this.onAccent,
     );
   }
 
@@ -164,6 +173,7 @@ class CustomColors extends ThemeExtension<CustomColors> {
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       accentPrimary: Color.lerp(
           accentPrimary, other.accentPrimary, t)!, // Added accentPrimary lerp
+      onAccent: Color.lerp(onAccent, other.onAccent, t)!,
     );
   }
 }
