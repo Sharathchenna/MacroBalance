@@ -49,3 +49,6 @@ ios/Runner.xcodeproj/project.pbxproj
 
 # Supabase CLI link state
 supabase/.temp/
+
+# Temporary review captures and agent scratch files
+.scratch/
