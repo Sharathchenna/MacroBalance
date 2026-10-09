@@ -24,6 +24,14 @@ const double kPaceTolerancePct = 0.15;
 // --- Expenditure estimator ---
 const int kWindowDays = 21;
 const int kSwitchSettleDays = 4;
+/// Days from a phase switch when the water and glycogen shift is expected:
+/// the Weight tab's "Expected" label (spec 7.2) and the trend's wider band.
+const int kSwitchExpectedDays = kSwitchSettleDays + 6;
+/// The outlier band during [kSwitchExpectedDays] (ticket 18; not in spec §5).
+/// A ~1 kg water shift plus scale noise crosses [kOutlierPct] for lighter
+/// users, and dropping only the readings on the water's side skews the first
+/// post-switch fits. Twice the normal band still drops typos.
+const double kSwitchOutlierPct = 2 * kOutlierPct;
 const int kMinCompleteDays = 7;
 const int kMinWeighIns = 4;
 const double kPartialFraction = 0.5;

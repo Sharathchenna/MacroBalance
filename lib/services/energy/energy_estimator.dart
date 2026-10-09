@@ -88,7 +88,8 @@ class EstimatorInputs {
   /// Raw weigh-ins, any order. The trend and outliers come from these.
   final List<WeightReading> weights;
 
-  /// Start days of the goal phases. Each restarts the settle period.
+  /// Phase switch days (`phaseSwitchDays`). Each restarts the settle period
+  /// and widens the outlier band for [kSwitchExpectedDays].
   final List<DateTime> phaseStarts;
 }
 
@@ -365,7 +366,7 @@ class EnergyEstimator {
       }
 
       final upToD = _readings.where((r) => !r.day.isAfter(d));
-      final trend = TrendSeries.compute(upToD);
+      final trend = TrendSeries.compute(upToD, switches: _phaseStarts);
       final used = trend.points
           .where((p) => !p.ignored && !p.day.isBefore(windowStart))
           .toList();

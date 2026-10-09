@@ -189,6 +189,60 @@ void main() {
     });
   });
 
+  // Ticket 18: the water and glycogen shift after a diet switch isn't an
+  // outlier. For kSwitchExpectedDays the band widens to kSwitchOutlierPct.
+  group('phase switch', () {
+    // 80 kg, then from day 3 every other reading 3.5% up.
+    final jumpy = daily([80, 80, 80, 82.8, 80.5, 82.8, 80.5, 82.8]);
+
+    test('without a switch the water jump is ignored as outliers', () {
+      final s = TrendSeries.compute(jumpy);
+      expect(s.points.where((p) => p.ignored).length, 3);
+    });
+
+    test('after a switch a reading within kSwitchOutlierPct is used', () {
+      final s = TrendSeries.compute(jumpy, switches: [day(3)]);
+      expect(s.points.where((p) => p.ignored), isEmpty);
+      expect(s.latest!.trendKg, greaterThan(80.5));
+    });
+
+    test('a reading further off than kSwitchOutlierPct is still ignored', () {
+      final s = TrendSeries.compute(daily([80, 80, 80, 85.2]), switches: [day(3)]);
+      expect(s.points.last.ignored, isTrue);
+    });
+
+    test('the wider band lasts kSwitchExpectedDays days from the switch', () {
+      expect(kSwitchExpectedDays, kSwitchSettleDays + 6); // spec 7.2
+      // A switch on day 1 covers days 1 … kSwitchExpectedDays.
+      final flat = List<double>.filled(kSwitchExpectedDays, 80);
+      final inside = TrendSeries.compute(daily([...flat, 82.8]), switches: [day(1)]);
+      expect(inside.points.last.day, day(kSwitchExpectedDays));
+      expect(inside.points.last.ignored, isFalse);
+      final after = TrendSeries.compute(daily([...flat, 80, 82.8]), switches: [day(1)]);
+      expect(after.points.last.day, day(kSwitchExpectedDays + 1));
+      expect(after.points.last.ignored, isTrue);
+    });
+
+    test('readings before the switch use the normal band', () {
+      final s = TrendSeries.compute(daily([80, 80, 82.8, 80]), switches: [day(3)]);
+      expect(s.points[2].ignored, isTrue);
+    });
+
+    test('settlingAfterSwitch gives the switch a day is expected after', () {
+      final sw = [day(3), day(30)];
+      expect(settlingAfterSwitch(day(2), sw), isNull);
+      expect(settlingAfterSwitch(day(3), sw), day(3));
+      expect(settlingAfterSwitch(day(3 + kSwitchExpectedDays - 1), sw), day(3));
+      expect(settlingAfterSwitch(day(3 + kSwitchExpectedDays), sw), isNull);
+      expect(settlingAfterSwitch(DateTime(2026, 10, 2, 18), sw), day(30),
+          reason: 'time of day is ignored');
+    });
+
+    test('settlingAfterSwitch picks the later of two overlapping switches', () {
+      expect(settlingAfterSwitch(day(8), [day(3), day(6)]), day(6));
+    });
+  });
+
   group('trendOn (carried forward for display)', () {
     final s = TrendSeries.compute(
         [WeightReading(day(0), 80), WeightReading(day(5), 81)]);

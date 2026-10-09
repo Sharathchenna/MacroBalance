@@ -59,11 +59,17 @@ class WeeklyChange {
 ///   [kOutlierPct] of the new level (the mean of the last
 ///   [kOutlierRunToAccept] accepted readings), so the trend can catch up.
 ///   One further off is a fresh outlier and is ignored.
+/// - For [kSwitchExpectedDays] from each phase switch the band is
+///   [kSwitchOutlierPct]: the water and glycogen shift is expected, so it
+///   moves the trend instead of being ignored.
 class TrendSeries {
   TrendSeries._(this.points);
 
   /// [readings] in any order. Only the last reading given for a day is used.
-  factory TrendSeries.compute(Iterable<WeightReading> readings) {
+  /// [switches] are the phase switch days (`phaseSwitchDays`).
+  factory TrendSeries.compute(Iterable<WeightReading> readings,
+      {Iterable<DateTime> switches = const []}) {
+    final switchDays = switches.toList();
     final byDay = <DateTime, double>{};
     for (final r in readings) {
       byDay[_dayOf(r.day)] = r.weightKg;
@@ -106,7 +112,10 @@ class TrendSeries {
       }
       final off = w - trend;
       final side = off.sign.toInt();
-      final isOutlier = off.abs() > kOutlierPct * trend + 1e-9;
+      final band = settlingAfterSwitch(days[i], switchDays) == null
+          ? kOutlierPct
+          : kSwitchOutlierPct;
+      final isOutlier = off.abs() > band * trend + 1e-9;
 
       if (!isOutlier) {
         run.clear();
@@ -176,6 +185,22 @@ class TrendSeries {
     final kg = last.trendKg - weekAgo;
     return WeeklyChange(kg: kg, pct: kg / weekAgo * 100);
   }
+}
+
+/// The latest of [switches] that [day] is within [kSwitchExpectedDays] of
+/// (the switch day is the first), or null: the days the Weight tab labels
+/// "Expected: water & glycogen".
+DateTime? settlingAfterSwitch(DateTime day, Iterable<DateTime> switches) {
+  final d = _dayOf(day);
+  DateTime? found;
+  for (final s in switches) {
+    final sw = _dayOf(s);
+    final k = _daysBetween(sw, d);
+    if (k >= 0 && k < kSwitchExpectedDays && (found == null || sw.isAfter(found))) {
+      found = sw;
+    }
+  }
+  return found;
 }
 
 /// The goal pace with a sign: negative when losing, 0 when maintaining.

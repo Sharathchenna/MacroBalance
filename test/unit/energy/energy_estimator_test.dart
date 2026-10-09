@@ -136,6 +136,17 @@ void main() {
       expect(rows[30].completeDays, 0); // window starts on day 34
     });
 
+    test('after a phase start the water jump stays in the window (ticket 18)', () {
+      // Flat at 80 kg; from day 30 every other weigh-in is 3.5% up. Outside
+      // the expected period those would be ignored as outliers.
+      final weights = [
+        for (var d = 0; d <= 39; d++) WeightReading(day(d), d >= 30 && d.isEven ? 82.8 : 80),
+      ];
+      final rows = run(
+          inputs(food: eat(everyDay, 2000), weights: weights, phaseStarts: [day(30)]), 39);
+      expect(rows[39].weighIns, 6); // 34 … 39, none ignored
+    });
+
     test('a phase start before the learning start is ignored', () {
       final a = run(
           inputs(food: eat(everyDay, 2000), weights: weigh(everyDay)), 15);

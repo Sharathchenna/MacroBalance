@@ -28,6 +28,9 @@ class SimConfig {
     this.intakeDayCv = 0.15,
     this.formulaErrorSd = 300,
     this.adaptationPerKg = 15,
+    this.goal,
+    this.switches = const [],
+    this.knowsPhaseStarts = true,
   });
 
   /// Days simulated from the learning start.
@@ -67,6 +70,34 @@ class SimConfig {
   /// Cals a day expenditure falls per kg of tissue lost (Mifflin's 10/kg ×
   /// a typical activity factor), so the truth drifts as the user diets.
   final double adaptationPerKg;
+
+  /// Every user gets this goal instead of the 60/20/20 draw.
+  final GoalKind? goal;
+
+  /// Phase switches (ticket 18), in day order. The estimator gets each day as
+  /// a phase start. Empty: one phase throughout.
+  final List<SimSwitch> switches;
+
+  /// Whether the estimator is told about [switches]. False is a comparator
+  /// only: the diet switches but the estimator doesn't know.
+  final bool knowsPhaseStarts;
+}
+
+/// The user's diet changes on [day] (0 = the learning start).
+class SimSwitch {
+  const SimSwitch(this.day, this.to, {this.reboundKg = 0});
+
+  final int day;
+
+  /// The new phase. Maintain eats the true TDEE of the switch day; lose and
+  /// gain eat it ∓ the drawn pace's deficit/surplus (so switching back to
+  /// lose needs a lose [SimConfig.goal]).
+  final GoalKind to;
+
+  /// Water and glycogen gained (negative: lost) after the switch, reached
+  /// with time constant [SimConfig.glycogenTauDays]: e.g. +1 kg as a diet
+  /// ends, −1 kg as it starts again.
+  final double reboundKg;
 }
 
 /// One synthetic user and what happened to them.
@@ -101,11 +132,12 @@ class SimulatedUser {
     final tdee0 = uniform(config.tdeeMin, config.tdeeMax);
 
     final roll = rng.nextDouble();
-    final goal = roll < 0.6
-        ? GoalKind.lose
-        : roll < 0.8
-            ? GoalKind.maintain
-            : GoalKind.gain;
+    final goal = config.goal ??
+        (roll < 0.6
+            ? GoalKind.lose
+            : roll < 0.8
+                ? GoalKind.maintain
+                : GoalKind.gain);
     final pacePct = switch (goal) {
       GoalKind.lose => kLosePaceOptions[rng.nextInt(kLosePaceOptions.length)],
       GoalKind.gain => kGainPaceOptions[rng.nextInt(kGainPaceOptions.length)],
@@ -118,11 +150,12 @@ class SimulatedUser {
           pacePct: pacePct, weightKg: w0, energyDensity: body.energyDensityAt(w0)),
       tdee0 * (goal == GoalKind.lose ? kMaxDeficitFrac : kMaxSurplusFrac),
     );
-    final meanEaten = switch (goal) {
-      GoalKind.lose => tdee0 - delta,
-      GoalKind.gain => tdee0 + delta,
-      GoalKind.maintain => tdee0,
-    };
+    double eatingFor(GoalKind kind, double tdee) => switch (kind) {
+          GoalKind.lose => tdee - delta,
+          GoalKind.gain => tdee + delta,
+          GoalKind.maintain => tdee,
+        };
+    var meanEaten = eatingFor(goal, tdee0);
     final glycogenSign = switch (goal) {
       GoalKind.lose => -1,
       GoalKind.gain => 1,
@@ -142,9 +175,16 @@ class SimulatedUser {
       final tdee = tdee0 - config.adaptationPerKg * (w0 - tissue);
       truth.add(logged * tdee);
 
-      final glycogen = glycogenSign *
+      var glycogen = glycogenSign *
           config.glycogenKg *
           (1 - math.exp(-d / config.glycogenTauDays));
+      for (final s in config.switches) {
+        if (d == s.day) meanEaten = eatingFor(s.to, tdee);
+        if (d >= s.day) {
+          glycogen += s.reboundKg *
+              (1 - math.exp(-(d - s.day) / config.glycogenTauDays));
+        }
+      }
       weights.add(WeightReading(
           day, tissue + glycogen + config.weightNoiseSdKg * normal()));
 
@@ -172,6 +212,11 @@ class SimulatedUser {
         body: body,
         food: food,
         weights: weights,
+        phaseStarts: [
+          if (config.knowsPhaseStarts)
+            for (final s in config.switches)
+              DateTime(start.year, start.month, start.day + s.day),
+        ],
       ),
     );
   }
@@ -205,6 +250,7 @@ class SimulatedUser {
             body: _ScaledBody(inputs.body, 1 - knownReporting),
             food: inputs.food,
             weights: inputs.weights,
+            phaseStarts: inputs.phaseStarts,
           );
     return EnergyEstimator(i, overlapInflation: overlapInflation)
         .replay(through: last)
