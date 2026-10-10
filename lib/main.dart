@@ -32,7 +32,7 @@ import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'providers/meal_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_auth_ui/supabase_auth_ui.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';

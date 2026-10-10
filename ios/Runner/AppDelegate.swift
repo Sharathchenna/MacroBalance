@@ -2,19 +2,10 @@ import UIKit
 import Flutter
 import SwiftUI
 import HealthKit
-import shared_preferences_foundation
-import health
-import app_links
-import path_provider_foundation
-import url_launcher_ios
-import app_settings
-import flutter_native_splash
-import device_info_plus
 import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
 import AVFoundation  // Added for camera functionality
-import home_widget // Import home_widget
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, MessagingDelegate, NativeCameraViewControllerDelegate {

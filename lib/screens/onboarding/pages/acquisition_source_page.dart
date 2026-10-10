@@ -289,15 +289,15 @@ class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
                       scale: isSelected ? 1.1 : 1.0,
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutBack,
-                      child: source.icon.runtimeType == IconData
-                          ? Icon(
-                              source.icon as IconData,
-                              size: 32,
+                      child: source.icon is FaIconData
+                          ? FaIcon(
+                              source.icon as FaIconData,
+                              size: 28,
                               color: source.iconColor,
                             )
-                          : FaIcon(
+                          : Icon(
                               source.icon as IconData,
-                              size: 28,
+                              size: 32,
                               color: source.iconColor,
                             ),
                     ),

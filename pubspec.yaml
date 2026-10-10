@@ -17,7 +17,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # of the product and file versions while build-number is used as the build suffix.
 version: 1.1.0+1
 environment:
-  sdk: ^3.6.0
+  sdk: ^3.13.0
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
 # consider running `flutter pub upgrade --major-versions`. Alternatively,
@@ -36,16 +36,16 @@ dependencies:
   crypto: ^3.0.6
   cupertino_icons: ^1.0.8
   device_info_plus: ^9.1.2 # Added for feedback screen
-  firebase_core: ^3.12.1
-  firebase_messaging: ^15.2.4
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
   fl_chart: ^0.70.2
   flutter_dotenv: ^5.1.0
   flutter_image_compress: ^2.4.0
   flutter_lints: ^5.0.0
   flutter_local_notifications: ^19.0.0
-  flutter_native_splash: ^2.4.4
+  flutter_native_splash: ^2.4.8
   flutter_svg: ^2.0.17
-  font_awesome_flutter: ^10.8.0
+  font_awesome_flutter: ^11.0.0
   google_fonts: ^6.2.1
   google_mlkit_barcode_scanning: ^0.13.0
   google_sign_in: ^6.2.2
@@ -57,7 +57,7 @@ dependencies:
   http_parser: ^4.0.2
   image_picker: ^1.1.2 # Already present, ensure it's up-to-date if needed
   local_auth: ^2.3.0
-  lottie: ^2.7.0
+  lottie: ^3.3.1
   numberpicker: ^2.1.2
   oauth2: ^2.0.3
   open_file: ^3.5.10
@@ -74,7 +74,6 @@ dependencies:
   settings_ui: ^2.0.2
   sign_in_with_apple: ^6.1.0
   smooth_page_indicator: ^1.1.0
-  supabase_auth_ui: ^0.5.4
   supabase_flutter: ^2.8.3
   syncfusion_flutter_charts: ^28.2.6
   syncfusion_flutter_sliders: ^28.2.6 # Added sliders dependency (matching charts version)
