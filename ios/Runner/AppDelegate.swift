@@ -8,7 +8,7 @@ import FirebaseMessaging
 import AVFoundation  // Added for camera functionality
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, MessagingDelegate, NativeCameraViewControllerDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, MessagingDelegate, NativeCameraViewControllerDelegate {
     // Remove these properties
     // private var methodHandler: FlutterMethodHandler?
     // private var statsMethodHandler: StatsMethodHandler?
@@ -20,44 +20,29 @@ import AVFoundation  // Added for camera functionality
     // Add stats channel
     private var statsChannel: FlutterMethodChannel?
     private let statsChannelName = "app.macrobalance.com/stats"
+
+    // Registrar for the app's own native camera code. Under the UIScene lifecycle the
+    // app delegate has no window, so the camera is presented from this registrar's
+    // view controller (the FlutterViewController hosting the implicit engine).
+    private var nativeCameraRegistrar: FlutterPluginRegistrar?
     
     override func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         print("[AppDelegate] Application launching")
-        guard let controller = window?.rootViewController as? FlutterViewController else {
-            return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-        }
-        
-        // Remove these initializations
-        // methodHandler = FlutterMethodHandler(window: window, viewController: controller)
-        
-        // Remove stats handler initialization
-        // statsMethodHandler = StatsMethodHandler(...)
-        
-        // Remove stats view factory registration
-        // let statsFactory = StatsViewFactory(...)
-        // registrar(forPlugin: "StatsView")?.register(...)
 
-        // Initialize camera view channel
-        nativeCameraViewChannel = FlutterMethodChannel(name: nativeCameraViewChannelName,
-                                                     binaryMessenger: controller.binaryMessenger)
-        nativeCameraViewChannel?.setMethodCallHandler(handleNativeCameraViewMethodCall)
+        // Plugins and method channels are set up in didInitializeImplicitFlutterEngine.
+        // With the UIScene lifecycle the Flutter engine and its view controller are
+        // created when the scene connects, which is after this method returns.
 
-        // Initialize stats channel
-        statsChannel = FlutterMethodChannel(name: statsChannelName,
-                                          binaryMessenger: controller.binaryMessenger)
-        statsChannel?.setMethodCallHandler(handleStatsMethodCall)
-
-        // Explicitly configure Firebase here BEFORE registering plugins
+        // Configure Firebase here, BEFORE plugins are registered (that happens later,
+        // in didInitializeImplicitFlutterEngine).
         FirebaseApp.configure()
         print("[AppDelegate] Firebase configured via FirebaseApp.configure()")
 
         // App Group Id for home_widget should be set in Info.plist
 
-        GeneratedPluginRegistrant.register(with: self)
-        
         // Keep Firebase messaging setup
         Messaging.messaging().delegate = self
 
@@ -78,12 +63,44 @@ import AVFoundation  // Added for camera functionality
          return super.application(application, didFinishLaunchingWithOptions: launchOptions)
      }
 
+     // MARK: - Implicit Flutter engine (UIScene lifecycle) -
+
+     func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+         print("[AppDelegate] Implicit Flutter engine initialized")
+         GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+         let messenger = engineBridge.applicationRegistrar.messenger()
+
+         // Initialize camera view channel
+         nativeCameraViewChannel = FlutterMethodChannel(name: nativeCameraViewChannelName,
+                                                      binaryMessenger: messenger)
+         nativeCameraViewChannel?.setMethodCallHandler(handleNativeCameraViewMethodCall)
+         nativeCameraRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "MacroBalanceNativeCameraView")
+
+         // Initialize stats channel
+         statsChannel = FlutterMethodChannel(name: statsChannelName,
+                                           binaryMessenger: messenger)
+         statsChannel?.setMethodCallHandler(handleStatsMethodCall)
+     }
+
+     /// The view controller to present native UI from. Prefers the Flutter view
+     /// controller that owns the engine, then the key window of the active scene.
+     private func presentingViewController() -> UIViewController? {
+         if let controller = nativeCameraRegistrar?.viewController {
+             return controller
+         }
+         let windowScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+         let scene = windowScenes.first { $0.activationState == .foregroundActive } ?? windowScenes.first
+         let window = scene?.windows.first { $0.isKeyWindow } ?? scene?.windows.first
+         return window?.rootViewController
+     }
+
      // MARK: - Native Camera View Method Channel Handler -
 
      private func handleNativeCameraViewMethodCall(call: FlutterMethodCall, result: @escaping FlutterResult) {
          print("[AppDelegate] Native Camera View Method Call: \(call.method)")
 
-         guard let controller = window?.rootViewController as? FlutterViewController else {
+         guard let controller = presentingViewController() else {
              result(FlutterError(code: "INTERNAL_ERROR", message: "Cannot get root view controller", details: nil))
              return
          }
