@@ -1,7 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/dateProvider.dart';
+import '../providers/energy_provider.dart';
+import '../services/finish_day_link.dart';
 import '../services/camera_service.dart';
 import '../services/posthog_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,6 +17,7 @@ import 'TrackingPagesScreen.dart';
 import 'accountdashboard.dart';
 import 'askAI.dart';
 import 'dashboard_screen.dart';
+import 'energy/checkin_sheet.dart';
 import 'searchPage.dart';
 
 export '../widgets/app_bottom_bar.dart' show AppTab;
@@ -58,9 +63,64 @@ class AppShellState extends State<AppShell>
 
   String? get _userId => Supabase.instance.client.auth.currentUser?.id;
 
+  // The weekly check-in sheet shows on its own once a check-in has run.
+  EnergyProvider? _energy;
+  bool _showingCheckin = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final energy = Provider.of<EnergyProvider>(context);
+    if (!identical(energy, _energy)) {
+      _energy?.removeListener(_maybeShowCheckin);
+      _energy = energy..addListener(_maybeShowCheckin);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowCheckin());
+    }
+  }
+
+  /// Shows this week's check-in sheet while it hasn't been dismissed, once
+  /// nothing else (the tour, the log menu, a pushed screen) is in the way.
+  void _maybeShowCheckin() {
+    final checkin = _energy?.checkinToShow;
+    if (checkin == null || _showingCheckin || !mounted) return;
+    if (_touring || menuOpen || HomeTour.shouldShow(_userId)) return;
+    if (ModalRoute.of(context)?.isCurrent == false) return;
+    _showingCheckin = true;
+    showCheckinSheet(context, checkin)
+        .whenComplete(() => _showingCheckin = false);
+  }
+
+  /// The finish-day reminder was tapped: Home, on today, scrolled to the
+  /// Finish day row.
+  void _openFinishDay() {
+    if (!mounted || !FinishDayLink.take()) return;
+    if (ModalRoute.of(context)?.isCurrent == false) {
+      Navigator.of(context).popUntil((r) => r.isFirst);
+    }
+    select(AppTab.home);
+    final dates = Provider.of<DateProvider>(context, listen: false);
+    dates.setDate(dates.today);
+    // Home may have just been built, so wait for it to lay out.
+    void scroll(int tries) {
+      final target = FinishDayLink.rowKey.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(target,
+            alignment: 0.5, duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
+      } else if (tries > 0 && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => scroll(tries - 1));
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => scroll(10));
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
   @override
   void initState() {
     super.initState();
+    FinishDayLink.requests.addListener(_openFinishDay);
+    // Opened from a tap on the reminder while the app was closed.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openFinishDay());
     // Whenever a signed-in account reaches Home without having seen the tour
     // (after onboarding, subscribing, starting a trial, or on a new device),
     // show it once the screen has settled.
@@ -95,12 +155,15 @@ class AppShellState extends State<AppShell>
   void _endTour(bool completed) {
     setState(() => _touring = false);
     HomeTour.markSeen(_userId);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowCheckin());
     PostHogService.trackEvent(
         completed ? 'home_tour_completed' : 'home_tour_skipped');
   }
 
   @override
   void dispose() {
+    FinishDayLink.requests.removeListener(_openFinishDay);
+    _energy?.removeListener(_maybeShowCheckin);
     _menu.dispose();
     super.dispose();
   }

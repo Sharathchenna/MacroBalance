@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:macrotracker/services/energy/constants.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/utils/weight_trend.dart';
 
@@ -11,6 +12,17 @@ import 'package:macrotracker/utils/weight_trend.dart';
 /// dashed line when it's close enough to share the scale. When weigh-ins are
 /// frequent enough for day-to-day swings to be noise ([showsTrend]), the line
 /// follows the smoothed trend instead and the dots show the scale readings.
+///
+/// Readings the trend left out as outliers ([ignored]) are drawn as grey
+/// hollow rings off the line.
+///
+/// Each phase switch in [switches] is a faint band over the
+/// [kSwitchExpectedDays] when its water and glycogen shift is expected,
+/// labelled "Expected" when there's room.
+///
+/// [simple] (the default Progress view, not detailed stats) draws ignored
+/// readings as lighter weigh-in dots instead of grey rings, and the phase
+/// bands fainter and unlabelled.
 ///
 /// Dates are placed by time, so gaps between weigh-ins read as gaps. Axis
 /// values are round numbers in the unit shown (kg or lbs). Touch and drag to
@@ -26,6 +38,9 @@ class WeightChart extends StatefulWidget {
     required this.isMetric,
     required this.colors,
     this.goalKg,
+    this.ignored = const [],
+    this.switches = const [],
+    this.simple = false,
     this.onScrub,
     this.onTapEntry,
   });
@@ -40,6 +55,15 @@ class WeightChart extends StatefulWidget {
   final bool isMetric;
   final CustomColors colors;
   final double? goalKg;
+
+  /// Whether each of [entries] was left out of the trend. Empty means none.
+  final List<bool> ignored;
+
+  /// Phase switch days to draw as bands (`phaseSwitchDays`).
+  final List<DateTime> switches;
+
+  /// Quieter marks for the simple view: see the class docs.
+  final bool simple;
   final ValueChanged<int?>? onScrub;
   final ValueChanged<int>? onTapEntry;
 
@@ -55,6 +79,8 @@ class WeightChart extends StatefulWidget {
 
   /// Whether the goal line is drawn: only when it's within about twice the
   /// data's spread, so a far-off goal doesn't flatten the line.
+  bool isIgnored(int i) => i < ignored.length && ignored[i];
+
   static bool showsGoal(
       List<WeightEntry> entries, List<double> trend, double? goalKg) {
     if (goalKg == null || entries.isEmpty) return false;
@@ -207,6 +233,9 @@ class _ChartLayout {
     return plot.left + (day - t0) / (t1 - t0) * plot.width;
   }
 
+  /// One day's width on the x axis.
+  double get dayWidth => 86400000.0 / (t1 - t0) * plot.width;
+
   double y(double kg) =>
       plot.bottom - (kg * unit - yMin) / (yMax - yMin) * plot.height;
 
@@ -235,6 +264,9 @@ class _WeightChartPainter extends CustomPainter {
     final plot = l.plot;
     if (plot.width <= 0 || plot.height <= 0) return;
 
+    for (final d in chart.switches) {
+      _drawSwitch(canvas, l, d);
+    }
     _drawGrid(canvas, l);
     _drawDates(canvas, l);
     if (l.showGoal) _drawGoal(canvas, l);
@@ -246,10 +278,13 @@ class _WeightChartPainter extends CustomPainter {
         0, 0, plot.left + (plot.width + 8) * reveal, size.height));
 
     final accent = colors.accentPrimary;
+    // Ignored readings stay off the line joining the weigh-ins; the trend
+    // carries through them.
     final points = [
       for (var i = 0; i < chart.entries.length; i++)
-        Offset(l.x(chart.entries[i].date),
-            l.y(l.trend ? chart.trend[i] : chart.entries[i].kg)),
+        if (l.trend || !chart.isIgnored(i))
+          Offset(l.x(chart.entries[i].date),
+              l.y(l.trend ? chart.trend[i] : chart.entries[i].kg)),
     ];
 
     // In trend mode the weigh-ins are faint context under the line;
@@ -259,7 +294,7 @@ class _WeightChartPainter extends CustomPainter {
     if (points.length > 1) {
       // Monotone, so the curve never overshoots: every peak and dip on the
       // line is a real reading.
-      final line = _smoothPath(points);
+      final line = monotonePath(points);
       final fill = Path.from(line)
         ..lineTo(points.last.dx, plot.bottom)
         ..lineTo(points.first.dx, plot.bottom)
@@ -285,6 +320,7 @@ class _WeightChartPainter extends CustomPainter {
     }
 
     if (!l.trend) _drawWeighIns(canvas, l, faint: false);
+    _drawIgnored(canvas, l);
     canvas.restore();
 
     if (selected != null && selected! < chart.entries.length) {
@@ -300,7 +336,9 @@ class _WeightChartPainter extends CustomPainter {
       // Behind the trend: small solid dots, smaller still when crowded.
       final r = spacing < 3 ? 1.2 : 2.2;
       final paint = Paint()..color = accent.withOpacity(spacing < 3 ? 0.3 : 0.45);
-      for (final e in chart.entries) {
+      for (var i = 0; i < n; i++) {
+        if (chart.isIgnored(i)) continue;
+        final e = chart.entries[i];
         canvas.drawCircle(Offset(l.x(e.date), l.y(e.kg)), r, paint);
       }
       return;
@@ -311,10 +349,70 @@ class _WeightChartPainter extends CustomPainter {
       ..color = accent
       ..style = PaintingStyle.stroke
       ..strokeWidth = spacing < 10 ? 1.4 : 1.8;
-    for (final e in chart.entries) {
+    for (var i = 0; i < n; i++) {
+      if (chart.isIgnored(i)) continue;
+      final e = chart.entries[i];
       final p = Offset(l.x(e.date), l.y(e.kg));
       canvas.drawCircle(p, r, fill);
       canvas.drawCircle(p, r, ring);
+    }
+  }
+
+  /// Readings left out of the trend: grey hollow rings, on top of the line.
+  /// In the simple view, just a lighter weigh-in dot.
+  void _drawIgnored(Canvas canvas, _ChartLayout l) {
+    final spacing = l.plot.width / chart.entries.length;
+    if (chart.simple) {
+      final faint = Paint()
+        ..color = colors.accentPrimary.withValues(alpha: 0.25);
+      final r = l.trend ? (spacing < 3 ? 1.2 : 2.2) : (spacing < 10 ? 2.5 : 3.5);
+      for (var i = 0; i < chart.entries.length; i++) {
+        if (!chart.isIgnored(i)) continue;
+        final e = chart.entries[i];
+        canvas.drawCircle(Offset(l.x(e.date), l.y(e.kg)), r, faint);
+      }
+      return;
+    }
+    final r = spacing < 10 ? 3.0 : 4.0;
+    final fill = Paint()..color = colors.cardBackground;
+    final ring = Paint()
+      ..color = colors.textSecondary.withValues(alpha: 0.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    for (var i = 0; i < chart.entries.length; i++) {
+      if (!chart.isIgnored(i)) continue;
+      final e = chart.entries[i];
+      final p = Offset(l.x(e.date), l.y(e.kg));
+      canvas.drawCircle(p, r, fill);
+      canvas.drawCircle(p, r, ring);
+    }
+  }
+
+  /// A phase switch: a faint band from the switch day through its expected
+  /// days, edged on the switch side, under the grid and the data.
+  void _drawSwitch(Canvas canvas, _ChartLayout l, DateTime d) {
+    final half = l.dayWidth / 2;
+    final from = l.x(d) - half;
+    final to = l.x(DateTime(d.year, d.month, d.day + kSwitchExpectedDays)) - half;
+    final left = math.max(from, l.plot.left);
+    final right = math.min(to, l.plot.right);
+    if (right <= left) return;
+    final color = colors.textSecondary;
+    canvas.drawRect(Rect.fromLTRB(left, l.plot.top, right, l.plot.bottom),
+        Paint()..color = color.withValues(alpha: chart.simple ? 0.05 : 0.07));
+    if (chart.simple) return;
+    if (from >= l.plot.left) {
+      canvas.drawLine(
+        Offset(from, l.plot.top),
+        Offset(from, l.plot.bottom),
+        Paint()
+          ..color = color.withValues(alpha: 0.3)
+          ..strokeWidth = 1,
+      );
+    }
+    final tp = _text('Expected', size: 10, weight: FontWeight.w600);
+    if (right - left >= tp.width + 10) {
+      tp.paint(canvas, Offset(left + 5, l.plot.top + 2));
     }
   }
 
@@ -396,72 +494,75 @@ class _WeightChartPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, l.y(chart.trend[i])), 4, Paint()..color = accent);
     }
     final p = Offset(x, l.y(e.kg));
-    canvas.drawCircle(p, 9, Paint()..color = accent.withOpacity(0.2));
+    final ring = chart.isIgnored(i) ? colors.textSecondary : accent;
+    canvas.drawCircle(p, 9, Paint()..color = ring.withValues(alpha: 0.2));
     canvas.drawCircle(p, 5.5, Paint()..color = colors.cardBackground);
     canvas.drawCircle(
       p,
       5.5,
       Paint()
-        ..color = accent
+        ..color = ring
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5,
     );
   }
 
-  /// Monotone cubic through [points], so the line never overshoots a value.
-  /// 0 joins points with straight lines; 1 is a full monotone curve.
-  static const double _curviness = 0.5;
-
-  static Path _smoothPath(List<Offset> points) {
-    final n = points.length;
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    final slopes = List<double>.filled(n - 1, 0);
-    for (var i = 0; i < n - 1; i++) {
-      final dx = points[i + 1].dx - points[i].dx;
-      slopes[i] = dx == 0 ? 0 : (points[i + 1].dy - points[i].dy) / dx;
-    }
-    final tangents = List<double>.filled(n, 0);
-    tangents[0] = slopes.first;
-    tangents[n - 1] = slopes.last;
-    for (var i = 1; i < n - 1; i++) {
-      tangents[i] = slopes[i - 1] * slopes[i] <= 0
-          ? 0
-          : (slopes[i - 1] + slopes[i]) / 2;
-    }
-    for (var i = 0; i < n - 1; i++) {
-      if (slopes[i] == 0) {
-        tangents[i] = 0;
-        tangents[i + 1] = 0;
-        continue;
-      }
-      final a = tangents[i] / slopes[i];
-      final b = tangents[i + 1] / slopes[i];
-      final h = math.sqrt(a * a + b * b);
-      if (h > 3) {
-        tangents[i] = 3 / h * a * slopes[i];
-        tangents[i + 1] = 3 / h * b * slopes[i];
-      }
-    }
-    for (var i = 0; i < n - 1; i++) {
-      final p0 = points[i], p1 = points[i + 1];
-      final dx = p1.dx - p0.dx;
-      if (dx == 0) {
-        path.lineTo(p1.dx, p1.dy);
-        continue;
-      }
-      // Pull each end's tangent halfway toward the segment's own slope:
-      // softer than a full curve, without the corners of straight lines.
-      final t0 = slopes[i] + (tangents[i] - slopes[i]) * _curviness;
-      final t1 = slopes[i] + (tangents[i + 1] - slopes[i]) * _curviness;
-      path.cubicTo(p0.dx + dx / 3, p0.dy + t0 * dx / 3,
-          p1.dx - dx / 3, p1.dy - t1 * dx / 3, p1.dx, p1.dy);
-    }
-    return path;
-  }
-
   @override
   bool shouldRepaint(_WeightChartPainter old) =>
       old.chart != chart || old.selected != selected || old.reveal != reveal;
+}
+
+/// How curved [monotonePath] is: 0 joins points with straight lines; 1 is a
+/// full monotone curve.
+const double _curviness = 0.5;
+
+/// Monotone cubic through [points] (at least two), so a line never
+/// overshoots a value. Shared by the Progress charts.
+Path monotonePath(List<Offset> points) {
+  final n = points.length;
+  final path = Path()..moveTo(points.first.dx, points.first.dy);
+  final slopes = List<double>.filled(n - 1, 0);
+  for (var i = 0; i < n - 1; i++) {
+    final dx = points[i + 1].dx - points[i].dx;
+    slopes[i] = dx == 0 ? 0 : (points[i + 1].dy - points[i].dy) / dx;
+  }
+  final tangents = List<double>.filled(n, 0);
+  tangents[0] = slopes.first;
+  tangents[n - 1] = slopes.last;
+  for (var i = 1; i < n - 1; i++) {
+    tangents[i] = slopes[i - 1] * slopes[i] <= 0
+        ? 0
+        : (slopes[i - 1] + slopes[i]) / 2;
+  }
+  for (var i = 0; i < n - 1; i++) {
+    if (slopes[i] == 0) {
+      tangents[i] = 0;
+      tangents[i + 1] = 0;
+      continue;
+    }
+    final a = tangents[i] / slopes[i];
+    final b = tangents[i + 1] / slopes[i];
+    final h = math.sqrt(a * a + b * b);
+    if (h > 3) {
+      tangents[i] = 3 / h * a * slopes[i];
+      tangents[i + 1] = 3 / h * b * slopes[i];
+    }
+  }
+  for (var i = 0; i < n - 1; i++) {
+    final p0 = points[i], p1 = points[i + 1];
+    final dx = p1.dx - p0.dx;
+    if (dx == 0) {
+      path.lineTo(p1.dx, p1.dy);
+      continue;
+    }
+    // Pull each end's tangent halfway toward the segment's own slope:
+    // softer than a full curve, without the corners of straight lines.
+    final t0 = slopes[i] + (tangents[i] - slopes[i]) * _curviness;
+    final t1 = slopes[i] + (tangents[i + 1] - slopes[i]) * _curviness;
+    path.cubicTo(p0.dx + dx / 3, p0.dy + t0 * dx / 3,
+        p1.dx - dx / 3, p1.dy - t1 * dx / 3, p1.dx, p1.dy);
+  }
+  return path;
 }
 
 /// Labelled dates for an axis from [start] to [end]: days for about a week,

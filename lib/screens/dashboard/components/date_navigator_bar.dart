@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/dateProvider.dart';
+import '../../../providers/day_status_provider.dart';
 import '../../../theme/app_theme.dart';
 
 /// A horizontal date navigator bar with swipe gestures.
@@ -184,6 +185,21 @@ class _DateNavigatorBarState extends State<DateNavigatorBar> {
             mainAxisSize: MainAxisSize.min,
             children: [
               dateChip,
+              // A small check under days the user has finished.
+              if (context
+                  .watch<DayStatusProvider>()
+                  .isFinished(dateProvider.selectedDate))
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Icon(
+                    Icons.check_circle,
+                    size: 13,
+                    semanticLabel: 'Day finished',
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.black54
+                        : accent,
+                  ),
+                ),
               if (!isToday)
                 GestureDetector(
                   onTap: () {

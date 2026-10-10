@@ -5,9 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/finish_reminder_provider.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:macrotracker/providers/day_status_provider.dart';
+import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -52,6 +56,10 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       // Look up providers now; the screen can be torn down while awaiting.
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
+      final goals = Provider.of<GoalsProvider>(context, listen: false);
+      final dayStatus = Provider.of<DayStatusProvider>(context, listen: false);
+      final energy = Provider.of<EnergyProvider>(context, listen: false);
+      final finishReminder = Provider.of<FinishReminderProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
 
@@ -152,6 +160,10 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
         // Clear local provider data
         await foodEntryProvider.clearUserData();
+        await goals.clearUserData();
+      await dayStatus.clearUserData();
+      await energy.clearUserData();
+      await finishReminder.clearUserData();
         await savedFoodProvider.clearUserData();
 
         // Sign out regardless of outcome

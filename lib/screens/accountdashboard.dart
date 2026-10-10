@@ -7,10 +7,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart'; // Add this import
+import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:macrotracker/providers/day_status_provider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
+import 'package:macrotracker/providers/energy_provider.dart';
+import 'package:macrotracker/screens/energy/energy_debug_screen.dart';
+import 'package:macrotracker/services/test_accounts.dart';
 import 'package:macrotracker/providers/subscription_provider.dart'; // Add import for SubscriptionProvider
 import 'package:macrotracker/screens/editGoals.dart'; // Add this import
 import 'package:macrotracker/screens/setting_screens/edit_profile.dart';
+import 'package:macrotracker/screens/setting_screens/edit_profile_field_screen.dart';
+import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/finish_reminder_provider.dart';
+import 'package:macrotracker/services/energy/finish_reminder.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/Health/Health.dart';
@@ -22,6 +32,7 @@ import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
+import 'package:macrotracker/widgets/adaptive_choice.dart';
 import 'dart:io' show Platform;
 import 'package:macrotracker/services/notification_service.dart';
 import 'package:macrotracker/screens/feedback_screen.dart'
@@ -232,6 +243,10 @@ class _AccountDashboardState extends State<AccountDashboard>
       // Push any queued changes before this device forgets them.
       final foodEntryProvider =
           Provider.of<FoodEntryProvider>(context, listen: false);
+      final goals = Provider.of<GoalsProvider>(context, listen: false);
+      final dayStatus = Provider.of<DayStatusProvider>(context, listen: false);
+      final energy = Provider.of<EnergyProvider>(context, listen: false);
+      final finishReminder = Provider.of<FinishReminderProvider>(context, listen: false);
       final savedFoodProvider =
           Provider.of<SavedFoodProvider>(context, listen: false);
       var backedUp = true;
@@ -252,6 +267,10 @@ class _AccountDashboardState extends State<AccountDashboard>
       // Clear goals, entries, weight history, saved foods and sync state so the
       // next account on this device starts from its own data.
       await foodEntryProvider.clearUserData();
+      await goals.clearUserData();
+      await dayStatus.clearUserData();
+      await energy.clearUserData();
+      await finishReminder.clearUserData();
       await savedFoodProvider.clearUserData();
 
       // Then sign out from Supabase
@@ -329,6 +348,9 @@ class _AccountDashboardState extends State<AccountDashboard>
       // _notificationSettings['weeklyReports'] ?? false, // Commented out weekly reports
       false, // Pass false for weekly reports now
     );
+    // The finish-day prompt joins the meal reminder only while that's on.
+    if (!mounted) return;
+    context.read<FinishReminderProvider?>()?.refresh();
   }
 
   // --- Removed Notification Test Functions ---
@@ -431,6 +453,61 @@ class _AccountDashboardState extends State<AccountDashboard>
                 ],
               ),
 
+              // Sex, height and age: what the energy maths starts from
+              Consumer2<GoalsProvider, WeightUnitProvider>(
+                builder: (context, goals, units, _) => _buildSection(
+                  title: 'Body',
+                  icon: CupertinoIcons.person_crop_circle_fill,
+                  colorScheme: colorScheme,
+                  customColors: customColors,
+                  children: [
+                    for (final (field, icon, title, value) in [
+                      (
+                        ProfileField.sex,
+                        CupertinoIcons.person_2_fill,
+                        'Sex',
+                        switch (goals.sex) {
+                          MacroCalculatorService.MALE => 'Male',
+                          MacroCalculatorService.FEMALE => 'Female',
+                          _ => 'Not set',
+                        }
+                      ),
+                      (
+                        ProfileField.height,
+                        CupertinoIcons.arrow_up_down,
+                        'Height',
+                        _heightText(goals.heightCm, units.isMetric)
+                      ),
+                      (
+                        ProfileField.age,
+                        CupertinoIcons.calendar,
+                        'Age',
+                        goals.age == null ? 'Not set' : '${goals.age} years'
+                      ),
+                    ])
+                      _buildListTile(
+                        icon: icon,
+                        iconColor: colorScheme.primary,
+                        title: title,
+                        subtitle: value,
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            CupertinoPageRoute(
+                              builder: (context) =>
+                                  EditProfileFieldScreen(field: field),
+                            ),
+                          );
+                        },
+                        colorScheme: colorScheme,
+                        customColors: customColors,
+                      ),
+                  ],
+                ),
+              ),
+
               // Nutrition & Goals section
               _buildSection(
                 title: 'Nutrition & Goals',
@@ -457,21 +534,10 @@ class _AccountDashboardState extends State<AccountDashboard>
 
                       // If goals were saved (result is true), refresh provider data
                       if (result == true && context.mounted) {
-                        debugPrint(
-                            "Goals saved, refreshing FoodEntryProvider state...");
-                        // Access the provider and trigger a reload of goals from storage
-                        // Note: _loadNutritionGoals is private, but we can call notifyListeners
-                        // or create a public refresh method. Let's try notifyListeners first.
-                        // Alternatively, re-calling _loadNutritionGoals ensures latest data.
-                        // Making _loadNutritionGoals public or creating a public wrapper is cleaner.
-                        // For now, let's just call notifyListeners as the provider state *should*
-                        // already be updated by the EditGoalsScreen save.
-                        // Explicitly reload goals from storage to update the provider's state
-                        await Provider.of<FoodEntryProvider>(context,
-                                listen: false)
-                            .loadNutritionGoals();
-                        debugPrint(
-                            "FoodEntryProvider goals reloaded after EditGoalsScreen.");
+                        // Reload goals from storage so every screen shows the saved ones.
+                        await Provider.of<GoalsProvider>(context, listen: false)
+                            .load();
+                        debugPrint("Goals reloaded after EditGoalsScreen.");
                       }
                     },
                     colorScheme: colorScheme,
@@ -481,7 +547,7 @@ class _AccountDashboardState extends State<AccountDashboard>
                     icon: CupertinoIcons.refresh,
                     iconColor: Colors.purple,
                     title: 'Recalculate Goals',
-                    subtitle: 'Answer the body and goal questions again',
+                    subtitle: 'Update your weight, activity and goal',
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
                       HapticFeedback.lightImpact();
@@ -495,6 +561,39 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
+                  // Adaptive goals and the day check-ins fall on
+                  Consumer<GoalsProvider>(
+                    builder: (context, goals, _) => Column(
+                      children: [
+                        _buildSwitchTile(
+                          icon: CupertinoIcons.arrow_2_circlepath,
+                          iconColor: Colors.green,
+                          title: 'Adaptive Goals',
+                          subtitle: goals.adaptiveGoals
+                              ? 'Targets update weekly as we learn'
+                              : 'Targets stay as calculated',
+                          value: goals.adaptiveGoals,
+                          onChanged: (on) => changeAdaptiveGoals(context, to: on),
+                          colorScheme: colorScheme,
+                          customColors: customColors,
+                        ),
+                        if (goals.adaptiveGoals)
+                          _buildListTile(
+                            icon: CupertinoIcons.calendar_today,
+                            iconColor: Colors.blue,
+                            title: 'Check-in Day',
+                            subtitle: weekdayName(goals.checkinWeekday),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              _showCheckinDayPicker(goals);
+                            },
+                            colorScheme: colorScheme,
+                            customColors: customColors,
+                          ),
+                      ],
+                    ),
+                  ),
                   Consumer<WeightUnitProvider>(
                     builder: (context, units, _) => _buildListTile(
                       icon: CupertinoIcons.arrow_up_arrow_down,
@@ -507,6 +606,24 @@ class _AccountDashboardState extends State<AccountDashboard>
                       onTap: () {
                         HapticFeedback.lightImpact();
                         _showUnitPicker();
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                  ),
+                  Consumer<DetailedStatsProvider>(
+                    builder: (context, detail, _) => _buildSwitchTile(
+                      icon: CupertinoIcons.chart_bar_square,
+                      iconColor: Colors.indigo,
+                      title: 'Show detailed stats',
+                      subtitle: 'Extra numbers for the curious: ranges, '
+                          'confidence and how we calculate',
+                      value: detail.showDetailedStats,
+                      onChanged: (on) {
+                        HapticFeedback.lightImpact();
+                        detail.showDetailedStats = on;
+                        PostHogService.trackEvent('detailed_stats_toggled',
+                            properties: {'on': on});
                       },
                       colorScheme: colorScheme,
                       customColors: customColors,
@@ -628,7 +745,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   );
-                }).toList(),
+                }).toList()
+                  ..addAll(_finishReminderTiles(colorScheme, customColors)),
               ),
 
               // --- Removed Testing Section ---
@@ -959,6 +1077,35 @@ class _AccountDashboardState extends State<AccountDashboard>
                   ),
                 ],
               ),
+
+              // Developer tools: debug builds and test accounts only.
+              if (kDebugMode || TestAccounts.isActive)
+                _buildSection(
+                  title: 'Developer',
+                  icon: CupertinoIcons.hammer_fill,
+                  colorScheme: colorScheme,
+                  customColors: customColors,
+                  children: [
+                    _buildListTile(
+                      icon: CupertinoIcons.flame_fill,
+                      iconColor: Colors.orange,
+                      title: 'Energy estimates',
+                      subtitle: 'Expenditure estimator, shadow mode',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder: (_) => const EnergyDebugScreen(),
+                          ),
+                        );
+                      },
+                      colorScheme: colorScheme,
+                      customColors: customColors,
+                    ),
+                  ],
+                ),
 
               // Logout button and spacing at the bottom
               const SizedBox(height: 24),
@@ -1495,6 +1642,14 @@ class _AccountDashboardState extends State<AccountDashboard>
     );
   }
 
+  /// "180 cm" or "5′11″"; "Not set" when unknown.
+  static String _heightText(double? cm, bool isMetric) {
+    if (cm == null) return 'Not set';
+    if (isMetric) return '${cm.round()} cm';
+    final inches = (cm / 2.54).round();
+    return '${inches ~/ 12}\u2032${inches % 12}\u2033';
+  }
+
   Widget _buildListTile({
     required IconData icon,
     required Color iconColor,
@@ -1507,33 +1662,37 @@ class _AccountDashboardState extends State<AccountDashboard>
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+      // Its own Material, so the tap ripple shows above the card colour.
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
-          child: Icon(icon, color: iconColor, size: 22),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w500,
-            fontSize: 15,
+          title: Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: colorScheme.onSurface.withValues(alpha: 0.6),
+          subtitle: Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
+          trailing: trailing,
+          onTap: onTap,
         ),
-        trailing: trailing,
-        onTap: onTap,
       ),
     );
   }
@@ -1551,40 +1710,44 @@ class _AccountDashboardState extends State<AccountDashboard>
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+      // Its own Material, so the tap ripple shows above the card colour.
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
-          child: Icon(icon, color: iconColor, size: 22),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w500,
-            fontSize: 15,
-            color: enabled
-                ? colorScheme.onSurface
-                : colorScheme.onSurface.withOpacity(0.5),
+          title: Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              color: enabled
+                  ? colorScheme.onSurface
+                  : colorScheme.onSurface.withOpacity(0.5),
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: enabled
-                ? colorScheme.onSurface.withValues(alpha: 0.6)
-                : colorScheme.onSurface.withValues(alpha: 0.4),
+          subtitle: Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: enabled
+                  ? colorScheme.onSurface.withValues(alpha: 0.6)
+                  : colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
           ),
-        ),
-        trailing: CupertinoSwitch(
-          value: value,
-          activeTrackColor: colorScheme.primary,
-          onChanged: enabled ? onChanged : null,
+          trailing: CupertinoSwitch(
+            value: value,
+            activeTrackColor: customColors?.accentPrimary ?? colorScheme.primary,
+            onChanged: enabled ? onChanged : null,
+          ),
         ),
       ),
     );
@@ -1662,6 +1825,36 @@ class _AccountDashboardState extends State<AccountDashboard>
     }
   }
 
+  /// The weekday weekly check-ins fall on.
+  void _showCheckinDayPicker(GoalsProvider goals) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: const Text('Check-in Day'),
+        message: const Text(
+            'Your targets update once a week, on this day. Pick a day you usually log.'),
+        actions: [
+          for (var day = DateTime.monday; day <= DateTime.sunday; day++)
+            CupertinoActionSheetAction(
+              isDefaultAction: day == goals.checkinWeekday,
+              child: Text(weekdayName(day)),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                goals.checkinWeekday = day;
+                Navigator.pop(context);
+              },
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+            child: const Text('Cancel'),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(context);
+            }),
+      ),
+    );
+  }
+
   void _showUnitPicker() {
     showCupertinoModalPopup(
       context: context,
@@ -1737,6 +1930,89 @@ class _AccountDashboardState extends State<AccountDashboard>
         customColors: customColors,
       );
     }
+  }
+
+  /// Settings → Notifications → "Finish-day reminder": off until turned on
+  /// here or from the prompts that offer it; a time once it's on.
+  List<Widget> _finishReminderTiles(ColorScheme colorScheme, CustomColors? customColors) {
+    final reminder = context.watch<FinishReminderProvider?>();
+    if (reminder == null) return const [];
+    final merged = reminder.mode == FinishReminderMode.mergedIntoMeal;
+    return [
+      _buildSwitchTile(
+        icon: CupertinoIcons.checkmark_circle_fill,
+        iconColor: Colors.teal,
+        title: 'Finish-day reminder',
+        subtitle: merged
+            ? 'Added to your meal reminder'
+            : 'An evening nudge to finish your day',
+        value: reminder.enabled,
+        onChanged: (value) async {
+          HapticFeedback.lightImpact();
+          if (!value) {
+            await reminder.disable();
+            return;
+          }
+          final ok = await reminder.enable(FinishReminderSource.settings);
+          if (!ok && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Allow notifications for this app in your phone\'s Settings first.'),
+            ));
+          }
+        },
+        colorScheme: colorScheme,
+        customColors: customColors,
+      ),
+      if (reminder.enabled && !merged)
+        _buildListTile(
+          icon: CupertinoIcons.clock,
+          iconColor: Colors.teal,
+          title: 'Finish-day reminder time',
+          subtitle: formatReminderTime(reminder.minutes),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _showFinishReminderTimePicker(reminder);
+          },
+          colorScheme: colorScheme,
+          customColors: customColors,
+        ),
+    ];
+  }
+
+  void _showFinishReminderTimePicker(FinishReminderProvider reminder) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.3,
+          padding: const EdgeInsets.only(top: 6.0),
+          color: CupertinoColors.systemBackground.resolveFrom(context),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: CupertinoButton(
+                    child: const Text('Done'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.time,
+                    initialDateTime:
+                        DateTime(2022, 1, 1, reminder.minutes ~/ 60, reminder.minutes % 60),
+                    onDateTimeChanged: (t) => reminder.setMinutes(t.hour * 60 + t.minute),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showMealReminderTimePicker() {

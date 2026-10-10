@@ -5,6 +5,7 @@ import 'package:macrotracker/services/storage_service.dart'; // Import StorageSe
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'dart:ui';
 import 'package:macrotracker/Health/Health.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -40,7 +41,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     // Setup listener for provider changes
     Future.microtask(() {
       if (mounted) {
-        Provider.of<FoodEntryProvider>(context, listen: false)
+        Provider.of<GoalsProvider>(context, listen: false)
             .addListener(_refreshGoalsFromProvider);
       }
     });
@@ -50,7 +51,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   void dispose() {
     // Remove listener
     try {
-      Provider.of<FoodEntryProvider>(context, listen: false)
+      Provider.of<GoalsProvider>(context, listen: false)
           .removeListener(_refreshGoalsFromProvider);
     } catch (e) {
       // Handle any dispose errors quietly
@@ -61,15 +62,14 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   void _refreshGoalsFromProvider() {
     if (!mounted) return;
 
-    final foodEntryProvider =
-        Provider.of<FoodEntryProvider>(context, listen: false);
+    final goals = Provider.of<GoalsProvider>(context, listen: false);
     setState(() {
-      calorieGoal = foodEntryProvider.caloriesGoal.round();
-      proteinGoal = foodEntryProvider.proteinGoal.round();
-      carbGoal = foodEntryProvider.carbsGoal.round();
-      fatGoal = foodEntryProvider.fatGoal.round();
-      stepsGoal = foodEntryProvider.stepsGoal;
-      bmr = foodEntryProvider.bmr.round();
+      calorieGoal = goals.caloriesGoal.round();
+      proteinGoal = goals.proteinGoal.round();
+      carbGoal = goals.carbsGoal.round();
+      fatGoal = goals.fatGoal.round();
+      stepsGoal = goals.stepsGoal;
+      bmr = goals.bmr.round();
     });
 
     debugPrint(
@@ -79,19 +79,15 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
   Future<void> _loadGoals() async {
     // First, load from the provider
     if (mounted) {
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
+      final goals = Provider.of<GoalsProvider>(context, listen: false);
 
-      // Wait for provider to initialize if needed
-      await foodEntryProvider.ensureInitialized();
-
-      if (mounted) setState(() {
-        calorieGoal = foodEntryProvider.caloriesGoal.round();
-        proteinGoal = foodEntryProvider.proteinGoal.round();
-        carbGoal = foodEntryProvider.carbsGoal.round();
-        fatGoal = foodEntryProvider.fatGoal.round();
-        stepsGoal = foodEntryProvider.stepsGoal;
-        bmr = foodEntryProvider.bmr.round();
+      setState(() {
+        calorieGoal = goals.caloriesGoal.round();
+        proteinGoal = goals.proteinGoal.round();
+        carbGoal = goals.carbsGoal.round();
+        fatGoal = goals.fatGoal.round();
+        stepsGoal = goals.stepsGoal;
+        bmr = goals.bmr.round();
       });
 
       debugPrint(
@@ -212,31 +208,26 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
     }
   }
 
-  // Keep async because FoodEntryProvider setters might be async (due to Supabase sync)
   Future<void> _saveGoals() async {
     try {
-      final foodEntryProvider =
-          Provider.of<FoodEntryProvider>(context, listen: false);
-
-      // Ensure provider is initialized
-      await foodEntryProvider.ensureInitialized();
+      final goals = Provider.of<GoalsProvider>(context, listen: false);
 
       // Update goals in provider (this triggers save to storage and Supabase sync)
-      await foodEntryProvider.updateNutritionGoals(
+      await goals.updateGoals(
         calories: calorieGoal.toDouble(),
         protein: proteinGoal.toDouble(),
         carbs: carbGoal.toDouble(),
         fat: fatGoal.toDouble(),
         steps: stepsGoal,
         bmr: bmr.toDouble(),
-        tdee: foodEntryProvider.tdee, // Keep existing TDEE
+        tdee: goals.tdee, // Keep existing TDEE
       );
 
       // Log diagnostic info
       debugPrint(
           'Goals saved to provider: calories=$calorieGoal, protein=$proteinGoal, carbs=$carbGoal, fat=$fatGoal');
       debugPrint(
-          'Provider goals after update: calories=${foodEntryProvider.caloriesGoal}, protein=${foodEntryProvider.proteinGoal}');
+          'Provider goals after update: calories=${goals.caloriesGoal}, protein=${goals.proteinGoal}');
 
       // Save to storage for backup
       final Map<String, dynamic> results = {
@@ -248,7 +239,7 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
         'bmr': bmr,
       };
       StorageService().put('macro_results', jsonEncode(results));
-      // nutrition_goals is owned by FoodEntryProvider.updateNutritionGoals.
+      // nutrition_goals is owned by GoalsProvider.updateGoals.
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

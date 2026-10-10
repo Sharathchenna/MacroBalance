@@ -7,7 +7,10 @@ import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/auth/superwall_gate.dart';
 import 'package:macrotracker/firebase_options.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
+import 'package:macrotracker/providers/energy_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/screens/NativeStatsScreen.dart'; // Replace GoalsPage import with NativeStatsScreen
@@ -21,6 +24,7 @@ import 'package:macrotracker/screens/welcomescreen.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
 import 'package:macrotracker/services/notification_service.dart';
+import 'package:macrotracker/providers/finish_reminder_provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:macrotracker/services/widget_service.dart';
 import 'package:macrotracker/providers/themeProvider.dart';
@@ -41,14 +45,13 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:macrotracker/screens/NutritionTrendsScreen.dart';
 import 'package:macrotracker/screens/WeightTrackingScreen.dart'; // Needed for date formatting
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
-import 'package:macrotracker/screens/expenditure_screen.dart'; // Added ExpenditureScreen
 import 'package:macrotracker/services/subscription_service.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // Added for Hive
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
-import 'package:macrotracker/providers/expenditure_provider.dart'; // Added ExpenditureProvider
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/screens/reset_password_screen.dart';
 import 'package:macrotracker/services/posthog_service.dart';
+import 'package:macrotracker/providers/day_status_provider.dart';
 import 'package:macrotracker/services/superwall_service.dart';
 import 'package:macrotracker/services/photo_analysis_service.dart';
 import 'package:macrotracker/screens/dashboard/components/photo_job_card.dart';
@@ -86,7 +89,6 @@ class Routes {
   static const String account = '/account';
   static const String weightTracking = '/weightTracking';
   static const String macroTracking = '/macroTracking';
-  static const String expenditure = '/expenditure'; // Added expenditure route
   static const String savedFoods = '/savedFoods'; // Added saved foods route
 }
 
@@ -181,41 +183,75 @@ Future<void> main() async {
       }(), // Immediately invoke the function to get the value
       child: MultiProvider(
         providers: [
+          // Goals belong to one account: start fresh whenever the user changes.
+          ChangeNotifierProxyProvider<User?, GoalsProvider>(
+            create: (_) => GoalsProvider(),
+            update: (context, user, previousGoals) {
+              if (previousGoals != null && previousGoals.userId == user?.id) {
+                return previousGoals;
+              }
+              final goals = GoalsProvider(userId: user?.id);
+              if (user != null) goals.restoreWeightHistory();
+              return goals;
+            },
+          ),
+          // Day status belongs to one account too.
+          ChangeNotifierProxyProvider<User?, DayStatusProvider>(
+            create: (_) => DayStatusProvider(),
+            update: (context, user, previous) {
+              if (previous != null && previous.userId == user?.id) {
+                return previous;
+              }
+              final status = DayStatusProvider(userId: user?.id);
+              if (user != null) status.refresh();
+              return status;
+            },
+          ),
+          // The evening finish-day reminder (off until asked for), per account.
+          ChangeNotifierProxyProvider<User?, FinishReminderProvider>(
+            lazy: false,
+            create: (_) => FinishReminderProvider(),
+            update: (context, user, previous) {
+              final reminder = previous != null && previous.userId == user?.id
+                  ? previous
+                  : FinishReminderProvider(userId: user?.id);
+              reminder.attach(Provider.of<DayStatusProvider>(context, listen: false));
+              if (user != null && !identical(reminder, previous)) reminder.refresh();
+              return reminder;
+            },
+          ),
           // Use ChangeNotifierProxyProvider linked to the User? stream
           ChangeNotifierProxyProvider<User?, FoodEntryProvider>(
             create: (_) => FoodEntryProvider(), // Initial empty provider
-            update: (context, user, previousProvider) {
-              // This update function runs whenever the User? changes
-              if (user == null) {
-                // User logged out, return a NEW empty provider
-                debugPrint(
-                    "[ProxyProvider] User is null. Creating new empty FoodEntryProvider.");
-                // Ensure previous provider data is cleared if necessary (though disposal should handle it)
-                // previousProvider?.clearEntries(); // Optional: Explicit clear before returning new one
-                return FoodEntryProvider();
-              } else {
-                // User logged in
-                if (previousProvider == null ||
-                    previousProvider.entries.isEmpty) {
-                  // If previous was null or empty (likely just logged in or first load)
-                  // Create a new provider instance and trigger loading
-                  debugPrint(
-                      "[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.");
-                  final newProvider = FoodEntryProvider();
-                  // Don't await here, let it load in background
-                  debugPrint(
-                      "[Startup Timing] Calling loadEntriesForCurrentUser: ${DateTime.now()}");
-                  newProvider.loadEntriesForCurrentUser();
-                  return newProvider;
-                } else {
-                  // User is the same, reuse the existing provider
-                  debugPrint(
-                      "[ProxyProvider] User (${user.id}) remains. Reusing existing FoodEntryProvider.");
-                  return previousProvider;
-                }
-              }
-            },
+            update: (context, user, previousProvider) =>
+                _foodEntryProviderFor(user, previousProvider)
+                  ..attachGoals(Provider.of<GoalsProvider>(context, listen: false)),
           ), // Added comma here
+          // Expenditure estimates (shadow mode): one account at a time, fed
+          // by the goals, food log, day status and weight history above.
+          // Not lazy: it has to exist to hear the triggers at app open.
+          ChangeNotifierProxyProvider<User?, EnergyProvider>(
+            lazy: false,
+            create: (_) => EnergyProvider(),
+            update: (context, user, previous) {
+              final goals = Provider.of<GoalsProvider>(context, listen: false);
+              final energy = previous != null && previous.userId == user?.id
+                  ? previous
+                  : EnergyProvider(userId: user?.id);
+              energy.attach(
+                goals: goals,
+                food: Provider.of<FoodEntryProvider>(context, listen: false),
+                dayStatus: Provider.of<DayStatusProvider>(context, listen: false),
+              );
+              if (user != null && !identical(energy, previous)) {
+                // App open: runs once the food log is read; again once the
+                // weight history has come back from the cloud.
+                energy.scheduleRefresh();
+                goals.weightHistoryRestored.then((_) => energy.scheduleRefresh());
+              }
+              return energy;
+            },
+          ),
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => DateProvider()),
           ChangeNotifierProvider(
@@ -225,9 +261,7 @@ Future<void> main() async {
           ChangeNotifierProvider(create: (_) => SavedFoodProvider()),
           ChangeNotifierProvider(
               create: (_) => WeightUnitProvider()), // Keep this instance
-          // Pass FoodEntryProvider instance to ExpenditureProvider
-          // ChangeNotifierProvider(
-          //     create: (_) => ExpenditureProvider(_foodEntryProviderInstance)),
+          ChangeNotifierProvider(create: (_) => DetailedStatsProvider()),
           // Removed duplicate WeightUnitProvider entry if it existed
         ],
         child: const MyApp(),
@@ -237,6 +271,41 @@ Future<void> main() async {
 
   // Delayed widget refresh to avoid impacting startup time
   _delayedWidgetRefresh();
+}
+
+/// The food-entry provider for [user]: a fresh one on sign-in or sign-out,
+/// otherwise the existing one. Runs whenever the User? changes.
+FoodEntryProvider _foodEntryProviderFor(
+    User? user, FoodEntryProvider? previousProvider) {
+  // This update function runs whenever the User? changes
+  if (user == null) {
+    // User logged out, return a NEW empty provider
+    debugPrint(
+        "[ProxyProvider] User is null. Creating new empty FoodEntryProvider.");
+    // Ensure previous provider data is cleared if necessary (though disposal should handle it)
+    // previousProvider?.clearEntries(); // Optional: Explicit clear before returning new one
+    return FoodEntryProvider();
+  } else {
+    // User logged in
+    if (previousProvider == null ||
+        previousProvider.entries.isEmpty) {
+      // If previous was null or empty (likely just logged in or first load)
+      // Create a new provider instance and trigger loading
+      debugPrint(
+          "[ProxyProvider] User logged in (${user.id}). Creating new FoodEntryProvider and triggering load.");
+      final newProvider = FoodEntryProvider();
+      // Don't await here, let it load in background
+      debugPrint(
+          "[Startup Timing] Calling loadEntriesForCurrentUser: ${DateTime.now()}");
+      newProvider.loadEntriesForCurrentUser();
+      return newProvider;
+    } else {
+      // User is the same, reuse the existing provider
+      debugPrint(
+          "[ProxyProvider] User (${user.id}) remains. Reusing existing FoodEntryProvider.");
+      return previousProvider;
+    }
+  }
 }
 
 Future<void> _initLocaleFormatting() async {
@@ -280,6 +349,7 @@ void _setupStatsChannelHandler() {
     // Fetch the provider instance using the context
     final foodEntryProvider =
         Provider.of<FoodEntryProvider>(context, listen: false);
+    final goals = Provider.of<GoalsProvider>(context, listen: false);
 
     switch (call.method) {
       case 'getMacroData':
@@ -324,10 +394,9 @@ void _setupStatsChannelHandler() {
             final totalFat = totals['fat'] ?? 0.0;
             final totalProtein = totals['protein'] ?? 0.0;
 
-            // Use the fetched provider instance
-            final proteinGoal = foodEntryProvider.proteinGoal;
-            final carbGoal = foodEntryProvider.carbsGoal;
-            final fatGoal = foodEntryProvider.fatGoal;
+            final proteinGoal = goals.proteinGoal;
+            final carbGoal = goals.carbsGoal;
+            final fatGoal = goals.fatGoal;
 
             results.add({
               'date': dateFormatter.format(currentDate.toUtc()),
@@ -464,12 +533,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         );
       }
     });
-    // Removed provider linking logic
-    // Trigger initial expenditure calculation after the first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Provider.of<ExpenditureProvider>(context, listen: false)
-      //     .updateExpenditure();
-    });
   }
 
   @override
@@ -523,6 +586,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // When app resumes, reset any stale presentation state
       NativeStatsScreen.resetState();
       Provider.of<DateProvider>(context, listen: false).refreshIfNewDay();
+      // A new day may have started: estimate the days since.
+      Provider.of<EnergyProvider>(context, listen: false).scheduleRefresh();
     }
   }
 
@@ -578,8 +643,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 const SuperwallGate(child: NutritionTrendsScreen()),
             Routes.savedFoods: (context) =>
                 const SuperwallGate(child: SavedFoodsScreen()),
-            // Routes.expenditure: (context) => const SuperwallGate(
-            //     child: ExpenditureScreen()), // ExpenditureScreen not implemented yet
           },
           onGenerateRoute: (settings) {
             // Handle any dynamic routes or routes with parameters here

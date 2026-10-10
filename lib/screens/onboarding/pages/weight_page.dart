@@ -1,7 +1,8 @@
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/widgets/onboarding/tooltip_icon.dart';
 import 'package:macrotracker/widgets/onboarding/unit_selector.dart';
 import 'package:numberpicker/numberpicker.dart';
 
@@ -11,16 +12,30 @@ class WeightPage extends StatelessWidget {
   final ValueChanged<double> onWeightChanged;
   final ValueChanged<bool> onUnitChanged;
 
+  /// The trend weight, offered as a one-tap answer when recalculating after
+  /// a recent weigh-in (plan 10.4); null hides it.
+  final double? trendKg;
+
+  /// Takes [trendKg] and moves on.
+  final VoidCallback? onUseTrend;
+
   const WeightPage({
     super.key,
     required this.currentWeightKg,
     required this.isMetric,
     required this.onWeightChanged,
     required this.onUnitChanged,
+    this.trendKg,
+    this.onUseTrend,
   });
 
   // Calculate imperial weight locally for the picker
   int get _imperialWeightLbs => (currentWeightKg * 2.20462).round();
+
+  /// "81.4 kg" or "179 lbs", as the picker shows it.
+  String _weightText(double kg) => isMetric
+      ? '${kg.toStringAsFixed(1)} kg'
+      : '${(kg * 2.20462).round()} lbs';
 
   @override
   Widget build(BuildContext context) {
@@ -43,21 +58,13 @@ class WeightPage extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Used to calculate your daily caloric needs',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: customColors?.textSecondary ??
-                      theme.textTheme.bodyMedium?.color,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const TooltipIcon(
-                  message:
-                      'Your current body weight is used to calculate your daily caloric needs'),
-            ],
+          Text(
+            'Used to calculate your daily caloric needs',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: customColors?.textSecondary ??
+                  theme.textTheme.bodyMedium?.color,
+            ),
           ),
           const SizedBox(height: 40),
           Container(
@@ -176,7 +183,51 @@ class WeightPage extends StatelessWidget {
               ],
             ),
           ),
+          if (trendKg != null && onUseTrend != null) ...[
+            const SizedBox(height: 20),
+            _UseTrendButton(
+              label: context.watch<DetailedStatsProvider>().showDetailedStats
+                  ? 'Use ${_weightText(trendKg!)} (your trend)'
+                  : 'Use ${_weightText(trendKg!)}',
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                onUseTrend!();
+              },
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// The soft accent pill (the Log button idiom) for the one-tap trend weight.
+class _UseTrendButton extends StatelessWidget {
+  const _UseTrendButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.extension<CustomColors>()?.accentPrimary ??
+        theme.colorScheme.primary;
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.show_chart_rounded, size: 20),
+        label: Text(label,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        style: TextButton.styleFrom(
+          foregroundColor: accent,
+          iconColor: accent,
+          backgroundColor: accent.withValues(alpha: 0.12),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }

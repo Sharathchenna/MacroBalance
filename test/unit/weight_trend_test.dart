@@ -25,10 +25,17 @@ void main() {
     test('starts at the first weigh-in and moves 10% a day', () {
       final trend = weightTrend([
         WeightEntry(daysAgo(2), 80),
-        WeightEntry(daysAgo(1), 70),
+        WeightEntry(daysAgo(1), 78),
       ]);
       expect(trend[0], 80);
-      expect(trend[1], closeTo(79, 1e-9));
+      expect(trend[1], closeTo(79.8, 1e-9));
+    });
+
+    test('a reading more than 3% off the trend leaves it where it was', () {
+      final entries = [WeightEntry(daysAgo(2), 80), WeightEntry(daysAgo(1), 70)];
+      expect(weightTrend(entries), [80, 80]);
+      final series = trendSeries(entries);
+      expect(series.points.map((p) => p.ignored), [false, true]);
     });
 
     test('a week-long gap moves it about half way', () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/editGoals.dart';
 import 'package:macrotracker/services/storage_service.dart';
 
@@ -8,12 +9,14 @@ import '../helpers/test_app.dart';
 
 void main() {
   late FoodEntryProvider provider;
+  late GoalsProvider goals;
   final today = DateTime.now();
 
   setUp(() async {
     await setUpTestEnvironment();
     await StorageService().delete('nutrition_goals');
     await StorageService().delete('daily_progress');
+    goals = GoalsProvider();
     provider = FoodEntryProvider();
     await provider.ensureInitialized();
     for (final e in List.of(provider.entries)) {
@@ -26,12 +29,13 @@ void main() {
     tester.view.physicalSize = const Size(1179, 2556);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    provider
+    goals
       ..caloriesGoal = calories
       ..proteinGoal = protein
       ..carbsGoal = carbs
       ..fatGoal = fat;
-    await tester.pumpWidget(testApp(const EditGoalsScreen(), foodEntryProvider: provider));
+    await tester.pumpWidget(testApp(const EditGoalsScreen(),
+        foodEntryProvider: provider, goalsProvider: goals));
     await settle(tester);
   }
 
@@ -82,7 +86,7 @@ void main() {
     testWidgets('editing a goal updates the check', (tester) async {
       await pumpGoals(tester, protein: 150, carbs: 200, fat: 67);
       expect(find.text('This matches your 2000 cals goal.'), findsOneWidget);
-      provider.fatGoal = 90; // 2210 kcal
+      goals.fatGoal = 90; // 2210 kcal
       await settle(tester);
       expect(find.textContaining('210 cals more than your 2000 cals goal.'), findsOneWidget);
     });

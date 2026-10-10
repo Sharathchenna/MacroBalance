@@ -1538,7 +1538,7 @@ class _StepTrackingScreenState extends State<StepTrackingScreen>
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: customColors.accentPrimary,
-                foregroundColor: Colors.white,
+                foregroundColor: customColors.onAccent,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(

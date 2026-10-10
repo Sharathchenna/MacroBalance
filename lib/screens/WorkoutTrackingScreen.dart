@@ -6,13 +6,13 @@ import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'dart:convert';
 import '../services/storage_service.dart';
 import '../services/workout_sync_service.dart';
 import '../models/workout_entry.dart';
 import 'package:uuid/uuid.dart';
 import '../services/posthog_service.dart';
+import '../widgets/progress_card.dart';
 
 class WorkoutTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -329,29 +329,19 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
               ],
             ),
           )
-        : SafeArea(
-            child: RefreshIndicator(
-              onRefresh: _loadWorkoutData,
-              color: customColors.accentPrimary,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildContributionGraph(customColors),
-                          const SizedBox(height: 32),
-                          _buildTodaySection(customColors),
-                          const SizedBox(height: AppBottomBar.scrollClearance),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+        : RefreshIndicator(
+            onRefresh: _loadWorkoutData,
+            color: customColors.accentPrimary,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics()),
+              padding: const EdgeInsets.fromLTRB(
+                  16, 16, 16, AppBottomBar.scrollClearance),
+              children: [
+                _buildTodaySection(customColors),
+                const SizedBox(height: 16),
+                _buildContributionGraph(customColors),
+              ],
             ),
           );
 
@@ -388,213 +378,64 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       animation: _animationController,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(0, 30 * (1 - _animationController.value)),
-          child: Opacity(
-            opacity: _animationController.value,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: customColors.cardBackground,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Today\'s Workouts',
-                        style: GoogleFonts.inter(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: customColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        DateFormat.MMMMEEEEd().format(DateTime.now()),
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: customColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTotalTimeCard(customColors),
-                  const SizedBox(height: 16),
-                  _buildWorkoutsList(customColors),
-                ],
-              ),
-            ),
-          ),
+          offset: Offset(0, 20 * (1 - _animationController.value)),
+          child: Opacity(opacity: _animationController.value, child: child),
         );
       },
-    );
-  }
-
-  Widget _buildQuickAddSection(CustomColors customColors) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.mediumImpact();
-          _showAddWorkoutDialog();
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                customColors.accentPrimary.withOpacity(0.08),
-                customColors.accentPrimary.withOpacity(0.03),
-              ],
+      child: ProgressCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ProgressCardTitle(
+              'Today',
+              trailing: ProgressAddButton(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  _showAddWorkoutDialog();
+                },
+              ),
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: customColors.accentPrimary.withOpacity(0.15),
-              width: 1,
+            const SizedBox(height: 2),
+            Text(
+              DateFormat.MMMMEEEEd().format(DateTime.now()),
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: customColors.textSecondary,
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.add_circle_outline,
-                color: customColors.accentPrimary,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Add Workout',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: customColors.accentPrimary,
-                ),
-              ),
+            const SizedBox(height: 16),
+            if (_todayWorkouts.isNotEmpty) ...[
+              _buildTotalTimeCard(customColors),
+              const SizedBox(height: 14),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddWorkoutButton(CustomColors customColors) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          _showAddWorkoutDialog();
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: customColors.accentPrimary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.add_circle_outline,
-                color: customColors.accentPrimary,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Add Workout',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: customColors.accentPrimary,
-                ),
-              ),
-            ],
-          ),
+            _buildWorkoutsList(customColors),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildTotalTimeCard(CustomColors customColors) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            customColors.accentPrimary.withOpacity(0.1),
-            customColors.accentPrimary.withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: customColors.accentPrimary.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: customColors.accentPrimary.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.timer_outlined,
-              color: customColors.accentPrimary,
-              size: 24,
-            ),
+    return Row(
+      children: [
+        Expanded(
+          child: ProgressStat(
+            label: 'Time',
+            value: _formatTotalDuration(_totalTodayMinutes),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Total Workout Time',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: customColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatTotalDuration(_totalTodayMinutes),
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: customColors.accentPrimary,
-                  ),
-                ),
-              ],
-            ),
+        ),
+        Expanded(
+          child: ProgressStat(
+            label: 'Workouts',
+            value: '${_todayWorkouts.length}',
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   String _formatTotalDuration(int minutes) {
-    if (minutes == 0) return '0 minutes';
+    if (minutes == 0) return '0m';
     
     final hours = minutes ~/ 60;
     final remainingMinutes = minutes % 60;
@@ -612,39 +453,30 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
 
   Widget _buildWorkoutsList(CustomColors customColors) {
     if (_todayWorkouts.isEmpty) {
-      return Center(child: Container(
-        padding: const EdgeInsets.all(20),
-        // decoration: BoxDecoration(
-        //   color: customColors.dateNavigatorBackground.withOpacity(0.3),
-        //   borderRadius: BorderRadius.circular(12),
-        // ),
-        child: Column(  
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: customColors.textSecondary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
           children: [
-            Icon(
-              Icons.fitness_center_outlined,
-              size: 48,
-              color: customColors.textSecondary.withOpacity(0.5),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No workouts today',
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: customColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Tap "Add Workout" to get started!',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: customColors.textSecondary.withOpacity(0.7),
+            Icon(Icons.fitness_center,
+                size: 18, color: customColors.textSecondary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'No workouts yet today.',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: customColors.textSecondary,
+                ),
               ),
             ),
           ],
         ),
-      ));
+      );
     }
 
     return Column(
@@ -661,20 +493,16 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
 
   Widget _buildWorkoutCard(WorkoutEntry workout, CustomColors customColors) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
       decoration: BoxDecoration(
-        color: customColors.cardBackground,
+        color: customColors.textSecondary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: customColors.dateNavigatorBackground,
-          width: 1,
-        ),
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: customColors.accentPrimary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
@@ -685,7 +513,7 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
               size: 20,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -823,18 +651,10 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
                 ),
               ),
             ],
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: customColors.cardBackground,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: customColors.dateNavigatorBackground,
-                  width: 1,
-                ),
-              ),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
               child: Icon(
-                Icons.more_vert,
+                Icons.more_horiz_rounded,
                 color: customColors.textSecondary,
                 size: 18,
               ),
@@ -846,148 +666,76 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
   }
 
   Widget _buildContributionGraph(CustomColors customColors) {
+    final totalMinutes = _currentMonthData?.totalMonthlyMinutes ?? 0;
+    final workoutDays = _currentMonthData?.workoutDaysCount ?? 0;
+    Widget navButton(IconData icon, bool enabled, VoidCallback onTap) =>
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          onPressed: enabled
+              ? () {
+                  HapticFeedback.lightImpact();
+                  onTap();
+                }
+              : null,
+          icon: Icon(
+            icon,
+            size: 22,
+            color: enabled
+                ? customColors.textPrimary
+                : customColors.textSecondary.withValues(alpha: 0.3),
+          ),
+        );
     return AnimatedBuilder(
       animation: _animationController,
       builder: (context, child) {
         return Transform.translate(
           offset: Offset(0, 20 * (1 - _animationController.value)),
-          child: Opacity(
-            opacity: _animationController.value,
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: customColors.cardBackground,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          child: Opacity(opacity: _animationController.value, child: child),
+        );
+      },
+      child: ProgressCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ProgressCardTitle(
+              DateFormat.yMMMM().format(_currentMonth),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Monthly Activity',
-                            style: GoogleFonts.inter(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              color: customColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            DateFormat.yMMMM().format(_currentMonth),
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              color: customColors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: _canNavigateToPrevious() ? () {
-                              HapticFeedback.lightImpact();
-                              _navigateToPreviousMonth();
-                            } : null,
-                            icon: Icon(
-                              Icons.chevron_left,
-                              color: _canNavigateToPrevious() 
-                                  ? customColors.textPrimary 
-                                  : customColors.textSecondary.withOpacity(0.3),
-                              size: 28,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _canNavigateToNext() ? () {
-                              HapticFeedback.lightImpact();
-                              _navigateToNextMonth();
-                            } : null,
-                            icon: Icon(
-                              Icons.chevron_right,
-                              color: _canNavigateToNext() 
-                                  ? customColors.textPrimary 
-                                  : customColors.textSecondary.withOpacity(0.3),
-                              size: 28,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildQuickAddSection(customColors),
-                  const SizedBox(height: 28),
-                  WorkoutContributionGraph(
-                    monthlyData: _currentMonthData,
-                    customColors: customColors,
-                    currentMonth: _currentMonth,
-                  ),
-                  const SizedBox(height: 20),
-                  // _buildLegend(customColors),
-                  // const SizedBox(height: 16),
-                  _buildMonthlyStats(customColors),
+                  navButton(Icons.chevron_left_rounded,
+                      _canNavigateToPrevious(), _navigateToPreviousMonth),
+                  navButton(Icons.chevron_right_rounded,
+                      _canNavigateToNext(), _navigateToNextMonth),
                 ],
               ),
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 12),
+            WorkoutContributionGraph(
+              monthlyData: _currentMonthData,
+              customColors: customColors,
+              currentMonth: _currentMonth,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ProgressStat(
+                    label: 'Active days',
+                    value: '$workoutDays',
+                  ),
+                ),
+                Expanded(
+                  child: ProgressStat(
+                    label: 'Total time',
+                    value: _formatTotalDuration(totalMinutes),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
-  }
-
-  Widget _buildLegend(CustomColors customColors) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Less',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: customColors.textSecondary,
-          ),
-        ),
-        Row(
-          children: List.generate(5, (index) {
-            final intensity = index / 4;
-            return Container(
-              width: 12,
-              height: 12,
-              margin: const EdgeInsets.only(left: 3),
-              decoration: BoxDecoration(
-                color: _getColorForIntensity(intensity, customColors),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            );
-          }),
-        ),
-        Text(
-          'More',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: customColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _getColorForIntensity(double intensity, CustomColors customColors) {
-    if (intensity == 0) {
-      return customColors.dateNavigatorBackground;
-    }
-    return customColors.accentPrimary.withOpacity(0.2 + (intensity * 0.8));
   }
 
   bool _canNavigateToPrevious() {
@@ -1498,87 +1246,10 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       ),
     );
   }
-
-  Widget _buildMonthlyStats(CustomColors customColors) {
-    final totalMinutes = _currentMonthData?.totalMonthlyMinutes ?? 0;
-    final workoutDays = _currentMonthData?.workoutDaysCount ?? 0;
-    final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
-    
-    // Debug print to check the data
-    print('Monthly stats - Total minutes: $totalMinutes, Workout days: $workoutDays, Daily totals: ${_currentMonthData?.dailyTotalMinutes}');
-    
-    return Row(
-      children: [
-        // Expanded(
-        //   child: _buildStatCard(
-        //     'Total Time',
-        //     _formatTotalDuration(totalMinutes),
-        //     Icons.timer_outlined,
-        //     customColors,
-        //   ),
-        // ),
-        // const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            'Active Days',
-            '$workoutDays/$daysInMonth',
-            Icons.calendar_today_outlined,
-            customColors,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(String label, String value, IconData icon, CustomColors customColors) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: customColors.accentPrimary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: customColors.accentPrimary.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: customColors.accentPrimary,
-            size: 20,
-          ),
-          const SizedBox(width: 20),
-          Column(
-            children: [
-              Text(
-            value,
-            style: GoogleFonts.inter(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: customColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: customColors.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-// GitHub-style contribution graph widget
+/// The month as a calendar: weekday columns, day numbers, and a green fill
+/// that deepens with the minutes worked out that day.
 class WorkoutContributionGraph extends StatelessWidget {
   final MonthlyWorkoutData? monthlyData;
   final CustomColors customColors;
@@ -1593,116 +1264,95 @@ class WorkoutContributionGraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Calculate dynamic height based on available width
-        const int cols = 7; // 7 days
-        const double spacingRatio = 0.15; // 15% of cell size for spacing
-        
-        // Calculate rows needed based on days in current month
-        final daysInMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0).day;
-        final rows = (daysInMonth / cols).ceil();
-        
-        // Calculate cell size based on available width
-        final availableWidth = constraints.maxWidth;
-        final cellSize = (availableWidth - (cols - 1) * (availableWidth * spacingRatio / cols)) / cols;
-        final spacing = cellSize * spacingRatio;
-        final totalHeight = (cellSize * rows) + (spacing * (rows - 1));
-        
-        return CustomPaint(
-          size: Size(constraints.maxWidth, totalHeight),
-          painter: ContributionGraphPainter(
-            monthlyData: monthlyData,
-            customColors: customColors,
-            currentMonth: currentMonth,
-            cellSize: cellSize,
-            cellSpacing: spacing,
+    final l10n = MaterialLocalizations.of(context);
+    final firstWeekday = l10n.firstDayOfWeekIndex; // 0 = Sunday
+    final first = DateTime(currentMonth.year, currentMonth.month, 1);
+    final daysInMonth =
+        DateTime(currentMonth.year, currentMonth.month + 1, 0).day;
+    // DateTime.weekday is 1 (Mon) to 7 (Sun); make Sunday 0.
+    final lead = (first.weekday % 7 - firstWeekday) % 7;
+    final weeks = ((lead + daysInMonth) / 7).ceil();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    Widget cell(int day) {
+      final date = DateTime(currentMonth.year, currentMonth.month, day);
+      final minutes = monthlyData?.getTotalMinutesForDay(day) ?? 0;
+      final intensity = math.min(minutes / 120.0, 1.0);
+      final isToday = date == today;
+      final future = date.isAfter(today);
+      final fill = intensity == 0
+          ? future
+              ? Colors.transparent
+              : customColors.textSecondary.withValues(alpha: 0.08)
+          : customColors.accentPrimary.withValues(alpha: 0.3 + intensity * 0.7);
+      return AspectRatio(
+        aspectRatio: 1,
+        child: Container(
+          margin: const EdgeInsets.all(2.5),
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(8),
+            border: isToday
+                ? Border.all(color: customColors.accentPrimary, width: 1.5)
+                : null,
           ),
-        );
-      },
+          alignment: Alignment.center,
+          child: Text(
+            '$day',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight:
+                  isToday || intensity > 0 ? FontWeight.w600 : FontWeight.w400,
+              color: intensity > 0.4
+                  ? customColors.onAccent
+                  : future
+                      ? customColors.textSecondary.withValues(alpha: 0.45)
+                      : isToday || intensity > 0
+                          ? customColors.textPrimary
+                          : customColors.textSecondary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            for (var i = 0; i < 7; i++)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    l10n.narrowWeekdays[(firstWeekday + i) % 7],
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: customColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        for (var w = 0; w < weeks; w++)
+          Row(
+            children: [
+              for (var d = 0; d < 7; d++)
+                Expanded(
+                  child: Builder(builder: (context) {
+                    final day = w * 7 + d - lead + 1;
+                    return day < 1 || day > daysInMonth
+                        ? const AspectRatio(aspectRatio: 1)
+                        : cell(day);
+                  }),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
-
-class ContributionGraphPainter extends CustomPainter {
-  final MonthlyWorkoutData? monthlyData;
-  final CustomColors customColors;
-  final DateTime currentMonth;
-  final double cellSize;
-  final double cellSpacing;
-
-  ContributionGraphPainter({
-    required this.monthlyData,
-    required this.customColors,
-    required this.currentMonth,
-    required this.cellSize,
-    required this.cellSpacing,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Calculate grid dimensions
-    final daysInMonth = DateTime(currentMonth.year, currentMonth.month + 1, 0).day;
-    const int cols = 7; // 7 columns
-    final rows = (daysInMonth / cols).ceil(); // Calculate rows needed based on days in month
-    
-    // Create grid starting from the beginning of the row
-    for (int i = 0; i < daysInMonth; i++) {
-      final row = i ~/ cols;
-      final col = i % cols;
-      final dayNumber = i + 1;
-      
-      final x = col * (cellSize + cellSpacing);
-      final y = row * (cellSize + cellSpacing);
-      
-      // Get workout minutes for this day
-      final minutes = monthlyData?.getTotalMinutesForDay(dayNumber) ?? 0;
-      
-      // Calculate color intensity (0 to 1, where 1 = 90+ minutes)
-      final intensity = math.min(minutes / 120.0, 1.0);
-      
-      // Get color for this intensity
-      final color = _getColorForIntensity(intensity);
-      
-      // Draw cell
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, cellSize, cellSize),
-        const Radius.circular(3),
-      );
-      
-      final paint = Paint()
-        ..color = color
-        ..style = PaintingStyle.fill;
-      
-      canvas.drawRRect(rect, paint);
-      
-      // Add border for today
-      final today = DateTime.now();
-      if (currentMonth.year == today.year && 
-          currentMonth.month == today.month && 
-          dayNumber == today.day) {
-        final borderPaint = Paint()
-          ..color = customColors.accentPrimary
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1;
-        
-        canvas.drawRRect(rect, borderPaint);
-      }
-    }
-  }
-
-  Color _getColorForIntensity(double intensity) {
-    if (intensity == 0) {
-      return customColors.dateNavigatorBackground;
-    }
-    return customColors.accentPrimary.withOpacity(0.2 + (intensity * 0.8));
-  }
-
-  @override
-  bool shouldRepaint(ContributionGraphPainter oldDelegate) {
-    return oldDelegate.monthlyData != monthlyData ||
-           oldDelegate.currentMonth != currentMonth ||
-           oldDelegate.cellSize != cellSize ||
-           oldDelegate.cellSpacing != cellSpacing;
-  }
-} 

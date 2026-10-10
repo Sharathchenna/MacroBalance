@@ -7,8 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/foodEntryProvider.dart';
+import '../providers/goals_provider.dart';
 import '../providers/weight_unit_provider.dart';
 import '../services/posthog_service.dart';
+import '../theme/macro_colors.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/nutrition_stats.dart';
@@ -32,9 +34,9 @@ class NutritionTrendsScreen extends StatefulWidget {
   State<NutritionTrendsScreen> createState() => _NutritionTrendsScreenState();
 }
 
-const _proteinColor = Color(0xFFEF5350);
-const _carbsColor = Color(0xFF42A5F5);
-const _fatColor = Color(0xFFFFA726);
+const _proteinColor = MacroColors.protein;
+const _carbsColor = MacroColors.carbs;
+const _fatColor = MacroColors.fat;
 
 class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
   static const _ranges = [
@@ -100,6 +102,7 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
     final theme = Theme.of(context);
     final colors = theme.extension<CustomColors>()!;
     final food = context.watch<FoodEntryProvider>();
+    final goals = context.watch<GoalsProvider>();
     final units = context.watch<WeightUnitProvider>();
     final now = DateTime.now();
 
@@ -126,13 +129,13 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
           },
         ),
         const SizedBox(height: 16),
-        _buildIntakeCard(colors, summary, bars, food.caloriesGoal),
+        _buildIntakeCard(colors, summary, bars, goals.caloriesGoal),
         const SizedBox(height: 16),
-        _buildConsistencyCard(colors, summary, food),
+        _buildConsistencyCard(colors, summary, goals),
         const SizedBox(height: 16),
-        _buildMacrosCard(colors, summary, food),
+        _buildMacrosCard(colors, summary, goals),
         const SizedBox(height: 16),
-        _buildMaintenanceCard(colors, maintenance, food, units),
+        _buildMaintenanceCard(colors, maintenance, goals, units),
       ],
     );
 
@@ -231,8 +234,8 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
     ),
   ]);
 
-  ProgressInfo _consistencyInfo(FoodEntryProvider food) {
-    final goal = food.caloriesGoal;
+  ProgressInfo _consistencyInfo(GoalsProvider goals) {
+    final goal = goals.caloriesGoal;
     final example = goal > 0
         ? ' With your ${_cals(goal)} goal, that\'s anything from '
             '${_cals(goal * 0.9)} to ${_cals(goal * 1.1)}.'
@@ -412,13 +415,13 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
   }
 
   Widget _buildConsistencyCard(
-      CustomColors colors, NutritionSummary s, FoodEntryProvider food) {
+      CustomColors colors, NutritionSummary s, GoalsProvider goals) {
     final days = s.completeDays;
     return ProgressCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ProgressCardTitle('Consistency', info: _consistencyInfo(food)),
+          ProgressCardTitle('Consistency', info: _consistencyInfo(goals)),
           const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,16 +435,16 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
               Expanded(
                 child: ProgressStat(
                   label: 'On target',
-                  value: food.caloriesGoal > 0
-                      ? '${s.daysOnTarget(food.caloriesGoal)} days'
+                  value: goals.caloriesGoal > 0
+                      ? '${s.daysOnTarget(goals.caloriesGoal)} days'
                       : '—',
                 ),
               ),
               Expanded(
                 child: ProgressStat(
                   label: 'Protein hit',
-                  value: food.proteinGoal > 0
-                      ? '${s.daysProteinHit(food.proteinGoal)} days'
+                  value: goals.proteinGoal > 0
+                      ? '${s.daysProteinHit(goals.proteinGoal)} days'
                       : '—',
                 ),
               ),
@@ -453,7 +456,7 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
   }
 
   Widget _buildMacrosCard(
-      CustomColors colors, NutritionSummary s, FoodEntryProvider food) {
+      CustomColors colors, NutritionSummary s, GoalsProvider goals) {
     final p = s.avgProtein, c = s.avgCarbs, f = s.avgFat;
     final macroCals = p == null ? 0.0 : p * 4 + c! * 4 + f! * 9;
     String share(double? g, int perGram) => macroCals <= 0 || g == null
@@ -469,21 +472,21 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
           _MacroRow(
               name: 'Protein',
               grams: p,
-              goal: food.proteinGoal,
+              goal: goals.proteinGoal,
               share: share(p, 4),
               color: _proteinColor),
           const SizedBox(height: 14),
           _MacroRow(
               name: 'Carbs',
               grams: c,
-              goal: food.carbsGoal,
+              goal: goals.carbsGoal,
               share: share(c, 4),
               color: _carbsColor),
           const SizedBox(height: 14),
           _MacroRow(
               name: 'Fat',
               grams: f,
-              goal: food.fatGoal,
+              goal: goals.fatGoal,
               share: share(f, 9),
               color: _fatColor),
         ],
@@ -492,7 +495,7 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
   }
 
   Widget _buildMaintenanceCard(CustomColors colors, MaintenanceEstimate m,
-      FoodEntryProvider food, WeightUnitProvider units) {
+      GoalsProvider goals, WeightUnitProvider units) {
     final body = GoogleFonts.inter(
         fontSize: 14, height: 1.45, color: colors.textSecondary);
 
@@ -533,7 +536,7 @@ class _NutritionTrendsScreenState extends State<NutritionTrendsScreen> {
       );
     }
 
-    final goal = food.caloriesGoal;
+    final goal = goals.caloriesGoal;
     final diff = goal - m.cals!;
     final weeklyKg = m.weeklyKgAt(goal)!;
     final weekly = units.convertFromKg(weeklyKg.abs()).toStringAsFixed(1);

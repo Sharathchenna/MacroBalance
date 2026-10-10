@@ -3,6 +3,7 @@ import 'package:macrotracker/services/posthog_service.dart';
 import 'pages/acquisition_source_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
 import 'dart:convert';
 import 'dart:async';
@@ -11,7 +12,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/screens/app_shell.dart';
+import 'package:macrotracker/widgets/adaptive_choice.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
+import 'package:macrotracker/providers/weight_unit_provider.dart';
+import 'package:macrotracker/widgets/onboarding/simple_plan_summary.dart';
 
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
@@ -23,8 +29,25 @@ class ResultsScreen extends StatefulWidget {
   /// save up front.
   final Future<void> Function()? onSave;
 
+  /// Whether the target will follow the learned expenditure (adaptive goals)
+  /// or stay fixed: one line under the target says which.
+  final bool adaptiveGoals;
+
+  /// Phased plans: "3 loss phases + 2 breaks · about 34 weeks" under the
+  /// adaptive line (spec 7.5).
+  final String? planLine;
+  final bool? isMetricWeight;
+  final double? goalWeightKg;
+
   const ResultsScreen(
-      {Key? key, required this.results, this.recalculateOnly = false, this.onSave})
+      {Key? key,
+      required this.results,
+      this.recalculateOnly = false,
+      this.onSave,
+      this.adaptiveGoals = true,
+      this.planLine,
+      this.isMetricWeight,
+      this.goalWeightKg})
       : super(key: key);
 
   @override
@@ -90,13 +113,15 @@ class _ResultsScreenState extends State<ResultsScreen>
     // Get providers
     final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
     final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+    final goals = Provider.of<GoalsProvider>(context, listen: false);
 
     // Prepare nutrition goals sync helper
     Future<void> syncNutritionGoals() async {
-      await foodEntryProvider.loadNutritionGoals();
+      await goals.load();
       try {
         debugPrint('Syncing nutrition goals to Supabase after onboarding');
-        await foodEntryProvider.syncAllDataWithSupabase();
+        await goals.syncToCloud();
+        await foodEntryProvider.syncWithCloud();
         debugPrint('Completed sync of nutrition goals to Supabase');
       } catch (e) {
         debugPrint('Error syncing nutrition goals to Supabase: $e');
@@ -174,30 +199,6 @@ class _ResultsScreenState extends State<ResultsScreen>
     Navigator.of(context).pop(); // Navigate back to previous screen
   }
 
-  void _savePlan() {
-    HapticFeedback.mediumImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              Icons.check_circle,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            const Text('Plan saved successfully!'),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _scrollController.dispose();
@@ -208,6 +209,7 @@ class _ResultsScreenState extends State<ResultsScreen>
   @override
   Widget build(BuildContext context) {
     final customColors = Theme.of(context).extension<CustomColors>()!;
+    final detailed = context.watch<DetailedStatsProvider>().showDetailedStats;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -218,7 +220,7 @@ class _ResultsScreenState extends State<ResultsScreen>
           tooltip: 'Back to previous step',
         ),
         title: Text(
-          'Your Nutrition Plan',
+          widget.recalculateOnly ? 'Your new plan' : 'Your plan',
           style: GoogleFonts.poppins(
             color: customColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -247,12 +249,13 @@ class _ResultsScreenState extends State<ResultsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-                    _buildDailyCalorieTargetCard(),
+                    if (!detailed) _buildSimplePlan(),
+                    if (detailed) _buildDailyCalorieTargetCard(),
                     const SizedBox(height: 16),
-                    _buildMacroDistributionCard(),
+                    if (detailed) _buildMacroDistributionCard(),
                     const SizedBox(height: 16),
-                    _buildDetailedMetricsToggle(),
-                    if (_showDetailedMetrics) ...[
+                    if (detailed) _buildDetailedMetricsToggle(),
+                    if (detailed && _showDetailedMetrics) ...[
                       const SizedBox(height: 16),
                       _buildGoalRelatedInformation(
                           widget.results['goal_weight_kg'] != null),
@@ -260,8 +263,8 @@ class _ResultsScreenState extends State<ResultsScreen>
                       _buildLifestyleRecommendations(),
                     ],
                     const SizedBox(height: 16),
-                    _buildCalculationDetailsToggle(),
-                    if (_showCalculationDetails) ...[
+                    if (detailed) _buildCalculationDetailsToggle(),
+                    if (detailed && _showCalculationDetails) ...[
                       const SizedBox(height: 16),
                       _buildCalculationDetails(),
                     ],
@@ -274,6 +277,25 @@ class _ResultsScreenState extends State<ResultsScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSimplePlan() {
+    final results = widget.results;
+    final weightStats = results['weight_stats'] as Map<String, dynamic>? ?? const {};
+    final date = weightStats['goal_date'] as String?;
+    return SimplePlanSummary(
+      targets: GoalTargets(calories: (results['target_calories'] as num).toDouble(), protein: (results['protein_g'] as num).toDouble(), carbs: (results['carb_g'] as num).toDouble(), fat: (results['fat_g'] as num).toDouble()),
+      goalDate: date == null ? null : DateTime.tryParse(date),
+      goalWeightKg: widget.goalWeightKg ?? (weightStats['goal_weight'] as num?)?.toDouble(),
+      isMetric: widget.isMetricWeight ?? context.watch<WeightUnitProvider>().isMetric,
+      // Recalculating: show the target being replaced, as the review
+      // step before this one does.
+      previousCalories: widget.recalculateOnly
+          ? context.read<GoalsProvider>().caloriesGoal
+          : null,
+      learned: results['tdee_learned'] == true,
+      adaptive: widget.adaptiveGoals,
     );
   }
 
@@ -354,7 +376,57 @@ class _ResultsScreenState extends State<ResultsScreen>
                 );
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            Text.rich(
+              key: const Key('results_adaptive_line'),
+              TextSpan(children: [
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Icon(
+                      widget.adaptiveGoals
+                          ? Icons.autorenew_rounded
+                          : Icons.lock_outline_rounded,
+                      size: 16,
+                      color: customColors.textSecondary,
+                    ),
+                  ),
+                ),
+                TextSpan(
+                    text: AdaptiveChoiceCopy.resultLine(widget.adaptiveGoals)),
+              ]),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: customColors.textSecondary,
+              ),
+            ),
+            if (widget.planLine case final planLine?) ...[
+              const SizedBox(height: 6),
+              Text.rich(
+                key: const Key('results_plan_line'),
+                TextSpan(children: [
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(Icons.timeline_rounded,
+                          size: 16, color: customColors.textSecondary),
+                    ),
+                  ),
+                  TextSpan(text: planLine),
+                ]),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: customColors.textSecondary,
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -745,7 +817,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                 '${goalTimeframeWeeks.toString()} weeks',
                 Icons.calendar_today_rounded,
                 Colors.purple.shade300,
-                'This is how long it may take to reach your goal weight at your current deficit/surplus.',
+                'This is how long it may take to reach your goal weight at your chosen pace.',
               ),
               SizedBox(height: 16),
             ],
@@ -762,7 +834,9 @@ class _ResultsScreenState extends State<ResultsScreen>
               '${widget.results['tdee']} cals/day',
               Icons.directions_run_rounded,
               Colors.green.shade600,
-              'This is your BMR plus calories burned through daily activity.',
+              widget.results['tdee_learned'] == true
+                  ? 'Learned from your food logs and weigh-ins, so no activity estimate is needed.'
+                  : 'This is your BMR plus calories burned through daily activity.',
             ),
             SizedBox(height: 16),
             _buildInfoRow(
@@ -963,8 +1037,10 @@ class _ResultsScreenState extends State<ResultsScreen>
               'Formula Used',
               widget.results.containsKey('formula_used')
                   ? '${widget.results['formula_used']}'
-                  : 'Automatically selected formula',
-              'Our system selected the most accurate formula for your body type',
+                  : 'Mifflin-St Jeor',
+              widget.results['body_fat_percentage'] != null
+                  ? 'Averaged with Katch-McArdle, which uses your scanned body fat'
+                  : 'The most accurate everyday formula for estimating metabolism',
               Icons.functions_rounded,
               Colors.indigo.shade400,
             ),
@@ -982,22 +1058,6 @@ class _ResultsScreenState extends State<ResultsScreen>
                     'Used for more accurate metabolic calculations',
                     Icons.monitor_weight_outlined,
                     Colors.orange.shade500,
-                  ),
-                  SizedBox(height: 16),
-                ],
-              ),
-
-            // Show athletic status if provided
-            if (widget.results.containsKey('is_athlete') &&
-                widget.results['is_athlete'] == true)
-              Column(
-                children: [
-                  _buildMethodCard(
-                    'Athletic Status',
-                    'Athlete',
-                    'Athletic individuals may have higher metabolic rates',
-                    Icons.sports_rounded,
-                    Colors.green.shade500,
                   ),
                   SizedBox(height: 16),
                 ],
@@ -1025,10 +1085,10 @@ class _ResultsScreenState extends State<ResultsScreen>
             ),
             SizedBox(height: 10),
             Text(
-              '• BMR Formulas: Mifflin-St Jeor (1990), Harris-Benedict (1919), Katch-McArdle (1996)\n'
+              '• BMR: Mifflin-St Jeor (1990), Katch-McArdle (1996)\n'
               '• Protein: International Society of Sports Nutrition\n'
               '• Fat & Carbs: Harvard School of Public Health\n'
-              '• Weight change rate: National Institutes of Health',
+              '• Weight change rate: Hall (2008), Forbes body composition',
               style: TextStyle(
                 fontSize: 13,
                 color: customColors?.textSecondary,
@@ -1363,97 +1423,37 @@ class _ResultsScreenState extends State<ResultsScreen>
   }
 
   Widget _buildBottomButtons() {
+    final customColors = Theme.of(context).extension<CustomColors>()!;
     return SafeArea(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _showPaywallAndProceed,
+            style: ElevatedButton.styleFrom(
+              // Matches onboarding's Next/Calculate button.
+              backgroundColor: customColors.textPrimary,
+              foregroundColor: Theme.of(context).scaffoldBackgroundColor,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
             ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 1,
-              child: OutlinedButton(
-                onPressed: _savePlan,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 1.5,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.bookmark_outline,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      "Save Plan",
-                      style: GoogleFonts.poppins(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+            child: Text(
+              widget.recalculateOnly ? 'Save new goals' : 'Start your journey',
+              style: AppTypography.onboardingButton.copyWith(
+                color: Theme.of(context).scaffoldBackgroundColor,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: ElevatedButton(
-                onPressed: _showPaywallAndProceed,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 2,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.recalculateOnly ? "Save New Goals" : "Start Your Journey",
-                      style: GoogleFonts.poppins(
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
-
 
 // Color utility extension
 extension ColorExtension on Color {

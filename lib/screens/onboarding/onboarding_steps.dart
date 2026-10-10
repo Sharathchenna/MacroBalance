@@ -11,29 +11,45 @@ enum OnboardingStep {
   activity,
   goal,
   setNewGoal,
+  planStyle,
+  adaptive,
   advanced,
   appleHealth,
   summary,
 }
 
-/// The steps shown, in order. Recalculating goals from Settings skips the
-/// welcome and Apple Health steps. "How did you hear about us?" is not a step:
-/// new users are asked it after the results screen.
+/// The steps shown, in order. Recalculating goals from Settings asks only
+/// what changes over time (spec 7.6): it skips the welcome and Apple Health
+/// steps and the static facts (sex, height, age), which are edited on the
+/// account screen. "How did you hear about us?" is not a step: new users are
+/// asked it after the results screen.
 List<OnboardingStep> onboardingStepsFor({required bool recalculateOnly}) =>
     recalculateOnly
         ? const [
-            OnboardingStep.gender,
             OnboardingStep.weight,
-            OnboardingStep.height,
-            OnboardingStep.age,
             OnboardingStep.activity,
             OnboardingStep.goal,
             OnboardingStep.setNewGoal,
+            OnboardingStep.planStyle,
+            OnboardingStep.adaptive,
             OnboardingStep.advanced,
             OnboardingStep.summary,
           ]
         : OnboardingStep.values;
 
-/// Steps passed over for the chosen [goal]: maintaining needs no goal weight.
-bool isOnboardingStepSkipped(OnboardingStep step, String goal) =>
-    step == OnboardingStep.setNewGoal && goal == MacroCalculatorService.GOAL_MAINTAIN;
+/// Steps passed over for the answers so far: maintaining ([goal]) needs no
+/// goal weight, only losing has a plan style (spec 7.5), and planning from a confident learned expenditure
+/// ([usesLearnedExpenditure], adaptive goals only) needs no activity level.
+bool isOnboardingStepSkipped(
+  OnboardingStep step, {
+  required String goal,
+  bool usesLearnedExpenditure = false,
+  bool showDetailedStats = true,
+}) =>
+    switch (step) {
+      OnboardingStep.setNewGoal => goal == MacroCalculatorService.GOAL_MAINTAIN,
+      OnboardingStep.planStyle => !showDetailedStats || goal != MacroCalculatorService.GOAL_LOSE,
+      OnboardingStep.activity => usesLearnedExpenditure,
+      OnboardingStep.advanced => !showDetailedStats,
+      _ => false,
+    };

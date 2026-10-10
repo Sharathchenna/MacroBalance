@@ -3,6 +3,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../services/finish_day_link.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../searchPage.dart';
@@ -15,6 +16,7 @@ import '../../../services/photo_analysis_service.dart';
 import '../../../services/posthog_service.dart';
 import '../../../utils/meal_routine.dart';
 import '../../foodDetail.dart';
+import 'finish_day_row.dart';
 import 'photo_job_card.dart';
 import '../../../utils/quick_log.dart';
 
@@ -57,6 +59,7 @@ class _MealSectionState extends State<MealSection> {
                     key: ValueKey('Snacks-${dateProvider.selectedDate}')),
                 _buildMealCard('Dinner',
                     key: ValueKey('Dinner-${dateProvider.selectedDate}')),
+                FinishDayRow(key: FinishDayLink.rowKey),
               ],
             ),
           ),

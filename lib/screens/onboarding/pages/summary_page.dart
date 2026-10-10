@@ -1,9 +1,17 @@
+import 'package:provider/provider.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:macrotracker/services/energy/phase_engine.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/widgets/plan_style_choice.dart';
+import 'package:macrotracker/widgets/targets_change.dart';
 import '../onboarding_steps.dart';
+import 'package:macrotracker/widgets/onboarding/simple_plan_summary.dart';
 
 class SummaryPage extends StatelessWidget {
   final String gender;
@@ -12,14 +20,33 @@ class SummaryPage extends StatelessWidget {
   final int age;
   final int activityLevel;
   final String goal;
-  final int deficit;
+  final double pacePct; // % of body weight a week
   final double proteinRatio;
   final double fatRatio;
   final double goalWeightKg;
-  final bool isAthlete;
-  final bool showBodyFatInput;
-  final double bodyFatPercentage;
+  final double? bodyFatPercentage; // only when the user entered one
+  final bool adaptiveGoals;
   final void Function(OnboardingStep step) onEdit; // Jumps back to a step to edit it
+  /// The steps that can be jumped to; rows for other steps are read-only.
+  /// Null means all of them.
+  final Set<OnboardingStep>? editableSteps;
+
+  /// Recalculating: the targets now and what these answers give, shown old →
+  /// new at the top. Null for new users.
+  final GoalTargets? currentTargets;
+  final GoalTargets? newTargets;
+
+  /// The learned expenditure the new targets come from instead of the
+  /// activity level (spec 7.6); null when they come from the formula.
+  final double? learnedTdee;
+
+  /// Lose goals: the plan style, and how a phased plan unfolds ("3 loss
+  /// phases + 2 breaks · about 34 weeks").
+  final PlanStyle? planStyle;
+  final String? planLine;
+  final DateTime? projectedDate;
+  final bool isMetricWeight;
+  final double? effectivePacePct;
 
   const SummaryPage({
     super.key,
@@ -29,15 +56,28 @@ class SummaryPage extends StatelessWidget {
     required this.age,
     required this.activityLevel,
     required this.goal,
-    required this.deficit,
+    required this.pacePct,
     required this.proteinRatio,
     required this.fatRatio,
     required this.goalWeightKg,
-    required this.isAthlete,
-    required this.showBodyFatInput,
-    required this.bodyFatPercentage,
+    this.bodyFatPercentage,
+    this.adaptiveGoals = true,
     required this.onEdit,
+    this.editableSteps,
+    this.currentTargets,
+    this.newTargets,
+    this.learnedTdee,
+    this.planStyle,
+    this.planLine,
+    this.projectedDate,
+    this.isMetricWeight = true,
+    this.effectivePacePct,
   });
+
+  /// The line under the targets when activity wasn't asked (plan 10.4).
+  static String learnedExpenditureLine(double tdee) =>
+      'Using your learned expenditure (${NumberFormat('#,###').format(tdee.round())} cals) '
+      'instead of an activity estimate.';
 
   String _getActivityLevelText() {
     switch (activityLevel) {
@@ -69,8 +109,12 @@ class SummaryPage extends StatelessWidget {
     }
   }
 
+  String _paceText() =>
+      pacePct == pacePct.roundToDouble() ? pacePct.toStringAsFixed(0) : '$pacePct';
+
   @override
   Widget build(BuildContext context) {
+    if (!context.watch<DetailedStatsProvider>().showDetailedStats) return _buildSimple(context);
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
 
@@ -99,34 +143,29 @@ class SummaryPage extends StatelessWidget {
         'page': heightPageIndex
       },
       {'label': 'Age', 'value': '$age years', 'page': agePageIndex},
-      {
-        'label': 'Athletic Status',
-        'value': isAthlete ? 'Athlete' : 'Non-Athlete',
-        'page': advancedSettingsPageIndex
-      },
-      if (showBodyFatInput)
+      if (bodyFatPercentage != null)
         {
           'label': 'Body Fat %',
-          'value': '${bodyFatPercentage.round()}%',
+          'value': '${bodyFatPercentage!.round()}%',
           'page': advancedSettingsPageIndex
         },
     ];
 
     final List<Map<String, dynamic>> activityGoalsItems = [
-      {
-        'label': 'Activity Level',
-        'value': _getActivityLevelText(),
-        'page': activityLevelPageIndex
-      },
+      // The learned expenditure stands in for the activity level.
+      if (learnedTdee == null)
+        {
+          'label': 'Activity Level',
+          'value': _getActivityLevelText(),
+          'page': activityLevelPageIndex
+        },
       {'label': 'Goal', 'value': _getGoalText(), 'page': goalPageIndex},
     ];
     if (goal != MacroCalculatorService.GOAL_MAINTAIN) {
       activityGoalsItems.add({
-        'label': goal == MacroCalculatorService.GOAL_LOSE
-            ? 'Calorie Deficit'
-            : 'Calorie Surplus',
-        'value': '$deficit calories/day',
-        'page': goalPageIndex
+        'label': 'Pace',
+        'value': '${_paceText()}% a week',
+        'page': OnboardingStep.setNewGoal
       });
       activityGoalsItems.add({
         'label': 'Target Weight',
@@ -134,6 +173,25 @@ class SummaryPage extends StatelessWidget {
         'page': goalPageIndex
       });
     }
+    if (planStyle != null) {
+      activityGoalsItems.add({
+        'label': 'Plan',
+        'value': PlanStyleCopy.title(planStyle!),
+        'page': OnboardingStep.planStyle
+      });
+      if (planLine != null) {
+        activityGoalsItems.add({
+          'label': 'Plan Length',
+          'value': planLine!,
+          'page': OnboardingStep.planStyle
+        });
+      }
+    }
+    activityGoalsItems.add({
+      'label': 'Targets',
+      'value': adaptiveGoals ? 'Update weekly' : 'Fixed',
+      'page': OnboardingStep.adaptive
+    });
 
     final List<Map<String, dynamic>> macroSettingsItems = [
       {
@@ -143,7 +201,7 @@ class SummaryPage extends StatelessWidget {
       },
       {
         'label': 'Fat Ratio',
-        'value': '${(fatRatio * 100).round()}% of calories',
+        'value': '${(fatRatio * 100).round()}% of cals',
         'page': advancedSettingsPageIndex
       },
       {
@@ -174,6 +232,10 @@ class SummaryPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 32),
+          if (currentTargets != null && newTargets != null) ...[
+            _buildTargetsSection(context),
+            const SizedBox(height: 24),
+          ],
           _buildSummarySection(context,
               title: 'Personal Information',
               icon: Icons.person,
@@ -193,10 +255,93 @@ class SummaryPage extends StatelessWidget {
     );
   }
 
+  Widget _buildSimple(BuildContext context) {
+    final unit = isMetricWeight ? 'kg' : 'lbs';
+    final weekly = (effectivePacePct ?? pacePct) / 100 * weightKg * (isMetricWeight ? 1 : 2.20462);
+    final items = <Map<String, dynamic>>[
+      {'label': 'Goal', 'value': _getGoalText(), 'page': OnboardingStep.goal},
+      if (goal != MacroCalculatorService.GOAL_MAINTAIN)
+        {'label': 'Pace', 'value': 'About ${weekly.toStringAsFixed(weekly < 0.1 ? 2 : 1)} $unit a week', 'page': OnboardingStep.setNewGoal},
+      if (planStyle != null)
+        {'label': 'Plan', 'value': PlanStyleCopy.title(planStyle!), 'page': OnboardingStep.setNewGoal},
+      {'label': 'Targets', 'value': adaptiveGoals ? 'Adjust as I go' : 'Fixed', 'page': OnboardingStep.adaptive},
+    ];
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Your plan', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        if (newTargets != null) ...[
+          SimplePlanSummary(targets: newTargets!, previousCalories: currentTargets?.calories, goalDate: projectedDate, goalWeightKg: goal == MacroCalculatorService.GOAL_MAINTAIN ? null : goalWeightKg, isMetric: isMetricWeight, learned: learnedTdee != null, adaptive: adaptiveGoals),
+          const SizedBox(height: 20),
+        ],
+        _buildSummarySection(context, title: 'Review your plan', icon: Icons.check_circle_outline, items: items),
+        const SizedBox(height: 12),
+        ExpansionTile(title: const Text('Your answers'), tilePadding: EdgeInsets.zero, children: [
+          _buildSummaryItem(context, label: 'Weight', value: isMetricWeight ? '${weightKg.toStringAsFixed(1)} kg' : '${(weightKg * 2.20462).round()} lbs', page: OnboardingStep.weight),
+          if (learnedTdee == null) _buildSummaryItem(context, label: 'Activity Level', value: _getActivityLevelText(), page: OnboardingStep.activity),
+        ]),
+      ]),
+    );
+  }
+
+  /// "Your Targets": each target old → new, and where the new ones come from.
+  Widget _buildTargetsSection(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
+    final theme = Theme.of(context);
+    return _buildSection(
+      context,
+      title: 'Your Targets',
+      icon: Icons.track_changes,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: TargetsChangeRows(before: currentTargets!, after: newTargets!),
+        ),
+        if (learnedTdee != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1, right: 8),
+                  child: Icon(Icons.autorenew_rounded,
+                      size: 16, color: customColors?.textSecondary),
+                ),
+                Expanded(
+                  child: Text(
+                    learnedExpenditureLine(learnedTdee!),
+                    style: AppTypography.caption.copyWith(
+                      color: customColors?.textSecondary ??
+                          theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildSummarySection(BuildContext context,
+          {required String title,
+          required IconData icon,
+          required List<Map<String, dynamic>> items}) =>
+      _buildSection(context, title: title, icon: icon, children: [
+        ...items.where((item) => item.containsKey('value')).map((item) =>
+            _buildSummaryItem(context,
+                label: item['label'],
+                value: item['value'].toString(),
+                page: item['page'])),
+      ]);
+
+  /// A card with an icon header and [children] under a divider.
+  Widget _buildSection(BuildContext context,
       {required String title,
       required IconData icon,
-      required List<Map<String, dynamic>> items}) {
+      required List<Widget> children}) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
     return Container(
@@ -219,10 +364,14 @@ class SummaryPage extends StatelessWidget {
                 Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        color: (customColors?.accentPrimary ??
+                                theme.colorScheme.primary)
+                            .withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8)),
-                    child:
-                        Icon(icon, color: theme.colorScheme.primary, size: 20)),
+                    child: Icon(icon,
+                        color: customColors?.accentPrimary ??
+                            theme.colorScheme.primary,
+                        size: 20)),
                 const SizedBox(width: 12),
                 Text(title,
                     style: AppTypography.h3.copyWith(
@@ -231,11 +380,7 @@ class SummaryPage extends StatelessWidget {
                     ))
               ])),
           Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.1)),
-          ...items.where((item) => item.containsKey('value')).map((item) =>
-              _buildSummaryItem(context,
-                  label: item['label'],
-                  value: item['value'].toString(),
-                  page: item['page'])),
+          ...children,
         ],
       ),
     );
@@ -245,11 +390,14 @@ class SummaryPage extends StatelessWidget {
       {required String label, required String value, required OnboardingStep page}) {
     final customColors = Theme.of(context).extension<CustomColors>();
     final theme = Theme.of(context);
+    final editable = editableSteps?.contains(page) ?? true;
     return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onEdit(page);
-      },
+      onTap: !editable
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              onEdit(page);
+            },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Row(children: [
@@ -270,7 +418,11 @@ class SummaryPage extends StatelessWidget {
                           theme.colorScheme.onBackground,
                     ))
               ])),
-          Icon(Icons.edit, size: 16, color: theme.colorScheme.primary)
+          if (editable)
+            Icon(Icons.chevron_right_rounded,
+                size: 20,
+                color: customColors?.textSecondary ??
+                    theme.colorScheme.onSurface.withValues(alpha: 0.5))
         ]),
       ),
     );

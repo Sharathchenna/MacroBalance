@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -15,19 +16,49 @@ import 'package:macrotracker/widgets/weight_chart.dart';
 import 'package:macrotracker/widgets/weight_range_selector.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/foodEntryProvider.dart';
+import '../providers/detailed_stats_provider.dart';
+import '../providers/energy_provider.dart';
+import '../providers/goals_provider.dart';
 import '../providers/weight_unit_provider.dart';
+import '../services/energy/checkin.dart' show planTdee;
+import '../services/energy/constants.dart';
+import '../services/energy/energy_estimator.dart' show EnergyState;
+import '../services/energy/energy_summary.dart';
+import '../services/energy/phase_engine.dart' show phaseSwitchDays;
+import '../services/energy/projection.dart';
+import '../services/energy/trend_weight.dart';
+import '../services/macro_calculator_service.dart';
 import '../services/posthog_service.dart';
 import '../theme/app_theme.dart';
 
 /// Progress › Weight: where your weight is, where it's heading, and how far
 /// off the goal is. Shown in kg or lbs from the unit setting; stored in kg.
+///
+/// "Where your weight is" means the trend weight ([TrendSeries]), not the
+/// last scale reading: the headline, the pace and goal progress all use it.
+///
+/// Phase switches (`phaseSwitchDays`) are faint bands on the chart, and the
+/// days after one are labelled as the expected water and glycogen shift
+/// (spec 7.2). The trend uses the switches as the estimator does.
+///
+/// Two views of the same numbers ([DetailedStatsProvider]):
+/// - simple (the default): "Your weight" with one plain change line and an
+///   on-track pill, the goal as "3.1 of 7 kg lost" with when you'll get
+///   there ([projectToGoal]), a quiet chart, and the calories you burn;
+/// - detailed: the trend weight with its pace row (kg and %/week against the
+///   goal pace), Start / Trend / Goal, the chart legend and why a reading
+///   was ignored.
 class WeightTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
+
+  /// Opens the Energy tab from the "calories you burn" card; without it the
+  /// card isn't shown.
+  final VoidCallback? onOpenEnergy;
 
   const WeightTrackingScreen({
     Key? key,
     this.hideAppBar = false,
+    this.onOpenEnergy,
   }) : super(key: key);
 
   @override
@@ -41,10 +72,17 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   /// Stored rows (`{date, weight}` in kg), kept as-is for storage and sync.
   List<Map<String, dynamic>> _weightData = [];
   List<WeightEntry> _entries = [];
+  TrendSeries _series = TrendSeries.compute(const []);
+
+  /// Trend weight at each of [_entries].
   List<double> _trend = [];
 
   /// Index into the visible entries while the chart is being touched.
   int? _scrubbed;
+
+  /// Phase switch days, and the key they were last read with.
+  List<DateTime> _switches = const [];
+  String? _switchesKey;
 
   @override
   void initState() {
@@ -53,19 +91,47 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadWeightData());
   }
 
-  FoodEntryProvider get _food =>
-      Provider.of<FoodEntryProvider>(context, listen: false);
+  GoalsProvider get _goals =>
+      Provider.of<GoalsProvider>(context, listen: false);
 
   void _setHistory(List<Map<String, dynamic>> rows) {
     _weightData = rows;
     _entries = parseWeightHistory(rows);
-    _trend = weightTrend(_entries);
+    _series = trendSeries(_entries, switches: _switches);
+    _trend = [for (final p in _series.points) p.trendKg];
   }
 
-  double get _latestKg =>
-      _entries.isNotEmpty ? _entries.last.kg : _food.currentWeightKg;
+  /// Picks up phase changes: the trend and the bands depend on them.
+  void _watchSwitches() {
+    final key = context.select<EnergyProvider, String>((e) => [
+          for (final d in phaseSwitchDays(e.phases)) d.toIso8601String()
+        ].join(','));
+    if (key == _switchesKey) return;
+    _switchesKey = key;
+    _switches = phaseSwitchDays(
+        Provider.of<EnergyProvider>(context, listen: false).phases);
+    _setHistory(_weightData);
+  }
 
-  double? get _goalKg => _food.goalWeightKg > 0 ? _food.goalWeightKg : null;
+  /// Whether [day] is in the water and glycogen days after a switch.
+  bool _settling(DateTime day) => settlingAfterSwitch(day, _switches) != null;
+
+  bool _ignored(int i) => _series.points[i].ignored;
+
+  /// The last scale reading.
+  double get _latestKg =>
+      _entries.isNotEmpty ? _entries.last.kg : _goals.currentWeightKg;
+
+  /// The trend weight now.
+  double get _trendKg => _trend.isNotEmpty ? _trend.last : _latestKg;
+
+  /// Weigh-ins the trend used, for the rate behind the goal projection.
+  List<WeightEntry> get _usedEntries => [
+        for (var i = 0; i < _entries.length; i++)
+          if (!_ignored(i)) _entries[i],
+      ];
+
+  double? get _goalKg => _goals.goalWeightKg > 0 ? _goals.goalWeightKg : null;
 
   Future<void> _loadWeightData() async {
     var rows = <Map<String, dynamic>>[];
@@ -79,7 +145,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       }
     }
     // First visit: start the history from the weight given at onboarding.
-    final profileKg = _food.currentWeightKg;
+    final profileKg = _goals.currentWeightKg;
     if (rows.isEmpty && profileKg > 0) {
       rows.add({'date': DateTime.now().toIso8601String(), 'weight': profileKg});
       StorageService().put('weight_history', json.encode(rows));
@@ -102,13 +168,18 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     setState(() => _setHistory(merged));
     StorageService().put('weight_history', json.encode(_weightData));
     _syncProfileWeight();
+    _refreshEnergy();
   }
+
+  /// The expenditure estimate reads the stored weight history.
+  void _refreshEnergy() =>
+      Provider.of<EnergyProvider>(context, listen: false).scheduleRefresh();
 
   /// The profile's current weight follows the latest weigh-in.
   void _syncProfileWeight() {
     if (_entries.isEmpty) return;
-    if (_food.currentWeightKg != _entries.last.kg) {
-      _food.currentWeightKg = _entries.last.kg;
+    if (_goals.currentWeightKg != _entries.last.kg) {
+      _goals.currentWeightKg = _entries.last.kg;
     }
   }
 
@@ -124,15 +195,24 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     return '$sign$text ${_units.unitLabel}';
   }
 
-  /// Colour for a change: green toward the goal, amber away from it.
+  /// Colour for a change: green toward the goal, otherwise neutral. Moving
+  /// away from the goal is information, not failure, so it's never amber or
+  /// red.
   Color _changeColor(double deltaKg, CustomColors colors) {
     final goal = _goalKg;
     if (goal == null || deltaKg.abs() < 0.05 || _entries.isEmpty) {
       return colors.textPrimary;
     }
-    final wantDown = goal < _trend.last;
+    final wantDown = goal < _trendKg;
     final towardGoal = wantDown ? deltaKg < 0 : deltaKg > 0;
-    return towardGoal ? colors.accentPrimary : Colors.orange.shade700;
+    return towardGoal ? colors.accentPrimary : colors.textPrimary;
+  }
+
+  /// A percentage with a real minus sign, trailing zeros dropped (−0.5, 0.25).
+  static String _pct(double value, {bool signed = true}) {
+    var text = value.abs().toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+    if (text == '0' || !signed) return text;
+    return value < 0 ? '−$text' : '+$text';
   }
 
   /// "Sep 7", or "Sep 7, 2025" when it isn't this year.
@@ -182,7 +262,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final colors = theme.extension<CustomColors>()!;
     // Rebuild on unit and goal changes.
     context.watch<WeightUnitProvider>();
-    context.select<FoodEntryProvider, double>((p) => p.goalWeightKg);
+    context.select<GoalsProvider, double>((p) => p.goalWeightKg);
+    final detailed = context.watch<DetailedStatsProvider>().showDetailedStats;
+    _watchSwitches();
 
     final Widget body = _isLoading
         ? Center(child: CupertinoActivityIndicator(color: colors.textSecondary))
@@ -195,11 +277,15 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
               padding: const EdgeInsets.fromLTRB(
                   16, 16, 16, AppBottomBar.scrollClearance),
               children: [
-                _buildSummary(colors),
+                if (detailed) _buildSummary(colors) else _buildHeadline(colors),
                 const SizedBox(height: 16),
-                _buildChartCard(colors),
+                if (detailed) _buildGoalCard(colors) else _buildJourney(colors),
                 const SizedBox(height: 16),
-                _buildGoalCard(colors),
+                _buildChartCard(colors, detailed: detailed),
+                if (widget.onOpenEnergy != null) ...[
+                  const SizedBox(height: 16),
+                  _BurnCard(onTap: widget.onOpenEnergy!),
+                ],
               ],
             ),
           );
@@ -226,22 +312,312 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     );
   }
 
-  Widget _buildSummary(CustomColors colors) {
-    final hasEntries = _entries.isNotEmpty;
-    final rateEntries = recentForRate(_entries, _today);
-    final weekly = weeklyRateKg(rateEntries);
-    final latest = hasEntries ? _entries.last : null;
+  // --- Simple view ----------------------------------------------------------
 
-    String weighedIn() {
-      if (latest == null) return 'No weigh-ins yet';
-      final days = _today.difference(latest.day).inDays;
-      if (days == 0) return 'Weighed in today';
-      if (days == 1) return 'Weighed in yesterday';
-      if (days < 7) return 'Weighed in ${DateFormat.EEEE().format(latest.date)}';
-      return 'Weighed in ${_day(latest.date)}';
+  bool get _maintaining =>
+      context.read<GoalsProvider>().goalType == MacroCalculatorService.GOAL_MAINTAIN;
+
+  /// How the last week went against the plan; null under a week of
+  /// weigh-ins. Uses the same pace test as the detailed pace row.
+  _Pace? _pace() {
+    final goals = context.watch<GoalsProvider>();
+    final goalPct = signedGoalPacePct(
+        MacroCalculatorService.goalKindOf(goals.goalType),
+        goals.pacePctPerWeek);
+    final change = _series.weeklyChange();
+    if (change == null) return null;
+    final onPace =
+        isOnPace(actualPctPerWeek: change.pct, goalPctPerWeek: goalPct);
+    if (goalPct == 0) {
+      return onPace
+          ? _Pace.steady
+          : (change.kg > 0 ? _Pace.driftingUp : _Pace.driftingDown);
+    }
+    if (onPace) return _Pace.onTrack;
+    final faster = goalPct < 0 ? change.pct < goalPct : change.pct > goalPct;
+    return faster ? _Pace.faster : _Pace.slower;
+  }
+
+  /// "↓ 1.2 kg in the last 4 weeks" (up to four whole weeks of weigh-ins),
+  /// or "Steady over …"; null under a week.
+  String? _recentChange(_Pace? pace) {
+    if (_entries.isEmpty) return null;
+    final weeks = math.min(4, _today.difference(_entries.first.day).inDays ~/ 7);
+    if (weeks < 1) return null;
+    final then = _series.trendOn(
+        DateTime(_today.year, _today.month, _today.day - 7 * weeks));
+    if (then == null) return null;
+    final delta = _trendKg - then;
+    final window = weeks == 1 ? 'the last week' : 'the last $weeks weeks';
+    final shown = _units.convertFromKg(delta.abs()).toStringAsFixed(1);
+    if (shown == '0.0' || pace == _Pace.steady) return 'Steady over $window';
+    return '${delta < 0 ? '↓' : '↑'} $shown ${_units.unitLabel} in $window';
+  }
+
+  /// A weight in the unit shown without a needless ".0": "7", "62.9".
+  String _number(double kg) {
+    final v = _units.convertFromKg(kg);
+    return (v - v.round()).abs() < 0.05 ? '${v.round()}' : v.toStringAsFixed(1);
+  }
+
+  /// [_number] with the unit: "7 kg".
+  String _amount(double kg) => '${_number(kg)} ${_units.unitLabel}';
+
+  /// Simple headline: the trend as "Your weight", today's reading under it,
+  /// then the recent change and an on-track pill.
+  Widget _buildHeadline(CustomColors colors) {
+    final latest = _entries.isNotEmpty ? _entries.last : null;
+    final pace = _pace();
+    final change = _recentChange(pace);
+    final number = _units.convertFromKg(_trendKg).toStringAsFixed(1);
+    final quiet = GoogleFonts.inter(fontSize: 14, color: colors.textSecondary);
+
+    return ProgressCard(
+      key: const Key('weight_headline'),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Your weight',
+                        style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: colors.textSecondary)),
+                    const SizedBox(height: 6),
+                    Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                          text: _trendKg > 0 ? number : '—',
+                          style: GoogleFonts.inter(
+                            fontSize: 40,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -1,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                        TextSpan(
+                          text: ' ${_units.unitLabel}',
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ]),
+                    ),
+                    if (latest != null && latest.day == _today) ...[
+                      const SizedBox(height: 2),
+                      Text('Today ${_fmt(latest.kg)}',
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: colors.textSecondary)),
+                    ],
+                  ],
+                ),
+              ),
+              ProgressAddButton(onTap: () => _logWeight(colors)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (latest == null)
+            Text('Tap Log to add your first weigh-in.', style: quiet)
+          else if (change == null)
+            Text('Keep weighing in. Your progress shows after a week.',
+                style: quiet)
+          else
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  change,
+                  key: const Key('weight_recent_change'),
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: colors.textPrimary,
+                  ),
+                ),
+                if (pace != null) _PacePill(pace),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Simple goal card: how far along you are ("3.1 of 7 kg lost") and when
+  /// the plan gets you there; maintaining is "Holding steady around 70 kg".
+  Widget _buildJourney(CustomColors colors) {
+    final goals = context.watch<GoalsProvider>();
+    final energy = context.watch<EnergyProvider>();
+    final goal = _goalKg;
+    final pace = _pace();
+    final big = GoogleFonts.inter(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        color: colors.textPrimary);
+    final quiet = GoogleFonts.inter(
+        fontSize: 14, height: 1.45, color: colors.textSecondary);
+    final children = <Widget>[];
+
+    if (_maintaining) {
+      final drifting =
+          pace == _Pace.driftingUp || pace == _Pace.driftingDown;
+      // Around where you are: a maintain goal's stored goal weight is often
+      // left over from an earlier lose or gain goal.
+      final unit = _units.convertFromKg(_trendKg).round();
+      children.addAll([
+        Text(
+          drifting
+              ? 'Aiming to stay around $unit ${_units.unitLabel}'
+              : 'Holding steady around $unit ${_units.unitLabel}',
+          style: big,
+        ),
+        const SizedBox(height: 8),
+        Text(
+            _units.isMetric
+                ? 'Ups and downs of a kilo or two are normal.'
+                : 'Ups and downs of a few pounds are normal.',
+            style: quiet),
+      ]);
+    } else if (goal == null || _entries.isEmpty) {
+      children.add(Text(
+        goal == null
+            ? 'Set a goal weight to see how far you\'ve come and when '
+                'you\'ll get there.'
+            : 'Log your weight to see how far you\'ve come.',
+        style: quiet,
+      ));
+    } else {
+      final startKg = _trend.first;
+      final total = (goal - startKg).abs();
+      final doneKg = total < 0.05
+          ? total
+          : ((goal - startKg).sign * (_trendKg - startKg)).clamp(0.0, total);
+      // Match the check-in engine: celebrate only after crossing the goal
+      // in the chosen direction, even when already very close to it.
+      final reached = goals.goalType == MacroCalculatorService.GOAL_GAIN
+          ? _trendKg >= goal
+          : _trendKg <= goal;
+      final verb = goal < startKg ? 'lost' : 'gained';
+      if (reached) {
+        children.addAll([
+          Text('You reached ${_amount(goal)}!', style: big),
+          const SizedBox(height: 14),
+          _GoalBar(progress: 1, colors: colors, height: 10),
+          const SizedBox(height: 14),
+          Text('Nice work. Keep logging to stay there.', style: quiet),
+        ]);
+      } else {
+        final when = _projection(goals, energy, goal, pace);
+        children.addAll([
+          Text(
+            _units.convertFromKg(doneKg) < 0.05
+                ? '${_amount(total)} to go'
+                : '${_number(doneKg)} of ${_amount(total)} $verb',
+            key: const Key('weight_goal_progress'),
+            style: big,
+          ),
+          const SizedBox(height: 14),
+          _GoalBar(
+              progress: total == 0 ? 1 : doneKg / total,
+              colors: colors,
+              height: 10),
+          if (when != null) ...[
+            const SizedBox(height: 14),
+            Text(when, key: const Key('weight_goal_when'), style: quiet),
+          ],
+        ]);
+      }
     }
 
-    final number = _units.convertFromKg(_latestKg).toStringAsFixed(1);
+    return ProgressCard(
+      key: const Key('weight_journey'),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ProgressCardTitle('Your goal', trailing: _goalButton(colors)),
+          const SizedBox(height: 10),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  /// "On track to reach 65 kg around mid-Dec", from the plan's projection
+  /// (the same one as every "about N weeks" in the app).
+  String? _projection(GoalsProvider goals, EnergyProvider energy, double goal,
+      _Pace? pace) {
+    final settings = goals.checkinSettings;
+    final projection = projectToGoal(
+      goal: settings.goal,
+      weightKg: _trendKg,
+      goalWeightKg: goal,
+      tdee: planTdee(
+          settings: settings, latest: energy.latest, weightKg: _trendKg),
+      pacePct: math.max(settings.pacePct, 0.0),
+      body: settings.body,
+      on: _today,
+      adaptive: settings.adaptive,
+      cals: goals.caloriesGoal,
+      style: goals.planStyle,
+      phase: energy.currentPhase,
+      phaseSettings: goals.phaseSettings,
+    );
+    final weeks = projection.weeks, date = projection.date;
+    if (weeks == null || date == null || weeks == 0) return null;
+    final reach = 'reach ${_amount(goal)} ${roughDate(date, weeks, _today)}';
+    return switch (pace) {
+      _Pace.onTrack => 'On track to $reach.',
+      _Pace.faster => 'Your plan aims to $reach.',
+      null => 'Your plan gets you there ${roughDate(date, weeks, _today)}.',
+      _ => 'Stick with your plan to $reach.',
+    };
+  }
+
+  Widget _goalButton(CustomColors colors) => TextButton(
+        onPressed: () => _editGoal(colors),
+        style: TextButton.styleFrom(
+          foregroundColor: colors.accentPrimary,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          minimumSize: const Size(0, 32),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(_goalKg == null ? 'Set goal' : 'Edit',
+            style:
+                GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+      );
+
+  // --- Detailed view --------------------------------------------------------
+
+  Widget _buildSummary(CustomColors colors) {
+    final hasEntries = _entries.isNotEmpty;
+    final latest = hasEntries ? _entries.last : null;
+
+    String scale() {
+      if (latest == null) return 'No weigh-ins yet';
+      final days = _today.difference(latest.day).inDays;
+      final when = days == 0
+          ? 'today'
+          : days == 1
+              ? 'yesterday'
+              : days < 7
+                  ? DateFormat.EEEE().format(latest.date)
+                  : _day(latest.date);
+      return 'Scale ${_fmt(latest.kg)} · $when';
+    }
+
+    final number = _units.convertFromKg(_trendKg).toStringAsFixed(1);
 
     return ProgressCard(
       child: Column(
@@ -254,16 +630,31 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Current weight',
-                      style: GoogleFonts.inter(
-                          fontSize: 13, color: colors.textSecondary),
+                    Row(
+                      children: [
+                        Text(
+                          'Trend weight',
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: colors.textSecondary),
+                        ),
+                        // Full-size tap target without pushing the
+                        // number down.
+                        const SizedBox(
+                          width: 30,
+                          height: 16,
+                          child: OverflowBox(
+                            maxWidth: 30,
+                            maxHeight: 30,
+                            child: InfoButton(_trendInfo),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text.rich(
                       TextSpan(children: [
                         TextSpan(
-                          text: _latestKg > 0 ? number : '—',
+                          text: _trendKg > 0 ? number : '—',
                           style: GoogleFonts.inter(
                             fontSize: 34,
                             fontWeight: FontWeight.w700,
@@ -283,78 +674,135 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      weighedIn(),
+                      scale(),
                       style: GoogleFonts.inter(
                           fontSize: 13, color: colors.textSecondary),
                     ),
                   ],
                 ),
               ),
-              _LogButton(onTap: () => _logWeight(colors)),
+              ProgressAddButton(onTap: () => _logWeight(colors)),
             ],
           ),
           if (hasEntries) ...[
             const SizedBox(height: 16),
-            Divider(height: 1, color: colors.textSecondary.withOpacity(0.15)),
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: ProgressStat(
-                    label: 'Trend',
-                    value: _fmt(_trend.last),
-                    caption: 'smoothed',
-                  ),
-                ),
-                Expanded(
-                  child: ProgressStat(
-                    label: 'Weekly rate',
-                    value: weekly == null
-                        ? '—'
-                        : '${_fmt(weekly, signed: true)}/wk',
-                    valueColor: weekly == null
-                        ? null
-                        : _changeColor(weekly, colors),
-                    caption: weekly == null
-                        ? 'needs 1 week'
-                        : 'since ${_day(rateEntries.first.date)}',
-                  ),
-                ),
-                Expanded(
-                  child: ProgressStat(
-                    label: 'Total change',
-                    value: _entries.length < 2
-                        ? '—'
-                        : _fmt(_entries.last.kg - _entries.first.kg,
-                            signed: true),
-                    valueColor: _entries.length < 2
-                        ? null
-                        : _changeColor(
-                            _entries.last.kg - _entries.first.kg, colors),
-                    caption: _entries.length < 2
-                        ? null
-                        : 'since ${_day(_entries.first.date)}',
-                  ),
-                ),
-              ],
-            ),
+            _buildPaceRow(colors),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildChartCard(CustomColors colors) {
+  static const _trendInfo = ProgressInfo('Trend weight', [
+    InfoSection(
+      'Your weight swings a kilo or two from day to day with water, salt and '
+      'food in your stomach. The trend smooths those swings out: each '
+      'weigh-in moves it a tenth of the way toward the scale, so it shows '
+      'where your weight is really heading.',
+    ),
+    InfoSection(
+      'A reading more than 3% away from the trend is usually a slip, like '
+      'weighing in clothes or a typo, so it\'s left out and drawn as a grey '
+      'ring. Three in a row on the same side are a real change, and the '
+      'trend follows them.',
+      heading: 'Ignored readings',
+    ),
+    InfoSection(
+      'Your pace is how much the trend moved over the last week. It reads as '
+      'on pace within 0.15% a week of your goal pace.',
+      heading: 'Pace',
+    ),
+  ]);
+
+  /// "−0.3 kg/wk (−0.4%) · Goal −0.5%/wk". Neutral within
+  /// [kPaceTolerancePct] of the goal pace, a soft accent otherwise; never red.
+  Widget _buildPaceRow(CustomColors colors) {
+    final goals = context.watch<GoalsProvider>();
+    final goalPct = signedGoalPacePct(
+        MacroCalculatorService.goalKindOf(goals.goalType),
+        goals.pacePctPerWeek);
+    final change = _series.weeklyChange();
+    final onPace = change == null ||
+        isOnPace(actualPctPerWeek: change.pct, goalPctPerWeek: goalPct);
+    final emphasis = onPace ? colors.textPrimary : colors.accentPrimary;
+    final quiet = onPace ? colors.textSecondary : colors.accentPrimary;
+
+    return Container(
+      key: const Key('weight_pace_row'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: onPace
+            ? colors.textSecondary.withValues(alpha: 0.08)
+            : colors.accentPrimary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: change == null
+          ? Text(
+              'Your weekly pace shows after a week of weigh-ins',
+              style: GoogleFonts.inter(fontSize: 13, color: quiet),
+            )
+          : Row(
+              children: [
+                Icon(
+                  change.kg.abs() < 0.05
+                      ? Icons.trending_flat_rounded
+                      : change.kg < 0
+                          ? Icons.trending_down_rounded
+                          : Icons.trending_up_rounded,
+                  size: 18,
+                  color: emphasis,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '${_fmt(change.kg, signed: true)}/wk '
+                      '(${_pct(double.parse(change.pct.toStringAsFixed(1)))}%)',
+                      maxLines: 1,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: emphasis,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  goalPct == 0
+                      ? 'Goal: hold steady'
+                      : 'Goal ${_pct(goalPct)}%/wk',
+                  style: GoogleFonts.inter(fontSize: 13, color: quiet),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildChartCard(CustomColors colors, {required bool detailed}) {
     final now = DateTime.now();
     final inRange = <WeightEntry>[];
     final trendInRange = <double>[];
+    final ignoredInRange = <bool>[];
     for (var i = 0; i < _entries.length; i++) {
       if (_range.includes(_entries[i].date, now)) {
         inRange.add(_entries[i]);
         trendInRange.add(_trend[i]);
+        ignoredInRange.add(_ignored(i));
       }
     }
+    // Switches whose band reaches into the range.
+    final rangeStart = _rangeStart;
+    final switches = [
+      for (final d in _switches)
+        if (!DateTime(d.year, d.month, d.day + kSwitchExpectedDays)
+            .isBefore(DateTime(rangeStart.year, rangeStart.month, rangeStart.day + 1)))
+          d,
+    ];
     final scrubbed =
         _scrubbed != null && _scrubbed! < inRange.length ? _scrubbed : null;
     final showsTrend = WeightChart.showsTrend(inRange);
@@ -363,23 +811,34 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         _range == WeightRange.all ? 'so far' : 'in the $_rangePhrase';
 
     Widget header;
-    if (scrubbed != null) {
+    if (!detailed) {
+      header = _simpleChartHeader(colors,
+          scrubbed == null ? null : inRange[scrubbed],
+          ignored: scrubbed != null && ignoredInRange[scrubbed]);
+    } else if (scrubbed != null) {
       final e = inRange[scrubbed];
-      header = _ChartHeader(
+      header = ChartHeader(
         value: _fmt(e.kg),
-        detail: showsTrend
-            ? '${_day(e.date)} · trend ${_fmt(trendInRange[scrubbed])}'
-            : '${_day(e.date)} · tap to edit',
+        detail: ignoredInRange[scrubbed]
+            ? '${_day(e.date)} · ignored for trend'
+            : _settling(e.date)
+            ? '${_day(e.date)} · expected water & glycogen'
+            : showsTrend
+                ? '${_day(e.date)} · trend ${_fmt(trendInRange[scrubbed])}'
+                : '${_day(e.date)} · tap to edit',
       );
     } else if (inRange.length >= 2) {
-      final delta = inRange.last.kg - inRange.first.kg;
-      header = _ChartHeader(
+      // How far the trend moved, so one light morning doesn't count.
+      final delta = trendInRange.last - trendInRange.first;
+      header = ChartHeader(
         value: _fmt(delta, signed: true),
         valueColor: _changeColor(delta, colors),
-        detail: _rangePhrase,
+        detail: _range == WeightRange.all
+            ? 'trend $_rangePhrase'
+            : 'trend over the $_rangePhrase',
       );
     } else {
-      header = _ChartHeader(
+      header = ChartHeader(
         value: inRange.isEmpty ? 'No weigh-ins' : _fmt(inRange.first.kg),
         detail: inRange.isEmpty ? within : 'one weigh-in $within',
       );
@@ -390,9 +849,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 52), child: header),
-          const SizedBox(height: 12),
+          if (detailed)
+            ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 52), child: header)
+          else
+            header,
+          SizedBox(height: detailed ? 12 : 14),
           Padding(
             padding: const EdgeInsets.only(right: 4),
             child: WeightRangeSelector(
@@ -418,10 +880,20 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     start: _rangeStart,
                     end: _today,
                     isMetric: _units.isMetric,
-                    goalKg: _goalKg,
+                    // Simple view: no goal line when maintaining (the stored
+                    // goal weight is often left from an earlier goal).
+                    goalKg: !detailed && _maintaining ? null : _goalKg,
+                    ignored: ignoredInRange,
+                    switches: switches,
+                    simple: !detailed,
                     colors: colors,
                     onScrub: (i) => setState(() => _scrubbed = i),
-                    onTapEntry: (i) => _editEntry(inRange[i], colors),
+                    onTapEntry: (i) => _editEntry(inRange[i], colors,
+                        offTrendKg: ignoredInRange[i]
+                            ? inRange[i].kg - trendInRange[i]
+                            : null,
+                        settling: _settling(inRange[i].date),
+                        detailed: detailed),
                   ),
                 ),
                 if (inRange.isEmpty)
@@ -437,47 +909,102 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
               ],
             ),
           ),
+          if (detailed) ...[
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
             children: [
-              _LegendDot(color: colors.accentPrimary, ring: true),
-              _legendText('Weigh-ins', colors),
-              if (showsTrend) ...[
-                const SizedBox(width: 14),
-                _LegendLine(color: colors.accentPrimary),
-                _legendText('Trend', colors),
-              ],
-              if (WeightChart.showsGoal(inRange, trendInRange, _goalKg)) ...[
-                const SizedBox(width: 14),
-                _LegendLine(color: colors.textSecondary, dashed: true),
-                _legendText('Goal', colors),
-              ],
+              LegendItem(
+                  swatch: LegendDot(color: colors.accentPrimary, ring: true),
+                  label: 'Weigh-ins'),
+              if (showsTrend)
+                LegendItem(
+                    swatch: LegendLine(color: colors.accentPrimary),
+                    label: 'Trend'),
+              if (ignoredInRange.contains(true))
+                LegendItem(
+                    swatch: LegendDot(color: colors.textSecondary, ring: true),
+                    label: 'Ignored'),
+              if (WeightChart.showsGoal(inRange, trendInRange, _goalKg))
+                LegendItem(
+                    swatch:
+                        LegendLine(color: colors.textSecondary, dashed: true),
+                    label: 'Goal'),
+              if (switches.isNotEmpty)
+                LegendItem(
+                    swatch: LegendBand(color: colors.textSecondary),
+                    label: 'Phase change'),
             ],
           ),
+          ],
+          if (_settling(_today)) ...[
+            const SizedBox(height: 10),
+            Row(
+              key: const Key('weight_settling_note'),
+              children: [
+                Icon(Icons.water_drop_outlined,
+                    size: 15, color: colors.textSecondary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    detailed
+                        ? 'Expected: water & glycogen after your phase change'
+                        : _waterNote,
+                    style: GoogleFonts.inter(
+                        fontSize: 13, color: colors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _legendText(String text, CustomColors colors) => Padding(
-        padding: const EdgeInsets.only(left: 6),
-        child: Text(text,
-            style: GoogleFonts.inter(fontSize: 12, color: colors.textSecondary)),
-      );
+  /// Glossary copy for the days after a phase change.
+  static const _waterNote = 'Weight often jumps for a few days after a '
+      'change. That\'s water, not fat.';
+
+  /// Simple chart header: "Your journey", or the touched weigh-in.
+  Widget _simpleChartHeader(CustomColors colors, WeightEntry? touched,
+      {required bool ignored}) {
+    if (touched == null) {
+      return const SizedBox(height: 24, child: ProgressCardTitle('Your journey'));
+    }
+    final note = ignored
+        ? ' · looked unusual'
+        : _settling(touched.date)
+            ? ' · likely water'
+            : '';
+    return SizedBox(
+      height: 24,
+      child: Text.rich(
+        TextSpan(children: [
+          TextSpan(
+            text: _fmt(touched.kg),
+            style: GoogleFonts.inter(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: colors.textPrimary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          TextSpan(
+            text: '  ${_day(touched.date)}$note',
+            style: GoogleFonts.inter(fontSize: 14, color: colors.textSecondary),
+          ),
+        ]),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
 
   Widget _buildGoalCard(CustomColors colors) {
     final goal = _goalKg;
-    final editButton = TextButton(
-      onPressed: () => _editGoal(colors),
-      style: TextButton.styleFrom(
-        foregroundColor: colors.accentPrimary,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        minimumSize: const Size(0, 32),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-      child: Text(goal == null ? 'Set goal' : 'Edit',
-          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600)),
-    );
+    final editButton = _goalButton(colors);
 
     if (goal == null || _entries.isEmpty) {
       return ProgressCard(
@@ -497,8 +1024,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       );
     }
 
-    final startKg = _entries.first.kg;
-    final nowKg = _latestKg;
+    // Progress is on the trend, which starts at the first weigh-in.
+    final startKg = _trend.first;
+    final nowKg = _trendKg;
     final total = (goal - startKg).abs();
     final done = total < 0.05
         ? 1.0
@@ -506,9 +1034,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final left = (goal - nowKg).abs();
     final reached = left < 0.25 || done >= 1.0;
 
-    final weekly = weeklyRateKg(recentForRate(_entries, _today));
+    final weekly = weeklyRateKg(recentForRate(_usedEntries, _today));
     final eta = projectedGoalDate(
-        currentKg: _trend.last, goalKg: goal, weeklyKg: weekly, from: _today);
+        currentKg: nowKg, goalKg: goal, weeklyKg: weekly, from: _today);
 
     String outlook;
     if (reached) {
@@ -523,7 +1051,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
           : DateFormat.yMMMd().format(eta);
       outlook = 'At your current pace you\'ll get there around $when'
           '${weeks >= 2 ? ' (about $weeks weeks)' : ''}.';
-    } else if ((goal - _trend.last).sign != weekly.sign && weekly.abs() >= 0.05) {
+    } else if ((goal - nowKg).sign != weekly.sign && weekly.abs() >= 0.05) {
       outlook = 'Your trend is moving away from your goal right now.';
     } else {
       outlook = 'Your weight is holding steady. At this pace it\'ll be a while.';
@@ -539,7 +1067,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: ProgressStat(label: 'Start', value: _fmt(startKg))),
-              Expanded(child: ProgressStat(label: 'Now', value: _fmt(nowKg))),
+              Expanded(child: ProgressStat(label: 'Trend', value: _fmt(nowKg))),
               Expanded(child: ProgressStat(label: 'Goal', value: _fmt(goal))),
             ],
           ),
@@ -621,6 +1149,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     });
     StorageService().put('weight_history', json.encode(_weightData));
     _syncProfileWeight();
+    _refreshEnergy();
   }
 
   /// Sets [date]'s weight, replacing any weigh-in that day.
@@ -630,13 +1159,37 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     WeightSyncService().upsertDay(date, kg);
   }
 
-  /// Tapped weigh-in: change its weight or delete it.
-  Future<void> _editEntry(WeightEntry entry, CustomColors colors) async {
+  /// Tapped weigh-in: change its weight or delete it. For a reading the
+  /// trend left out, [offTrendKg] (scale minus trend) explains why; one in
+  /// the days after a phase switch ([settling]) says the shift is expected.
+  /// In the simple view the explanations are the glossary's plain ones.
+  Future<void> _editEntry(WeightEntry entry, CustomColors colors,
+      {double? offTrendKg, bool settling = false, bool detailed = true}) async {
     HapticFeedback.lightImpact();
     final action = await showCupertinoModalPopup<String>(
       context: context,
       builder: (sheet) => CupertinoActionSheet(
         title: Text('${_fmt(entry.kg)} · ${_day(entry.date)}'),
+        message: !detailed
+            ? (offTrendKg != null
+                ? const Text('This one looked unusual, so it counts less.')
+                : settling
+                    ? const Text(_waterNote)
+                    : null)
+            : offTrendKg == null
+            ? (settling
+                ? Text('Expected: water & glycogen after your phase change. '
+                    'The scale often moves '
+                    '${_units.isMetric ? '0.5–1.5 kg' : '1–3 lbs'} in the '
+                    'first days of a new phase. That\'s not fat, and the '
+                    'trend settles within about $kSwitchExpectedDays days.')
+                : null)
+            : Text(
+                'Ignored for trend: ${_fmt(offTrendKg.abs())} '
+                '${offTrendKg > 0 ? 'over' : 'under'} your trend. Readings '
+                'more than ${(kOutlierPct * 100).round()}% off are usually '
+                'water, clothes or a typo. If it was real, the next few '
+                'weigh-ins will bring the trend along.'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(sheet, 'edit'),
@@ -684,76 +1237,189 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       ),
     );
     if (result == null || !mounted) return;
-    _food.goalWeightKg = result.$2;
+    _goals.goalWeightKg = result.$2;
     setState(() {});
   }
 }
 
-class _ChartHeader extends StatelessWidget {
-  const _ChartHeader({required this.value, required this.detail, this.valueColor});
+/// When, roughly, for a goal [weeks] away on [date]: "within a week", "in a
+/// few weeks", "around mid-Dec" or, further out, "around March" (with the
+/// year when it isn't [today]'s).
+String roughDate(DateTime date, double weeks, DateTime today) {
+  if (weeks <= 1.5) return 'within a week';
+  if (weeks <= 4.5) return 'in a few weeks';
+  if (weeks <= 17) {
+    final month = DateFormat.MMM().format(date);
+    final part = date.day <= 10
+        ? 'early $month'
+        : date.day <= 20
+            ? 'mid-$month'
+            : 'late $month';
+    return 'around $part';
+  }
+  final month = DateFormat.MMMM().format(date);
+  return date.year == today.year ? 'around $month' : 'around $month ${date.year}';
+}
 
-  final String value;
-  final String detail;
-  final Color? valueColor;
+/// How the last week went against the plan, for the simple view's pill.
+enum _Pace {
+  onTrack('On track'),
+  slower('A bit slower than planned'),
+  faster('Faster than planned'),
+  steady('Holding steady'),
+  driftingUp('Drifting up a little'),
+  driftingDown('Drifting down a little');
+
+  const _Pace(this.label);
+
+  final String label;
+
+  /// On track (or holding steady) is the good news, in the accent; the rest
+  /// are information, in grey. Never red.
+  bool get good => this == onTrack || this == steady;
+}
+
+class _PacePill extends StatelessWidget {
+  const _PacePill(this.pace);
+
+  final _Pace pace;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<CustomColors>()!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            color: valueColor ?? colors.textPrimary,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+    return Container(
+      key: const Key('weight_pace_pill'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: pace.good
+            ? colors.accentPrimary.withValues(alpha: 0.14)
+            : colors.textSecondary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        pace.label,
+        style: GoogleFonts.inter(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: pace.good ? colors.accentPrimary : colors.textSecondary,
         ),
-        const SizedBox(height: 2),
-        Text(
-          detail,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.inter(fontSize: 13, color: colors.textSecondary),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _LogButton extends StatelessWidget {
-  const _LogButton({required this.onTap});
+/// The calories you burn, in one line, opening the Energy tab: "You burn
+/// about 2,430 cals a day", or "Getting to know you · day 5 of 14" while the
+/// estimate is still learning.
+class _BurnCard extends StatelessWidget {
+  const _BurnCard({required this.onTap});
 
   final VoidCallback onTap;
+
+  /// The nominal length of "getting to know you".
+  static const _learningDays = 14;
+
+  static final _cals = NumberFormat.decimalPattern();
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<CustomColors>()!;
-    return Material(
-      color: colors.accentPrimary.withOpacity(0.12),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    final goals = context.watch<GoalsProvider>();
+    final energy = context.watch<EnergyProvider>();
+    final summary = EnergySummary.from(
+      estimates: energy.estimates,
+      learningStartedOn: goals.learningStartedOn,
+      formulaTdee: goals.formulaTdee ?? goals.tdee,
+    );
+
+    final String title;
+    String? detail;
+    Widget leading;
+    if (summary.state == EnergyState.learning) {
+      final start = goals.learningStartedOn;
+      final now = DateTime.now();
+      final day = start == null
+          ? null
+          : DateTime(now.year, now.month, now.day)
+                  .difference(DateTime(start.year, start.month, start.day))
+                  .inDays +
+              1;
+      title = 'Getting to know you';
+      detail = day == null || day > _learningDays
+          ? 'Keep logging food and weighing in'
+          : 'Day $day of $_learningDays · log food and weigh in';
+      leading = SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          value: day == null ? 0 : math.min(day / _learningDays, 1.0),
+          strokeWidth: 3,
+          strokeCap: StrokeCap.round,
+          color: colors.accentPrimary,
+          backgroundColor: colors.accentPrimary.withValues(alpha: 0.18),
+        ),
+      );
+    } else {
+      title = 'You burn about '
+          '${_cals.format(roundToTen(summary.tdee))} cals a day';
+      detail = switch (summary.state) {
+        EnergyState.paused => 'Log a few days to keep this up to date',
+        EnergyState.estimated => 'This gets more accurate each week',
+        _ => null,
+      };
+      leading = Icon(Icons.local_fire_department_rounded,
+          size: 22, color: colors.accentPrimary);
+    }
+
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        key: const Key('weight_burn_card'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: ProgressCard(
+          padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_rounded, size: 18, color: colors.accentPrimary),
-              const SizedBox(width: 4),
-              Text(
-                'Log',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: colors.accentPrimary,
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colors.accentPrimary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: leading,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    if (detail != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        detail,
+                        style: GoogleFonts.inter(
+                            fontSize: 13, color: colors.textSecondary),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 22, color: colors.textSecondary),
             ],
           ),
         ),
@@ -763,17 +1429,18 @@ class _LogButton extends StatelessWidget {
 }
 
 class _GoalBar extends StatelessWidget {
-  const _GoalBar({required this.progress, required this.colors});
+  const _GoalBar({required this.progress, required this.colors, this.height = 8});
 
   final double progress;
   final CustomColors colors;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(height / 2),
       child: SizedBox(
-        height: 8,
+        height: height,
         width: double.infinity,
         child: ColoredBox(
           color: colors.textSecondary.withOpacity(0.15),
@@ -794,51 +1461,6 @@ class _GoalBar extends StatelessWidget {
       ),
     );
   }
-}
-
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, this.ring = false});
-
-  final Color color;
-  final bool ring;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 9,
-        height: 9,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: ring ? Border.all(color: color, width: 1.8) : null,
-          color: ring ? null : color,
-        ),
-      );
-}
-
-class _LegendLine extends StatelessWidget {
-  const _LegendLine({required this.color, this.dashed = false});
-
-  final Color color;
-  final bool dashed;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 16,
-        height: 3,
-        child: dashed
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  for (var i = 0; i < 3; i++)
-                    Container(width: 4, height: 1.5, color: color),
-                ],
-              )
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-      );
 }
 
 /// Asks for a weight in the user's unit (and optionally a date); pops

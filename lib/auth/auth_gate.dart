@@ -8,6 +8,8 @@ import 'dart:convert'; // Add for JSON parsing
 import 'package:macrotracker/services/storage_service.dart'; // Added StorageService
 import 'package:macrotracker/services/posthog_service.dart'; // Added PostHogService import
 import 'package:macrotracker/screens/app_shell.dart';
+import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:provider/provider.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -40,7 +42,7 @@ class _AuthGateState extends State<AuthGate> {
         // Check if user has macro data in Supabase
         final response = await Supabase.instance.client
             .from('user_macros')
-            .select('calories_goal, protein_goal, carbs_goal, fat_goal')
+            .select() // the targets and the goal settings
             .eq('id', currentUser.id)
             .maybeSingle();
         
@@ -48,11 +50,10 @@ class _AuthGateState extends State<AuthGate> {
           // User has completed onboarding, sync their data to local storage
           print("[AuthGate] Found existing user data in Supabase, syncing to local storage");
           
-          // Store the macro data locally
-          await StorageService().put('calories_goal', response['calories_goal']);
-          await StorageService().put('protein_goal', response['protein_goal']);
-          await StorageService().put('carbs_goal', response['carbs_goal']);
-          await StorageService().put('fat_goal', response['fat_goal']);
+          await GoalsProvider.cacheUserMacros(response);
+          if (mounted) {
+            await Provider.of<GoalsProvider>(context, listen: false).load();
+          }
           
           return true; // User has completed onboarding
         }
