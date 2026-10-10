@@ -1,0 +1,47 @@
+{
+  "version": "1.1.0",
+  "buildNumber": "1",
+  "bundleIdentifier": "app.macrobalance.com",
+  "sourceCheckpoint": "The main-branch commit containing this release manifest.",
+  "parentCommit": "43d5e38772d13615ae0e229ae58c2aa2a455e78c",
+  "artifact": {
+    "filename": "MacroBalance-1.1.0-build-1.ipa",
+    "bytes": 66393834,
+    "sha256": "2aa6a1a8f365b9ec2e3ac52ef221843545cad5c8b1b1e5fb04f3aebc5c6979dd",
+    "builtAt": "2026-10-10T05:47:39.666150+00:00"
+  },
+  "toolchain": {
+    "flutter": "3.29.0",
+    "flutterRevision": "35c388afb5",
+    "dart": "3.7.0",
+    "xcode": "27.0",
+    "xcodeBuild": "27A266a",
+    "cocoapods": "1.16.2"
+  },
+  "build": {
+    "entryPoint": "lib/main.dart",
+    "configuration": "release",
+    "testAccounts": false,
+    "shorebird": false,
+    "exportOptions": "ios/ExportOptions.plist",
+    "exportOptionsSha256": "010706adf2fc4e908b17abd06608bd2114d04f6b1816d13bcbb68b6495e39d02",
+    "commands": [
+      "flutter pub get --enforce-lockfile",
+      "flutter build ipa --release --no-pub --target lib/main.dart --build-name=1.1.0 --build-number=1 --dart-define=TEST_ACCOUNTS=false --export-options-plist=ios/ExportOptions.plist"
+    ]
+  },
+  "verification": {
+    "archive": "passed",
+    "ipaArchiveIntegrity": "passed",
+    "codesignDeepStrict": "passed",
+    "appStoreDistributionProfiles": "verified for app and widget",
+    "appAndWidgetVersions": "1.1.0 (1)",
+    "testsPassed": 1115,
+    "testsSkipped": 1,
+    "analyzerErrors": 0,
+    "analyzerWarnings": 91,
+    "analyzerInfo": 859,
+    "testFlightUpload": "Not performed by this build task.",
+    "deviceRuntime": "Not verified for this release artifact."
+  }
+}
