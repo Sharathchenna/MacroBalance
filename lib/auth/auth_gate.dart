@@ -171,7 +171,7 @@ class _AuthGateState extends State<AuthGate> {
             }
 
             return SuperwallGate(
-              child: const AppShell(),
+              child: const AppShell(restoresTab: true),
             );
           },
         );

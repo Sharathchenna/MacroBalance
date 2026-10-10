@@ -30,9 +30,15 @@ export '../widgets/app_bottom_bar.dart' show AppTab;
 /// for Health access) doesn't start work at launch. Screens pushed on top
 /// (food detail, search, ...) cover the bar as before.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.initialTab = AppTab.home});
+  const AppShell({super.key, this.initialTab = AppTab.home, this.restoresTab = false});
 
   final AppTab initialTab;
+
+  /// Opens on the tab this account last had open in this run of the app,
+  /// rather than [initialTab]. The signed-in shell can be rebuilt by the
+  /// gates above it while a screen is pushed on top; without this the user
+  /// would come back to Home.
+  final bool restoresTab;
 
   @override
   State<AppShell> createState() => AppShellState();
@@ -40,8 +46,12 @@ class AppShell extends StatefulWidget {
 
 class AppShellState extends State<AppShell>
     with SingleTickerProviderStateMixin {
-  late AppTab _tab = widget.initialTab;
-  late final Set<AppTab> _opened = {widget.initialTab};
+  // The tab each account last had open, for [AppShell.restoresTab].
+  static final Map<String?, AppTab> _lastTabs = {};
+
+  late AppTab _tab =
+      (widget.restoresTab ? _lastTabs[_userId] : null) ?? widget.initialTab;
+  late final Set<AppTab> _opened = {_tab};
 
   late final AnimationController _menu = AnimationController(
     vsync: this,
@@ -124,7 +134,7 @@ class AppShellState extends State<AppShell>
     // Whenever a signed-in account reaches Home without having seen the tour
     // (after onboarding, subscribing, starting a trial, or on a new device),
     // show it once the screen has settled.
-    if (widget.initialTab == AppTab.home && HomeTour.shouldShow(_userId)) {
+    if (_tab == AppTab.home && HomeTour.shouldShow(_userId)) {
       Future.delayed(const Duration(milliseconds: 900), () {
         if (mounted &&
             _tab == AppTab.home &&
@@ -171,6 +181,7 @@ class AppShellState extends State<AppShell>
   void select(AppTab tab) {
     _closeMenu();
     if (tab == _tab) return;
+    _lastTabs[_userId] = tab;
     setState(() {
       _tab = tab;
       _opened.add(tab);

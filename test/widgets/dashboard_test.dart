@@ -178,6 +178,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the signed-in shell reopens on the last tab when rebuilt',
+      (tester) async {
+    tester.view.physicalSize = const Size(1179, 2556);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    Future<void> pump(AppShell shell, Key key) async {
+      await tester.pumpWidget(testApp(KeyedSubtree(key: key, child: shell),
+          foodEntryProvider: provider));
+      await pumpFrames(tester);
+    }
+
+    await pump(const AppShell(restoresTab: true), const ValueKey(1));
+    await tester.tap(find.bySemanticsLabel('Profile'));
+    await pumpFrames(tester, seconds: 1);
+
+    // A new shell, as when a gate above it rebuilds behind a pushed screen.
+    await pump(const AppShell(restoresTab: true), const ValueKey(2));
+    expect(current(tester), AppTab.profile);
+    // Shells that ask for a tab still open on it.
+    await pump(const AppShell(), const ValueKey(3));
+    expect(current(tester), AppTab.home);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('moving between days and back to today works', (tester) async {
     await pumpShell(tester);
     await tester.tap(find.byIcon(Icons.chevron_left).first);
