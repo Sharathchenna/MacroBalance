@@ -578,11 +578,16 @@ class GoalCheckin {
   /// When the sheet was dismissed; null until then.
   final DateTime? seenAt;
 
-  GoalCheckin copyWith({DateTime? seenAt}) => GoalCheckin(
+  GoalCheckin copyWith({
+    DateTime? seenAt,
+    CheckinTargets? oldTargets,
+    CheckinTargets? newTargets,
+  }) =>
+      GoalCheckin(
         weekStart: weekStart,
         variant: variant,
-        oldTargets: oldTargets,
-        newTargets: newTargets,
+        oldTargets: oldTargets ?? this.oldTargets,
+        newTargets: newTargets ?? this.newTargets,
         reason: reason,
         createdAt: createdAt,
         seenAt: seenAt ?? this.seenAt,

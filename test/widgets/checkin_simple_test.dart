@@ -18,12 +18,13 @@ void main() {
     await StorageService().put('unit_system', 'metric');
   });
 
-  Future<void> open(WidgetTester tester, GoalCheckin c, {bool dark = true}) async {
+  Future<void> open(WidgetTester tester, GoalCheckin c,
+      {bool dark = true, bool startingEstimate = false}) async {
     tester.view.physicalSize = const Size(1206, 2622);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(testApp(
-      Scaffold(body: CheckinSheet(checkin: c)),
+      Scaffold(body: CheckinSheet(checkin: c, startingEstimate: startingEstimate)),
       detailedStatsProvider: DetailedStatsProvider(showDetailedStats: false),
       weightUnitProvider: WeightUnitProvider(),
       dark: dark,
@@ -70,6 +71,24 @@ void main() {
       expectPlain(tester);
     });
   }
+
+  testWidgets('a paused estimate that never learned reads as the starting estimate',
+      (tester) async {
+    final c = fixtures.checkin(
+      variant: CheckinVariant.insufficient, state: EnergyState.paused,
+      completeDays: 0, weighIns: 4,
+    );
+    await open(tester, c);
+    expect(find.textContaining("You haven't logged much lately"), findsOneWidget);
+
+    await open(tester, c, startingEstimate: true);
+    expect(find.textContaining('still a starting estimate'), findsOneWidget);
+    expect(find.textContaining("You haven't logged much lately"), findsNothing);
+    await tester.tap(find.byKey(const Key('checkin_why_toggle')));
+    await pumpFrames(tester);
+    expect(find.textContaining('0 of 7 days fully logged'), findsOneWidget);
+    expectPlain(tester);
+  });
 
   for (final limit in [null, ...SafetyLimit.values]) {
     testWidgets('safety explanation stays plain ($limit)', (tester) async {

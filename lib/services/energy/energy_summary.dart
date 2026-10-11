@@ -113,6 +113,12 @@ class EnergySummary {
 
   /// The "How we got this" numbers; null while learning.
   final Breakdown? breakdown;
+
+  /// Nothing has moved the estimate yet, so it (and the targets) is still
+  /// the formula's: learning, or paused before the first update.
+  bool get isStartingEstimate =>
+      state == EnergyState.learning ||
+      (state == EnergyState.paused && lastUpdated == null);
 }
 
 /// The plain-language maths behind an estimate (spec 7.1 R3), from one row's

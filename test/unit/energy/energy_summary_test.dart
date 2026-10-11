@@ -152,6 +152,7 @@ void main() {
       );
       expect(s.state, EnergyState.paused);
       expect(s.lastUpdated, day(19));
+      expect(s.isStartingEstimate, isFalse);
     });
 
     test('paused falls back to the last updated row when lastUpdateDay is '
@@ -188,6 +189,8 @@ void main() {
       expect(s.state, EnergyState.paused);
       expect(s.lastUpdated, isNull);
       expect(s.breakdown, isNull);
+      // Never learned anything: the targets are still the formula's.
+      expect(s.isStartingEstimate, isTrue);
     });
 
     test('breakdown comes from the latest updated row', () {

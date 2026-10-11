@@ -29,6 +29,7 @@ import '../../widgets/weight_range_selector.dart';
 import 'checkin_history.dart';
 import 'checkin_sheet.dart';
 import 'goals_card.dart';
+import 'starting_estimate_sheet.dart';
 
 /// Progress → Energy: the learned daily expenditure, how it was worked out,
 /// how good the data behind it is, the targets it feeds, and "Reset
@@ -76,8 +77,7 @@ class EnergyTab extends StatelessWidget {
     final detailed = context.watch<DetailedStatsProvider>().showDetailedStats;
 
     if (!detailed) {
-      final learning = summary.state == EnergyState.learning ||
-          (summary.state == EnergyState.paused && summary.lastUpdated == null);
+      final learning = summary.isStartingEstimate;
       final tip = learning || strip.isEmpty ? null : qualityTip(strip);
       return RefreshIndicator(
         onRefresh: energy.refresh,
@@ -366,24 +366,6 @@ class _GettingToKnowYou extends StatelessWidget {
   final DateTime? learningStartedOn;
   final VoidCallback? onLogWeight;
 
-  static String _times(int n, String one, String many) =>
-      n == 1 ? '1 more $one' : '$n more $many';
-
-  /// The one thing to do next.
-  static String nextStep(int days, int weighIns) {
-    final daysLeft = kMinCompleteDays - days;
-    final weighLeft = kMinWeighIns - weighIns;
-    if (daysLeft > 0 && weighLeft > 0) {
-      return 'Log your food for ${_times(daysLeft, 'day', 'days')} and weigh '
-          'in ${_times(weighLeft, 'time', 'times')}.';
-    }
-    if (daysLeft > 0) {
-      return 'Log your food for ${_times(daysLeft, 'day', 'days')}.';
-    }
-    if (weighLeft > 0) return 'Weigh in ${_times(weighLeft, 'time', 'times')}.';
-    return 'Almost there. Keep logging and weighing in.';
-  }
-
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<CustomColors>()!;
@@ -401,7 +383,6 @@ class _GettingToKnowYou extends StatelessWidget {
         : DateTime(learningStartedOn!.year, learningStartedOn!.month,
             learningStartedOn!.day + kSwitchSettleDays);
     final settling = countsFrom != null && countsFrom.isAfter(today);
-    final paused = summary.state == EnergyState.paused;
 
     Widget count(Color color, String text) => Row(
           children: [
@@ -476,9 +457,7 @@ class _GettingToKnowYou extends StatelessWidget {
           ),
           const SizedBox(height: 22),
           Text(
-            paused
-                ? 'Log a few days to keep this up to date.'
-                : nextStep(days, weighed),
+            learningNextStep(days, weighed),
             key: const Key('energy_next_step'),
             style: GoogleFonts.inter(
               fontSize: 15,
@@ -564,9 +543,8 @@ class _HeadlineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<CustomColors>()!;
-    final learning = summary.state == EnergyState.learning;
     final paused = summary.state == EnergyState.paused;
-    final starting = learning || (paused && summary.lastUpdated == null);
+    final starting = summary.isStartingEstimate;
 
     return ProgressCard(
       child: Column(
@@ -638,7 +616,7 @@ class _HeadlineCard extends StatelessWidget {
               style: _secondary(colors),
             ),
           ],
-          if (learning) ...[
+          if (starting) ...[
             const SizedBox(height: 16),
             _LearningProgress(
               completeDays: summary.completeDays,
@@ -649,10 +627,8 @@ class _HeadlineCard extends StatelessWidget {
             const SizedBox(height: 10),
             _Note(
               icon: Icons.pause_circle_outline_rounded,
-              text: summary.lastUpdated == null
-                  ? 'Paused · log a few days to resume'
-                  : 'Last updated ${_date(summary.lastUpdated!)} · '
-                      'log a few days to resume',
+              text: 'Last updated ${_date(summary.lastUpdated!)} · '
+                  'log a few days to resume',
             ),
           ] else if (summary.state == EnergyState.estimated) ...[
             const SizedBox(height: 10),

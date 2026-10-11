@@ -443,7 +443,14 @@ class _ResultsScreenState extends State<ResultsScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'This target supports sustainable progress toward your goals',
+                      // A formula target can be a few hundred cals off; say
+                      // so up front rather than leave the number unexplained.
+                      widget.adaptiveGoals && widget.results['tdee_learned'] != true
+                          ? 'This is a starting estimate from your details. Log '
+                              'your food and weigh in for a week or two, and it '
+                              'adjusts to what your body actually burns.'
+                          : 'This target supports sustainable progress toward your goals',
+                      key: const Key('results_target_tip'),
                       style: TextStyle(
                         fontSize: 14,
                         color: customColors.textPrimary,

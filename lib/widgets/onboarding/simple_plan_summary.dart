@@ -102,7 +102,9 @@ class SimplePlanSummary extends StatelessWidget {
             learned
                 ? 'Based on how your body has responded so far.'
                 : adaptive
-                    ? 'Your targets adjust as we get to know you.'
+                    ? 'This is a starting estimate from your details. Log your '
+                        'food and weigh in for a week or two, and it adjusts to '
+                        'what your body actually burns.'
                     : 'Your targets stay the same until you change them.',
             style: GoogleFonts.inter(
                 fontSize: 13, height: 1.4, color: colors?.textSecondary)),

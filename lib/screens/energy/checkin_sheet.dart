@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../providers/detailed_stats_provider.dart';
 import '../../providers/energy_provider.dart';
 import '../../providers/finish_reminder_provider.dart';
+import '../../providers/goals_provider.dart';
 import '../../providers/weight_unit_provider.dart';
 import '../../services/energy/checkin.dart';
 import '../../services/energy/constants.dart';
@@ -39,6 +40,28 @@ Future<void> showCheckinSheet(
     'variant': variant,
     'source': source.name,
   });
+  // A check-in that kept the targets says "Your targets stay the same", so
+  // this week's shows them as they are now: they may have been changed since
+  // it ran (a profile edit). Past ones show what they were.
+  final live = source == CheckinSheetSource.auto || source == CheckinSheetSource.chip;
+  final keptTargets = checkin.variant == CheckinVariant.unchanged ||
+      checkin.variant == CheckinVariant.insufficient;
+  // A week too thin to learn from says the estimate is paused, which reads
+  // wrong when it has never learned anything: this week's says it is still
+  // the starting estimate instead.
+  final goals = Provider.of<GoalsProvider>(context, listen: false);
+  final startingEstimate = live &&
+      checkin.variant == CheckinVariant.insufficient &&
+      EnergySummary.from(
+        estimates: energy.estimates,
+        learningStartedOn: goals.learningStartedOn,
+        formulaTdee: goals.formulaTdee ?? goals.tdee,
+      ).isStartingEstimate;
+  var shown = checkin;
+  if (live && keptTargets) {
+    final now = goals.checkinTargets;
+    shown = checkin.copyWith(oldTargets: now, newTargets: now);
+  }
   final watch = Stopwatch()..start();
   await showModalBottomSheet<void>(
     context: context,
@@ -48,7 +71,7 @@ Future<void> showCheckinSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => CheckinSheet(checkin: checkin),
+    builder: (_) => CheckinSheet(checkin: shown, startingEstimate: startingEstimate),
   );
   PostHogService.trackEvent('checkin_dismissed', properties: {
     'variant': variant,
@@ -69,9 +92,13 @@ Future<void> showCheckinSheet(
 /// loss phase. Their second choice ("Keep losing instead", "Extend break")
 /// is offered while it can still be made.
 class CheckinSheet extends StatelessWidget {
-  const CheckinSheet({super.key, required this.checkin});
+  const CheckinSheet({super.key, required this.checkin, this.startingEstimate = false});
 
   final GoalCheckin checkin;
+
+  /// The estimate has never learned anything, so a paused one is still the
+  /// starting estimate (see [showCheckinSheet]).
+  final bool startingEstimate;
 
   @override
   Widget build(BuildContext context) {
@@ -79,7 +106,8 @@ class CheckinSheet extends StatelessWidget {
     final units = context.watch<WeightUnitProvider>();
     final energy = context.watch<EnergyProvider?>();
     final copy = CheckinCopy(checkin,
-        isKg: units.isKg, lossPhaseNumber: lossPhaseNumber(checkin, energy?.phases ?? const []));
+        isKg: units.isKg,
+        startingEstimate: startingEstimate, lossPhaseNumber: lossPhaseNumber(checkin, energy?.phases ?? const []));
     final changed = checkin.variant.appliesTargets;
     final phaseChange = checkin.variant.isPhaseChange;
     final canChange = phaseChange && (energy?.canChangePhase(checkin) ?? false);
@@ -99,7 +127,7 @@ class CheckinSheet extends StatelessWidget {
     if (!detailed) {
       return _SimpleCheckinSheet(
         checkin: checkin,
-        copy: SimpleCheckinCopy(checkin, isKg: units.isKg),
+        copy: SimpleCheckinCopy(checkin, isKg: units.isKg, startingEstimate: startingEstimate),
         maintenance: maintenance,
         canChoose: canChoose,
         alternative: alternative,
@@ -659,15 +687,22 @@ String fmtCals(num cals) => NumberFormat.decimalPattern().format(cals.round());
 /// The sheet's words for a check-in (plan 9.5).
 @visibleForTesting
 class CheckinCopy {
-  CheckinCopy(this.checkin, {this.isKg = true, this.lossPhaseNumber});
+  CheckinCopy(this.checkin,
+      {this.isKg = true, this.lossPhaseNumber, this.startingEstimate = false});
 
   final GoalCheckin checkin;
   final bool isKg;
+
+  /// See [CheckinSheet.startingEstimate].
+  final bool startingEstimate;
 
   /// G: which loss phase starts, when the phases are known.
   final int? lossPhaseNumber;
 
   CheckinReason get _r => checkin.reason;
+
+  /// Paused after learning something; otherwise the "need more days" copy.
+  bool get _paused => _r.state == EnergyState.paused && !startingEstimate;
 
   String get eyebrow => 'Weekly check-in · ${DateFormat('MMM d').format(checkin.weekStart)}';
 
@@ -741,7 +776,7 @@ class CheckinCopy {
       case CheckinVariant.unchanged:
         return 'Right on track, no change';
       case CheckinVariant.insufficient:
-        return _r.state == EnergyState.paused
+        return _paused
             ? 'Estimate paused, targets kept'
             : 'Not enough data yet, targets kept';
       case CheckinVariant.goalReached:
@@ -844,7 +879,7 @@ class CheckinCopy {
   /// Variant C: what the estimate still needs.
   String? get missing {
     if (checkin.variant != CheckinVariant.insufficient) return null;
-    if (_r.state == EnergyState.paused) {
+    if (_paused) {
       return 'Your expenditure estimate is paused. It needs at least one finished day '
           'and one weigh-in a week to keep learning.';
     }
@@ -938,13 +973,19 @@ class CheckinCopy {
 /// words (expenditure, trend weight, %, phase).
 @visibleForTesting
 class SimpleCheckinCopy {
-  SimpleCheckinCopy(this.checkin, {this.isKg = true});
+  SimpleCheckinCopy(this.checkin, {this.isKg = true, this.startingEstimate = false});
 
   final GoalCheckin checkin;
   final bool isKg;
 
+  /// See [CheckinSheet.startingEstimate].
+  final bool startingEstimate;
+
   CheckinReason get _r => checkin.reason;
   CheckinVariant get _v => checkin.variant;
+
+  /// Paused after learning something; otherwise the "need more days" copy.
+  bool get _paused => _r.state == EnergyState.paused && !startingEstimate;
 
   /// "Weekly check-in · Oct 5".
   String get title => 'Weekly check-in · ${DateFormat('MMM d').format(checkin.weekStart)}';
@@ -1018,8 +1059,12 @@ class SimpleCheckinCopy {
             ? 'Your target is already the lowest we recommend, so it stays the same.'
             : 'Your target still fits your plan, so no change this week.';
       case CheckinVariant.insufficient:
-        return _r.state == EnergyState.paused
-            ? "You haven't logged much lately, so your target stays the same for now."
+        if (_paused) {
+          return "You haven't logged much lately, so your target stays the same for now.";
+        }
+        return _r.state == EnergyState.learning || startingEstimate
+            ? 'Your target is still a starting estimate. Keep logging food and weighing '
+                'in, and it adjusts to what you burn within a week or two.'
             : 'We need a few more days of logging to adjust. Your target stays the same.';
       case CheckinVariant.goalReached:
         return 'Great work! Choose what comes next: stay at this weight or set a new goal.';
@@ -1085,7 +1130,7 @@ class SimpleCheckinCopy {
         }
         return out;
       case CheckinVariant.insufficient:
-        if (_r.state == EnergyState.paused) {
+        if (_paused) {
           return const [
             'Log your food and weigh in at least once a week to keep your target up to date.'
           ];

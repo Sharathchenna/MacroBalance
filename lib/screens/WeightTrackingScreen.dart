@@ -1335,7 +1335,7 @@ class _BurnCard extends StatelessWidget {
     final String title;
     String? detail;
     Widget leading;
-    if (summary.state == EnergyState.learning) {
+    if (summary.isStartingEstimate) {
       final start = goals.learningStartedOn;
       final now = DateTime.now();
       final day = start == null

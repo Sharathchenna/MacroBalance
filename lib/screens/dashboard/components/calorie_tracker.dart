@@ -14,6 +14,8 @@ import '../../../providers/goals_provider.dart';
 import '../../../screens/NutritionTrendsScreen.dart';
 import '../../../screens/StepsTrackingScreen.dart';
 import '../../../screens/energy/checkin_sheet.dart';
+import '../../../screens/energy/starting_estimate_sheet.dart';
+import '../../../services/energy/energy_summary.dart';
 import '../../../services/storage_service.dart';
 import '../../../theme/app_theme.dart';
 
@@ -228,8 +230,9 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     );
   }
 
-  Widget _buildCalorieInfoCard(BuildContext context, String label, int value, Color color, IconData icon) {
-    return Container(
+  Widget _buildCalorieInfoCard(BuildContext context, String label, int value, Color color, IconData icon,
+      {VoidCallback? onTap}) {
+    final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.light
@@ -266,8 +269,23 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               ],
             ),
           ),
+          if (onTap != null)
+            Icon(Icons.info_outline_rounded,
+                size: 16,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? Colors.grey.shade600
+                    : Colors.grey.shade400),
         ],
       ),
+    );
+    if (onTap == null) return card;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: card,
     );
   }
 
@@ -280,6 +298,15 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         final carbGoal = goals.carbsGoal.toInt();
         final fatGoal = goals.fatGoal.toInt();
         final stepsGoal = goals.stepsGoal.toInt();
+        // Until the estimate has learned anything the target is the
+        // formula's, which can be a few hundred cals off: say so.
+        final energy = context.watch<EnergyProvider>();
+        final summary = EnergySummary.from(
+          estimates: energy.estimates,
+          learningStartedOn: goals.learningStartedOn,
+          formulaTdee: goals.formulaTdee ?? goals.tdee,
+        );
+        final startingEstimate = goals.adaptiveGoals && summary.isStartingEstimate;
 
         final nutrientTotals = foodEntryProvider.getNutrientTotalsForDate(dateProvider.selectedDate);
         final caloriesFromFood = nutrientTotals['calories'] ?? 0.0;
@@ -439,8 +466,15 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _buildCalorieInfoCard(context, 'Goal', caloriesGoal,
-                                  const Color(0xFF34C85A), Icons.flag_outlined),
+                              _buildCalorieInfoCard(
+                                  context,
+                                  startingEstimate ? 'Goal · estimate' : 'Goal',
+                                  caloriesGoal,
+                                  const Color(0xFF34C85A),
+                                  Icons.flag_outlined,
+                                  onTap: startingEstimate
+                                      ? () => showStartingEstimateSheet(context, summary)
+                                      : null),
                               const SizedBox(height: 8),
                               _buildCalorieInfoCard(context, 'Food', caloriesFromFood.toInt(),
                                   const Color(0xFFFFA726), Icons.restaurant_menu_outlined),

@@ -202,6 +202,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a starting-estimate goal says so and explains itself',
+      (tester) async {
+    await pumpShell(tester);
+    // No estimate rows yet: the target is the formula's.
+    expect(find.text('Goal · estimate'), findsOneWidget);
+    await tester.tap(find.text('Goal · estimate'));
+    await pumpFrames(tester, seconds: 1);
+    expect(find.byKey(const Key('starting_estimate_sheet')), findsOneWidget);
+    expect(find.text('Your target is a starting estimate'), findsOneWidget);
+    expect(find.textContaining('Within a week or two'), findsOneWidget);
+    expect(find.text('In the last 3 weeks: 0 of 7 days logged, 0 of 4 weigh-ins'),
+        findsOneWidget);
+    await tester.tap(find.byKey(const Key('starting_estimate_done')));
+    await pumpFrames(tester, seconds: 1);
+    expect(find.byKey(const Key('starting_estimate_sheet')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('moving between days and back to today works', (tester) async {
     await pumpShell(tester);
     await tester.tap(find.byIcon(Icons.chevron_left).first);
