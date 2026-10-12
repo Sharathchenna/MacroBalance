@@ -5,7 +5,7 @@ workflows:
     instance_type: mac_mini_m2
     integrations:
       # Name of the App Store Connect API key added under Team settings > Integrations
-      app_store_connect: codemagic
+      app_store_connect: Codemagic API
     environment:
       flutter: 3.47.6
       xcode: latest
@@ -14,7 +14,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: app.macrobalance.com
       vars:
-        APP_STORE_APPLE_ID: 0000000000 # Replace with the Apple ID from App Store Connect > App Information
+        APP_STORE_APPLE_ID: 6743542972
     triggering:
       events:
         - tag
