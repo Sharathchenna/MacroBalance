@@ -1,0 +1,72 @@
+workflows:
+  ios-release:
+    name: iOS release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      # Name of the App Store Connect API key added under Team settings > Integrations
+      app_store_connect: codemagic
+    environment:
+      flutter: 3.47.6
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.macrobalance.com
+      vars:
+        APP_STORE_APPLE_ID: 0000000000 # Replace with the Apple ID from App Store Connect > App Information
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Run tests
+        script: flutter test
+        ignore_failure: true
+      - name: Install pods
+        script: find . -name "Podfile" -execdir pod install \;
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Build ipa
+        script: |
+          LATEST_BUILD=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          flutter build ipa --release \
+            --build-number=$((LATEST_BUILD + 1)) \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
+
+  android-release:
+    name: Android release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: 3.47.6
+      java: 17
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Run tests
+        script: flutter test
+        ignore_failure: true
+      - name: Build app bundle
+        script: flutter build appbundle --release --build-number=$BUILD_NUMBER
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+      - build/app/outputs/mapping/release/mapping.txt
+      - build/**/outputs/**/mapping.txt
