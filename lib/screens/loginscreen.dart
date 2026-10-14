@@ -121,11 +121,11 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       /// Web Client ID that you registered with Google Cloud.
       const webClientId =
-          '701854121812-o16ceunerojb75emmvqgjfsv6k3il75q.apps.googleusercontent.com';
+          '253882759822-eaq84uc6t558i000fqroef3f47sf6e16.apps.googleusercontent.com';
 
       /// iOS Client ID that you registered with Google Cloud.
       const iosClientId =
-          '701854121812-omm2i6nk8e1s88ngtnfb4tt5i1t5c0tp.apps.googleusercontent.com';
+          '253882759822-7a6ka2f4k37v0ifhvpoe1fv6hfti4aar.apps.googleusercontent.com';
 
       final GoogleSignIn googleSignIn = GoogleSignIn(
         clientId: iosClientId,
