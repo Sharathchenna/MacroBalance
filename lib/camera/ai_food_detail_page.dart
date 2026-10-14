@@ -16,6 +16,7 @@ import 'package:uuid/uuid.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'dart:ui';
+import 'package:macrotracker/widgets/app_toast.dart';
 
 class AIFoodDetailPage extends StatefulWidget {
   final AIFoodItem food;
@@ -1109,25 +1110,10 @@ class _AIFoodDetailPageState extends State<AIFoodDetailPage>
     Navigator.pop(context);
 
     // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_outline,
-                color: Theme.of(context).colorScheme.onPrimary),
-            const SizedBox(width: 8),
-            Text(
-              'Added to $selectedMeal',
-              style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFFFFC107),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(8),
-        duration: const Duration(seconds: 2),
-      ),
+    AppToast.show(
+      'Added ${entry.food.name} to $selectedMeal',
+      actionLabel: 'Undo',
+      onAction: () => foodEntryProvider.removeEntry(entry.id),
     );
   }
 }

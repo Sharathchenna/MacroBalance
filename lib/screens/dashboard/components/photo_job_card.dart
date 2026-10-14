@@ -1,14 +1,16 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../AI/gemini.dart' show PhotoAnalysisFailure;
 import '../../../camera/results_page.dart';
-import '../../../main.dart' show navigatorKey, scaffoldMessengerKey;
+import '../../../main.dart' show navigatorKey;
 import '../../../services/camera_service.dart';
 import '../../../services/photo_analysis_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/typography.dart';
+import '../../../widgets/app_toast.dart';
 
 /// Opens the detected foods for review; nothing is logged until the user adds them.
 void reviewPhotoJob(PhotoJob job) {
@@ -25,24 +27,31 @@ void _retake() {
   CameraService().showNativeCamera().catchError((_) {});
 }
 
-/// Banner shown when a background analysis finishes while the app is open.
+/// Drops in from the top when a background analysis finishes while the app is
+/// open, then leaves on its own; the meal's card keeps the job for later.
 void showPhotoJobBanner(PhotoJob job) {
-  final messenger = scaffoldMessengerKey.currentState;
-  if (messenger == null) return;
   final ok = job.status == PhotoJobStatus.ready;
-  messenger.hideCurrentSnackBar();
-  messenger.showSnackBar(
-    SnackBar(
-      content: Text(ok
-          ? 'Your ${job.meal.toLowerCase()} is ready'
-          : job.error?.message ?? "Couldn't analyze your photo"),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 6),
-      action: SnackBarAction(
-        label: ok ? 'Review' : 'Retake',
-        onPressed: () => ok ? reviewPhotoJob(job) : _retake(),
-      ),
+  final noFood = job.error?.kind == PhotoAnalysisFailure.noFood;
+  HapticFeedback.lightImpact();
+  AppToast.showNotice(
+    leading: ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.memory(job.photo,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox(width: 40, height: 40)),
     ),
+    title: ok
+        ? 'Your ${job.meal.toLowerCase()} is ready'
+        : job.error?.message ?? "Couldn't analyze your photo",
+    subtitle: ok
+        ? (job.foods.length == 1
+            ? '${job.foods.first.name} · tap to review'
+            : '${job.foods.length} foods · tap to review')
+        : (noFood ? 'Try a clearer photo of the plate' : 'Retry from the meal card'),
+    actionLabel: ok ? 'Review' : (noFood ? 'Retake' : null),
+    onTap: ok ? () => reviewPhotoJob(job) : (noFood ? _retake : null),
   );
 }
 

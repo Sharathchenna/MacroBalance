@@ -4,7 +4,7 @@ import 'typography.dart';
 
 class AppTheme {
   static ThemeData lightTheme = ThemeData(
-    // Floating snackbars (Undo, "Added to…") sit above the dashboard's
+    // Floating snackbars sit above the dashboard's
     // floating nav bar instead of under it, where Undo couldn't be tapped.
     snackBarTheme: const SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -57,7 +57,7 @@ class AppTheme {
   );
 
   static ThemeData darkTheme = ThemeData(
-    // Floating snackbars (Undo, "Added to…") sit above the dashboard's
+    // Floating snackbars sit above the dashboard's
     // floating nav bar instead of under it, where Undo couldn't be tapped.
     snackBarTheme: const SnackBarThemeData(
       behavior: SnackBarBehavior.floating,

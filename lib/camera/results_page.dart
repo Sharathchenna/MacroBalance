@@ -9,6 +9,7 @@ import 'package:macrotracker/camera/ai_food_detail_page.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:macrotracker/widgets/app_toast.dart';
 
 class ResultsPage extends StatelessWidget {
   final List<AIFoodItem> foods;
@@ -392,25 +393,10 @@ class ResultsPage extends StatelessWidget {
     Navigator.pop(context); // Close bottom sheet
 
     // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_outline,
-                color: Theme.of(context).colorScheme.onPrimary),
-            SizedBox(width: 8),
-            Text(
-              'Added to $meal',
-              style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-            ),
-          ],
-        ),
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: EdgeInsets.all(8),
-        duration: const Duration(seconds: 2),
-      ),
+    AppToast.show(
+      'Added ${food.name} to $meal',
+      actionLabel: 'Undo',
+      onAction: () => foodEntryProvider.removeEntry(entry.id),
     );
 
     // Navigate directly to Dashboard instead of staying on results page

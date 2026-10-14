@@ -81,7 +81,7 @@ void main() {
       expect(FoodEntryProvider.nutrientForEntry(entry, 'calories'), 225);
     });
 
-    testWidgets('confirms with a snackbar whose Undo removes the entry',
+    testWidgets('confirms with a toast whose Undo removes the entry',
         (tester) async {
       await pumpButton(tester, meal: 'Lunch');
       await tapLogAgain(tester);

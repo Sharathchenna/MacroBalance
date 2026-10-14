@@ -19,6 +19,7 @@ import '../../foodDetail.dart';
 import 'finish_day_row.dart';
 import 'photo_job_card.dart';
 import '../../../utils/quick_log.dart';
+import 'package:macrotracker/widgets/app_toast.dart';
 
 /// Widget that displays meal sections (Breakfast, Lunch, Snacks, Dinner).
 /// Each meal can be expanded to show food entries and their nutritional info.
@@ -383,7 +384,6 @@ class _MealSectionState extends State<MealSection> {
   Future<void> _addUsual(
       RoutineSuggestion usual, FoodEntryProvider provider) async {
     HapticFeedback.mediumImpact();
-    final messenger = ScaffoldMessenger.of(context);
     final mealType = usual.meal;
     final today = DateTime.now();
     final copied = await provider.copyMeal(
@@ -402,19 +402,15 @@ class _MealSectionState extends State<MealSection> {
       'item_count': copied.length,
       'matching_days': usual.matchingDays,
     });
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('Added your usual ${mealType.toLowerCase()}'),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () {
-            for (final entry in copied) {
-              provider.removeEntry(entry.id);
-            }
-          },
-        ),
-      ),
+    AppToast.show(
+      'Added your usual ${mealType.toLowerCase()}',
+      context: mounted ? context : null,
+      actionLabel: 'Undo',
+      onAction: () {
+        for (final entry in copied) {
+          provider.removeEntry(entry.id);
+        }
+      },
     );
   }
 
@@ -430,19 +426,13 @@ class _MealSectionState extends State<MealSection> {
   void _removeWithUndo(FoodEntry entry, FoodEntryProvider provider) {
     HapticFeedback.mediumImpact();
     provider.removeEntry(entry.id);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('Removed ${entry.food.name}'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () => provider.addEntry(entry),
-          ),
-        ),
-      );
+    AppToast.show(
+      'Removed ${entry.food.name}',
+      context: context,
+      icon: Icons.delete_outline_rounded,
+      actionLabel: 'Undo',
+      onAction: () => provider.addEntry(entry),
+    );
   }
 
   void _openEntry(FoodEntry entry) {

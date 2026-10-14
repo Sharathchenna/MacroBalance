@@ -18,6 +18,7 @@ import '../providers/dateProvider.dart';
 import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import '../services/camera_service.dart';
+import 'package:macrotracker/widgets/app_toast.dart';
 
 // Extension to add withValues method to Color, similar to withOpacity
 extension ColorExtension on Color {
@@ -1685,22 +1686,7 @@ class _BarcodeResultsState extends State<BarcodeResults>
   }
 
   void _showSuccessSnackbar(String meal) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Color(0xFFFFC107).withValues(alpha: 1),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: EdgeInsets.all(8),
-        duration: const Duration(seconds: 2),
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 12),
-            Text('Added to $meal'),
-          ],
-        ),
-      ),
-    );
+    AppToast.show('Added to $meal');
   }
 }
 

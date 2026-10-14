@@ -8,6 +8,7 @@ import '../providers/foodEntryProvider.dart';
 import '../services/posthog_service.dart';
 import 'meal_time.dart';
 import 'number_format.dart';
+import '../widgets/app_toast.dart';
 
 /// "1½ × 1 cup", "150 g" or "1 bowl" for a logged entry.
 String describeEntryAmount(FoodEntry entry) {
@@ -35,7 +36,6 @@ Future<FoodEntry> quickLogAgain(BuildContext context, FoodEntry template,
     {String? meal}) async {
   final provider = Provider.of<FoodEntryProvider>(context, listen: false);
   final date = Provider.of<DateProvider>(context, listen: false).selectedDate;
-  final messenger = ScaffoldMessenger.of(context);
   final targetMeal = meal ?? MealTime.suggested();
   final entry = FoodEntry(
     id: const Uuid().v4(),
@@ -49,16 +49,11 @@ Future<FoodEntry> quickLogAgain(BuildContext context, FoodEntry template,
   await provider.addEntry(entry);
   MealTime.remember(targetMeal);
   PostHogService.trackEvent('food_quick_logged', properties: {'meal_type': targetMeal});
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(
-      content: Text('Added ${entry.food.name} to $targetMeal'),
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 4),
-      action: SnackBarAction(
-        label: 'Undo',
-        onPressed: () => provider.removeEntry(entry.id),
-      ),
-    ));
+  AppToast.show(
+    'Added ${entry.food.name} to $targetMeal',
+    context: context.mounted ? context : null,
+    actionLabel: 'Undo',
+    onAction: () => provider.removeEntry(entry.id),
+  );
   return entry;
 }

@@ -20,6 +20,7 @@ import '../main.dart' show navigatorKey;
 import '../providers/weight_unit_provider.dart';
 import '../utils/meal_time.dart';
 import '../utils/number_format.dart';
+import 'package:macrotracker/widgets/app_toast.dart';
 
 class FoodDetailPage extends StatefulWidget {
   final FoodItem food;
@@ -293,7 +294,6 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       return;
     }
     final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
-    final messenger = ScaffoldMessenger.of(context);
     final entry = _draftEntry();
     MealTime.remember(selectedMeal);
 
@@ -304,15 +304,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
         'meal_type': selectedMeal,
         'meal_changed': previous.meal != selectedMeal,
       });
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Updated ${widget.food.name}'),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'Undo',
-            onPressed: () => foodEntryProvider.updateEntry(previous),
-          ),
-        ),
+      AppToast.show(
+        'Updated ${widget.food.name}',
+        actionLabel: 'Undo',
+        onAction: () => foodEntryProvider.updateEntry(previous),
       );
       if (mounted) Navigator.of(context).pop();
       return;
@@ -338,19 +333,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     final amountLabel = selectedServing != null
         ? '${formatServings(_amount)} × ${selectedServing!.description}'
         : '${formatNumber(_amount)} $_weightUnit';
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          'Added ${widget.food.name} ($amountLabel) to $selectedMeal',
-          overflow: TextOverflow.ellipsis,
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => foodEntryProvider.removeEntry(entry.id),
-        ),
-      ),
+    AppToast.show(
+      'Added ${widget.food.name} ($amountLabel) to $selectedMeal',
+      actionLabel: 'Undo',
+      onAction: () => foodEntryProvider.removeEntry(entry.id),
     );
 
     if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
@@ -359,17 +345,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   Future<void> _deleteEntry() async {
     final entry = widget.existingEntry!;
     final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
-    final messenger = ScaffoldMessenger.of(context);
     await foodEntryProvider.removeEntry(entry.id);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('Removed ${entry.food.name}'),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => foodEntryProvider.addEntry(entry),
-        ),
-      ),
+    AppToast.show(
+      'Removed ${entry.food.name}',
+      icon: Icons.delete_outline_rounded,
+      actionLabel: 'Undo',
+      onAction: () => foodEntryProvider.addEntry(entry),
     );
     if (mounted) Navigator.of(context).pop();
   }

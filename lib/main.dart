@@ -61,7 +61,7 @@ import 'package:macrotracker/screens/app_shell.dart';
 // Add a global key for widget test access
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-// Lets services show a banner (for example "Your meal is ready") on any screen.
+// Lets services show a snackbar on any screen.
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 

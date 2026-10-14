@@ -16,6 +16,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'package:lottie/lottie.dart';
 import 'package:macrotracker/services/posthog_service.dart';
+import 'package:macrotracker/widgets/app_toast.dart';
 
 class Askai extends StatefulWidget {
   const Askai({super.key});
@@ -270,27 +271,10 @@ class _AskaiState extends State<Askai> with AutomaticKeepAliveClientMixin {
       foodEntryProvider.addEntry(entry);
 
       // Show confirmation
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle_outline,
-                  color: Theme.of(context).colorScheme.onPrimary),
-              const SizedBox(width: 8),
-              Text(
-                'Added to $meal',
-                style:
-                    TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFFFFC107),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(8),
-          duration: const Duration(seconds: 2),
-        ),
+      AppToast.show(
+        'Added ${food.name} to $meal',
+        actionLabel: 'Undo',
+        onAction: () => foodEntryProvider.removeEntry(entry.id),
       );
     });
   }
