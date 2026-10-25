@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quiz: adaptive targets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.08s}.d2{animation-delay:.16s}.d3{animation-delay:.24s}
+@keyframes tickin{0%{opacity:0;transform:scale(.4)}100%{opacity:1;transform:scale(1)}}
+.dayc{flex:1;height:40px;border-radius:12px;background:rgba(87,216,131,.12);display:flex;align-items:center;justify-content:center}
+.dayc svg{opacity:0;animation:tickin .35s cubic-bezier(.2,.9,.3,1.4) both}
+.n1 svg{animation-delay:.5s}.n2 svg{animation-delay:.7s}.n3 svg{animation-delay:.9s}.n4 svg{animation-delay:1.1s}.n5 svg{animation-delay:1.3s}.n6 svg{animation-delay:1.5s}
+@keyframes lit{from{background:rgba(87,216,131,.12)}to{background:#57D883}}
+.n7{animation:lit .4s 1.8s both}
+.n7 svg{animation-delay:1.9s}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 2.4s 2.3s cubic-bezier(.5,0,.3,1) infinite}
+.opt{display:flex;align-items:flex-start;gap:14px;width:100%;box-sizing:border-box;padding:16px;border-radius:22px;cursor:pointer;text-align:left;font-family:Inter,sans-serif;transition:background .25s,border-color .25s}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}.dayc svg{opacity:1}.n7{background:#57D883}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 14px; height: 44px">
+    <a href="Insight.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; background: #151917; display: flex; align-items: center; justify-content: center; color: #F4F6F4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; display: flex; gap: 6px" aria-label="Step 8 of 10">
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #57D883"></div>
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #57D883"></div>
+      <div style="flex: 2; height: 6px; border-radius: 3px; background: #2A302C; overflow: hidden"><div style="width: 40%; height: 6px; background: #57D883; border-radius: 3px"></div></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #2A302C"></div>
+    </div>
+  </div>
+
+  <p class="rise" style="margin: 30px 0 0; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #57D883">BUILT AROUND YOU</p>
+  <h1 class="rise d1" style="margin: 10px 0 0; font: 600 32px/1.12 Onest, sans-serif; letter-spacing: -1px">Should your plan learn as you go?</h1>
+
+  <div class="rise d2" style="margin-top: 24px; padding: 18px; border-radius: 24px; background: rgba(87,216,131,.06); border: 1px solid rgba(87,216,131,.18)">
+    <div style="display: flex; gap: 6px" aria-hidden="true">
+      <div class="dayc n1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+      <div class="dayc n2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+      <div class="dayc n3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+      <div class="dayc n4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+      <div class="dayc n5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+      <div class="dayc n6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+      <div class="dayc n7">
+        <sc-if value="{{adaptive}}" hint-placeholder-val="{{true}}"><svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06240F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"></path></svg></sc-if>
+        <sc-if value="{{fixed}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06240F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg></sc-if>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 8px; font: 500 11px Inter, sans-serif; color: #7C8680"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span style="color: #57D883">Check-in</span></div>
+    <div style="margin-top: 16px; font: 600 18px Onest, sans-serif">{{headline}}</div>
+    <div style="margin-top: 6px; font-size: 14px; line-height: 1.45; color: #A3ADA6">{{body}}</div>
+  </div>
+
+  <div class="rise d3" style="display: flex; flex-direction: column; gap: 10px; margin-top: 18px">
+    <button class="opt" onClick="{{pickAdaptive}}" style="background: {{a.bg}}; border: 2px solid {{a.border}}; color: #F4F6F4">
+      <div style="width: 22px; height: 22px; flex-shrink: 0; margin-top: 1px; border-radius: 11px; border: 2px solid {{a.border}}; box-sizing: border-box; display: flex; align-items: center; justify-content: center"><div style="width: 10px; height: 10px; border-radius: 5px; background: {{a.dot}}"></div></div>
+      <div style="flex-grow: 1"><div style="display: flex; align-items: center; gap: 8px"><span style="font: 600 16px Onest, sans-serif">Yes, adjust weekly</span><span style="padding: 3px 8px; border-radius: 8px; background: rgba(87,216,131,.14); color: #57D883; font: 600 11px Inter, sans-serif">Recommended</span></div><div style="font-size: 14px; color: #A3ADA6; margin-top: 4px">New targets apply on their own. You’ll always see why.</div></div>
+    </button>
+    <button class="opt" onClick="{{pickFixed}}" style="background: {{f.bg}}; border: 2px solid {{f.border}}; color: #F4F6F4">
+      <div style="width: 22px; height: 22px; flex-shrink: 0; margin-top: 1px; border-radius: 11px; border: 2px solid {{f.border}}; box-sizing: border-box; display: flex; align-items: center; justify-content: center"><div style="width: 10px; height: 10px; border-radius: 5px; background: {{f.dot}}"></div></div>
+      <div style="flex-grow: 1"><div style="font: 600 16px Onest, sans-serif">Keep my targets fixed</div><div style="font-size: 14px; color: #A3ADA6; margin-top: 4px">Turn on weekly updates whenever you like.</div></div>
+    </button>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+  <a href="Health.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Continue</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const adaptive = !(this.state && this.state.fixed);
+    const on = { bg: 'rgba(87,216,131,.08)', border: '#57D883', dot: '#57D883' };
+    const off = { bg: '#151917', border: '#2A302C', dot: 'transparent' };
+    return {
+      adaptive, fixed: !adaptive,
+      headline: adaptive ? 'Small updates. A better fit.' : 'Your plan. Your call.',
+      body: adaptive
+        ? 'Once we’ve learned enough from your logs and weigh-ins, your weekly check-in fine-tunes your targets.'
+        : 'Your targets stay where they are. The check-in still shows what we’ve learned.',
+      a: adaptive ? on : off,
+      f: adaptive ? off : on,
+      pickAdaptive: () => this.setState({ fixed: false }),
+      pickFixed: () => this.setState({ fixed: true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

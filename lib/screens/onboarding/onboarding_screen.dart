@@ -14,32 +14,33 @@ import 'package:macrotracker/services/energy/recalculate.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
-import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/services/storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'dart:math'; // For min/max
 import 'package:flutter/foundation.dart'; // For debugPrint
-import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/theme/ob_theme.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/widgets/adaptive_choice.dart';
 import 'package:macrotracker/widgets/plan_style_choice.dart';
 
-// Import Page Widgets
-import 'pages/welcome_page.dart';
-import 'pages/gender_page.dart';
-import 'pages/weight_page.dart';
-import 'pages/height_page.dart';
-import 'pages/age_page.dart';
+import 'package:macrotracker/auth/auth_gate.dart';
+import 'building_screen.dart';
+import 'pages/about_you_page.dart';
 import 'pages/activity_level_page.dart';
-import 'pages/goal_page.dart';
-import 'pages/set_new_goal_page.dart'; // Import the new goal details page
-// Removed TargetSummaryPage import
-import 'pages/plan_style_page.dart';
 import 'pages/adaptive_page.dart';
 import 'pages/advanced_settings_page.dart';
-import 'pages/apple_health_page.dart'; // Import the new Apple Health page
+import 'pages/apple_health_page.dart';
+import 'pages/goal_page.dart';
+import 'pages/goal_weight_page.dart';
+import 'pages/insight_page.dart';
+import 'pages/notify_page.dart';
+import 'pages/obstacles_page.dart';
+import 'pages/pace_page.dart';
+import 'pages/plan_style_page.dart';
 import 'pages/summary_page.dart';
+import 'pages/weight_page.dart';
+import 'widgets/ob_widgets.dart';
 import 'onboarding_steps.dart';
 import 'package:macrotracker/providers/detailed_stats_provider.dart';
 
@@ -58,8 +59,7 @@ class OnboardingScreen extends StatefulWidget {
   _OnboardingScreenState createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen>
-    with SingleTickerProviderStateMixin {
+class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
@@ -71,8 +71,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   bool _isSkipped(OnboardingStep step) => isOnboardingStepSkipped(step,
       goal: _goal, usesLearnedExpenditure: _usesLearnedTdee,
       showDetailedStats: _detailed);
-  late AnimationController _animationController;
-  late Animation<double> _progressAnimation;
 
   // --- State Variables ---
   String _gender = MacroCalculatorService.MALE;
@@ -89,6 +87,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   bool _showBodyFatInput = false;
   bool _adaptiveGoals = true; // recommended; see AdaptivePage
   PlanStyle? _planStyleChoice; // null: the default for the goal's size
+  // What got in the way before (ObstaclesPage); saves nothing to the goals,
+  // only picks the reply cards and goes to PostHog.
+  Set<String> _obstacles = {};
+  // onboarding_completed fires once, even if the plan is redone from Review.
+  bool _completionTracked = false;
   // Recalculating: the plan as saved, to tell whether it changed.
   ({PlanStyle style, String goal, double pace})? _savedPlan;
   // Recalculating only (spec 7.6): the targets now, the confident learned
@@ -209,19 +212,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    
-    // Track screen view
     PostHogService.trackScreen('onboarding_screen');
-    
-    // Initialize animation with default values before first build
-    _progressAnimation = Tween<double>(begin: 0, end: 1 / _totalPages).animate(
-        CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
-    // _updateProgressAnimation(); // Removed redundant call
-    _animationController.forward();
+    if (!widget.recalculateOnly && Supabase.instance.client.auth.currentUser == null) {
+      AuthGate.signedOutOnboarding = true;
+    }
     _goalWeightKg = _weightKg; // Initialize goal weight
     // Start from the unit the user already uses (their Settings choice, or
     // the region default), so finishing doesn't silently switch it.
@@ -277,24 +271,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   @override
   void dispose() {
-    _animationController.dispose();
     _pageController.dispose();
     super.dispose();
-  }
-
-  void _updateProgressAnimation() {
-    // Ensure division by totalPages is correct and handles _totalPages = 0 case
-    double beginFraction = _currentPage / (_totalPages > 0 ? _totalPages : 1);
-    double endFraction =
-        (_currentPage + 1) / (_totalPages > 0 ? _totalPages : 1);
-
-    _progressAnimation = Tween<double>(
-      begin: beginFraction,
-      end: endFraction,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
   }
 
   // --- Helper Functions for Projected Date ---
@@ -311,12 +289,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // --- Navigation ---
   void _nextPage() {
     HapticFeedback.selectionClick();
-    if (_currentStep == OnboardingStep.setNewGoal) _validateRanges();
+    if (_currentStep == OnboardingStep.goalWeight) _validateRanges();
     var next = _currentPage + 1;
     while (next < _totalPages && _isSkipped(_steps[next])) {
       next++;
     }
-    if (next < _totalPages) {
+    // New users see the summary only from the plan reveal's "Review answers".
+    final reviewOnly = !widget.recalculateOnly &&
+        next < _totalPages &&
+        _steps[next] == OnboardingStep.summary;
+    if (next < _totalPages && !reviewOnly) {
       _goToIndex(next);
     } else {
       _calculateAndShowResults();
@@ -329,7 +311,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     while (previous >= 0 && _isSkipped(_steps[previous])) {
       previous--;
     }
-    if (previous >= 0) _goToIndex(previous);
+    if (previous >= 0) {
+      _goToIndex(previous);
+    } else {
+      // First step: back to the stories, or out of Recalculate.
+      Navigator.of(context).maybePop();
+    }
   }
 
   /// Used by the summary page's "edit" links.
@@ -340,18 +327,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   void _goToIndex(int target) {
     if (target == _currentPage || target < 0 || target >= _totalPages) return;
-    if (_currentPage < _steps.indexOf(OnboardingStep.setNewGoal) &&
-        target > _steps.indexOf(OnboardingStep.setNewGoal)) {
+    if (_currentPage < _steps.indexOf(OnboardingStep.goalWeight) &&
+        target > _steps.indexOf(OnboardingStep.goalWeight)) {
       _validateRanges();
     }
     if ((target - _currentPage).abs() > 1) {
       // Jump rather than animate through skipped or intermediate pages.
       _pageController.jumpToPage(target);
-      setState(() {
-        _currentPage = target;
-        _updateProgressAnimation();
-        _animationController.forward(from: 0.0);
-      });
+      setState(() => _currentPage = target);
     } else {
       _pageController.animateToPage(target,
           duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
@@ -386,9 +369,27 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         fat: (results['fat_g'] as num).toDouble(),
       );
 
-  void _calculateAndShowResults() async {
+  void _calculateAndShowResults() {
     final results = _calculate();
+    _trackPlan(results);
+    if (widget.recalculateOnly) {
+      // Nothing changes until the user taps Save on the results.
+      Navigator.of(context).push(_slide(_resultsFor(results)));
+      return;
+    }
+    // New users: the plan is saved on the device while the building screen
+    // plays, then revealed. It reaches the account once one exists.
+    Navigator.of(context).push(_slide(BuildingScreen(
+      goal: _goal,
+      work: () => saveMacroResults(results),
+      onDone: () {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(_slide(_resultsFor(results)));
+      },
+    )));
+  }
 
+  void _trackPlan(Map<String, dynamic> results) {
     if (_goal != MacroCalculatorService.GOAL_MAINTAIN) {
       PostHogService.trackEvent('pace_chosen', properties: {
         'pct': _pacePct,
@@ -403,6 +404,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ? AdaptiveChoiceContext.recalculate
               : AdaptiveChoiceContext.onboarding);
     }
+    if (!widget.recalculateOnly && _completionTracked) return;
+    _completionTracked = true;
     PostHogService.trackEvent(
         widget.recalculateOnly ? 'goals_recalculated' : 'onboarding_completed',
         properties: {
@@ -412,37 +415,46 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       'activity_level': _activityLevel,
       'target_calories': results['target_calories'],
       'tdee_learned': results['tdee_learned'],
+      if (!widget.recalculateOnly) 'obstacles_selected': _obstacles.toList()..sort(),
       'timestamp': DateTime.now().toIso8601String(),
     });
-    
-    // When recalculating, nothing changes until the user taps Save.
-    if (!widget.recalculateOnly) await saveMacroResults(results);
-    // Use context safely
-    if (!mounted) return;
-    Navigator.of(context).push(PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) =>
-          ResultsScreen(
-            results: results,
-            recalculateOnly: widget.recalculateOnly,
-            adaptiveGoals: _adaptiveGoals,
-            isMetricWeight: _isMetricWeight,
-            goalWeightKg: _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _goalWeightKg,
-            planLine: _planLine,
-            onSave: widget.recalculateOnly ? () => saveMacroResults(results) : null,
-          ),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        const begin = Offset(1.0, 0.0);
-        const end = Offset.zero;
-        const curve = Curves.easeInOutCubic;
-        var tween =
-            Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-        return SlideTransition(
-            position: animation.drive(tween),
-            child: FadeTransition(opacity: animation, child: child));
-      },
-      transitionDuration: const Duration(milliseconds: 500),
-    ));
   }
+
+  Widget _resultsFor(Map<String, dynamic> results) {
+    final projection =
+        _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _projectionFor(_pacePct);
+    return ResultsScreen(
+      results: results,
+      recalculateOnly: widget.recalculateOnly,
+      adaptiveGoals: _adaptiveGoals,
+      isMetricWeight: _isMetricWeight,
+      goalWeightKg: _goal == MacroCalculatorService.GOAL_MAINTAIN ? null : _goalWeightKg,
+      currentWeightKg: _weightKg,
+      projectedDate: projection?.date,
+      weeks: projection?.aboutWeeks,
+      planLine: _planLine,
+      onSave: widget.recalculateOnly ? () => saveMacroResults(results) : null,
+      // Back to the quiz, on the summary, to change an answer.
+      onReview: widget.recalculateOnly
+          ? null
+          : () {
+              Navigator.of(context).pop();
+              _goToStep(OnboardingStep.summary);
+            },
+    );
+  }
+
+  Route<void> _slide(Widget page) => PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final tween = Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+              .chain(CurveTween(curve: Curves.easeInOutCubic));
+          return SlideTransition(
+              position: animation.drive(tween),
+              child: FadeTransition(opacity: animation, child: child));
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+      );
 
   Future<void> saveMacroResults(Map<String, dynamic> macroResults) async {
     // Keep the unit system the user chose for their weight.
@@ -602,114 +614,58 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
   // --- End Validation ---
 
-  // --- Build Method ---
+  /// The goal weights on offer: below today's weight to lose (at most a
+  /// quarter off), above it to gain (at most half again), within 40–150 kg.
+  double get _goalMinKg => _goal == MacroCalculatorService.GOAL_GAIN
+      ? min(150.0, _weightKg + 0.1)
+      : max(40.0, _weightKg * 0.75);
+  double get _goalMaxKg => _goal == MacroCalculatorService.GOAL_GAIN
+      ? min(150.0, _weightKg * 1.5)
+      : max(40.0, min(150.0, _weightKg - 0.1));
+
+  /// Steps with their own buttons (the permission primers).
+  bool get _pageHasOwnButtons =>
+      _currentStep == OnboardingStep.appleHealth ||
+      _currentStep == OnboardingStep.notifications;
+
+  String get _nextLabel {
+    if (_currentStep == OnboardingStep.summary) {
+      return widget.recalculateOnly ? 'Calculate' : 'See my plan';
+    }
+    return 'Continue';
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Get theme and colors
-    final theme = Theme.of(context);
-    final customColors = Theme.of(context).extension<CustomColors>();
-
+    final c = ObColors.of(context);
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: c.bg,
       body: SafeArea(
         child: Column(
           children: [
-            // Progress indicator at top
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-              child: AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return LinearProgressIndicator(
-                    value: _progressAnimation.value,
-                    backgroundColor: (customColors?.dateNavigatorBackground ??
-                            theme.colorScheme.surface)
-                        .withOpacity(0.3),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        customColors?.textPrimary ?? theme.colorScheme.primary),
-                    minHeight: 4,
-                    borderRadius: BorderRadius.circular(2),
-                  );
-                },
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+              child: ObTopBar(
+                onBack: _previousPage,
+                // Leaving Recalculate from its first step closes it.
+                close: widget.recalculateOnly && _currentPage == 0,
+                progress: onboardingProgress(_steps, _currentStep),
               ),
             ),
-
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(), // Keep physics
-                onPageChanged: (index) {
-                  // This will now correctly fire after animateToPage completes
-                  setState(() {
-                    _currentPage = index;
-                    _updateProgressAnimation(); // Update animation bounds for the new page
-                    _animationController.forward(
-                        from: 0.0); // Restart animation for the new segment
-                  });
-                },
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (index) => setState(() => _currentPage = index),
                 children: _buildPages(),
               ),
             ),
-
-            // Bottom navigation
-            Container(
-              padding: const EdgeInsets.all(24.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Back button
-                  // When recalculating from Settings, the first step's
-                  // Back leaves the flow; otherwise there'd be no way out.
-                  _currentPage > 0 || widget.recalculateOnly
-                      ? TextButton(
-                          onPressed: _currentPage > 0
-                              ? _previousPage
-                              : () => Navigator.of(context).maybePop(),
-                          child: Text(
-                            _currentPage > 0 ? 'Back' : 'Cancel',
-                            style: AppTypography.onboardingButton.copyWith(
-                              color: customColors?.textSecondary ??
-                                  theme.colorScheme.secondary,
-                              fontSize: 16,
-                            ),
-                          ),
-                        )
-                      : SizedBox(width: 80), // Empty space for alignment
-
-                  // Next button or Done
-                  _buildNextButton(theme, customColors),
-                ],
+            if (!_pageHasOwnButtons)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                child: ObPrimaryButton(label: _nextLabel, onPressed: _nextPage),
               ),
-            ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNextButton(ThemeData theme, CustomColors? customColors) {
-    // The Apple Health page has its own buttons.
-    if (_currentStep == OnboardingStep.appleHealth) {
-      // Return an empty SizedBox to maintain layout spacing if needed,
-      // or just an empty Container if no space is required.
-      // Match the width of the back button for alignment.
-      return const SizedBox(width: 80);
-    }
-
-    return ElevatedButton(
-      onPressed: _nextPage,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: customColors?.textPrimary ?? theme.colorScheme.onBackground,
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 14.0),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        elevation: 0,
-      ),
-      child: Text(
-        _currentPage == _totalPages - 1 ? 'Calculate' : 'Next',
-        style: AppTypography.onboardingButton.copyWith(
-          color: theme.colorScheme.onPrimary,
         ),
       ),
     );
@@ -719,12 +675,33 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   Widget _buildStep(OnboardingStep step) {
     switch (step) {
-      case OnboardingStep.welcome:
-        return const WelcomePage();
-      case OnboardingStep.gender:
-        return GenderPage(
-          currentGender: _gender,
-          onGenderSelected: (newGender) => setState(() => _gender = newGender),
+      case OnboardingStep.goal:
+        return GoalPage(
+          currentGoal: _goal,
+          onGoalChanged: (newGoal) => setState(() {
+            _goal = newGoal;
+            _planStyleChoice = null;
+            if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
+              _goalWeightKg = _weightKg;
+            } else {
+              _pacePct = defaultPacePct(_goalKind);
+              _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
+                  ? max(40.0, _weightKg * 0.9)
+                  : min(150.0, _weightKg * 1.1);
+              _validateRanges();
+            }
+          }),
+        );
+      case OnboardingStep.aboutYou:
+        return AboutYouPage(
+          gender: _gender,
+          onGenderChanged: (g) => setState(() => _gender = g),
+          age: _age,
+          onAgeChanged: (a) => setState(() => _age = a),
+          heightCm: _heightCm,
+          isMetricHeight: _isMetricHeight,
+          onHeightChanged: (h) => setState(() => _heightCm = h),
+          onHeightUnitChanged: (m) => setState(() => _isMetricHeight = m),
         );
       case OnboardingStep.weight:
         return WeightPage(
@@ -746,65 +723,40 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             _nextPage();
           },
         );
-      case OnboardingStep.height:
-        return HeightPage(
-          currentHeightCm: _heightCm,
-          isMetric: _isMetricHeight,
-          onHeightChanged: (newHeight) => setState(() => _heightCm = newHeight),
-          onUnitChanged: (isMetric) => setState(() => _isMetricHeight = isMetric),
-        );
-      case OnboardingStep.age:
-        return AgePage(
-          currentAge: _age,
-          onAgeChanged: (newAge) => setState(() => _age = newAge),
-        );
       case OnboardingStep.activity:
         return ActivityLevelPage(
           currentActivityLevel: _activityLevel,
-          onActivityLevelChanged: (newLevel) =>
-              setState(() => _activityLevel = newLevel),
+          onActivityLevelChanged: (newLevel) => setState(() => _activityLevel = newLevel),
         );
-      case OnboardingStep.goal:
-        return GoalPage(
-          currentGoal: _goal,
-          onGoalChanged: (newGoal) => setState(() {
-            _goal = newGoal;
-            _planStyleChoice = null;
-            if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
-              _goalWeightKg = _weightKg;
-            } else {
-              _pacePct = defaultPacePct(_goalKind);
-              _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
-                  ? max(40.0, _weightKg * 0.9)
-                  : min(150.0, _weightKg * 1.1);
-              _validateRanges();
-            }
-          }),
-        );
-      case OnboardingStep.setNewGoal:
-        return SetNewGoalPage(
-          currentGoal: _goal,
+      case OnboardingStep.goalWeight:
+        // Shown at the recommended pace; the pace is picked next.
+        final preview = _goal == MacroCalculatorService.GOAL_MAINTAIN
+            ? null
+            : _projectionFor(defaultPacePct(_goalKind));
+        return GoalWeightPage(
+          goal: _goal,
           currentWeightKg: _weightKg,
-          goalWeightKg: _goalWeightKg,
-          paceChoices: _goal == MacroCalculatorService.GOAL_MAINTAIN
-              ? const []
-              : _paceChoices(),
-          pacePct: _pacePct,
-          recommendedPacePct: defaultPacePct(_goalKind),
+          goalWeightKg: _goalWeightKg.clamp(_goalMinKg, _goalMaxKg),
+          minKg: _goalMinKg,
+          maxKg: _goalMaxKg,
           isMetricWeight: _isMetricWeight,
-          projectedDate: _calculateProjectedDate(),
-          targetCalories: _goal == MacroCalculatorService.GOAL_MAINTAIN
-              ? null
-              : _targetFor(_pacePct).cals,
-          planStyle: _goal == MacroCalculatorService.GOAL_LOSE ? _planStyle : null,
-          onPlanStyleChanged: (style) => setState(() => _planStyleChoice = style),
+          weeks: preview?.aboutWeeks,
+          projectedDate: preview?.date,
           onGoalWeightChanged: (newWeight) => setState(() {
             _goalWeightKg = newWeight;
             _validateRanges();
           }),
+        );
+      case OnboardingStep.pace:
+        return PacePage(
+          goal: _goal,
+          paceChoices: _goal == MacroCalculatorService.GOAL_MAINTAIN ? const [] : _paceChoices(),
+          pacePct: _pacePct,
+          recommendedPacePct: defaultPacePct(_goalKind),
           onPaceChanged: (pace) => setState(() => _pacePct = pace),
-          onWeightUnitChanged: (isMetric) =>
-              setState(() => _isMetricWeight = isMetric),
+          currentWeightKg: _weightKg,
+          goalWeightKg: _goalWeightKg,
+          isMetricWeight: _isMetricWeight,
         );
       case OnboardingStep.planStyle:
         final style = _planStyle;
@@ -815,6 +767,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           outline: style == PlanStyle.steady ? null : _planOutline,
           onChanged: (s) => setState(() => _planStyleChoice = s),
         );
+      case OnboardingStep.obstacles:
+        return ObstaclesPage(
+          selected: _obstacles,
+          onChanged: (s) => setState(() => _obstacles = s),
+        );
+      case OnboardingStep.insight:
+        return InsightPage(goal: _goal, obstacles: _obstacles);
       case OnboardingStep.adaptive:
         return AdaptivePage(
           adaptive: _adaptiveGoals,
@@ -834,10 +793,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           onFatRatioChanged: (ratio) => setState(() => _fatRatio = ratio),
         );
       case OnboardingStep.appleHealth:
-        return AppleHealthPage(
-          onNext: _nextPage,
-          onSkip: _nextPage,
-        );
+        return AppleHealthPage(onNext: _nextPage, onSkip: _nextPage);
+      case OnboardingStep.notifications:
+        return NotifyPage(onNext: _nextPage, onSkip: _nextPage);
       case OnboardingStep.summary:
         return SummaryPage(
           gender: _gender,

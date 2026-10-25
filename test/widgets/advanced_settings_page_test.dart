@@ -32,22 +32,23 @@ void main() {
   testWidgets('body fat is not used until the user sets a reading', (tester) async {
     double? set;
     await tester.pumpWidget(page(onBodyFatChanged: (v) => set = v));
-    expect(find.textContaining('Body fat not used'), findsOneWidget);
-    expect(find.textContaining('(recommended)'), findsOneWidget);
+    await pumpFrames(tester, seconds: 1);
+    expect(find.text('Set your %'), findsOneWidget);
+    expect(find.textContaining('· recommended'), findsOneWidget);
 
-    await tester.tap(find.text('Customize'));
-    await tester.pumpAndSettle();
-    expect(find.text('From a scan or smart scale'), findsOneWidget);
+    await tester.tap(find.text('From a scan'));
+    await tester.pump();
     expect(find.text('Set your %'), findsOneWidget);
     expect(set, isNull);
 
-    await tester.tap(find.byIcon(Icons.add_circle_outline).first);
+    await tester.tap(find.byIcon(Icons.add_rounded).first);
     expect(set, 21);
   });
 
   testWidgets('a set reading is shown and used', (tester) async {
     await tester.pumpWidget(page(bodyFat: 18, proteinRatio: 2.2));
-    expect(find.textContaining('Body fat 18%'), findsOneWidget);
-    expect(find.textContaining('Protein 2.2 g/kg ·'), findsOneWidget);
+    await pumpFrames(tester, seconds: 1);
+    expect(find.text('18%'), findsOneWidget);
+    expect(find.textContaining('2.2 g/kg'), findsOneWidget);
   });
 }

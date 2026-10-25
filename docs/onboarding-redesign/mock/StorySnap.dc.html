@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Story: snap it</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.15s}.d2{animation-delay:.3s}.d3{animation-delay:.45s}
+@keyframes fillbar{from{width:0}to{width:100%}}
+.bar{animation:fillbar 6s linear both}
+/* One 6s loop: the scan sweeps (0–40%), numbered markers land on each food
+   and the matching rows appear (42–55%), then the total (58%). Without
+   animation everything simply shows, fully read. */
+.loop{animation-duration:6s;animation-iteration-count:infinite;animation-fill-mode:both}
+@keyframes scan{0%{transform:translateY(0);opacity:0}6%{opacity:1}36%{transform:translateY(196px);opacity:1}40%,100%{transform:translateY(196px);opacity:0}}
+.scanline{animation-name:scan;animation-timing-function:cubic-bezier(.45,0,.55,1)}
+@keyframes m1{0%,41%{opacity:0;transform:scale(.3)}45%,92%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+@keyframes m2{0%,45%{opacity:0;transform:scale(.3)}49%,92%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+@keyframes m3{0%,49%{opacity:0;transform:scale(.3)}53%,92%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+.mk{animation-timing-function:cubic-bezier(.2,.9,.3,1.4)}
+.mk1{animation-name:m1}.mk2{animation-name:m2}.mk3{animation-name:m3}
+@keyframes r1{0%,42%{opacity:0;transform:translateX(-8px)}47%,92%{opacity:1;transform:none}97%,100%{opacity:0}}
+@keyframes r2{0%,46%{opacity:0;transform:translateX(-8px)}51%,92%{opacity:1;transform:none}97%,100%{opacity:0}}
+@keyframes r3{0%,50%{opacity:0;transform:translateX(-8px)}55%,92%{opacity:1;transform:none}97%,100%{opacity:0}}
+@keyframes tot{0%,56%{opacity:0}61%,92%{opacity:1}97%,100%{opacity:0}}
+@keyframes s4{0%,56%{opacity:1}60%,95%{opacity:0}100%{opacity:1}}
+.sk4{animation-name:s4}
+.row1{animation-name:r1}.row2{animation-name:r2}.row3{animation-name:r3}.total{animation-name:tot}
+/* While the scan runs, each row shows a placeholder, so the list is never
+   empty; it gives way to the real food as that food's marker lands. */
+@keyframes s1{0%,42%{opacity:1}46%,95%{opacity:0}100%{opacity:1}}
+@keyframes s2{0%,46%{opacity:1}50%,95%{opacity:0}100%{opacity:1}}
+@keyframes s3{0%,50%{opacity:1}54%,95%{opacity:0}100%{opacity:1}}
+.sk1{animation-name:s1}.sk2{animation-name:s2}.sk3{animation-name:s3}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.skel{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;gap:12px;pointer-events:none}
+.skel i{display:block;height:10px;border-radius:5px;background:linear-gradient(90deg,#1D221F 0%,#2A302C 50%,#1D221F 100%);background-size:200% 100%;animation:shimmer 1.4s linear infinite}
+.slot{position:relative}
+.skel{opacity:0}
+.mark{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:13px;background:#57D883;color:#06240F;font:700 13px Inter,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px rgba(12,14,13,.55)}
+.item{display:flex;align-items:center;gap:12px;height:40px}
+.num{width:22px;height:22px;flex-shrink:0;border-radius:11px;border:1.5px solid #57D883;color:#57D883;font:700 12px Inter,sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+@media (prefers-reduced-motion: reduce){.loop,.bar,.rise{animation:none!important}.scanline{opacity:0}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 12px; height: 44px">
+    <div style="flex-grow: 1; display: flex; gap: 6px">
+      <div style="flex: 1; height: 4px; border-radius: 2px; background: #2A302C; overflow: hidden"><div class="bar" style="height: 4px; background: #F4F6F4"></div></div>
+      <div style="flex: 1; height: 4px; border-radius: 2px; background: #2A302C"></div>
+    </div>
+    <a href="Goal.dc.html" style="display: flex; align-items: center; height: 44px; padding: 0 4px; color: #A3ADA6; font: 500 15px Inter, sans-serif; text-decoration: none">Skip</a>
+  </div>
+
+  <div style="position: relative; margin-top: 14px; height: 220px; border-radius: 28px; background: #151917; overflow: hidden">
+    <svg width="342" height="220" viewBox="20 50 260 210" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A plate of salmon, rice and avocado being scanned" style="display: block">
+      <circle cx="150" cy="156" r="104" fill="#1D221F"></circle>
+      <circle cx="150" cy="156" r="88" fill="#232925"></circle>
+      <g fill="#EDEAE0"><circle cx="118" cy="182" r="22"></circle><circle cx="140" cy="196" r="20"></circle><circle cx="104" cy="160" r="16"></circle><circle cx="128" cy="166" r="18"></circle></g>
+      <rect x="138" y="104" width="78" height="44" rx="14" fill="#FF8A6B" transform="rotate(-12 177 126)"></rect>
+      <path d="M150 110 l50 -10 M152 122 l52 -11 M154 134 l52 -11" stroke="#FFC1AE" stroke-width="3" stroke-linecap="round" fill="none" transform="rotate(-2 177 126)"></path>
+      <g fill="#7FCF6A"><ellipse cx="188" cy="186" rx="20" ry="11" transform="rotate(30 188 186)"></ellipse><ellipse cx="198" cy="168" rx="20" ry="11" transform="rotate(14 198 168)"></ellipse></g>
+      <g fill="#C9E7A8"><ellipse cx="190" cy="186" rx="10" ry="5" transform="rotate(30 190 186)"></ellipse><ellipse cx="199" cy="168" rx="10" ry="5" transform="rotate(14 199 168)"></ellipse></g>
+      <g fill="#F4F6F4"><circle cx="164" cy="210" r="2.5"></circle><circle cx="174" cy="204" r="2.5"></circle><circle cx="158" cy="200" r="2.5"></circle></g>
+    </svg>
+    <svg style="position: absolute; inset: 0" width="342" height="220" viewBox="0 0 342 220" aria-hidden="true">
+      <g stroke="#57D883" stroke-width="3.5" stroke-linecap="round" fill="none"><path d="M16 46 V22 a6 6 0 0 1 6 -6 H46"></path><path d="M296 16 H320 a6 6 0 0 1 6 6 V46"></path><path d="M326 174 V198 a6 6 0 0 1 -6 6 H296"></path><path d="M46 204 H22 a6 6 0 0 1 -6 -6 V174"></path></g>
+      <g class="scanline loop"><rect x="12" y="10" width="318" height="2" fill="#57D883"></rect><rect x="12" y="12" width="318" height="22" fill="#57D883" opacity=".08"></rect></g>
+    </svg>
+    <div class="mark mk mk1 loop" style="left: 206px; top: 72px">1</div>
+    <div class="mark mk mk2 loop" style="left: 134px; top: 143px">2</div>
+    <div class="mark mk mk3 loop" style="left: 229px; top: 140px">3</div>
+  </div>
+
+  <div style="margin-top: 12px; padding: 8px 16px 12px; border-radius: 22px; background: #151917">
+    <div class="slot" style="border-bottom: 1px solid #1D221F">
+      <div class="item row1 loop">
+        <span class="num">1</span>
+        <span style="flex-grow: 1; font: 600 14px Onest, sans-serif">Salmon fillet <span style="font: 500 13px Inter, sans-serif; color: #7C8680">· 120 g</span></span>
+        <span style="font: 600 14px Onest, sans-serif">312 <span style="font: 500 12px Inter, sans-serif; color: #A3ADA6">cals</span></span>
+      </div>
+      <div class="skel sk1 loop" aria-hidden="true"><i style="width: 22px; height: 22px; border-radius: 11px"></i><i style="width: 140px"></i><i style="width: 48px; margin-left: auto"></i></div>
+    </div>
+    <div class="slot" style="border-bottom: 1px solid #1D221F">
+      <div class="item row2 loop">
+        <span class="num">2</span>
+        <span style="flex-grow: 1; font: 600 14px Onest, sans-serif">White rice <span style="font: 500 13px Inter, sans-serif; color: #7C8680">· 1 cup</span></span>
+        <span style="font: 600 14px Onest, sans-serif">206 <span style="font: 500 12px Inter, sans-serif; color: #A3ADA6">cals</span></span>
+      </div>
+      <div class="skel sk2 loop" aria-hidden="true"><i style="width: 22px; height: 22px; border-radius: 11px"></i><i style="width: 120px"></i><i style="width: 48px; margin-left: auto"></i></div>
+    </div>
+    <div class="slot">
+      <div class="item row3 loop">
+        <span class="num">3</span>
+        <span style="flex-grow: 1; font: 600 14px Onest, sans-serif">Avocado <span style="font: 500 13px Inter, sans-serif; color: #7C8680">· ½ fruit</span></span>
+        <span style="font: 600 14px Onest, sans-serif">120 <span style="font: 500 12px Inter, sans-serif; color: #A3ADA6">cals</span></span>
+      </div>
+      <div class="skel sk3 loop" aria-hidden="true"><i style="width: 22px; height: 22px; border-radius: 11px"></i><i style="width: 104px"></i><i style="width: 48px; margin-left: auto"></i></div>
+    </div>
+    <div class="slot" style="margin-top: 8px">
+    <div class="skel sk4 loop" aria-hidden="true" style="padding: 0 12px; border-radius: 14px; background: rgba(87,216,131,.06); justify-content: space-between">
+      <span style="display: flex; flex-direction: column; gap: 8px"><i style="width: 150px"></i><i style="width: 110px; height: 8px"></i></span>
+      <i style="width: 44px; height: 18px; border-radius: 6px"></i>
+    </div>
+    <div class="total loop" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 14px; background: rgba(87,216,131,.1)">
+      <div>
+        <div style="font: 600 14px Onest, sans-serif">3 foods added to Lunch</div>
+        <div style="display: flex; gap: 10px; margin-top: 4px; font-size: 12px; color: #A3ADA6">
+          <span style="display: flex; align-items: center; gap: 4px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #FF6B5E"></span>P 42 g</span>
+          <span style="display: flex; align-items: center; gap: 4px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #4DA8FF"></span>C 61 g</span>
+          <span style="display: flex; align-items: center; gap: 4px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #F59E3B"></span>F 24 g</span>
+        </div>
+      </div>
+      <div style="text-align: right; font: 600 20px Onest, sans-serif; color: #57D883">638<div style="font: 500 11px Inter, sans-serif; color: #A3ADA6">cals in all</div></div>
+    </div>
+    </div>
+  </div>
+
+  <h1 class="rise d1" style="margin: 22px 0 0; font: 600 32px/1.1 Onest, sans-serif; letter-spacing: -1.2px; white-space: pre-line">Snap it, scan it,
+<span style="color: #57D883">or just say it.</span></h1>
+  <p class="rise d2" style="margin: 10px 0 0; font-size: 15px; line-height: 1.5; color: #A3ADA6">Photograph your plate, scan a barcode, or type “burrito bowl, no rice”. Each food is logged on its own, so you can fix any amount.</p>
+
+  <div style="flex-grow: 1"></div>
+  <a class="rise d3" href="StoryLearn.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Continue</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

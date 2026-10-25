@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:async';
-import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/posthog_service.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:macrotracker/theme/ob_theme.dart';
 
+/// "How did you hear about us?" (docs/onboarding-redesign/mock/Source.dc.html).
+/// Chips in two groups and an always-visible "Somewhere else" field. Stored
+/// values keep today's keys (tiktok, instagram, reddit, `other: <text>`) and
+/// add youtube, ad, friend, club and app_store.
 class AcquisitionSourcePage extends StatefulWidget {
   final String? currentSource;
   final ValueChanged<String?> onSourceSelected;
@@ -21,108 +26,67 @@ class AcquisitionSourcePage extends StatefulWidget {
   State<AcquisitionSourcePage> createState() => _AcquisitionSourcePageState();
 }
 
-class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
-    with TickerProviderStateMixin {
+class _AcquisitionSourcePageState extends State<AcquisitionSourcePage> {
+  static const _social = [
+    ('tiktok', 'TikTok'),
+    ('instagram', 'Instagram'),
+    ('youtube', 'YouTube'),
+    ('reddit', 'Reddit'),
+  ];
+  static const _people = [
+    ('ad', 'An ad'),
+    ('friend', 'A friend'),
+    ('club', 'Gym, club or coach'),
+    ('app_store', 'App Store'),
+  ];
+
   String? _selectedSource;
-  final TextEditingController _otherTextController = TextEditingController();
-  final FocusNode _otherFocusNode = FocusNode();
-  Timer? _debounceTimer;
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+  final TextEditingController _otherText = TextEditingController();
+  final FocusNode _otherFocus = FocusNode();
+  Timer? _debounce;
+
+  bool get _otherOn => _selectedSource != null && _selectedSource!.startsWith('other');
 
   @override
   void initState() {
     super.initState();
     _selectedSource = widget.currentSource;
-    
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
-    
-    _fadeController.forward();
-    _slideController.forward();
+    _otherFocus.addListener(() {
+      if (_otherFocus.hasFocus && !_otherOn) _select('other');
+    });
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _slideController.dispose();
-    _otherTextController.dispose();
-    _otherFocusNode.dispose();
-    _debounceTimer?.cancel();
+    _debounce?.cancel();
+    _otherText.dispose();
+    _otherFocus.dispose();
     super.dispose();
   }
 
-  void _handleSourceSelection(String source) {
+  void _select(String source) {
     HapticFeedback.selectionClick();
-    setState(() {
-      _selectedSource = source;
-    });
-    
-    // If "other" is selected, focus the text field after a short delay
-    if (source == 'other') {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          _otherFocusNode.requestFocus();
-        }
-      });
-    }
-    
-    // Track the selection with the actual text if it's "other"
-    final String trackingSource = source == 'other' && _otherTextController.text.isNotEmpty
-        ? 'other: ${_otherTextController.text}'
+    final tracked = source == 'other' && _otherText.text.isNotEmpty
+        ? 'other: ${_otherText.text}'
         : source;
-    
+    setState(() => _selectedSource = tracked);
     PostHogService.trackEvent('acquisition_source_selected', properties: {
-      'source': trackingSource,
+      'source': tracked,
       'timestamp': DateTime.now().toIso8601String(),
     });
-    
-    // Pass the actual text for "other" if available
-    if (source == 'other' && _otherTextController.text.isNotEmpty) {
-      widget.onSourceSelected('other: ${_otherTextController.text}');
-    } else {
-      widget.onSourceSelected(source);
-    }
+    widget.onSourceSelected(tracked);
   }
-  
-  void _handleOtherTextChanged(String value) {
-    // Cancel the previous timer
-    _debounceTimer?.cancel();
-    
-    // Debounce both callback and PostHog tracking - only fire after user stops typing for 1000ms
-    _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
-      final String trackingSource = value.isNotEmpty ? 'other: $value' : 'other';
-      
-      // Update the selected source after debounce
-      widget.onSourceSelected(trackingSource);
-      
+
+  void _otherChanged(String value) {
+    final tracked = value.isNotEmpty ? 'other: $value' : 'other';
+    setState(() => _selectedSource = tracked);
+    // The answer follows each keystroke so Continue never loses text; the
+    // event waits until typing stops.
+    widget.onSourceSelected(tracked);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1000), () {
       PostHogService.trackEvent('acquisition_source_other_text_changed', properties: {
-        'source': trackingSource,
+        'source': tracked,
         'text_length': value.length,
         'timestamp': DateTime.now().toIso8601String(),
       });
@@ -131,250 +95,126 @@ class _AcquisitionSourcePageState extends State<AcquisitionSourcePage>
 
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final c = ObColors.of(context);
+    Widget group(String label, List<(String, String)> chips, int index) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ObRise(
+              index: index,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(label, style: ObText.eyebrow(c.text2)),
+              ),
+            ),
+            ObRise(
+              index: index,
+              child: GridView.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 2.9,
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  const SizedBox(height: 24),
-                  
-                  // Header section
-                  _buildHeader(customColors, theme),
-                  
-                  const SizedBox(height: 16),
-
-                  // Source options in a list
-                  Expanded(
-                    child: _buildSourceList(context),
-                  ),
-
-                  const SizedBox(height: 16),
-                  
-                  const SizedBox(height: 8),
+                  for (final o in chips)
+                    _Chip(
+                      label: o.$2,
+                      selected: _selectedSource == o.$1,
+                      onTap: () => _select(o.$1),
+                    ),
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
+          ],
+        );
 
-  Widget _buildHeader(CustomColors? customColors, ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ObPageBody(
+      top: 18,
       children: [
-        Text(
-          'How did you hear about us?',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontSize: 26,
-            color: customColors?.textPrimary ?? theme.colorScheme.onBackground,
-          ),
+        const ObHeader(
+          title: 'One quick thing. How did you find us?',
+          subtitle: 'It helps a small team know where to show up.',
         ),
-        const SizedBox(height: 10),
-        Text(
-          'Help us understand our community better and improve our reach',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontSize: 16,
-            color: customColors?.textSecondary ?? theme.colorScheme.onSurface.withOpacity(0.7),
+        const SizedBox(height: 24),
+        group('SOCIAL MEDIA AND CONTENT', _social, 2),
+        const SizedBox(height: 20),
+        group('SOMEONE OR SOMEWHERE', _people, 3),
+        const SizedBox(height: 20),
+        ObRise(
+          index: 4,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('SOMEWHERE ELSE?', style: ObText.eyebrow(c.text2)),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: 52,
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _otherOn ? c.leaf : c.line, width: 2),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.center,
+                child: TextField(
+                  key: const Key('source_other_field'),
+                  controller: _otherText,
+                  focusNode: _otherFocus,
+                  onChanged: _otherChanged,
+                  textInputAction: TextInputAction.done,
+                  cursorColor: c.leaf,
+                  style: ObText.body(c.text, size: 16, weight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: 'Tell us where, e.g. a podcast',
+                    hintStyle: ObText.body(c.muted, size: 16, weight: FontWeight.w500),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
-
-  Widget _buildSourceList(BuildContext context) {
-    final sources = [
-      _SourceData(
-        id: 'tiktok',
-        title: 'TikTok',
-        icon: FontAwesomeIcons.tiktok,
-        iconColor: Colors.black,
-      ),
-      _SourceData(
-        id: 'instagram',
-        title: 'Instagram',
-        icon: FontAwesomeIcons.instagram,
-        iconColor: const Color(0xFFE1306C),
-      ),
-      _SourceData(
-        id: 'reddit',
-        title: 'Reddit',
-        icon: FontAwesomeIcons.reddit,
-        iconColor: const Color(0xFFFF4500),
-      ),
-      _SourceData(
-        id: 'other',
-        title: 'Other',
-        icon: Icons.edit_rounded,
-        iconColor: const Color(0xFF9C27B0),
-      ),
-    ];
-
-    return ListView.separated(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      padding: const EdgeInsets.only(top: 24),
-      itemCount: sources.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final source = sources[index];
-        return TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: Duration(milliseconds: 300 + (index * 80)),
-          curve: Curves.easeOutBack,
-          builder: (context, value, child) {
-            return Transform.translate(
-              offset: Offset(0, 20 * (1 - value)),
-              child: Opacity(
-                opacity: value.clamp(0.0, 1.0),
-                child: _buildSourceCard(source),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildSourceCard(_SourceData source) {
-    final isSelected = _selectedSource == source.id;
-    final theme = Theme.of(context);
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final Color primaryColor = customColors?.textPrimary ?? theme.colorScheme.primary;
-    final Color cardBgColor = customColors?.cardBackground ?? theme.cardColor;
-    final bool isOther = source.id == 'other';
-    
-    return GestureDetector(
-      onTap: isOther && isSelected ? null : () => _handleSourceSelection(source.id),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        decoration: BoxDecoration(
-          color: cardBgColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.withOpacity(0.15),
-            width: isSelected ? 2.5 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected
-                  ? source.iconColor.withOpacity(0.12)
-                  : Colors.black.withOpacity(0.03),
-              blurRadius: isSelected ? 10 : 4,
-              offset: Offset(0, isSelected ? 3 : 1),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: AnimatedScale(
-                      scale: isSelected ? 1.1 : 1.0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutBack,
-                      child: source.icon is FaIconData
-                          ? FaIcon(
-                              source.icon as FaIconData,
-                              size: 28,
-                              color: source.iconColor,
-                            )
-                          : Icon(
-                              source.icon as IconData,
-                              size: 32,
-                              color: source.iconColor,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-              Expanded(
-                child: isOther && isSelected
-                    ? TextField(
-                        controller: _otherTextController,
-                        focusNode: _otherFocusNode,
-                        autofocus: false,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: customColors?.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Type here...',
-                          hintStyle: TextStyle(
-                            color: customColors?.textSecondary ?? Colors.grey,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: _handleOtherTextChanged,
-                      )
-                    : AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 300),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                          color: isSelected
-                              ? primaryColor
-                              : customColors?.textPrimary ?? theme.colorScheme.onSurface,
-                        ),
-                        child: Text(source.title),
-                      ),
-              ),
-              if (isSelected && !isOther)
-                AnimatedScale(
-                  scale: 1.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-class _SourceData {
-  final String id;
-  final String title;
-  final dynamic icon;
-  final Color iconColor;
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, required this.selected, required this.onTap});
 
-  _SourceData({
-    required this.id,
-    required this.title,
-    required this.icon,
-    required this.iconColor,
-  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ObColors.of(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: selected ? c.leaf.withValues(alpha: c.isDark ? 0.08 : 0.12) : c.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? c.leaf : c.line, width: 2),
+          ),
+          child: Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: ObText.title(c.text, size: 15)),
+        ),
+      ),
+    );
+  }
 }

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Save your plan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.1s}.d2{animation-delay:.2s}.d3{animation-delay:.3s}.d4{animation-delay:.4s}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-6px) rotate(-2deg)}}
+.card{animation:float 4s ease-in-out infinite}
+@keyframes shine{0%{transform:translateX(-120%)}60%,100%{transform:translateX(220%)}}
+.shine{animation:shine 3.5s 1s ease-in-out infinite}
+.auth{display:flex;align-items:center;justify-content:center;gap:10px;height:56px;border-radius:18px;font:600 16px Inter,sans-serif;text-decoration:none}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; height: 44px">
+    <a href="Reveal.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; background: #151917; display: flex; align-items: center; justify-content: center; color: #F4F6F4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+  </div>
+
+  <div style="display: flex; justify-content: center; margin-top: 30px">
+    <div class="card" style="position: relative; width: 260px; padding: 20px; border-radius: 28px; background: #151917; border: 1px solid #2A302C; overflow: hidden">
+      <div class="shine" style="position: absolute; top: 0; bottom: 0; left: 0; width: 80px; background: linear-gradient(100deg, rgba(255,255,255,0), rgba(255,255,255,.07), rgba(255,255,255,0))"></div>
+      <div style="display: flex; align-items: center; gap: 14px">
+        <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="#1D221F" stroke-width="8"></circle>
+          <g transform="rotate(-90 32 32)" fill="none" stroke-width="8" stroke-linecap="round">
+            <circle cx="32" cy="32" r="26" stroke="#FF6B5E" stroke-dasharray="46 164"></circle>
+            <circle cx="32" cy="32" r="26" stroke="#4DA8FF" stroke-dasharray="58 164" stroke-dashoffset="-52"></circle>
+            <circle cx="32" cy="32" r="26" stroke="#F59E3B" stroke-dasharray="40 164" stroke-dashoffset="-116"></circle>
+          </g>
+        </svg>
+        <div>
+          <div style="font: 600 26px/1 Onest, sans-serif; letter-spacing: -0.8px">2,100</div>
+          <div style="margin-top: 4px; font-size: 13px; color: #A3ADA6">cals a day · adaptive</div>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-top: 16px; font-size: 13px; color: #A3ADA6"><span>Goal 74 kg</span><span>Mar 13</span><span>Check-in Sun</span></div>
+    </div>
+  </div>
+
+  <h1 class="rise d1" style="margin: 34px 0 0; text-align: center; font: 600 32px/1.12 Onest, sans-serif; letter-spacing: -1px">Save your plan</h1>
+  <p class="rise d2" style="margin: 10px 0 0; text-align: center; font-size: 15px; line-height: 1.5; color: #A3ADA6">Create a free account to keep your plan, logs and progress in sync on every device.</p>
+
+  <div style="flex-grow: 1"></div>
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <a class="auth rise d2" href="Source.dc.html" style="background: #F4F6F4; color: #0C0E0D"><svg width="18" height="20" viewBox="0 0 17 20" aria-hidden="true"><path fill="#0C0E0D" d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.8 1.3 10.3.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.2zM11.6 3c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.5z"></path></svg>Continue with Apple</a>
+    <a class="auth rise d3" href="Source.dc.html" style="background: #151917; border: 1px solid #2A302C; color: #F4F6F4"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.5 5.5 0 0 1-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.7z"></path><path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z"></path><path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8z"></path><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z"></path></svg>Continue with Google</a>
+    <a class="auth rise d4" href="Source.dc.html" style="background: transparent; color: #F4F6F4"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M4 7l8 6 8-6"></path></svg>Continue with email</a>
+  </div>
+  <p style="margin: 14px 0 0; text-align: center; font-size: 12px; line-height: 1.5; color: #7C8680">By continuing you agree to our <a href="#" style="color: #A3ADA6">Terms</a> and <a href="#" style="color: #A3ADA6">Privacy Policy</a>.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

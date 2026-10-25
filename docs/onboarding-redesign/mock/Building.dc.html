@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Building your plan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+/* One 9s loop, pure CSS: 0–5s the four steps run (1.25s each), 5–6s the
+   ring closes into the "plan ready" check (same motion as plan_ready.json),
+   6–8.6s it holds with the button, then everything resets. */
+.loop{animation-duration:9s;animation-iteration-count:infinite;animation-fill-mode:both}
+@keyframes fill{0%{stroke-dashoffset:427.3}55.5%,95.5%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:0}}
+.ringfg{animation-name:fill;animation-timing-function:cubic-bezier(.45,.05,.55,.95)}
+@keyframes logo{0%,52%{opacity:1;transform:scale(1)}56%,100%{opacity:0;transform:scale(.6)}}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+.logo{transform-origin:80px 80px;animation-name:logo}
+.logo g{transform-origin:80px 80px;animation:breathe 1.6s ease-in-out infinite}
+@keyframes disc{0%,55.5%{opacity:0;transform:scale(0)}60%{opacity:1;transform:scale(1.12)}63%,95.5%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+.disc{transform-origin:80px 80px;animation-name:disc}
+@keyframes tick{0%,59%{stroke-dashoffset:1}66%,100%{stroke-dashoffset:0}}
+.tick{stroke-dasharray:1 1;animation-name:tick}
+@keyframes pulse{0%,60%{opacity:0;transform:scale(1)}61%{opacity:.6;transform:scale(1)}78%,100%{opacity:0;transform:scale(1.22)}}
+.pulse{transform-origin:80px 80px;animation-name:pulse}
+/* The two titles never share the screen: A is fully gone before B starts,
+   and B is gone before A comes back. */
+@keyframes showA{0%,55%{opacity:1;transform:none}56.5%,98.5%{opacity:0;transform:translateY(-6px)}100%{opacity:1;transform:none}}
+@keyframes showB{0%,57%{opacity:0;transform:translateY(6px)}60%,95%{opacity:1;transform:none}97%,100%{opacity:0;transform:none}}
+.ta{animation-name:showA}.tb{animation-name:showB}
+@keyframes cta{0%,60%{opacity:0;transform:translateY(12px);visibility:hidden}64%,95.5%{opacity:1;transform:none;visibility:visible}98%,100%{opacity:0;visibility:hidden}}
+.cta{animation-name:cta}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{animation:spin .9s linear infinite;transform-origin:12px 12px}
+@keyframes b0{0%,13.8%{opacity:1}13.9%,100%{opacity:0}}
+@keyframes b1{0%,13.8%{opacity:0}13.9%,27.7%{opacity:1}27.8%,100%{opacity:0}}
+@keyframes b2{0%,27.7%{opacity:0}27.8%,41.6%{opacity:1}41.7%,100%{opacity:0}}
+@keyframes b3{0%,41.6%{opacity:0}41.7%,55.5%{opacity:1}55.6%,100%{opacity:0}}
+@keyframes k0{0%,13.8%{opacity:0;transform:scale(.4)}15.5%,95.5%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+@keyframes k1{0%,27.7%{opacity:0;transform:scale(.4)}29.4%,95.5%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+@keyframes k2{0%,41.6%{opacity:0;transform:scale(.4)}43.3%,95.5%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+@keyframes k3{0%,55.5%{opacity:0;transform:scale(.4)}57.2%,95.5%{opacity:1;transform:scale(1)}97%,100%{opacity:0}}
+@keyframes r1{0%,13.8%{opacity:.45}13.9%,95.5%{opacity:1}97%,100%{opacity:.45}}
+@keyframes r2{0%,27.7%{opacity:.45}27.8%,95.5%{opacity:1}97%,100%{opacity:.45}}
+@keyframes r3{0%,41.6%{opacity:.45}41.7%,95.5%{opacity:1}97%,100%{opacity:.45}}
+.b0{animation-name:b0}.b1{animation-name:b1}.b2{animation-name:b2}.b3{animation-name:b3}
+.k0{animation-name:k0}.k1{animation-name:k1}.k2{animation-name:k2}.k3{animation-name:k3}
+.r1{animation-name:r1}.r2{animation-name:r2}.r3{animation-name:r3}
+.ok{position:absolute;inset:1px;border-radius:12px;background:#57D883;display:flex;align-items:center;justify-content:center}
+.busy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.row{display:flex;gap:14px;align-items:flex-start;padding:14px 0}
+.icon{position:relative;width:26px;height:26px;flex-shrink:0}
+.wait{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:10px;border:2px solid #2A302C;box-sizing:border-box}
+/* Resting state, used wherever animations don't run (for example a static
+   canvas render): mid-build, step 1 running, one title, no button. The
+   keyframes above override these while the loop plays. */
+.ringfg{stroke-dashoffset:300}
+.tb,.cta,.ok,.disc,.pulse,.busy.b1,.busy.b2,.busy.b3{opacity:0}
+.cta{visibility:hidden}
+.tick{stroke-dashoffset:1}
+.r1,.r2,.r3{opacity:.45}
+@media (prefers-reduced-motion: reduce){
+  .loop,.spinner,.logo g{animation:none!important}
+  .ringfg{stroke-dashoffset:0}.logo,.ta,.busy,.pulse{opacity:0}.disc,.tb,.ok,.cta,.r1,.r2,.r3{opacity:1;visibility:visible}.tick{stroke-dashoffset:0}
+}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 62px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; justify-content: center">
+    <svg width="168" height="168" viewBox="0 0 160 160" role="img" aria-label="Building your plan, then a check mark when it is ready">
+      <circle cx="80" cy="80" r="68" fill="none" stroke="#1D221F" stroke-width="10"></circle>
+      <circle class="ringfg loop" cx="80" cy="80" r="68" fill="none" stroke="#57D883" stroke-width="10" stroke-linecap="round" stroke-dasharray="427.3" transform="rotate(-90 80 80)"></circle>
+      <circle class="pulse loop" cx="80" cy="80" r="68" fill="none" stroke="#57D883" stroke-width="2"></circle>
+      <g class="logo loop"><g><svg x="52" y="59" width="56" height="42" viewBox="200 262 640 484"><path fill="#F4F6F4" fill-rule="evenodd" d="M208 274a4 4 0 0 1 4-4h70l126 170 122-170h160c78 0 128 52 128 122 0 44-22 76-61 93 47 17 75 56 75 109 0 82-60 143-150 143H479a4 4 0 0 1-4-4v-64a4 4 0 0 1 4-4h48V416L408 577 287 416v317a4 4 0 0 1-4 4h-71a4 4 0 0 1-4-4z M605 345v108h68c40 0 67-22 67-54s-27-54-67-54z M605 527v138h75c46 0 77-27 77-69s-31-69-77-69z"></path></svg></g></g>
+      <g class="disc loop"><circle cx="80" cy="80" r="50" fill="#57D883"></circle></g>
+      <path class="tick loop" pathLength="1" d="M58 81 L74 97 L104 66" fill="none" stroke="#06240F" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+  </div>
+
+  <div style="position: relative; height: 66px; margin-top: 18px; text-align: center">
+    <div class="ta loop" style="position: absolute; left: 0; right: 0; top: 0">
+      <h1 style="margin: 0; font: 600 30px/1.15 Onest, sans-serif; letter-spacing: -1px">Building your plan</h1>
+      <p style="margin: 8px 0 0; font-size: 15px; color: #A3ADA6">Using your answers, not a template.</p>
+    </div>
+    <div class="tb loop" style="position: absolute; left: 0; right: 0; top: 0">
+      <h1 style="margin: 0; font: 600 30px/1.15 Onest, sans-serif; letter-spacing: -1px">Your plan is ready</h1>
+      <p style="margin: 8px 0 0; font-size: 15px; color: #A3ADA6">Made from your answers. Tuned by your data.</p>
+    </div>
+  </div>
+
+  <div style="margin-top: 22px; padding: 4px 18px; border-radius: 24px; background: #151917">
+    <div class="row" style="border-bottom: 1px solid #1D221F">
+      <div class="icon"><div class="wait"></div><div class="busy b0 loop"><svg class="spinner" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="#2A302C" stroke-width="3"></circle><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round"></path></svg></div><div class="ok k0 loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06240F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div></div>
+      <div><div style="font: 600 15px Onest, sans-serif">Estimating your starting burn</div><div style="font-size: 13px; color: #A3ADA6; margin-top: 3px">Mifflin–St Jeor, from your age, height, weight and sex</div></div>
+    </div>
+    <div class="row r1 loop" style="border-bottom: 1px solid #1D221F">
+      <div class="icon"><div class="wait"></div><div class="busy b1 loop"><svg class="spinner" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="#2A302C" stroke-width="3"></circle><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round"></path></svg></div><div class="ok k1 loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06240F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div></div>
+      <div><div style="font: 600 15px Onest, sans-serif">Setting a safe pace</div><div style="font-size: 13px; color: #A3ADA6; margin-top: 3px">0.5% a week, inside our safety limits</div></div>
+    </div>
+    <div class="row r2 loop" style="border-bottom: 1px solid #1D221F">
+      <div class="icon"><div class="wait"></div><div class="busy b2 loop"><svg class="spinner" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="#2A302C" stroke-width="3"></circle><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round"></path></svg></div><div class="ok k2 loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06240F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div></div>
+      <div><div style="font: 600 15px Onest, sans-serif">Splitting your macros</div><div style="font-size: 13px; color: #A3ADA6; margin-top: 3px">Protein first, to protect your muscle</div></div>
+    </div>
+    <div class="row r3 loop">
+      <div class="icon"><div class="wait"></div><div class="busy b3 loop"><svg class="spinner" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="#2A302C" stroke-width="3"></circle><path d="M12 3a9 9 0 0 1 9 9" fill="none" stroke="#57D883" stroke-width="3" stroke-linecap="round"></path></svg></div><div class="ok k3 loop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06240F" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div></div>
+      <div><div style="font: 600 15px Onest, sans-serif">Scheduling your first check-in</div><div style="font-size: 13px; color: #A3ADA6; margin-top: 3px">Sunday, Nov 1</div></div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+  <a class="cta loop" href="Reveal.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">See my plan</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

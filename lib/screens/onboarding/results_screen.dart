@@ -1,24 +1,31 @@
-import 'package:flutter/material.dart';
-import 'package:macrotracker/services/posthog_service.dart';
-import 'pages/acquisition_source_page.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/theme/typography.dart';
-import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
-import 'dart:convert';
 import 'dart:async';
-import 'package:macrotracker/services/superwall_placements.dart';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:macrotracker/providers/subscription_provider.dart';
+import 'package:intl/intl.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
-import 'package:macrotracker/screens/app_shell.dart';
-import 'package:macrotracker/widgets/adaptive_choice.dart';
-import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
-import 'package:macrotracker/widgets/onboarding/simple_plan_summary.dart';
+import 'package:macrotracker/screens/app_shell.dart';
+import 'package:macrotracker/screens/onboarding/save_screen.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
+import 'package:macrotracker/services/macro_calculator_service.dart';
+import 'package:macrotracker/services/storage_service.dart';
+import 'package:macrotracker/services/superwall_placements.dart';
+import 'package:macrotracker/theme/ob_theme.dart';
+import 'package:macrotracker/widgets/adaptive_choice.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'pages/acquisition_source_page.dart';
+import 'package:macrotracker/services/posthog_service.dart';
+
+/// The plan reveal (docs/onboarding-redesign/mock/Reveal*.dc.html): the daily
+/// cals counting up, the macros, what the user burns and the pace, and the
+/// projection for the chosen goal. For new users the button saves the plan
+/// (signing up first when signed out) and goes on to the paywall; when
+/// recalculating from Settings it saves and goes back.
 class ResultsScreen extends StatefulWidget {
   final Map<String, dynamic> results;
 
@@ -39,6 +46,19 @@ class ResultsScreen extends StatefulWidget {
   final bool? isMetricWeight;
   final double? goalWeightKg;
 
+  /// "Review answers" link at the top, shown when set.
+  final VoidCallback? onReview;
+
+  /// Today's weight, the start of the projection. Falls back to the weight
+  /// in [results].
+  final double? currentWeightKg;
+
+  /// When the goal weight is reached; falls back to [results].
+  final DateTime? projectedDate;
+
+  /// Weeks to the goal; only used when there is no [projectedDate].
+  final int? weeks;
+
   const ResultsScreen(
       {Key? key,
       required this.results,
@@ -47,7 +67,11 @@ class ResultsScreen extends StatefulWidget {
       this.adaptiveGoals = true,
       this.planLine,
       this.isMetricWeight,
-      this.goalWeightKg})
+      this.goalWeightKg,
+      this.onReview,
+      this.currentWeightKg,
+      this.projectedDate,
+      this.weeks})
       : super(key: key);
 
   @override
@@ -56,67 +80,54 @@ class ResultsScreen extends StatefulWidget {
 
 class _ResultsScreenState extends State<ResultsScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _fadeInAnimation;
-  late ScrollController _scrollController;
-  bool _showDetailedMetrics = false;
-  bool _showCalculationDetails = false;
+  /// One clock for the reveal: the count-up, the macro bars and the
+  /// projection line each take their own slice of it, as in the mock.
+  static const _total = Duration(milliseconds: 2600);
+  late final AnimationController _clock =
+      AnimationController(vsync: this, duration: _total);
+  bool _busy = false;
+  bool _started = false;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _fadeInAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOut,
-      ),
-    );
-    _animationController.forward();
-
-    _scrollController = ScrollController();
-
-    // Save results to shared preferences
-    _saveResultsToPrefs(); // Now synchronous
-
-    // Ensure all SnackBars use fixed behavior by default
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      }
-    });
+    _saveResultsToPrefs();
   }
 
-  // Now synchronous
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (MediaQuery.of(context).disableAnimations) {
+      _clock.value = 1;
+    } else {
+      _clock.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _clock.dispose();
+    super.dispose();
+  }
+
   void _saveResultsToPrefs() {
     HapticFeedback.mediumImpact();
-    // Assuming StorageService is initialized
     StorageService().put('macro_results', jsonEncode(widget.results));
   }
 
-  void _shareResults() {
-    HapticFeedback.mediumImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sharing functionality coming soon!'),
-        behavior: SnackBarBehavior.fixed,
-      ),
-    );
-  }
-
-  void _showPaywallAndProceed() {
+  Future<void> _showPaywallAndProceed() async {
+    if (_busy) return;
     HapticFeedback.mediumImpact();
 
-    // Get providers
-    final subscriptionProvider = Provider.of<SubscriptionProvider>(context, listen: false);
-    final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
-    final goals = Provider.of<GoalsProvider>(context, listen: false);
-
-    // Prepare nutrition goals sync helper
+    // Prepare nutrition goals sync helper. The providers are looked up when
+    // it runs: signing up on the Save screen swaps in new per-account
+    // providers and disposes the ones in place now.
     Future<void> syncNutritionGoals() async {
+      if (!mounted) return;
+      final foodEntryProvider = Provider.of<FoodEntryProvider>(context, listen: false);
+      final goals = Provider.of<GoalsProvider>(context, listen: false);
       await goals.load();
       try {
         debugPrint('Syncing nutrition goals to Supabase after onboarding');
@@ -142,6 +153,15 @@ class _ResultsScreenState extends State<ResultsScreen>
         );
       });
       return;
+    }
+
+    // The plan is saved on the device already; an account keeps it in sync.
+    if (Supabase.instance.client.auth.currentUser == null) {
+      _busy = true;
+      final saved = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => const SaveScreen()));
+      _busy = false;
+      if (saved != true || !mounted) return;
     }
 
     _askAcquisitionSourceOnce().then((_) {
@@ -194,271 +214,259 @@ class _ResultsScreenState extends State<ResultsScreen>
     );
   }
 
-  void _navigateBack() {
-    HapticFeedback.mediumImpact();
-    Navigator.of(context).pop(); // Navigate back to previous screen
+  // ---- the plan -----------------------------------------------------------
+
+  Map<String, dynamic> get _stats =>
+      widget.results['weight_stats'] as Map<String, dynamic>? ?? const {};
+
+  String get _goal {
+    final g = widget.results['goal'] ?? widget.results['goal_type'];
+    return g == MacroCalculatorService.GOAL_GAIN ||
+            g == MacroCalculatorService.GOAL_MAINTAIN
+        ? g as String
+        : MacroCalculatorService.GOAL_LOSE;
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    _animationController.dispose();
-    super.dispose();
+  double _num(String key) => (widget.results[key] as num?)?.toDouble() ?? 0;
+
+  double? get _startKg =>
+      widget.currentWeightKg ?? (_stats['current_weight'] as num?)?.toDouble();
+
+  double? get _goalKg =>
+      widget.goalWeightKg ?? (_stats['goal_weight'] as num?)?.toDouble();
+
+  DateTime? get _date {
+    if (widget.projectedDate != null) return widget.projectedDate;
+    final s = _stats['goal_date'] as String?;
+    if (s != null) return DateTime.tryParse(s);
+    if (widget.weeks != null) {
+      return DateTime.now().add(Duration(days: widget.weeks! * 7));
+    }
+    return null;
   }
+
+  bool get _metric =>
+      widget.isMetricWeight ?? context.watch<WeightUnitProvider>().isMetric;
+
+  String _weight(double kg) =>
+      _metric ? '${kg.toStringAsFixed(1)} kg' : '${(kg * 2.20462).round()} lb';
+
+  String _pace() {
+    final kg = _num('weekly_weight_change');
+    if (_goal == MacroCalculatorService.GOAL_MAINTAIN || kg.abs() < 0.005) {
+      return 'Hold';
+    }
+    final v = _metric ? kg : kg * 2.20462;
+    final a = v.abs();
+    final text = a.toStringAsFixed(a < 0.1 ? 2 : 1);
+    return '${v < 0 ? '−' : '+'}$text ${_metric ? 'kg' : 'lb'}/wk';
+  }
+
+  static const _label = {
+    MacroCalculatorService.GOAL_LOSE: 'LOSE FAT',
+    MacroCalculatorService.GOAL_MAINTAIN: 'MAINTAIN',
+    MacroCalculatorService.GOAL_GAIN: 'BUILD MUSCLE',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-    final detailed = context.watch<DetailedStatsProvider>().showDetailedStats;
+    final c = ObColors.of(context);
+    final goal = _goal;
+    final cals = _num('target_calories');
+    final fmt = NumberFormat('#,###');
+    final goalKg = _goalKg;
+    final date = _date;
+    final startKg = _startKg;
+    final maintain = goal == MacroCalculatorService.GOAL_MAINTAIN;
+
+    final bold = ObText.body(c.text, size: 16, weight: FontWeight.w600);
+    final String lead;
+    String target = '';
+    String mid = '';
+    String when = '';
+    if (maintain) {
+      lead = startKg != null
+          ? 'cals a day to hold steady around'
+          : 'cals a day to hold steady';
+      if (startKg != null) target = _weight(startKg);
+    } else if (goalKg != null) {
+      lead = date != null ? 'cals a day to reach' : 'cals a day to work towards';
+      target = _weight(goalKg);
+      if (date != null) {
+        mid = ' around ';
+        when = DateFormat('MMM d').format(date);
+      }
+    } else {
+      lead = 'cals a day for your plan';
+    }
+
+    final previous = widget.recalculateOnly
+        ? context.read<GoalsProvider>().caloriesGoal
+        : null;
+    final checkinDay = widget.recalculateOnly
+        ? context.read<GoalsProvider>().checkinWeekday
+        : DateTime.now().weekday;
+    final firstCheckIn = DateTime.now().add(const Duration(days: 7));
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: customColors.textPrimary),
-          onPressed: _navigateBack,
-          tooltip: 'Back to previous step',
-        ),
-        title: Text(
-          widget.recalculateOnly ? 'Your new plan' : 'Your plan',
-          style: GoogleFonts.poppins(
-            color: customColors.textPrimary,
-            fontWeight: FontWeight.w600,
-            fontSize: 22,
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: AnimatedBuilder(
-        animation: _fadeInAnimation,
-        builder: (context, child) {
-          return Opacity(
-            opacity: _fadeInAnimation.value,
-            child: child,
-          );
-        },
+      backgroundColor: c.bg,
+      body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 16),
-                    if (!detailed) _buildSimplePlan(),
-                    if (detailed) _buildDailyCalorieTargetCard(),
-                    const SizedBox(height: 16),
-                    if (detailed) _buildMacroDistributionCard(),
-                    const SizedBox(height: 16),
-                    if (detailed) _buildDetailedMetricsToggle(),
-                    if (detailed && _showDetailedMetrics) ...[
-                      const SizedBox(height: 16),
-                      _buildGoalRelatedInformation(
-                          widget.results['goal_weight_kg'] != null),
-                      const SizedBox(height: 16),
-                      _buildLifestyleRecommendations(),
+                    _rise(0,
+                       child: SizedBox(
+                        height: 44,
+                        child: Row(
+                          children: [
+                            if (widget.recalculateOnly) ...[
+                              ObBackButton(
+                                  onPressed: () => Navigator.of(context).maybePop()),
+                              const SizedBox(width: 12),
+                            ],
+                            Expanded(
+                              child: Text(
+                                '${widget.recalculateOnly ? 'YOUR NEW PLAN' : 'YOUR PLAN'} · ${_label[goal]}',
+                                overflow: TextOverflow.ellipsis,
+                                style: ObText.eyebrow(c.leafText),
+                              ),
+                            ),
+                            if (widget.onReview != null)
+                              InkWell(
+                                onTap: widget.onReview,
+                                child: SizedBox(
+                                  height: 44,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.edit_outlined,
+                                          size: 16, color: c.text2),
+                                      const SizedBox(width: 6),
+                                      Text('Review answers',
+                                          style: ObText.body(c.text2,
+                                              size: 14, weight: FontWeight.w500)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    _rise(100,
+                      
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AnimatedBuilder(
+                            animation: _clock,
+                            builder: (context, _) {
+                              final k = _slice(0, 1400, Curves.easeOutCubic);
+                              return Text(
+                                fmt.format((cals * k).round()),
+                                key: const Key('reveal_cals'),
+                                style: ObText.display(64, color: c.text, height: 1)
+                                    .copyWith(letterSpacing: -2.6),
+                              );
+                            },
+                          ),
+                          if (previous != null &&
+                              previous.round() != cals.round()) ...[
+                            const SizedBox(height: 4),
+                            Text('Previously ${fmt.format(previous.round())} cals a day',
+                                style: ObText.body(c.muted, size: 13)),
+                          ],
+                          const SizedBox(height: 6),
+                          Text.rich(
+                            key: const Key('reveal_lead'),
+                            TextSpan(children: [
+                              TextSpan(text: '$lead '),
+                              TextSpan(text: maintain ? target.trim() : target, style: bold),
+                              if (maintain && target.isNotEmpty) const TextSpan(text: ''),
+                              TextSpan(text: mid),
+                              TextSpan(text: when, style: bold),
+                            ]),
+                            style: ObText.body(c.text2, size: 16).copyWith(height: 1.45),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _rise(500, child: _macros(c)),
+                    const SizedBox(height: 10),
+                    _rise(900,
+                      
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: _Stat(
+                                  label: 'You burn',
+                                  value: '≈${fmt.format(_num('tdee').round())}')),
+                          const SizedBox(width: 8),
+                          Expanded(child: _Stat(label: 'Pace', value: _pace())),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: _Stat(
+                                  label: 'Check-in',
+                                  value: '${_weekday(checkinDay)}s')),
+                        ],
+                      ),
+                    ),
+                    if (startKg != null && (maintain || goalKg != null)) ...[
+                      const SizedBox(height: 10),
+                      _rise(1200, child: _chart(c, goal, startKg, goalKg, date)),
                     ],
-                    const SizedBox(height: 16),
-                    if (detailed) _buildCalculationDetailsToggle(),
-                    if (detailed && _showCalculationDetails) ...[
-                      const SizedBox(height: 16),
-                      _buildCalculationDetails(),
-                    ],
-                    const SizedBox(height: 100),
+                    const SizedBox(height: 12),
+                    _rise(1200,
+                      
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _noteLine(
+                            c,
+                            widget.adaptiveGoals
+                                ? Icons.autorenew_rounded
+                                : Icons.lock_outline_rounded,
+                            AdaptiveChoiceCopy.resultLine(widget.adaptiveGoals),
+                            const Key('results_adaptive_line'),
+                          ),
+                          if (widget.planLine case final planLine?)
+                            _noteLine(c, Icons.timeline_rounded, planLine,
+                                const Key('results_plan_line')),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.results['tdee_learned'] == true
+                                ? 'Based on how your body has responded so far.'
+                                : widget.adaptiveGoals
+                                    ? 'A starting estimate. From your first check-in on '
+                                        '${DateFormat('MMM d').format(firstCheckIn)}, your logs and '
+                                        'weigh-ins take over.'
+                                    : 'Your targets stay the same until you change them.',
+                            key: const Key('results_target_tip'),
+                            style: ObText.body(c.muted, size: 13),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-            _buildBottomButtons(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSimplePlan() {
-    final results = widget.results;
-    final weightStats = results['weight_stats'] as Map<String, dynamic>? ?? const {};
-    final date = weightStats['goal_date'] as String?;
-    return SimplePlanSummary(
-      targets: GoalTargets(calories: (results['target_calories'] as num).toDouble(), protein: (results['protein_g'] as num).toDouble(), carbs: (results['carb_g'] as num).toDouble(), fat: (results['fat_g'] as num).toDouble()),
-      goalDate: date == null ? null : DateTime.tryParse(date),
-      goalWeightKg: widget.goalWeightKg ?? (weightStats['goal_weight'] as num?)?.toDouble(),
-      isMetric: widget.isMetricWeight ?? context.watch<WeightUnitProvider>().isMetric,
-      // Recalculating: show the target being replaced, as the review
-      // step before this one does.
-      previousCalories: widget.recalculateOnly
-          ? context.read<GoalsProvider>().caloriesGoal
-          : null,
-      learned: results['tdee_learned'] == true,
-      adaptive: widget.adaptiveGoals,
-    );
-  }
-
-  Widget _buildDailyCalorieTargetCard() {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-    final calorieTarget = widget.results['target_calories'];
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: customColors.cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              "Your Daily Calorie Target",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: customColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Calculated specifically for your ${_getGoalText()} goal",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: customColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 32),
-            TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 1200),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) {
-                return Container(
-                  height: 140,
-                  width: 140,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.primary.withOpacity(0.7),
-                      ],
-                    ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${(calorieTarget * value).round()}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          'cals/day',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            Text.rich(
-              key: const Key('results_adaptive_line'),
-              TextSpan(children: [
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: Icon(
-                      widget.adaptiveGoals
-                          ? Icons.autorenew_rounded
-                          : Icons.lock_outline_rounded,
-                      size: 16,
-                      color: customColors.textSecondary,
-                    ),
-                  ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: _rise(1200,
+                
+                child: ObPrimaryButton(
+                  label: widget.recalculateOnly ? 'Save' : 'Save my plan',
+                  onPressed: _showPaywallAndProceed,
                 ),
-                TextSpan(
-                    text: AdaptiveChoiceCopy.resultLine(widget.adaptiveGoals)),
-              ]),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: customColors.textSecondary,
-              ),
-            ),
-            if (widget.planLine case final planLine?) ...[
-              const SizedBox(height: 6),
-              Text.rich(
-                key: const Key('results_plan_line'),
-                TextSpan(children: [
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Icon(Icons.timeline_rounded,
-                          size: 16, color: customColors.textSecondary),
-                    ),
-                  ),
-                  TextSpan(text: planLine),
-                ]),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: customColors.textSecondary,
-                ),
-              ),
-            ],
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.lightbulb_outline,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      // A formula target can be a few hundred cals off; say
-                      // so up front rather than leave the number unexplained.
-                      widget.adaptiveGoals && widget.results['tdee_learned'] != true
-                          ? 'This is a starting estimate from your details. Log '
-                              'your food and weigh in for a week or two, and it '
-                              'adjusts to what your body actually burns.'
-                          : 'This target supports sustainable progress toward your goals',
-                      key: const Key('results_target_tip'),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: customColors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ],
@@ -467,1028 +475,311 @@ class _ResultsScreenState extends State<ResultsScreen>
     );
   }
 
-  String _getGoalText() {
-    final goal = widget.results['goal'] ?? '';
-    if (goal == 'lose') return 'weight loss';
-    if (goal == 'gain') return 'muscle gain';
-    return 'maintenance';
-  }
-
-  Widget _buildMacroDistributionCard() {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-    final protein = widget.results['protein_g'] ?? 0;
-    final fat = widget.results['fat_g'] ?? 0;
-    final carbs = widget.results['carb_g'] ?? 0;
-    final proteinPercent = widget.results['protein_percent'] ?? 0;
-    final fatPercent = widget.results['fat_percent'] ?? 0;
-    final carbPercent = widget.results['carb_percent'] ?? 0;
-
-    const proteinColor = Color(0xFF6366F1); // Indigo
-    const carbColor = Color(0xFF10B981); // Emerald  
-    const fatColor = Color(0xFFF59E0B); // Amber
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: customColors.cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.timeline_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Daily Macronutrients',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your optimal macronutrient breakdown',
-              style: TextStyle(
-                fontSize: 14,
-                color: customColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildMacroProgressBar(
-              'Protein',
-              protein,
-              proteinPercent,
-              proteinColor,
-              isAnimated: true,
-              animationDelay: 200,
-            ),
-            const SizedBox(height: 16),
-            _buildMacroProgressBar(
-              'Carbs',
-              carbs,
-              carbPercent,
-              carbColor,
-              isAnimated: true,
-              animationDelay: 400,
-            ),
-            const SizedBox(height: 16),
-            _buildMacroProgressBar(
-              'Fat',
-              fat,
-              fatPercent,
-              fatColor,
-              isAnimated: true,
-              animationDelay: 600,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Based on ISSN guidelines',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: customColors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMacroProgressBar(
-    String name,
-    int grams,
-    int percentage,
-    Color color, {
-    bool isAnimated = false,
-    int animationDelay = 0,
-  }) {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-
-    Widget content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              name,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: customColors.textPrimary,
-              ),
-            ),
-            Row(
-              children: [
-                Text(
-                  '${grams}g',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$percentage%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0, end: percentage / 100),
-          duration: Duration(milliseconds: 1000 + animationDelay),
-          curve: Curves.easeOutCubic,
-          builder: (context, value, child) {
-            return LinearProgressIndicator(
-              value: value,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              borderRadius: BorderRadius.circular(4),
-            );
-          },
-        ),
-      ],
-    );
-
-    if (isAnimated) {
-      return TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: 1),
-        duration: Duration(milliseconds: 600 + animationDelay),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
+  /// Fades and lifts [child] in at [startMs] on the reveal clock. Driven by
+  /// the clock, not a timer, so nothing is left pending when the screen goes.
+  Widget _rise(int startMs, {required Widget child}) => AnimatedBuilder(
+        animation: _clock,
+        child: child,
+        builder: (context, child) {
+          final t = _slice(startMs, 700, ObMotion.curve);
           return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(20 * (1 - value), 0),
-              child: content,
-            ),
+            opacity: t,
+            child: Transform.translate(offset: Offset(0, 16 * (1 - t)), child: child),
           );
         },
       );
-    }
 
-    return content;
+  /// Progress through [startMs]..[startMs] + [lengthMs] of the reveal clock.
+  double _slice(int startMs, int lengthMs, Curve curve) {
+    final t = (_clock.value * _total.inMilliseconds - startMs) / lengthMs;
+    return curve.transform(t.clamp(0.0, 1.0));
   }
 
-  Widget _buildMacroLegendItem(
-      String name, String grams, String percentage, Color color,
-      {bool isAnimated = false, int animationDelay = 0}) {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
+  static String _weekday(int iso) => const [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday'
+      ][(iso - 1) % 7];
 
-    Widget content = Row(
-      children: [
-        Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              name,
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: customColors.textPrimary,
+  Widget _noteLine(ObColors c, IconData icon, String text, Key key) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text.rich(
+          key: key,
+          TextSpan(children: [
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: Icon(icon, size: 15, color: c.muted),
               ),
             ),
-            SizedBox(height: 2),
-            Row(
-              children: [
-                Text(
-                  grams,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    percentage,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: color.darken(30),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+            TextSpan(text: text),
+          ]),
+          style: ObText.body(c.muted, size: 13),
         ),
-      ],
-    );
-
-    if (isAnimated) {
-      return TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: 1),
-        duration: Duration(milliseconds: 800),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(20 * (1 - value), 0),
-              child: content,
-            ),
-          );
-        },
       );
-    }
 
-    return content;
-  }
-
-  Widget _buildGoalRelatedInformation(bool hasGoalWeight) {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-    final goalWeightKg = widget.results['goal_weight_kg'];
-    final recommendedWeeklyRate = widget.results['recommended_weekly_rate'];
-    final goalTimeframeWeeks = widget.results['goal_timeframe_weeks'];
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: customColors.cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _macros(ObColors c) {
+    final p = _num('protein_g');
+    final cb = _num('carb_g');
+    final f = _num('fat_g');
+    final kc = [p * 4, cb * 4, f * 9];
+    final total = kc.reduce((a, b) => a + b);
+    final maxG = [p, cb, f].reduce((a, b) => a > b ? a : b);
+    final rows = [
+      ('Protein', p, kc[0], c.protein, 700),
+      ('Carbs', cb, kc[1], c.carbs, 850),
+      ('Fat', f, kc[2], c.fat, 1000),
+    ];
+    return ObCard(
+      padding: const EdgeInsets.all(18),
+      radius: 24,
+      child: AnimatedBuilder(
+        animation: _clock,
+        builder: (context, _) => Column(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.track_changes_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 22,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  hasGoalWeight ? 'Your Goal Plan' : 'Your Current Stats',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              hasGoalWeight
-                  ? 'Projected timeline and metrics for your goal'
-                  : 'Your baseline metabolic calculations',
-              style: TextStyle(
-                fontSize: 14,
-                color: customColors.textSecondary,
-              ),
-            ),
-            SizedBox(height: 20),
-            if (hasGoalWeight) ...[
-              _buildProgressRow(
-                'Current Weight',
-                'Target Weight',
-                '${widget.results['weight_kg'].toStringAsFixed(1)} kg',
-                '${goalWeightKg.toStringAsFixed(1)} kg',
-                Theme.of(context).colorScheme.primary,
-              ),
-              SizedBox(height: 24),
-              _buildInfoRow(
-                'Recommended Rate',
-                '${recommendedWeeklyRate.toStringAsFixed(1)} kg/week',
-                Icons.show_chart_rounded,
-                Colors.blue.shade400,
-                'This is a safe and sustainable rate of weight change based on scientific research.',
-              ),
-              SizedBox(height: 16),
-              _buildInfoRow(
-                'Estimated Timeframe',
-                '${goalTimeframeWeeks.toString()} weeks',
-                Icons.calendar_today_rounded,
-                Colors.purple.shade300,
-                'This is how long it may take to reach your goal weight at your chosen pace.',
-              ),
-              SizedBox(height: 16),
-            ],
-            _buildInfoRow(
-              'Basal Metabolic Rate (BMR)',
-              '${widget.results['bmr']} cals/day',
-              Icons.hotel_rounded,
-              Colors.amber.shade700,
-              'This is how many calories your body needs at complete rest.',
-            ),
-            SizedBox(height: 16),
-            _buildInfoRow(
-              'Total Daily Energy Expenditure',
-              '${widget.results['tdee']} cals/day',
-              Icons.directions_run_rounded,
-              Colors.green.shade600,
-              widget.results['tdee_learned'] == true
-                  ? 'Learned from your food logs and weigh-ins, so no activity estimate is needed.'
-                  : 'This is your BMR plus calories burned through daily activity.',
-            ),
-            SizedBox(height: 16),
-            _buildInfoRow(
-              'Recommended Steps',
-              '${widget.results['recommended_steps'] ?? 10000} steps/day',
-              Icons.directions_walk_rounded,
-              Colors.teal.shade500,
-              'Aim for this step count to support your fitness goal.',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressRow(String startLabel, String endLabel,
-      String startValue, String endValue, Color progressColor) {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-
-    return TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: 1),
-        duration: Duration(milliseconds: 1500),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Column(
-            children: [
+            for (var i = 0; i < rows.length; i++) ...[
+              if (i > 0) const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        startLabel,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: customColors.textSecondary,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        startValue,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: customColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        endLabel,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: customColors.textSecondary,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        endValue,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: customColors.textPrimary,
-                        ),
-                      ),
-                    ],
+                  Text(rows[i].$1,
+                      style: ObText.body(c.text, size: 14, weight: FontWeight.w600)),
+                  Text.rich(
+                    TextSpan(children: [
+                      TextSpan(
+                          text: '${rows[i].$2.round()} g',
+                          style: ObText.body(c.text, size: 14, weight: FontWeight.w600)),
+                      TextSpan(
+                          text: ' · ${total > 0 ? (rows[i].$3 / total * 100).round() : 0}%'),
+                    ]),
+                    style: ObText.body(c.text2, size: 14),
                   ),
                 ],
               ),
-              SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: value,
-                minHeight: 8,
-                backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                borderRadius: BorderRadius.circular(4),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: Container(
+                  height: 10,
+                  color: c.raised,
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: maxG > 0
+                        ? rows[i].$2 / maxG * 0.96 * _slice(rows[i].$5, 1000, ObMotion.curve)
+                        : 0,
+                    child: Container(
+                      height: 10,
+                      decoration: BoxDecoration(
+                          color: rows[i].$4, borderRadius: BorderRadius.circular(5)),
+                    ),
+                  ),
+                ),
               ),
             ],
-          );
-        });
-  }
-
-  Widget _buildInfoRow(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-    String tooltip,
-  ) {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 18,
-            ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Tooltip(
-            message: tooltip,
-            child: Icon(
-              Icons.info_outline,
-              color: color.withOpacity(0.7),
-              size: 18,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCalculationDetails() {
-    final customColors = Theme.of(context).extension<CustomColors>();
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: customColors?.cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.analytics_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 22,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Calculation Method',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: customColors?.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              'The science behind your personalized calculations',
-              style: TextStyle(
-                fontSize: 14,
-                color: customColors?.textSecondary,
-              ),
-            ),
-            SizedBox(height: 20),
-
-            // BMR Formula
-            _buildMethodCard(
-              'Formula Used',
-              widget.results.containsKey('formula_used')
-                  ? '${widget.results['formula_used']}'
-                  : 'Mifflin-St Jeor',
-              widget.results['body_fat_percentage'] != null
-                  ? 'Averaged with Katch-McArdle, which uses your scanned body fat'
-                  : 'The most accurate everyday formula for estimating metabolism',
-              Icons.functions_rounded,
-              Colors.indigo.shade400,
-            ),
-
-            SizedBox(height: 16),
-
-            // Show body fat percentage if provided
-            if (widget.results.containsKey('body_fat_percentage') &&
-                widget.results['body_fat_percentage'] != null)
-              Column(
-                children: [
-                  _buildMethodCard(
-                    'Body Fat Percentage',
-                    '${widget.results['body_fat_percentage'].round()}%',
-                    'Used for more accurate metabolic calculations',
-                    Icons.monitor_weight_outlined,
-                    Colors.orange.shade500,
-                  ),
-                  SizedBox(height: 16),
-                ],
-              ),
-
-            // Add scientific sources section
-            Divider(height: 32),
-            Row(
-              children: [
-                Icon(
-                  Icons.science_rounded,
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
-                  size: 18,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Scientific Sources',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: customColors?.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 10),
-            Text(
-              '• BMR: Mifflin-St Jeor (1990), Katch-McArdle (1996)\n'
-              '• Protein: International Society of Sports Nutrition\n'
-              '• Fat & Carbs: Harvard School of Public Health\n'
-              '• Weight change rate: Hall (2008), Forbes body composition',
-              style: TextStyle(
-                fontSize: 13,
-                color: customColors?.textSecondary,
-                height: 1.5,
-              ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMethodCard(
-    String title,
-    String value,
-    String description,
-    IconData icon,
-    Color color,
-  ) {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
-            ),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: customColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLifestyleRecommendations() {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-    final weight =
-        widget.results['weight_kg'] ?? 70; // Default to 70kg if not available
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: customColors.cardBackground,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.favorite_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 22,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Lifestyle Recommendations',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Supporting habits to optimize your results',
-              style: TextStyle(
-                fontSize: 14,
-                color: customColors.textSecondary,
-              ),
-            ),
-            SizedBox(height: 20),
-            _buildLifestyleCard(
-              'Water Intake',
-              '${(weight * 0.033).toStringAsFixed(1)} liters/day',
-              'Stay hydrated to support metabolism and overall health.',
-              Icons.water_drop_rounded,
-              Colors.blue.shade400,
-              isAnimated: true,
-              animationDelay: 300,
-            ),
-            SizedBox(height: 16),
-            _buildLifestyleCard(
-              'Sleep Recommendation',
-              '7-9 hours/night',
-              'Quality sleep is essential for recovery and hormonal balance.',
-              Icons.nightlight_round,
-              Colors.indigo.shade400,
-              isAnimated: true,
-              animationDelay: 500,
-            ),
-            SizedBox(height: 16),
-            _buildLifestyleCard(
-              'Exercise',
-              '150+ minutes/week',
-              'Regular physical activity enhances your results and well-being.',
-              Icons.fitness_center_rounded,
-              Colors.green.shade500,
-              isAnimated: true,
-              animationDelay: 700,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLifestyleCard(String title, String value, String description,
-      IconData icon, Color color,
-      {bool isAnimated = false, int animationDelay = 0}) {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-
-    Widget card = Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: color.darken(10),
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: customColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (isAnimated) {
-      return TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: 1),
-        duration: Duration(milliseconds: 800),
-        curve: Curves.easeOutCubic,
-        builder: (context, value, child) {
-          return Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(30 * (1 - value), 0),
-              child: card,
-            ),
-          );
-        },
-      );
+  Widget _chart(ObColors c, String goal, double startKg, double? goalKg, DateTime? date) {
+    final maintain = goal == MacroCalculatorService.GOAL_MAINTAIN;
+    final String endLabel;
+    final String endValue;
+    if (maintain) {
+      endLabel = 'Healthy range';
+      final band = _metric ? 1.0 : 1 / 2.20462;
+      endValue = _metric
+          ? '${(startKg - band).toStringAsFixed(1)}–${(startKg + band).toStringAsFixed(1)} kg'
+          : '${((startKg - band) * 2.20462).round()}–${((startKg + band) * 2.20462).round()} lb';
+    } else {
+      endLabel = date != null ? 'Goal · ${DateFormat('MMM d').format(date)}' : 'Goal';
+      endValue = _weight(goalKg!);
     }
-
-    return card;
-  }
-
-  Widget _buildDetailedMetricsToggle() {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-    
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: customColors.cardBackground,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _showDetailedMetrics = !_showDetailedMetrics;
-          });
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+    final description = maintain
+        ? 'Weight holding steady inside a band around ${_weight(startKg)}'
+        : 'Weight trending ${goal == MacroCalculatorService.GOAL_GAIN ? 'up' : 'down'} '
+            'from ${_weight(startKg)} to ${_weight(goalKg!)}';
+    return ObCard(
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.insights_rounded,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Today', style: ObText.body(c.text2, size: 12)),
+                  const SizedBox(height: 2),
+                  Text(_weight(startKg), style: ObText.title(c.text, size: 15)),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Detailed Metrics & Recommendations',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: customColors.textPrimary,
-                  ),
-                ),
-              ),
-              Icon(
-                _showDetailedMetrics 
-                  ? Icons.keyboard_arrow_up 
-                  : Icons.keyboard_arrow_down,
-                color: customColors.textSecondary,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(endLabel, style: ObText.body(c.text2, size: 12)),
+                  const SizedBox(height: 2),
+                  Text(endValue, style: ObText.title(c.leafText, size: 15)),
+                ],
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCalculationDetailsToggle() {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-    
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: customColors.cardBackground,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _showCalculationDetails = !_showCalculationDetails;
-          });
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(
-                Icons.science_rounded,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'How We Calculated This',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: customColors.textPrimary,
+          const SizedBox(height: 8),
+          Semantics(
+            label: description,
+            child: AnimatedBuilder(
+              animation: _clock,
+              builder: (context, _) => SizedBox(
+                height: 72,
+                child: CustomPaint(
+                  painter: _ProjectionPainter(
+                    goal: goal,
+                    progress: _slice(1200, 1400, const Cubic(.4, 0, .2, 1)),
+                    fade: _slice(1200, 800, Curves.easeOut),
+                    line: c.leaf,
+                    guide: c.line,
+                    dot: c.text,
                   ),
                 ),
               ),
-              Icon(
-                _showCalculationDetails 
-                  ? Icons.keyboard_arrow_up 
-                  : Icons.keyboard_arrow_down,
-                color: customColors.textSecondary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomButtons() {
-    final customColors = Theme.of(context).extension<CustomColors>()!;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _showPaywallAndProceed,
-            style: ElevatedButton.styleFrom(
-              // Matches onboarding's Next/Calculate button.
-              backgroundColor: customColors.textPrimary,
-              foregroundColor: Theme.of(context).scaffoldBackgroundColor,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            child: Text(
-              widget.recalculateOnly ? 'Save new goals' : 'Start your journey',
-              style: AppTypography.onboardingButton.copyWith(
-                color: Theme.of(context).scaffoldBackgroundColor,
-              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-// Color utility extension
-extension ColorExtension on Color {
-  Color darken([int percent = 10]) {
-    assert(1 <= percent && percent <= 100);
-    final f = 1 - percent / 100;
-    return Color.fromARGB(
-      alpha,
-      (red * f).round(),
-      (green * f).round(),
-      (blue * f).round(),
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ObColors.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration:
+          BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(18)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: ObText.body(c.text2, size: 12)),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, maxLines: 1, style: ObText.title(c.text)),
+          ),
+        ],
+      ),
     );
+  }
+}
+
+/// The projection from the mock: a 310 x 72 drawing scaled to the card's
+/// width. Lose falls to a dashed goal line, gain rises to one, and maintain
+/// wobbles flat inside a soft band.
+class _ProjectionPainter extends CustomPainter {
+  _ProjectionPainter({
+    required this.goal,
+    required this.progress,
+    required this.fade,
+    required this.line,
+    required this.guide,
+    required this.dot,
+  });
+
+  final String goal;
+  final double progress;
+  final double fade;
+  final Color line;
+  final Color guide;
+  final Color dot;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sx = size.width / 310;
+    final sy = size.height / 72;
+    canvas.scale(sx, sy);
+
+    final path = Path();
+    final Offset start;
+    final Offset end;
+    switch (goal) {
+      case MacroCalculatorService.GOAL_GAIN:
+        start = const Offset(8, 62);
+        end = const Offset(300, 10);
+        path
+          ..moveTo(8, 62)
+          ..cubicTo(110, 56, 200, 26, 300, 10);
+        _dashed(canvas, 10);
+      case MacroCalculatorService.GOAL_MAINTAIN:
+        start = const Offset(8, 36);
+        end = const Offset(300, 36);
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(
+                const Rect.fromLTWH(0, 18, 310, 36), const Radius.circular(10)),
+            Paint()..color = line.withValues(alpha: 0.1 * fade));
+        path
+          ..moveTo(8, 36)
+          ..cubicTo(40, 30, 70, 42, 110, 36)
+          ..cubicTo(150, 30, 180, 30, 220, 37)
+          ..cubicTo(260, 44, 280, 38, 300, 36);
+      default:
+        start = const Offset(8, 10);
+        end = const Offset(300, 62);
+        path
+          ..moveTo(8, 10)
+          ..cubicTo(100, 26, 190, 54, 300, 62);
+        _dashed(canvas, 62);
+    }
+
+    final metric = path.computeMetrics().first;
+    canvas.drawPath(
+      metric.extractPath(0, metric.length * progress),
+      Paint()
+        ..color = line
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(start, 5, Paint()..color = dot);
+    canvas.drawCircle(end, 6, Paint()..color = line);
   }
 
-  Color lighten([int percent = 10]) {
-    assert(1 <= percent && percent <= 100);
-    final p = percent / 100;
-    return Color.fromARGB(
-      alpha,
-      red + ((255 - red) * p).round(),
-      green + ((255 - green) * p).round(),
-      blue + ((255 - blue) * p).round(),
-    );
+  void _dashed(Canvas canvas, double y) {
+    final paint = Paint()
+      ..color = guide
+      ..strokeWidth = 1;
+    for (double x = 0; x < 310; x += 10) {
+      canvas.drawLine(Offset(x, y), Offset(x + 4, y), paint);
+    }
   }
+
+  @override
+  bool shouldRepaint(_ProjectionPainter old) =>
+      old.progress != progress ||
+      old.fade != fade ||
+      old.goal != goal ||
+      old.line != line ||
+      old.guide != guide ||
+      old.dot != dot;
 }
 
 /// Full-screen, skippable "How did you hear about us?" step shown after the
-/// results screen. The page itself reports the answer to PostHog.
+/// plan reveal. The page itself reports the answer to PostHog.
 class AcquisitionSourceStep extends StatefulWidget {
   const AcquisitionSourceStep({super.key});
 
@@ -1499,45 +790,70 @@ class AcquisitionSourceStep extends StatefulWidget {
 class _AcquisitionSourceStepState extends State<AcquisitionSourceStep> {
   String? _source;
 
+  void _close({bool answered = false}) {
+    if (answered && _source != null) {
+      PostHogService.trackEvent('acquisition_source_answered',
+          properties: {'acquisition_source': _source});
+    }
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final customColors = theme.extension<CustomColors>();
+    final c = ObColors.of(context);
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: c.bg,
       body: SafeArea(
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+              child: SizedBox(
+                height: 44,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: InkWell(
+                    onTap: () => _close(),
+                    child: SizedBox(
+                      height: 44,
+                      child: Center(
+                        child: Text('Skip',
+                            key: const Key('source_skip_link'),
+                            style: ObText.body(c.text2, weight: FontWeight.w500)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             Expanded(
               child: AcquisitionSourcePage(
                 currentSource: _source,
                 onSourceSelected: (source) => setState(() => _source = source),
-                onSkip: () => Navigator.of(context).pop(),
+                onSkip: () => _close(),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (_source != null) {
-                      PostHogService.trackEvent('acquisition_source_answered',
-                          properties: {'acquisition_source': _source});
-                    }
-                    Navigator.of(context).pop();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: customColors?.textPrimary ?? theme.colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: Text(
-                    _source == null ? 'Skip' : 'Continue',
-                    style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 16),
-                  ),
-                ),
-              ),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: _source == null
+                  ? Material(
+                      color: c.raised,
+                      borderRadius: BorderRadius.circular(18),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => _close(),
+                        child: SizedBox(
+                          height: 56,
+                          child: Center(
+                            child: Text('Skip',
+                                key: const Key('source_cta'),
+                                style: ObText.button(c.text)),
+                          ),
+                        ),
+                      ),
+                    )
+                  : ObPrimaryButton(
+                      label: 'Continue', onPressed: () => _close(answered: true)),
             ),
           ],
         ),

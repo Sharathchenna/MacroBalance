@@ -51,11 +51,8 @@ import AVFoundation  // Added for camera functionality
         
         if #available(iOS 10.0, *) {
             UNUserNotificationCenter.current().delegate = self
-            let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-            UNUserNotificationCenter.current().requestAuthorization(
-                options: authOptions,
-                 completionHandler: { _, _ in }
-             )
+            // The permission prompt is shown from Dart (NotificationService):
+            // new users see the reminders primer in onboarding first.
          }
 
          application.registerForRemoteNotifications()

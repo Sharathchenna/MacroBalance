@@ -1,11 +1,15 @@
-import 'package:provider/provider.dart';
-import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/widgets/onboarding/unit_selector.dart';
-import 'package:numberpicker/numberpicker.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_weight_input.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
+import 'package:macrotracker/theme/ob_theme.dart';
+import 'package:provider/provider.dart';
 
+const double kMinWeightKg = 30;
+const double kMaxWeightKg = 200;
+
+/// Step: today's weight. Reports kg whichever unit is shown.
 class WeightPage extends StatelessWidget {
   final double currentWeightKg;
   final bool isMetric;
@@ -29,163 +33,49 @@ class WeightPage extends StatelessWidget {
     this.onUseTrend,
   });
 
-  // Calculate imperial weight locally for the picker
-  int get _imperialWeightLbs => (currentWeightKg * 2.20462).round();
-
-  /// "81.4 kg" or "179 lbs", as the picker shows it.
-  String _weightText(double kg) => isMetric
-      ? '${kg.toStringAsFixed(1)} kg'
-      : '${(kg * 2.20462).round()} lbs';
+  /// "81.4 kg" or "179 lbs", as the page shows it.
+  String _weightText(double kg) =>
+      isMetric ? '${kg.toStringAsFixed(1)} kg' : '${(kg * 2.20462).round()} lbs';
 
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            'What\'s your current weight?',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: customColors?.textPrimary ??
-                  theme.textTheme.headlineSmall?.color,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Used to calculate your daily caloric needs',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: customColors?.textSecondary ??
-                  theme.textTheme.bodyMedium?.color,
+    final c = ObColors.of(context);
+    return ObPageBody(
+      children: [
+        const ObHeader(eyebrow: 'About you', title: 'What do you weigh today?'),
+        const SizedBox(height: 24),
+        ObRise(
+          index: 2,
+          child: Center(
+            child: ObSegmented<bool>(
+              options: const {true: 'kg', false: 'lb'},
+              value: isMetric,
+              onChanged: onUnitChanged,
             ),
           ),
-          const SizedBox(height: 40),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-            decoration: BoxDecoration(
-              color: customColors?.cardBackground ?? theme.cardColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                UnitSelector(
-                  isMetric: isMetric,
-                  metricUnit: 'kg',
-                  imperialUnit: 'lbs',
-                  onChanged: (isMetricSelected) {
-                    HapticFeedback.heavyImpact();
-                    onUnitChanged(isMetricSelected);
-                  },
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (isMetric) ...[
-                      // Metric (kg) pickers
-                      NumberPicker(
-                        value: currentWeightKg.floor(),
-                        minValue: 30,
-                        maxValue: 200,
-                        onChanged: (value) {
-                          HapticFeedback.selectionClick();
-                          onWeightChanged(value +
-                              (currentWeightKg - currentWeightKg.floor()));
-                        },
-                        selectedTextStyle: TextStyle(
-                            color: customColors?.textPrimary ??
-                                theme.textTheme.bodyLarge?.color,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold),
-                        textStyle: TextStyle(
-                            color: customColors?.textSecondary ??
-                                theme.textTheme.bodyMedium?.color,
-                            fontSize: 20),
-                      ),
-                      Text('.',
-                          style: TextStyle(
-                              color: customColors?.textPrimary ??
-                                  theme.textTheme.bodyLarge?.color,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold)),
-                      NumberPicker(
-                        value:
-                            ((currentWeightKg - currentWeightKg.floor()) * 10)
-                                .round(),
-                        minValue: 0,
-                        maxValue: 9,
-                        onChanged: (value) {
-                          HapticFeedback.lightImpact();
-                          onWeightChanged(
-                              currentWeightKg.floor() + (value / 10));
-                        },
-                        selectedTextStyle: TextStyle(
-                            color: customColors?.textPrimary ??
-                                theme.textTheme.bodyLarge?.color,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold),
-                        textStyle: TextStyle(
-                            color: customColors?.textSecondary ??
-                                theme.textTheme.bodyMedium?.color,
-                            fontSize: 20),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('kg',
-                          style: TextStyle(
-                              color: customColors?.textPrimary ??
-                                  theme.textTheme.bodyLarge?.color,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w500)),
-                    ] else ...[
-                      // Imperial (lbs) picker
-                      NumberPicker(
-                        value: _imperialWeightLbs,
-                        minValue: 66, // 30kg in lbs
-                        maxValue: 441, // 200kg in lbs
-                        onChanged: (value) {
-                          HapticFeedback.lightImpact();
-                          onWeightChanged(value / 2.20462);
-                        },
-                        selectedTextStyle: TextStyle(
-                            color: customColors?.textPrimary ??
-                                theme.textTheme.bodyLarge?.color,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold),
-                        textStyle: TextStyle(
-                            color: customColors?.textSecondary ??
-                                theme.textTheme.bodyMedium?.color,
-                            fontSize: 20),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('lbs',
-                          style: TextStyle(
-                              color: customColors?.textPrimary ??
-                                  theme.textTheme.bodyLarge?.color,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w500)),
-                    ],
-                  ],
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(height: 26),
+        ObRise(
+          index: 2,
+          child: ObWeightInput(
+            valueKg: currentWeightKg,
+            minKg: kMinWeightKg,
+            maxKg: kMaxWeightKg,
+            isMetric: isMetric,
+            onChanged: onWeightChanged,
           ),
-          if (trendKg != null && onUseTrend != null) ...[
-            const SizedBox(height: 20),
-            _UseTrendButton(
+        ),
+        const SizedBox(height: 8),
+        ObRise(
+          index: 2,
+          child: Text('Swipe the ruler or tap the number to type',
+              textAlign: TextAlign.center, style: ObText.body(c.muted, size: 12)),
+        ),
+        if (trendKg != null && onUseTrend != null) ...[
+          const SizedBox(height: 18),
+          ObRise(
+            index: 3,
+            child: _UseTrendCard(
               label: context.watch<DetailedStatsProvider>().showDetailedStats
                   ? 'Use ${_weightText(trendKg!)} (your trend)'
                   : 'Use ${_weightText(trendKg!)}',
@@ -194,39 +84,60 @@ class WeightPage extends StatelessWidget {
                 onUseTrend!();
               },
             ),
-          ],
+          ),
         ],
-      ),
+        const SizedBox(height: 18),
+        ObRise(
+          index: 3,
+          child: ObNote(
+            icon: Icons.show_chart_rounded,
+            child: Text.rich(TextSpan(children: [
+              const TextSpan(text: 'We follow your '),
+              TextSpan(text: 'trend', style: TextStyle(color: c.text)),
+              const TextSpan(
+                  text: ', not daily swings. Water and salt can move you a kilo overnight, '
+                      'so today’s number is just a starting point.'),
+            ])),
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// The soft accent pill (the Log button idiom) for the one-tap trend weight.
-class _UseTrendButton extends StatelessWidget {
-  const _UseTrendButton({required this.label, required this.onPressed});
+/// The one-tap trend weight, a soft green card.
+class _UseTrendCard extends StatelessWidget {
+  const _UseTrendCard({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = theme.extension<CustomColors>()?.accentPrimary ??
-        theme.colorScheme.primary;
-    return SizedBox(
-      width: double.infinity,
-      child: TextButton.icon(
-        onPressed: onPressed,
-        icon: const Icon(Icons.show_chart_rounded, size: 20),
-        label: Text(label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-        style: TextButton.styleFrom(
-          foregroundColor: accent,
-          iconColor: accent,
-          backgroundColor: accent.withValues(alpha: 0.12),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    final c = ObColors.of(context);
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: c.leaf.withValues(alpha: c.isDark ? 0.12 : 0.18),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.show_chart_rounded, size: 20, color: c.leafText),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(label, style: ObText.title(c.leafText, size: 16)),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

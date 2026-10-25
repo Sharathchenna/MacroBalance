@@ -1,3 +1,4 @@
+import 'package:macrotracker/services/storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -39,9 +40,11 @@ class NotificationService {
 
       const DarwinInitializationSettings initializationSettingsIOS =
           DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+        // Asked by requestPermissions(), not at startup: new users see the
+        // reminders primer in onboarding first.
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
       );
 
       const InitializationSettings initializationSettings =
@@ -61,8 +64,9 @@ class NotificationService {
         _openFor(launch?.notificationResponse?.payload);
       }
 
-      // Request permissions
-      await _requestPermissions();
+      // People who finished onboarding were asked there (or skipped it):
+      // ask at launch as before. A no-op once answered.
+      if (StorageService().get('calories_goal') != null) await _requestPermissions();
 
       // Setup FCM
       await _setupFirebaseMessaging();
@@ -72,6 +76,12 @@ class NotificationService {
     } catch (e) {
       debugPrint('[NotificationService] Error during initialization: $e');
     }
+  }
+
+  /// Shows the system notification prompt (onboarding's reminders step).
+  Future<void> requestPermissions() async {
+    await initialize();
+    await _requestPermissions();
   }
 
   Future<void> _requestPermissions() async {

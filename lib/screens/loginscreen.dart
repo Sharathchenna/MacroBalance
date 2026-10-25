@@ -3,11 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:macrotracker/theme/typography.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:macrotracker/auth/auth_actions.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/signup.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'dart:io';
 import 'package:macrotracker/services/auth_service.dart';
@@ -25,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _supabase = Supabase.instance.client;
   final AuthService _authService = AuthService();
   bool isPasswordVisible = false;
   bool isLoading = false;
@@ -73,148 +70,68 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    setState(() {
-      isLoading = true;
-    });
-
-    try {
-      final response = await _supabase.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
-      if (response.user != null) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const AuthGate()),
-          (route) => false,
-        );
-      }
-    } on AuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.message}'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _nativeGoogleSignIn() async {
-    setState(() {
-      isLoading = true;
-    });
-    try {
-      /// Web Client ID that you registered with Google Cloud.
-      const webClientId =
-          '253882759822-eaq84uc6t558i000fqroef3f47sf6e16.apps.googleusercontent.com';
-
-      /// iOS Client ID that you registered with Google Cloud.
-      const iosClientId =
-          '253882759822-7a6ka2f4k37v0ifhvpoe1fv6hfti4aar.apps.googleusercontent.com';
-
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: iosClientId,
-        serverClientId: webClientId,
-      );
-      final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) {
-        // Sign in aborted.
-        return;
-      }
-      final googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
-      final idToken = googleAuth.idToken;
-
-      if (accessToken == null) {
-        throw 'No Access Token found.';
-      }
-      if (idToken == null) {
-        throw 'No ID Token found.';
-      }
-
-      await _supabase.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
-      );
-
+    setState(() => isLoading = true);
+    final result = await AuthActions.signInWithEmail(
+      email: _emailController.text,
+      password: _passwordController.text,
+    );
+    if (mounted) setState(() => isLoading = false);
+    if (!mounted) return;
+    if (result.signedIn) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const AuthGate()),
         (route) => false,
       );
-    } catch (error) {
-      print('Google sign-in error: $error');
+    } else if (result.outcome == AuthOutcome.failed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          content: Text('Error: ${result.message}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _nativeGoogleSignIn() async {
+    setState(() => isLoading = true);
+    final result = await AuthActions.signInWithGoogle();
+    if (mounted) setState(() => isLoading = false);
+    if (!mounted) return;
+    if (result.signedIn) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+        (route) => false,
+      );
+    } else if (result.outcome == AuthOutcome.failed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
           content: Text('There was a problem signing in with google'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } finally {
-      if (mounted) setState(() {
-        isLoading = false;
-      });
     }
   }
 
   Future<void> _signInWithApple() async {
-    setState(() {
-      isLoading = true;
-    });
-
-    try {
-      // Request credential for the user
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
+    setState(() => isLoading = true);
+    final result = await AuthActions.signInWithApple();
+    if (mounted) setState(() => isLoading = false);
+    if (!mounted) return;
+    if (result.signedIn) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+        (route) => false,
       );
-
-      // Use the credential to sign in to Supabase
-      if (credential.identityToken != null) {
-        await _supabase.auth.signInWithIdToken(
-          provider: OAuthProvider.apple,
-          idToken: credential.identityToken!,
-          accessToken: credential.authorizationCode,
-        );
-
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const AuthGate()),
-          (route) => false,
-        );
-      } else {
-        throw 'No identity token received from Apple';
-      }
-    } catch (error) {
-      print('Apple sign-in error: $error');
+    } else if (result.outcome == AuthOutcome.failed) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('There was a problem signing in with Apple'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } finally {
-      if (mounted) setState(() {
-        isLoading = false;
-      });
     }
   }
 

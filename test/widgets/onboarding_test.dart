@@ -6,7 +6,9 @@ import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:macrotracker/screens/onboarding/pages/adaptive_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/goal_page.dart';
-import 'package:macrotracker/screens/onboarding/pages/set_new_goal_page.dart';
+import 'package:macrotracker/screens/onboarding/pages/goal_weight_page.dart';
+import 'package:macrotracker/screens/onboarding/pages/pace_page.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/screens/onboarding/pages/weight_page.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
 import 'package:macrotracker/services/energy/targets.dart';
@@ -52,37 +54,45 @@ void main() {
 
   Finder visible(Type page) => find.byType(page).hitTestable();
 
-  Future<void> next(WidgetTester tester) async {
-    await tester.tap(find.text('Next'));
+  Future<void> back(WidgetTester tester) async {
+    await tester.tap(find.byType(ObBackButton));
     await pumpFrames(tester, seconds: 1);
   }
 
-  testWidgets('Recalculate Goals starts with Cancel, which closes it', (tester) async {
-    await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
-    expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Back'), findsNothing);
+  Finder closeButton() =>
+      find.byWidgetPredicate((w) => w is ObBackButton && w.close);
 
-    await tester.tap(find.text('Cancel'));
+  Future<void> next(WidgetTester tester) async {
+    await tester.tap(find.text('Continue'));
+    await pumpFrames(tester, seconds: 1);
+  }
+
+  testWidgets('Recalculate Goals starts with a Close button, which closes it', (tester) async {
+    await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
+    expect(closeButton(), findsOneWidget);
+
+    await tester.tap(closeButton());
     await pumpFrames(tester, seconds: 1);
     expect(find.byType(OnboardingScreen), findsNothing);
     expect(find.text('Open'), findsOneWidget);
   });
 
-  testWidgets('after the first step, Cancel becomes Back', (tester) async {
+  testWidgets('after the first step, Close becomes Back', (tester) async {
     await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
     await next(tester);
-    expect(find.text('Back'), findsOneWidget);
-    expect(find.text('Cancel'), findsNothing);
+    expect(find.byType(ObBackButton), findsOneWidget);
+    expect(closeButton(), findsNothing);
 
-    await tester.tap(find.text('Back'));
-    await pumpFrames(tester, seconds: 1);
-    expect(find.text('Cancel'), findsOneWidget);
+    await back(tester);
+    expect(closeButton(), findsOneWidget);
+    expect(visible(WeightPage), findsOneWidget);
   });
 
-  testWidgets('new users get no Cancel on the welcome step', (tester) async {
+  testWidgets('new users start on the goal step with a plain Back button', (tester) async {
     await pumpFromHome(tester, const OnboardingScreen());
-    expect(find.text('Cancel'), findsNothing);
-    expect(find.text('Back'), findsNothing);
+    expect(visible(GoalPage), findsOneWidget);
+    expect(closeButton(), findsNothing);
+    expect(find.byType(ObBackButton), findsOneWidget);
   });
 
   for (final metric in [true, false]) {
@@ -108,20 +118,23 @@ void main() {
 
     await next(tester);
     expect(visible(AdaptivePage), findsOneWidget);
-    expect(visible(SetNewGoalPage), findsNothing);
+    expect(visible(GoalWeightPage), findsNothing);
+    expect(visible(PacePage), findsNothing);
 
-    await tester.tap(find.text('Back'));
-    await pumpFrames(tester, seconds: 1);
+    await back(tester);
     expect(visible(GoalPage), findsOneWidget);
   });
 
   testWidgets('losing weight asks for a goal weight after the goal', (tester) async {
     goals.goalType = MacroCalculatorService.GOAL_LOSE;
     await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
+    // weight -> activity -> goal -> goal weight
     for (var i = 0; i < 3; i++) {
       await next(tester);
     }
-    expect(visible(SetNewGoalPage), findsOneWidget);
+    expect(visible(GoalWeightPage), findsOneWidget);
+    await next(tester);
+    expect(visible(PacePage), findsOneWidget);
   });
 
   for (final metric in [true, false]) {
@@ -137,8 +150,8 @@ void main() {
       for (var i = 0; i < 3; i++) {
         await next(tester);
       }
-      expect(visible(SetNewGoalPage), findsOneWidget);
-      final page = tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage));
+      expect(visible(GoalWeightPage), findsOneWidget);
+      final page = tester.widget<GoalWeightPage>(find.byType(GoalWeightPage));
       expect(page.currentWeightKg, 70.5);
       expect(page.goalWeightKg, lessThan(70.5));
       expect(tester.takeException(), isNull);
@@ -156,58 +169,58 @@ void main() {
       await pumpFromHome(tester, const OnboardingScreen(),
           units: WeightUnitProvider()..setMetric(metric));
 
-      // welcome -> gender -> weight
+      // goal: lose
+      expect(visible(GoalPage), findsOneWidget);
+      tester.widget<GoalPage>(find.byType(GoalPage))
+          .onGoalChanged(MacroCalculatorService.GOAL_LOSE);
+      await pumpFrames(tester, seconds: 1);
+
+      // goal -> about you -> weight
       await next(tester);
       await next(tester);
       expect(visible(WeightPage), findsOneWidget);
       tester.widget<WeightPage>(find.byType(WeightPage)).onWeightChanged(90);
       await pumpFrames(tester, seconds: 1);
 
-      // weight -> height -> age -> activity -> goal
-      for (var i = 0; i < 4; i++) {
-        await next(tester);
-      }
-      expect(visible(GoalPage), findsOneWidget);
-      tester.widget<GoalPage>(find.byType(GoalPage))
-          .onGoalChanged(MacroCalculatorService.GOAL_LOSE);
-      await pumpFrames(tester, seconds: 1);
-
+      // weight -> activity -> goal weight
       await next(tester);
-      expect(visible(SetNewGoalPage), findsOneWidget);
+      await next(tester);
+      expect(visible(GoalWeightPage), findsOneWidget);
       final firstGoal =
-          tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage)).goalWeightKg;
+          tester.widget<GoalWeightPage>(find.byType(GoalWeightPage)).goalWeightKg;
       expect(firstGoal, lessThan(90));
 
       // Back to the weight step and drop well below that goal.
-      for (var i = 0; i < 5; i++) {
-        await tester.tap(find.text('Back'));
-        await pumpFrames(tester, seconds: 1);
+      for (var i = 0; i < 2; i++) {
+        await back(tester);
       }
       expect(visible(WeightPage), findsOneWidget);
       tester.widget<WeightPage>(find.byType(WeightPage)).onWeightChanged(firstGoal - 15);
       await pumpFrames(tester, seconds: 1);
 
       // Forward to the goal-weight step again.
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < 2; i++) {
         await next(tester);
       }
-      expect(visible(SetNewGoalPage), findsOneWidget);
+      expect(visible(GoalWeightPage), findsOneWidget);
       expect(tester.takeException(), isNull);
-      final page = tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage));
+      final page = tester.widget<GoalWeightPage>(find.byType(GoalWeightPage));
       // In pounds the weight is kept to a whole pound.
       expect(page.currentWeightKg, closeTo(firstGoal - 15, 0.5));
       expect(page.goalWeightKg, lessThan(page.currentWeightKg));
+      expect(page.goalWeightKg, lessThanOrEqualTo(page.maxKg));
     });
   }
 
   group('pace picker', () {
-    Future<SetNewGoalPage> openGoalDetails(WidgetTester tester) async {
+    Future<PacePage> openGoalDetails(WidgetTester tester) async {
       await pumpFromHome(tester, const OnboardingScreen(recalculateOnly: true));
-      for (var i = 0; i < 3; i++) {
+      // weight -> activity -> goal -> goal weight -> pace
+      for (var i = 0; i < 4; i++) {
         await next(tester);
       }
-      expect(visible(SetNewGoalPage), findsOneWidget);
-      return tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage));
+      expect(visible(PacePage), findsOneWidget);
+      return tester.widget<PacePage>(find.byType(PacePage));
     }
 
     testWidgets('losing offers four paces with 0.5% picked and recommended', (tester) async {
@@ -220,22 +233,23 @@ void main() {
       expect(page.pacePct, 0.5);
       expect(page.recommendedPacePct, 0.5);
       for (final label in ['0.25% a week', '0.5% a week', '0.75% a week', '1% a week']) {
-        expect(find.text(label), findsOneWidget, reason: label);
+        expect(find.textContaining(label), findsOneWidget, reason: label);
       }
       expect(find.text('Recommended'), findsOneWidget);
-      // Every option shows its cals and about how many weeks to the goal.
+      // Every option knows its weeks to the goal and shows its weekly change.
       for (final choice in page.paceChoices) {
         expect(choice.weeks, isNotNull);
       }
-      expect(find.textContaining('weeks'), findsNWidgets(4));
+      expect(find.textContaining(RegExp(r'a week · about [\d.]+ (kg|lb)$')), findsNWidgets(4));
 
-      // A slower pace means more cals.
-      final before = page.targetCalories!;
-      await tester.tap(find.text('0.25% a week'));
+      // A slower pace means more cals, shown on every row.
+      final cals = {for (final c in page.paceChoices) c.target.pacePct: c.target.cals};
+      expect(cals[0.25]!, greaterThan(cals[0.5]!));
+      expect(find.text('cals a day'), findsNWidgets(4));
+      await tester.tap(find.textContaining('0.25% a week'));
       await pumpFrames(tester, seconds: 1);
-      final after = tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage));
+      final after = tester.widget<PacePage>(find.byType(PacePage));
       expect(after.pacePct, 0.25);
-      expect(after.targetCalories!, greaterThan(before));
     });
 
     testWidgets('gaining offers three paces with 0.25% picked', (tester) async {
@@ -289,10 +303,8 @@ void main() {
   testWidgets('a clamped pace shows why on the page', (tester) async {
     await tester.pumpWidget(testApp(detailedStatsProvider: DetailedStatsProvider(showDetailedStats: true),
       Scaffold(
-        body: SetNewGoalPage(
-          currentGoal: MacroCalculatorService.GOAL_LOSE,
-          currentWeightKg: 110,
-          goalWeightKg: 90,
+        body: PacePage(
+          goal: MacroCalculatorService.GOAL_LOSE,
           paceChoices: const [
             PaceChoice(
               target: PaceTarget(
@@ -310,17 +322,12 @@ void main() {
           ],
           pacePct: 1.0,
           recommendedPacePct: 0.5,
-          isMetricWeight: true,
-          targetCalories: 1950,
-          onGoalWeightChanged: (_) {},
           onPaceChanged: (_) {},
-          onWeightUnitChanged: (_) {},
         ),
       ),
       goalsProvider: goals,
     ));
     await pumpFrames(tester, seconds: 1);
-    expect(find.textContaining('Capped at 0.6%'), findsOneWidget);
     expect(find.text(
             "We've set your pace to 0.6%/week so you eat no more than 25% below what you burn."),
         findsOneWidget);
@@ -329,7 +336,7 @@ void main() {
   testWidgets('"How did you hear about us?" can be skipped', (tester) async {
     await pumpFromHome(tester, const AcquisitionSourceStep());
     expect(find.byType(AcquisitionSourceStep), findsOneWidget);
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Skip'));
+    await tester.tap(find.byKey(const Key('source_cta')));
     await pumpFrames(tester, seconds: 1);
     expect(find.byType(AcquisitionSourceStep), findsNothing);
   });

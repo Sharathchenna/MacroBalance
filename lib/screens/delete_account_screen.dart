@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:macrotracker/screens/welcomescreen.dart';
+import 'package:macrotracker/screens/intro/hello_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:macrotracker/providers/finish_reminder_provider.dart';
 import 'package:macrotracker/services/storage_service.dart'; // Import StorageService
@@ -184,7 +184,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           );
 
           Navigator.of(context).pushAndRemoveUntil(
-            CupertinoPageRoute(builder: (context) => const Welcomescreen()),
+            CupertinoPageRoute(builder: (context) => const HelloScreen()),
             (route) => false,
           );
         }

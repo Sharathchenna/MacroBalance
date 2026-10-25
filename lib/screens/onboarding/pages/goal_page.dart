@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
-import 'package:macrotracker/widgets/onboarding/onboarding_selection_card.dart';
-// Removed unused imports: unit_selector, numberpicker, intl, math
-// Removed TooltipIcon import as it's no longer used here
+import 'package:macrotracker/theme/ob_theme.dart';
 
+/// Step: what the user wants to change. Content only; the shell owns the
+/// top bar and Continue.
 class GoalPage extends StatelessWidget {
   final String currentGoal;
-  // Removed properties related to goal weight, deficit, units, projected date
   final ValueChanged<String> onGoalChanged;
 
   const GoalPage({
@@ -16,73 +15,85 @@ class GoalPage extends StatelessWidget {
     required this.onGoalChanged,
   });
 
-  // Removed imperial weight calculations
+  @override
+  Widget build(BuildContext context) {
+    final c = ObColors.of(context);
+    final options = [
+      (MacroCalculatorService.GOAL_LOSE, 'Lose fat', 'Drop weight and keep your muscle',
+          Icons.trending_down_rounded, c.leaf),
+      (MacroCalculatorService.GOAL_MAINTAIN, 'Maintain', 'Hold steady and eat with intent',
+          Icons.balance_rounded, c.carbs),
+      (MacroCalculatorService.GOAL_GAIN, 'Build muscle', 'Gain lean weight, slowly and on purpose',
+          Icons.trending_up_rounded, c.fat),
+    ];
+    return ObPageBody(
+      children: [
+        const ObHeader(
+          eyebrow: 'Your goal',
+          title: 'What do you want to change?',
+          subtitle: 'This sets the direction of your plan. You can change it any time.',
+        ),
+        const SizedBox(height: 28),
+        for (var i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          ObRise(
+            index: 2 + i,
+            child: ObOptionTile(
+              title: options[i].$2,
+              subtitle: options[i].$3,
+              selected: currentGoal == options[i].$1,
+              onTap: () => onGoalChanged(options[i].$1),
+              leading: _Bob(
+                phase: i * 0.27,
+                child: ObIconTile(icon: options[i].$4, color: options[i].$5),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Floats its child up and down 3px on a slow loop.
+class _Bob extends StatefulWidget {
+  const _Bob({required this.child, this.phase = 0});
+
+  final Widget child;
+  /// Where in the loop it starts, 0 to 1, so the icons don't move in step.
+  final double phase;
+
+  @override
+  State<_Bob> createState() => _BobState();
+}
+
+class _BobState extends State<_Bob> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 3000));
+
+  @override
+  void initState() {
+    super.initState();
+    _c.value = widget.phase;
+    _c.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Removed customColors variable as it's only used in removed sections
-    final theme = Theme.of(context);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Removed Projected Date Display
-
-          Text(
-            'What\'s your primary goal?',
-            style: theme.textTheme.headlineSmall?.copyWith( // Use theme directly
-              fontWeight: FontWeight.bold, // Color defaults to theme
-            ),
-          ),
-          const SizedBox(height: 32),
-          _buildGoalSelectionCard(
-            context: context,
-            goal: MacroCalculatorService.GOAL_LOSE,
-            title: 'Lose Weight',
-            icon: Icons.trending_down,
-            description: 'Calorie deficit to lose body fat',
-          ),
-          const SizedBox(height: 16),
-          _buildGoalSelectionCard(
-            context: context,
-            goal: MacroCalculatorService.GOAL_MAINTAIN,
-            title: 'Maintain Weight',
-            icon: Icons.balance,
-            description: 'Balanced calories for weight maintenance',
-          ),
-          const SizedBox(height: 16),
-          _buildGoalSelectionCard(
-            context: context,
-            goal: MacroCalculatorService.GOAL_GAIN,
-            title: 'Gain Weight',
-            icon: Icons.trending_up,
-            description: 'Calorie surplus to build muscle',
-          ),
-          // Removed Target Weight Input section
-          // Removed Deficit/Surplus Input section
-        ],
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, -3 * Curves.easeInOut.transform(_c.value)),
+        child: child,
       ),
-    ); // End SingleChildScrollView
-  } // End build
-
-  // Helper to build goal selection cards (remains the same)
-  Widget _buildGoalSelectionCard({
-    required BuildContext context,
-    required String goal,
-    required String title,
-    required IconData icon,
-    required String description,
-  }) {
-    return OnboardingSelectionCard(
-      isSelected: currentGoal == goal,
-      onTap: () => onGoalChanged(goal),
-      icon: icon,
-      label: title,
-      description: description,
+      child: widget.child,
     );
-  } // End _buildGoalSelectionCard
-
-  // Removed _buildProjectedDateCard helper
-} // End GoalPage
+  }
+}

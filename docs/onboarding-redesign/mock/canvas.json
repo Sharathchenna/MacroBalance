@@ -1,0 +1,526 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "AboutYou.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "05 · Sex, age, height",
+      "w": 390,
+      "x": 470,
+      "y": 1500
+    },
+    "AboutYouFt.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "05b · Sex, age, height (ft/in state)",
+      "w": 390,
+      "x": 940,
+      "y": 1500
+    },
+    "Activity.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "07 · Activity",
+      "w": 390,
+      "x": 1880,
+      "y": 1500
+    },
+    "Adaptive.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "12 · Adaptive choice",
+      "w": 390,
+      "x": 4230,
+      "y": 1500
+    },
+    "Building.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "16 · Building your plan",
+      "w": 390,
+      "x": 940,
+      "y": 3000
+    },
+    "FineTune.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "13 · Fine-tune (detailed mode)",
+      "w": 390,
+      "x": 4700,
+      "y": 1500
+    },
+    "Goal.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "04 · Goal",
+      "w": 390,
+      "x": 0,
+      "y": 1500
+    },
+    "GoalWeight.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "08 · Goal weight (lose/gain)",
+      "w": 390,
+      "x": 2350,
+      "y": 1500
+    },
+    "Health.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "14 · Apple Health primer",
+      "w": 390,
+      "x": 0,
+      "y": 3000
+    },
+    "Insight.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "11 · Reply to obstacles (new)",
+      "w": 390,
+      "x": 3760,
+      "y": 1500
+    },
+    "Main.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "01 · Hello",
+      "w": 390,
+      "x": 0,
+      "y": 0
+    },
+    "Notify.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "15 · Reminder primer (new)",
+      "w": 390,
+      "x": 470,
+      "y": 3000
+    },
+    "Obstacles.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "10 · What got in the way (new)",
+      "w": 390,
+      "x": 3290,
+      "y": 1500
+    },
+    "Pace.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "09 · Pace (lose/gain)",
+      "w": 390,
+      "x": 2820,
+      "y": 1500
+    },
+    "Palette.dc.html": {
+      "expand": "fill",
+      "h": 1920,
+      "title": "Colour, type and motion system",
+      "w": 1280,
+      "x": 0,
+      "y": 4600
+    },
+    "Paywall.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "21 · Trial paywall",
+      "w": 390,
+      "x": 4230,
+      "y": 3000
+    },
+    "Research.dc.html": {
+      "expand": "fill",
+      "h": 2400,
+      "title": "Competitor research",
+      "w": 1280,
+      "x": 1360,
+      "y": 4600
+    },
+    "Reveal.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "17 · Plan reveal",
+      "w": 390,
+      "x": 1410,
+      "y": 3000
+    },
+    "RevealGain.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "17c · Plan reveal, Build muscle",
+      "w": 390,
+      "x": 2350,
+      "y": 3000
+    },
+    "RevealMaintain.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "17b · Plan reveal, Maintain",
+      "w": 390,
+      "x": 1880,
+      "y": 3000
+    },
+    "Review.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "18 · Review answers",
+      "w": 390,
+      "x": 2820,
+      "y": 3000
+    },
+    "Save.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "19 · Save your plan",
+      "w": 390,
+      "x": 3290,
+      "y": 3000
+    },
+    "Source.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "20 · How did you hear about us",
+      "w": 390,
+      "x": 3760,
+      "y": 3000
+    },
+    "StoryLearn.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "03 · Learns your burn",
+      "w": 390,
+      "x": 940,
+      "y": 0
+    },
+    "StorySnap.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "02 · Snap it",
+      "w": 390,
+      "x": 470,
+      "y": 0
+    },
+    "Weight.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "radius": 44,
+      "title": "06 · Weight",
+      "w": 390,
+      "x": 1410,
+      "y": 1500
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-24T18:30:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "s1": {
+      "fill": "green",
+      "size": 24,
+      "text": "Why: Cal AI opens on an animated phone scanning a meal, and Duolingo puts value before sign-up. Our current first screen is a Sign In / Create Account wall. The new intro sells our two real differentiators: fast logging, and a target that learns your real burn. Stories auto-advance and can be skipped.",
+      "w": 380,
+      "x": 1410,
+      "y": 0
+    },
+    "s2": {
+      "fill": "orange",
+      "size": 24,
+      "text": "Nothing the maths or analytics uses is dropped. Sex, age and height feed BMR, energy density and the safe minimum. Activity sets the starting TDEE and is always asked of new users (it's only skipped on Settings › Recalculate with a confident learned burn). Goal weight and pace are skipped for Maintain, as today. Plan style (lose only) is not asked in simple mode: it defaults to Steady, as the app's simple mode already does, and can be changed later via Recalculate. Detailed mode keeps its existing plan-style step. Fine-tune (body fat, protein g/kg, fat %) is detailed mode only, as today. Obstacles and the reply screen are new and save nothing.",
+      "w": 400,
+      "x": 5170,
+      "y": 1500
+    },
+    "s3": {
+      "fill": "orange",
+      "size": 24,
+      "text": "Kept: the Health permission step, the summary (now Review answers, behind Adjust on the reveal), the attribution question (still after the plan and before the paywall, once per device, with the same PostHog events) and the Superwall onboarding placement. New: the reminder primer. Moved: account creation, from the first screen to after the plan. That move needs code: AuthGate must let signed-out users into onboarding, and goals are saved locally first, then synced once the account exists.",
+      "w": 400,
+      "x": 4700,
+      "y": 3000
+    },
+    "t1": {
+      "kind": "title1",
+      "maxW": 1330,
+      "text": "Act 1 · Hook: show the product before asking anything",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t2": {
+      "kind": "title1",
+      "maxW": 5090,
+      "text": "Act 2 · Quiz: every input the maths uses, each answered back",
+      "w": 240,
+      "x": 0,
+      "y": 1200
+    },
+    "t3": {
+      "kind": "title1",
+      "maxW": 4620,
+      "text": "Act 3 · Payoff: earn permissions, reveal the plan, then ask",
+      "w": 240,
+      "x": 0,
+      "y": 2700
+    },
+    "t4": {
+      "kind": "title1",
+      "maxW": 2640,
+      "text": "System · Colour, type and motion and research",
+      "w": 240,
+      "x": 0,
+      "y": 4300
+    },
+    "n01": {
+      "x": 0,
+      "y": 884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "First launch, no account needed. The ring animation shows the product (food chips filling a day's cals). 'Build my plan' starts the stories; 'I already have an account' goes straight to sign-in (19). Replaces today's Sign In / Create Account welcome screen. Fires welcome_screen."
+    },
+    "n02": {
+      "x": 470,
+      "y": 884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Story 1 of 2 · logging. Auto-advances after 6s (bar at top), tap or Continue to go on, Skip jumps to the quiz. Shows the three ways to log: photo, barcode, describe it. Saves nothing."
+    },
+    "n03": {
+      "x": 940,
+      "y": 884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Story 2 of 2 · the differentiator. Explains adaptive targets: we start from a formula, then the weekly check-in moves the target toward your real burn. Saves nothing."
+    },
+    "n04": {
+      "x": 0,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Saves goal_type (lose / maintain / gain). Decides which later steps show: Maintain skips goal weight (08) and pace (09). Sent as 'goal' on onboarding_completed."
+    },
+    "n05": {
+      "x": 470,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Saves sex, age (+ age_recorded_on) and height_cm. These feed the BMR formula, energy density and the safe minimum target (1,500 / 1,200 cals). Age and height: swipe the strip or tap the number to type. Ranges 18–100 and 120–230 cm."
+    },
+    "n06": {
+      "x": 1410,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Saves current_weight_kg, and starts the trend weight and the phase plan (replan). Swipe the 0.1 kg ruler or tap the number to type. The kg/lb choice is saved as the user's weight unit. On Recalculate it offers the trend weight as a one-tap answer."
+    },
+    "n07": {
+      "x": 1880,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Saves activity_level (1–5), which multiplies BMR into the starting burn (formula TDEE). Always asked of new users. Sent as 'activity_level' on onboarding_completed."
+    },
+    "n08": {
+      "x": 2350,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Lose/gain only. Saves goal_weight_kg. Same ruler as weight; the ruler glides from today's weight to the suggestion. The projection and date update live (shown at the recommended pace)."
+    },
+    "n09": {
+      "x": 2820,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Lose/gain only. Saves pace_pct_per_week (lose 0.25 / 0.5 / 0.75 / 1%, gain 0.1 / 0.25 / 0.5%). Each row shows its real cals after safety limits; when a pace is capped (25% max deficit) the orange note explains it. Fires pace_chosen {pct, clamped}."
+    },
+    "n10": {
+      "x": 3290,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "New, optional. Multi-select; saves nothing to goals. Its answers pick which reply cards show on 11. Suggest logging them as a PostHog property (obstacles_selected) so we learn why people churned before."
+    },
+    "n11": {
+      "x": 3760,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "New. A reply to 10: explains the plateau (fixed target vs a falling burn) and shows one card per obstacle picked. Its job is to make the adaptive choice on the next screen obvious. Saves nothing."
+    },
+    "n12": {
+      "x": 4230,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Saves adaptive_goals (default on). On: weekly check-ins apply new targets automatically. Off: targets stay fixed, but the check-in still shows what we learned. Fires adaptive_choice_made."
+    },
+    "n13": {
+      "x": 4700,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Only when Settings › Show detailed stats is on (off by default), as today. Saves body_fat_pct (switches BMR to Katch–McArdle), protein_g_per_kg and fat_ratio. Skip keeps the recommended values."
+    },
+    "n05b": {
+      "x": 940,
+      "y": 2384,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "The same screen as 05 with ft chosen: feet and inches fields plus an inch ruler. Height is still saved in cm, so switching units never changes the value."
+    },
+    "n14": {
+      "x": 0,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Primer shown before the iOS Health sheet. 'Connect' opens the real permission (read weight, height, steps, active and resting energy; write meals and macros). 'Not now' skips without burning the one-time iOS prompt."
+    },
+    "n15": {
+      "x": 470,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "New primer before the iOS notification prompt. Previews the three reminder types (meal, check-in ready, streak). 'Not now' skips so we can ask again later in context."
+    },
+    "n16": {
+      "x": 940,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Runs while the plan is calculated and saved. The four steps are the real calculation (BMR, safety limits, macro split, first check-in day). Ends on the plan-ready check (plan_ready.json in the app). The canvas loops it; the app plays it once. onboarding_completed fires here."
+    },
+    "n17": {
+      "x": 1410,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "The plan reveal (replaces today's results screen). Shows daily cals, macros, burn, pace and the projection for the chosen goal (see 17b and 17c). 'Review answers' opens 18 to change anything. 'Save my plan' moves on to account creation (19): the plan is saved on the device and synced once the account exists."
+    },
+    "n18": {
+      "x": 2820,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Today's summary page with edit links. Each row jumps back to its step; the plan recalculates on return."
+    },
+    "n19": {
+      "x": 3290,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Account creation, moved from first launch to here. Apple / Google / email (email still asks for a name). On success, upload the locally saved goals to user_macros, then PostHog identify, which merges the anonymous onboarding events."
+    },
+    "n20": {
+      "x": 3760,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "Same place as today: after the plan, before the paywall, once per device, skippable. Keeps today's values and events (acquisition_source_selected / _other_text_changed / _answered) and adds youtube, ad, friend, club, app_store."
+    },
+    "n21": {
+      "x": 4230,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "The Superwall onboarding placement (hard paywall). The timeline is there to remove the fear of being charged. Prices are placeholders. Yearly is preselected because annual dominates health and fitness revenue."
+    },
+    "n17b": {
+      "x": 1880,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "The reveal for Maintain: target equals estimated burn, no goal date, a flat line in a healthy-range band."
+    },
+    "n17c": {
+      "x": 2350,
+      "y": 3884,
+      "w": 390,
+      "fill": "gray",
+      "size": "s",
+      "text": "The reveal for Build muscle: a small surplus, a rising curve to the goal weight and date."
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "StorySnap.dc.html",
+    "StoryLearn.dc.html",
+    "Goal.dc.html",
+    "AboutYou.dc.html",
+    "AboutYouFt.dc.html",
+    "Weight.dc.html",
+    "Activity.dc.html",
+    "GoalWeight.dc.html",
+    "Pace.dc.html",
+    "Obstacles.dc.html",
+    "Insight.dc.html",
+    "Adaptive.dc.html",
+    "FineTune.dc.html",
+    "Health.dc.html",
+    "Notify.dc.html",
+    "Building.dc.html",
+    "Reveal.dc.html",
+    "RevealMaintain.dc.html",
+    "RevealGain.dc.html",
+    "Review.dc.html",
+    "Save.dc.html",
+    "Source.dc.html",
+    "Paywall.dc.html",
+    "Palette.dc.html",
+    "Research.dc.html"
+  ],
+  "pages": [],
+  "title": "MacroBalance Onboarding Redesign"
+}

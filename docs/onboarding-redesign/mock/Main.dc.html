@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hello: intro</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.15s}.d2{animation-delay:.3s}.d3{animation-delay:.45s}.d4{animation-delay:.6s}
+@keyframes draw{0%{stroke-dashoffset:var(--len)}18%,82%{stroke-dashoffset:0}100%{stroke-dashoffset:0;opacity:0}}
+.arc{stroke-dasharray:var(--len) 700;animation:draw 7s cubic-bezier(.3,.7,.2,1) infinite}
+.arc.p{--len:150;animation-delay:.9s}.arc.c{--len:210;animation-delay:2.1s}.arc.f{--len:84;animation-delay:3.3s}
+@keyframes chip{0%{opacity:0;transform:translate(var(--fx),var(--fy)) scale(.9)}10%{opacity:1;transform:translate(var(--fx),var(--fy)) scale(1)}18%{opacity:1;transform:translate(var(--fx),var(--fy)) scale(1)}30%{opacity:0;transform:translate(0,0) scale(.4)}100%{opacity:0;transform:translate(0,0) scale(.4)}}
+.chip{position:absolute;left:50%;top:50%;margin:-17px 0 0 -70px;width:140px;height:34px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:17px;background:#1D221F;border:1px solid #2A302C;font:500 13px Inter,sans-serif;color:#F4F6F4;white-space:nowrap;opacity:0;animation:chip 7s cubic-bezier(.5,0,.2,1) infinite}
+.chip.a{--fx:-104px;--fy:-128px;animation-delay:.6s}
+.chip.b{--fx:110px;--fy:-104px;animation-delay:1.8s}
+.chip.c{--fx:-100px;--fy:128px;animation-delay:3s}
+/* "Cals left" counts down as each chip lands in the ring: 2,234 → 2,024
+   (yogurt) → 1,384 (salmon bowl) → 1,264 (latte). Pure CSS: an animated
+   integer custom property, split into four digit counters with round() and
+   mod() so it keeps its comma. */
+@property --left{syntax:'<integer>';inherits:true;initial-value:2234}
+@keyframes left{0%,35.7%{--left:2234}41.4%,52.9%{--left:2024}58.6%,70%{--left:1384}75.7%,94.3%{--left:1264}100%{--left:2234}}
+@keyframes tick{0%,35.7%,52.9%,70%,94.3%,100%{color:#F4F6F4}38.5%,55.7%,72.8%{color:#57D883}}
+.count{animation:left 7s cubic-bezier(.4,0,.2,1) infinite,tick 7s linear infinite;
+  counter-reset:d1 round(down, var(--left) / 1000, 1) d2 round(down, mod(var(--left), 1000) / 100, 1) d3 round(down, mod(var(--left), 100) / 10, 1) d4 mod(var(--left), 10)}
+.count::after{content:counter(d1) ',' counter(d2) counter(d3) counter(d4)}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.025)}}
+.ring{animation:breathe 7s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}.chip{opacity:0}.arc{stroke-dashoffset:0}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 56px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div class="rise" style="display: flex; align-items: center; justify-content: center; gap: 10px">
+    <span style="width: 32px; height: 32px; border-radius: 9px; background: #1D221F; border: 1px solid #2A302C; display: flex; align-items: center; justify-content: center"><svg width="20" height="15" viewBox="200 262 640 484" aria-hidden="true"><path fill="#F4F6F4" fill-rule="evenodd" d="M208 274a4 4 0 0 1 4-4h70l126 170 122-170h160c78 0 128 52 128 122 0 44-22 76-61 93 47 17 75 56 75 109 0 82-60 143-150 143H479a4 4 0 0 1-4-4v-64a4 4 0 0 1 4-4h48V416L408 577 287 416v317a4 4 0 0 1-4 4h-71a4 4 0 0 1-4-4z M605 345v108h68c40 0 67-22 67-54s-27-54-67-54z M605 527v138h75c46 0 77-27 77-69s-31-69-77-69z"></path></svg></span>
+    <span style="font: 600 17px Onest, sans-serif; letter-spacing: -0.3px">MacroBalance</span>
+  </div>
+
+  <div style="position: relative; height: 316px; margin-top: 8px; display: flex; align-items: center; justify-content: center">
+    <svg class="ring" width="248" height="248" viewBox="0 0 248 248" role="img" aria-label="Calorie ring filling with protein, carbs and fat">
+      <circle cx="124" cy="124" r="100" fill="none" stroke="#1D221F" stroke-width="18"></circle>
+      <g transform="rotate(-90 124 124)" fill="none" stroke-width="18" stroke-linecap="round">
+        <circle class="arc p" cx="124" cy="124" r="100" stroke="#FF6B5E"></circle>
+        <circle class="arc c" cx="124" cy="124" r="100" stroke="#4DA8FF" transform="rotate(92 124 124)"></circle>
+        <circle class="arc f" cx="124" cy="124" r="100" stroke="#F59E3B" transform="rotate(218 124 124)"></circle>
+      </g>
+    </svg>
+    <div style="position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; pointer-events: none">
+      <div class="count" style="font: 600 44px/1 Onest, sans-serif; letter-spacing: -1.5px; color: #F4F6F4; font-variant-numeric: tabular-nums" aria-label="Calories left today"></div>
+      <div style="margin-top: 8px; font: 500 14px Inter, sans-serif; color: #A3ADA6">cals left today</div>
+    </div>
+    <div class="chip a" aria-hidden="true"><span style="width: 8px; height: 8px; border-radius: 4px; background: #FF6B5E"></span>Greek yogurt<span style="margin-left: auto; color: #A3ADA6">210</span></div>
+    <div class="chip b" aria-hidden="true"><span style="width: 8px; height: 8px; border-radius: 4px; background: #4DA8FF"></span>Salmon bowl<span style="margin-left: auto; color: #A3ADA6">640</span></div>
+    <div class="chip c" aria-hidden="true"><span style="width: 8px; height: 8px; border-radius: 4px; background: #F59E3B"></span>Oat latte<span style="margin-left: auto; color: #A3ADA6">120</span></div>
+  </div>
+
+  <h1 class="rise d1" style="margin: 4px 0 0; font: 600 38px/1.08 Onest, sans-serif; letter-spacing: -1.4px; white-space: pre-line">Eat like you normally do.
+<span style="color: #57D883">We’ll do the math.</span></h1>
+  <p class="rise d2" style="margin: 14px 0 0; font-size: 16px; line-height: 1.5; color: #A3ADA6">Take a photo of your plate and it’s logged. Every week, your target adjusts to how your body is actually responding.</p>
+
+  <div style="flex-grow: 1"></div>
+
+  <a class="rise d3" href="StorySnap.dc.html" style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Build my plan<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+  <a class="rise d4" href="Save.dc.html" style="display: flex; align-items: center; justify-content: center; height: 48px; margin-top: 6px; color: #F4F6F4; font: 500 15px Inter, sans-serif; text-decoration: none">I already have an account</a>
+  <p class="rise d4" style="margin: 2px 0 0; text-align: center; font-size: 13px; color: #7C8680">About 2 minutes · No account needed yet</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
