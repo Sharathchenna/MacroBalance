@@ -12,11 +12,32 @@ import 'package:macrotracker/theme/ob_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Which plan the account goes on with, once signed in on the [SaveScreen].
+enum SavedPlan {
+  /// The plan just made: it still has to be saved to the account.
+  newPlan,
+
+  /// The account's existing plan, now on this device in place of the new one.
+  accountPlan,
+}
+
 /// "Save your plan" (docs/onboarding-redesign/mock/Save.dc.html): account
 /// creation after the plan reveal. Apple, Google or email, plus a log-in mode
-/// for people who already have an account. Pops `true` once signed in.
+/// for people who already have an account. Pops a [SavedPlan] once signed
+/// in, null if the user goes back.
 class SaveScreen extends StatefulWidget {
   const SaveScreen({super.key});
+
+  /// Puts the account's plan on this device. The new plan's device copy
+  /// goes first: `nutrition_goals` wins over the account cache in
+  /// [GoalsProvider.load], and would otherwise be synced over the account's.
+  @visibleForTesting
+  static Future<void> keepAccountPlan(Map<String, dynamic> row) async {
+    final storage = StorageService();
+    await storage.delete('nutrition_goals');
+    await storage.delete('macro_results');
+    await GoalsProvider.cacheUserMacros(row);
+  }
 
   @override
   State<SaveScreen> createState() => _SaveScreenState();
@@ -130,17 +151,19 @@ class _SaveScreenState extends State<SaveScreen> {
       debugPrint('[Save] Could not check for a saved plan: $e');
     }
     if (!mounted) return;
+    var result = SavedPlan.newPlan;
     if (saved != null) {
       final keep = await _askWhichPlan(saved);
       if (!mounted) return;
       if (keep == true) {
-        final goals = context.read<GoalsProvider>();
-        await GoalsProvider.cacheUserMacros(saved);
-        await goals.load();
+        await SaveScreen.keepAccountPlan(saved);
+        if (!mounted) return;
+        await context.read<GoalsProvider>().load();
+        result = SavedPlan.accountPlan;
       }
     }
     if (!mounted) return;
-    Navigator.of(context).pop(true);
+    Navigator.of(context).pop(result);
   }
 
   Future<bool?> _askWhichPlan(Map<String, dynamic> saved) {
@@ -191,7 +214,7 @@ class _SaveScreenState extends State<SaveScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: ObBackButton(
-                      onPressed: _busy ? null : () => Navigator.of(context).pop(false)),
+                      onPressed: _busy ? null : () => Navigator.of(context).pop()),
                 ),
                 Expanded(
                   child: SingleChildScrollView(

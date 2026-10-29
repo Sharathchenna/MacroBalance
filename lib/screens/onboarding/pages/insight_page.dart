@@ -65,9 +65,14 @@ class InsightPage extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Text(
-              gain
-                  ? 'As you gain weight, you burn a little more. A target that never moves turns into a plateau.'
-                  : 'As you lose weight, you burn a little less. A target that never moves turns into a plateau.',
+              switch (goal) {
+                MacroCalculatorService.GOAL_GAIN =>
+                  'As you gain weight, you burn a little more. A target that never moves turns into a plateau.',
+                MacroCalculatorService.GOAL_MAINTAIN =>
+                  'What you burn shifts with your weight, steps and season. A target that never moves drifts away from it.',
+                _ =>
+                  'As you lose weight, you burn a little less. A target that never moves turns into a plateau.',
+              },
               style: ObText.body(c.text2),
             ),
           ),

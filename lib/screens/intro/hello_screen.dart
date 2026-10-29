@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/intro/intro_clock.dart';
 import 'package:macrotracker/screens/intro/story_screen.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
@@ -30,6 +31,9 @@ class _HelloScreenState extends State<HelloScreen> {
   }
 
   void _login() {
+    // Logging in, not finishing onboarding signed out: once signed in, the
+    // gate has to show the app (or onboarding), not this screen.
+    AuthGate.signedOutOnboarding = false;
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 

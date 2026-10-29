@@ -92,6 +92,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Set<String> _obstacles = {};
   // onboarding_completed fires once, even if the plan is redone from Review.
   bool _completionTracked = false;
+  // Changing one answer from the summary: Continue goes back to it.
+  bool _editingFromSummary = false;
   // Recalculating: the plan as saved, to tell whether it changed.
   ({PlanStyle style, String goal, double pace})? _savedPlan;
   // Recalculating only (spec 7.6): the targets now, the confident learned
@@ -290,6 +292,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _nextPage() {
     HapticFeedback.selectionClick();
     if (_currentStep == OnboardingStep.goalWeight) _validateRanges();
+    if (_editingFromSummary && _currentStep != OnboardingStep.summary) {
+      // A new goal may need a goal weight and pace; nothing else is asked again.
+      final follow = switch (_currentStep) {
+        OnboardingStep.goal => OnboardingStep.goalWeight,
+        OnboardingStep.goalWeight => OnboardingStep.pace,
+        _ => OnboardingStep.summary,
+      };
+      final target = _isSkipped(follow) ? OnboardingStep.summary : follow;
+      if (target == OnboardingStep.summary) _editingFromSummary = false;
+      _goToStep(target);
+      return;
+    }
     var next = _currentPage + 1;
     while (next < _totalPages && _isSkipped(_steps[next])) {
       next++;
@@ -381,6 +395,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // plays, then revealed. It reaches the account once one exists.
     Navigator.of(context).push(_slide(BuildingScreen(
       goal: _goal,
+      bodyFatKnown: _knownBodyFat != null,
       work: () => saveMacroResults(results),
       onDone: () {
         if (!mounted) return;
@@ -434,6 +449,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       weeks: projection?.aboutWeeks,
       planLine: _planLine,
       onSave: widget.recalculateOnly ? () => saveMacroResults(results) : null,
+      // Saved again once signed up: the account row, and the phase plan,
+      // which is kept per account.
+      onSignedUp: widget.recalculateOnly ? null : () => saveMacroResults(results),
       // Back to the quiz, on the summary, to change an answer.
       onReview: widget.recalculateOnly
           ? null
@@ -595,33 +613,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // --- End Calculation & Saving ---
 
   // --- Validation ---
+  /// Keeps the goal weight on the right side of today's weight and within
+  /// the goal weights on offer.
   void _validateRanges() {
-    if (_goal == MacroCalculatorService.GOAL_LOSE) {
-      double minWeight = _weightKg * 0.75; // Example lower bound
-      _goalWeightKg =
-          max(minWeight, _goalWeightKg); // Ensure goal is not too low
-      _goalWeightKg = min(
-          _goalWeightKg, _weightKg - 0.1); // Ensure goal is less than current
-    } else if (_goal == MacroCalculatorService.GOAL_GAIN) {
-      double maxWeight = _weightKg * 1.5; // Example upper bound
-      _goalWeightKg =
-          min(maxWeight, _goalWeightKg); // Ensure goal is not too high
-      _goalWeightKg = max(
-          _goalWeightKg, _weightKg + 0.1); // Ensure goal is more than current
+    if (_goal == MacroCalculatorService.GOAL_MAINTAIN) {
+      _goalWeightKg = _weightKg.clamp(kMinWeightKg, kMaxWeightKg);
+    } else {
+      _goalWeightKg = _goalWeightKg.clamp(_goalMinKg, max(_goalMinKg, _goalMaxKg));
     }
-    // Clamp goal weight to reasonable min/max if needed (e.g., 40kg to 150kg)
-    _goalWeightKg = _goalWeightKg.clamp(40.0, 150.0);
   }
   // --- End Validation ---
 
   /// The goal weights on offer: below today's weight to lose (at most a
-  /// quarter off), above it to gain (at most half again), within 40–150 kg.
+  /// quarter off), above it to gain (at most half again), within the
+  /// weights the weight step accepts.
   double get _goalMinKg => _goal == MacroCalculatorService.GOAL_GAIN
-      ? min(150.0, _weightKg + 0.1)
-      : max(40.0, _weightKg * 0.75);
+      ? min(kMaxWeightKg, _weightKg + 0.1)
+      : max(kMinWeightKg, _weightKg * 0.75);
   double get _goalMaxKg => _goal == MacroCalculatorService.GOAL_GAIN
-      ? min(150.0, _weightKg * 1.5)
-      : max(40.0, min(150.0, _weightKg - 0.1));
+      ? min(kMaxWeightKg, _weightKg * 1.5)
+      : max(kMinWeightKg, min(kMaxWeightKg, _weightKg - 0.1));
 
   /// Steps with their own buttons (the permission primers).
   bool get _pageHasOwnButtons =>
@@ -686,8 +697,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             } else {
               _pacePct = defaultPacePct(_goalKind);
               _goalWeightKg = _goal == MacroCalculatorService.GOAL_LOSE
-                  ? max(40.0, _weightKg * 0.9)
-                  : min(150.0, _weightKg * 1.1);
+                  ? _weightKg * 0.9
+                  : _weightKg * 1.1;
               _validateRanges();
             }
           }),
@@ -812,7 +823,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           adaptiveGoals: _adaptiveGoals,
           planStyle: _goal == MacroCalculatorService.GOAL_LOSE ? _planStyle : null,
           planLine: _planLine,
-          onEdit: _goToStep,
+          onEdit: (step) {
+            _editingFromSummary = true;
+            _goToStep(step);
+          },
           editableSteps: _steps.toSet(),
           isMetricWeight: _isMetricWeight,
           projectedDate: _calculateProjectedDate(),

@@ -49,6 +49,10 @@ class ResultsScreen extends StatefulWidget {
   /// "Review answers" link at the top, shown when set.
   final VoidCallback? onReview;
 
+  /// Saves the plan to the account made on the Save screen. Onboarding
+  /// saved it on the device only, as there was no account then.
+  final Future<void> Function()? onSignedUp;
+
   /// Today's weight, the start of the projection. Falls back to the weight
   /// in [results].
   final double? currentWeightKg;
@@ -69,6 +73,7 @@ class ResultsScreen extends StatefulWidget {
       this.isMetricWeight,
       this.goalWeightKg,
       this.onReview,
+      this.onSignedUp,
       this.currentWeightKg,
       this.projectedDate,
       this.weeks})
@@ -158,10 +163,11 @@ class _ResultsScreenState extends State<ResultsScreen>
     // The plan is saved on the device already; an account keeps it in sync.
     if (Supabase.instance.client.auth.currentUser == null) {
       _busy = true;
-      final saved = await Navigator.of(context).push<bool>(
+      final saved = await Navigator.of(context).push<SavedPlan>(
           MaterialPageRoute(builder: (_) => const SaveScreen()));
+      if (saved == SavedPlan.newPlan) await widget.onSignedUp?.call();
       _busy = false;
-      if (saved != true || !mounted) return;
+      if (saved == null || !mounted) return;
     }
 
     _askAcquisitionSourceOnce().then((_) {

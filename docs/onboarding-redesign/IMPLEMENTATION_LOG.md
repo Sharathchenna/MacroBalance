@@ -120,6 +120,13 @@ Lead (me): `onboarding_steps.dart`, `onboarding_screen.dart`, `lib/auth/auth_gat
   GoalsProvider / FoodEntryProvider from before sign-in (disposed when the account changes) → providers are now
   looked up when syncing; the Save screen showed raw exceptions → friendly messages in `AuthActions`.
 
+- [x] Pre-launch review fixes:
+  - A plan made signed out is saved to the account (and its phase plan) once the Save screen signs up. Checked on the simulator: the new account has its `user_macros` row and first `goal_phases` row.
+  - "Keep your saved plan" drops the new plan from the device first.
+  - "I already have an account" clears `AuthGate.signedOutOnboarding`.
+  - Editing from the summary returns to it, through goal weight and pace when a new goal needs them.
+  - Other fixes: the maintain insight line, Katch–McArdle on Building when body fat is given, goal weights bounded by the weight step's 30–200 kg, and no back swipe while building.
+
 ## Open issues
 
 - iOS still shows the notification prompt at first launch even with the Dart and native requests removed; the

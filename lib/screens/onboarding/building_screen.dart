@@ -21,11 +21,15 @@ class BuildingScreen extends StatefulWidget {
     required this.work,
     required this.onDone,
     this.goal = MacroCalculatorService.GOAL_LOSE,
+    this.bodyFatKnown = false,
   });
 
   final Future<void> Function() work;
   final VoidCallback onDone;
   final String goal;
+
+  /// With a body fat %, the burn estimate also uses Katch–McArdle.
+  final bool bodyFatKnown;
 
   @override
   State<BuildingScreen> createState() => _BuildingScreenState();
@@ -41,9 +45,13 @@ class _BuildingScreenState extends State<BuildingScreen>
   static const _hold = Duration(milliseconds: 2200);
 
   late final AnimationController _breathe = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 1600));
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  );
   late final AnimationController _titles = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 600));
+    vsync: this,
+    duration: const Duration(milliseconds: 600),
+  );
 
   /// Steps finished so far, 0 to 4.
   int _done = 0;
@@ -103,12 +111,12 @@ class _BuildingScreenState extends State<BuildingScreen>
   }
 
   String _paceLine() => switch (widget.goal) {
-        MacroCalculatorService.GOAL_GAIN =>
-          'A small surplus, inside our safety limits',
-        MacroCalculatorService.GOAL_MAINTAIN =>
-          'Holding steady, no deficit or surplus',
-        _ => 'A weekly pace inside our safety limits',
-      };
+    MacroCalculatorService.GOAL_GAIN =>
+      'A small surplus, inside our safety limits',
+    MacroCalculatorService.GOAL_MAINTAIN =>
+      'Holding steady, no deficit or surplus',
+    _ => 'A weekly pace inside our safety limits',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -118,75 +126,89 @@ class _BuildingScreenState extends State<BuildingScreen>
     final steps = [
       (
         'Estimating your starting burn',
-        'Mifflin–St Jeor, from your age, height, weight and sex'
+        widget.bodyFatKnown
+            ? 'Mifflin–St Jeor and Katch–McArdle, with your body fat'
+            : 'Mifflin–St Jeor, from your age, height, weight and sex',
       ),
       ('Setting a safe pace', _paceLine()),
       ('Splitting your macros', 'Protein first, to protect your muscle'),
       (
         'Scheduling your first check-in',
-        DateFormat('EEEE, MMM d').format(checkIn)
+        DateFormat('EEEE, MMM d').format(checkIn),
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: c.bg,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 34),
-                child: Column(
-                  children: [
-                    _Ring(
-                      done: _done,
-                      ready: _ready,
-                      stepTime: stepTime,
-                      breathe: _breathe,
-                    ),
-                    const SizedBox(height: 18),
-                    _Titles(controller: _titles),
-                    const SizedBox(height: 22),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-                      decoration: BoxDecoration(
-                          color: c.surface, borderRadius: BorderRadius.circular(24)),
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < steps.length; i++)
-                            _StepRow(
-                              title: steps[i].$1,
-                              subtitle: steps[i].$2,
-                              // Waiting, running or finished.
-                              state: i < _done
-                                  ? _RowState.done
-                                  : i == _done
-                                      ? _RowState.running
-                                      : _RowState.waiting,
-                              last: i == steps.length - 1,
-                              animate: !_reduceMotion,
-                            ),
-                        ],
+    // No going back mid-build: the plan is being saved, and the reveal
+    // replaces this screen when it's done.
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: c.bg,
+        body: SafeArea(
+          child: CustomScrollView(
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 34),
+                  child: Column(
+                    children: [
+                      _Ring(
+                        done: _done,
+                        ready: _ready,
+                        stepTime: stepTime,
+                        breathe: _breathe,
                       ),
-                    ),
-                    const Spacer(),
-                    const SizedBox(height: 16),
-                    AnimatedOpacity(
-                      opacity: _ready ? 1 : 0,
-                      duration: const Duration(milliseconds: 300),
-                      child: IgnorePointer(
-                        ignoring: !_ready,
-                        child: ObPrimaryButton(
-                            label: 'See my plan', onPressed: _finish),
+                      const SizedBox(height: 18),
+                      _Titles(controller: _titles),
+                      const SizedBox(height: 22),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < steps.length; i++)
+                              _StepRow(
+                                title: steps[i].$1,
+                                subtitle: steps[i].$2,
+                                // Waiting, running or finished.
+                                state: i < _done
+                                    ? _RowState.done
+                                    : i == _done
+                                    ? _RowState.running
+                                    : _RowState.waiting,
+                                last: i == steps.length - 1,
+                                animate: !_reduceMotion,
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const Spacer(),
+                      const SizedBox(height: 16),
+                      AnimatedOpacity(
+                        opacity: _ready ? 1 : 0,
+                        duration: const Duration(milliseconds: 300),
+                        child: IgnorePointer(
+                          ignoring: !_ready,
+                          child: ObPrimaryButton(
+                            label: 'See my plan',
+                            onPressed: _finish,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -204,16 +226,17 @@ class _Titles extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = ObColors.of(context);
     Widget block(String title, String sub) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(title,
-                textAlign: TextAlign.center,
-                style: ObText.display(30, color: c.text, height: 1.15)),
-            const SizedBox(height: 8),
-            Text(sub,
-                textAlign: TextAlign.center, style: ObText.body(c.text2)),
-          ],
-        );
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: ObText.display(30, color: c.text, height: 1.15),
+        ),
+        const SizedBox(height: 8),
+        Text(sub, textAlign: TextAlign.center, style: ObText.body(c.text2)),
+      ],
+    );
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
@@ -229,9 +252,12 @@ class _Titles extends StatelessWidget {
                   child: Opacity(
                     opacity: a,
                     child: Transform.translate(
-                        offset: Offset(0, -6 * (1 - a)),
-                        child: block('Building your plan',
-                            'Using your answers, not a template.')),
+                      offset: Offset(0, -6 * (1 - a)),
+                      child: block(
+                        'Building your plan',
+                        'Using your answers, not a template.',
+                      ),
+                    ),
                   ),
                 ),
               if (b > 0)
@@ -239,9 +265,12 @@ class _Titles extends StatelessWidget {
                   child: Opacity(
                     opacity: b,
                     child: Transform.translate(
-                        offset: Offset(0, 6 * (1 - b)),
-                        child: block('Your plan is ready',
-                            'Made from your answers. Tuned by your data.')),
+                      offset: Offset(0, 6 * (1 - b)),
+                      child: block(
+                        'Your plan is ready',
+                        'Made from your answers. Tuned by your data.',
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -287,7 +316,10 @@ class _Ring extends StatelessWidget {
             builder: (context, v, _) => CustomPaint(
               size: const Size(_size, _size),
               painter: _RingPainter(
-                  progress: v, track: c.raised, color: c.leaf),
+                progress: v,
+                track: c.raised,
+                color: c.leaf,
+              ),
             ),
           ),
           AnimatedOpacity(
@@ -296,8 +328,9 @@ class _Ring extends StatelessWidget {
             child: AnimatedBuilder(
               animation: breathe,
               builder: (context, child) => Transform.scale(
-                  scale: 1 + 0.06 * Curves.easeInOut.transform(breathe.value),
-                  child: child),
+                scale: 1 + 0.06 * Curves.easeInOut.transform(breathe.value),
+                child: child,
+              ),
               child: MbMark(height: 42, color: c.text),
             ),
           ),
@@ -321,7 +354,11 @@ class _Ring extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  _RingPainter({required this.progress, required this.track, required this.color});
+  _RingPainter({
+    required this.progress,
+    required this.track,
+    required this.color,
+  });
 
   final double progress;
   final Color track;
@@ -338,8 +375,13 @@ class _RingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, radius, stroke..color = track);
     if (progress <= 0) return;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius),
-        -math.pi / 2, 2 * math.pi * progress.clamp(0.0, 1.0), false, stroke..color = color);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      2 * math.pi * progress.clamp(0.0, 1.0),
+      false,
+      stroke..color = color,
+    );
   }
 
   @override
@@ -383,46 +425,49 @@ class _StepRow extends StatelessWidget {
               height: 26,
               child: switch (state) {
                 _RowState.done => TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.4, end: 1),
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutBack,
-                    builder: (context, s, child) =>
-                        Transform.scale(scale: s, child: child),
-                    child: Container(
-                      margin: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                          color: c.leaf, borderRadius: BorderRadius.circular(12)),
-                      child: Icon(Icons.check_rounded, size: 16, color: c.onLeaf),
+                  tween: Tween(begin: 0.4, end: 1),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutBack,
+                  builder: (context, s, child) =>
+                      Transform.scale(scale: s, child: child),
+                  child: Container(
+                    margin: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: c.leaf,
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    child: Icon(Icons.check_rounded, size: 16, color: c.onLeaf),
                   ),
+                ),
                 _RowState.running => Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: animate
-                          ? CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: c.leaf,
-                              backgroundColor: c.line,
-                              value: null,
-                            )
-                          : CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: c.leaf,
-                              backgroundColor: c.line,
-                              value: 0.25),
-                    ),
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: animate
+                        ? CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: c.leaf,
+                            backgroundColor: c.line,
+                            value: null,
+                          )
+                        : CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: c.leaf,
+                            backgroundColor: c.line,
+                            value: 0.25,
+                          ),
                   ),
+                ),
                 _RowState.waiting => Center(
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: c.line, width: 2),
-                      ),
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.line, width: 2),
                     ),
                   ),
+                ),
               },
             ),
             const SizedBox(width: 14),
