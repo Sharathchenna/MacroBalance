@@ -243,7 +243,7 @@ class AppShellState extends State<AppShell>
 
   @override
   Widget build(BuildContext context) {
-    final barBottom = MediaQuery.of(context).size.height * 0.04;
+    final barBottom = AppBottomBar.bottomGap(context);
     return PopScope(
       // Back (Android, or a swipe gesture) closes the menu first.
       canPop: !menuOpen && !_touring,

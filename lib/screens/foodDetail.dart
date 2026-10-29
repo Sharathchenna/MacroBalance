@@ -13,11 +13,13 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/cupertino.dart';
 import '../theme/app_theme.dart';
 import '../theme/typography.dart';
+import '../models/ai_food_item.dart' show NutritionInfo;
 import '../services/posthog_service.dart';
 import '../providers/saved_food_provider.dart';
 import 'food_detail/components/components.dart';
 import '../main.dart' show navigatorKey;
 import '../providers/weight_unit_provider.dart';
+import '../utils/food_clipboard.dart';
 import '../utils/meal_time.dart';
 import '../utils/number_format.dart';
 import 'package:macrotracker/widgets/app_toast.dart';
@@ -29,11 +31,20 @@ class FoodDetailPage extends StatefulWidget {
   /// When set, the page edits this logged entry instead of adding a new one.
   final FoodEntry? existingEntry;
 
+  /// Day to log into; defaults to the day selected on the dashboard.
+  final DateTime? logDate;
+
+  /// After adding, go back one page (to a list of photo or AI results)
+  /// rather than all the way to the dashboard.
+  final bool returnOnAdd;
+
   const FoodDetailPage({
     super.key,
     required this.food,
     this.selectedMeal,
     this.existingEntry,
+    this.logDate,
+    this.returnOnAdd = false,
   });
 
   @override
@@ -44,6 +55,10 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     with SingleTickerProviderStateMixin {
   final List<String> mealOptions = MealTime.meals;
   final List<double> presetServings = [0.5, 1.0, 1.5, 2.0];
+
+  /// One-tap amounts in weight mode, in the current weight unit.
+  List<double> get _presetWeights =>
+      _weightUnit == 'oz' ? const [1, 2, 3, 4, 6] : const [50, 100, 150, 200, 250];
 
   late String selectedMeal;
   double selectedMultiplier = 1.0;
@@ -234,6 +249,7 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       quantity: quantity,
       unit: unit,
       date: existing?.date ??
+          widget.logDate ??
           Provider.of<DateProvider>(context, listen: false).selectedDate,
       servingDescription: servingDescription,
     );
@@ -339,7 +355,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       onAction: () => foodEntryProvider.removeEntry(entry.id),
     );
 
-    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    if (!mounted) return;
+    if (widget.returnOnAdd) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   Future<void> _deleteEntry() async {
@@ -353,6 +374,16 @@ class _FoodDetailPageState extends State<FoodDetailPage>
       onAction: () => foodEntryProvider.addEntry(entry),
     );
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Puts the logged entry (as saved, not any unsaved edits) on the
+  /// clipboard; the dashboard's paste bar then offers every meal.
+  void _copyEntry() {
+    HapticFeedback.selectionClick();
+    final entry = widget.existingEntry!;
+    FoodClipboard.instance
+        .copyAndAnnounce([entry], what: entry.food.name, source: 'edit_page');
+    Navigator.of(context).pop();
   }
 
   void _selectServing(Serving? serving) {
@@ -593,6 +624,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
         ),
       ),
       actions: [
+        if (_isEditing)
+          IconButton(
+            icon: Icon(Icons.copy_rounded, color: customColors.textPrimary),
+            tooltip: 'Copy to another meal or day',
+            onPressed: _copyEntry,
+          ),
         Consumer<SavedFoodProvider>(
           builder: (context, savedProvider, _) {
             final bool isSaved = savedProvider.isFoodSaved(widget.food.fdcId);
@@ -681,7 +718,9 @@ class _FoodDetailPageState extends State<FoodDetailPage>
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          _buildHealthScore(customColors),
+          const SizedBox(height: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -728,6 +767,52 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                   ),
                 ],
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The same 0–100 score for every food, from the amount being logged.
+  Widget _buildHealthScore(CustomColors customColors) {
+    final info = NutritionInfo(
+      calories: _nutrient('calories'),
+      protein: _nutrient('Protein'),
+      carbohydrates: _nutrient('Carbohydrate, by difference'),
+      fat: _nutrient('Total lipid (fat)'),
+      fiber: _nutrient('Fiber'),
+    );
+    if (info.calories <= 0) return const SizedBox.shrink();
+    final color = Color(int.parse('0xFF${info.getHealthScoreColor().substring(1)}'));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+            alignment: Alignment.center,
+            child: Text(
+              '${info.calculateHealthScore()}',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Health Score',
+                  style: AppTypography.caption.copyWith(
+                      color: customColors.textSecondary, fontWeight: FontWeight.w500)),
+              Text(info.getHealthScoreLabel(),
+                  style: AppTypography.body2.copyWith(color: color, fontWeight: FontWeight.bold)),
             ],
           ),
         ],
@@ -811,6 +896,15 @@ class _FoodDetailPageState extends State<FoodDetailPage>
                 selectedMultiplier = count;
                 quantityController.text = formatNumber(count, maxDecimals: 2);
               });
+            },
+          )
+        else
+          QuantitySelector(
+            presetMultipliers: _presetWeights,
+            selectedMultiplier: _amount,
+            labelFor: (amount) => '${formatNumber(amount)} $_weightUnit',
+            onMultiplierSelected: (amount) {
+              setState(() => quantityController.text = formatNumber(amount));
             },
           ),
         _buildQuantityInput(customColors, primaryColor),

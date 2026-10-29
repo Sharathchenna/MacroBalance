@@ -8,11 +8,15 @@ class QuantitySelector extends StatelessWidget {
   final double selectedMultiplier;
   final Function(double) onMultiplierSelected;
 
+  /// The chip's text; servings ("1½×") by default.
+  final String Function(double value)? labelFor;
+
   const QuantitySelector({
     super.key,
     required this.presetMultipliers,
     required this.selectedMultiplier,
     required this.onMultiplierSelected,
+    this.labelFor,
   });
 
   @override
@@ -54,7 +58,7 @@ class QuantitySelector extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                "${formatServings(multiplier)}×",
+                labelFor?.call(multiplier) ?? "${formatServings(multiplier)}×",
                 style: TextStyle(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? Colors.white

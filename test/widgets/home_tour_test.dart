@@ -130,6 +130,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('right after meals, the tour demos moving and copying food',
+      (tester) async {
+    final steps = HomeTour.steps.map((s) => s.target).toList();
+    expect(steps.indexOf(TourTarget.moveCopy), steps.indexOf(TourTarget.meals) + 1);
+
+    await pumpTour(tester);
+    while (find.text('Move or copy food').evaluate().isEmpty) {
+      await tester.tap(find.text('Next'));
+      await pumpFrames(tester, seconds: 1);
+    }
+    expect(find.textContaining('drag it onto another meal'), findsOneWidget);
+    // The looping demo: two meals, a food to drag and the Copy zone.
+    expect(find.text('Coffee'), findsOneWidget);
+    expect(find.text('Snacks'), findsWidgets);
+    expect(find.text('Drop here to copy'), findsOneWidget);
+    await pumpFrames(tester, seconds: 4);
+    expect(find.text('Copied'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('fits a small phone in light mode', (tester) async {
     await pumpTour(tester, size: const Size(750, 1334), ratio: 2, dark: false);
     for (var i = 0; i < HomeTour.steps.length; i++) {

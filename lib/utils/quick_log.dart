@@ -19,12 +19,18 @@ String describeEntryAmount(FoodEntry entry) {
     return entry.quantity == 1 ? serving : '${formatServings(entry.quantity)} × $serving';
   }
   final unit = entry.unit.toLowerCase();
-  if (entry.servingDescription != null && unit != 'g' && unit != 'oz') {
+  final byWeight = unit == 'g' || unit == 'oz';
+  if (entry.servingDescription != null) {
     for (final serving in entry.food.servings) {
-      if (serving.description == entry.servingDescription && serving.metricAmount > 0) {
-        final count = entry.quantity / serving.metricAmount;
-        return count == 1 ? serving.description : '${formatServings(count)} × ${serving.description}';
-      }
+      if (serving.description != entry.servingDescription || serving.metricAmount <= 0) continue;
+      final count = entry.quantity / serving.metricAmount;
+      // A weight reads as servings only when it's a tidy number of a
+      // serving with a name ("1 slice (35g)", not "100 g").
+      final named = !RegExp(r'^\s*[\d.,]+\s*(g|oz)\s*$', caseSensitive: false)
+          .hasMatch(serving.description);
+      final tidy = (count * 4 - (count * 4).round()).abs() < 0.001;
+      if (byWeight && !(serving.metricUnit.toLowerCase() == unit && named && tidy)) break;
+      return count == 1 ? serving.description : '${formatServings(count)} × ${serving.description}';
     }
   }
   return '${formatNumber(entry.quantity)} ${entry.unit}';
@@ -37,15 +43,7 @@ Future<FoodEntry> quickLogAgain(BuildContext context, FoodEntry template,
   final provider = Provider.of<FoodEntryProvider>(context, listen: false);
   final date = Provider.of<DateProvider>(context, listen: false).selectedDate;
   final targetMeal = meal ?? MealTime.suggested();
-  final entry = FoodEntry(
-    id: const Uuid().v4(),
-    food: template.food,
-    meal: targetMeal,
-    quantity: template.quantity,
-    unit: template.unit,
-    date: date,
-    servingDescription: template.servingDescription,
-  );
+  final entry = template.copyWith(id: const Uuid().v4(), meal: targetMeal, date: date);
   await provider.addEntry(entry);
   MealTime.remember(targetMeal);
   PostHogService.trackEvent('food_quick_logged', properties: {'meal_type': targetMeal});

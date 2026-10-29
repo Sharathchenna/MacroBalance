@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/models/foodEntry.dart';
 import 'package:macrotracker/providers/dateProvider.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/services/storage_service.dart';
+import 'package:macrotracker/screens/previously_logged_screen.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/utils/quick_log.dart';
 import 'package:macrotracker/widgets/quick_log_tile.dart';
@@ -18,6 +20,7 @@ void main() {
 
   setUp(() async {
     await setUpTestEnvironment();
+    await StorageService().delete(FoodEntryProvider.historyKey);
     provider = FoodEntryProvider();
     await provider.ensureInitialized();
     for (final e in List.of(provider.entries)) {
@@ -160,6 +163,67 @@ void main() {
       final List<FoodEntry> lunch = provider.getEntriesForMeal(today, 'Lunch');
       expect(lunch.map((e) => e.food.name), ['Toast']);
       expect(find.text('Added Toast to Lunch'), findsOneWidget);
+    });
+
+    testWidgets('once foods repeat, Most logged takes Recent\'s place',
+        (tester) async {
+      phone(tester);
+      await tester.runAsync(() async {
+        await provider.addEntry(testEntry(name: 'Coffee', meal: 'Snacks', date: threeDaysAgo));
+        await provider.addEntry(testEntry(name: 'Coffee', meal: 'Snacks', date: yesterday));
+        await provider.addEntry(testEntry(name: 'Apple', meal: 'Snacks', date: yesterday));
+      });
+      await tester.pumpWidget(testApp(
+        const FoodSearchPage(selectedMeal: 'Snacks'),
+        foodEntryProvider: provider,
+        dateProvider: dates,
+      ));
+      await pumpFrames(tester, seconds: 1);
+
+      expect(find.text('Most logged'), findsOneWidget);
+      expect(find.text('Recent'), findsNothing);
+      expect(find.byType(QuickLogTile), findsOneWidget);
+      expect(find.text('Coffee'), findsOneWidget);
+      expect(find.text('Apple'), findsNothing);
+      expect(find.byTooltip('Previously logged'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the history button opens everything logged, by day',
+        (tester) async {
+      phone(tester);
+      await tester.runAsync(() async {
+        await provider.addEntry(testEntry(name: 'Toast', meal: 'Breakfast', date: threeDaysAgo));
+        await provider.addEntry(testEntry(name: 'Apple', meal: 'Snacks', date: yesterday));
+        await provider.addEntry(testEntry(name: 'Rice', meal: 'Lunch', date: today));
+      });
+      await tester.pumpWidget(testApp(
+        const FoodSearchPage(selectedMeal: 'Dinner'),
+        foodEntryProvider: provider,
+        dateProvider: dates,
+      ));
+      await pumpFrames(tester, seconds: 1);
+
+      await tester.tap(find.byTooltip('Previously logged'));
+      await pumpFrames(tester, seconds: 1);
+      expect(find.byType(PreviouslyLoggedScreen), findsOneWidget);
+      expect(find.text('Today'), findsOneWidget);
+      expect(find.text('Yesterday'), findsOneWidget);
+      expect(find.byType(QuickLogTile), findsNWidgets(3));
+      expect(find.text('Tap + to add to Dinner'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'app');
+      await pumpFrames(tester, seconds: 1);
+      expect(find.byType(QuickLogTile), findsOneWidget);
+      expect(find.text('Apple'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        await tester.tap(find.byTooltip('Add to Dinner'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await pumpFrames(tester, seconds: 1);
+      expect(provider.getEntriesForMeal(today, 'Dinner').map((e) => e.food.name), ['Apple']);
+      expect(tester.takeException(), isNull);
     });
   });
 }

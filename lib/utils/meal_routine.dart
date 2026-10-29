@@ -2,23 +2,27 @@ import '../models/foodEntry.dart';
 import '../services/storage_service.dart';
 
 /// "Your usual breakfast": a meal the user has eaten, give or take a food,
-/// on several of the last few days.
+/// on a couple of the last few days, or the foods they keep having in it
+/// (coffee with the evening snack) even when the rest of the meal varies.
 class MealRoutine {
   MealRoutine._();
 
   /// Days looked at, counting back from yesterday. Today never counts.
-  static const int windowDays = 7;
+  static const int windowDays = 10;
 
-  /// Days in the window that must look like the usual combination.
-  static const int minMatchingDays = 3;
+  /// Days in the window that must look like the usual combination, or that
+  /// a food must turn up on to count as a regular.
+  static const int minMatchingDays = 2;
 
   /// How alike two days' foods must be to count as the same meal: shared
-  /// food names over all food names (Jaccard). 0.6 lets one food in a
-  /// three-food meal differ.
-  static const double minSimilarity = 0.6;
+  /// food names over all food names (Jaccard). 0.5 lets one food in a
+  /// two- or three-food meal differ.
+  static const double minSimilarity = 0.5;
 
   /// The usual [meal] to offer on [viewedDate], or null when there's none.
-  /// Only today gets suggestions; past and future days never do.
+  /// Only today gets suggestions; past and future days never do. Foods
+  /// already logged in the meal today are left out, so a meal with food in
+  /// it can still be offered what's missing.
   /// [entriesFor] returns that meal's entries on a given day.
   static RoutineSuggestion? suggest({
     required String meal,
@@ -36,10 +40,60 @@ class MealRoutine {
       if (entries.isEmpty) continue;
       days.add(_Day(day, entries, nameSet(entries)));
     }
+    if (days.isEmpty) return null;
+    final loggedToday = nameSet(entriesFor(today));
 
-    // Each distinct combination is a candidate. The usual one is the one
-    // eaten exactly most often (then the one most days resemble, then the
-    // most recent) among those enough days resemble.
+    final combination = _usualCombination(days);
+    if (combination != null) {
+      final missing = [
+        for (final e in combination.day.entries)
+          if (!loggedToday.contains(_nameOf(e))) e
+      ];
+      if (missing.isNotEmpty) {
+        return RoutineSuggestion(
+          meal: meal,
+          sourceDate: combination.day.date,
+          entries: missing,
+          matchingDays: combination.support,
+        );
+      }
+    }
+
+    // No usual combination (or it's all logged): the foods that keep coming
+    // back, each with its amounts from the most recent day it was had.
+    final dayCount = <String, int>{};
+    for (final day in days) {
+      for (final name in day.names) {
+        dayCount[name] = (dayCount[name] ?? 0) + 1;
+      }
+    }
+    final regulars = {
+      for (final name in dayCount.keys)
+        if (dayCount[name]! >= minMatchingDays && !loggedToday.contains(name)) name
+    };
+    if (regulars.isEmpty) return null;
+    final entries = <FoodEntry>[];
+    final taken = <String>{};
+    DateTime? newest;
+    for (final day in days) {
+      final fresh = day.names.intersection(regulars).difference(taken);
+      if (fresh.isEmpty) continue;
+      newest ??= day.date;
+      entries.addAll(day.entries.where((e) => fresh.contains(_nameOf(e))));
+      taken.addAll(fresh);
+    }
+    return RoutineSuggestion(
+      meal: meal,
+      sourceDate: newest!,
+      entries: entries,
+      matchingDays: regulars.map((n) => dayCount[n]!).reduce((a, b) => a < b ? a : b),
+    );
+  }
+
+  /// Each distinct combination is a candidate. The usual one is the one
+  /// eaten exactly most often (then the one most days resemble, then the
+  /// most recent) among those enough days resemble.
+  static _Candidate? _usualCombination(List<_Day> days) {
     final candidates = <_Candidate>[];
     final seen = <String>{};
     for (final day in days) {
@@ -53,27 +107,23 @@ class MealRoutine {
       if (support >= minMatchingDays) candidates.add(_Candidate(day, exact, support));
     }
     if (candidates.isEmpty) return null;
-    // Candidates are newest first, so on a tie the earlier one is kept.
+    // Candidates are newest first, so on a tie the earlier one is kept, and
+    // the first day seen with a combination is its most recent one, so its
+    // quantities are what gets copied.
     var best = candidates.first;
     for (final c in candidates.skip(1)) {
       if (c.exact > best.exact || (c.exact == best.exact && c.support > best.support)) {
         best = c;
       }
     }
-
-    // The first day seen with this combination is the most recent one, so
-    // its quantities are what gets copied.
-    return RoutineSuggestion(
-      meal: meal,
-      sourceDate: best.day.date,
-      entries: best.day.entries,
-      matchingDays: best.support,
-    );
+    return best;
   }
 
   /// Food names in a meal, ignoring case, spacing and repeats.
   static Set<String> nameSet(List<FoodEntry> entries) =>
-      {for (final e in entries) e.food.name.trim().toLowerCase()};
+      {for (final e in entries) _nameOf(e)};
+
+  static String _nameOf(FoodEntry e) => e.food.name.trim().toLowerCase();
 
   /// Jaccard similarity of two sets of food names, from 0 to 1.
   static double similarity(Set<String> a, Set<String> b) {
@@ -105,7 +155,8 @@ class _Candidate {
   final int support;
 }
 
-/// What to offer: the entries of the most recent day the usual meal was eaten.
+/// What to offer: entries to copy into today, taken from the most recent
+/// day(s) each food was eaten.
 class RoutineSuggestion {
   const RoutineSuggestion({
     required this.meal,
@@ -115,10 +166,13 @@ class RoutineSuggestion {
   });
 
   final String meal;
+
+  /// The most recent day the suggested entries come from.
   final DateTime sourceDate;
   final List<FoodEntry> entries;
 
-  /// Days in the window that resembled it.
+  /// Days in the window that resembled it (for regular foods, the fewest
+  /// days any of them was had).
   final int matchingDays;
 }
 
@@ -166,8 +220,15 @@ class RoutineDismissals {
     }
   }
 
-  /// The suggestion was added, so earlier dismissals no longer count.
-  Future<void> used(String meal) => _storage.put(dismissStreakKey(meal), 0);
+  /// The suggestion was added: earlier dismissals no longer count, and it
+  /// isn't offered again today (anything else usual can wait for tomorrow).
+  Future<void> used(String meal, DateTime today) async {
+    await _storage.put(dismissStreakKey(meal), 0);
+    await _storage.put(hiddenOnKey(meal), _dayKey(today));
+  }
+
+  /// The added suggestion was undone, so offer it again today.
+  Future<void> unhide(String meal) => _storage.delete(hiddenOnKey(meal));
 
   static DateTime _startOf(DateTime d) => DateTime(d.year, d.month, d.day);
 

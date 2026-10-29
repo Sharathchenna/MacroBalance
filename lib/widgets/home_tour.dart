@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/storage_service.dart';
 
 /// The parts of the app the first-run tour points at.
-enum TourTarget { summary, meals, dateBar, addButton, progressTab, profileTab }
+enum TourTarget { summary, meals, moveCopy, dateBar, addButton, progressTab, profileTab }
 
 /// One stop on the tour.
 class TourStep {
@@ -26,7 +26,9 @@ class HomeTour {
     TourStep(TourTarget.summary, 'Your day at a glance',
         'Calories left and your macros update the moment you log something.'),
     TourStep(TourTarget.meals, 'Your meals',
-        'Tap a food to edit it, swipe it left to remove it. Eat the same thing most days? An empty meal offers your usual in one tap.'),
+        'Tap a food to edit it, swipe it left to remove it. Have the same thing most days? The meal offers your usual in one tap.'),
+    TourStep(TourTarget.moveCopy, 'Move or copy food',
+        'Hold a food and drag it onto another meal to move it, or onto Copy to paste it into any meal on any day.'),
     TourStep(TourTarget.dateBar, 'Move between days',
         'Use the arrows or tap the date to log or review any day.'),
     TourStep(TourTarget.addButton, 'Log food',
@@ -195,7 +197,7 @@ class _HomeTourOverlayState extends State<HomeTourOverlay>
                 curve: Curves.easeInOutCubic,
                 left: 20,
                 right: 20,
-                top: isBarItem ? null : _cardTop(rect, constraints),
+                top: isBarItem ? null : _cardTop(rect, constraints, step),
                 bottom: isBarItem ? constraints.maxHeight - rect.top + 16 : null,
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
@@ -216,8 +218,8 @@ class _HomeTourOverlayState extends State<HomeTourOverlay>
     );
   }
 
-  double _cardTop(Rect rect, BoxConstraints c) {
-    const cardHeight = 190.0;
+  double _cardTop(Rect rect, BoxConstraints c, TourStep step) {
+    final cardHeight = 190.0 + (_hasDemo(step) ? _MoveCopyDemo.height + 12 : 0);
     final below = rect.bottom + 16;
     if (below + cardHeight < c.maxHeight - widget.bottomInset) return below;
     // Not enough room below a tall target: put the card above it, or over
@@ -226,6 +228,8 @@ class _HomeTourOverlayState extends State<HomeTourOverlay>
     return above > 60 ? above : c.maxHeight - widget.bottomInset - cardHeight - 24;
   }
 }
+
+bool _hasDemo(TourStep step) => step.target == TourTarget.moveCopy;
 
 class _SpotlightPainter extends CustomPainter {
   _SpotlightPainter({required this.hole, required this.radius, required this.color});
@@ -307,6 +311,13 @@ class _TourCard extends StatelessWidget {
                 child: Text(step.body,
                     style: GoogleFonts.poppins(fontSize: 13.5, height: 1.4, color: muted)),
               ),
+              if (_hasDemo(step)) ...[
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _MoveCopyDemo(isLight: isLight),
+                ),
+              ],
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -343,6 +354,193 @@ class _TourCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A looping picture of the gesture: a food is held and dragged onto another
+/// meal (moved), then held and dropped on Copy (copied). Still when the
+/// system asks for reduced motion.
+class _MoveCopyDemo extends StatefulWidget {
+  const _MoveCopyDemo({required this.isLight});
+
+  final bool isLight;
+
+  static const double height = 128;
+
+  @override
+  State<_MoveCopyDemo> createState() => _MoveCopyDemoState();
+}
+
+class _MoveCopyDemoState extends State<_MoveCopyDemo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _loop = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 5600),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _loop
+        ..stop()
+        ..value = 0.3;
+    } else if (!_loop.isAnimating) {
+      _loop.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _loop.dispose();
+    super.dispose();
+  }
+
+  /// 0 → 1 across [from, to] of the loop, eased.
+  static double _phase(double t, double from, double to) =>
+      Curves.easeInOutCubic.transform(((t - from) / (to - from)).clamp(0.0, 1.0));
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFFFFC107);
+    final box = widget.isLight ? Colors.black.withOpacity(0.05) : Colors.white.withOpacity(0.06);
+    final fg = widget.isLight ? Colors.black87 : Colors.white;
+    final muted = widget.isLight ? Colors.black54 : Colors.white60;
+    return SizedBox(
+      height: _MoveCopyDemo.height,
+      child: LayoutBuilder(
+        builder: (context, c) => AnimatedBuilder(
+          animation: _loop,
+          builder: (context, _) {
+            final t = _loop.value;
+            final w = c.maxWidth;
+            final mealW = (w - 10) / 2;
+            const chipW = 92.0, chipH = 28.0;
+            final start = const Offset(10, 26);
+            final snacks = Offset(mealW + 20, 26);
+            final copy = Offset((w - chipW) / 2, 86);
+            // First half: move to Snacks. Second half: drop on Copy.
+            final moving = t < 0.5;
+            final local = moving ? t / 0.5 : (t - 0.5) / 0.5;
+            final lift = _phase(local, 0.12, 0.24);
+            final travel = _phase(local, 0.24, 0.62);
+            final settle = _phase(local, 0.62, 0.7);
+            final fadeOut = _phase(local, 0.9, 1.0);
+            final target = moving ? snacks : copy;
+            final pos = Offset.lerp(start, target, travel)!;
+            final dragging = lift > 0 && settle < 1;
+            final overTarget = travel > 0.85 && settle < 1;
+            final done = settle >= 1;
+            Widget meal(String name, double left, {bool hot = false}) => Positioned(
+                  left: left,
+                  top: 0,
+                  width: mealW,
+                  height: 66,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.fromLTRB(10, 6, 8, 0),
+                    decoration: BoxDecoration(
+                      color: box,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: hot ? accent : Colors.transparent, width: 1.5),
+                    ),
+                    alignment: Alignment.topLeft,
+                    child: Text(name,
+                        style: GoogleFonts.poppins(
+                            fontSize: 11, fontWeight: FontWeight.w600, color: muted)),
+                  ),
+                );
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                meal('Breakfast', 0),
+                meal('Snacks', mealW + 10, hot: moving && overTarget),
+                // The Copy zone shows while dragging, as on the dashboard.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 78,
+                  height: 44,
+                  child: Opacity(
+                    opacity: moving ? 0.35 + 0.65 * (dragging ? 1 : 0) * (1 - settle) : 1 - fadeOut,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: !moving && overTarget ? accent.withOpacity(0.2) : box,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: accent.withOpacity(0.7)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      alignment: Alignment.centerLeft,
+                      child: Row(children: [
+                        const Icon(Icons.copy_rounded, size: 16, color: accent),
+                        const SizedBox(width: 8),
+                        Text(
+                          !moving && done ? 'Copied' : 'Drop here to copy',
+                          style: GoogleFonts.poppins(
+                              fontSize: 12, fontWeight: FontWeight.w600, color: fg),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: pos.dx,
+                  top: pos.dy,
+                  width: chipW,
+                  height: chipH,
+                  child: Opacity(
+                    opacity: 1 - fadeOut,
+                    child: Transform.scale(
+                      scale: 1 + 0.08 * lift * (1 - settle),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: widget.isLight ? Colors.white : const Color(0xFF2C2C2E),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: dragging ? accent : Colors.transparent, width: 1.2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3 * lift * (1 - settle)),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        alignment: Alignment.centerLeft,
+                        child: Row(children: [
+                          Icon(Icons.drag_indicator_rounded,
+                              size: 14, color: dragging ? accent : muted),
+                          const SizedBox(width: 4),
+                          Text('Coffee',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+                // The finger: a soft dot that presses, then carries the food.
+                if (local > 0.04 && settle < 1)
+                  Positioned(
+                    left: pos.dx + chipW - 22,
+                    top: pos.dy + chipH - 10,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: fg.withOpacity(0.18 + 0.12 * lift),
+                        border: Border.all(color: fg.withOpacity(0.4)),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );

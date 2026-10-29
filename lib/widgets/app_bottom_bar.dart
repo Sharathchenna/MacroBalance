@@ -60,6 +60,10 @@ class AppBottomBar extends StatelessWidget {
   /// item can scroll clear of the bar.
   static const double scrollClearance = 124;
 
+  /// Gap between the bar and the bottom of the screen.
+  static double bottomGap(BuildContext context) =>
+      MediaQuery.sizeOf(context).height * 0.04;
+
   @override
   Widget build(BuildContext context) {
     final isLight = Theme.of(context).brightness == Brightness.light;
