@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/theme/typography.dart';
-// import 'package:macrotracker/camera/camera.dart'; // Removed import
-import 'package:macrotracker/screens/askAI.dart';
 
 class SearchHeader extends StatefulWidget {
   final TextEditingController controller;
@@ -13,6 +11,9 @@ class SearchHeader extends StatefulWidget {
   final VoidCallback onBack;
   final VoidCallback onCameraTap; // Added camera tap callback
 
+  /// Opens the foods the user has logged before.
+  final VoidCallback onHistoryTap;
+
   const SearchHeader({
     Key? key,
     required this.controller,
@@ -20,6 +21,7 @@ class SearchHeader extends StatefulWidget {
     required this.onChanged,
     required this.onBack,
     required this.onCameraTap, // Make it required
+    required this.onHistoryTap,
   }) : super(key: key);
 
   @override
@@ -39,17 +41,6 @@ class _SearchHeaderState extends State<SearchHeader> {
   void dispose() {
     _focusNode.dispose();
     super.dispose();
-  }
-
-  // Removed _navigateToCameraScreen method
-
-  void _navigateToAskAI(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const Askai(),
-      ),
-    );
   }
 
   @override
@@ -110,25 +101,15 @@ class _SearchHeaderState extends State<SearchHeader> {
               //   ),
               // ),
               const SizedBox(width: 8),
-              // AI button
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(40),
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    _navigateToAskAI(context);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Image.asset(
-                      'assets/icons/AI Icon.png',
-                      width: 25,
-                      height: 25,
-                      color: const Color(0xFFFFC107),
-                    ),
-                  ),
-                ),
+              // Describe-with-AI lives in the dashboard's + menu.
+              IconButton(
+                tooltip: 'Previously logged',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  widget.onHistoryTap();
+                },
+                icon: const Icon(Icons.history_rounded,
+                    size: 26, color: Color(0xFFFFC107)),
               ),
             ],
           ),

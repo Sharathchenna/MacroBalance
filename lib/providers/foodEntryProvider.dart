@@ -362,6 +362,7 @@ class FoodEntryProvider with ChangeNotifier {
     _entries.add(entry);
     await _clearDateCache(); // Clear cache as entries changed
     await saveEntries();
+    await _remember(entry);
     notifyListeners(); // Notify after saving and clearing cache
     _updateWidgets();
     _pushUpsert(entry);
@@ -416,6 +417,7 @@ class FoodEntryProvider with ChangeNotifier {
       debugPrint("[Provider Update] Cleared date cache after update.");
       notifyListeners();
       await saveEntries();
+      await _remember(updatedEntry, logged: false);
       _updateWidgets();
       _pushUpsert(updatedEntry);
       onEntriesChanged?.call(oldDay);
@@ -432,12 +434,78 @@ class FoodEntryProvider with ChangeNotifier {
 
   static String _foodKey(FoodEntry entry) => '${entry.food.fdcId}|${entry.food.name}';
 
+  // --- Food history ---
+  // Every food ever logged on this device, with its latest amount and how
+  // often it was logged. Kept apart from the diary so deleting an entry never
+  // takes the food out of "Previously logged" or "Most logged".
+
+  /// Storage key for the food history.
+  static const String historyKey = 'food_log_history';
+
+  /// Foods kept, most recently logged first.
+  static const int historyLimit = 300;
+
+  Map<String, ({FoodEntry entry, int count})>? _historyCache;
+
+  Map<String, ({FoodEntry entry, int count})> get _history =>
+      _historyCache ??= _readHistory();
+
+  Map<String, ({FoodEntry entry, int count})> _readHistory() {
+    final out = <String, ({FoodEntry entry, int count})>{};
+    try {
+      final raw = StorageService().get(historyKey);
+      if (raw is! String || raw.isEmpty) return out;
+      for (final item in jsonDecode(raw) as List) {
+        try {
+          final map = Map<String, dynamic>.from(item as Map);
+          final entry = FoodEntry.fromJson(Map<String, dynamic>.from(map['entry'] as Map));
+          out[_foodKey(entry)] = (entry: entry, count: (map['count'] as num?)?.toInt() ?? 1);
+        } catch (e) {
+          debugPrint('Skipping unreadable food history item: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error reading food history: $e');
+    }
+    return out;
+  }
+
+  /// Records [entry] as the food's latest amount; [logged] counts it as one
+  /// more time the food was logged (an edit doesn't).
+  Future<void> _remember(FoodEntry entry, {bool logged = true}) async {
+    final key = _foodKey(entry);
+    final known = _history[key];
+    final newer = known == null || !entry.date.isBefore(known.entry.date);
+    _history[key] = (
+      entry: newer ? entry : known.entry,
+      count: (known?.count ?? 0) + (logged ? 1 : 0),
+    );
+    if (_history.length > historyLimit) {
+      final oldest = _history.entries.toList()
+        ..sort((a, b) => a.value.entry.date.compareTo(b.value.entry.date));
+      for (final item in oldest.take(_history.length - historyLimit)) {
+        _history.remove(item.key);
+      }
+    }
+    await StorageService().put(
+      historyKey,
+      jsonEncode([
+        for (final item in _history.values)
+          {'entry': item.entry.toJson(), 'count': item.count}
+      ]),
+    );
+  }
+
   /// The most recently logged distinct foods, newest first. Each item is the
   /// latest entry for that food, so re-logging repeats its last amount.
+  /// Includes foods whose entries have since been deleted.
   List<FoodEntry> recentFoods({int limit = 10}) {
-    // Newest day first; within a day, the later-logged entry first.
-    final indexed = [for (var i = 0; i < _entries.length; i++) (i, _entries[i])]
-      ..sort((a, b) {
+    // Newest day first; within a day, the later-logged entry first. History
+    // ranks below the diary's own entries on the same day.
+    final indexed = [
+      for (final item in _history.values) (-1, item.entry),
+      for (var i = 0; i < _entries.length; i++) (i, _entries[i]),
+    ]..sort((a, b) {
         final byDate = b.$2.date.compareTo(a.$2.date);
         return byDate != 0 ? byDate : b.$1.compareTo(a.$1);
       });
@@ -451,6 +519,7 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   /// The foods logged most often (at least twice), most frequent first.
+  /// Deleted entries still count, through the food history.
   List<FoodEntry> frequentFoods({int limit = 10}) {
     final counts = <String, int>{};
     final latest = <String, FoodEntry>{};
@@ -460,6 +529,13 @@ class FoodEntryProvider with ChangeNotifier {
       final current = latest[key];
       if (current == null || !entry.date.isBefore(current.date)) latest[key] = entry;
     }
+    // Entries logged before the history existed are only in the diary, so
+    // take whichever count is higher.
+    _history.forEach((key, item) {
+      if (item.count > (counts[key] ?? 0)) counts[key] = item.count;
+      final current = latest[key];
+      if (current == null || item.entry.date.isAfter(current.date)) latest[key] = item.entry;
+    });
     final keys = counts.keys.where((k) => counts[k]! >= 2).toList()
       ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
     return keys.take(limit).map((k) => latest[k]!).toList();
@@ -475,8 +551,17 @@ class FoodEntryProvider with ChangeNotifier {
     required DateTime from,
     required DateTime to,
     required String meal,
+  }) =>
+      copyEntries(getEntriesForMeal(from, meal), to: to, meal: meal);
+
+  /// Logs copies of [source] (same food and amount, new ids) into [meal] on
+  /// [to], from any day or meal. Returns the new entries so the caller can
+  /// offer Undo.
+  Future<List<FoodEntry>> copyEntries(
+    List<FoodEntry> source, {
+    required DateTime to,
+    required String meal,
   }) async {
-    final source = getEntriesForMeal(from, meal);
     final day = DateTime(to.year, to.month, to.day);
     final copies = [
       for (final entry in source)
@@ -856,6 +941,8 @@ class FoodEntryProvider with ChangeNotifier {
     await StorageService().delete(_pendingUpsertsKey);
     await StorageService().delete(_pendingDeletesKey);
     await StorageService().delete(_initialUploadKey);
+    await StorageService().delete(historyKey);
+    _historyCache = null;
     
     notifyListeners();
     debugPrint("[Provider Clear] All user data cleared.");

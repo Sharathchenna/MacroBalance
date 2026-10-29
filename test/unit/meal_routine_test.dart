@@ -30,20 +30,27 @@ void main() {
           entriesFor: (day) => log[DateTime(day.year, day.month, day.day)] ?? const [],
         );
 
-    test('the same meal on 3 of the last 7 days is a routine', () {
+    test('the same meal on 3 of the last 10 days is a routine', () {
       eat(1, ['Oats', 'Milk']);
       eat(4, ['Oats', 'Milk']);
-      eat(6, ['Oats', 'Milk']);
+      eat(9, ['Oats', 'Milk']);
       final usual = suggest();
       expect(usual, isNotNull);
       expect(usual!.matchingDays, 3);
       expect(usual.entries.map((e) => e.food.name), ['Oats', 'Milk']);
     });
 
-    test('only 2 matching days is not a routine', () {
+    test('2 matching days are enough', () {
       eat(1, ['Oats', 'Milk']);
       eat(2, ['Oats', 'Milk']);
       eat(3, ['Eggs', 'Toast']);
+      final usual = suggest();
+      expect(usual, isNotNull);
+      expect(usual!.entries.map((e) => e.food.name), ['Oats', 'Milk']);
+    });
+
+    test('one day is not a routine', () {
+      eat(1, ['Oats', 'Milk']);
       expect(suggest(), isNull);
     });
 
@@ -58,15 +65,48 @@ void main() {
 
     test('days older than the window do not count', () {
       eat(1, ['Oats', 'Milk']);
-      eat(2, ['Oats', 'Milk']);
-      eat(8, ['Oats', 'Milk']);
+      eat(11, ['Oats', 'Milk']);
       expect(suggest(), isNull);
     });
 
     test('today is not part of the window', () {
       eat(0, ['Oats', 'Milk']);
       eat(1, ['Oats', 'Milk']);
+      expect(suggest(), isNull);
+    });
+
+    test('a food had most days is suggested even when the rest varies', () {
+      // Coffee with the evening snack, alongside something different each day.
+      eat(1, ['Coffee', 'Biscuits']);
+      eat(2, ['Coffee', 'Samosa', 'Chutney']);
+      eat(3, ['Coffee', 'Banana', 'Peanuts', 'Dates']);
+      final usual = suggest();
+      expect(usual, isNotNull);
+      expect(usual!.entries.map((e) => e.food.name), ['Coffee']);
+      expect(usual.sourceDate, daysAgo(1));
+    });
+
+    test('regular foods come with their most recent amounts', () {
+      eat(1, ['Coffee', 'Toast'], quantity: 2);
+      eat(2, ['Coffee', 'Banana', 'Eggs', 'Juice']);
+      eat(3, ['Toast', 'Pancakes', 'Syrup', 'Berries']);
+      final usual = suggest();
+      expect(usual!.entries.map((e) => e.food.name), ['Coffee', 'Toast']);
+      expect(usual.entries.every((e) => e.quantity == 2), isTrue);
+    });
+
+    test('foods already logged today are left out', () {
+      eat(1, ['Oats', 'Milk']);
       eat(2, ['Oats', 'Milk']);
+      eat(0, ['oats']);
+      final usual = suggest();
+      expect(usual!.entries.map((e) => e.food.name), ['Milk']);
+    });
+
+    test('nothing to suggest once the usual is all logged', () {
+      eat(1, ['Coffee', 'Biscuits']);
+      eat(2, ['Coffee', 'Samosa']);
+      eat(0, ['Coffee', 'Cake']);
       expect(suggest(), isNull);
     });
 
@@ -81,11 +121,11 @@ void main() {
       expect(usual.matchingDays, greaterThanOrEqualTo(3));
     });
 
-    test('too different is not the same meal', () {
+    test('too different is not the same meal, but the shared food is', () {
       eat(1, ['Eggs', 'Toast', 'Coffee']);
       eat(2, ['Eggs', 'Bagel', 'Tea']);
       eat(3, ['Eggs', 'Waffle', 'Juice']);
-      expect(suggest(), isNull);
+      expect(suggest()!.entries.map((e) => e.food.name), ['Eggs']);
     });
 
     test('offers the most frequent combination, from its most recent day', () {

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
+import 'package:macrotracker/services/storage_service.dart';
 
 import '../helpers/test_app.dart';
 
@@ -10,6 +11,7 @@ void main() {
 
   setUp(() async {
     await setUpTestEnvironment();
+    await StorageService().delete(FoodEntryProvider.historyKey);
     provider = FoodEntryProvider();
     await provider.ensureInitialized();
     for (final e in List.of(provider.entries)) {
@@ -98,6 +100,32 @@ void main() {
       expect(frequent.map((e) => e.food.name), ['Coffee', 'Eggs']);
       // Re-logging repeats the most recent amount.
       expect(frequent.last.quantity, 3);
+    });
+
+    test('deleted foods stay in recent and most logged', () async {
+      final first = testEntry(name: 'Coffee', meal: 'Snacks', date: twoDaysAgo);
+      final second = testEntry(name: 'Coffee', meal: 'Snacks', date: yesterday, quantity: 2);
+      await provider.addEntry(first);
+      await provider.addEntry(second);
+      await provider.removeEntry(first.id);
+      await provider.removeEntry(second.id);
+      expect(provider.entries, isEmpty);
+
+      expect(provider.recentFoods().map((e) => e.food.name), ['Coffee']);
+      expect(provider.recentFoods().single.quantity, 2);
+      expect(provider.frequentFoods().map((e) => e.food.name), ['Coffee']);
+
+      // Kept on the device, across app launches.
+      final reloaded = FoodEntryProvider();
+      await reloaded.ensureInitialized();
+      expect(reloaded.recentFoods().map((e) => e.food.name), ['Coffee']);
+    });
+
+    test('signing out clears the history', () async {
+      await provider.addEntry(testEntry(name: 'Tea', meal: 'Snacks', date: today));
+      await provider.clearUserData();
+      expect(provider.recentFoods(), isEmpty);
+      expect(FoodEntryProvider().recentFoods(), isEmpty);
     });
   });
 }

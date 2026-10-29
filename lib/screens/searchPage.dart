@@ -29,6 +29,7 @@ import '../AI/gemini.dart'; // Import Gemini processing
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:macrotracker/screens/foodDetail.dart';
+import 'package:macrotracker/screens/previously_logged_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/theme/typography.dart';
@@ -498,6 +499,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
                     onChanged: _onSearchChanged,
                     onBack: () => Navigator.pop(context),
                     onCameraTap: _showNativeCamera, // Pass the method here
+                    onHistoryTap: _openPreviouslyLogged,
                   ),
                   Expanded(
                     child: AnimatedSwitcher(
@@ -1074,13 +1076,25 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     );
   }
 
-  /// Before the user types: their recent and most-logged foods, each one tap
-  /// away from being logged again.
+  void _openPreviouslyLogged() {
+    FocusScope.of(context).unfocus();
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (_) => PreviouslyLoggedScreen(selectedMeal: widget.selectedMeal),
+      ),
+    );
+  }
+
+  /// Before the user types: the foods they log most, each one tap away from
+  /// being logged again. Until anything has been logged twice, their recent
+  /// foods; the full history is behind the history button.
   Widget _buildRecentsAndFrequent() {
     final provider = Provider.of<FoodEntryProvider>(context);
-    final recent = provider.recentFoods();
-    final frequent = provider.frequentFoods();
-    if (recent.isEmpty) return const SizedBox.shrink();
+    final frequent = provider.frequentFoods(limit: 15);
+    final showFrequent = frequent.isNotEmpty;
+    final foods = showFrequent ? frequent : provider.recentFoods();
+    if (foods.isEmpty) return const SizedBox.shrink();
     final meal = widget.selectedMeal ?? MealTime.suggested();
 
     Widget tile(FoodEntry template) => QuickLogTile(
@@ -1107,13 +1121,18 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             color: Theme.of(context).extension<CustomColors>()?.textSecondary,
           ),
         ),
-        _buildSectionLabel('Recent', Icons.history_rounded),
-        ...recent.map(tile),
-        if (frequent.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _buildSectionLabel('Most logged', Icons.star_rounded),
-          ...frequent.map(tile),
-        ],
+        showFrequent
+            ? _buildSectionLabel('Most logged', Icons.star_rounded)
+            : _buildSectionLabel('Recent', Icons.history_rounded),
+        ...foods.map(tile),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton.icon(
+            onPressed: _openPreviouslyLogged,
+            icon: const Icon(Icons.history_rounded, size: 18),
+            label: const Text('See everything you\'ve logged'),
+          ),
+        ),
       ],
     );
   }

@@ -85,6 +85,28 @@ void main() {
       );
     });
 
+    test('a tidy weight of a named serving reads as servings', () {
+      final slice = Serving(
+          description: '1 slice (35g)', metricAmount: 35, metricUnit: 'g', calories: 90, nutrients: const {});
+      final hundred = Serving(
+          description: '100 g', metricAmount: 100, metricUnit: 'g', calories: 250, nutrients: const {});
+      expect(
+        describeEntryAmount(_entry(
+            quantity: 70, unit: 'g', servingDescription: '1 slice (35g)', servings: [slice])),
+        '2 × 1 slice (35g)',
+      );
+      expect(
+        describeEntryAmount(_entry(
+            quantity: 50, unit: 'g', servingDescription: '1 slice (35g)', servings: [slice])),
+        '50 g',
+      );
+      expect(
+        describeEntryAmount(_entry(
+            quantity: 200, unit: 'g', servingDescription: '100 g', servings: [hundred])),
+        '200 g',
+      );
+    });
+
     test('AI entries show the stored serving', () {
       expect(
         describeEntryAmount(_entry(

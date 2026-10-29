@@ -28,6 +28,9 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> {
   final CameraService _cameraService = CameraService();
+  final _scrollController = ScrollController();
+  final _viewportKey = GlobalKey();
+  final _photoJobKeys = {for (final meal in MealTime.meals) meal: GlobalKey()};
 
   @override
   void initState() {
@@ -55,6 +58,7 @@ class _DashboardState extends State<Dashboard> {
   @override
   void dispose() {
     _cameraService.removeResultListener(_onCameraCall);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -144,13 +148,16 @@ class _DashboardState extends State<Dashboard> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
+                    key: _viewportKey,
+                    controller: _scrollController,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         const SizedBox(height: 8),
                         TourTargets.mark(
                             context, TourTarget.summary, const CalorieTracker()),
-                        TourTargets.mark(context, TourTarget.meals, const MealSection()),
+                        TourTargets.mark(context, TourTarget.meals,
+                            MealSection(photoJobKeys: _photoJobKeys)),
                         // Room to scroll past the bottom bar.
                         const SizedBox(height: AppBottomBar.scrollClearance),
                       ],
@@ -158,6 +165,16 @@ class _DashboardState extends State<Dashboard> {
                   ),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: AppBottomBar.bottomGap(context) + AppBottomBar.height + 12,
+            child: DashboardDock(
+              scrollController: _scrollController,
+              viewportKey: _viewportKey,
+              photoJobKeys: _photoJobKeys,
             ),
           ),
         ],
