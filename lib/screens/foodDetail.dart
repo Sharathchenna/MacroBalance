@@ -19,6 +19,7 @@ import '../providers/saved_food_provider.dart';
 import 'food_detail/components/components.dart';
 import '../main.dart' show navigatorKey;
 import '../providers/weight_unit_provider.dart';
+import '../utils/food_clipboard.dart';
 import '../utils/meal_time.dart';
 import '../utils/number_format.dart';
 import 'package:macrotracker/widgets/app_toast.dart';
@@ -375,6 +376,22 @@ class _FoodDetailPageState extends State<FoodDetailPage>
     if (mounted) Navigator.of(context).pop();
   }
 
+  /// Puts the logged entry (as saved, not any unsaved edits) on the
+  /// clipboard; the dashboard's paste bar then offers every meal.
+  void _copyEntry() {
+    HapticFeedback.selectionClick();
+    final entry = widget.existingEntry!;
+    FoodClipboard.instance.copy([entry]);
+    PostHogService.trackEvent('food_copied', properties: {
+      'meal_type': entry.meal,
+      'item_count': 1,
+      'source': 'edit_page',
+    });
+    AppToast.show('Copied ${entry.food.name} · pick a meal to paste into',
+        icon: Icons.copy_rounded);
+    Navigator.of(context).pop();
+  }
+
   void _selectServing(Serving? serving) {
     HapticFeedback.selectionClick();
     setState(() {
@@ -613,6 +630,12 @@ class _FoodDetailPageState extends State<FoodDetailPage>
         ),
       ),
       actions: [
+        if (_isEditing)
+          IconButton(
+            icon: Icon(Icons.copy_rounded, color: customColors.textPrimary),
+            tooltip: 'Copy to another meal or day',
+            onPressed: _copyEntry,
+          ),
         Consumer<SavedFoodProvider>(
           builder: (context, savedProvider, _) {
             final bool isSaved = savedProvider.isFoodSaved(widget.food.fdcId);

@@ -18,6 +18,14 @@ import 'photo_job_card.dart';
 
 const _accent = Color(0xFFFFC107);
 
+/// A step lighter than the meal cards, so the dock reads as floating above
+/// them rather than blending in.
+Color? _floatingSurface(BuildContext context) {
+  final card = Theme.of(context).extension<CustomColors>()?.cardBackground;
+  if (card == null || Theme.of(context).brightness == Brightness.light) return card;
+  return Color.lerp(card, Colors.white, 0.08);
+}
+
 /// Floats above the bottom bar on the dashboard: the progress of a meal photo
 /// whose card is scrolled out of view, and the paste bar while foods are
 /// copied.
@@ -43,6 +51,7 @@ class DashboardDock extends StatelessWidget {
           viewportKey: viewportKey,
           photoJobKeys: photoJobKeys,
         ),
+        const CopyDropZone(),
         const PasteBar(),
       ],
     );
@@ -191,10 +200,13 @@ class _PhotoJobPillState extends State<PhotoJobPill> {
       label: title,
       excludeSemantics: true,
       child: Material(
-        color: colors?.cardBackground,
+        color: _floatingSurface(context),
         elevation: 6,
         shadowColor: Colors.black.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: _accent.withOpacity(0.45)),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => _onTap(job),
@@ -233,6 +245,79 @@ class _PhotoJobPillState extends State<PhotoJobPill> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Shown only while a food is being dragged: drop it here to copy it instead
+/// of moving it, then paste it from the paste bar into any meal or day.
+class CopyDropZone extends StatelessWidget {
+  const CopyDropZone({super.key});
+
+  void _copy(BuildContext context, FoodEntry entry) {
+    HapticFeedback.mediumImpact();
+    FoodClipboard.instance.copy([entry]);
+    PostHogService.trackEvent('food_copied', properties: {
+      'meal_type': entry.meal,
+      'item_count': 1,
+      'source': 'drag',
+    });
+    AppToast.show('Copied ${entry.food.name} · pick a meal to paste into',
+        context: context, icon: Icons.copy_rounded);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<FoodEntry?>(
+      valueListenable: FoodDrag.active,
+      builder: (context, dragging, _) {
+        if (dragging == null) return const SizedBox.shrink();
+        final colors = Theme.of(context).extension<CustomColors>();
+        return DragTarget<FoodEntry>(
+          onAcceptWithDetails: (details) => _copy(context, details.data),
+          builder: (context, candidates, _) {
+            final over = candidates.isNotEmpty;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: over ? _accent.withOpacity(0.22) : _floatingSurface(context),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _accent, width: over ? 2 : 1),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.copy_rounded, color: _accent),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          over ? 'Let go to copy' : 'Drop here to copy',
+                          style: AppTypography.body2.copyWith(
+                            color: colors?.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          'Or drop on a meal to move it there',
+                          style: AppTypography.caption
+                              .copyWith(color: colors?.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -280,10 +365,13 @@ class PasteBar extends StatelessWidget {
             ? 'today'
             : 'on ${DateFormat.MMMEd().format(dates.selectedDate)}';
         return Material(
-          color: colors?.cardBackground,
+          color: _floatingSurface(context),
           elevation: 6,
           shadowColor: Colors.black.withOpacity(0.25),
-          borderRadius: BorderRadius.circular(20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: _accent.withOpacity(0.45)),
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 6, 4, 12),
             child: Column(

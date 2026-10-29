@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macrotracker/models/ai_food_item.dart';
@@ -9,6 +10,7 @@ import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/services/storage_service.dart';
 import 'package:macrotracker/screens/dashboard/components/dashboard_dock.dart';
 import 'package:macrotracker/screens/dashboard_screen.dart';
+import 'package:macrotracker/screens/foodDetail.dart';
 import 'package:macrotracker/services/photo_analysis_service.dart';
 import 'package:macrotracker/utils/food_clipboard.dart';
 
@@ -156,6 +158,67 @@ void main() {
     await pumpFrames(tester, seconds: 1);
     expect(provider.getEntriesForMeal(yesterday, 'Lunch').map((e) => e.food.name), ['Eggs']);
     expect(provider.getEntriesForMeal(yesterday, 'Breakfast'), hasLength(1));
+  });
+
+  testWidgets('while dragging a food, a Copy zone appears; dropping there copies',
+      (tester) async {
+    final tea = testEntry(name: 'Tea', meal: 'Breakfast', date: today);
+    await tester.runAsync(() => provider.addEntry(tea));
+    await pumpDashboard(tester);
+    expect(find.text('Drop here to copy'), findsNothing);
+
+    final gesture = await tester.startGesture(tester.getCenter(find.text('Tea')));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+    await gesture.moveBy(const Offset(0, 30));
+    await tester.pump();
+    expect(find.text('Drop here to copy'), findsOneWidget);
+    expect(find.text('Or drop on a meal to move it there'), findsOneWidget);
+
+    // Over a meal: it says the food will move there.
+    await gesture.moveTo(tester.getCenter(find.text('Lunch')));
+    await tester.pump();
+    expect(find.text('Drop to move here'), findsOneWidget);
+
+    await gesture.moveTo(tester.getCenter(find.byType(CopyDropZone)));
+    await tester.pump();
+    expect(find.text('Let go to copy'), findsOneWidget);
+    await gesture.up();
+    await pumpFrames(tester, seconds: 1);
+
+    expect(FoodClipboard.instance.value.single.id, tea.id);
+    expect(provider.getEntriesForMeal(today, 'Breakfast'), hasLength(1));
+    expect(find.text('Drop here to copy'), findsNothing);
+    expect(find.text('Paste Tea'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a logged food\'s page has a Copy button', (tester) async {
+    final tea = testEntry(name: 'Tea', meal: 'Breakfast', date: today);
+    tester.view.physicalSize = const Size(1179, 2556);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(testApp(
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => FoodDetailPage(food: tea.food, existingEntry: tea))),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+      foodEntryProvider: provider,
+      dateProvider: dates,
+    ));
+    await tester.tap(find.text('Open'));
+    await pumpFrames(tester, seconds: 1);
+    await tester.tap(find.byTooltip('Copy to another meal or day'));
+    await pumpFrames(tester, seconds: 1);
+    expect(FoodClipboard.instance.value.single.id, tea.id);
+    expect(find.byType(FoodDetailPage), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the paste bar can be dismissed', (tester) async {

@@ -231,7 +231,9 @@ class _MealSectionState extends State<MealSection> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    empty
+                                    candidates.isNotEmpty
+                                        ? 'Drop to move here'
+                                        : empty
                                         ? 'Nothing logged yet'
                                         : '${entries.length} ${entries.length == 1 ? 'item' : 'items'}',
                                     style: AppTypography.body2.copyWith(
@@ -629,8 +631,8 @@ class _MealSectionState extends State<MealSection> {
     );
   }
 
-  /// Long press and drag a food onto another meal to move it there; long
-  /// press and let go to copy it instead.
+  /// Long press and drag a food onto another meal to move it there, or onto
+  /// the dock's Copy zone to copy it; long press and let go for the copy menu.
   Widget _buildFoodEntryTile(FoodEntry entry, FoodEntryProvider provider) {
     final calories = provider.calculateNutrientForEntry(entry, 'calories');
     var dragged = 0.0;
@@ -638,9 +640,13 @@ class _MealSectionState extends State<MealSection> {
     return LongPressDraggable<FoodEntry>(
       data: entry,
       hapticFeedbackOnStart: true,
-      onDragStarted: () => dragged = 0,
+      onDragStarted: () {
+        dragged = 0;
+        FoodDrag.active.value = entry;
+      },
       onDragUpdate: (details) => dragged += details.delta.distance,
       onDragEnd: (details) {
+        FoodDrag.active.value = null;
         if (details.wasAccepted || dragged > 12 || !mounted) return;
         _showCopySheet(
           provider.getEntriesForMeal(entry.date, entry.meal),

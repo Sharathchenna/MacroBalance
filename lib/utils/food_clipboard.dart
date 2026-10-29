@@ -23,3 +23,11 @@ class FoodClipboard extends ValueNotifier<List<FoodEntry>> {
 
   void clear() => value = const [];
 }
+
+/// The food being dragged on the dashboard, if any, so the dock can offer a
+/// place to drop it for copying while meal cards take it to move.
+class FoodDrag {
+  FoodDrag._();
+
+  static final ValueNotifier<FoodEntry?> active = ValueNotifier(null);
+}
