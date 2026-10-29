@@ -10,17 +10,20 @@ import 'package:macrotracker/screens/onboarding/pages/adaptive_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/advanced_settings_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/apple_health_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/goal_page.dart';
+import 'package:macrotracker/screens/onboarding/pages/notify_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/plan_style_page.dart';
-import 'package:macrotracker/screens/onboarding/pages/set_new_goal_page.dart';
+import 'package:macrotracker/screens/onboarding/pages/goal_weight_page.dart';
+import 'package:macrotracker/screens/onboarding/pages/pace_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/summary_page.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/energy/constants.dart';
 import 'package:macrotracker/services/energy/phase_engine.dart';
 import 'package:macrotracker/services/energy/targets.dart';
 import 'package:macrotracker/services/energy/body_composition.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
+import 'package:macrotracker/widgets/adaptive_choice.dart';
 import 'package:macrotracker/services/storage_service.dart';
-import 'package:macrotracker/widgets/onboarding/simple_plan_summary.dart';
 import '../helpers/simple_copy_audit.dart';
 import '../helpers/test_app.dart';
 
@@ -63,22 +66,18 @@ void main() {
 
   Future<void> next(WidgetTester tester, [int count = 1]) async {
     for (var i = 0; i < count; i++) {
-      await tester.tap(find.text('Next'));
+      await tester.tap(find.text('Continue'));
       await pumpFrames(tester, seconds: 1);
     }
   }
 
-  SetNewGoalPage pacePage(
+  PacePage pacePage(
       {String goal = 'lose',
-      bool metric = true,
       double pace = 0.5,
-      required ValueChanged<double> changed,
-      PlanStyle? style}) {
+      required ValueChanged<double> changed}) {
     final options = goal == 'gain' ? kGainPaceOptions : kLosePaceOptions;
-    return SetNewGoalPage(
-        currentGoal: goal,
-        currentWeightKg: 80,
-        goalWeightKg: goal == 'gain' ? 85 : 65,
+    return PacePage(
+        goal: goal,
         paceChoices: [
           for (final p in options)
             PaceChoice(
@@ -94,17 +93,12 @@ void main() {
         ],
         pacePct: pace,
         recommendedPacePct: goal == 'gain' ? .25 : .5,
-        isMetricWeight: metric,
-        onGoalWeightChanged: (_) {},
-        onPaceChanged: changed,
-        onWeightUnitChanged: (_) {},
-        planStyle: style,
-        onPlanStyleChanged: (_) {});
+        onPaceChanged: changed);
   }
 
   for (final dark in [true, false]) {
     testWidgets(
-        'three simple pace cards show dates and select existing pace in ${dark ? 'dark' : 'light'}',
+        'pace cards show the goal date and select an existing pace in ${dark ? 'dark' : 'light'}',
         (tester) async {
       double pace = .5;
       await pump(
@@ -114,32 +108,32 @@ void main() {
                   body: pacePage(
                       pace: pace, changed: (p) => setState(() => pace = p)))),
           dark: dark);
-      expect(find.byKey(const Key('simple_pace_relaxed')), findsOneWidget);
-      expect(find.byKey(const Key('simple_pace_recommended')), findsOneWidget);
-      expect(find.byKey(const Key('simple_pace_faster')), findsOneWidget);
-      expect(find.text('Reach 65.0 kg by Mar 3'), findsNWidgets(3));
-      expect(find.text('About 0.4 kg a week'), findsOneWidget);
-      await tester.ensureVisible(find.byKey(const Key('simple_pace_faster')));
-      await tester.tap(find.byKey(const Key('simple_pace_faster')));
+      for (final p in kLosePaceOptions) {
+        expect(find.byKey(Key('pace_option_$p')), findsOneWidget);
+      }
+      expect(find.textContaining('around Mar 3'), findsOneWidget);
+      expect(find.text('Recommended'), findsOneWidget);
+      final faster = find.byKey(const Key('pace_option_0.75'));
+      await tester.ensureVisible(faster);
+      await tester.tap(faster);
       await tester.pump();
       expect(pace, .75);
-      expectSimpleCopy(tester);
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets('gain pace cards use pounds and friendly safety copy',
+  testWidgets('gain pace cards offer the three gain paces',
       (tester) async {
     await pump(
         tester,
         Scaffold(
-            body: pacePage(
-                goal: 'gain', metric: false, pace: .25, changed: (_) {})));
-    expect(find.text('Reach 187 lbs by Mar 3'), findsNWidgets(3));
-    expect(find.text('About 0.2 lbs a week'), findsOneWidget);
-    expect(find.text('We’ve eased this pace to keep your target healthy.'),
-        findsOneWidget);
-    expectSimpleCopy(tester);
+            body: pacePage(goal: 'gain', pace: .25, changed: (_) {})));
+    for (final p in kGainPaceOptions) {
+      expect(find.byKey(Key('pace_option_$p')), findsOneWidget);
+    }
+    expect(find.byKey(const Key('pace_option_1.0')), findsNothing);
+    expect(find.text('Recommended'), findsOneWidget);
+    expect(find.textContaining('around Mar 3'), findsOneWidget);
   });
 
   testWidgets(
@@ -149,54 +143,73 @@ void main() {
     await pump(
         tester, Scaffold(body: pacePage(pace: pace, changed: (p) => pace = p)));
     final semantics = tester.widget<Semantics>(find
-        .ancestor(
-            of: find.byKey(const Key('simple_pace_faster')),
+        .descendant(
+            of: find.byKey(const Key('pace_option_1.0')),
             matching: find.byType(Semantics))
         .first);
     expect(semantics.properties.selected, isTrue);
     expect(pace, 1);
-    expectSimpleCopy(tester);
   });
 
   testWidgets(
-      'More options is collapsed, keeps Steady, and reveals plain plan choices',
+      'simple mode has no plan style step, but a saved phased plan is kept and shown in the summary',
       (tester) async {
-    await pump(tester,
-        Scaffold(body: pacePage(changed: (_) {}, style: PlanStyle.steady)));
-    expect(find.text('In phases'), findsNothing);
-    await tester.ensureVisible(find.text('More options'));
-    await tester.tap(find.text('More options'));
-    await tester.pumpAndSettle();
-    expect(find.text('Steady'), findsOneWidget);
+    await StorageService().put(
+        'nutrition_goals',
+        jsonEncode({
+          'macro_targets': {'calories': 2000, 'protein': 150, 'carbs': 200, 'fat': 60},
+          'goal_type': 'lose',
+          'current_weight_kg': 80,
+          'goal_weight_kg': 65,
+          'pace_pct_per_week': .5,
+          'plan_style': 'phased',
+        }));
+    await goals.load();
+    await pump(tester, const OnboardingScreen(recalculateOnly: true));
+    // weight -> activity -> goal -> goal weight -> pace -> adaptive -> summary
+    await next(tester, 6);
+    expect(find.byType(PlanStylePage), findsNothing);
+    expect(tester.widget<SummaryPage>(find.byType(SummaryPage)).planStyle,
+        PlanStyle.phased);
     expect(find.text('In phases'), findsOneWidget);
-    expect(find.text('Diet breaks'), findsOneWidget);
-    expectSimpleCopy(tester, allow: {'In phases'});
   });
 
+  Widget adaptiveHost(bool Function() get, void Function(bool) set,
+          {double scale = 1.0, double? height}) =>
+      StatefulBuilder(
+          builder: (context, setState) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                  body: SizedBox(
+                      height: height,
+                      child: AdaptivePage(
+                          adaptive: get(),
+                          onChanged: (v) => setState(() => set(v)))))));
+
+  bool tileSelected(WidgetTester tester, String key) => tester
+      .widget<Semantics>(find
+          .descendant(
+              of: find.byKey(Key(key)), matching: find.byType(Semantics))
+          .first)
+      .properties
+      .selected!;
+
   testWidgets(
-      'adaptive choice is a recommended switch with explanation behind a tap',
+      'adaptive choice is a recommended option with its explanation on the page',
       (tester) async {
     bool adaptive = true;
-    await pump(
-        tester,
-        StatefulBuilder(
-            builder: (_, setState) => Scaffold(
-                body: AdaptivePage(
-                    adaptive: adaptive,
-                    onChanged: (v) => setState(() => adaptive = v)))));
-    expect(
-        tester
-            .widget<SwitchListTile>(
-                find.byKey(const Key('simple_adaptive_switch')))
-            .value,
-        isTrue);
-    await tester.tap(find.byKey(const Key('simple_adaptive_switch')));
-    await tester.pump();
-    expect(adaptive, isFalse);
-    await tester.tap(find.text('How it works'));
-    await tester.pumpAndSettle();
+    await pump(tester, adaptiveHost(() => adaptive, (v) => adaptive = v));
+    expect(tileSelected(tester, 'adaptive_yes'), isTrue);
+    expect(tileSelected(tester, 'adaptive_no'), isFalse);
+    expect(find.text('Recommended'), findsOneWidget);
+    expect(find.text('Small updates. A better fit.'), findsOneWidget);
     expect(find.textContaining('weekly check-in'), findsOneWidget);
-    expect(find.text('Your plan. Your choice.'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('adaptive_no')));
+    await pumpFrames(tester, seconds: 1);
+    expect(adaptive, isFalse);
+    expect(tileSelected(tester, 'adaptive_no'), isTrue);
+    expect(find.text('Your plan. Your call.'), findsOneWidget);
     expectSimpleCopy(tester);
   });
 
@@ -208,37 +221,25 @@ void main() {
         bool adaptive = true;
         await pump(
             tester,
-            StatefulBuilder(
-                builder: (context, setState) => MediaQuery(
-                    data: MediaQuery.of(context)
-                        .copyWith(textScaler: TextScaler.linear(scale)),
-                    child: Scaffold(
-                        body: SizedBox(
-                            height: 450,
-                            child: AdaptivePage(
-                                adaptive: adaptive,
-                                onChanged: (v) =>
-                                    setState(() => adaptive = v)))))),
+            adaptiveHost(() => adaptive, (v) => adaptive = v,
+                scale: scale, height: 450),
             dark: dark);
         tester.view.physicalSize = const Size(960, 1704);
-        await tester.pumpAndSettle();
-        expect(find.text('A plan that\nkeeps up.'), findsOneWidget);
-        final switchFinder = find.byKey(const Key('simple_adaptive_switch'));
-        await tester.ensureVisible(switchFinder);
-        await tester.tap(switchFinder);
-        await tester.pumpAndSettle();
+        await pumpFrames(tester, seconds: 1);
+        expect(find.text(AdaptiveChoiceCopy.question), findsOneWidget);
+        final no = find.byKey(const Key('adaptive_no'));
+        await tester.ensureVisible(no);
+        await tester.tap(no);
+        await pumpFrames(tester, seconds: 1);
         expect(adaptive, isFalse);
-        expect(find.text('Your targets stay as calculated today.'),
+        expect(find.textContaining('Your targets stay where they are'),
             findsOneWidget);
-        await tester.ensureVisible(switchFinder);
-        await tester.tap(switchFinder);
-        await tester.pumpAndSettle();
+        final yes = find.byKey(const Key('adaptive_yes'));
+        await tester.ensureVisible(yes);
+        await tester.tap(yes);
+        await pumpFrames(tester, seconds: 1);
         expect(adaptive, isTrue);
-        final how = find.byKey(const Key('simple_adaptive_how'));
-        await tester.ensureVisible(how);
-        await tester.tap(how);
-        await tester.pumpAndSettle();
-        expect(find.textContaining('weekly check-in'), findsNWidgets(2));
+        expect(find.textContaining('weekly check-in'), findsOneWidget);
         expect(tester.takeException(), isNull);
         expectSimpleCopy(tester);
       });
@@ -256,21 +257,21 @@ void main() {
         ..pacePctPerWeek = goal == 'gain' ? .25 : .5
         ..adaptiveGoals = true;
       await pump(tester, const OnboardingScreen(recalculateOnly: true));
-      await next(tester, 3);
-      expect(find.byType(SetNewGoalPage).hitTestable(), findsOneWidget);
+      // weight -> activity -> goal -> goal weight -> pace
+      await next(tester, 4);
+      expect(find.byType(PacePage).hitTestable(), findsOneWidget);
       await next(tester);
-      expect(find.byKey(const Key('simple_adaptive_switch')).hitTestable(),
+      expect(find.byKey(const Key('adaptive_yes')).hitTestable(),
           findsOneWidget);
       expect(find.byType(PlanStylePage).hitTestable(), findsNothing);
-      await tester.tap(find.text('Back'));
+      await tester.tap(find.byType(ObBackButton));
       await pumpFrames(tester, seconds: 1);
-      expect(find.byType(SetNewGoalPage).hitTestable(), findsOneWidget);
+      expect(find.byType(PacePage).hitTestable(), findsOneWidget);
       await next(tester, 2);
       expect(find.byType(SummaryPage).hitTestable(), findsOneWidget);
-      final card =
-          tester.widget<SimplePlanSummary>(find.byType(SimplePlanSummary));
-      expect(card.goalDate, isNotNull);
-      expect(card.adaptive, isTrue);
+      final summary = tester.widget<SummaryPage>(find.byType(SummaryPage));
+      expect(summary.projectedDate, isNotNull);
+      expect(summary.adaptiveGoals, isTrue);
       await tester.tap(find.text('Calculate'));
       await pumpFrames(tester, seconds: 2);
       expect(find.byType(ResultsScreen), findsOneWidget);
@@ -282,8 +283,7 @@ void main() {
           goal == 'gain'
               ? greaterThan(result['tdee'] as num)
               : lessThan(result['tdee'] as num));
-      expectSimpleCopy(tester);
-      await tester.tap(find.text('Save new goals'));
+      await tester.tap(find.text('Save'));
       await pumpFrames(tester, seconds: 2);
       final saved =
           jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
@@ -298,44 +298,24 @@ void main() {
     });
   }
 
-  testWidgets(
-      'choosing In phases under More options keeps that plan in summary',
-      (tester) async {
-    goals
-      ..goalType = 'lose'
-      ..currentWeightKg = 80
-      ..goalWeightKg = 65;
-    await pump(tester, const OnboardingScreen(recalculateOnly: true));
-    await next(tester, 3);
-    await tester.ensureVisible(find.text('More options'));
-    await tester.tap(find.text('More options'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('In phases'));
-    await tester.tap(find.text('In phases'));
-    await tester.pump();
-    await next(tester, 2);
-    expect(tester.widget<SummaryPage>(find.byType(SummaryPage)).planStyle,
-        PlanStyle.phased);
-    expect(find.text('In phases'), findsOneWidget);
-    expectSimpleCopy(tester, allow: {'In phases'});
-  });
-
   testWidgets('new simple lose plans default to Steady even for a large goal',
       (tester) async {
     await pump(tester, const OnboardingScreen());
-    await next(tester, 6);
     tester.widget<GoalPage>(find.byType(GoalPage)).onGoalChanged('lose');
     await tester.pump();
-    await next(tester);
-    final page = tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage));
+    // goal -> about you -> weight -> activity -> goal weight
+    await next(tester, 4);
+    final page = tester.widget<GoalWeightPage>(find.byType(GoalWeightPage));
     page.onGoalWeightChanged(50);
     await tester.pump();
-    expect(tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage)).planStyle,
-        PlanStyle.steady);
-    expect(
-        tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage)).pacePct, .5);
     await next(tester);
-    expect(find.byKey(const Key('simple_adaptive_switch')).hitTestable(),
+    expect(tester.widget<PacePage>(find.byType(PacePage)).pacePct, .5);
+    // Simple mode has no plan style step: pace goes straight on to the
+    // obstacles, and the plan stays Steady.
+    await next(tester);
+    expect(find.byType(PlanStylePage), findsNothing);
+    await next(tester, 2);
+    expect(find.byKey(const Key('adaptive_yes')).hitTestable(),
         findsOneWidget);
   });
 
@@ -343,24 +323,31 @@ void main() {
       'new maintain flow skips extra steps, saves switch choice and tracks onboarding',
       (tester) async {
     await pump(tester, const OnboardingScreen());
-    await next(tester, 7);
-    expect(find.byKey(const Key('simple_adaptive_switch')).hitTestable(),
+    // goal -> about you -> weight -> activity -> obstacles -> insight -> adaptive
+    await next(tester, 6);
+    expect(find.byKey(const Key('adaptive_yes')).hitTestable(),
         findsOneWidget);
-    await tester.tap(find.byKey(const Key('simple_adaptive_switch')));
+    expect(find.byType(GoalWeightPage), findsNothing);
+    expect(find.byType(PacePage), findsNothing);
+    await tester.tap(find.byKey(const Key('adaptive_no')));
     await tester.pump();
     await next(tester);
     expect(find.byType(AppleHealthPage).hitTestable(), findsOneWidget);
     expect(find.byType(AdvancedSettingsPage).hitTestable(), findsNothing);
     await tester.tap(find.text('Not now').hitTestable());
     await pumpFrames(tester, seconds: 1);
-    expect(find.byType(SummaryPage).hitTestable(), findsOneWidget);
-    expect(find.text('Aim to hold your weight steady.'), findsOneWidget);
-    expectSimpleCopy(tester);
-    await tester.tap(find.text('Calculate'));
-    await pumpFrames(tester, seconds: 2);
+    expect(find.byType(NotifyPage).hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Not now').hitTestable());
+    // New users go straight to the building screen, not the summary.
+    await pumpFrames(tester, seconds: 12);
+    expect(find.byType(SummaryPage), findsNothing);
+    if (find.byType(ResultsScreen).evaluate().isEmpty) {
+      await tester.tap(find.text('See my plan'));
+      await pumpFrames(tester, seconds: 2);
+    }
+    expect(find.byType(ResultsScreen), findsOneWidget);
     expect(find.text('Your targets stay the same until you change them.'),
         findsOneWidget);
-    expectSimpleCopy(tester);
     final saved =
         jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
     expect(saved['adaptive_goals'], isFalse);
@@ -370,6 +357,11 @@ void main() {
     final props = (tracked.single.arguments as Map)['properties'] as Map;
     expect(props['context'], 'onboarding');
     expect(props['choice'], 'fixed');
+    final completed = events.where(
+        (c) => (c.arguments as Map)['eventName'] == 'onboarding_completed');
+    expect(completed.length, 1);
+    expect(((completed.single.arguments as Map)['properties'] as Map)
+        .containsKey('obstacles_selected'), isTrue);
   });
 
   testWidgets(
@@ -397,6 +389,8 @@ void main() {
         }));
     await goals.load();
     await pump(tester, const OnboardingScreen(recalculateOnly: true));
+    // weight -> activity -> goal -> adaptive -> summary (maintain skips goal
+    // weight and pace)
     await next(tester, 4);
     final summary = tester.widget<SummaryPage>(find.byType(SummaryPage));
     expect(summary.bodyFatPercentage, 22);
@@ -405,7 +399,7 @@ void main() {
     expect(find.byType(AdvancedSettingsPage).hitTestable(), findsNothing);
     await tester.tap(find.text('Calculate'));
     await pumpFrames(tester, seconds: 2);
-    await tester.tap(find.text('Save new goals'));
+    await tester.tap(find.text('Save'));
     await pumpFrames(tester, seconds: 2);
     final saved =
         jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
@@ -430,10 +424,13 @@ void main() {
         tester,
         ResultsScreen(
             recalculateOnly: true, isMetricWeight: false, results: result));
-    expect(find.textContaining('Reach 143 lbs around'), findsOneWidget);
-    expect(find.text('Aim to hold your weight steady.'), findsNothing);
-    expect(find.text('Protein ${result['protein_g']} g'), findsOneWidget);
-    expectSimpleCopy(tester);
+    expect(find.textContaining('143 lb', findRichText: true), findsWidgets);
+    expect(find.textContaining('${result['protein_g'].round()} g', findRichText: true), findsWidgets);
+    // The reveal now shows each macro's share ("160 g · 27%") in every mode.
+    expectSimpleCopy(tester, allow: {
+      for (final t in simpleModeCopy(tester))
+        if (RegExp(r'^\d+ g · \d+%$').hasMatch(t)) t
+    });
   });
 
   testWidgets('capped simple summary shows the effective weekly change',
@@ -485,14 +482,13 @@ void main() {
                     calories: 2500, protein: 120, carbs: 320, fat: 68),
                 learnedTdee: 2500,
                 projectedDate: DateTime(2027, 3, 3))));
-    expect(find.text('2,451 cals'), findsOneWidget);
-    expect(find.text('Reach 65.0 kg around Mar 3.'), findsOneWidget);
-    expect(find.text('Protein 128 g'), findsOneWidget);
-    expect(find.text('Based on how your body has responded so far.'),
-        findsOneWidget);
+    expect(find.text('2,500 → 2,451 cals'), findsOneWidget);
+    expect(find.text('120 → 128 g'), findsOneWidget);
+    expect(find.text(SummaryPage.learnedExpenditureLine(2500)), findsOneWidget);
     await tester.ensureVisible(find.text('With diet breaks'));
     await tester.tap(find.text('With diet breaks'));
-    expect(edited.toString(), 'OnboardingStep.setNewGoal');
-    expectSimpleCopy(tester);
+    expect(edited.toString(), 'OnboardingStep.planStyle');
+    // The summary names the learned expenditure in every mode now.
+    expectSimpleCopy(tester, allow: {SummaryPage.learnedExpenditureLine(2500)});
   });
 }

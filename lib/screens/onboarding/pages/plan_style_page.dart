@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/energy/phase_engine.dart';
 import 'package:macrotracker/services/energy/projection.dart';
-import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/theme/ob_theme.dart';
 import 'package:macrotracker/widgets/plan_style_choice.dart';
 
 /// "How do you want to get there?": steady, in phases or with diet breaks
@@ -27,51 +28,49 @@ class PlanStylePage extends StatelessWidget {
   final PlanOutline? outline;
   final ValueChanged<PlanStyle> onChanged;
 
+  static IconData _icon(PlanStyle s) => switch (s) {
+        PlanStyle.steady => Icons.trending_down_rounded,
+        PlanStyle.phased => Icons.stairs_rounded,
+        PlanStyle.breaks => Icons.pause_circle_outline_rounded,
+      };
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.extension<CustomColors>();
+    final c = ObColors.of(context);
     final o = outline;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            PlanStyleCopy.question,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+    return ObPageBody(
+      children: [
+        const ObHeader(eyebrow: 'Your approach', title: PlanStyleCopy.question),
+        const SizedBox(height: 24),
+        for (final s in PlanStyle.values)
+          ObRise(
+            index: 2 + s.index,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: ObOptionTile(
+                key: Key('plan_style_${s.code}'),
+                leading: ObIconTile(icon: _icon(s)),
+                title: PlanStyleCopy.title(s),
+                subtitle: PlanStyleCopy.body(s, lossPct: lossPct),
+                badge: recommended == s ? 'Recommended' : null,
+                selected: style == s,
+                onTap: () => onChanged(s),
+              ),
             ),
           ),
-          const SizedBox(height: 24),
-          PlanStyleOptions(
-            style: style,
-            lossPct: lossPct,
-            recommended: recommended,
-            onChanged: onChanged,
-          ),
-          if (o != null && style != PlanStyle.steady) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.timeline_rounded, size: 18, color: colors?.textSecondary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    PlanStyleCopy.outline(o),
-                    key: const Key('plan_style_outline'),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: colors?.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
+        if (o != null && style != PlanStyle.steady) ...[
+          const SizedBox(height: 6),
+          ObNote(
+            icon: Icons.timeline_rounded,
+            iconColor: c.text2,
+            child: Text(
+              PlanStyleCopy.outline(o),
+              key: const Key('plan_style_outline'),
+              style: ObText.body(c.text, size: 14, weight: FontWeight.w500),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }

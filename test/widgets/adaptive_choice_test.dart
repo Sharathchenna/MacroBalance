@@ -87,13 +87,13 @@ void main() {
           dark: dark,
         );
         expect(find.text(AdaptiveChoiceCopy.question), findsOneWidget);
-        expect(find.text(AdaptiveChoiceCopy.yesTitle), findsOneWidget);
-        expect(find.text(AdaptiveChoiceCopy.noTitle), findsOneWidget);
+        expect(find.text('Yes, adjust weekly'), findsOneWidget);
+        expect(find.text('Keep my targets fixed'), findsOneWidget);
         expect(find.text('Recommended'), findsOneWidget);
         expect(selected(tester, const Key('adaptive_yes')), isTrue);
         expect(selected(tester, const Key('adaptive_no')), isFalse);
 
-        await tester.tap(find.text(AdaptiveChoiceCopy.noTitle));
+        await tester.tap(find.text('Keep my targets fixed'));
         await tester.pump();
         expect(adaptive, isFalse);
         expect(selected(tester, const Key('adaptive_no')), isTrue);
@@ -101,7 +101,7 @@ void main() {
     }
 
     Future<void> next(WidgetTester tester) async {
-      await tester.tap(find.text('Next'));
+      await tester.tap(find.text('Continue'));
       await pumpFrames(tester, seconds: 1);
     }
 
@@ -109,29 +109,38 @@ void main() {
         'new users answer it after the goal and before advanced settings; '
         'the choice is saved, shown and tracked', (tester) async {
       await pump(tester, const OnboardingScreen());
-      // welcome, sex, weight, height, age, activity, goal (maintain skips the
-      // goal-weight step) -> adaptive
-      for (var i = 0; i < 7; i++) {
+      // goal (maintain skips goal weight and pace) -> about you -> weight ->
+      // activity -> obstacles -> insight -> adaptive
+      for (var i = 0; i < 6; i++) {
         await next(tester);
       }
       expect(visible(AdaptivePage), findsOneWidget);
 
-      await tester.tap(find.text(AdaptiveChoiceCopy.noTitle));
+      await tester.tap(find.text('Keep my targets fixed'));
       await tester.pump();
       await next(tester);
       expect(visible(AdvancedSettingsPage), findsOneWidget);
 
-      // advanced -> Apple Health (its own buttons) -> summary
+      // advanced -> Apple Health (its own buttons) -> reminders (its own
+      // buttons) -> building -> the plan reveal
       await next(tester);
       await tester.tap(find.text('Not now').hitTestable());
       await pumpFrames(tester, seconds: 1);
-      expect(visible(SummaryPage), findsOneWidget);
-      expect(find.text('Fixed'), findsOneWidget);
-
-      await tester.tap(find.text('Calculate'));
-      await pumpFrames(tester, seconds: 2);
+      await tester.tap(find.text('Not now').hitTestable());
+      await pumpFrames(tester, seconds: 12);
+      if (find.byType(ResultsScreen).evaluate().isEmpty) {
+        await tester.tap(find.text('See my plan'));
+        await pumpFrames(tester, seconds: 2);
+      }
+      expect(find.byType(SummaryPage), findsNothing);
       expect(find.byType(ResultsScreen), findsOneWidget);
       expect(find.textContaining('Fixed target', findRichText: true), findsOneWidget);
+
+      // The summary is only reached from "Review answers".
+      await tester.tap(find.text('Review answers'));
+      await pumpFrames(tester, seconds: 2);
+      expect(visible(SummaryPage), findsOneWidget);
+      expect(find.text('Fixed'), findsOneWidget);
 
       final saved =
           jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
@@ -172,7 +181,7 @@ void main() {
       await pumpFrames(tester, seconds: 2);
       expect(find.textContaining('Fixed target', findRichText: true), findsOneWidget);
 
-      await tester.tap(find.text('Save new goals'));
+      await tester.tap(find.text('Save'));
       await pumpFrames(tester, seconds: 2);
       final saved =
           jsonDecode(StorageService().get('nutrition_goals') as String) as Map;

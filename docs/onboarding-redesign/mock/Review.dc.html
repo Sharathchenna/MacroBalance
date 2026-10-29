@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review your answers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.08s}.d2{animation-delay:.16s}
+.row{display:flex;align-items:center;gap:12px;min-height:50px;padding:0 16px;color:#F4F6F4;text-decoration:none;border-bottom:1px solid #1D221F}
+.row:hover{background:#1A1F1C}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; height: 44px">
+    <a href="Reveal.dc.html" aria-label="Back to your plan" style="width: 44px; height: 44px; border-radius: 22px; background: #151917; display: flex; align-items: center; justify-content: center; color: #F4F6F4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+  </div>
+  <h1 class="rise" style="margin: 18px 0 0; font: 600 30px/1.12 Onest, sans-serif; letter-spacing: -1px">Your answers</h1>
+  <p class="rise" style="margin: 8px 0 0; font-size: 14px; color: #A3ADA6">Tap anything to change it. Your plan updates right away.</p>
+
+  <p class="rise d1" style="margin: 20px 0 8px; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #57D883">YOUR PLAN</p>
+  <div class="rise d1" style="border-radius: 20px; background: #151917; overflow: hidden">
+    <sc-for list="{{plan}}" as="r" hint-placeholder-count="5">
+      <a class="row" href="{{r.href}}"><span style="flex-grow: 1; font-size: 15px; color: #A3ADA6">{{r.label}}</span><span style="font: 600 15px Inter, sans-serif">{{r.value}}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C8680" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+    </sc-for>
+  </div>
+
+  <p class="rise d2" style="margin: 18px 0 8px; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #A3ADA6">ABOUT YOU</p>
+  <div class="rise d2" style="border-radius: 20px; background: #151917; overflow: hidden">
+    <sc-for list="{{you}}" as="r" hint-placeholder-count="5">
+      <a class="row" href="{{r.href}}"><span style="flex-grow: 1; font-size: 15px; color: #A3ADA6">{{r.label}}</span><span style="font: 600 15px Inter, sans-serif">{{r.value}}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C8680" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></a>
+    </sc-for>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+  <a href="Reveal.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Back to my plan</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      plan: [
+        { label: 'Goal', value: 'Lose fat', href: 'Goal.dc.html' },
+        { label: 'Goal weight', value: '74 kg', href: 'GoalWeight.dc.html' },
+        { label: 'Pace', value: 'About 0.4 kg a week', href: 'Pace.dc.html' },
+        { label: 'Plan', value: 'Steady', href: 'Pace.dc.html' },
+        { label: 'Targets', value: 'Adjust as I go', href: 'Adaptive.dc.html' },
+      ],
+      you: [
+        { label: 'Sex', value: 'Male', href: 'AboutYou.dc.html' },
+        { label: 'Age', value: '30', href: 'AboutYou.dc.html' },
+        { label: 'Height', value: '178 cm', href: 'AboutYou.dc.html' },
+        { label: 'Weight', value: '82.4 kg', href: 'Weight.dc.html' },
+        { label: 'Activity', value: 'Moderately active', href: 'Activity.dc.html' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quiz: about you</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.08s}.d2{animation-delay:.16s}.d3{animation-delay:.24s}.d4{animation-delay:.32s}
+.seg{flex:1;height:52px;border-radius:16px;cursor:pointer;font:600 16px Onest,sans-serif;transition:background .2s,border-color .2s,color .2s}
+.unit{height:30px;padding:0 12px;border-radius:15px;border:0;font:600 13px Inter,sans-serif;cursor:pointer}
+.strip{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;cursor:grab}
+.strip::-webkit-scrollbar{display:none}
+.snap{scroll-snap-align:center;flex-shrink:0}
+.num{width:96px;padding:0;border:0;background:transparent;color:#F4F6F4;font:600 34px/1 Onest,sans-serif;letter-spacing:-1px;outline:none;-moz-appearance:textfield}
+.num::-webkit-outer-spin-button,.num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.num:focus{color:#57D883}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 14px; height: 44px">
+    <a href="Goal.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; background: #151917; display: flex; align-items: center; justify-content: center; color: #F4F6F4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; display: flex; gap: 6px" aria-label="Step 2 of 10">
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #2A302C; overflow: hidden"><div style="width: 45%; height: 6px; background: #57D883; border-radius: 3px"></div></div>
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #2A302C"></div>
+      <div style="flex: 2; height: 6px; border-radius: 3px; background: #2A302C"></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #2A302C"></div>
+    </div>
+  </div>
+
+  <p class="rise" style="margin: 26px 0 0; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #57D883">ABOUT YOU</p>
+  <h1 class="rise d1" style="margin: 10px 0 0; font: 600 32px/1.12 Onest, sans-serif; letter-spacing: -1px">A few basics</h1>
+  <p class="rise d1" style="margin: 8px 0 0; font-size: 15px; line-height: 1.5; color: #A3ADA6">These set your starting burn. Your own logs take over within a few weeks.</p>
+
+  <div class="rise d2" style="margin-top: 20px">
+    <div style="font: 600 14px Inter, sans-serif; color: #A3ADA6">Sex</div>
+    <div style="display: flex; gap: 8px; margin-top: 10px">
+      <button class="seg" onClick="{{pickMale}}" style="background: {{male.bg}}; border: 2px solid {{male.border}}; color: #F4F6F4">Male</button>
+      <button class="seg" onClick="{{pickFemale}}" style="background: {{female.bg}}; border: 2px solid {{female.border}}; color: #F4F6F4">Female</button>
+    </div>
+    <div style="margin-top: 8px; font-size: 12px; color: #7C8680">Used for the metabolism formula and safe minimum targets.</div>
+  </div>
+
+  <div class="rise d3" style="margin-top: 18px; padding: 14px 0 12px; border-radius: 20px; background: #151917; overflow: hidden">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 0 16px">
+      <label for="ageInput" style="font: 600 14px Inter, sans-serif; color: #A3ADA6">Age</label>
+      <span style="font-size: 12px; color: #7C8680">Swipe or tap to type</span>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 6px; padding: 6px 16px 0">
+      <input id="ageInput" class="num" type="number" inputmode="numeric" min="18" max="100" value="{{ageText}}" onChange="{{typeAge}}" onBlur="{{blurAge}}" aria-describedby="ageHint">
+      <span id="ageHint" style="font: 500 14px Inter, sans-serif; color: #A3ADA6">years</span>
+    </div>
+    <div style="position: relative; margin-top: 8px">
+      <div class="strip" ref="{{ageRef}}" onScroll="{{onAgeScroll}}" style="padding: 0 143px" aria-hidden="true">
+        <sc-for list="{{ages}}" as="a" hint-placeholder-count="12">
+          <div class="snap" style="width: 56px; height: 44px; display: flex; align-items: center; justify-content: center; font: {{a.font}}; color: {{a.color}}; transition: color .15s">{{a.n}}</div>
+        </sc-for>
+      </div>
+      <div style="position: absolute; left: 143px; top: 2px; width: 56px; height: 40px; box-sizing: border-box; border-radius: 12px; border: 2px solid #57D883; pointer-events: none"></div>
+      <div style="position: absolute; left: 0; top: 0; width: 60px; height: 44px; background: linear-gradient(90deg,#151917,rgba(21,25,23,0)); pointer-events: none"></div>
+      <div style="position: absolute; right: 0; top: 0; width: 60px; height: 44px; background: linear-gradient(270deg,#151917,rgba(21,25,23,0)); pointer-events: none"></div>
+    </div>
+  </div>
+
+  <div class="rise d4" style="margin-top: 10px; padding: 14px 0 10px; border-radius: 20px; background: #151917; overflow: hidden">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 16px">
+      <label for="heightInput" style="font: 600 14px Inter, sans-serif; color: #A3ADA6">Height</label>
+      <div style="display: flex; gap: 2px; padding: 2px; border-radius: 16px; background: #0C0E0D">
+        <button class="unit" onClick="{{toCm}}" style="background: {{cmBg}}; color: {{cmFg}}">cm</button>
+        <button class="unit" onClick="{{toFt}}" style="background: {{ftBg}}; color: {{ftFg}}">ft</button>
+      </div>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 6px; padding: 4px 16px 0">
+      <sc-if value="{{isCm}}" hint-placeholder-val="{{true}}">
+        <input id="heightInput" class="num" type="number" inputmode="numeric" min="120" max="230" value="{{cmText}}" onChange="{{typeCm}}" onBlur="{{blurCm}}">
+        <span style="font: 500 14px Inter, sans-serif; color: #A3ADA6">cm</span>
+      </sc-if>
+      <sc-if value="{{isFt}}" hint-placeholder-val="{{false}}">
+        <input id="heightInput" class="num" type="number" inputmode="numeric" min="4" max="7" value="{{feetText}}" onChange="{{typeFeet}}" onBlur="{{blurFeet}}" aria-label="Feet" style="width: 30px">
+        <span style="font: 500 14px Inter, sans-serif; color: #A3ADA6; margin-right: 10px">ft</span>
+        <input class="num" type="number" inputmode="numeric" min="0" max="11" value="{{inchText}}" onChange="{{typeInch}}" onBlur="{{blurInch}}" aria-label="Inches" style="width: 44px">
+        <span style="font: 500 14px Inter, sans-serif; color: #A3ADA6">in</span>
+        <span style="margin-left: auto; font-size: 12px; color: #7C8680">≈ {{cm}} cm</span>
+      </sc-if>
+    </div>
+    <div style="position: relative; margin-top: 8px">
+      <sc-if value="{{isCm}}" hint-placeholder-val="{{true}}">
+        <div class="strip" ref="{{hRef}}" onScroll="{{onHScroll}}" style="padding: 0 167px; scroll-snap-type: x proximity" aria-hidden="true">
+          <sc-for list="{{ticks}}" as="t" hint-placeholder-count="40">
+            <div class="snap" style="width: 8px; height: 58px; display: flex; flex-direction: column; align-items: center">
+              <div style="width: 2px; height: {{t.h}}px; border-radius: 1px; background: {{t.c}}"></div>
+              <div style="margin-top: 6px; font: 500 11px Inter, sans-serif; color: #7C8680; white-space: nowrap; height: 14px">{{t.label}}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{isFt}}" hint-placeholder-val="{{false}}">
+        <div class="strip" ref="{{inRef}}" onScroll="{{onInScroll}}" style="padding: 0 165px" aria-hidden="true">
+          <sc-for list="{{inchTicks}}" as="t" hint-placeholder-count="30">
+            <div class="snap" style="width: 12px; height: 58px; display: flex; flex-direction: column; align-items: center">
+              <div style="width: 2px; height: {{t.h}}px; border-radius: 1px; background: {{t.c}}"></div>
+              <div style="margin-top: 6px; font: 500 11px Inter, sans-serif; color: #7C8680; white-space: nowrap; height: 14px">{{t.label}}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <div style="position: absolute; left: 170px; top: -4px; width: 3px; height: 40px; border-radius: 2px; background: #57D883; pointer-events: none"></div>
+      <div style="position: absolute; left: 0; top: 0; width: 60px; height: 58px; background: linear-gradient(90deg,#151917,rgba(21,25,23,0)); pointer-events: none"></div>
+      <div style="position: absolute; right: 0; top: 0; width: 60px; height: 58px; background: linear-gradient(270deg,#151917,rgba(21,25,23,0)); pointer-events: none"></div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+  <a href="Weight.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Continue</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"unit":{"editor":"enum","options":["cm","ft"],"default":"cm"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  // Age chips are 56px wide and height ticks 8px (1 cm), so a value is its
+  // scroll offset divided by the item width. Swiping flings through many
+  // values at once; typing jumps straight there.
+  renderVals() {
+    const s = this.state || {};
+    const sex = s.sex || 'male';
+    const age = s.age || 30;
+    const cm = s.cm || 178;
+    const ft = s.ft != null ? s.ft : this.props.unit === 'ft';
+    const on = { bg: 'rgba(87,216,131,.08)', border: '#57D883' };
+    const off = { bg: '#151917', border: '#2A302C' };
+    const inches = Math.round(cm / 2.54);
+
+    const ages = [];
+    for (let n = 18; n <= 100; n++) {
+      const d = Math.abs(n - age);
+      ages.push({
+        n,
+        color: d === 0 ? '#57D883' : d === 1 ? '#C9D0CB' : '#5E6862',
+        font: d === 0 ? '600 22px Onest, sans-serif' : '500 17px Onest, sans-serif',
+      });
+    }
+    const ticks = [];
+    for (let v = 120; v <= 230; v++) {
+      const major = v % 10 === 0;
+      ticks.push({ h: major ? 30 : v % 5 === 0 ? 20 : 12, c: major ? '#A3ADA6' : '#3A413C', label: major ? String(v) : '' });
+    }
+    // Feet mode: one tick per inch, 12px wide, from 4′0″ to 7′6″.
+    const inchTicks = [];
+    for (let v = 48; v <= 90; v++) {
+      const foot = v % 12 === 0;
+      inchTicks.push({ h: foot ? 30 : v % 6 === 0 ? 20 : 12, c: foot ? '#A3ADA6' : '#3A413C', label: foot ? `${v / 12}′` : v % 6 === 0 ? '6″' : '' });
+    }
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const setAge = (v, scroll) => {
+      const a = clamp(Math.round(v), 18, 100);
+      if (a !== age) this.setState({ age: a });
+      if (scroll && this.ageEl) this.ageEl.scrollTo({ left: (a - 18) * 56, behavior: 'smooth' });
+    };
+    const setCm = (v, scroll) => {
+      const c = clamp(Math.round(v), 120, 230);
+      if (c !== cm) this.setState({ cm: c });
+      if (scroll && this.hEl) this.hEl.scrollTo({ left: (c - 120) * 8, behavior: 'smooth' });
+    };
+    // Height is stored in cm either way; feet mode reads and writes whole inches.
+    const setInches = (n, scroll) => {
+      const total = clamp(Math.round(n), 48, 90);
+      const c = Math.round(total * 2.54);
+      if (c !== cm) this.setState({ cm: c });
+      if (scroll && this.inEl) this.inEl.scrollTo({ left: (total - 48) * 12, behavior: 'smooth' });
+    };
+    const feet = Math.floor(inches / 12), inch = inches % 12;
+    return {
+      male: sex === 'male' ? on : off,
+      female: sex === 'female' ? on : off,
+      pickMale: () => this.setState({ sex: 'male' }),
+      pickFemale: () => this.setState({ sex: 'female' }),
+      age, ages,
+      ageRef: (el) => {
+        if (el && el !== this.ageEl) { this.ageEl = el; el.scrollLeft = (age - 18) * 56; }
+      },
+      onAgeScroll: (e) => setAge(18 + e.currentTarget.scrollLeft / 56, false),
+      // A draft holds partial input ("3" on the way to "35") until it's valid.
+      ageText: s.ageDraft != null ? s.ageDraft : String(age),
+      typeAge: (e) => {
+        const raw = e.target.value.slice(0, 3);
+        this.setState({ ageDraft: raw });
+        const v = parseInt(raw, 10);
+        if (v >= 18 && v <= 100) setAge(v, true);
+      },
+      blurAge: () => this.setState({ ageDraft: null }),
+      cm, ticks,
+      isCm: !ft, isFt: ft,
+      inchTicks,
+      feetText: s.feetDraft != null ? s.feetDraft : String(feet),
+      inchText: s.inchDraft != null ? s.inchDraft : String(inch),
+      typeFeet: (e) => {
+        const raw = e.target.value.slice(0, 1);
+        this.setState({ feetDraft: raw });
+        const v = parseInt(raw, 10);
+        if (v >= 4 && v <= 7) setInches(v * 12 + inch, true);
+      },
+      blurFeet: () => this.setState({ feetDraft: null }),
+      typeInch: (e) => {
+        const raw = e.target.value.slice(0, 2);
+        this.setState({ inchDraft: raw });
+        const v = parseInt(raw, 10);
+        if (v >= 0 && v <= 11) setInches(feet * 12 + v, true);
+      },
+      blurInch: () => this.setState({ inchDraft: null }),
+      inRef: (el) => {
+        if (el && el !== this.inEl) { this.inEl = el; el.scrollLeft = (inches - 48) * 12; }
+      },
+      onInScroll: (e) => setInches(48 + e.currentTarget.scrollLeft / 12, false),
+      hRef: (el) => {
+        if (el && el !== this.hEl) { this.hEl = el; el.scrollLeft = (cm - 120) * 8; }
+      },
+      onHScroll: (e) => setCm(120 + e.currentTarget.scrollLeft / 8, false),
+      cmText: s.cmDraft != null ? s.cmDraft : String(cm),
+      typeCm: (e) => {
+        const raw = e.target.value.slice(0, 3);
+        this.setState({ cmDraft: raw });
+        const v = parseInt(raw, 10);
+        if (v >= 120 && v <= 230) setCm(v, true);
+      },
+      blurCm: () => this.setState({ cmDraft: null }),
+      cmBg: ft ? 'transparent' : '#F4F6F4', cmFg: ft ? '#A3ADA6' : '#0C0E0D',
+      ftBg: ft ? '#F4F6F4' : 'transparent', ftFg: ft ? '#0C0E0D' : '#A3ADA6',
+      toCm: () => this.setState({ ft: false }),
+      toFt: () => this.setState({ ft: true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

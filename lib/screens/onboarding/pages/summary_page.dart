@@ -1,18 +1,19 @@
-import 'package:provider/provider.dart';
-import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:macrotracker/providers/detailed_stats_provider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/energy/phase_engine.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
-import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/theme/ob_theme.dart';
 import 'package:macrotracker/widgets/plan_style_choice.dart';
-import 'package:macrotracker/widgets/targets_change.dart';
 import '../onboarding_steps.dart';
-import 'package:macrotracker/widgets/onboarding/simple_plan_summary.dart';
 
+/// "Your answers" (docs/onboarding-redesign/mock/Review.dc.html): every
+/// answer in a row that jumps back to its step. When recalculating, the old
+/// and new targets sit at the top.
 class SummaryPage extends StatelessWidget {
   final String gender;
   final double weightKg;
@@ -79,352 +80,220 @@ class SummaryPage extends StatelessWidget {
       'Using your learned expenditure (${NumberFormat('#,###').format(tdee.round())} cals) '
       'instead of an activity estimate.';
 
-  String _getActivityLevelText() {
+  String _activityText() {
     switch (activityLevel) {
       case MacroCalculatorService.SEDENTARY:
         return 'Sedentary';
       case MacroCalculatorService.LIGHTLY_ACTIVE:
-        return 'Lightly Active';
+        return 'Lightly active';
       case MacroCalculatorService.MODERATELY_ACTIVE:
-        return 'Moderately Active';
+        return 'Moderately active';
       case MacroCalculatorService.VERY_ACTIVE:
-        return 'Very Active';
+        return 'Very active';
       case MacroCalculatorService.EXTRA_ACTIVE:
-        return 'Extra Active';
+        return 'Extra active';
       default:
         return 'Unknown';
     }
   }
 
-  String _getGoalText() {
+  String _goalText() {
     switch (goal) {
       case MacroCalculatorService.GOAL_LOSE:
-        return 'Lose Weight';
+        return 'Lose fat';
       case MacroCalculatorService.GOAL_MAINTAIN:
-        return 'Maintain Weight';
+        return 'Maintain weight';
       case MacroCalculatorService.GOAL_GAIN:
-        return 'Gain Weight';
+        return 'Build muscle';
       default:
         return 'Unknown';
     }
   }
 
-  String _paceText() =>
-      pacePct == pacePct.roundToDouble() ? pacePct.toStringAsFixed(0) : '$pacePct';
+  String _weight(double kg) =>
+      isMetricWeight ? '${kg.toStringAsFixed(1)} kg' : '${(kg * 2.20462).round()} lb';
+
+  String _paceText() {
+    final unit = isMetricWeight ? 'kg' : 'lb';
+    final weekly = (effectivePacePct ?? pacePct) /
+        100 *
+        weightKg *
+        (isMetricWeight ? 1 : 2.20462);
+    return 'About ${weekly.toStringAsFixed(weekly < 0.1 ? 2 : 1)} $unit a week';
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (!context.watch<DetailedStatsProvider>().showDetailedStats) return _buildSimple(context);
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final theme = Theme.of(context);
+    final c = ObColors.of(context);
+    final maintain = goal == MacroCalculatorService.GOAL_MAINTAIN;
 
-    const genderPageIndex = OnboardingStep.gender;
-    const weightPageIndex = OnboardingStep.weight;
-    const heightPageIndex = OnboardingStep.height;
-    const agePageIndex = OnboardingStep.age;
-    const activityLevelPageIndex = OnboardingStep.activity;
-    const goalPageIndex = OnboardingStep.goal;
-    const advancedSettingsPageIndex = OnboardingStep.advanced;
-
-    final personalInfoItems = [
-      {
-        'label': 'Gender',
-        'value': gender == MacroCalculatorService.MALE ? 'Male' : 'Female',
-        'page': genderPageIndex
-      },
-      {
-        'label': 'Weight',
-        'value': '${weightKg.toStringAsFixed(1)} kg',
-        'page': weightPageIndex
-      },
-      {
-        'label': 'Height',
-        'value': '${heightCm.round()} cm',
-        'page': heightPageIndex
-      },
-      {'label': 'Age', 'value': '$age years', 'page': agePageIndex},
-      if (bodyFatPercentage != null)
-        {
-          'label': 'Body Fat %',
-          'value': '${bodyFatPercentage!.round()}%',
-          'page': advancedSettingsPageIndex
-        },
+    final plan = <_Row>[
+      _Row('Goal', _goalText(), OnboardingStep.goal),
+      if (!maintain) ...[
+        _Row('Goal weight', _weight(goalWeightKg), OnboardingStep.goalWeight),
+        _Row('Pace', _paceText(), OnboardingStep.pace),
+      ],
+      if (planStyle != null) ...[
+        _Row('Plan', PlanStyleCopy.title(planStyle!), OnboardingStep.planStyle),
+        if (planLine != null)
+          _Row('Plan length', planLine!, OnboardingStep.planStyle),
+      ],
+      _Row('Targets', adaptiveGoals ? 'Adjust as I go' : 'Fixed', OnboardingStep.adaptive),
     ];
-
-    final List<Map<String, dynamic>> activityGoalsItems = [
+    final you = <_Row>[
+      _Row('Sex', gender == MacroCalculatorService.MALE ? 'Male' : 'Female',
+          OnboardingStep.aboutYou),
+      _Row('Age', '$age', OnboardingStep.aboutYou),
+      _Row('Height', '${heightCm.round()} cm', OnboardingStep.aboutYou),
+      _Row('Weight', _weight(weightKg), OnboardingStep.weight),
       // The learned expenditure stands in for the activity level.
       if (learnedTdee == null)
-        {
-          'label': 'Activity Level',
-          'value': _getActivityLevelText(),
-          'page': activityLevelPageIndex
-        },
-      {'label': 'Goal', 'value': _getGoalText(), 'page': goalPageIndex},
+        _Row('Activity', _activityText(), OnboardingStep.activity),
+      if (bodyFatPercentage != null)
+        _Row('Body fat', '${bodyFatPercentage!.round()}%', OnboardingStep.advanced),
     ];
-    if (goal != MacroCalculatorService.GOAL_MAINTAIN) {
-      activityGoalsItems.add({
-        'label': 'Pace',
-        'value': '${_paceText()}% a week',
-        'page': OnboardingStep.setNewGoal
-      });
-      activityGoalsItems.add({
-        'label': 'Target Weight',
-        'value': '${goalWeightKg.toStringAsFixed(1)} kg',
-        'page': goalPageIndex
-      });
-    }
-    if (planStyle != null) {
-      activityGoalsItems.add({
-        'label': 'Plan',
-        'value': PlanStyleCopy.title(planStyle!),
-        'page': OnboardingStep.planStyle
-      });
-      if (planLine != null) {
-        activityGoalsItems.add({
-          'label': 'Plan Length',
-          'value': planLine!,
-          'page': OnboardingStep.planStyle
-        });
-      }
-    }
-    activityGoalsItems.add({
-      'label': 'Targets',
-      'value': adaptiveGoals ? 'Update weekly' : 'Fixed',
-      'page': OnboardingStep.adaptive
-    });
-
-    final List<Map<String, dynamic>> macroSettingsItems = [
-      {
-        'label': 'Protein Ratio',
-        'value': '${proteinRatio.toStringAsFixed(1)} g/kg',
-        'page': advancedSettingsPageIndex
-      },
-      {
-        'label': 'Fat Ratio',
-        'value': '${(fatRatio * 100).round()}% of cals',
-        'page': advancedSettingsPageIndex
-      },
-      {
-        'label': 'Carbs',
-        'value': 'Calculated',
-        'page': advancedSettingsPageIndex
-      }, // Indicate carbs are calculated
+    final macros = <_Row>[
+      _Row('Protein', '${proteinRatio.toStringAsFixed(1)} g/kg', OnboardingStep.advanced),
+      _Row('Fat', '${(fatRatio * 100).round()}% of cals', OnboardingStep.advanced),
     ];
+    final detailed = context.watch<DetailedStatsProvider>().showDetailedStats;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Summary',
-            style: AppTypography.onboardingSubtitle.copyWith(
-              color:
-                  customColors?.textPrimary ?? theme.colorScheme.onBackground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Review your information before calculating.',
-            style: AppTypography.onboardingBody.copyWith(
-              color: customColors?.textSecondary ??
-                  theme.colorScheme.onBackground.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 32),
-          if (currentTargets != null && newTargets != null) ...[
-            _buildTargetsSection(context),
-            const SizedBox(height: 24),
-          ],
-          _buildSummarySection(context,
-              title: 'Personal Information',
-              icon: Icons.person,
-              items: personalInfoItems),
-          const SizedBox(height: 24),
-          _buildSummarySection(context,
-              title: 'Activity & Goals',
-              icon: Icons.fitness_center,
-              items: activityGoalsItems),
-          const SizedBox(height: 24),
-          _buildSummarySection(context,
-              title: 'Macro Settings',
-              icon: Icons.science,
-              items: macroSettingsItems),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimple(BuildContext context) {
-    final unit = isMetricWeight ? 'kg' : 'lbs';
-    final weekly = (effectivePacePct ?? pacePct) / 100 * weightKg * (isMetricWeight ? 1 : 2.20462);
-    final items = <Map<String, dynamic>>[
-      {'label': 'Goal', 'value': _getGoalText(), 'page': OnboardingStep.goal},
-      if (goal != MacroCalculatorService.GOAL_MAINTAIN)
-        {'label': 'Pace', 'value': 'About ${weekly.toStringAsFixed(weekly < 0.1 ? 2 : 1)} $unit a week', 'page': OnboardingStep.setNewGoal},
-      if (planStyle != null)
-        {'label': 'Plan', 'value': PlanStyleCopy.title(planStyle!), 'page': OnboardingStep.setNewGoal},
-      {'label': 'Targets', 'value': adaptiveGoals ? 'Adjust as I go' : 'Fixed', 'page': OnboardingStep.adaptive},
-    ];
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Your plan', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 20),
-        if (newTargets != null) ...[
-          SimplePlanSummary(targets: newTargets!, previousCalories: currentTargets?.calories, goalDate: projectedDate, goalWeightKg: goal == MacroCalculatorService.GOAL_MAINTAIN ? null : goalWeightKg, isMetric: isMetricWeight, learned: learnedTdee != null, adaptive: adaptiveGoals),
-          const SizedBox(height: 20),
-        ],
-        _buildSummarySection(context, title: 'Review your plan', icon: Icons.check_circle_outline, items: items),
-        const SizedBox(height: 12),
-        ExpansionTile(title: const Text('Your answers'), tilePadding: EdgeInsets.zero, children: [
-          _buildSummaryItem(context, label: 'Weight', value: isMetricWeight ? '${weightKg.toStringAsFixed(1)} kg' : '${(weightKg * 2.20462).round()} lbs', page: OnboardingStep.weight),
-          if (learnedTdee == null) _buildSummaryItem(context, label: 'Activity Level', value: _getActivityLevelText(), page: OnboardingStep.activity),
-        ]),
-      ]),
-    );
-  }
-
-  /// "Your Targets": each target old → new, and where the new ones come from.
-  Widget _buildTargetsSection(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final theme = Theme.of(context);
-    return _buildSection(
-      context,
-      title: 'Your Targets',
-      icon: Icons.track_changes,
+    return ObPageBody(
+      top: 18,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: TargetsChangeRows(before: currentTargets!, after: newTargets!),
+        const ObHeader(
+          title: 'Your answers',
+          subtitle: 'Tap anything to change it. Your plan updates right away.',
         ),
-        if (learnedTdee != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 1, right: 8),
-                  child: Icon(Icons.autorenew_rounded,
-                      size: 16, color: customColors?.textSecondary),
-                ),
-                Expanded(
-                  child: Text(
-                    learnedExpenditureLine(learnedTdee!),
-                    style: AppTypography.caption.copyWith(
-                      color: customColors?.textSecondary ??
-                          theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        if (currentTargets != null && newTargets != null) ...[
+          const SizedBox(height: 20),
+          ObRise(index: 1, child: _targets(c)),
+        ],
+        const SizedBox(height: 20),
+        _label(c, 'YOUR PLAN', c.leafText),
+        ObRise(index: 1, child: _card(context, plan)),
+        const SizedBox(height: 18),
+        _label(c, 'ABOUT YOU', c.text2),
+        ObRise(index: 2, child: _card(context, you)),
+        if (detailed) ...[
+          const SizedBox(height: 18),
+          _label(c, 'MACROS', c.text2),
+          ObRise(index: 3, child: _card(context, macros)),
+        ],
       ],
     );
   }
 
-  Widget _buildSummarySection(BuildContext context,
-          {required String title,
-          required IconData icon,
-          required List<Map<String, dynamic>> items}) =>
-      _buildSection(context, title: title, icon: icon, children: [
-        ...items.where((item) => item.containsKey('value')).map((item) =>
-            _buildSummaryItem(context,
-                label: item['label'],
-                value: item['value'].toString(),
-                page: item['page'])),
-      ]);
+  Widget _label(ObColors c, String text, Color color) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(text, style: ObText.eyebrow(color)),
+      );
 
-  /// A card with an icon header and [children] under a divider.
-  Widget _buildSection(BuildContext context,
-      {required String title,
-      required IconData icon,
-      required List<Widget> children}) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-          color: customColors?.cardBackground ?? theme.cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                spreadRadius: 0,
-                offset: const Offset(0, 2))
-          ]),
+  /// Each target old → new, and where the new ones come from.
+  Widget _targets(ObColors c) {
+    final fmt = NumberFormat('#,###');
+    Widget row(String label, double before, double after, String unit) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            children: [
+              Expanded(child: Text(label, style: ObText.body(c.text2))),
+              Text(
+                '${fmt.format(before.round())} → ${fmt.format(after.round())} $unit',
+                style: ObText.body(c.text, weight: FontWeight.w600),
+              ),
+            ],
+          ),
+        );
+    final a = currentTargets!;
+    final b = newTargets!;
+    return ObCard(
+      radius: 20,
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(children: [
-                Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                        color: (customColors?.accentPrimary ??
-                                theme.colorScheme.primary)
-                            .withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: Icon(icon,
-                        color: customColors?.accentPrimary ??
-                            theme.colorScheme.primary,
-                        size: 20)),
-                const SizedBox(width: 12),
-                Text(title,
-                    style: AppTypography.h3.copyWith(
-                      color: customColors?.textPrimary ??
-                          theme.colorScheme.onBackground,
-                    ))
-              ])),
-          Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.1)),
-          ...children,
+          Text('YOUR TARGETS', style: ObText.eyebrow(c.leafText)),
+          const SizedBox(height: 6),
+          row('Cals', a.calories, b.calories, 'cals'),
+          row('Protein', a.protein, b.protein, 'g'),
+          row('Carbs', a.carbs, b.carbs, 'g'),
+          row('Fat', a.fat, b.fat, 'g'),
+          if (learnedTdee != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, right: 8),
+                  child: Icon(Icons.autorenew_rounded, size: 16, color: c.muted),
+                ),
+                Expanded(
+                  child: Text(learnedExpenditureLine(learnedTdee!),
+                      style: ObText.body(c.muted, size: 13)),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildSummaryItem(BuildContext context,
-      {required String label, required String value, required OnboardingStep page}) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final theme = Theme.of(context);
-    final editable = editableSteps?.contains(page) ?? true;
+  Widget _card(BuildContext context, List<_Row> rows) {
+    final c = ObColors.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        color: c.surface,
+        child: Column(
+          children: [
+            for (var i = 0; i < rows.length; i++)
+              _line(context, rows[i], last: i == rows.length - 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _line(BuildContext context, _Row r, {required bool last}) {
+    final c = ObColors.of(context);
+    final editable = editableSteps?.contains(r.step) ?? true;
     return InkWell(
       onTap: !editable
           ? null
           : () {
               HapticFeedback.selectionClick();
-              onEdit(page);
+              onEdit(r.step);
             },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        child: Row(children: [
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(label,
-                    style: AppTypography.caption.copyWith(
-                      color: customColors?.textSecondary ??
-                          theme.colorScheme.onBackground.withOpacity(0.7),
-                    )),
-                const SizedBox(height: 4),
-                Text(value,
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: customColors?.textPrimary ??
-                          theme.colorScheme.onBackground,
-                    ))
-              ])),
-          if (editable)
-            Icon(Icons.chevron_right_rounded,
-                size: 20,
-                color: customColors?.textSecondary ??
-                    theme.colorScheme.onSurface.withValues(alpha: 0.5))
-        ]),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 50),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          border: last ? null : Border(bottom: BorderSide(color: c.raised)),
+        ),
+        child: Row(
+          children: [
+            Text(r.label, style: ObText.body(c.text2)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(r.value,
+                  textAlign: TextAlign.right,
+                  style: ObText.body(c.text, weight: FontWeight.w600)),
+            ),
+            if (editable) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right_rounded, size: 18, color: c.muted),
+            ],
+          ],
+        ),
       ),
     );
   }
+}
+
+class _Row {
+  const _Row(this.label, this.value, this.step);
+  final String label;
+  final String value;
+  final OnboardingStep step;
 }

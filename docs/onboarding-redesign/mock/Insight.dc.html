@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reply: static targets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.1s}.d2{animation-delay:.25s}.d3{animation-delay:1.9s}.d4{animation-delay:2.1s}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.l1{stroke-dasharray:1 1;animation:draw 1.4s .5s cubic-bezier(.4,0,.2,1) both}
+.l2{stroke-dasharray:1 1;animation:draw 1.4s 1s cubic-bezier(.4,0,.2,1) both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.gap{animation:fade .8s 1.4s both}
+.lbl{animation:fade .6s 1.6s both}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 14px; height: 44px">
+    <a href="Obstacles.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; background: #151917; display: flex; align-items: center; justify-content: center; color: #F4F6F4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; display: flex; gap: 6px" aria-label="Step 7 of 10">
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #57D883"></div>
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #2A302C; overflow: hidden"><div style="width: 90%; height: 6px; background: #57D883; border-radius: 3px"></div></div>
+      <div style="flex: 2; height: 6px; border-radius: 3px; background: #2A302C"></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #2A302C"></div>
+    </div>
+  </div>
+
+  <h1 class="rise" style="margin: 30px 0 0; font: 600 32px/1.12 Onest, sans-serif; letter-spacing: -1px; white-space: pre-line">You weren’t the problem.
+<span style="color: #57D883">The fixed number was.</span></h1>
+  <p class="rise d1" style="margin: 12px 0 0; font-size: 15px; line-height: 1.5; color: #A3ADA6">As you lose weight, you burn a little less. A target that never moves turns into a plateau.</p>
+
+  <div class="rise d2" style="margin-top: 20px; padding: 14px 14px 12px; border-radius: 26px; background: #151917; border: 1px solid #2A302C">
+    <svg width="310" height="150" viewBox="0 20 310 150" role="img" aria-label="A fixed target line stays flat while your burn drops, opening a gap; MacroBalance moves your target down with your burn">
+      <path class="gap" d="M10 52 C 90 60, 180 92, 300 110 L300 52 Z" fill="#FF6B5E" opacity=".2"></path>
+      <path class="l1" pathLength="1" d="M10 52 H300" stroke="#A3ADA6" stroke-width="3" stroke-dasharray="1 1" fill="none" stroke-linecap="round"></path>
+      <path class="l2" pathLength="1" d="M10 52 C 90 60, 180 92, 300 110" stroke="#57D883" stroke-width="4" fill="none" stroke-linecap="round"></path>
+      <g class="lbl">
+        <path d="M282 56 V102" stroke="#FF8F84" stroke-width="2" stroke-linecap="round"></path>
+        <path d="M277 61 l5 -5 l5 5 M277 97 l5 5 l5 -5" stroke="#FF8F84" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+        <text x="10" y="40" fill="#C9D0CB" style="font: 600 13px Inter, sans-serif">Fixed target</text>
+        <text x="300" y="132" text-anchor="end" fill="#57D883" style="font: 600 13px Inter, sans-serif">What you actually burn</text>
+      </g>
+      <g fill="#7C8680" style="font: 500 12px Inter, sans-serif"><text x="10" y="164">Week 1</text><text x="300" y="164" text-anchor="end">Week 16</text></g>
+    </svg>
+    <div class="lbl" style="display: flex; align-items: center; gap: 10px; margin-top: 4px; padding: 10px 12px; border-radius: 14px; background: rgba(255,107,94,.1)">
+      <span style="width: 14px; height: 14px; flex-shrink: 0; border-radius: 4px; background: rgba(255,107,94,.45)"></span>
+      <span style="font-size: 13px; line-height: 1.4; color: #F4F6F4"><span style="color: #FF8F84; font-weight: 600">The plateau gap:</span> eating to the old target while your burn drops.</span>
+    </div>
+  </div>
+
+  <p class="rise d3" style="margin: 18px 0 10px; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #A3ADA6">BUILT FOR WHAT YOU PICKED</p>
+  <div class="rise d4" style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 18px; background: #151917">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#57D883" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+      <div><div style="font: 600 15px Onest, sans-serif">Logging took too long</div><div style="font-size: 14px; line-height: 1.45; color: #A3ADA6; margin-top: 2px">Snap a photo or describe it in a sentence. No more scrolling a database.</div></div>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 18px; background: #151917">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#57D883" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"></path></svg>
+      <div><div style="font: 600 15px Onest, sans-serif">My target never changed</div><div style="font-size: 14px; line-height: 1.45; color: #A3ADA6; margin-top: 2px">A weekly check-in moves it when your body does, and explains every change.</div></div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+  <a href="Adaptive.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Makes sense</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

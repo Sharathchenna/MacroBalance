@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan reveal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.1s}.d2{animation-delay:.5s}.d3{animation-delay:.9s}.d4{animation-delay:1.2s}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.bar{transform-origin:left center;animation:grow 1s cubic-bezier(.2,.8,.2,1) both}
+.b1{animation-delay:.7s}.b2{animation-delay:.85s}.b3{animation-delay:1s}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.proj{stroke-dasharray:1 1;animation:draw 1.4s 1.2s cubic-bezier(.4,0,.2,1) both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.band{animation:fade .8s 1.2s both}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 24px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div class="rise" style="display: flex; justify-content: space-between; align-items: center; height: 44px">
+    <span style="font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #57D883">YOUR PLAN · {{goalLabel}}</span>
+    <a href="Review.dc.html" style="display: flex; align-items: center; gap: 6px; height: 44px; color: #A3ADA6; font: 500 14px Inter, sans-serif; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>Review answers</a>
+  </div>
+
+  <div class="rise d1" style="margin-top: 6px">
+    <div style="font: 600 64px/1 Onest, sans-serif; letter-spacing: -2.6px">{{cals}}</div>
+    <div style="margin-top: 6px; font-size: 16px; line-height: 1.45; color: #A3ADA6">{{lead}} <span style="color: #F4F6F4; font-weight: 600">{{target}}</span>{{mid}}<span style="color: #F4F6F4; font-weight: 600">{{when}}</span></div>
+  </div>
+
+  <div class="rise d2" style="margin-top: 20px; padding: 18px; border-radius: 24px; background: #151917; display: flex; flex-direction: column; gap: 14px">
+    <div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 600">Protein</span><span style="color: #A3ADA6"><span style="color: #F4F6F4; font-weight: 600">{{m.p}} g</span> · {{m.pp}}%</span></div>
+      <div style="margin-top: 8px; height: 10px; border-radius: 5px; background: #1D221F"><div class="bar b1" style="width: {{m.pw}}%; height: 10px; border-radius: 5px; background: #FF6B5E"></div></div>
+    </div>
+    <div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 600">Carbs</span><span style="color: #A3ADA6"><span style="color: #F4F6F4; font-weight: 600">{{m.c}} g</span> · {{m.cp}}%</span></div>
+      <div style="margin-top: 8px; height: 10px; border-radius: 5px; background: #1D221F"><div class="bar b2" style="width: {{m.cw}}%; height: 10px; border-radius: 5px; background: #4DA8FF"></div></div>
+    </div>
+    <div>
+      <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 600">Fat</span><span style="color: #A3ADA6"><span style="color: #F4F6F4; font-weight: 600">{{m.f}} g</span> · {{m.fp}}%</span></div>
+      <div style="margin-top: 8px; height: 10px; border-radius: 5px; background: #1D221F"><div class="bar b3" style="width: {{m.fw}}%; height: 10px; border-radius: 5px; background: #F59E3B"></div></div>
+    </div>
+  </div>
+
+  <div class="rise d3" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px">
+    <div style="padding: 12px; border-radius: 18px; background: #151917"><div style="font-size: 12px; color: #A3ADA6">You burn</div><div style="margin-top: 4px; font: 600 17px Onest, sans-serif">≈2,550</div></div>
+    <div style="padding: 12px; border-radius: 18px; background: #151917"><div style="font-size: 12px; color: #A3ADA6">Pace</div><div style="margin-top: 4px; font: 600 17px Onest, sans-serif">{{pace}}</div></div>
+    <div style="padding: 12px; border-radius: 18px; background: #151917"><div style="font-size: 12px; color: #A3ADA6">Check-in</div><div style="margin-top: 4px; font: 600 17px Onest, sans-serif">Sundays</div></div>
+  </div>
+
+  <div class="rise d4" style="margin-top: 10px; padding: 14px 16px 12px; border-radius: 24px; background: #151917">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+      <div><div style="font-size: 12px; color: #A3ADA6">Today</div><div style="margin-top: 2px; font: 600 15px Onest, sans-serif">82.4 kg</div></div>
+      <div style="text-align: right"><div style="font-size: 12px; color: #A3ADA6">{{endLabel}}</div><div style="margin-top: 2px; font: 600 15px Onest, sans-serif; color: #57D883">{{endValue}}</div></div>
+    </div>
+    <sc-if value="{{isLose}}" hint-placeholder-val="{{true}}">
+      <svg width="310" height="72" viewBox="0 0 310 72" role="img" aria-label="Weight trending down from 82.4 kg to 74 kg" style="display: block; margin-top: 8px">
+        <path d="M0 62 H310" stroke="#2A302C" stroke-dasharray="4 6"></path>
+        <path class="proj" pathLength="1" d="M8 10 C 100 26, 190 54, 300 62" stroke="#57D883" stroke-width="3.5" fill="none" stroke-linecap="round"></path>
+        <circle cx="8" cy="10" r="5" fill="#F4F6F4"></circle>
+        <circle cx="300" cy="62" r="6" fill="#57D883"></circle>
+      </svg>
+    </sc-if>
+    <sc-if value="{{isGain}}" hint-placeholder-val="{{false}}">
+      <svg width="310" height="72" viewBox="0 0 310 72" role="img" aria-label="Weight trending up from 82.4 kg to 86 kg" style="display: block; margin-top: 8px">
+        <path d="M0 10 H310" stroke="#2A302C" stroke-dasharray="4 6"></path>
+        <path class="proj" pathLength="1" d="M8 62 C 110 56, 200 26, 300 10" stroke="#57D883" stroke-width="3.5" fill="none" stroke-linecap="round"></path>
+        <circle cx="8" cy="62" r="5" fill="#F4F6F4"></circle>
+        <circle cx="300" cy="10" r="6" fill="#57D883"></circle>
+      </svg>
+    </sc-if>
+    <sc-if value="{{isMaintain}}" hint-placeholder-val="{{false}}">
+      <svg width="310" height="72" viewBox="0 0 310 72" role="img" aria-label="Weight holding steady inside a band around 82.4 kg" style="display: block; margin-top: 8px">
+        <rect class="band" x="0" y="18" width="310" height="36" rx="10" fill="#57D883" opacity=".1"></rect>
+        <path class="proj" pathLength="1" d="M8 36 C 40 30, 70 42, 110 36 S 180 30, 220 37 S 280 38, 300 36" stroke="#57D883" stroke-width="3.5" fill="none" stroke-linecap="round"></path>
+        <circle cx="8" cy="36" r="5" fill="#F4F6F4"></circle>
+        <circle cx="300" cy="36" r="6" fill="#57D883"></circle>
+      </svg>
+    </sc-if>
+  </div>
+
+  <p class="rise d4" style="margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: #7C8680">A starting estimate. From your first check-in on Nov 1, your logs and weigh-ins take over.</p>
+
+  <div style="flex-grow: 1"></div>
+  <a class="rise d4" href="Save.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Save my plan</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"goal":{"editor":"enum","options":["lose","maintain","gain"],"default":"lose"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  // Each goal gets its own target, macros, pace and chart shape. Numbers
+  // follow the mock person: 82.4 kg, burns about 2,550 cals a day.
+  plan() {
+    const plans = {
+      lose: { cals: 2095, p: 165, c: 201, f: 70, label: 'LOSE FAT', lead: 'cals a day to reach', target: '74 kg', mid: ' around ', when: 'Mar 13', pace: '−0.4 kg/wk', endLabel: 'Goal · Mar 13', endValue: '74 kg' },
+      maintain: { cals: 2550, p: 140, c: 306, f: 85, label: 'MAINTAIN', lead: 'cals a day to hold steady around', target: '82.4 kg', mid: '', when: '', pace: 'Hold', endLabel: 'Healthy range', endValue: '81.4–83.4 kg' },
+      gain: { cals: 2780, p: 150, c: 354, f: 85, label: 'BUILD MUSCLE', lead: 'cals a day to reach', target: '86 kg', mid: ' around ', when: 'Feb 20', pace: '+0.2 kg/wk', endLabel: 'Goal · Feb 20', endValue: '86 kg' },
+    };
+    const goal = plans[this.props.goal] ? this.props.goal : 'lose';
+    return { goal, ...plans[goal] };
+  }
+  componentDidMount() {
+    const t0 = Date.now();
+    this.iv = setInterval(() => {
+      const p = Math.min(1, (Date.now() - t0) / 1400);
+      this.setState({ k: 1 - Math.pow(1 - p, 3) });
+      if (p >= 1) clearInterval(this.iv);
+    }, 30);
+  }
+  componentWillUnmount() { clearInterval(this.iv); }
+  renderVals() {
+    const pl = this.plan();
+    const k = this.state && this.state.k != null ? this.state.k : 1;
+    const kc = { p: pl.p * 4, c: pl.c * 4, f: pl.f * 9 };
+    const total = kc.p + kc.c + kc.f;
+    const maxG = Math.max(pl.p, pl.c, pl.f);
+    return {
+      goalLabel: pl.label,
+      cals: Math.round(pl.cals * k).toLocaleString('en-US'),
+      lead: pl.lead, target: pl.target, mid: pl.mid, when: pl.when,
+      pace: pl.pace, endLabel: pl.endLabel, endValue: pl.endValue,
+      isLose: pl.goal === 'lose', isGain: pl.goal === 'gain', isMaintain: pl.goal === 'maintain',
+      m: {
+        p: pl.p, c: pl.c, f: pl.f,
+        pp: Math.round((kc.p / total) * 100), cp: Math.round((kc.c / total) * 100), fp: Math.round((kc.f / total) * 100),
+        pw: Math.round((pl.p / maxG) * 96), cw: Math.round((pl.c / maxG) * 96), fw: Math.round((pl.f / maxG) * 96),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

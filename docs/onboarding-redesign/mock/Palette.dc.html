@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Colour, type and motion</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+.sw{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1D221F}
+.chip{width:44px;height:44px;border-radius:12px;flex-shrink:0}
+.hex{font:500 12px 'JetBrains Mono',monospace;color:#A3ADA6}
+.role{font-size:13px;color:#7C8680}
+.card{flex:1 1 320px;min-width:0;box-sizing:border-box;padding:24px;border-radius:24px;background:#151917;border:1px solid #2A302C}
+.lbl{margin:0 0 14px;font:600 12px Inter,sans-serif;letter-spacing:1.6px;color:#57D883}
+@keyframes demo{0%,15%{transform:translateX(0)}55%,70%{transform:translateX(180px)}100%{transform:translateX(0)}}
+.m1{animation:demo 3s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes pop{0%,20%{transform:scale(.4);opacity:0}45%{transform:scale(1);opacity:1}85%{transform:scale(1);opacity:1}100%{transform:scale(.4);opacity:0}}
+.m2{animation:pop 2.4s cubic-bezier(.2,.9,.3,1.3) infinite}
+@keyframes draw{0%{stroke-dashoffset:1}60%,100%{stroke-dashoffset:0}}
+.m3{stroke-dasharray:1 1;animation:draw 2.4s cubic-bezier(.4,0,.2,1) infinite}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</helmet>
+<div style="box-sizing: border-box; min-height: 1920px; padding: 64px 24px 80px; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif">
+<div style="max-width: 1180px; margin: 0 auto">
+  <p class="lbl">DESIGN SYSTEM · PROPOSAL</p>
+  <h1 style="margin: 0; font: 600 48px/1.05 Onest, sans-serif; letter-spacing: -1.8px">One green, one yellow, three macros.</h1>
+  <p style="margin: 14px 0 0; max-width: 760px; font-size: 17px; line-height: 1.55; color: #A3ADA6">The App Store screenshots already found the brand: near-black, a leaf green for progress and a sun yellow for the main action. The app’s theme hasn’t caught up yet. These tokens make the onboarding, the store page and the app look like one product.</p>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 40px">
+    <div class="card" style="flex-basis: 100%">
+      <p class="lbl" style="color: #FF8F84">WHAT’S INCONSISTENT TODAY</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 24px">
+        <div style="flex: 1 1 240px; min-width: 0">
+          <div style="display: flex; gap: 6px"><span class="chip" style="width: 28px; height: 28px; border-radius: 8px; background: #000000; border: 1px solid #2A302C"></span><span class="chip" style="width: 28px; height: 28px; border-radius: 8px; background: #90CAF9"></span><span class="chip" style="width: 28px; height: 28px; border-radius: 8px; background: #4CAF50"></span></div>
+          <div style="margin-top: 10px; font: 600 15px Onest, sans-serif">Three “primary” colours</div>
+          <div style="margin-top: 4px; font-size: 14px; line-height: 1.5; color: #A3ADA6">Light mode uses black, dark mode uses Material blue #90CAF9, and the accent is Material green. Blue appears nowhere in the brand.</div>
+        </div>
+        <div style="flex: 1 1 240px; min-width: 0">
+          <div style="display: flex; gap: 6px"><span class="chip" style="width: 28px; height: 28px; border-radius: 8px; background: #EF5350"></span><span class="chip" style="width: 28px; height: 28px; border-radius: 8px; background: #42A5F5"></span><span class="chip" style="width: 28px; height: 28px; border-radius: 8px; background: #FFA726"></span></div>
+          <div style="margin-top: 10px; font: 600 15px Onest, sans-serif">Material defaults for macros</div>
+          <div style="margin-top: 4px; font-size: 14px; line-height: 1.5; color: #A3ADA6">Stock red/blue/orange 400s. The fat orange sits close to the yellow add button, so they compete.</div>
+        </div>
+        <div style="flex: 1 1 240px; min-width: 0">
+          <div style="font: 600 22px Onest, sans-serif; color: #A3ADA6">Aa Aa Aa Aa</div>
+          <div style="margin-top: 10px; font: 600 15px Onest, sans-serif">Four typefaces</div>
+          <div style="margin-top: 4px; font-size: 14px; line-height: 1.5; color: #A3ADA6">Poppins, Onest, Inter and Roboto all ship. The newer screens (adaptive, check-in) already moved to Onest.</div>
+        </div>
+        <div style="flex: 1 1 240px; min-width: 0">
+          <div style="display: flex; gap: 6px"><span style="display: flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 8px; background: #81C784; color: #FFFFFF; font: 600 12px Inter, sans-serif">2.0 : 1</span></div>
+          <div style="margin-top: 10px; font: 600 15px Onest, sans-serif">Contrast fixes by hand</div>
+          <div style="margin-top: 4px; font-size: 14px; line-height: 1.5; color: #A3ADA6">The dark accent needed an onAccent patch and the adaptive page hard-codes #2E6A3D. Tokens should carry those pairs.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="flex-basis: 100%">
+      <p class="lbl">LOGO · TRACED FROM assets/icons/MacroBalance_Logo.png</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 28px; align-items: center">
+        <div style="width: 112px; height: 112px; border-radius: 26px; background: #141414; border: 1px solid #2A302C; display: flex; align-items: center; justify-content: center"><svg width="64" height="48" viewBox="200 262 640 484" role="img" aria-label="MacroBalance logo"><path fill="#FFFFFF" fill-rule="evenodd" d="M208 274a4 4 0 0 1 4-4h70l126 170 122-170h160c78 0 128 52 128 122 0 44-22 76-61 93 47 17 75 56 75 109 0 82-60 143-150 143H479a4 4 0 0 1-4-4v-64a4 4 0 0 1 4-4h48V416L408 577 287 416v317a4 4 0 0 1-4 4h-71a4 4 0 0 1-4-4z M605 345v108h68c40 0 67-22 67-54s-27-54-67-54z M605 527v138h75c46 0 77-27 77-69s-31-69-77-69z"></path></svg></div>
+        <div style="display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; border-radius: 11px; background: #1D221F; border: 1px solid #2A302C; display: flex; align-items: center; justify-content: center"><svg width="24" height="18" viewBox="200 262 640 484" aria-hidden="true"><path fill="#F4F6F4" fill-rule="evenodd" d="M208 274a4 4 0 0 1 4-4h70l126 170 122-170h160c78 0 128 52 128 122 0 44-22 76-61 93 47 17 75 56 75 109 0 82-60 143-150 143H479a4 4 0 0 1-4-4v-64a4 4 0 0 1 4-4h48V416L408 577 287 416v317a4 4 0 0 1-4 4h-71a4 4 0 0 1-4-4z M605 345v108h68c40 0 67-22 67-54s-27-54-67-54z M605 527v138h75c46 0 77-27 77-69s-31-69-77-69z"></path></svg></span><span style="font: 600 22px Onest, sans-serif; letter-spacing: -0.4px">MacroBalance</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 16px; background: #F6F5F0"><svg width="32" height="24" viewBox="200 262 640 484" aria-hidden="true"><path fill="#111412" fill-rule="evenodd" d="M208 274a4 4 0 0 1 4-4h70l126 170 122-170h160c78 0 128 52 128 122 0 44-22 76-61 93 47 17 75 56 75 109 0 82-60 143-150 143H479a4 4 0 0 1-4-4v-64a4 4 0 0 1 4-4h48V416L408 577 287 416v317a4 4 0 0 1-4 4h-71a4 4 0 0 1-4-4z M605 345v108h68c40 0 67-22 67-54s-27-54-67-54z M605 527v138h75c46 0 77-27 77-69s-31-69-77-69z"></path></svg><span style="font: 600 20px Onest, sans-serif; color: #111412; letter-spacing: -0.4px">MacroBalance</span></div>
+        <div class="role" style="flex: 1 1 260px; line-height: 1.5">The MB monogram as one vector path (mb_mark.svg uses currentColor) plus the app-icon tile (mb_logo.svg). It replaces the PNG in the welcome screen and in-app headers. Use it white on ink, or ink on paper; never tint it green.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="lbl">DARK · DEFAULT FOR ONBOARDING</p>
+      <div class="sw"><span class="chip" style="background: #0C0E0D; border: 1px solid #2A302C"></span><div><div style="font-weight: 600">ink / background</div><div class="hex">#0C0E0D</div></div></div>
+      <div class="sw"><span class="chip" style="background: #151917"></span><div><div style="font-weight: 600">surface</div><div class="hex">#151917</div></div></div>
+      <div class="sw"><span class="chip" style="background: #1D221F"></span><div><div style="font-weight: 600">surface raised</div><div class="hex">#1D221F</div></div></div>
+      <div class="sw"><span class="chip" style="background: #2A302C"></span><div><div style="font-weight: 600">line</div><div class="hex">#2A302C</div></div></div>
+      <div class="sw"><span class="chip" style="background: #F4F6F4"></span><div><div style="font-weight: 600">text</div><div class="hex">#F4F6F4 · 17.8:1</div></div></div>
+      <div class="sw"><span class="chip" style="background: #A3ADA6"></span><div><div style="font-weight: 600">text secondary</div><div class="hex">#A3ADA6 · 8.4:1</div></div></div>
+      <div class="sw" style="border: 0"><span class="chip" style="background: #7C8680"></span><div><div style="font-weight: 600">text muted</div><div class="hex">#7C8680 · 5.2:1</div></div></div>
+    </div>
+
+    <div class="card" style="background: #F6F5F0; border-color: #E0DDD4; color: #111412">
+      <p class="lbl" style="color: #1B7F45">LIGHT</p>
+      <div class="sw" style="border-color: #E0DDD4"><span class="chip" style="background: #F6F5F0; border: 1px solid #E0DDD4"></span><div><div style="font-weight: 600">paper / background</div><div class="hex" style="color: #545C56">#F6F5F0</div></div></div>
+      <div class="sw" style="border-color: #E0DDD4"><span class="chip" style="background: #FFFFFF; border: 1px solid #E0DDD4"></span><div><div style="font-weight: 600">surface</div><div class="hex" style="color: #545C56">#FFFFFF</div></div></div>
+      <div class="sw" style="border-color: #E0DDD4"><span class="chip" style="background: #EEECE5"></span><div><div style="font-weight: 600">surface sunk</div><div class="hex" style="color: #545C56">#EEECE5</div></div></div>
+      <div class="sw" style="border-color: #E0DDD4"><span class="chip" style="background: #E0DDD4"></span><div><div style="font-weight: 600">line</div><div class="hex" style="color: #545C56">#E0DDD4</div></div></div>
+      <div class="sw" style="border-color: #E0DDD4"><span class="chip" style="background: #111412"></span><div><div style="font-weight: 600">text</div><div class="hex" style="color: #545C56">#111412 · 17.0:1</div></div></div>
+      <div class="sw" style="border-color: #E0DDD4"><span class="chip" style="background: #545C56"></span><div><div style="font-weight: 600">text secondary</div><div class="hex" style="color: #545C56">#545C56 · 6.3:1</div></div></div>
+      <div class="sw" style="border: 0"><span class="chip" style="background: #1B7F45"></span><div><div style="font-weight: 600">leaf text (links, labels)</div><div class="hex" style="color: #545C56">#1B7F45 · 4.6:1</div></div></div>
+    </div>
+
+    <div class="card">
+      <p class="lbl">BRAND AND MACROS · BOTH MODES</p>
+      <div class="sw"><span class="chip" style="background: #57D883; display: flex; align-items: center; justify-content: center; color: #06240F; font: 700 13px Inter, sans-serif">Aa</span><div><div style="font-weight: 600">leaf · progress, primary CTA</div><div class="hex">#57D883 · on #06240F 9.1:1</div></div></div>
+      <div class="sw"><span class="chip" style="background: #FFD23F; display: flex; align-items: center; justify-content: center; color: #2A1E00; font: 700 13px Inter, sans-serif">Aa</span><div><div style="font-weight: 600">sun · add button, highlights</div><div class="hex">#FFD23F · on #2A1E00 11.3:1</div></div></div>
+      <div class="sw"><span class="chip" style="background: #FF6B5E"></span><div><div style="font-weight: 600">protein · coral</div><div class="hex">#FF6B5E · light text #C9372C</div></div></div>
+      <div class="sw"><span class="chip" style="background: #4DA8FF"></span><div><div style="font-weight: 600">carbs · sky</div><div class="hex">#4DA8FF · light text #1F6FC2</div></div></div>
+      <div class="sw"><span class="chip" style="background: #F59E3B"></span><div><div style="font-weight: 600">fat · amber</div><div class="hex">#F59E3B · light text #9A560A</div></div></div>
+      <div class="role" style="margin-top: 12px; line-height: 1.5">The three macros differ in lightness as well as hue, so they still separate for red–green colour blindness. Amber is pushed orange so it no longer competes with sun.</div>
+    </div>
+
+    <div class="card" style="flex-basis: 560px">
+      <p class="lbl">TYPE · ONEST FOR DISPLAY, INTER FOR READING</p>
+      <div style="font: 600 44px/1.05 Onest, sans-serif; letter-spacing: -1.6px">Display 44</div>
+      <div class="role" style="margin: 4px 0 14px">Onest 600 · −1.6 tracking · hero numbers, intro headline</div>
+      <div style="font: 600 32px/1.12 Onest, sans-serif; letter-spacing: -1px">Title 32 / question</div>
+      <div class="role" style="margin: 4px 0 14px">Onest 600 · −1.0 · every onboarding question</div>
+      <div style="font: 600 18px Onest, sans-serif">Headline 18 · card titles</div>
+      <div class="role" style="margin: 4px 0 14px">Onest 600</div>
+      <div style="font-size: 16px; line-height: 1.5; color: #A3ADA6">Body 16 · Inter 400 · 1.5 line height for explanations and microcopy.</div>
+      <div style="margin-top: 14px; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #57D883">KICKER 12 · INTER 600 · +1.6 TRACKING</div>
+    </div>
+
+    <div class="card" style="flex-basis: 560px">
+      <p class="lbl">MOTION</p>
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <div>
+          <div style="height: 28px; position: relative; background: #1D221F; border-radius: 14px"><div class="m1" style="position: absolute; left: 4px; top: 4px; width: 20px; height: 20px; border-radius: 10px; background: #57D883"></div></div>
+          <div style="margin-top: 8px; font-size: 14px"><span style="font-weight: 600">Settle</span> <span class="hex">cubic-bezier(.2,.8,.2,1) · 250–700 ms</span></div>
+          <div class="role">Screen content rising in, bars and charts filling. Flutter: <span class="hex">Cubic(0.2, 0.8, 0.2, 1)</span></div>
+        </div>
+        <div style="display: flex; gap: 18px; align-items: center">
+          <div class="m2" style="width: 40px; height: 40px; border-radius: 20px; background: #57D883; flex-shrink: 0"></div>
+          <div><div style="font-size: 14px"><span style="font-weight: 600">Pop</span> <span class="hex">cubic-bezier(.2,.9,.3,1.3) · 350 ms</span></div><div class="role">Checks, tags, success states. A small overshoot, never a bounce loop.</div></div>
+        </div>
+        <div style="display: flex; gap: 18px; align-items: center">
+          <svg width="80" height="40" viewBox="0 0 80 40" aria-hidden="true" style="flex-shrink: 0"><path class="m3" pathLength="1" d="M4 32 C 24 30, 36 10, 76 8" stroke="#57D883" stroke-width="4" fill="none" stroke-linecap="round"></path></svg>
+          <div><div style="font-size: 14px"><span style="font-weight: 600">Draw</span> <span class="hex">1.2–1.6 s · ease-in-out</span></div><div class="role">Projection lines and rings. Data is always drawn, never faded in.</div></div>
+        </div>
+        <div class="role" style="line-height: 1.5">Stagger 80 ms between siblings. Every animation respects Reduce Motion: the end state shows instantly. Use Lottie only for moments that need layered motion (plan ready, streaks). Charts and rings stay CustomPainter so they show real numbers.</div>
+      </div>
+    </div>
+
+    <div class="card" style="flex-basis: 100%">
+      <p class="lbl">FLUTTER TOKENS · DROP-IN FOR lib/theme/</p>
+      <pre style="margin: 0; padding: 18px; border-radius: 16px; background: #0C0E0D; overflow-x: auto; font: 400 13px/1.6 'JetBrains Mono', monospace; color: #C9D0CB">class MBColors {
+  // Brand: same in both modes
+  static const leaf = Color(0xFF57D883);      static const onLeaf = Color(0xFF06240F);
+  static const sun = Color(0xFFFFD23F);       static const onSun = Color(0xFF2A1E00);
+  static const protein = Color(0xFFFF6B5E);   static const carbs = Color(0xFF4DA8FF);   static const fat = Color(0xFFF59E3B);
+
+  // Dark
+  static const inkBg = Color(0xFF0C0E0D);     static const inkSurface = Color(0xFF151917);
+  static const inkRaised = Color(0xFF1D221F); static const inkLine = Color(0xFF2A302C);
+  static const inkText = Color(0xFFF4F6F4);   static const inkText2 = Color(0xFFA3ADA6);  static const inkMuted = Color(0xFF7C8680);
+
+  // Light
+  static const paperBg = Color(0xFFF6F5F0);   static const paperSurface = Color(0xFFFFFFFF);
+  static const paperSunk = Color(0xFFEEECE5); static const paperLine = Color(0xFFE0DDD4);
+  static const paperText = Color(0xFF111412); static const paperText2 = Color(0xFF545C56); static const leafText = Color(0xFF1B7F45);
+}
+
+class MBMotion {
+  static const settle = Cubic(0.2, 0.8, 0.2, 1);
+  static const pop = Cubic(0.2, 0.9, 0.3, 1.3);
+  static const stagger = Duration(milliseconds: 80);
+}</pre>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1920}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

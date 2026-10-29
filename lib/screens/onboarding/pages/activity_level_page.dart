@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
-import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/theme/typography.dart';
-import 'package:flutter/services.dart';
+import 'package:macrotracker/theme/ob_theme.dart';
 
+/// Step: how active a normal week is. The level becomes the starting burn.
 class ActivityLevelPage extends StatelessWidget {
   final int currentActivityLevel;
   final ValueChanged<int> onActivityLevelChanged;
@@ -14,282 +14,130 @@ class ActivityLevelPage extends StatelessWidget {
     required this.onActivityLevelChanged,
   });
 
+  static const _levels = [
+    (MacroCalculatorService.SEDENTARY, 'Sedentary', 'Little or no exercise, desk job'),
+    (MacroCalculatorService.LIGHTLY_ACTIVE, 'Lightly active', 'Light exercise 1–3 days a week'),
+    (MacroCalculatorService.MODERATELY_ACTIVE, 'Moderately active',
+        'Moderate exercise 3–5 days a week'),
+    (MacroCalculatorService.VERY_ACTIVE, 'Very active', 'Hard exercise 6–7 days a week'),
+    (MacroCalculatorService.EXTRA_ACTIVE, 'Extra active', 'Physical job, or training twice a day'),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final theme = Theme.of(context);
-    final size = MediaQuery.of(context).size;
-    final padding = MediaQuery.of(context).padding;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableHeight =
-            constraints.maxHeight - padding.top - padding.bottom;
-        final headerHeight = size.height * 0.1; // Reduced from 0.12
-        final contentHeight = availableHeight - headerHeight;
-        final itemHeight =
-            (contentHeight / 5.5).clamp(75.0, 100.0); // Adjusted values
-
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                theme.scaffoldBackgroundColor,
-                theme.scaffoldBackgroundColor.withOpacity(0.95),
-              ],
-            ),
-          ),
+    return ObPageBody(
+      top: 22,
+      children: [
+        const ObHeader(
+          eyebrow: 'About you',
+          title: 'How active is a normal week?',
+          subtitle: 'Your best guess is fine. Once you log for a while, your real burn replaces it.',
+        ),
+        const SizedBox(height: 20),
+        ObRise(
+          index: 2,
           child: Column(
             children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(24, size.height * 0.01, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'How active are you?',
-                      style: AppTypography.h2.copyWith(
-                        color: customColors?.textPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Select the option that best describes your typical week.',
-                      style: AppTypography.body2.copyWith(
-                        color: customColors?.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8), // Reduced from 12
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                    child: Column(
-                      children: [
-                        _buildActivityCard(
-                          context: context,
-                          level: MacroCalculatorService.SEDENTARY,
-                          title: 'Sedentary',
-                          description: 'Little or no exercise, desk job',
-                          icon: Icons.weekend_outlined,
-                          height: itemHeight,
-                        ),
-                        SizedBox(
-                            height: contentHeight * 0.015), // Reduced spacing
-                        _buildActivityCard(
-                          context: context,
-                          level: MacroCalculatorService.LIGHTLY_ACTIVE,
-                          title: 'Lightly Active',
-                          description: 'Light exercise 1-3 days/week',
-                          icon: Icons.directions_walk,
-                          height: itemHeight,
-                        ),
-                        SizedBox(
-                            height: contentHeight * 0.015), // Reduced spacing
-                        _buildActivityCard(
-                          context: context,
-                          level: MacroCalculatorService.MODERATELY_ACTIVE,
-                          title: 'Moderately Active',
-                          description: 'Moderate exercise 3-5 days/week',
-                          icon: Icons.directions_run,
-                          height: itemHeight,
-                        ),
-                        SizedBox(
-                            height: contentHeight * 0.015), // Reduced spacing
-                        _buildActivityCard(
-                          context: context,
-                          level: MacroCalculatorService.VERY_ACTIVE,
-                          title: 'Very Active',
-                          description: 'Heavy exercise 6-7 days/week',
-                          icon: Icons.fitness_center,
-                          height: itemHeight,
-                        ),
-                        SizedBox(
-                            height: contentHeight * 0.015), // Reduced spacing
-                        _buildActivityCard(
-                          context: context,
-                          level: MacroCalculatorService.EXTRA_ACTIVE,
-                          title: 'Extra Active',
-                          description:
-                              'Very heavy exercise, physical job or training twice a day',
-                          icon: Icons.sports_gymnastics,
-                          height: itemHeight,
-                        ),
-                      ],
-                    ),
+              for (var i = 0; i < _levels.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                ObOptionTile(
+                  title: _levels[i].$2,
+                  subtitle: _levels[i].$3,
+                  selected: currentActivityLevel == _levels[i].$1,
+                  onTap: () => onActivityLevelChanged(_levels[i].$1),
+                  trailing: const SizedBox.shrink(),
+                  leading: _ActivityBars(
+                    level: i + 1,
+                    selected: currentActivityLevel == _levels[i].$1,
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
+              ],
             ],
           ),
-        );
-      },
+        ),
+      ],
     );
   }
+}
 
-  Widget _buildActivityCard({
-    required BuildContext context,
-    required int level,
-    required String title,
-    required String description,
-    required IconData icon,
-    required double height,
-  }) {
-    final customColors = Theme.of(context).extension<CustomColors>();
-    final theme = Theme.of(context);
-    final isSelected = currentActivityLevel == level;
+/// Five rising bars, lit up to [level]; they pulse on the chosen row.
+class _ActivityBars extends StatefulWidget {
+  const _ActivityBars({required this.level, required this.selected});
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      height: height,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isSelected
-              ? [
-                  theme.colorScheme.primary.withOpacity(0.1),
-                  theme.colorScheme.primary.withOpacity(0.2),
-                ]
-              : [
-                  customColors?.cardBackground ?? theme.cardColor,
-                  customColors?.cardBackground ?? theme.cardColor,
-                ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSelected
-              ? theme.colorScheme.primary
-              : theme.dividerColor.withOpacity(0.1),
-          width: isSelected ? 2 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isSelected
-                ? theme.colorScheme.primary.withOpacity(0.2)
-                : Colors.black.withOpacity(0.05),
-            blurRadius: isSelected ? 8 : 4,
-            offset: Offset(0, isSelected ? 4 : 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onActivityLevelChanged(level);
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
+  final int level;
+  final bool selected;
+
+  @override
+  State<_ActivityBars> createState() => _ActivityBarsState();
+}
+
+class _ActivityBarsState extends State<_ActivityBars> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selected) _c.repeat();
+  }
+
+  @override
+  void didUpdateWidget(_ActivityBars old) {
+    super.didUpdateWidget(old);
+    if (widget.selected && !_c.isAnimating) {
+      _c.repeat();
+    } else if (!widget.selected && _c.isAnimating) {
+      _c.stop();
+      _c.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  /// 1 down to 0.6 and back, offset by 0.1 of the loop per bar.
+  double _scale(int bar) {
+    if (!widget.selected || MediaQuery.of(context).disableAnimations) return 1;
+    final t = (_c.value - bar * 0.1) % 1.0;
+    final wave = t < 0.5 ? t * 2 : (1 - t) * 2;
+    return 1 - 0.4 * Curves.easeInOut.transform(wave);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ObColors.of(context);
+    return ExcludeSemantics(
+      child: Container(
+        width: 40,
+        height: 40,
+        padding: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(color: c.raised, borderRadius: BorderRadius.circular(13)),
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) => Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    TweenAnimationBuilder<double>(
-                      duration: const Duration(milliseconds: 300),
-                      tween: Tween<double>(begin: 0, end: isSelected ? 1 : 0),
-                      builder: (context, value, child) => Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? theme.colorScheme.primary.withOpacity(0.15)
-                              : customColors?.cardBackground?.withOpacity(0.5) ?? 
-                                theme.cardColor.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(12),
-                          border: isSelected
-                              ? Border.all(
-                                  color: theme.colorScheme.primary.withOpacity(0.3),
-                                  width: 1,
-                                )
-                              : null,
-                        ),
-                        child: Icon(
-                          icon,
-                          color: isSelected
-                              ? theme.colorScheme.primary
-                              : customColors?.textSecondary ?? theme.iconTheme.color,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          TweenAnimationBuilder<double>(
-                            duration: const Duration(milliseconds: 300),
-                            tween: Tween<double>(
-                                begin: 0, end: isSelected ? 1 : 0),
-                            builder: (context, value, child) => Text(
-                              title,
-                              style: AppTypography.h3.copyWith(
-                                color: customColors?.textPrimary,
-                                fontWeight: FontWeight.lerp(
-                                  FontWeight.w600,
-                                  FontWeight.bold,
-                                  value,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            description,
-                            style: AppTypography.body2.copyWith(
-                              color: customColors?.textSecondary,
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (isSelected)
-                TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 300),
-                  tween: Tween<double>(begin: 0, end: 1),
-                  builder: (context, value, child) => Positioned(
-                    right: 16 + (1 - value) * 20,
-                    top: 0,
-                    bottom: 0,
-                    child: Opacity(
-                      opacity: value,
-                      child: Center(
-                        child: Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: theme.colorScheme.primary,
-                          ),
-                          child: Icon(
-                            Icons.check,
-                            size: 14,
-                            color: theme.colorScheme.onPrimary,
-                          ),
-                        ),
-                      ),
+              for (var k = 1; k <= 5; k++) ...[
+                if (k > 1) const SizedBox(width: 3),
+                Transform.scale(
+                  scaleY: _scale(k - 1),
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    width: 4,
+                    height: 2.0 + 4 * k,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(2),
+                      color: k <= widget.level
+                          ? (widget.selected ? c.leaf : c.muted)
+                          : c.line,
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ),

@@ -12,6 +12,7 @@ import 'package:macrotracker/screens/onboarding/pages/adaptive_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/goal_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/summary_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/weight_page.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/energy/energy_estimator.dart';
 import 'package:macrotracker/services/energy_sync_service.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
@@ -116,13 +117,13 @@ void main() {
 
   Future<void> next(WidgetTester tester, [int times = 1]) async {
     for (var i = 0; i < times; i++) {
-      await tester.tap(find.text('Next'));
+      await tester.tap(find.text('Continue'));
       await pumpFrames(tester, seconds: 1);
     }
   }
 
   Future<void> back(WidgetTester tester) async {
-    await tester.tap(find.text('Back'));
+    await tester.tap(find.byType(ObBackButton));
     await pumpFrames(tester, seconds: 1);
   }
 
@@ -142,7 +143,7 @@ void main() {
   Future<Map> saveFromSummary(WidgetTester tester) async {
     await tester.tap(find.text('Calculate'));
     await pumpFrames(tester, seconds: 2);
-    await tester.tap(find.text('Save new goals'));
+    await tester.tap(find.text('Save'));
     await pumpFrames(tester, seconds: 2);
     return jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
   }
@@ -161,12 +162,13 @@ void main() {
     testWidgets('the summary shows old -> new targets from the learned expenditure',
         (tester) async {
       await open(tester);
-      // weight -> goal -> goal weight -> plan style -> adaptive -> advanced -> summary
-      await next(tester, 6);
+      // weight -> goal -> goal weight -> pace -> plan style -> adaptive ->
+      // advanced -> summary
+      await next(tester, 7);
       expect(visible(SummaryPage), findsOneWidget);
 
       final expected = plan(tdee: 2450);
-      expect(find.text('Your Targets'), findsOneWidget);
+      expect(find.text('YOUR TARGETS'), findsOneWidget);
       expect(find.text('2,451 → ${NumberFormat('#,###').format(expected['target_calories'])} cals'),
           findsOneWidget);
       expect(find.text('112 → ${expected['protein_g']} g'), findsOneWidget);
@@ -175,12 +177,12 @@ void main() {
       expect(
           find.text('Using your learned expenditure (2,450 cals) instead of an activity estimate.'),
           findsOneWidget);
-      expect(find.text('Activity Level'), findsNothing);
+      expect(find.text('Activity'), findsNothing);
     });
 
     testWidgets('saving plans from the estimate and never resets learning', (tester) async {
       await open(tester);
-      await next(tester, 6);
+      await next(tester, 7);
       final saved = await saveFromSummary(tester);
 
       final expected = plan(tdee: 2450);
@@ -198,7 +200,7 @@ void main() {
     testWidgets('turning adaptive off goes back to the formula and the activity level',
         (tester) async {
       await open(tester);
-      await next(tester, 4);
+      await next(tester, 5);
       expect(visible(AdaptivePage), findsOneWidget);
       tester.widget<AdaptivePage>(find.byType(AdaptivePage)).onChanged(false);
       await pumpFrames(tester, seconds: 1);
@@ -206,7 +208,7 @@ void main() {
       expect(visible(SummaryPage), findsOneWidget);
       expect(find.textContaining('learned expenditure'), findsNothing);
       // Activity was passed while adaptive was on; it can be edited here.
-      expect(find.text('Activity Level'), findsOneWidget);
+      expect(find.text('Activity'), findsOneWidget);
 
       final saved = await saveFromSummary(tester);
       final formula = plan();
@@ -223,10 +225,10 @@ void main() {
       await open(tester, state: state);
       await next(tester);
       expect(visible(ActivityLevelPage), findsOneWidget);
-      await next(tester, 6);
+      await next(tester, 7);
       expect(visible(SummaryPage), findsOneWidget);
       expect(find.textContaining('learned expenditure'), findsNothing);
-      expect(find.text('Activity Level'), findsOneWidget);
+      expect(find.text('Activity'), findsOneWidget);
 
       final saved = await saveFromSummary(tester);
       expect(saved['tdee'], isNot(2450));
@@ -255,7 +257,7 @@ void main() {
       await tester.tap(find.text('Use 81.9 kg (your trend)'));
       await pumpFrames(tester, seconds: 1);
       expect(visible(GoalPage), findsOneWidget);
-      await next(tester, 5);
+      await next(tester, 6);
       final saved = await saveFromSummary(tester);
       expect(saved['current_weight_kg'], 81.9);
     });
@@ -307,7 +309,7 @@ void main() {
       goalsProvider: goals,
     ));
     await pumpFrames(tester, seconds: 1);
-    expect(find.text('Your Targets'), findsNothing);
-    expect(find.text('Activity Level'), findsOneWidget);
+    expect(find.text('YOUR TARGETS'), findsNothing);
+    expect(find.text('Activity'), findsOneWidget);
   });
 }

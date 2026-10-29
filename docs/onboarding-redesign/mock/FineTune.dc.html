@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quiz: fine-tune (detailed mode)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.08s}.d2{animation-delay:.16s}.d3{animation-delay:.24s}
+.step{width:40px;height:40px;border-radius:20px;border:1px solid #2A302C;background:#1D221F;color:#F4F6F4;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.seg{flex:1;height:40px;border-radius:12px;border:0;cursor:pointer;font:600 14px Inter,sans-serif}
+.fill{transition:width .3s cubic-bezier(.2,.8,.2,1)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 14px; height: 44px">
+    <a href="Adaptive.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; background: #151917; display: flex; align-items: center; justify-content: center; color: #F4F6F4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; display: flex; gap: 6px" aria-label="Optional step">
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #57D883"></div>
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #57D883"></div>
+      <div style="flex: 2; height: 6px; border-radius: 3px; background: #2A302C; overflow: hidden"><div style="width: 55%; height: 6px; background: #57D883; border-radius: 3px"></div></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #2A302C"></div>
+    </div>
+    <a href="Health.dc.html" style="display: flex; align-items: center; height: 44px; color: #A3ADA6; font: 500 15px Inter, sans-serif; text-decoration: none">Skip</a>
+  </div>
+
+  <p class="rise" style="margin: 24px 0 0; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #57D883">OPTIONAL · DETAILED STATS ON</p>
+  <h1 class="rise d1" style="margin: 10px 0 0; font: 600 30px/1.12 Onest, sans-serif; letter-spacing: -1px">Fine-tune your macros</h1>
+  <p class="rise d1" style="margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: #A3ADA6">The recommended settings suit most people. Change them only if you know what you want.</p>
+
+  <div class="rise d2" style="margin-top: 18px; padding: 16px; border-radius: 20px; background: #151917">
+    <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font: 600 15px Onest, sans-serif">Body fat</span><span style="font-size: 13px; color: #A3ADA6">{{bfLabel}}</span></div>
+    <div style="display: flex; gap: 6px; margin-top: 10px; padding: 3px; border-radius: 14px; background: #0C0E0D">
+      <button class="seg" onClick="{{bfSkip}}" style="background: {{skipBg}}; color: {{skipFg}}">Skip</button>
+      <button class="seg" onClick="{{bfEnter}}" style="background: {{enterBg}}; color: {{enterFg}}">From a scan</button>
+    </div>
+    <sc-if value="{{bfOn}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px">
+        <button class="step" onClick="{{bfDown}}" aria-label="Less body fat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+        <div style="flex-grow: 1; height: 8px; border-radius: 4px; background: #1D221F"><div class="fill" style="width: {{bfPct}}%; height: 8px; border-radius: 4px; background: #F4F6F4"></div></div>
+        <button class="step" onClick="{{bfUp}}" aria-label="More body fat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button>
+      </div>
+    </sc-if>
+    <div style="margin-top: 10px; font-size: 12px; line-height: 1.45; color: #7C8680">Only from a DEXA scan or smart scale. Guesses by eye are often 5% off.</div>
+  </div>
+
+  <div class="rise d3" style="margin-top: 10px; padding: 16px; border-radius: 20px; background: #151917">
+    <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font: 600 15px Onest, sans-serif">Protein</span><span style="font-size: 13px; color: #A3ADA6"><span style="color: #FF6B5E; font-weight: 600">{{protein}} g/kg</span>{{protRec}}</span></div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px">
+      <button class="step" onClick="{{pDown}}" aria-label="Less protein"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+      <div style="flex-grow: 1; height: 8px; border-radius: 4px; background: #1D221F"><div class="fill" style="width: {{pPct}}%; height: 8px; border-radius: 4px; background: #FF6B5E"></div></div>
+      <button class="step" onClick="{{pUp}}" aria-label="More protein"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button>
+    </div>
+    <div style="margin-top: 10px; font-size: 12px; color: #7C8680">1.2–2.6 g per kg. Higher helps keep muscle while losing.</div>
+  </div>
+
+  <div class="rise d3" style="margin-top: 10px; padding: 16px; border-radius: 20px; background: #151917">
+    <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font: 600 15px Onest, sans-serif">Fat</span><span style="font-size: 13px; color: #A3ADA6"><span style="color: #F59E3B; font-weight: 600">{{fat}}%</span> of cals</span></div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px">
+      <button class="step" onClick="{{fDown}}" aria-label="Less fat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+      <div style="flex-grow: 1; height: 8px; border-radius: 4px; background: #1D221F"><div class="fill" style="width: {{fPct}}%; height: 8px; border-radius: 4px; background: #F59E3B"></div></div>
+      <button class="step" onClick="{{fUp}}" aria-label="More fat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button>
+    </div>
+    <div style="margin-top: 10px; font-size: 12px; color: #7C8680">20–40%. Carbs fill whatever is left.</div>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+  <a href="Health.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Continue</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const bfOn = !!s.bfOn;
+    const bf = s.bf || 22;
+    const protein = s.protein != null ? s.protein : 2.0;
+    const fat = s.fat || 25;
+    const r = (v) => Math.round(v * 10) / 10;
+    return {
+      bfOn,
+      bfLabel: bfOn ? bf + '%' : 'Not used',
+      skipBg: bfOn ? 'transparent' : '#F4F6F4', skipFg: bfOn ? '#A3ADA6' : '#0C0E0D',
+      enterBg: bfOn ? '#F4F6F4' : 'transparent', enterFg: bfOn ? '#0C0E0D' : '#A3ADA6',
+      bfSkip: () => this.setState({ bfOn: false }),
+      bfEnter: () => this.setState({ bfOn: true }),
+      bfPct: ((bf - 5) / 45) * 100,
+      bfDown: () => this.setState({ bf: Math.max(5, bf - 1) }),
+      bfUp: () => this.setState({ bf: Math.min(50, bf + 1) }),
+      protein: protein.toFixed(1),
+      protRec: s.protein == null ? ' · recommended' : '',
+      pPct: ((protein - 1.2) / 1.4) * 100,
+      pDown: () => this.setState({ protein: r(Math.max(1.2, protein - 0.1)) }),
+      pUp: () => this.setState({ protein: r(Math.min(2.6, protein + 0.1)) }),
+      fat,
+      fPct: ((fat - 20) / 20) * 100,
+      fDown: () => this.setState({ fat: Math.max(20, fat - 1) }),
+      fUp: () => this.setState({ fat: Math.min(40, fat + 1) }),
+    };
+  }
+}
+</script>
+</body>
+</html>

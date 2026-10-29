@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:macrotracker/Health/Health.dart';
-import 'package:macrotracker/theme/app_theme.dart';
-import 'package:macrotracker/theme/typography.dart';
+import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/storage_service.dart';
+import 'package:macrotracker/theme/ob_theme.dart';
+import 'package:macrotracker/widgets/brand/mb_logo.dart';
 
+/// Primer shown before the iOS Health sheet. "Connect" opens the real
+/// permission; "Not now" skips without using up the one-time iOS prompt.
+/// Has its own buttons, so the onboarding shell hides its Continue here.
 class AppleHealthPage extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onSkip;
@@ -15,465 +18,306 @@ class AppleHealthPage extends StatelessWidget {
     required this.onSkip,
   });
 
-  Future<void> _handleConnect(BuildContext context) async {
-    final healthService = HealthService();
-    // Captured before the permission prompt; the page may rebuild meanwhile.
-    final messenger = ScaffoldMessenger.of(context);
+  Future<void> _handleConnect() async {
     try {
-      bool granted = await healthService.requestPermissions();
+      final granted = await HealthService().requestPermissions();
       StorageService().put('healthConnected', granted);
-      if (granted) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Successfully connected to Health')),
-        );
-      } else {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Health permissions were not granted')),
-        );
-      }
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Error connecting to Health: ${e.toString()}')),
-      );
+    } catch (_) {
+      // Carry on either way; Settings can connect it later.
     } finally {
-      // Proceed to the next step regardless of connection success/failure for now
-      // as per the original logic. Consider refining this based on UX requirements.
       onNext();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final customColors = theme.extension<CustomColors>();
-
-    return Scaffold(
-      // Assuming AppBar with back button and progress is handled by the parent OnboardingScreen
-      backgroundColor:
-          Theme.of(context).scaffoldBackgroundColor, // Use theme background
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+    final c = ObColors.of(context);
+    return Column(
+      children: [
+        Expanded(
+          child: ObPageBody(
+            top: 28,
+            children: [
+              ObRise(
+                child: Semantics(
+                  label: 'Apple Health and MacroBalance syncing both ways',
+                  child: const ExcludeSemantics(child: _SyncIllustration()),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const ObHeader(
+                title: 'Let your steps and burn count.',
+                subtitle:
+                    'Connecting Apple Health lets your plan learn faster, and puts your activity right next to your food.',
+              ),
+              const SizedBox(height: 22),
+              ObRise(
+                index: 2,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: ColoredBox(
+                    color: c.surface,
+                    child: Column(
+                      children: [
+                        _Row(label: 'We read', color: c.text2, text: 'Weight · Height · Steps · Active and resting energy'),
+                        Divider(height: 1, thickness: 1, color: c.raised),
+                        _Row(label: 'We save', color: c.leafText, text: 'Your meals and macros'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              ObRise(
+                index: 3,
+                child: Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(text: 'Next, iOS asks what to share. Choose '),
+                    TextSpan(text: 'Turn On All', style: TextStyle(color: c.text)),
+                    const TextSpan(
+                        text: ' for the best estimate. You can change it any time in Settings.'),
+                  ]),
+                  style: ObText.body(c.muted, size: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Spacer(flex: 2), // Add more space at the top
-              _buildIllustration(context, theme, customColors),
-              const Spacer(flex: 3), // Add more space below illustration
-              _buildContent(theme, customColors),
-              const Spacer(flex: 1), // Space before buttons
-              _buildButtons(context, theme, customColors),
-              const SizedBox(height: 24), // Bottom padding
+              ObPrimaryButton(label: 'Connect Apple Health', onPressed: _handleConnect),
+              const SizedBox(height: 6),
+              ObTextButton(label: 'Not now', onPressed: onSkip),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildContent(ThemeData theme, CustomColors? customColors) {
-    return Column(
-      children: [
-        Text(
-          'Connect to\nApple Health', // Use newline for two lines
-          style: AppTypography.onboardingTitle.copyWith(
-            // Use onboardingTitle style
-            color: customColors?.textPrimary ?? theme.colorScheme.onBackground,
-            fontWeight: FontWeight.bold, // Make it bold
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        Text(
-          // Using original text, as "Cal AI" seems like a placeholder in the image
-          'Sync your daily activity between MacroBalance and the Health app to have the most thorough data.',
-          style: AppTypography.body1.copyWith(
-            color: customColors?.textSecondary ??
-                theme.colorScheme.onSurfaceVariant,
-          ),
-          textAlign: TextAlign.center,
-        ),
       ],
-    );
-  }
-
-  Widget _buildButtons(
-      BuildContext context, ThemeData theme, CustomColors? customColors) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton(
-          onPressed: () => _handleConnect(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor:
-                theme.colorScheme.primary, // Use theme primary color
-            foregroundColor:
-                theme.colorScheme.onPrimary, // Use theme onPrimary color
-            padding:
-                const EdgeInsets.symmetric(vertical: 18), // Slightly taller
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30.0), // Fully rounded
-            ),
-            elevation: 0, // No shadow
-          ),
-          // Changed text to "Continue"
-          child: Text('Continue',
-              style: AppTypography.onboardingButton.copyWith(
-                  fontWeight: FontWeight.bold)), // Use onboardingButton style
-        ),
-        const SizedBox(height: 16), // Increased spacing
-        TextButton(
-          onPressed: onSkip,
-          style: TextButton.styleFrom(
-            foregroundColor:
-                customColors?.textSecondary ?? theme.colorScheme.secondary,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              // Ensure consistent tap area
-              borderRadius: BorderRadius.circular(30.0),
-            ),
-          ),
-          child: Text(
-            'Not now',
-            style: AppTypography.onboardingButton.copyWith(
-              // Use onboardingButton style
-              color: customColors?.textSecondary ?? theme.colorScheme.secondary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildIllustration(
-      BuildContext context, ThemeData theme, CustomColors? customColors) {
-    final size = MediaQuery.of(context).size;
-    // Estimate height based on image proportions, adjust as needed
-    final illustrationHeight = size.height * 0.25;
-    final illustrationWidth = size.width * 0.8; // Keep similar width
-
-    return Container(
-      height: illustrationHeight,
-      width: double.infinity, // Take full width for centering
-      child: Center(
-        child: SizedBox(
-          width: illustrationWidth,
-          height: illustrationHeight,
-          child: Stack(
-            alignment: Alignment.center, // Center stack children
-            children: [
-              // Faint background circle
-              Container(
-                width: illustrationWidth * 0.9, // Slightly smaller than stack
-                height: illustrationHeight,
-                decoration: BoxDecoration(
-                  color: (theme.colorScheme.surface)
-                      .withOpacity(0.05), // Use theme surface color
-                  shape: BoxShape.circle,
-                ),
-              ),
-
-              // Connection lines
-              CustomPaint(
-                painter: _HealthConnectionsPainter(
-                  theme: theme,
-                  customColors: customColors,
-                  // Pass relative positions for icons - Adjusted for better visual balance
-                  heartPos: const Offset(-0.35, 0.25), // Slightly lower-left
-                  checkPos: const Offset(0.0, -0.05), // Slightly lower center
-                  applePos: const Offset(0.35, -0.15), // Slightly lower right
-                ),
-                size: Size(illustrationWidth, illustrationHeight),
-              ),
-
-              // Health App Icon (left) - Adjusted position
-              Positioned(
-                left: illustrationWidth * 0.02, // Further left
-                top: illustrationHeight * 0.55, // Slightly lower
-                child: _HealthIcon(
-                  icon: Icons.favorite,
-                  color: Colors.redAccent,
-                  backgroundColor: Colors.white,
-                  size: 35, // Slightly larger
-                ),
-              ),
-
-              // Checkmark Icon (middle) - Adjusted position
-              Positioned(
-                // Centered horizontally, slightly above vertical center
-                left: illustrationWidth * 0.42, // Slightly right
-                top: illustrationHeight * 0.30, // Slightly lower
-                child: _HealthIcon(
-                  icon: Icons.check_circle,
-                  // Use theme primary color for consistency
-                  color: theme.colorScheme.primary,
-                  backgroundColor: Colors.transparent,
-                  showContainer: false,
-                  size: 32,
-                ),
-              ),
-
-              // Apple icon (right) - Adjusted position
-              Positioned(
-                right: illustrationWidth * 0.02, // Slightly more inset
-                top: illustrationHeight * 0.15, // Slightly lower
-                child: _AppleIcon(
-                  customColors: customColors,
-                  size: 35, // Slightly larger
-                ),
-              ),
-
-              // Activity bubbles - Adjusted positions for better visual balance
-              Positioned(
-                left: illustrationWidth * 0.0, // Keep left
-                top: illustrationHeight * 0.1, // Slightly higher
-                child: _ActivityBubble(
-                    text: 'Walking', theme: theme, customColors: customColors),
-              ),
-              Positioned(
-                left: illustrationWidth * 0.03, // Slightly inset
-                top: illustrationHeight * 0.35, // Slightly higher
-                child: _ActivityBubble(
-                    text: 'Running', theme: theme, customColors: customColors),
-              ),
-              Positioned(
-                right: illustrationWidth * 0.08, // Slightly inset
-                top: illustrationHeight * 0.40, // Slightly lower
-                child: _ActivityBubble(
-                    text: 'Yoga', theme: theme, customColors: customColors),
-              ),
-              Positioned(
-                right: illustrationWidth * 0.05, // Keep right
-                top: illustrationHeight * 0.65, // Slightly higher
-                child: _ActivityBubble(
-                    text: 'Sleep', theme: theme, customColors: customColors),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
 
-// --- Helper Widgets (Modified) ---
+class _Row extends StatelessWidget {
+  const _Row({required this.label, required this.color, required this.text});
 
-class _HealthIcon extends StatelessWidget {
-  final IconData icon;
+  final String label;
   final Color color;
-  final Color backgroundColor;
-  final bool showContainer;
-  final double size;
-
-  const _HealthIcon({
-    required this.icon,
-    required this.color,
-    required this.backgroundColor,
-    this.showContainer = true,
-    this.size = 30,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final iconWidget = Icon(icon, color: color, size: size);
-
-    if (!showContainer) return iconWidget;
-
-    // Match the image style: white container, rounded corners, subtle shadow
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: backgroundColor, // Should be white for Health icon
-        borderRadius: BorderRadius.circular(15), // Rounded corners
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05), // Softer shadow
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: iconWidget,
-    );
-  }
-}
-
-class _AppleIcon extends StatelessWidget {
-  final CustomColors? customColors;
-  final double size;
-
-  const _AppleIcon({this.customColors, this.size = 30});
-
-  @override
-  Widget build(BuildContext context) {
-    // Match the image style: dark container, white logo
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        // Use a dark color, preferably from theme if available, else fallback
-        color: Theme.of(context).colorScheme.primary, // Get theme from context
-        borderRadius: BorderRadius.circular(15), // Rounded corners
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1), // Slightly darker shadow
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: SvgPicture.asset(
-        'assets/icons/Apple logo.svg', // Ensure this path is correct
-        height: size,
-        width: size,
-        colorFilter: const ColorFilter.mode(
-          Colors.white, // White logo
-          BlendMode.srcIn,
-        ),
-      ),
-    );
-  }
-}
-
-class _ActivityBubble extends StatelessWidget {
   final String text;
-  final ThemeData theme;
-  final CustomColors? customColors;
-
-  const _ActivityBubble({
-    required this.text,
-    required this.theme,
-    required this.customColors,
-  });
 
   @override
   Widget build(BuildContext context) {
-    // Match image style: white background, rounded, subtle shadow
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: customColors?.cardBackground ??
-            theme.colorScheme.surface, // White/Surface background
-        borderRadius: BorderRadius.circular(20), // Pill shape
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05), // Softer shadow
-            spreadRadius: 0,
-            blurRadius: 6,
-            offset: const Offset(0, 1),
+    final c = ObColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 64,
+            child: Text(label.toUpperCase(),
+                style: ObText.body(color, size: 12, weight: FontWeight.w600)),
           ),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: ObText.body(c.text))),
         ],
-      ),
-      child: Text(
-        text,
-        style: AppTypography.body2.copyWith(
-          color: customColors?.textPrimary ?? theme.colorScheme.onSurface,
-          fontWeight: FontWeight.w500, // Slightly bolder
-        ),
       ),
     );
   }
 }
 
-// --- Custom Painter (Modified) ---
+/// Health tile on the left, the MacroBalance tile on the right, two lanes
+/// between them. Dots travel only across the gap and fade before either
+/// tile.
+class _SyncIllustration extends StatefulWidget {
+  const _SyncIllustration();
 
-class _HealthConnectionsPainter extends CustomPainter {
-  final ThemeData theme;
-  final CustomColors? customColors;
-  final Offset heartPos; // Relative position (-0.5 to 0.5) - Corrected typo
-  final Offset checkPos; // Relative position
-  final Offset applePos; // Relative position
+  @override
+  State<_SyncIllustration> createState() => _SyncIllustrationState();
+}
 
-  _HealthConnectionsPainter({
-    required this.theme,
-    required this.customColors,
-    required this.heartPos,
-    required this.checkPos,
-    required this.applePos,
-  });
+class _SyncIllustrationState extends State<_SyncIllustration>
+    with SingleTickerProviderStateMixin {
+  // One cycle of the dots, glow and heartbeat.
+  late final AnimationController _ctl =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 4800));
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (!MediaQuery.of(context).disableAnimations) _ctl.repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ObColors.of(context);
+    return SizedBox(
+      height: 140,
+      child: LayoutBuilder(builder: (context, box) {
+        final w = box.maxWidth;
+        const tile = 84.0;
+        const inset = 8.0;
+        const laneLeft = inset + tile + 8;
+        final laneW = w - 2 * laneLeft;
+        final travel = laneW - 24;
+        return AnimatedBuilder(
+          animation: _ctl,
+          builder: (context, _) {
+            // 2.4 s dot loop, 1.6 s heartbeat, 2.4 s glow, as in the mock.
+            final t = _ctl.value * 4800;
+            final loop = (t % 2400) / 2400;
+            final glow = (1 - (2 * ((t % 2400) / 2400) - 1).abs());
+            final beat = _beat((t % 1600) / 1600);
+            final still = MediaQuery.of(context).disableAnimations;
+            return Stack(
+              children: [
+                Positioned(
+                  left: inset,
+                  top: 20,
+                  child: Container(
+                    width: tile,
+                    height: tile,
+                    decoration: BoxDecoration(
+                      color: c.isDark ? c.text : c.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: c.isDark ? null : Border.all(color: c.line),
+                    ),
+                    alignment: Alignment.center,
+                    child: Transform.scale(
+                      scale: still ? 1 : beat,
+                      child: Icon(Icons.favorite_rounded, size: 46, color: c.protein),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: inset,
+                  top: 20,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(tile * 0.28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: c.leaf.withValues(alpha: still ? 0 : 0.14 * glow),
+                          spreadRadius: 6 * glow,
+                        ),
+                      ],
+                    ),
+                    child: const MbLogoTile(size: tile),
+                  ),
+                ),
+                Positioned(
+                  left: laneLeft,
+                  top: 24,
+                  child: CustomPaint(
+                    size: Size(laneW, 76),
+                    painter: _LanePainter(
+                      phase: still ? 0 : (t % 800) / 800,
+                      top: c.muted.withValues(alpha: 0.5),
+                      bottom: c.leaf.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: laneLeft,
+                  width: laneW,
+                  top: 22,
+                  child: Text('Steps, weight, burn',
+                      textAlign: TextAlign.center,
+                      style: ObText.body(c.text2, size: 11, weight: FontWeight.w500)
+                          .copyWith(height: 1.2)),
+                ),
+                Positioned(
+                  left: laneLeft,
+                  width: laneW,
+                  top: 86,
+                  child: Text('Meals and macros',
+                      textAlign: TextAlign.center,
+                      style: ObText.body(c.leafText, size: 11, weight: FontWeight.w500)
+                          .copyWith(height: 1.2)),
+                ),
+                if (!still)
+                  for (var k = 0; k < 3; k++) ...[
+                    _dot(c.text, laneLeft + 4, 45, travel, (loop + k / 3) % 1, 1),
+                    _dot(c.leaf, laneLeft + laneW - 14, 69, travel, (loop + k / 3) % 1, -1),
+                  ],
+              ],
+            );
+          },
+        );
+      }),
+    );
+  }
+
+  /// A dot at lane position [p] (0..1), fading in over the first 20% and out
+  /// over the last 20% of its trip, moving [dir] (1 right, -1 left).
+  Widget _dot(Color color, double x, double y, double travel, double p, int dir) {
+    final e = Curves.easeInOut.transform(p);
+    final o = p < 0.2 ? p / 0.2 : (p > 0.8 ? (1 - p) / 0.2 : 1.0);
+    return Positioned(
+      left: x + dir * travel * e,
+      top: y,
+      child: Opacity(
+        opacity: o.clamp(0.0, 1.0),
+        child: Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+      ),
+    );
+  }
+
+  /// The mock's beat keyframes: 1 -> 1.12 -> 1 -> 1.08 -> 1 over 45%.
+  static double _beat(double p) {
+    double ease(double a, double b, double t) =>
+        a + (b - a) * Curves.easeInOut.transform(t.clamp(0.0, 1.0));
+    if (p < 0.15) return ease(1, 1.12, p / 0.15);
+    if (p < 0.30) return ease(1.12, 1, (p - 0.15) / 0.15);
+    if (p < 0.45) return ease(1, 1.08, (p - 0.30) / 0.15);
+    if (p < 0.6) return ease(1.08, 1, (p - 0.45) / 0.15);
+    return 1;
+  }
+}
+
+/// Two dotted lanes whose dashes drift in opposite directions.
+class _LanePainter extends CustomPainter {
+  _LanePainter({required this.phase, required this.top, required this.bottom});
+
+  final double phase;
+  final Color top;
+  final Color bottom;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      // Use a darker grey or primary color variant
-      // Use textSecondary from theme for connection lines
-      ..color = (customColors?.textSecondary ?? theme.colorScheme.outline)
-          .withOpacity(0.8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5 // Slightly thinner to match image better
-      ..strokeCap = StrokeCap.round;
+    void lane(double y, Color color, double dir) {
+      final paint = Paint()
+        ..color = color
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      // Dash 2, gap 6: a period of 8 that shifts by one period per cycle.
+      final shift = dir * phase * 8;
+      for (var x = -8 + (shift % 8); x < size.width; x += 8) {
+        final a = x.clamp(0.0, size.width);
+        final b = (x + 2).clamp(0.0, size.width);
+        if (b > a) canvas.drawLine(Offset(a, y), Offset(b, y), paint);
+      }
+    }
 
-    // Calculate absolute positions based on size and relative offsets
-    // Center is (size.width / 2, size.height / 2)
-    Offset absHeartPos = Offset(
-      size.width / 2 + heartPos.dx * size.width,
-      size.height / 2 + heartPos.dy * size.height,
-    );
-    Offset absCheckPos = Offset(
-      size.width / 2 + checkPos.dx * size.width,
-      size.height / 2 + checkPos.dy * size.height,
-    );
-    Offset absApplePos = Offset(
-      size.width / 2 + applePos.dx * size.width,
-      size.height / 2 + applePos.dy * size.height,
-    );
-
-    // Adjust connection points to be closer to the icon centers
-    // These are estimations, might need fine-tuning
-    Offset heartExit = absHeartPos + const Offset(30, 0); // Exit right
-    Offset checkEntryHeart =
-        absCheckPos + const Offset(-15, 15); // Enter bottom-left
-    Offset checkExitApple =
-        absCheckPos + const Offset(15, -15); // Exit top-right
-    Offset appleEntry =
-        absApplePos + const Offset(-25, 10); // Enter left-bottom
-
-    // Heart to Check connection (Curve downwards)
-    _drawCurvedLine(
-      canvas,
-      paint,
-      heartExit,
-      checkEntryHeart,
-      controlPointOffset: const Offset(0, 30), // Curve downwards
-    );
-
-    // Check to Apple connection (Curve upwards)
-    _drawCurvedLine(
-      canvas,
-      paint,
-      checkExitApple,
-      appleEntry,
-      controlPointOffset: const Offset(0, -30), // Curve upwards
-    );
-  }
-
-  void _drawCurvedLine(Canvas canvas, Paint paint, Offset start, Offset end,
-      {Offset controlPointOffset = const Offset(0, -20)}) {
-    final path = Path();
-    path.moveTo(start.dx, start.dy);
-    // Calculate control point relative to the midpoint
-    final midX = (start.dx + end.dx) / 2;
-    final midY = (start.dy + end.dy) / 2;
-    final controlX = midX + controlPointOffset.dx;
-    final controlY = midY + controlPointOffset.dy;
-
-    path.quadraticBezierTo(
-      controlX,
-      controlY,
-      end.dx,
-      end.dy,
-    );
-    canvas.drawPath(path, paint);
+    lane(26, top, 1);
+    lane(50, bottom, -1);
   }
 
   @override
-  bool shouldRepaint(covariant _HealthConnectionsPainter oldDelegate) {
-    return oldDelegate.theme != theme ||
-        oldDelegate.customColors != customColors ||
-        oldDelegate.heartPos != heartPos ||
-        oldDelegate.checkPos != checkPos ||
-        oldDelegate.applePos != applePos;
-  }
+  bool shouldRepaint(_LanePainter old) =>
+      old.phase != phase || old.top != top || old.bottom != bottom;
 }

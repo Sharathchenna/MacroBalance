@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quiz: activity</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.08s}.d2{animation-delay:.16s}
+.opt{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;box-sizing:border-box;padding:12px 14px;border-radius:20px;cursor:pointer;text-align:left;font-family:Inter,sans-serif;color:#F4F6F4;transition:background .2s,border-color .2s}
+@keyframes lift{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.6)}}
+.bar{transform-origin:bottom;transition:background .2s}
+.live .bar{animation:lift .9s ease-in-out infinite}
+.live .b2{animation-delay:.1s}.live .b3{animation-delay:.2s}.live .b4{animation-delay:.3s}.live .b5{animation-delay:.4s}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 14px; height: 44px">
+    <a href="Weight.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; background: #151917; display: flex; align-items: center; justify-content: center; color: #F4F6F4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; display: flex; gap: 6px" aria-label="Step 4 of 10">
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #57D883"></div>
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #2A302C; overflow: hidden"><div style="width: 10%; height: 6px; background: #57D883; border-radius: 3px"></div></div>
+      <div style="flex: 2; height: 6px; border-radius: 3px; background: #2A302C"></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #2A302C"></div>
+    </div>
+  </div>
+
+  <p class="rise" style="margin: 26px 0 0; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #57D883">ABOUT YOU</p>
+  <h1 class="rise d1" style="margin: 10px 0 0; font: 600 32px/1.12 Onest, sans-serif; letter-spacing: -1px">How active is a normal week?</h1>
+  <p class="rise d1" style="margin: 10px 0 0; font-size: 15px; line-height: 1.5; color: #A3ADA6">Your best guess is fine. Once you log for a while, your real burn replaces it.</p>
+
+  <div class="rise d2" style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px">
+    <sc-for list="{{levels}}" as="l" hint-placeholder-count="5">
+      <button class="opt" onClick="{{l.pick}}" aria-pressed="{{l.on}}" style="background: {{l.bg}}; border: 2px solid {{l.border}}">
+        <div class="{{l.live}}" style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 13px; background: #1D221F; display: flex; align-items: flex-end; justify-content: center; gap: 3px; padding-bottom: 10px; box-sizing: border-box" aria-hidden="true">
+          <div class="bar" style="width: 4px; height: 6px; border-radius: 2px; background: {{l.c1}}"></div>
+          <div class="bar b2" style="width: 4px; height: 10px; border-radius: 2px; background: {{l.c2}}"></div>
+          <div class="bar b3" style="width: 4px; height: 14px; border-radius: 2px; background: {{l.c3}}"></div>
+          <div class="bar b4" style="width: 4px; height: 18px; border-radius: 2px; background: {{l.c4}}"></div>
+          <div class="bar b5" style="width: 4px; height: 22px; border-radius: 2px; background: {{l.c5}}"></div>
+        </div>
+        <div style="flex-grow: 1">
+          <div style="font: 600 16px Onest, sans-serif">{{l.title}}</div>
+          <div style="font-size: 13px; color: #A3ADA6; margin-top: 2px">{{l.desc}}</div>
+        </div>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+  <a href="GoalWeight.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Continue</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const picked = this.state && this.state.level != null ? this.state.level : 3;
+    const defs = [
+      ['Sedentary', 'Little or no exercise, desk job'],
+      ['Lightly active', 'Light exercise 1–3 days a week'],
+      ['Moderately active', 'Moderate exercise 3–5 days a week'],
+      ['Very active', 'Hard exercise 6–7 days a week'],
+      ['Extra active', 'Physical job, or training twice a day'],
+    ];
+    const levels = defs.map(([title, desc], i) => {
+      const n = i + 1, on = n === picked;
+      const col = (k) => (k <= n ? (on ? '#57D883' : '#7C8680') : '#2A302C');
+      return {
+        title, desc, on,
+        live: on ? 'live' : '',
+        bg: on ? 'rgba(87,216,131,.08)' : '#151917',
+        border: on ? '#57D883' : '#2A302C',
+        c1: col(1), c2: col(2), c3: col(3), c4: col(4), c5: col(5),
+        pick: () => this.setState({ level: n }),
+      };
+    });
+    return { levels };
+  }
+}
+</script>
+</body>
+</html>

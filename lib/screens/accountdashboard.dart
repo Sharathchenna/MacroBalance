@@ -28,7 +28,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/services/weight_sync_service.dart';
-import 'package:macrotracker/screens/welcomescreen.dart';
+import 'package:macrotracker/screens/intro/hello_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/screens/setting_screens/health_integration_screen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
@@ -278,7 +278,7 @@ class _AccountDashboardState extends State<AccountDashboard>
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
-            CupertinoPageRoute(builder: (context) => const Welcomescreen()));
+            CupertinoPageRoute(builder: (context) => const HelloScreen()));
       }
     } catch (e) {
       if (mounted) {

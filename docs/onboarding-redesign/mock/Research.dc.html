@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Competitor research</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+.card{box-sizing:border-box;padding:24px;border-radius:24px;background:#151917;border:1px solid #2A302C}
+.lbl{margin:0 0 14px;font:600 12px Inter,sans-serif;letter-spacing:1.6px;color:#57D883}
+table{border-collapse:collapse;width:100%;min-width:980px}
+th{text-align:left;font:600 12px Inter,sans-serif;letter-spacing:.8px;color:#A3ADA6;padding:12px 14px;border-bottom:1px solid #2A302C;vertical-align:bottom}
+td{font-size:14px;line-height:1.5;color:#C9D0CB;padding:14px;border-bottom:1px solid #1D221F;vertical-align:top}
+td:first-child{font:600 15px Onest,sans-serif;color:#F4F6F4;white-space:nowrap}
+td.take{color:#57D883}
+.stat{flex:1 1 220px;min-width:0}
+.big{font:600 40px/1 Onest,sans-serif;letter-spacing:-1.4px}
+li{margin:0 0 10px;line-height:1.55}
+</style>
+</helmet>
+<div style="box-sizing: border-box; min-height: 2400px; padding: 64px 24px 80px; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif">
+<div style="max-width: 1180px; margin: 0 auto">
+  <p class="lbl">RESEARCH · OCTOBER 2026</p>
+  <h1 style="margin: 0; font: 600 48px/1.05 Onest, sans-serif; letter-spacing: -1.8px">How the category onboards, and what we take.</h1>
+  <p style="margin: 14px 0 0; max-width: 800px; font-size: 17px; line-height: 1.55; color: #A3ADA6">Teardowns of Cal AI, MacroFactor, Noom, Lifesum and Duolingo, plus subscription benchmarks. Most numbers come from vendor blogs and third-party teardowns rather than the companies, so treat them as direction, not proof.</p>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 36px">
+    <div class="card stat"><div class="big">~82%</div><div style="margin-top: 10px; font-size: 14px; line-height: 1.5; color: #A3ADA6">of health and fitness trials start on install day. Onboarding is the conversion window.</div><div style="margin-top: 8px; font-size: 12px; color: #7C8680">RevenueCat 2026, via secondary summary</div></div>
+    <div class="card stat"><div class="big">42.5%</div><div style="margin-top: 10px; font-size: 14px; line-height: 1.5; color: #A3ADA6">median trial-to-paid for 17–32 day trials, against 25.5% for trials of 4 days or less.</div><div style="margin-top: 8px; font-size: 12px; color: #7C8680">RevenueCat 2026, via secondary summary</div></div>
+    <div class="card stat"><div class="big">~61%</div><div style="margin-top: 10px; font-size: 14px; line-height: 1.5; color: #A3ADA6">of health and fitness revenue is annual, the one category where yearly still dominates.</div><div style="margin-top: 8px; font-size: 12px; color: #7C8680">RevenueCat 2026, via secondary summary</div></div>
+    <div class="card stat"><div class="big">61</div><div style="margin-top: 10px; font-size: 14px; line-height: 1.5; color: #A3ADA6">paywall experiments Cal AI ran on layout, offer framing and pricing display.</div><div style="margin-top: 8px; font-size: 12px; color: #7C8680">Superwall case study (vendor)</div></div>
+  </div>
+
+  <div class="card" style="margin-top: 16px">
+    <p class="lbl">THE CATEGORY, SIDE BY SIDE</p>
+    <div style="overflow-x: auto">
+      <table>
+        <thead><tr><th>App</th><th>First screen</th><th>Length</th><th>Signature moves</th><th>Paywall</th><th>What we take</th></tr></thead>
+        <tbody>
+          <tr><td>Cal AI</td><td>Animated phone scanning a meal, “Calorie tracking made easy”</td><td>~29 screens, 16 questions</td><td>Chart of “with Cal AI vs without a plan” right after “tried other apps?”. A primer before every iOS permission. A 0–95% loader naming formula steps.</td><td>After plan reveal and account. Three steps: “try free”, a trial-reminder promise, then a 3-day trial with yearly preselected.</td><td class="take">Show the product first. Plan before account. Promise the reminder.</td></tr>
+          <tr><td>MacroFactor</td><td>Credibility-led and expert in tone</td><td>~47 steps</td><td>Starts from a standard TDEE formula and says openly that it may be off, then adapts. Coached vs manual programs.</td><td>Hard paywall with trial. 1, 6 and 12-month plans, with 12 months tagged “Most popular”.</td><td class="take">Honest “starting estimate” framing. Our adaptive engine is the same promise, explained better.</td></tr>
+          <tr><td>Noom</td><td>Psychology-first quiz</td><td>40–110 screens, 10–15 min</td><td>Questions grow more personal over time. Interstitials reply to answers. Sunk-cost by design.</td><td>After the full quiz</td><td class="take">Reply to answers (our screen 09). Skip the 10-minute length.</td></tr>
+          <tr><td>Lifesum</td><td>Goal-first</td><td>~14 steps</td><td>Inputs turn straight into a progress chart toward the target.</td><td>After the custom plan, with an exit-intent offer</td><td class="take">Live projection on goal weight and pace (screens 06, 07).</td></tr>
+          <tr><td>Duolingo</td><td>A lesson before any account</td><td>A few taps to value</td><td>Delayed sign-up. Permission prompts held until there is context.</td><td>Not the model here</td><td class="take">No account wall on first launch.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px">
+    <div class="card" style="flex: 1 1 520px; min-width: 0">
+      <p class="lbl" style="color: #FF8F84">MACROBALANCE TODAY</p>
+      <ol style="margin: 0; padding-left: 20px; color: #C9D0CB; font-size: 15px">
+        <li><span style="color: #F4F6F4">Sign In / Create Account is the first screen.</span> A static list of three features, with nothing to try.</li>
+        <li>Account and sign-up before any value.</li>
+        <li>13 form steps under a thin progress bar and a “Next” button. No step replies to an answer.</li>
+        <li>The Apple Health step asks for permission without a primer, and there is no reminder primer.</li>
+        <li>Results screen, then “How did you hear about us?” (once per device), then the Superwall paywall.</li>
+        <li>The adaptive engine, the app’s biggest differentiator, appears only as a toggle on step 10.</li>
+      </ol>
+    </div>
+    <div class="card" style="flex: 1 1 520px; min-width: 0">
+      <p class="lbl">PROPOSED</p>
+      <ol style="margin: 0; padding-left: 20px; color: #C9D0CB; font-size: 15px">
+        <li><span style="color: #F4F6F4">Hook (3):</span> animated hero, then two auto-playing stories (logging, adaptive burn). Skippable.</li>
+        <li><span style="color: #F4F6F4">Quiz (10):</span> goal → sex, age, height (one screen) → weight → activity → goal weight with live projection → pace with plan style under More options → obstacles (new) → reply (new) → adaptive → fine-tune (detailed mode only). Goal weight and pace are skipped for Maintain, as today.</li>
+        <li><span style="color: #F4F6F4">Earned permissions (2):</span> Apple Health primer, then the new reminder primer, each with “Not now”.</li>
+        <li><span style="color: #F4F6F4">Payoff (3):</span> a loader that names the real steps (with Lottie), the plan reveal, and Review answers (today’s summary, with its edit links).</li>
+        <li><span style="color: #F4F6F4">Ask (3):</span> “Save your plan” (account), then “How did you hear about us?” (same spot as today: after the plan, before the paywall), then the trial paywall with a timeline.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 16px">
+    <p class="lbl">PRINCIPLES BEHIND THE MOCK</p>
+    <div style="display: flex; flex-wrap: wrap; gap: 24px">
+      <div style="flex: 1 1 340px; min-width: 0"><div style="font: 600 17px Onest, sans-serif">Every answer changes something you can see</div><div style="margin-top: 6px; font-size: 14px; line-height: 1.55; color: #A3ADA6">Long quizzes convert only when they feel like building, not filling in a form. Weight moves a ruler, goal weight draws a curve, pace moves a gauge and a date.</div></div>
+      <div style="flex: 1 1 340px; min-width: 0"><div style="font: 600 17px Onest, sans-serif">Sell the differentiator, not the category</div><div style="margin-top: 6px; font-size: 14px; line-height: 1.55; color: #A3ADA6">Every competitor does photo logging. Few explain an adaptive target well. Story 03 and the reply screen make “learns your real burn” the reason to choose us.</div></div>
+      <div style="flex: 1 1 340px; min-width: 0"><div style="font: 600 17px Onest, sans-serif">Honest motion</div><div style="margin-top: 6px; font-size: 14px; line-height: 1.55; color: #A3ADA6">The loader lists the calculation steps the app really runs. No invented user counts or ratings until there are real ones to show.</div></div>
+      <div style="flex: 1 1 340px; min-width: 0"><div style="font: 600 17px Onest, sans-serif">Value before every ask</div><div style="margin-top: 6px; font-size: 14px; line-height: 1.55; color: #A3ADA6">Primers before iOS sheets, the plan before the account, the account before the paywall, and a reminder promise before any price.</div></div>
+      <div style="flex: 1 1 340px; min-width: 0"><div style="font: 600 17px Onest, sans-serif">Store page continuity</div><div style="margin-top: 6px; font-size: 14px; line-height: 1.55; color: #A3ADA6">Onboarding is dark with leaf and sun accents, matching the screenshots that brought people in. The app follows the system theme after.</div></div>
+      <div style="flex: 1 1 340px; min-width: 0"><div style="font: 600 17px Onest, sans-serif">One question, one screen, one thumb</div><div style="margin-top: 6px; font-size: 14px; line-height: 1.55; color: #A3ADA6">The main button is always in the same spot. Progress is grouped into four acts so it feels short, and every step can go back.</div></div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px">
+    <div class="card" style="flex: 1 1 520px; min-width: 0">
+      <p class="lbl">TEST FIRST (SUPERWALL + POSTHOG)</p>
+      <ol style="margin: 0; padding-left: 20px; color: #C9D0CB; font-size: 15px">
+        <li>Account before vs after the plan reveal. This is the biggest structural change.</li>
+        <li>Trial length: 3 vs 7 days. Benchmarks favour longer trials, but Cal AI runs 3.</li>
+        <li>With vs without the obstacles and reply screens.</li>
+        <li>Paywall: timeline vs feature list, and yearly preselected vs not.</li>
+        <li>Stories: auto-advance vs tap-through.</li>
+      </ol>
+    </div>
+    <div class="card" style="flex: 1 1 520px; min-width: 0">
+      <p class="lbl">INSTRUMENT</p>
+      <ul style="margin: 0; padding-left: 20px; color: #C9D0CB; font-size: 15px">
+        <li>Keep every event fired today, unchanged: onboarding_completed, pace_chosen, plan_style_chosen, adaptive_choice_made, acquisition_source_selected, acquisition_source_other_text_changed, acquisition_source_answered, and the welcome_screen / onboarding_screen screen views.</li>
+        <li>New: an <span style="color: #F4F6F4">onboarding_step_viewed</span> event per step, plus time on step and back taps. Events before sign-up are anonymous; the existing identify call at sign-in merges them.</li>
+        <li>Story skip rate and how far people get.</li>
+        <li>Opt-in rate per primer, both “Connect” and “Not now”.</li>
+        <li>Plan edited on the reveal (a sign we don’t trust our own numbers).</li>
+        <li>Account → paywall view → trial start → paid at day 7 or 35.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 16px">
+    <p class="lbl">SOURCES</p>
+    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #A3ADA6">
+      <li><a href="https://asoitis.com/case-studies/cal-ai">ASOitis: Cal AI teardown 2026</a></li>
+      <li><a href="https://superwall.com/case-studies/cal-ai">Superwall: Cal AI case study</a></li>
+      <li><a href="https://founderpath.com/resources/zach-yadegari-cal-ai-onboarding-tests-and-influencer-marketing">Founderpath: Cal AI onboarding tests</a></li>
+      <li><a href="https://screensdesign.com/showcase/macrofactor-macro-tracker">ScreensDesign: MacroFactor flow</a> · <a href="https://www.strongerbyscience.com/welcome-to-macrofactor/">Stronger By Science: Welcome to MacroFactor</a></li>
+      <li><a href="https://www.revenuecat.com/blog/growth/web-to-app-onboarding-funnel">RevenueCat: Noom web-to-app funnel</a> · <a href="https://www.justinmind.com/blog/ux-case-study-of-noom-app-gamification-progressive-disclosure-nudges/">Justinmind: Noom UX case study</a></li>
+      <li><a href="https://screensdesign.com/showcase/lifesum-food-calorie-tracker">ScreensDesign: Lifesum</a></li>
+      <li><a href="https://www.reallygoodux.io/blog/duolingo-user-onboarding">ReallyGoodUX: Duolingo onboarding</a></li>
+      <li><a href="https://www.revenuecat.com/state-of-subscription-apps">RevenueCat: State of Subscription Apps 2026</a> · <a href="https://sahha.ai/blog/health-app-monetization-first-month/">Sahha: health and fitness conversion benchmarks</a></li>
+      <li><a href="https://experiments.lazyweb.com/research/building-your-plan-loading-screen-prevalence">Lazyweb: “building your plan” loader prevalence</a> · <a href="https://superwall.com/solutions/optimize-permission-requests-ask-at-the-right-time-and-you-shall-receive">Superwall: permission priming</a></li>
+    </ul>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2400}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

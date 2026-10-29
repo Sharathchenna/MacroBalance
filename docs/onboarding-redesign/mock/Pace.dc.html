@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quiz: pace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0C0E0D}
+a{color:#57D883}a:hover{color:#8BE8AA}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+.d1{animation-delay:.08s}.d2{animation-delay:.16s}.d3{animation-delay:.24s}
+.scroll{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;margin:0 -24px;padding:0 24px 16px}
+.scroll::-webkit-scrollbar{display:none}
+.row{display:flex;align-items:center;gap:14px;width:100%;box-sizing:border-box;min-height:76px;padding:14px 16px;border-radius:20px;cursor:pointer;text-align:left;font-family:Inter,sans-serif;color:#F4F6F4;transition:background .2s,border-color .2s,transform .15s}
+.row:active{transform:scale(.985)}
+@keyframes open{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.more{animation:open .3s ease-out both}
+@keyframes swap{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.swap{animation:swap .35s cubic-bezier(.2,.8,.2,1) both}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 18px 24px 34px; display: flex; flex-direction: column; background: #0C0E0D; color: #F4F6F4; font-family: Inter, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 14px; height: 44px; flex-shrink: 0">
+    <a href="GoalWeight.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; background: #151917; display: flex; align-items: center; justify-content: center; color: #F4F6F4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <div style="flex-grow: 1; display: flex; gap: 6px" aria-label="Step 6 of 10">
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #57D883"></div>
+      <div style="flex: 3; height: 6px; border-radius: 3px; background: #2A302C; overflow: hidden"><div style="width: 60%; height: 6px; background: #57D883; border-radius: 3px"></div></div>
+      <div style="flex: 2; height: 6px; border-radius: 3px; background: #2A302C"></div>
+      <div style="flex: 1; height: 6px; border-radius: 3px; background: #2A302C"></div>
+    </div>
+  </div>
+
+  <div class="scroll">
+    <p class="rise" style="margin: 28px 0 0; font: 600 12px Inter, sans-serif; letter-spacing: 1.6px; color: #57D883">YOUR PACE</p>
+    <h1 class="rise d1" style="margin: 10px 0 0; font: 600 32px/1.12 Onest, sans-serif; letter-spacing: -1px">How fast do you want to go?</h1>
+    <p class="rise d1" style="margin: 12px 0 0; font-size: 15px; line-height: 1.5; color: #A3ADA6">Reach <span style="color: #F4F6F4; font-weight: 600">74 kg</span> around <span class="swap" style="color: #57D883; font-weight: 600">{{date}}</span>. You can change this any time.</p>
+
+    <div class="rise d2" style="display: flex; flex-direction: column; gap: 10px; margin-top: 28px">
+      <sc-for list="{{paces}}" as="p" hint-placeholder-count="4">
+        <button class="row" onClick="{{p.pick}}" aria-pressed="{{p.on}}" style="background: {{p.bg}}; border: 2px solid {{p.border}}">
+          <div style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 13px; background: #1D221F; display: flex; align-items: center; justify-content: center; gap: 1px" aria-hidden="true">
+            <svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l5 5-5 5" stroke="{{p.c1}}"></path><path d="M8 2l5 5-5 5" stroke="{{p.c2}}"></path><path d="M14 2l5 5-5 5" stroke="{{p.c3}}"></path><path d="M20 2l5 5-5 5" stroke="{{p.c4}}"></path></svg>
+          </div>
+          <div style="flex-grow: 1; min-width: 0">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="font: 600 17px Onest, sans-serif">{{p.title}}</span>
+              <sc-if value="{{p.rec}}" hint-placeholder-val="{{false}}"><span style="padding: 3px 8px; border-radius: 8px; background: rgba(87,216,131,.14); color: #57D883; font: 600 11px Inter, sans-serif">Recommended</span></sc-if>
+            </div>
+            <div style="margin-top: 4px; font-size: 13px; color: #A3ADA6">{{p.rate}}</div>
+          </div>
+          <div style="text-align: right; flex-shrink: 0">
+            <div style="font: 600 17px Onest, sans-serif">{{p.cals}}</div>
+            <div style="margin-top: 4px; font-size: 12px; color: #A3ADA6">cals a day</div>
+          </div>
+        </button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{eased}}" hint-placeholder-val="{{false}}">
+      <div class="more" style="display: flex; gap: 12px; margin-top: 14px; padding: 14px 16px; border-radius: 18px; background: rgba(245,158,59,.1)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E3B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"></path><path d="M12 8v5M12 16v.5"></path></svg>
+        <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #E7DCCB">We’ve eased this to about 0.7% a week, so you never eat more than 25% below what you burn.</p>
+      </div>
+    </sc-if>
+    <sc-if value="{{notEased}}" hint-placeholder-val="{{true}}">
+      <p style="margin: 14px 4px 0; font-size: 13px; line-height: 1.5; color: #7C8680">We never set a target below what’s safe. If a pace is too fast, we slow it down and tell you why.</p>
+    </sc-if>
+
+  </div>
+
+  <a href="Obstacles.dc.html" style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; height: 56px; margin-top: 12px; border-radius: 18px; background: #57D883; color: #06240F; font: 600 17px Onest, sans-serif; text-decoration: none">Continue</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const i = s.pace != null ? s.pace : 1;
+    const defs = [
+      { title: 'Relaxed', pct: '0.25%', cals: 2325, kg: 0.21 },
+      { title: 'Steady', pct: '0.5%', cals: 2095, kg: 0.41, rec: true },
+      { title: 'Faster', pct: '0.75%', cals: 1915, kg: 0.58, eased: true },
+      { title: 'Fastest', pct: '1%', cals: 1915, kg: 0.58, eased: true },
+    ];
+    const p = defs[i];
+    const d = new Date(2026, 9, 24);
+    d.setDate(d.getDate() + Math.round(8.4 / p.kg) * 7);
+    return {
+      date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      paces: defs.map((x, n) => {
+        const on = n === i;
+        const lit = (k) => (k <= n ? (on ? '#57D883' : '#A3ADA6') : '#2E3530');
+        return {
+          title: x.title, rec: !!x.rec, on,
+          rate: `${x.pct} a week · about ${x.kg.toFixed(1)} kg`,
+          cals: x.cals.toLocaleString('en-US'),
+          bg: on ? 'rgba(87,216,131,.08)' : '#151917',
+          border: on ? '#57D883' : '#151917',
+          c1: lit(0), c2: lit(1), c3: lit(2), c4: lit(3),
+          pick: () => this.setState({ pace: n }),
+        };
+      }),
+      eased: !!p.eased,
+      notEased: !p.eased,
+    };
+  }
+}
+</script>
+</body>
+</html>

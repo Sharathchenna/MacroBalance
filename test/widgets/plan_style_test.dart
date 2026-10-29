@@ -11,7 +11,8 @@ import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:macrotracker/screens/onboarding/pages/adaptive_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/goal_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/plan_style_page.dart';
-import 'package:macrotracker/screens/onboarding/pages/set_new_goal_page.dart';
+import 'package:macrotracker/screens/onboarding/pages/goal_weight_page.dart';
+import 'package:macrotracker/screens/onboarding/pages/pace_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/summary_page.dart';
 import 'package:macrotracker/screens/onboarding/results_screen.dart';
 import 'package:macrotracker/services/energy/bmr.dart';
@@ -96,7 +97,7 @@ void main() {
 
   Future<void> next(WidgetTester tester, [int times = 1]) async {
     for (var i = 0; i < times; i++) {
-      await tester.tap(find.text('Next'));
+      await tester.tap(find.text('Continue'));
       await pumpFrames(tester, seconds: 1);
     }
   }
@@ -158,15 +159,16 @@ void main() {
         'a big lose goal: asked after the goal weight, In phases picked; '
         'saved, summarised, tracked, and the first phase starts', (tester) async {
       final energy = await pump(tester, const OnboardingScreen());
-      // welcome, sex, weight (70 kg), height, age, activity -> goal
-      await next(tester, 6);
       tester.widget<GoalPage>(find.byType(GoalPage)).onGoalChanged(MacroCalculatorService.GOAL_LOSE);
       await pumpFrames(tester, seconds: 1);
-      await next(tester);
-      expect(visible(SetNewGoalPage), findsOneWidget);
+      // goal -> about you -> weight (70 kg) -> activity -> goal weight
+      await next(tester, 4);
+      expect(visible(GoalWeightPage), findsOneWidget);
       // 70 -> 60 kg: more than 10%.
-      tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage)).onGoalWeightChanged(60);
+      tester.widget<GoalWeightPage>(find.byType(GoalWeightPage)).onGoalWeightChanged(60);
       await pumpFrames(tester, seconds: 1);
+      await next(tester);
+      expect(visible(PacePage), findsOneWidget);
       // The projection for the defaults (male, 170 cm, 30, moderately
       // active), in phases at the recommended pace, adaptive.
       const body = BodyProfile(sex: Sex.male, heightCm: 170, age: 30, activityLevel: 3);
@@ -180,8 +182,12 @@ void main() {
           body: body,
           on: DateTime.now(),
           style: PlanStyle.phased);
-      // The recommended pace row shows the same weeks as the plan.
-      expect(find.textContaining('about ${projection.aboutWeeks} weeks'), findsOneWidget);
+      // The recommended pace offers the same weeks as the plan.
+      final recommended = tester
+          .widget<PacePage>(find.byType(PacePage))
+          .paceChoices
+          .firstWhere((c) => c.target.pacePct == kDefaultLosePace);
+      expect(recommended.weeks, projection.aboutWeeks);
       await next(tester);
       expect(visible(PlanStylePage), findsOneWidget);
       expect(selected(tester, const Key('plan_style_phased')), isTrue);
@@ -192,20 +198,21 @@ void main() {
       expect(line, matches(RegExp(r'^\d loss phases \+ \d breaks? · about \d+ weeks$')));
       expect(line, PlanStyleCopy.outline(projection.outline!));
 
-      await next(tester);
+      // plan style -> obstacles -> insight -> adaptive
+      await next(tester, 3);
       expect(visible(AdaptivePage), findsOneWidget);
-      // adaptive -> advanced -> Apple Health (its own buttons) -> summary
+      // adaptive -> advanced -> Apple Health (its own buttons) -> reminders
+      // (its own buttons) -> building -> the plan reveal
       await next(tester, 2);
       await tester.tap(find.text('Not now').hitTestable());
       await pumpFrames(tester, seconds: 1);
-      expect(visible(SummaryPage), findsOneWidget);
-      expect(find.text('Plan'), findsOneWidget);
-      expect(find.text('In phases'), findsOneWidget);
-      expect(find.text('Plan Length'), findsOneWidget);
-      expect(find.text(line), findsOneWidget);
-
-      await tester.tap(find.text('Calculate'));
-      await pumpFrames(tester, seconds: 2);
+      await tester.tap(find.text('Not now').hitTestable());
+      await pumpFrames(tester, seconds: 12);
+      if (find.byType(ResultsScreen).evaluate().isEmpty) {
+        await tester.tap(find.text('See my plan'));
+        await pumpFrames(tester, seconds: 2);
+      }
+      expect(find.byType(SummaryPage), findsNothing);
       expect(find.byType(ResultsScreen), findsOneWidget);
       expect(
           find.textContaining(line, findRichText: true), findsOneWidget);
@@ -219,19 +226,42 @@ void main() {
       expect(first.maxWeeks, kMaxLossPhaseWeeks);
       expect(first.startTrendKg, 70);
       expect(first.startedOn, _today);
+
+      // "Review answers" opens the summary with the plan rows; redoing the
+      // plan from there tracks onboarding_completed only once.
+      await tester.tap(find.text('Review answers'));
+      await pumpFrames(tester, seconds: 2);
+      expect(visible(SummaryPage), findsOneWidget);
+      expect(find.text('Plan'), findsOneWidget);
+      expect(find.text('In phases'), findsOneWidget);
+      expect(find.text('Plan length'), findsOneWidget);
+      expect(find.text(line), findsOneWidget);
+      await tester.tap(find.text('See my plan'));
+      await pumpFrames(tester, seconds: 12);
+      if (find.byType(ResultsScreen).evaluate().isEmpty) {
+        await tester.tap(find.text('See my plan'));
+        await pumpFrames(tester, seconds: 2);
+      }
+      expect(find.byType(ResultsScreen), findsOneWidget);
+      expect(captured('onboarding_completed'), hasLength(1));
     });
 
     testWidgets('maintain: no plan style step, steady, no event', (tester) async {
       final energy = await pump(tester, const OnboardingScreen());
-      // welcome, sex, weight, height, age, activity, goal (maintain) -> adaptive
-      await next(tester, 7);
+      // goal (maintain) -> about you -> weight -> activity -> obstacles ->
+      // insight -> adaptive
+      await next(tester, 6);
       expect(visible(AdaptivePage), findsOneWidget);
       await next(tester, 2);
       await tester.tap(find.text('Not now').hitTestable());
       await pumpFrames(tester, seconds: 1);
-      expect(find.text('Plan'), findsNothing);
-      await tester.tap(find.text('Calculate'));
-      await pumpFrames(tester, seconds: 2);
+      await tester.tap(find.text('Not now').hitTestable());
+      await pumpFrames(tester, seconds: 12);
+      if (find.byType(ResultsScreen).evaluate().isEmpty) {
+        await tester.tap(find.text('See my plan'));
+        await pumpFrames(tester, seconds: 2);
+      }
+      expect(find.byType(ResultsScreen), findsOneWidget);
       expect(find.byKey(const Key('results_plan_line')), findsNothing);
       expect(captured('plan_style_chosen'), isEmpty);
       final saved = jsonDecode(StorageService().get('nutrition_goals') as String) as Map;
@@ -289,15 +319,15 @@ void main() {
     Future<void> save(WidgetTester tester) async {
       await tester.tap(find.text('Calculate'));
       await pumpFrames(tester, seconds: 2);
-      await tester.tap(find.text('Save new goals'));
+      await tester.tap(find.text('Save'));
       await pumpFrames(tester, seconds: 2);
     }
 
     testWidgets('prefilled with the saved style; changing it starts a fresh sequence',
         (tester) async {
       final energy = await openRecalculate(tester);
-      // weight -> activity -> goal -> goal weight -> plan style
-      await next(tester, 4);
+      // weight -> activity -> goal -> goal weight -> pace -> plan style
+      await next(tester, 5);
       expect(visible(PlanStylePage), findsOneWidget);
       // 82 -> 75 kg is under 10%: steady, as saved, nothing recommended.
       expect(selected(tester, const Key('plan_style_steady')), isTrue);
@@ -324,7 +354,7 @@ void main() {
 
     testWidgets('nothing about the plan changed: the phase carries on', (tester) async {
       final energy = await openRecalculate(tester);
-      await next(tester, 7);
+      await next(tester, 8);
       expect(visible(SummaryPage), findsOneWidget);
       await save(tester);
       expect(energy.phases, [open]);
@@ -332,8 +362,8 @@ void main() {
 
     testWidgets('a new pace replans too', (tester) async {
       final energy = await openRecalculate(tester);
-      await next(tester, 3);
-      tester.widget<SetNewGoalPage>(find.byType(SetNewGoalPage)).onPaceChanged(0.75);
+      await next(tester, 4);
+      tester.widget<PacePage>(find.byType(PacePage)).onPaceChanged(0.75);
       await pumpFrames(tester, seconds: 1);
       await next(tester, 4);
       await save(tester);

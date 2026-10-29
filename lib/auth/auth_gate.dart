@@ -1,4 +1,4 @@
-import 'package:macrotracker/screens/welcomescreen.dart';
+import 'package:macrotracker/screens/intro/hello_screen.dart';
 import 'package:macrotracker/screens/onboarding/onboarding_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +13,12 @@ import 'package:provider/provider.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  /// Set when someone starts onboarding signed out. They create their account
+  /// after seeing the plan, deep in the flow; until the app restarts the gate
+  /// keeps the intro underneath instead of swapping in onboarding or the app
+  /// (and its paywall) behind them.
+  static bool signedOutOnboarding = false;
 
   @override
   _AuthGateState createState() => _AuthGateState();
@@ -131,13 +137,15 @@ class _AuthGateState extends State<AuthGate> {
               body: Center(child: Text("Error in authentication stream")));
         }
         if (!authSnapshot.hasData || authSnapshot.data == null) {
-          return const Welcomescreen();
+          return const HelloScreen();
         }
 
         final authEvent = authSnapshot.data!.event;
         if (authEvent == AuthChangeEvent.signedOut) {
-          return const Welcomescreen();
+          AuthGate.signedOutOnboarding = false;
+          return const HelloScreen();
         }
+        if (AuthGate.signedOutOnboarding) return const HelloScreen();
 
         return FutureBuilder<bool>(
           future: _hasLocalDataFuture,
@@ -150,7 +158,7 @@ class _AuthGateState extends State<AuthGate> {
             final hasLocalData = localDataSnapshot.data ?? false;
 
             if (session == null) {
-              return const Welcomescreen();
+              return const HelloScreen();
             }
 
             if (authEvent == AuthChangeEvent.signedIn) {
