@@ -1097,20 +1097,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     if (foods.isEmpty) return const SizedBox.shrink();
     final meal = widget.selectedMeal ?? MealTime.suggested();
 
-    Widget tile(FoodEntry template) => QuickLogTile(
-          title: template.food.name,
-          subtitle: describeEntryAmount(template),
-          trailingLabel:
-              '${FoodEntryProvider.nutrientForEntry(template, 'calories').round()} cals',
-          addTooltip: 'Add to $meal',
-          onAdd: () => quickLogAgain(context, template, meal: meal),
-          onOpen: () => Navigator.push(
-            context,
-            CupertinoPageRoute(
-              builder: (_) => FoodDetailPage(food: template.food, selectedMeal: meal),
-            ),
-          ),
-        );
+    Widget tile(FoodEntry template) => foodHistoryTile(context, template, meal);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),

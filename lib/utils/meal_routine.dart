@@ -220,8 +220,15 @@ class RoutineDismissals {
     }
   }
 
-  /// The suggestion was added, so earlier dismissals no longer count.
-  Future<void> used(String meal) => _storage.put(dismissStreakKey(meal), 0);
+  /// The suggestion was added: earlier dismissals no longer count, and it
+  /// isn't offered again today (anything else usual can wait for tomorrow).
+  Future<void> used(String meal, DateTime today) async {
+    await _storage.put(dismissStreakKey(meal), 0);
+    await _storage.put(hiddenOnKey(meal), _dayKey(today));
+  }
+
+  /// The added suggestion was undone, so offer it again today.
+  Future<void> unhide(String meal) => _storage.delete(hiddenOnKey(meal));
 
   static DateTime _startOf(DateTime d) => DateTime(d.year, d.month, d.day);
 

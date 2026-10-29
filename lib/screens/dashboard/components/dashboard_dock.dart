@@ -256,14 +256,8 @@ class CopyDropZone extends StatelessWidget {
 
   void _copy(BuildContext context, FoodEntry entry) {
     HapticFeedback.mediumImpact();
-    FoodClipboard.instance.copy([entry]);
-    PostHogService.trackEvent('food_copied', properties: {
-      'meal_type': entry.meal,
-      'item_count': 1,
-      'source': 'drag',
-    });
-    AppToast.show('Copied ${entry.food.name} · pick a meal to paste into',
-        context: context, icon: Icons.copy_rounded);
+    FoodClipboard.instance.copyAndAnnounce([entry],
+        what: entry.food.name, source: 'drag', context: context);
   }
 
   @override
@@ -332,8 +326,15 @@ class PasteBar extends StatelessWidget {
     final provider = Provider.of<FoodEntryProvider>(context, listen: false);
     final date = Provider.of<DateProvider>(context, listen: false).selectedDate;
     final summary = FoodClipboard.instance.summary;
+    // Cleared first so a second tap can't paste twice; put back if it fails.
     FoodClipboard.instance.clear();
-    final copies = await provider.copyEntries(entries, to: date, meal: meal);
+    final List<FoodEntry> copies;
+    try {
+      copies = await provider.copyEntries(entries, to: date, meal: meal);
+    } catch (_) {
+      FoodClipboard.instance.copy(entries);
+      rethrow;
+    }
     MealTime.remember(meal);
     PostHogService.trackEvent('food_pasted', properties: {
       'meal_type': meal,

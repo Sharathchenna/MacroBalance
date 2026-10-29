@@ -195,7 +195,7 @@ void main() {
     test('adding the suggestion resets the streak', () async {
       await dismissals.dismiss('Breakfast', today);
       await dismissals.dismiss('Breakfast', daysAgo(-1));
-      await dismissals.used('Breakfast');
+      await dismissals.used('Breakfast', today);
       await dismissals.dismiss('Breakfast', daysAgo(-2));
       expect(dismissals.isHidden('Breakfast', daysAgo(-3)), isFalse);
       await dismissals.dismiss('Breakfast', daysAgo(-3));

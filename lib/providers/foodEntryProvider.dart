@@ -373,10 +373,16 @@ class FoodEntryProvider with ChangeNotifier {
   Future<void> removeEntry(String entryId) async {
     debugPrint("[Provider Remove] Removing entry $entryId...");
     final initialLength = _entries.length;
-    final removedDays = [
-      for (final entry in _entries)
-        if (entry.id == entryId) entry.date,
-    ];
+    final removed = _entries.where((entry) => entry.id == entryId).toList();
+    final removedDays = [for (final entry in removed) entry.date];
+    // Keep the food in the history, including entries that came from the
+    // cloud or predate it, counted as often as the diary had it.
+    for (final entry in removed) {
+      final key = _foodKey(entry);
+      await _remember(entry,
+          logged: false,
+          atLeast: _entries.where((e) => _foodKey(e) == key).length);
+    }
     _entries.removeWhere((entry) => entry.id == entryId);
     if (_entries.length < initialLength) {
       debugPrint(
@@ -471,14 +477,17 @@ class FoodEntryProvider with ChangeNotifier {
   }
 
   /// Records [entry] as the food's latest amount; [logged] counts it as one
-  /// more time the food was logged (an edit doesn't).
-  Future<void> _remember(FoodEntry entry, {bool logged = true}) async {
+  /// more time the food was logged (an edit doesn't). The count never drops
+  /// below [atLeast].
+  Future<void> _remember(FoodEntry entry,
+      {bool logged = true, int atLeast = 0}) async {
     final key = _foodKey(entry);
     final known = _history[key];
     final newer = known == null || !entry.date.isBefore(known.entry.date);
+    final count = (known?.count ?? 0) + (logged ? 1 : 0);
     _history[key] = (
       entry: newer ? entry : known.entry,
-      count: (known?.count ?? 0) + (logged ? 1 : 0),
+      count: count < atLeast ? atLeast : count,
     );
     if (_history.length > historyLimit) {
       final oldest = _history.entries.toList()
@@ -565,15 +574,7 @@ class FoodEntryProvider with ChangeNotifier {
     final day = DateTime(to.year, to.month, to.day);
     final copies = [
       for (final entry in source)
-        FoodEntry(
-          id: const Uuid().v4(),
-          food: entry.food,
-          meal: meal,
-          quantity: entry.quantity,
-          unit: entry.unit,
-          date: day,
-          servingDescription: entry.servingDescription,
-        ),
+        entry.copyWith(id: const Uuid().v4(), meal: meal, date: day),
     ];
     for (final entry in copies) {
       await addEntry(entry);

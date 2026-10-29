@@ -381,14 +381,8 @@ class _FoodDetailPageState extends State<FoodDetailPage>
   void _copyEntry() {
     HapticFeedback.selectionClick();
     final entry = widget.existingEntry!;
-    FoodClipboard.instance.copy([entry]);
-    PostHogService.trackEvent('food_copied', properties: {
-      'meal_type': entry.meal,
-      'item_count': 1,
-      'source': 'edit_page',
-    });
-    AppToast.show('Copied ${entry.food.name} · pick a meal to paste into',
-        icon: Icons.copy_rounded);
+    FoodClipboard.instance
+        .copyAndAnnounce([entry], what: entry.food.name, source: 'edit_page');
     Navigator.of(context).pop();
   }
 

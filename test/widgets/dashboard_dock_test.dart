@@ -192,6 +192,47 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('dragging a food near the bottom scrolls the page', (tester) async {
+    await tester.runAsync(() async {
+      for (var i = 0; i < 6; i++) {
+        await provider.addEntry(testEntry(name: 'Item $i', meal: 'Breakfast', date: today));
+      }
+    });
+    await pumpDashboard(tester, height: 2000);
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+    expect(scroll.pixels, 0);
+
+    final gesture = await tester.startGesture(tester.getCenter(find.text('Item 0')));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+    await gesture.moveBy(const Offset(0, 20));
+    await gesture.moveTo(Offset(200, tester.view.physicalSize.height / 3 - 120));
+    await pumpFrames(tester, seconds: 1);
+    expect(scroll.pixels, greaterThan(100));
+    await gesture.cancel();
+    await pumpFrames(tester, seconds: 1);
+    expect(FoodDrag.active.value, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('if the food goes away mid-drag, the Copy zone does too', (tester) async {
+    final tea = testEntry(name: 'Tea', meal: 'Breakfast', date: today);
+    await tester.runAsync(() => provider.addEntry(tea));
+    await pumpDashboard(tester);
+    final gesture = await tester.startGesture(tester.getCenter(find.text('Tea')));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+    await gesture.moveBy(const Offset(0, 30));
+    await tester.pump();
+    expect(find.text('Drop here to copy'), findsOneWidget);
+
+    dates.setDate(yesterday); // Today's tiles are replaced.
+    await pumpFrames(tester, seconds: 1);
+    expect(FoodDrag.active.value, isNull);
+    expect(find.text('Drop here to copy'), findsNothing);
+    await gesture.up();
+    await pumpFrames(tester, seconds: 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a logged food\'s page has a Copy button', (tester) async {
     final tea = testEntry(name: 'Tea', meal: 'Breakfast', date: today);
     tester.view.physicalSize = const Size(1179, 2556);

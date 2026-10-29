@@ -43,15 +43,7 @@ Future<FoodEntry> quickLogAgain(BuildContext context, FoodEntry template,
   final provider = Provider.of<FoodEntryProvider>(context, listen: false);
   final date = Provider.of<DateProvider>(context, listen: false).selectedDate;
   final targetMeal = meal ?? MealTime.suggested();
-  final entry = FoodEntry(
-    id: const Uuid().v4(),
-    food: template.food,
-    meal: targetMeal,
-    quantity: template.quantity,
-    unit: template.unit,
-    date: date,
-    servingDescription: template.servingDescription,
-  );
+  final entry = template.copyWith(id: const Uuid().v4(), meal: targetMeal, date: date);
   await provider.addEntry(entry);
   MealTime.remember(targetMeal);
   PostHogService.trackEvent('food_quick_logged', properties: {'meal_type': targetMeal});

@@ -21,6 +21,18 @@ class FoodEntry {
     this.servingDescription,
   });
 
+  /// The same food and amount with a new [id], [meal] or [date]: a move
+  /// keeps the id, a copy gets a new one.
+  FoodEntry copyWith({String? id, String? meal, DateTime? date}) => FoodEntry(
+        id: id ?? this.id,
+        food: food,
+        meal: meal ?? this.meal,
+        quantity: quantity,
+        unit: unit,
+        date: date ?? this.date,
+        servingDescription: servingDescription,
+      );
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'food': {

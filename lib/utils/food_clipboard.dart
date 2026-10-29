@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../models/foodEntry.dart';
+import '../services/posthog_service.dart';
+import '../widgets/app_toast.dart';
 
 /// Foods the user copied from a meal, waiting to be pasted into another meal
 /// or day. Lives for the app session only; the dashboard shows a paste bar
@@ -20,6 +22,21 @@ class FoodClipboard extends ValueNotifier<List<FoodEntry>> {
   }
 
   void copy(List<FoodEntry> entries) => value = List.unmodifiable(entries);
+
+  /// Copies [entries] and tells the user to pick a meal on the paste bar.
+  /// [source] says where the copy came from, for analytics.
+  void copyAndAnnounce(List<FoodEntry> entries,
+      {required String what, required String source, BuildContext? context}) {
+    copy(entries);
+    PostHogService.trackEvent('food_copied', properties: {
+      'meal_type': entries.first.meal,
+      'item_count': entries.length,
+      'source': source,
+    });
+    AppToast.show('Copied $what · pick a meal to paste into',
+        context: context != null && context.mounted ? context : null,
+        icon: Icons.copy_rounded);
+  }
 
   void clear() => value = const [];
 }

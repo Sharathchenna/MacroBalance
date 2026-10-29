@@ -83,7 +83,7 @@ class _PreviouslyLoggedScreenState extends State<PreviouslyLoggedScreen> {
           ),
         ));
       }
-      rows.add(_tile(entry, meal));
+      rows.add(foodHistoryTile(context, entry, meal));
     }
 
     return GestureDetector(
@@ -162,18 +162,22 @@ class _PreviouslyLoggedScreenState extends State<PreviouslyLoggedScreen> {
       ),
     );
   }
-
-  Widget _tile(FoodEntry template, String meal) => QuickLogTile(
-        title: template.food.name,
-        subtitle: describeEntryAmount(template),
-        trailingLabel: '${FoodEntryProvider.nutrientForEntry(template, 'calories').round()} cals',
-        addTooltip: 'Add to $meal',
-        onAdd: () => quickLogAgain(context, template, meal: meal),
-        onOpen: () => Navigator.push(
-          context,
-          CupertinoPageRoute(
-            builder: (_) => FoodDetailPage(food: template.food, selectedMeal: meal),
-          ),
-        ),
-      );
 }
+
+/// A food the user logged before: + logs it again with the same amount into
+/// [meal]; tapping the row opens its details. Used on the search page and in
+/// Previously logged.
+Widget foodHistoryTile(BuildContext context, FoodEntry template, String meal) =>
+    QuickLogTile(
+      title: template.food.name,
+      subtitle: describeEntryAmount(template),
+      trailingLabel: '${FoodEntryProvider.nutrientForEntry(template, 'calories').round()} cals',
+      addTooltip: 'Add to $meal',
+      onAdd: () => quickLogAgain(context, template, meal: meal),
+      onOpen: () => Navigator.push(
+        context,
+        CupertinoPageRoute(
+          builder: (_) => FoodDetailPage(food: template.food, selectedMeal: meal),
+        ),
+      ),
+    );

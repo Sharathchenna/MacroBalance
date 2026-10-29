@@ -121,6 +121,23 @@ void main() {
       expect(reloaded.recentFoods().map((e) => e.food.name), ['Coffee']);
     });
 
+    test('deleting an entry that predates the history still keeps the food',
+        () async {
+      await provider.addEntry(testEntry(name: 'Poha', meal: 'Breakfast', date: yesterday));
+      await provider.addEntry(testEntry(name: 'Poha', meal: 'Breakfast', date: today));
+      // As if these came from the cloud, or before the history existed.
+      await StorageService().delete(FoodEntryProvider.historyKey);
+      final fresh = FoodEntryProvider();
+      await fresh.ensureInitialized();
+      await fresh.loadEntriesForCurrentUser();
+      for (final e in List.of(fresh.entries)) {
+        await fresh.removeEntry(e.id);
+      }
+      expect(fresh.recentFoods().map((e) => e.food.name), ['Poha']);
+      // Both deleted logs still count towards Most logged.
+      expect(fresh.frequentFoods().map((e) => e.food.name), ['Poha']);
+    });
+
     test('signing out clears the history', () async {
       await provider.addEntry(testEntry(name: 'Tea', meal: 'Snacks', date: today));
       await provider.clearUserData();

@@ -201,6 +201,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('after adding the usual, nothing else is offered that day',
+      (tester) async {
+    await addRoutine(tester, 'Lunch', ['Rice', 'Dal']);
+    // Had on two days too, but not part of the usual combination.
+    for (final d in [1, 2]) {
+      await tester.runAsync(() => provider.addEntry(testEntry(
+          name: 'Pickle', meal: 'Lunch', date: daysAgo(d), calories: 10)));
+    }
+    await pumpMeals(tester);
+    await openMeal(tester, 'Lunch');
+    await tester.tap(find.text('Add').hitTestable());
+    await settle(tester);
+    expect(usualCard('Lunch'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('no suggestion once the usual foods are logged', (tester) async {
     await addRoutine(tester, 'Lunch', ['Rice']);
     await tester.runAsync(() => provider.addEntry(
