@@ -156,8 +156,11 @@ class _DashboardState extends State<Dashboard> {
                         const SizedBox(height: 8),
                         TourTargets.mark(
                             context, TourTarget.summary, const CalorieTracker()),
-                        TourTargets.mark(context, TourTarget.meals,
-                            MealSection(photoJobKeys: _photoJobKeys)),
+                        TourTargets.mark(
+                            context,
+                            TourTarget.meals,
+                            TourTargets.mark(context, TourTarget.moveCopy,
+                                MealSection(photoJobKeys: _photoJobKeys))),
                         // Room to scroll past the bottom bar.
                         const SizedBox(height: AppBottomBar.scrollClearance),
                       ],
