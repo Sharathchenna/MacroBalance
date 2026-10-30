@@ -419,14 +419,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   Future<void> _showNativeCamera() async {
     FocusScope.of(context).unfocus();
-    if (!Platform.isIOS) {
-      print('[Flutter SearchPage] Native camera view only supported on iOS.');
-      if (mounted) {
-        _showErrorSnackbar('Camera feature is only available on iOS.');
-      }
-      return;
-    }
-
     // Track camera usage
     PostHogService.trackFeatureUsage(
       'camera_search',

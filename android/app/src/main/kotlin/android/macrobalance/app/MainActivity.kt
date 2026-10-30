@@ -1,62 +1,54 @@
 package android.macrobalance.app
 
-import android.app.Activity
 import android.content.Intent
-import android.os.Bundle
-import androidx.annotation.NonNull
-import io.flutter.embedding.android.FlutterActivity
+import androidx.activity.result.contract.ActivityResultContracts
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
-class MainActivity: FlutterActivity() {
-    private val CHANNEL = "com.macrotracker/native_camera_view"
-    private lateinit var channel: MethodChannel
-    private val CAMERA_REQUEST_CODE = 101
+class MainActivity : FlutterFragmentActivity() {
+    private val cameraChannelName = "com.macrotracker/native_camera_view"
+    private var cameraChannel: MethodChannel? = null
 
-    override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
+    /** CameraActivity's one result, forwarded to Dart as cameraResult. */
+    private val camera =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            cameraChannel?.invokeMethod("cameraResult", cameraResult(result.data))
+        }
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-
-        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-        channel.setMethodCallHandler { call, result ->
-            if (call.method == "showNativeCamera") {
-                val intent = Intent(this, CameraActivity::class.java)
-                startActivityForResult(intent, CAMERA_REQUEST_CODE)
-                // We don't send a result back immediately, we wait for CameraActivity
-            } else {
-                result.notImplemented()
+        cameraChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, cameraChannelName).apply {
+            setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "showNativeCamera" -> {
+                        val initialMode = call.argument<String>("initialMode")
+                        camera.launch(Intent(this@MainActivity, CameraActivity::class.java).apply {
+                            initialMode?.let { putExtra(CameraActivity.EXTRA_INITIAL_MODE, it) }
+                        })
+                        // Shown; the capture arrives later as cameraResult.
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
             }
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == CAMERA_REQUEST_CODE) {
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                val resultType = data.getStringExtra("type")
-                val resultValue = data.getStringExtra("value") // For barcode
-                val photoData = data.getByteArrayExtra("value") // For photo
-
-                val resultData = mutableMapOf<String, Any?>("type" to resultType)
-                if (resultType == "barcode") {
-                    resultData["value"] = resultValue
-                } else if (resultType == "photo") {
-                    resultData["value"] = photoData
-                }
-                // For "cancel", resultType will be "cancel", value will be null
-
-                println("[Native MainActivity] Sending result to Flutter: $resultData")
-                channel.invokeMethod("cameraResult", resultData)
-
-            } else if (resultCode == Activity.RESULT_CANCELED) {
-                 // Handle cancellation, send a specific result type back
-                 println("[Native MainActivity] Camera cancelled, sending cancel result to Flutter")
-                 channel.invokeMethod("cameraResult", mapOf("type" to "cancel"))
-            } else {
-                // Handle other potential results or errors if needed
-                println("[Native MainActivity] Unknown camera result: resultCode=$resultCode")
-                channel.invokeMethod("cameraResult", mapOf("type" to "error", "value" to "Unknown camera result code: $resultCode"))
+    /** The same shape iOS sends: type, value (String or JPEG bytes) and mode. */
+    private fun cameraResult(data: Intent?): Map<String, Any?> {
+        val type = data?.getStringExtra(CameraActivity.EXTRA_TYPE) ?: return mapOf("type" to "cancel")
+        val mode = data.getStringExtra(CameraActivity.EXTRA_MODE)
+        return when (type) {
+            "barcode" -> mapOf("type" to type, "value" to data.getStringExtra(CameraActivity.EXTRA_VALUE), "mode" to mode)
+            "photo" -> {
+                val file = data.getStringExtra(CameraActivity.EXTRA_PHOTO_PATH)?.let(::File)
+                val bytes = file?.takeIf { it.exists() }?.readBytes().also { file?.delete() }
+                    ?: return mapOf("type" to "error", "value" to "The photo couldn’t be read")
+                mapOf("type" to "photo", "value" to bytes, "mode" to mode)
             }
+            else -> mapOf("type" to "cancel")
         }
     }
 }

@@ -424,8 +424,20 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           );
         }
       }
+    } else if (Platform.isAndroid) {
+      // Google Play's subscriptions page, opened on this app.
+      const url =
+          'https://play.google.com/store/account/subscriptions?package=android.macrobalance.app';
+      if (!await launch(url) && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open subscription settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } else if (mounted) {
-      // Show message for non-iOS platforms
+      // Show message for other platforms
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:

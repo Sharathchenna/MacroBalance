@@ -69,8 +69,8 @@
         <activity
             android:name=".CameraActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-            <!-- You might add configChanges or other attributes later if needed -->
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.NoActionBar">
         </activity>
         <!-- Push notifications without their own channel or icon use these. The
              channel is created by NotificationService; the server sends to it. -->
@@ -113,6 +113,9 @@
     </queries>
     <uses-permission
         android:name="android.permission.INTERNET"/>
+    <!-- CameraActivity: meal photos, barcodes and labels -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
     <!-- Notification permissions -->
     <uses-permission
         android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
