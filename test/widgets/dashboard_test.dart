@@ -157,6 +157,14 @@ void main() {
     }
   });
 
+  testWidgets('system Back on another tab returns to Home', (tester) async {
+    await pumpShell(tester, tab: AppTab.profile);
+    expect(current(tester), AppTab.profile);
+    await tester.binding.handlePopRoute();
+    await pumpFrames(tester);
+    expect(current(tester), AppTab.home);
+  });
+
   testWidgets('without health (Android) Progress has no Steps tab',
       (tester) async {
     HealthService.debugIsSupported = false;
