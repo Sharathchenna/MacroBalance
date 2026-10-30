@@ -78,6 +78,9 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <!-- Redraw after an app update; otherwise the widget shows
+                     its empty starting layout until the app next runs. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

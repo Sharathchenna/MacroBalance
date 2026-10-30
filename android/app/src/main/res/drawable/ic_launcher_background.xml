@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The iOS app icon's dark diagonal gradient, behind the MB foreground. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:endColor="#FF11100F"
+        android:startColor="#FF2B2B2C" />
+</shape>
