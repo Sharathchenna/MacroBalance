@@ -138,7 +138,11 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     }
   }
 
-  Widget _buildMacroProgress(BuildContext context, String label, int value, int goal, Color color, String unit) {
+  /// [roomy]: one of three macros sharing the full width (no Steps ring
+  /// without Apple Health), so bigger, with what's left of the goal.
+  Widget _buildMacroProgress(BuildContext context, String label, int value, int goal, Color color, String unit,
+      {bool roomy = false}) {
+    final ringSize = roomy ? 68.0 : 60.0;
     final progress = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
     final textColor = Theme.of(context).brightness == Brightness.light
         ? Colors.grey.shade700
@@ -160,8 +164,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         }
       },
       child: SizedBox(
-        height: 116,
-        width: 75,
+        height: roomy ? 140 : 116,
+        width: roomy ? null : 75,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -169,11 +173,11 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               alignment: Alignment.center,
               children: [
                 SizedBox(
-                  height: 60,
-                  width: 60,
+                  height: ringSize,
+                  width: ringSize,
                   child: CircularProgressIndicator(
                     value: progress,
-                    strokeWidth: 7,
+                    strokeWidth: roomy ? 8 : 7,
                     strokeCap: StrokeCap.round,
                     backgroundColor: Theme.of(context).brightness == Brightness.light
                         ? color.withOpacity(0.15)
@@ -181,7 +185,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
-                Icon(_getMacroIcon(label), color: color, size: 22),
+                Icon(_getMacroIcon(label), color: color, size: roomy ? 24 : 22),
               ],
             ),
             const SizedBox(height: 8),
@@ -224,16 +228,30 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            if (roomy && goal > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                value <= goal ? '${goal - value}$unit left' : '${value - goal}$unit over',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: value <= goal ? textColor.withOpacity(0.8) : Colors.red.shade400,
+                ),
+                maxLines: 1,
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
+  /// [tall]: one of two cards filling the ring's height (no Burned card
+  /// without Apple Health), so with a larger number.
   Widget _buildCalorieInfoCard(BuildContext context, String label, int value, Color color, IconData icon,
-      {VoidCallback? onTap}) {
+      {VoidCallback? onTap, bool tall = false}) {
     final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: tall ? 4 : 8),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.light
             ? color.withOpacity(0.1)
@@ -242,16 +260,17 @@ class _CalorieTrackerState extends State<CalorieTracker> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 16),
+          Icon(icon, color: color, size: tall ? 20 : 16),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 10,
+                    fontSize: tall ? 11 : 10,
                     fontWeight: FontWeight.w500,
                     color: Theme.of(context).brightness == Brightness.light
                         ? Colors.grey.shade700
@@ -261,7 +280,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                 Text(
                   '$value',
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
+                    fontSize: tall ? 20 : 14,
+                    height: tall ? 1.25 : null,
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).extension<CustomColors>()?.textPrimary,
                   ),
@@ -314,6 +334,18 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         final totalCarbs = nutrientTotals['carbs'] ?? 0.0;
         final totalFat = nutrientTotals['fat'] ?? 0.0;
 
+        Widget goalCard({required bool tall}) => _buildCalorieInfoCard(
+            context,
+            startingEstimate ? 'Goal · estimate' : 'Goal',
+            caloriesGoal,
+            const Color(0xFF34C85A),
+            Icons.flag_outlined,
+            tall: tall,
+            onTap: startingEstimate ? () => showStartingEstimateSheet(context, summary) : null);
+        Widget foodCard({required bool tall}) => _buildCalorieInfoCard(context, 'Food',
+            caloriesFromFood.toInt(), const Color(0xFFFFA726), Icons.restaurant_menu_outlined,
+            tall: tall);
+
         final int caloriesRemaining = caloriesGoal > 0 ? caloriesGoal - caloriesFromFood.toInt() : 0;
         double progress = caloriesGoal > 0 ? caloriesFromFood / caloriesGoal : 0.0;
         progress = progress.clamp(0.0, 1.0);
@@ -361,7 +393,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                'Nutrition & Activity',
+                                HealthService.isSupported ? 'Nutrition & Activity' : 'Nutrition',
                                 style: GoogleFonts.poppins(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -463,53 +495,73 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildCalorieInfoCard(
-                                  context,
-                                  startingEstimate ? 'Goal · estimate' : 'Goal',
-                                  caloriesGoal,
-                                  const Color(0xFF34C85A),
-                                  Icons.flag_outlined,
-                                  onTap: startingEstimate
-                                      ? () => showStartingEstimateSheet(context, summary)
-                                      : null),
-                              const SizedBox(height: 8),
-                              _buildCalorieInfoCard(context, 'Food', caloriesFromFood.toInt(),
-                                  const Color(0xFFFFA726), Icons.restaurant_menu_outlined),
-                              // Burned and Steps come from Apple Health.
-                              if (HealthService.isSupported) ...[
-                                const SizedBox(height: 8),
-                                _buildCalorieInfoCard(context, 'Burned', _caloriesBurned.toInt(),
-                                    const Color(0xFF42A5F5), Icons.local_fire_department_outlined),
-                              ],
-                            ],
-                          ),
+                          child: HealthService.isSupported
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    goalCard(tall: false),
+                                    const SizedBox(height: 8),
+                                    foodCard(tall: false),
+                                    const SizedBox(height: 8),
+                                    _buildCalorieInfoCard(context, 'Burned', _caloriesBurned.toInt(),
+                                        const Color(0xFF42A5F5), Icons.local_fire_department_outlined),
+                                  ],
+                                )
+                              // Burned comes from Apple Health: Goal and Food
+                              // share the ring's height instead.
+                              : SizedBox(
+                                  height: 130,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(child: goalCard(tall: true)),
+                                      const SizedBox(height: 10),
+                                      Expanded(child: foodCard(tall: true)),
+                                    ],
+                                  ),
+                                ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 30),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceAround,
-                      spacing: 4,
-                      runSpacing: 18,
-                      children: [
-                        _buildMacroProgress(context, 'Carbs', totalCarbs.round(), carbGoal,
-                            const Color(0xFF42A5F5), 'g'),
-                        _buildMacroProgress(context, 'Protein', totalProtein.round(), proteinGoal,
-                            const Color(0xFFEF5350), 'g'),
-                        _buildMacroProgress(context, 'Fat', totalFat.round(), fatGoal,
-                            const Color(0xFFFFA726), 'g'),
-                        if (HealthService.isSupported)
+                  SizedBox(height: HealthService.isSupported ? 30 : 24),
+                  if (HealthService.isSupported)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceAround,
+                        spacing: 4,
+                        runSpacing: 18,
+                        children: [
+                          _buildMacroProgress(context, 'Carbs', totalCarbs.round(), carbGoal,
+                              const Color(0xFF42A5F5), 'g'),
+                          _buildMacroProgress(context, 'Protein', totalProtein.round(), proteinGoal,
+                              const Color(0xFFEF5350), 'g'),
+                          _buildMacroProgress(context, 'Fat', totalFat.round(), fatGoal,
+                              const Color(0xFFFFA726), 'g'),
                           _buildMacroProgress(context, 'Steps', _steps, stepsGoal,
                               const Color(0xFF66BB6A), ''),
+                        ],
+                      ),
+                    )
+                  else
+                    // No Steps ring: the three macros share the full width.
+                    Row(
+                      children: [
+                        Expanded(
+                            child: _buildMacroProgress(context, 'Carbs', totalCarbs.round(), carbGoal,
+                                const Color(0xFF42A5F5), 'g',
+                                roomy: true)),
+                        Expanded(
+                            child: _buildMacroProgress(context, 'Protein', totalProtein.round(),
+                                proteinGoal, const Color(0xFFEF5350), 'g',
+                                roomy: true)),
+                        Expanded(
+                            child: _buildMacroProgress(context, 'Fat', totalFat.round(), fatGoal,
+                                const Color(0xFFFFA726), 'g',
+                                roomy: true)),
                       ],
                     ),
-                  ),
                 ],
               ),
             ],
