@@ -449,7 +449,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  _buildHealthAppTile(colorScheme, customColors),
+                  if (HealthService.isSupported)
+                    _buildHealthAppTile(colorScheme, customColors),
                 ],
               ),
 

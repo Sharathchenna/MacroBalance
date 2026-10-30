@@ -478,9 +478,12 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                               const SizedBox(height: 8),
                               _buildCalorieInfoCard(context, 'Food', caloriesFromFood.toInt(),
                                   const Color(0xFFFFA726), Icons.restaurant_menu_outlined),
-                              const SizedBox(height: 8),
-                              _buildCalorieInfoCard(context, 'Burned', _caloriesBurned.toInt(),
-                                  const Color(0xFF42A5F5), Icons.local_fire_department_outlined),
+                              // Burned and Steps come from Apple Health.
+                              if (HealthService.isSupported) ...[
+                                const SizedBox(height: 8),
+                                _buildCalorieInfoCard(context, 'Burned', _caloriesBurned.toInt(),
+                                    const Color(0xFF42A5F5), Icons.local_fire_department_outlined),
+                              ],
                             ],
                           ),
                         ),
@@ -501,8 +504,9 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                             const Color(0xFFEF5350), 'g'),
                         _buildMacroProgress(context, 'Fat', totalFat.round(), fatGoal,
                             const Color(0xFFFFA726), 'g'),
-                        _buildMacroProgress(context, 'Steps', _steps, stepsGoal,
-                            const Color(0xFF66BB6A), ''),
+                        if (HealthService.isSupported)
+                          _buildMacroProgress(context, 'Steps', _steps, stepsGoal,
+                              const Color(0xFF66BB6A), ''),
                       ],
                     ),
                   ),
