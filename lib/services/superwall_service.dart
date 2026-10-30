@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:superwallkit_flutter/superwallkit_flutter.dart';
@@ -18,7 +19,14 @@ class SuperwallService {
   }
 
   // Configuration
-  static const String _apiKey = 'pk_92e7caae027e3213de436b66d1fb25996245e09c3415ef9b'; // TODO: Replace with actual API key
+  // Public keys of the iOS and Android apps in Superwall.
+  static const String _iosApiKey = 'pk_92e7caae027e3213de436b66d1fb25996245e09c3415ef9b';
+
+  /// TODO(android): the Android app's public key ("pk_…") from Superwall.
+  /// While it's empty Superwall stays unconfigured on Android.
+  static const String _androidApiKey = '';
+
+  static String get _apiKey => Platform.isAndroid ? _androidApiKey : _iosApiKey;
   bool _isConfigured = false;
   bool _isInitializing = false;
   
@@ -41,6 +49,10 @@ class SuperwallService {
   Future<void> configure() async {
     if (_isConfigured || _isInitializing) return;
     
+    if (_apiKey.isEmpty) {
+      debugPrint('[SuperwallService] No API key for this platform; not configuring');
+      return;
+    }
     _isInitializing = true;
     
     try {

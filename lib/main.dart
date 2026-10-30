@@ -536,6 +536,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // ask for the new password straight away.
     _authSubscription =
         Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      _syncPurchaseIdentity(data);
       if (data.event == AuthChangeEvent.passwordRecovery) {
         navigatorKey.currentState?.push(
           MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
@@ -674,6 +675,29 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 }
 
+/// Keeps RevenueCat and Superwall on the signed-in Supabase account, so
+/// entitlements follow the user across devices and one account's premium
+/// state never carries over to the next.
+Future<void> _syncPurchaseIdentity(AuthState data) async {
+  try {
+    final userId = data.session?.user.id;
+    if (data.event == AuthChangeEvent.signedIn && userId != null) {
+      if (await Purchases.isConfigured &&
+          await Purchases.appUserID != userId) {
+        await Purchases.logIn(userId);
+      }
+      await SuperwallService().identify(userId);
+    } else if (data.event == AuthChangeEvent.signedOut) {
+      if (await Purchases.isConfigured && !await Purchases.isAnonymous) {
+        await Purchases.logOut();
+      }
+      await SuperwallService().reset();
+    }
+  } catch (e) {
+    debugPrint('Purchase identity sync error: $e');
+  }
+}
+
 // Firebase messaging setup function
 Future<void> _setupFirebaseMessaging() async {
   try {
@@ -687,22 +711,31 @@ Future<void> _setupFirebaseMessaging() async {
   }
 }
 
+/// RevenueCat public SDK keys (RevenueCat → Project settings → API keys).
+const _revenueCatAppleKey = 'appl_itDEUEEPnBRPlETERrSOFVFDMvZ';
+
+/// TODO(android): the Google Play public SDK key ("goog_…"). While it's
+/// empty Android starts without purchases, so paywalls can't sell.
+const _revenueCatGoogleKey = '';
+
 // Platform state initialization for RevenueCat
 Future<void> _initializePlatformState() async {
   try {
     await Purchases.setLogLevel(LogLevel.debug);
 
-    PurchasesConfiguration? configuration;
-    if (Platform.isAndroid) {
-      // Android Implementation - add your Google Play key here
-    } else if (Platform.isIOS) {
-      configuration =
-          PurchasesConfiguration("appl_itDEUEEPnBRPlETERrSOFVFDMvZ");
+    final key = Platform.isIOS
+        ? _revenueCatAppleKey
+        : Platform.isAndroid
+            ? _revenueCatGoogleKey
+            : '';
+    if (key.isEmpty) {
+      debugPrint('RevenueCat: no SDK key for this platform; purchases are off');
+      return;
     }
-
-    if (configuration != null) {
-      await Purchases.configure(configuration);
-    }
+    // Purchases belong to the account, so a subscription bought on one
+    // device (or store) follows the user to the other.
+    await Purchases.configure(PurchasesConfiguration(key)
+      ..appUserID = Supabase.instance.client.auth.currentUser?.id);
   } catch (e) {
     debugPrint('Platform state initialization error: $e');
   }
