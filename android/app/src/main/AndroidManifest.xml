@@ -72,19 +72,19 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar">
             <!-- You might add configChanges or other attributes later if needed -->
         </activity>
+        <!-- Push notifications without their own channel or icon use these. The
+             channel is created by NotificationService; the server sends to it. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="meal_reminders"/>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_notification"/>
         <!-- Disable PostHog native auto-initialization for manual setup (required for Session Replay) -->
         <meta-data
             android:name="com.posthog.posthog.AUTO_INIT"
             android:value="false"/>
         
-        <!-- Meta App Events (ad attribution) -->
-        <meta-data
-            android:name="com.facebook.sdk.ApplicationId"
-            android:value="@string/facebook_app_id"/>
-        <meta-data
-            android:name="com.facebook.sdk.ClientToken"
-            android:value="@string/facebook_client_token"/>
-
         <!-- Superwall SDK Activities -->
         <activity
             android:name="com.superwall.sdk.paywall.view.SuperwallPaywallActivity"
