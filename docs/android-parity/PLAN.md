@@ -66,13 +66,13 @@ Each iteration:
 - [ ] W3 Verify on emulator: add widget, log food, totals match
 
 ### 8. Android UX pass (A16)
-- [x] D1 Dashboard card without health: Goal/Food fill the ring height, three macros share the width
+- [x] D1 Dashboard card without health: Goal/Food fill the ring height, macros as one compact row of bars
 - [ ] X1 Edge-to-edge/insets, system Back on sheets/camera/tabs, keyboard over search and manual barcode
 - [ ] X2 Walk every screen on emulator (light + dark), fix clipped/iOS-only UI (Cupertino-only pickers, iOS status bar branches)
 
 ### 9. Release readiness (A06)
-- [ ] R1 Release signing config reading `key.properties` (keystore from user), versionCode from pubspec `+build`
-- [ ] R2 `flutter build appbundle --release` succeeds; app runs in release mode on emulator
+- [x] R1 Release signing config reading `key.properties` (keystore from user), versionCode from pubspec `+build`
+- [x] R2 `flutter build appbundle --release` succeeds; app runs in release mode on emulator
 
 ## Handoff for Sharath
 Code is in place; these need dashboard access or secrets. Search the code for `TODO(android)`.
@@ -91,7 +91,9 @@ Code is in place; these need dashboard access or secrets. Search the code for `T
 6. **Supabase redirect allowlist**: Auth → URL Configuration → add `io.supabase.macrotracker://oauth-callback/` (and confirm
    `io.supabase.macrotracker://reset-callback/` is there).
 7. **Release signing**: create an upload keystore and `android/key.properties` (not committed) — see R1.
-8. **App Links (optional)**: host `https://macrobalance.app/.well-known/assetlinks.json` with the Play signing SHA-256 so
+8. **Version code**: `pubspec.yaml` has `version: 1.0.18` with no `+build`, so Android's versionCode is 1. Set
+   `+N` above whatever Play already has before the first upload.
+9. **App Links (optional)**: host `https://macrobalance.app/.well-known/assetlinks.json` with the Play signing SHA-256 so
    email-verification links open the app directly.
 
 ## Log
@@ -113,3 +115,5 @@ Code is in place; these need dashboard access or secrets. Search the code for `T
 - 2026-10-30 C1–C5: CameraX + ML Kit CameraActivity behind the existing channel, then restyled to match the iOS controller (top band, gold guides, icon segmented control, shutter/gallery/manual entry, info dialog, full-screen manual entry). Verified on the emulator through `test_driver/feature_demo.dart`: permission denied → dialog; manual barcode → BarcodeResults; photo and label capture → JPEG reaches Dart and analysis starts; Back → one cancel. Not verified: live barcode detection (no barcode in the emulator scene) — check on a real phone.
 - 2026-10-30 W1/W2: MacroWidgetProvider (small + tall layouts), Dart updates the Android widget and clears it on logout. Verified data lands in HomeWidgetPreferences and the provider is registered. W3 (placing it on a launcher and watching totals) not done yet.
 - 2026-10-30 D1: Android dashboard card redesigned for the space Burned/Steps left; screenshot-checked on the emulator, iOS layout unchanged. Subscription management opens Play's subscriptions page on Android.
+- 2026-10-30 D1 (revised): enlarged rings still wasted space; without health the macros are now one row of bars (eaten/goal, g left). Card ~150px shorter; screenshot-checked.
+- 2026-10-30 R1/R2: release signing reads `android/key.properties` (gitignored), falling back to debug signing until Sharath adds the upload key. `flutter build appbundle --release` (104.6 MB) and `apk --release` succeed with R8; the release APK launches on the emulator without crashes. Flutter warns Gradle 8.14.3 support will be dropped (wants 9.1+, i.e. AGP 9) — a later upgrade.
