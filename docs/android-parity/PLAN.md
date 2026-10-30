@@ -48,27 +48,27 @@ Each iteration:
 - [x] U1 Google sign-in: platform-specific clientId (iOS only) + serverClientId on Android
 - [x] U2 Apple sign-in on Android via Supabase browser OAuth (existing Apple users)
 - [x] U3 One deep-link contract: reset password, email verification, OAuth return; manifest intent filters match Supabase redirects
-- [ ] U4 Verify email signup/login/reset/logout on emulator
+- [ ] U4 (needs you/Sharath: real accounts on production Supabase) Verify email signup/login/reset/logout on emulator
 
 ### 5. Subscriptions (A05, A10)
 - [x] P1 Configure RevenueCat on Android branch in `main.dart` (key from user), Superwall Android key
 - [x] P2 `Purchases.logIn/logOut` with Supabase user ID; single exact entitlement check
-- [ ] P3 Paywall shows and restore works with a Play license tester
+- [ ] P3 (needs handoff items 1–3) Paywall shows and restore works with a Play license tester
 
 ### 6. Notifications (A14)
 - [x] N1 Single channel id shared with server (`meal_reminders`), monochrome status icon, FCM default channel in manifest
 - [x] N2 POST_NOTIFICATIONS request flow; `tz.setLocalLocation` with device zone; tap routing
-- [ ] N3 Verify a local and a push notification arrive and open the app on emulator
+- [ ] N3 (push needs the send-notifications OAuth fix, audit A15) Verify a local and a push notification arrive and open the app on emulator
 
 ### 7. Home-screen widget (A11)
 - [x] W1 Kotlin AppWidgetProvider + RemoteViews layouts (calories, macros, recent meals) reading `macro_data`/`daily_meals`
 - [x] W2 Pass `androidName` in `home_widget` updates; tap opens app; clears on logout
-- [ ] W3 Verify on emulator: add widget, log food, totals match
+- [x] W3 Verify on emulator: add widget, log food, totals match
 
 ### 8. Android UX pass (A16)
 - [x] D1 Dashboard card without health: Goal/Food fill the ring height, macros as one compact row of bars
-- [ ] X1 Edge-to-edge/insets, system Back on sheets/camera/tabs, keyboard over search and manual barcode
-- [ ] X2 Walk every screen on emulator (light + dark), fix clipped/iOS-only UI (Cupertino-only pickers, iOS status bar branches)
+- [x] X1 Edge-to-edge/insets, system Back on sheets/camera/tabs, keyboard over search and manual barcode
+- [x] X2 Walk every screen on emulator (light + dark), fix clipped/iOS-only UI (Cupertino-only pickers, iOS status bar branches)
 
 ### 9. Release readiness (A06)
 - [x] R1 Release signing config reading `key.properties` (keystore from user), versionCode from pubspec `+build`
@@ -117,3 +117,7 @@ Code is in place; these need dashboard access or secrets. Search the code for `T
 - 2026-10-30 D1: Android dashboard card redesigned for the space Burned/Steps left; screenshot-checked on the emulator, iOS layout unchanged. Subscription management opens Play's subscriptions page on Android.
 - 2026-10-30 D1 (revised): enlarged rings still wasted space; without health the macros are now one row of bars (eaten/goal, g left). Card ~150px shorter; screenshot-checked.
 - 2026-10-30 R1/R2: release signing reads `android/key.properties` (gitignored), falling back to debug signing until Sharath adds the upload key. `flutter build appbundle --release` (104.6 MB) and `apk --release` succeed with R8; the release APK launches on the emulator without crashes. Flutter warns Gradle 8.14.3 support will be dropped (wants 9.1+, i.e. AGP 9) — a later upgrade.
+- 2026-10-30 W3: widget added from the Pixel launcher; totals match the dashboard (1,440/2,234 cal, macros), values aligned, recent meals sized to height, preview has sample numbers, redraws after an app update.
+- 2026-10-30 Found in passing and fixed: Android launcher icon was Flutter's default (now adaptive MB icon from the iOS artwork, themed-icon ready); Android 12+ launch screen showed an old "FitPro" logo (now the iOS MB splash).
+- 2026-10-30 X1/X2: system Back closes Search, and from Progress/Profile returns to Home before exiting (new widget test). Walked Home, Progress, Profile, Search, camera, manual entry in dark and light: no clipping, readable status bars, no Steps/Burned/Health tile. Only the emulator's hardware-keyboard input was used, so the on-screen keyboard over Search/manual entry is worth a look on a phone.
+- 2026-10-30 Loop stopped: every remaining item needs Sharath's keys/dashboards (U4, P3) or the backend push fix (N3).
