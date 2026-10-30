@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:macrotracker/services/widget_service.dart';
 import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
@@ -272,6 +273,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       await energy.clearUserData();
       await finishReminder.clearUserData();
       await savedFoodProvider.clearUserData();
+      await WidgetService.clear();
 
       // Then sign out from Supabase
       await _supabase.auth.signOut();

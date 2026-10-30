@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:macrotracker/main.dart';
@@ -17,8 +18,8 @@ class WidgetService {
   /// Initialize the widget service
   static Future<void> initWidgetService() async {
     try {
-      // Set up the app group identifier for sharing data with widgets
-      await HomeWidget.setAppGroupId(APP_GROUP);
+      // iOS shares widget data through an app group; Android needs none.
+      if (Platform.isIOS) await HomeWidget.setAppGroupId(APP_GROUP);
 
       // Listen for widget launcher taps (when user taps on widget to open app)
       HomeWidget.widgetClicked.listen(_handleWidgetClick);
@@ -130,11 +131,24 @@ class WidgetService {
   /// Trigger a widget update
   static Future<void> _updateWidgets() async {
     try {
-      // Update the iOS widget specifically
-      await HomeWidget.updateWidget(iOSName: 'MacroTrackerWidget');
-      debugPrint('Widget update triggered for iOSName: MacroTrackerWidget');
+      await HomeWidget.updateWidget(
+        iOSName: 'MacroTrackerWidget',
+        qualifiedAndroidName: 'android.macrobalance.app.MacroWidgetProvider',
+      );
     } catch (e) {
       debugPrint('Critical error updating widgets: $e');
+    }
+  }
+
+  /// Empties the widget at logout, so it doesn't keep showing the last
+  /// account's food.
+  static Future<void> clear() async {
+    try {
+      await HomeWidget.saveWidgetData<String>(MACRO_DATA_KEY, null);
+      await HomeWidget.saveWidgetData<String>(DAILY_MEALS_KEY, null);
+      await _updateWidgets();
+    } catch (e) {
+      debugPrint('Error clearing widget: $e');
     }
   }
 

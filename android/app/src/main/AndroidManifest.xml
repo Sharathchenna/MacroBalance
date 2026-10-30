@@ -72,6 +72,17 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.AppCompat.NoActionBar">
         </activity>
+        <!-- Home-screen widget (today's calories and macros) -->
+        <receiver
+            android:name=".MacroWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/macro_widget_info"/>
+        </receiver>
         <!-- Push notifications without their own channel or icon use these. The
              channel is created by NotificationService; the server sends to it. -->
         <meta-data

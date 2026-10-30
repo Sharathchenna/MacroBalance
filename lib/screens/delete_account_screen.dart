@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:macrotracker/services/widget_service.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:flutter/services.dart';
@@ -165,6 +166,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       await energy.clearUserData();
       await finishReminder.clearUserData();
         await savedFoodProvider.clearUserData();
+        await WidgetService.clear();
 
         // Sign out regardless of outcome
         await _supabase.auth.signOut();
