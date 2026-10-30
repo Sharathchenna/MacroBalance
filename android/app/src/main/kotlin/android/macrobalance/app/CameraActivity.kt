@@ -1,4 +1,4 @@
-package com.example.macrotracker
+package android.macrobalance.app
 
 import android.app.Activity
 import android.content.Intent
