@@ -50,6 +50,15 @@
                     android:scheme="app.macrobalance.com"
                     android:host="login-callback"/>
             </intent-filter>
+            <!-- Supabase auth returns: password reset emails and browser
+                 sign-in (Apple on Android). Same scheme as iOS. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="io.supabase.macrotracker" android:host="reset-callback"/>
+                <data android:scheme="io.supabase.macrotracker" android:host="oauth-callback"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
@@ -68,6 +77,14 @@
             android:name="com.posthog.posthog.AUTO_INIT"
             android:value="false"/>
         
+        <!-- Meta App Events (ad attribution) -->
+        <meta-data
+            android:name="com.facebook.sdk.ApplicationId"
+            android:value="@string/facebook_app_id"/>
+        <meta-data
+            android:name="com.facebook.sdk.ClientToken"
+            android:value="@string/facebook_client_token"/>
+
         <!-- Superwall SDK Activities -->
         <activity
             android:name="com.superwall.sdk.paywall.view.SuperwallPaywallActivity"

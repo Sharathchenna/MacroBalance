@@ -21,6 +21,7 @@ import 'package:macrotracker/AI/gemini.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/searchPage.dart';
 import 'package:macrotracker/screens/welcomescreen.dart';
+import 'package:macrotracker/services/ad_attribution_service.dart';
 import 'package:macrotracker/services/api_service.dart';
 import 'package:macrotracker/services/camera_service.dart';
 import 'package:macrotracker/services/notification_service.dart';
@@ -444,6 +445,10 @@ void _handleDeepLink(Uri uri) {
     return;
   }
 
+  // Browser sign-in (Apple on Android) returning: Supabase reads the session
+  // from the link and the auth gate shows the app.
+  if (uri.host == 'oauth-callback') return;
+
   // Email verification callback: go to login, nothing else.
   if (path.startsWith('/login-callback')) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -523,6 +528,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initDeepLinks(); // Keep initialization here within the state
+    // The tracking prompt only shows once the app is on screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AdAttributionService().start();
+    });
     // Opening the reset link signs the user in with a recovery session;
     // ask for the new password straight away.
     _authSubscription =
