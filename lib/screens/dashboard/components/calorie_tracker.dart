@@ -138,11 +138,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
     }
   }
 
-  /// [roomy]: one of three macros sharing the full width (no Steps ring
-  /// without Apple Health), so bigger, with what's left of the goal.
-  Widget _buildMacroProgress(BuildContext context, String label, int value, int goal, Color color, String unit,
-      {bool roomy = false}) {
-    final ringSize = roomy ? 68.0 : 60.0;
+  Widget _buildMacroProgress(BuildContext context, String label, int value, int goal, Color color, String unit) {
     final progress = goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0;
     final textColor = Theme.of(context).brightness == Brightness.light
         ? Colors.grey.shade700
@@ -164,8 +160,8 @@ class _CalorieTrackerState extends State<CalorieTracker> {
         }
       },
       child: SizedBox(
-        height: roomy ? 140 : 116,
-        width: roomy ? null : 75,
+        height: 116,
+        width: 75,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -173,11 +169,11 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               alignment: Alignment.center,
               children: [
                 SizedBox(
-                  height: ringSize,
-                  width: ringSize,
+                  height: 60,
+                  width: 60,
                   child: CircularProgressIndicator(
                     value: progress,
-                    strokeWidth: roomy ? 8 : 7,
+                    strokeWidth: 7,
                     strokeCap: StrokeCap.round,
                     backgroundColor: Theme.of(context).brightness == Brightness.light
                         ? color.withOpacity(0.15)
@@ -185,7 +181,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
-                Icon(_getMacroIcon(label), color: color, size: roomy ? 24 : 22),
+                Icon(_getMacroIcon(label), color: color, size: 22),
               ],
             ),
             const SizedBox(height: 8),
@@ -228,20 +224,84 @@ class _CalorieTrackerState extends State<CalorieTracker> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            if (roomy && goal > 0) ...[
-              const SizedBox(height: 2),
-              Text(
-                value <= goal ? '${goal - value}$unit left' : '${value - goal}$unit over',
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: value <= goal ? textColor.withOpacity(0.8) : Colors.red.shade400,
-                ),
-                maxLines: 1,
-              ),
-            ],
           ],
         ),
+      ),
+    );
+  }
+
+  /// A macro as a bar: label and what's left on top, eaten / goal below.
+  /// Used without Apple Health, where there's no Steps ring, so the three
+  /// macros fit in one compact row instead of a row of rings.
+  Widget _buildMacroBar(BuildContext context, String label, int value, int goal, Color color) {
+    final light = Theme.of(context).brightness == Brightness.light;
+    final secondary = light ? Colors.grey.shade600 : Colors.grey.shade400;
+    final over = goal > 0 && value > goal;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (context) => const NutritionTrendsScreen()),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_getMacroIcon(label), color: color, size: 14),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: light ? Colors.grey.shade800 : Colors.grey.shade200,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: goal > 0 ? (value / goal).clamp(0.0, 1.0) : 0.0,
+              minHeight: 8,
+              backgroundColor: color.withOpacity(light ? 0.15 : 0.2),
+              valueColor: AlwaysStoppedAnimation<Color>(over ? Colors.red.shade400 : color),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(
+                text: '$value',
+                style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: color),
+              ),
+              TextSpan(
+                text: '/${goal}g',
+                style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: secondary),
+              ),
+            ]),
+            maxLines: 1,
+          ),
+          if (goal > 0)
+            Text(
+              over ? '${value - goal}g over' : '${goal - value}g left',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: over ? Colors.red.shade400 : secondary,
+              ),
+              maxLines: 1,
+            ),
+        ],
       ),
     );
   }
@@ -524,7 +584,7 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                       ),
                     ],
                   ),
-                  SizedBox(height: HealthService.isSupported ? 30 : 24),
+                  SizedBox(height: HealthService.isSupported ? 30 : 20),
                   if (HealthService.isSupported)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -545,21 +605,21 @@ class _CalorieTrackerState extends State<CalorieTracker> {
                       ),
                     )
                   else
-                    // No Steps ring: the three macros share the full width.
+                    // No Steps ring: the three macros as one row of bars.
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                            child: _buildMacroProgress(context, 'Carbs', totalCarbs.round(), carbGoal,
-                                const Color(0xFF42A5F5), 'g',
-                                roomy: true)),
+                            child: _buildMacroBar(context, 'Carbs', totalCarbs.round(), carbGoal,
+                                const Color(0xFF42A5F5))),
+                        const SizedBox(width: 16),
                         Expanded(
-                            child: _buildMacroProgress(context, 'Protein', totalProtein.round(),
-                                proteinGoal, const Color(0xFFEF5350), 'g',
-                                roomy: true)),
+                            child: _buildMacroBar(context, 'Protein', totalProtein.round(),
+                                proteinGoal, const Color(0xFFEF5350))),
+                        const SizedBox(width: 16),
                         Expanded(
-                            child: _buildMacroProgress(context, 'Fat', totalFat.round(), fatGoal,
-                                const Color(0xFFFFA726), 'g',
-                                roomy: true)),
+                            child: _buildMacroBar(context, 'Fat', totalFat.round(), fatGoal,
+                                const Color(0xFFFFA726))),
                       ],
                     ),
                 ],
