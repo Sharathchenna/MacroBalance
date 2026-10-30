@@ -9,4 +9,4 @@ flutter_native_splash:
   android_12:
     # TODO: Add support for Android 12 splash screen
     color: "#0c0c0d"
-    image: assets/splash_screen/Fitpro.png
+    image: assets/splash_screen/Splash-Screen3.png
