@@ -15,6 +15,7 @@ import 'package:macrotracker/screens/onboarding/pages/insight_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/pace_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/summary_page.dart';
 import 'package:macrotracker/screens/onboarding/pages/weight_page.dart';
+import 'package:macrotracker/screens/onboarding/results_screen.dart';
 import 'package:macrotracker/screens/onboarding/save_screen.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
 import 'package:macrotracker/services/storage_service.dart';
@@ -164,6 +165,29 @@ void main() {
     await tester.tap(find.text('I already have an account'));
     await tester.pump();
     expect(AuthGate.signedOutOnboarding, isFalse);
+    await pumpFrames(tester, seconds: 2);
+  });
+
+  testWidgets('finishing onboarding leaves nothing to go Back to', (tester) async {
+    phone(tester);
+    AuthGate.signedOutOnboarding = true;
+    addTearDown(() => AuthGate.signedOutOnboarding = false);
+    final key = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(
+        navigatorKey: key, home: const Scaffold(body: Text('intro'))));
+    key.currentState!.push(MaterialPageRoute(
+        builder: (_) => const Scaffold(body: Text('reminders step'))));
+    await tester.pumpAndSettle();
+
+    ResultsScreen.enterApp(key.currentState!);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(AuthGate.signedOutOnboarding, isFalse);
+    expect(find.byType(AuthGate), findsOneWidget);
+    expect(key.currentState!.canPop(), isFalse);
+    expect(find.text('reminders step', skipOffstage: false), findsNothing);
+    expect(find.text('intro', skipOffstage: false), findsNothing);
     await pumpFrames(tester, seconds: 2);
   });
 
