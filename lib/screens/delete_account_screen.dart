@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:macrotracker/services/widget_service.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:flutter/services.dart';
@@ -165,6 +166,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       await energy.clearUserData();
       await finishReminder.clearUserData();
         await savedFoodProvider.clearUserData();
+        await WidgetService.clear();
 
         // Sign out regardless of outcome
         await _supabase.auth.signOut();
@@ -424,8 +426,20 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           );
         }
       }
+    } else if (Platform.isAndroid) {
+      // Google Play's subscriptions page, opened on this app.
+      const url =
+          'https://play.google.com/store/account/subscriptions?package=android.macrobalance.app';
+      if (!await launch(url) && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open subscription settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } else if (mounted) {
-      // Show message for non-iOS platforms
+      // Show message for other platforms
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:

@@ -318,8 +318,9 @@ class _LoginScreenState extends State<LoginScreen>
 
                     const SizedBox(height: 16),
 
-                    // Apple Sign In Button - only show on iOS
-                    if (Platform.isIOS) ...[
+                    // Apple sign-in: native on iOS; in the browser on
+                    // Android, for people who joined with Apple on iPhone.
+                    if (Platform.isIOS || Platform.isAndroid) ...[
                       OutlinedButton.icon(
                         onPressed: isLoading ? null : _signInWithApple,
                         style: OutlinedButton.styleFrom(

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_background">#FFFFFFFF</color>
+    <color name="widget_text">#FF141414</color>
+    <color name="widget_text_secondary">#FF6B6B6B</color>
+    <color name="widget_track">#1F000000</color>
+    <color name="widget_calories">#FF34C85A</color>
+    <color name="widget_protein">#FFEF5350</color>
+    <color name="widget_carbs">#FF42A5F5</color>
+    <color name="widget_fat">#FFFFA726</color>
+</resources>

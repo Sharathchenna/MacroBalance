@@ -29,7 +29,8 @@ dependencies:
     sdk: flutter
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  app_settings: ^5.1.1
+  app_tracking_transparency: ^2.0.6
+  facebook_app_events: ^0.30.5
   cached_network_image: ^3.4.1
   camera: ^0.11.1
   camerawesome: ^2.1.0

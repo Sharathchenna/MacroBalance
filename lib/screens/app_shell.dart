@@ -245,14 +245,17 @@ class AppShellState extends State<AppShell>
   Widget build(BuildContext context) {
     final barBottom = AppBottomBar.bottomGap(context);
     return PopScope(
-      // Back (Android, or a swipe gesture) closes the menu first.
-      canPop: !menuOpen && !_touring,
+      // Back (Android, or a swipe gesture) closes the menu first, and from
+      // another tab returns to Home before leaving the app.
+      canPop: !menuOpen && !_touring && _tab == AppTab.home,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         if (_touring) {
           _endTour(false);
-        } else {
+        } else if (menuOpen) {
           _closeMenu();
+        } else {
+          select(AppTab.home);
         }
       },
       child: TourTargets(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:macrotracker/Health/Health.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/screens/app_shell.dart';
 import 'package:macrotracker/screens/searchPage.dart';
@@ -150,6 +151,28 @@ void main() {
       expect(r.right, lessThanOrEqualTo(screenWidth), reason: t);
     }
     for (final t in ['Nutrition', 'Steps', 'Workouts', 'Weight']) {
+      await tester.tap(find.widgetWithText(Tab, t));
+      await pumpFrames(tester, seconds: 1);
+      expect(tester.takeException(), isNull, reason: t);
+    }
+  });
+
+  testWidgets('system Back on another tab returns to Home', (tester) async {
+    await pumpShell(tester, tab: AppTab.profile);
+    expect(current(tester), AppTab.profile);
+    await tester.binding.handlePopRoute();
+    await pumpFrames(tester);
+    expect(current(tester), AppTab.home);
+  });
+
+  testWidgets('without health (Android) Progress has no Steps tab',
+      (tester) async {
+    HealthService.debugIsSupported = false;
+    addTearDown(() => HealthService.debugIsSupported = true);
+    await pumpShell(tester, tab: AppTab.progress);
+    expect(find.widgetWithText(Tab, 'Steps'), findsNothing);
+    for (final t in ['Weight', 'Nutrition', 'Workouts', 'Energy']) {
+      expect(find.widgetWithText(Tab, t), findsOneWidget);
       await tester.tap(find.widgetWithText(Tab, t));
       await pumpFrames(tester, seconds: 1);
       expect(tester.takeException(), isNull, reason: t);

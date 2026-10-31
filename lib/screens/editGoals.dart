@@ -705,7 +705,8 @@ class _EditGoalsScreenState extends State<EditGoalsScreen> {
               (value) => setState(() => fatGoal = value),
             ),
       },
-      {
+      // Steps are counted by Apple Health.
+      if (HealthService.isSupported) {
         'title': 'Daily Steps Goal',
         'value': stepsGoal,
         'currentValue': stepsCompleted,

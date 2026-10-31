@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:macrotracker/services/widget_service.dart';
 import 'package:macrotracker/widgets/app_bottom_bar.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
@@ -272,6 +273,7 @@ class _AccountDashboardState extends State<AccountDashboard>
       await energy.clearUserData();
       await finishReminder.clearUserData();
       await savedFoodProvider.clearUserData();
+      await WidgetService.clear();
 
       // Then sign out from Supabase
       await _supabase.auth.signOut();
@@ -449,7 +451,8 @@ class _AccountDashboardState extends State<AccountDashboard>
                     colorScheme: colorScheme,
                     customColors: customColors,
                   ),
-                  _buildHealthAppTile(colorScheme, customColors),
+                  if (HealthService.isSupported)
+                    _buildHealthAppTile(colorScheme, customColors),
                 ],
               ),
 
@@ -2093,8 +2096,20 @@ class _AccountDashboardState extends State<AccountDashboard>
           );
         }
       }
+    } else if (Platform.isAndroid) {
+      // Google Play's subscriptions page, opened on this app.
+      const url =
+          'https://play.google.com/store/account/subscriptions?package=android.macrobalance.app';
+      if (!await launch(url) && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open subscription settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } else if (mounted) {
-      // Show message for non-iOS platforms
+      // Show message for other platforms
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:
