@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:macrotracker/providers/foodEntryProvider.dart';
 import 'package:macrotracker/providers/goals_provider.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
-import 'package:macrotracker/screens/app_shell.dart';
+import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/onboarding/save_screen.dart';
 import 'package:macrotracker/screens/onboarding/widgets/ob_widgets.dart';
 import 'package:macrotracker/services/macro_calculator_service.dart';
@@ -78,6 +78,16 @@ class ResultsScreen extends StatefulWidget {
       this.projectedDate,
       this.weeks})
       : super(key: key);
+
+  /// Onboarding is done: drops the intro and quiz underneath so Back can't
+  /// return to them, and lets the gate show the app (as login does).
+  static void enterApp(NavigatorState navigator) {
+    AuthGate.signedOutOnboarding = false;
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const AuthGate()),
+      (route) => false,
+    );
+  }
 
   @override
   _ResultsScreenState createState() => _ResultsScreenState();
@@ -195,13 +205,7 @@ class _ResultsScreenState extends State<ResultsScreen>
       onPremiumUser: () async {
         // User has premium access - sync data and proceed to dashboard
         await syncNutritionGoals();
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => const AppShell(),
-            ),
-          );
-        }
+        if (mounted) ResultsScreen.enterApp(Navigator.of(context));
       },
       onFreeUser: () async {
         // User doesn't have premium - show hard paywall message and remain on results

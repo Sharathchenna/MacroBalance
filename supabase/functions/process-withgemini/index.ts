@@ -133,14 +133,26 @@ Deno.serve(async (req: Request) => {
     // Initialize the Google GenAI client
     const genAI = new GoogleGenAI({ apiKey });
     
+    // Optional context from the user: a note about the plate, and when
+    // revising, the foods found so far (JSON) and the one the note is about.
+    const field = (name: string, max: number) => {
+      const value = formData.get(name);
+      return typeof value === "string" ? value.trim().slice(0, max) : "";
+    };
+    const note = field("note", 500);
+    const currentFoods = field("current_foods", 20000);
+    const focusFood = field("focus_food", 200);
+
     // Define nutrition analysis prompt - updated to include health score
-    const prompt = `
+    const basePrompt = `
       Analyze the following meal and provide its nutritional content including health scores.
       if the image is a nutrition label, extract the nutrition information from the label and return response in the specified format, give correct nutrition values for different serving sizes, if given percentages then convert them into relavant values, do not provide null values if you couldn't get the number return 0.
       If the image is food, identify the food and provide the nutrition information for the meal.
       The meal can be a single food item or a combination of different foods.
       Break down the meal into different foods and do the nutrition analysis for each food.
       give nutrition info for each food in the meal with different serving sizes. the serving sizes can be in grams, ounces, tablespoons, teaspoons, cups etc.
+      The food name is the food alone, singular and without a count or amount: "Tandoori roti", never "Two tandoori rotis" or "2 rotis". How much is on the plate goes in the serving sizes.
+      The first serving size must be the amount actually in the photo (for example "2 pieces" for two rotis, "1 bowl" or "150 g"), with its nutrition for that whole amount. The other serving sizes are alternatives such as "1 piece" or "100 g".
       Return only the numerical values for calories, protein, carbohydrates, fat, fiber, and health_score.
       
       For health_score, calculate a score from 0-100 based on:
@@ -174,6 +186,22 @@ Deno.serve(async (req: Request) => {
         },
       ]
     `;
+
+    let prompt = basePrompt;
+    if (currentFoods) {
+      prompt += `
+      You analysed this photo before and found these foods:
+      ${currentFoods}
+      The user is correcting that result${focusFood ? `, about "${focusFood}" only` : ""}. Their correction: "${note}"
+      Return the whole corrected meal in the same format. Change only what the correction affects${focusFood ? ` (normally just "${focusFood}")` : ""}; keep every other food exactly as it was, with the same name and numbers. Add or remove foods if the correction says so.
+      If the correction gives a count or amount ("it's two rotis", "half the rice"), put it in the first serving size and scale that serving's nutrition; the name stays the food alone.
+    `;
+    } else if (note) {
+      prompt += `
+      The user added this about the meal: "${note}"
+      Trust it over what the photo seems to show (ingredients, cooking fat, portions, foods hidden or out of frame). A count or amount in it goes in the first serving size, not the food name.
+    `;
+    }
     
     // Determine the correct MIME type
     let mimeType = image.type;

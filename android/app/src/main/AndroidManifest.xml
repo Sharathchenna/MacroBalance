@@ -50,6 +50,15 @@
                     android:scheme="app.macrobalance.com"
                     android:host="login-callback"/>
             </intent-filter>
+            <!-- Supabase auth returns: password reset emails and browser
+                 sign-in (Apple on Android). Same scheme as iOS. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="io.supabase.macrotracker" android:host="reset-callback"/>
+                <data android:scheme="io.supabase.macrotracker" android:host="oauth-callback"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
@@ -60,9 +69,31 @@
         <activity
             android:name=".CameraActivity"
             android:exported="false"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-            <!-- You might add configChanges or other attributes later if needed -->
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.NoActionBar">
         </activity>
+        <!-- Home-screen widget (today's calories and macros) -->
+        <receiver
+            android:name=".MacroWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <!-- Redraw after an app update; otherwise the widget shows
+                     its empty starting layout until the app next runs. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/macro_widget_info"/>
+        </receiver>
+        <!-- Push notifications without their own channel or icon use these. The
+             channel is created by NotificationService; the server sends to it. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="meal_reminders"/>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_notification"/>
         <!-- Disable PostHog native auto-initialization for manual setup (required for Session Replay) -->
         <meta-data
             android:name="com.posthog.posthog.AUTO_INIT"
@@ -96,6 +127,9 @@
     </queries>
     <uses-permission
         android:name="android.permission.INTERNET"/>
+    <!-- CameraActivity: meal photos, barcodes and labels -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
     <!-- Notification permissions -->
     <uses-permission
         android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>

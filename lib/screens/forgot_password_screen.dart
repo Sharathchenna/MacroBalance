@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/services/auth_service.dart';
 import 'package:macrotracker/theme/app_theme.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -92,7 +93,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${error.toString()}'),
+          content: Text(UserError.describe(error, where: 'forgot_password')),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),

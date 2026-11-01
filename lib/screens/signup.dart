@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:macrotracker/auth/auth_actions.dart';
+import 'package:macrotracker/utils/user_error.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/theme/typography.dart';
@@ -126,7 +127,7 @@ class _SignupState extends State<Signup> with SingleTickerProviderStateMixin {
       case AuthOutcome.failed:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${result.message}'),
+            content: Text(result.message ?? UserError.generic),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),

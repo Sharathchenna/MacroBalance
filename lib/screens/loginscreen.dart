@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:macrotracker/theme/typography.dart';
 import 'package:macrotracker/auth/auth_actions.dart';
+import 'package:macrotracker/utils/user_error.dart';
 import 'package:macrotracker/auth/auth_gate.dart';
 import 'package:macrotracker/screens/signup.dart';
 import 'package:macrotracker/theme/app_theme.dart';
@@ -85,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen>
     } else if (result.outcome == AuthOutcome.failed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${result.message}'),
+          content: Text(result.message ?? UserError.generic),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -318,8 +319,9 @@ class _LoginScreenState extends State<LoginScreen>
 
                     const SizedBox(height: 16),
 
-                    // Apple Sign In Button - only show on iOS
-                    if (Platform.isIOS) ...[
+                    // Apple sign-in: native on iOS; in the browser on
+                    // Android, for people who joined with Apple on iPhone.
+                    if (Platform.isIOS || Platform.isAndroid) ...[
                       OutlinedButton.icon(
                         onPressed: isLoading ? null : _signInWithApple,
                         style: OutlinedButton.styleFrom(

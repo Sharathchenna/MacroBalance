@@ -30,6 +30,7 @@ import 'pages/about_you_page.dart';
 import 'pages/activity_level_page.dart';
 import 'pages/adaptive_page.dart';
 import 'pages/advanced_settings_page.dart';
+import 'package:macrotracker/Health/Health.dart';
 import 'pages/apple_health_page.dart';
 import 'pages/goal_page.dart';
 import 'pages/goal_weight_page.dart';
@@ -64,7 +65,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
 
   late final List<OnboardingStep> _steps =
-      onboardingStepsFor(recalculateOnly: widget.recalculateOnly);
+      onboardingStepsFor(
+          recalculateOnly: widget.recalculateOnly,
+          includeHealth: HealthService.isSupported);
   int get _totalPages => _steps.length;
   OnboardingStep get _currentStep => _steps[_currentPage];
 

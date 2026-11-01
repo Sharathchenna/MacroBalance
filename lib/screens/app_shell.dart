@@ -19,6 +19,7 @@ import 'askAI.dart';
 import 'dashboard_screen.dart';
 import 'energy/checkin_sheet.dart';
 import 'searchPage.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 export '../widgets/app_bottom_bar.dart' show AppTab;
 
@@ -221,7 +222,9 @@ class AppShellState extends State<AppShell>
     } on PlatformException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Couldn\'t open the camera: ${e.message}')),
+        SnackBar(
+            content: Text(UserError.describe(e,
+                where: 'camera', fallback: "Couldn't open the camera. Please try again."))),
       );
     }
   }
@@ -245,14 +248,17 @@ class AppShellState extends State<AppShell>
   Widget build(BuildContext context) {
     final barBottom = AppBottomBar.bottomGap(context);
     return PopScope(
-      // Back (Android, or a swipe gesture) closes the menu first.
-      canPop: !menuOpen && !_touring,
+      // Back (Android, or a swipe gesture) closes the menu first, and from
+      // another tab returns to Home before leaving the app.
+      canPop: !menuOpen && !_touring && _tab == AppTab.home,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         if (_touring) {
           _endTour(false);
-        } else {
+        } else if (menuOpen) {
           _closeMenu();
+        } else {
+          select(AppTab.home);
         }
       },
       child: TourTargets(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart'; // Added for fonts
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/theme/app_theme.dart'; // Added for custom colors
+import 'package:macrotracker/utils/user_error.dart';
 
 class ContactSupportScreen extends StatefulWidget {
   const ContactSupportScreen({super.key});
@@ -86,12 +87,14 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
         }
       } catch (e) {
         // Handle network or other errors
-        debugPrint('Error sending support message: $e'); // Log the detailed error
+        final message = UserError.describe(e,
+            where: 'contact_support',
+            fallback: "Couldn't send your message. Please try again.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'There was a problem sending the message.', // Generic error message
+                message,
                 style: GoogleFonts.poppins(),
               ),
               backgroundColor: Colors.red,

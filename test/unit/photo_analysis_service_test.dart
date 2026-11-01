@@ -23,17 +23,20 @@ void main() {
   final lunchDay = DateTime(2026, 5, 10, 13, 45);
 
   late List<Completer<List<AIFoodItem>>> calls;
+  late List<String?> notes;
   late List<PhotoJob> announced;
   late PhotoAnalysisService service;
 
   setUp(() async {
     await setUpTestEnvironment();
     calls = [];
+    notes = [];
     announced = [];
     service = PhotoAnalysisService(
       onReady: announced.add,
-      analyzer: (bytes) {
+      analyzer: (bytes, {note}) {
         expect(bytes, photo);
+        notes.add(note);
         final call = Completer<List<AIFoodItem>>();
         calls.add(call);
         return call.future;
@@ -54,6 +57,25 @@ void main() {
     expect(job.date, DateTime(2026, 5, 10));
     expect(notified, 1);
     expect(calls, hasLength(1));
+  });
+
+  test('the note from the camera goes to the analysis and stays on the job', () {
+    service
+      ..start(photo, meal: 'Lunch', date: lunchDay, note: '  Paneer, not tofu ')
+      ..start(photo, meal: 'Dinner', date: lunchDay, note: '   ')
+      ..start(photo, meal: 'Snacks', date: lunchDay);
+
+    expect(notes, ['Paneer, not tofu', null, null]);
+    expect(service.jobs.map((j) => j.note), ['Paneer, not tofu', null, null]);
+  });
+
+  test('a retry sends the note again', () async {
+    service.start(photo, meal: 'Lunch', date: lunchDay, note: 'Two rotis');
+    calls.single.completeError(PhotoAnalysisException(PhotoAnalysisFailure.noConnection));
+    await pumpEventQueue();
+
+    service.retry(service.jobs.single);
+    expect(notes, ['Two rotis', 'Two rotis']);
   });
 
   test('jobs are looked up by meal and day', () {

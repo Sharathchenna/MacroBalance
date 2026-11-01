@@ -13,6 +13,7 @@ import '../models/workout_entry.dart';
 import 'package:uuid/uuid.dart';
 import '../services/posthog_service.dart';
 import '../widgets/progress_card.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 class WorkoutTrackingScreen extends StatefulWidget {
   final bool hideAppBar;
@@ -206,10 +207,11 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       if (mounted) setState(() {});
       
     } catch (e) {
-      print('Error saving workout: $e');
+      final message = UserError.describe(e,
+          where: 'workout_save', fallback: "Couldn't save your workout. Please try again.");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving workout: $e')),
+        SnackBar(content: Text(message)),
       );
     }
   }
@@ -297,10 +299,11 @@ class _WorkoutTrackingScreenState extends State<WorkoutTrackingScreen>
       if (mounted) setState(() {});
       
     } catch (e) {
-      print('Error deleting workout: $e');
+      final message = UserError.describe(e,
+          where: 'workout_delete', fallback: "Couldn't delete your workout. Please try again.");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting workout: $e')),
+        SnackBar(content: Text(message)),
       );
     }
   }

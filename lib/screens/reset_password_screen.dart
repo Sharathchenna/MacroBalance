@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 /// Shown when the user opens the password-reset link from their email.
 /// Supabase has already signed them in with a recovery session at this point.
@@ -54,10 +55,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       if (!mounted) return;
       _showMessage('Password updated', isError: false);
       Navigator.of(context).pop();
-    } on AuthException catch (e) {
-      _showMessage(e.message);
-    } catch (_) {
-      _showMessage('Couldn\'t update your password. Check your connection and try again.');
+    } catch (e) {
+      _showMessage(UserError.describe(e,
+          where: 'reset_password', fallback: "Couldn't update your password. Please try again."));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -66,16 +66,9 @@ class CameraService {
     _isStreaming = false;
   }
 
-  // Method to show the native camera view
+  /// Shows the full-screen native camera (iOS: NativeCameraViewController,
+  /// Android: CameraActivity). The capture arrives later as cameraResult.
   Future<void> showNativeCamera() async {
-    if (!Platform.isIOS) {
-      print('[CameraService] Native camera view only supported on iOS.');
-      // Consider showing a platform-specific error message or handling differently
-      throw PlatformException(
-          code: 'UNSUPPORTED_PLATFORM',
-          message: 'Camera feature is only available on iOS.');
-    }
-
     try {
       print('[CameraService] Invoking showNativeCamera...');
       await _nativeCameraViewChannel.invokeMethod('showNativeCamera');

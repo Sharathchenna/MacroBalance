@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:macrotracker/Health/Health.dart';
 import 'package:macrotracker/screens/loginscreen.dart';
 import 'package:macrotracker/screens/signup.dart';
 import 'package:flutter/services.dart';
@@ -189,17 +190,19 @@ class _WelcomescreenState extends State<Welcomescreen>
                             : customColors.dateNavigatorBackground,
                         iconColor: theme.colorScheme.primary,
                       ),
-                      const SizedBox(height: 16),
-                      _buildFeature(
-                        isDark: isDark,
-                        icon: CupertinoIcons.heart,
-                        title: 'Health Integration',
-                        description: 'Sync with Apple Health & Google Fit',
-                        backgroundColor: isDark
-                            ? const Color(0xFF242428)
-                            : customColors.dateNavigatorBackground,
-                        iconColor: theme.colorScheme.primary,
-                      ),
+                      if (HealthService.isSupported) ...[
+                        const SizedBox(height: 16),
+                        _buildFeature(
+                          isDark: isDark,
+                          icon: CupertinoIcons.heart,
+                          title: 'Health Integration',
+                          description: 'Sync with Apple Health',
+                          backgroundColor: isDark
+                              ? const Color(0xFF242428)
+                              : customColors.dateNavigatorBackground,
+                          iconColor: theme.colorScheme.primary,
+                        ),
+                      ],
                     ],
                   ),
                 ),

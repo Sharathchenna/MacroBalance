@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:macrotracker/Health/Health.dart';
 import 'package:macrotracker/providers/weight_unit_provider.dart';
 import 'package:macrotracker/screens/StepsTrackingScreen.dart';
 import '../theme/app_theme.dart';
@@ -18,7 +19,8 @@ class TrackingPagesScreen extends StatefulWidget {
   const TrackingPagesScreen(
       {super.key, this.embedded = false, this.initialPage = weightTab});
 
-  // Tab indexes, for [initialPage].
+  // Tabs, for [initialPage]. Steps reads Apple Health, so it isn't shown
+  // where health isn't supported; the others keep these ids regardless.
   static const weightTab = 0;
   static const nutritionTab = 1;
   static const stepsTab = 2;
@@ -35,19 +37,30 @@ class TrackingPagesScreen extends StatefulWidget {
 
 class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     with SingleTickerProviderStateMixin {
-  static const _tabs = ['Weight', 'Nutrition', 'Steps', 'Workouts', 'Energy'];
+  static const _labels = ['Weight', 'Nutrition', 'Steps', 'Workouts', 'Energy'];
+
+  /// The tabs shown, in order, as [TrackingPagesScreen] tab ids.
+  late final List<int> _tabs = [
+    TrackingPagesScreen.weightTab,
+    TrackingPagesScreen.nutritionTab,
+    if (HealthService.isSupported) TrackingPagesScreen.stepsTab,
+    TrackingPagesScreen.workoutsTab,
+    TrackingPagesScreen.energyTab,
+  ];
 
   late final TabController _tabController = TabController(
     length: _tabs.length,
     vsync: this,
-    initialIndex: widget.initialPage.clamp(0, _tabs.length - 1),
+    initialIndex: _tabs.indexOf(widget.initialPage).clamp(0, _tabs.length - 1),
   );
+
+  void _showTab(int tab) => _tabController.animateTo(_tabs.indexOf(tab));
 
   @override
   void initState() {
     super.initState();
     PostHogService.trackScreen('tracking_pages_screen');
-    _shown = _tabController.index;
+    _shown = _tabs[_tabController.index];
     if (_shown == TrackingPagesScreen.energyTab) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) EnergyTab.trackViewed(context);
@@ -55,8 +68,8 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
     }
     _tabController.addListener(() {
       if (_tabController.indexIsChanging || !mounted) return;
-      if (_tabController.index != _shown) {
-        _shown = _tabController.index;
+      if (_tabs[_tabController.index] != _shown) {
+        _shown = _tabs[_tabController.index];
         if (_shown == TrackingPagesScreen.energyTab) {
           EnergyTab.trackViewed(context);
         }
@@ -100,7 +113,7 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
             : SystemUiOverlayStyle.light,
         iconTheme: IconThemeData(color: customColors.textPrimary),
         actions: [
-          if (_tabController.index == TrackingPagesScreen.weightTab)
+          if (_tabs[_tabController.index] == TrackingPagesScreen.weightTab)
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Consumer<WeightUnitProvider>(
@@ -141,33 +154,31 @@ class _TrackingPagesScreenState extends State<TrackingPagesScreen>
           unselectedLabelStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
           overlayColor: WidgetStateProperty.all(Colors.transparent),
           onTap: (_) => HapticFeedback.selectionClick(),
-          tabs: [for (final t in _tabs) Tab(text: t, height: 40)],
+          tabs: [for (final t in _tabs) Tab(text: _labels[t], height: 40)],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        // In the order of [_tabs] and the index constants.
-        children: [
-          KeepAlivePage(
-            child: WeightTrackingScreen(
-              hideAppBar: true,
-              onOpenEnergy: () =>
-                  _tabController.animateTo(TrackingPagesScreen.energyTab),
-            ),
-          ),
-          const KeepAlivePage(child: NutritionTrendsScreen(hideAppBar: true)),
-          const KeepAlivePage(child: StepTrackingScreen(hideAppBar: true)),
-          const KeepAlivePage(child: WorkoutTrackingScreen(hideAppBar: true)),
-          KeepAlivePage(
-            child: EnergyTab(
-              onLogWeight: () =>
-                  _tabController.animateTo(TrackingPagesScreen.weightTab),
-            ),
-          ),
-        ],
+        children: [for (final t in _tabs) KeepAlivePage(child: _page(t))],
       ),
     );
   }
+
+  Widget _page(int tab) => switch (tab) {
+        TrackingPagesScreen.weightTab => WeightTrackingScreen(
+            hideAppBar: true,
+            onOpenEnergy: () => _showTab(TrackingPagesScreen.energyTab),
+          ),
+        TrackingPagesScreen.nutritionTab =>
+          const NutritionTrendsScreen(hideAppBar: true),
+        TrackingPagesScreen.stepsTab =>
+          const StepTrackingScreen(hideAppBar: true),
+        TrackingPagesScreen.workoutsTab =>
+          const WorkoutTrackingScreen(hideAppBar: true),
+        _ => EnergyTab(
+            onLogWeight: () => _showTab(TrackingPagesScreen.weightTab),
+          ),
+      };
 }
 
 /// Keeps a tab's state while another tab is showing.

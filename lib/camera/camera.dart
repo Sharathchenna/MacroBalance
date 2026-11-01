@@ -14,6 +14,7 @@ import 'package:lottie/lottie.dart'; // Import Lottie package
 import 'package:macrotracker/models/ai_food_item.dart';
 import 'package:path_provider/path_provider.dart'; // For temp directory
 import '../AI/gemini.dart'; // Keep Gemini processing
+import 'package:macrotracker/utils/user_error.dart';
 
 // Define the expected result structure
 typedef CameraResult = Map<String, dynamic>;
@@ -127,7 +128,8 @@ class _CameraScreenState extends State<CameraScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Failed to open camera: ${e.message}';
+          _error = UserError.describe(e,
+              where: 'camera', fallback: "Couldn't open the camera. Please try again.");
         });
         // Pop after showing error
         Future.delayed(const Duration(seconds: 2), () {

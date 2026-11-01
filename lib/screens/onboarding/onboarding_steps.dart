@@ -25,8 +25,10 @@ enum OnboardingStep {
 /// obstacles and their reply, and the static facts (sex, height, age), which
 /// are edited on the account screen. New users reach [OnboardingStep.summary]
 /// only from the plan reveal's "Review answers"; "How did you hear about
-/// us?" is asked after the plan.
-List<OnboardingStep> onboardingStepsFor({required bool recalculateOnly}) =>
+/// us?" is asked after the plan. Without [includeHealth] (no health app on
+/// the device) the Apple Health primer is left out.
+List<OnboardingStep> onboardingStepsFor(
+        {required bool recalculateOnly, bool includeHealth = true}) =>
     recalculateOnly
         ? const [
             OnboardingStep.weight,
@@ -39,7 +41,10 @@ List<OnboardingStep> onboardingStepsFor({required bool recalculateOnly}) =>
             OnboardingStep.advanced,
             OnboardingStep.summary,
           ]
-        : OnboardingStep.values;
+        : [
+            for (final step in OnboardingStep.values)
+              if (includeHealth || step != OnboardingStep.appleHealth) step,
+          ];
 
 /// Steps passed over for the answers so far: maintaining ([goal]) needs no
 /// goal weight or pace, only losing has a plan style (spec 7.5), and planning

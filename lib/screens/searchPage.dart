@@ -39,6 +39,7 @@ import 'package:lottie/lottie.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/services/ai_food_search_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:macrotracker/utils/user_error.dart';
 // import 'package:macrotracker/camera/camera.dart'; // No longer needed
 
 // Define the expected result structure at the top level
@@ -399,7 +400,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             final Uint8List photoData = result['value'] as Uint8List;
             print(
                 '[Flutter SearchPage] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-            _handlePhotoResult(currentContext, photoData);
+            _handlePhotoResult(currentContext, photoData, note: result['note'] as String?);
           } else if (type == 'cancel') {
             print('[Flutter SearchPage] Post-frame: Handling cancel.');
           } else {
@@ -419,14 +420,6 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   Future<void> _showNativeCamera() async {
     FocusScope.of(context).unfocus();
-    if (!Platform.isIOS) {
-      print('[Flutter SearchPage] Native camera view only supported on iOS.');
-      if (mounted) {
-        _showErrorSnackbar('Camera feature is only available on iOS.');
-      }
-      return;
-    }
-
     // Track camera usage
     PostHogService.trackFeatureUsage(
       'camera_search',
@@ -442,7 +435,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     } on PlatformException catch (e) {
       print('[Flutter SearchPage] Error showing native camera: ${e.message}');
       if (mounted) {
-        _showErrorSnackbar('Failed to open camera: ${e.message}');
+        _showErrorSnackbar(UserError.describe(e,
+            where: 'camera', fallback: "Couldn't open the camera. Please try again."));
       }
     }
   }
@@ -460,11 +454,11 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   /// Analysis runs in the background; go back to the dashboard, where the
   /// meal shows a progress card and a banner says when it's ready.
-  void _handlePhotoResult(BuildContext safeContext, Uint8List photoData) {
+  void _handlePhotoResult(BuildContext safeContext, Uint8List photoData, {String? note}) {
     if (!mounted) return;
     final date = Provider.of<DateProvider>(safeContext, listen: false).selectedDate;
     Provider.of<PhotoAnalysisService>(safeContext, listen: false).start(photoData,
-        meal: widget.selectedMeal ?? MealTime.suggested(), date: date);
+        meal: widget.selectedMeal ?? MealTime.suggested(), date: date, note: note);
     Navigator.of(safeContext).popUntil((route) => route.isFirst);
   }
 

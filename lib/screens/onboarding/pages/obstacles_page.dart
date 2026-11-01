@@ -7,23 +7,23 @@ import 'package:macrotracker/theme/ob_theme.dart';
 /// the `obstacles_selected` PostHog property and used to pick reply cards.
 const kObstacleCodes = [
   'logging_slow',
-  'static_target',
-  'distrust_numbers',
-  'weekends',
-  'plateau',
+  'restrictive',
+  'routine',
   'eating_out',
+  'homemade',
+  'plateau',
   'motivation',
 ];
 
 /// Pill labels, by code.
 const kObstacleLabels = {
-  'logging_slow': 'Logging took too long',
-  'static_target': 'My target never changed',
-  'distrust_numbers': 'I didn’t trust the numbers',
-  'weekends': 'Weekends undo my week',
-  'plateau': 'I hit a plateau',
-  'eating_out': 'Eating out is hard',
-  'motivation': 'I lost motivation',
+  'logging_slow': 'Logging took too much effort',
+  'restrictive': 'Targets felt too restrictive',
+  'routine': 'Inconsistent daily routine',
+  'eating_out': 'Eating out & social events',
+  'homemade': 'Hard-to-track homemade food',
+  'plateau': 'Scale stopped moving',
+  'motivation': 'Lost motivation',
 };
 
 /// "What's gotten in the way before?": optional, multi-select. Saves nothing

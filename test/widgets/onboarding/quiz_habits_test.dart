@@ -36,10 +36,10 @@ void main() {
           dark: dark,
         );
         expect(find.text('1 selected'), findsOneWidget);
-        await tester.tap(find.text('I hit a plateau'));
+        await tester.tap(find.text('Scale stopped moving'));
         await tester.pump();
         expect(selected, {'logging_slow', 'plateau'});
-        await tester.tap(find.text('Logging took too long'));
+        await tester.tap(find.text('Logging took too much effort'));
         await tester.pump();
         expect(selected, {'plateau'});
         expect(find.text('1 selected'), findsOneWidget);
@@ -51,12 +51,12 @@ void main() {
           tester,
           const InsightPage(
             goal: MacroCalculatorService.GOAL_LOSE,
-            obstacles: {'logging_slow', 'weekends', 'unknown'},
+            obstacles: {'logging_slow', 'routine', 'unknown'},
           ),
           dark: dark,
         );
         expect(find.byKey(const Key('insight_reply_logging_slow')), findsOneWidget);
-        expect(find.byKey(const Key('insight_reply_weekends')), findsOneWidget);
+        expect(find.byKey(const Key('insight_reply_routine')), findsOneWidget);
         expect(find.byKey(const Key('insight_reply_plateau')), findsNothing);
         expect(find.text('Fixed target'), findsOneWidget);
         expect(find.text('What you actually burn'), findsOneWidget);

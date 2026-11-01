@@ -1,8 +1,12 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'dart:io' show Platform;
+
+import 'package:flutter/widgets.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/services/test_accounts.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 /// How a sign-in or sign-up attempt ended.
 enum AuthOutcome {
@@ -42,25 +46,27 @@ class AuthActions {
   static const _googleIosClientId =
       '253882759822-7a6ka2f4k37v0ifhvpoe1fv6hfti4aar.apps.googleusercontent.com';
 
+  /// Where Supabase sends the browser back after Apple sign-in on Android.
+  /// Must be in the Supabase Auth redirect allowlist.
+  static const oauthCallback = 'io.supabase.macrotracker://oauth-callback/';
+
   static SupabaseClient get _supabase => Supabase.instance.client;
 
   /// Words for the person, never a raw exception.
   static String _messageOf(Object error) {
-    if (error is AuthException) return error.message;
     final text = error.toString();
     if (text.contains('already registered') || text.contains('409')) {
       return 'That email already has an account. Log in instead.';
     }
-    if (text.contains('SocketException') || text.contains('Timeout')) {
-      return 'We couldn’t reach the server. Check your connection and try again.';
-    }
-    return 'Something went wrong. Please try again.';
+    return UserError.describe(error, where: 'auth');
   }
 
   static Future<AuthResult> signInWithGoogle() async {
     try {
+      // Android finds its OAuth client from the package name and signing
+      // certificate; only iOS takes a client ID.
       final googleSignIn = GoogleSignIn(
-        clientId: _googleIosClientId,
+        clientId: Platform.isIOS ? _googleIosClientId : null,
         serverClientId: _googleWebClientId,
       );
       final googleUser = await googleSignIn.signIn();
@@ -78,12 +84,12 @@ class AuthActions {
       );
       return const AuthResult(AuthOutcome.signedIn);
     } catch (error) {
-      debugPrint('Google sign-in error: $error');
       return AuthResult(AuthOutcome.failed, _messageOf(error));
     }
   }
 
   static Future<AuthResult> signInWithApple() async {
+    if (!Platform.isIOS) return _signInWithAppleInBrowser();
     try {
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
@@ -103,11 +109,48 @@ class AuthActions {
       if (error.code == AuthorizationErrorCode.canceled) {
         return const AuthResult(AuthOutcome.cancelled);
       }
-      debugPrint('Apple sign-in error: $error');
       return AuthResult(AuthOutcome.failed, _messageOf(error));
     } catch (error) {
-      debugPrint('Apple sign-in error: $error');
       return AuthResult(AuthOutcome.failed, _messageOf(error));
+    }
+  }
+
+  /// Apple sign-in outside iOS (for people who joined on iPhone): Supabase's
+  /// web flow in the browser, which returns to [oauthCallback]. Supabase
+  /// reads the session from that link; if the person comes back without one
+  /// (closed the browser), it counts as cancelled.
+  static Future<AuthResult> _signInWithAppleInBrowser() async {
+    final signedIn = Completer<AuthResult>();
+    final authSub = _supabase.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn && !signedIn.isCompleted) {
+        signedIn.complete(const AuthResult(AuthOutcome.signedIn));
+      }
+    });
+    Timer? giveUp;
+    final lifecycle = AppLifecycleListener(onResume: () {
+      giveUp?.cancel();
+      giveUp = Timer(const Duration(seconds: 4), () {
+        if (!signedIn.isCompleted) {
+          signedIn.complete(const AuthResult(AuthOutcome.cancelled));
+        }
+      });
+    });
+    try {
+      final launched = await _supabase.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: oauthCallback,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        return const AuthResult(AuthOutcome.failed, 'Couldn’t open the browser.');
+      }
+      return await signedIn.future;
+    } catch (error) {
+      return AuthResult(AuthOutcome.failed, _messageOf(error));
+    } finally {
+      giveUp?.cancel();
+      lifecycle.dispose();
+      await authSub.cancel();
     }
   }
 

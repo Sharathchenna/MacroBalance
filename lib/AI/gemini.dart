@@ -36,8 +36,15 @@ class PhotoAnalysisException implements Exception {
 }
 
 /// Sends the photo to the process-withgemini edge function and returns the raw
-/// JSON text from the model. Throws [PhotoAnalysisException].
-Future<String> _requestAnalysis(String imagePath) async {
+/// JSON text from the model. [note] is what the user added about the meal;
+/// with [currentFoods] it corrects that earlier result (about [focusFood]
+/// alone, when given). Throws [PhotoAnalysisException].
+Future<String> _requestAnalysis(
+  String imagePath, {
+  String? note,
+  List<AIFoodItem>? currentFoods,
+  String? focusFood,
+}) async {
   final session = Supabase.instance.client.auth.currentSession;
   if (session == null) {
     throw PhotoAnalysisException(PhotoAnalysisFailure.sessionExpired);
@@ -65,6 +72,12 @@ Future<String> _requestAnalysis(String imagePath) async {
     filename: 'image.jpg',
     contentType: MediaType('image', 'jpeg'),
   ));
+  if (note != null && note.trim().isNotEmpty) request.fields['note'] = note.trim();
+  if (currentFoods != null) {
+    request.fields['current_foods'] =
+        json.encode(currentFoods.map((f) => f.toJson()).toList());
+  }
+  if (focusFood != null) request.fields['focus_food'] = focusFood;
 
   http.Response response;
   try {
@@ -100,10 +113,16 @@ Future<String> _requestAnalysis(String imagePath) async {
   return result;
 }
 
-/// Analyses a meal photo and returns the foods found in it.
-/// Throws [PhotoAnalysisException].
-Future<List<AIFoodItem>> analyzeMealPhoto(String imagePath) async {
-  final text = await _requestAnalysis(imagePath);
+/// Analyses a meal photo and returns the foods found in it. [note] and
+/// [currentFoods] are as in [_requestAnalysis]. Throws [PhotoAnalysisException].
+Future<List<AIFoodItem>> analyzeMealPhoto(
+  String imagePath, {
+  String? note,
+  List<AIFoodItem>? currentFoods,
+  String? focusFood,
+}) async {
+  final text = await _requestAnalysis(imagePath,
+      note: note, currentFoods: currentFoods, focusFood: focusFood);
   final cleaned = text.trim().replaceAll('```json', '').replaceAll('```', '');
   dynamic decoded;
   try {

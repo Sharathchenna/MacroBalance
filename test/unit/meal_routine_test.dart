@@ -40,13 +40,11 @@ void main() {
       expect(usual.entries.map((e) => e.food.name), ['Oats', 'Milk']);
     });
 
-    test('2 matching days are enough', () {
+    test('2 matching days are not enough', () {
       eat(1, ['Oats', 'Milk']);
       eat(2, ['Oats', 'Milk']);
       eat(3, ['Eggs', 'Toast']);
-      final usual = suggest();
-      expect(usual, isNotNull);
-      expect(usual!.entries.map((e) => e.food.name), ['Oats', 'Milk']);
+      expect(suggest(), isNull);
     });
 
     test('one day is not a routine', () {
@@ -90,6 +88,7 @@ void main() {
       eat(1, ['Coffee', 'Toast'], quantity: 2);
       eat(2, ['Coffee', 'Banana', 'Eggs', 'Juice']);
       eat(3, ['Toast', 'Pancakes', 'Syrup', 'Berries']);
+      eat(4, ['Coffee', 'Toast', 'Idli', 'Chutney', 'Sambar']);
       final usual = suggest();
       expect(usual!.entries.map((e) => e.food.name), ['Coffee', 'Toast']);
       expect(usual.entries.every((e) => e.quantity == 2), isTrue);
@@ -98,6 +97,7 @@ void main() {
     test('foods already logged today are left out', () {
       eat(1, ['Oats', 'Milk']);
       eat(2, ['Oats', 'Milk']);
+      eat(3, ['Oats', 'Milk']);
       eat(0, ['oats']);
       final usual = suggest();
       expect(usual!.entries.map((e) => e.food.name), ['Milk']);

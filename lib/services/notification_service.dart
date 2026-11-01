@@ -22,6 +22,15 @@ class NotificationService {
   bool _isInitialized = false;
   String? _fcmToken;
 
+  /// Android channel for reminders, shared with the send-notifications
+  /// function, so pushes and local notifications appear as one setting.
+  static const _remindersChannel = AndroidNotificationChannel(
+    'meal_reminders',
+    'Meal reminders',
+    description: 'Reminders to log your meals',
+    importance: Importance.high,
+  );
+
   Future<void> initialize() async {
     if (_isInitialized) return;
 
@@ -36,7 +45,7 @@ class NotificationService {
       
       // Initialize platform-specific settings
       const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings('ic_stat_notification');
 
       const DarwinInitializationSettings initializationSettingsIOS =
           DarwinInitializationSettings(
@@ -57,6 +66,13 @@ class NotificationService {
         initializationSettings,
         onDidReceiveNotificationResponse: _onNotificationTap,
       );
+
+      // Android: the channel meal reminders arrive on (the server's
+      // channel_id). Creating it again is a no-op.
+      await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(_remindersChannel);
 
       // The app was opened by tapping a reminder: remember where it points.
       final launch = await _flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
@@ -225,9 +241,9 @@ class NotificationService {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'macrotracker_channel',
-      'MacroTracker Notifications',
-      channelDescription: 'Notifications for MacroTracker app',
+      'meal_reminders',
+      'Meal reminders',
+      channelDescription: 'Reminders to log your meals',
       importance: Importance.max,
       priority: Priority.high,
       showWhen: true,
@@ -269,9 +285,9 @@ class NotificationService {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'macrotracker_scheduled_channel',
-      'MacroTracker Scheduled Notifications',
-      channelDescription: 'Scheduled notifications for MacroTracker app',
+      'meal_reminders',
+      'Meal reminders',
+      channelDescription: 'Reminders to log your meals',
       importance: Importance.max,
       priority: Priority.high,
     );
@@ -301,7 +317,9 @@ class NotificationService {
       scheduledTZDateTime,
       platformChannelSpecifics,
       payload: payload,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      // Inexact: exact alarms need a permission Android grants sparingly,
+      // and a reminder a few minutes late is fine.
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
 

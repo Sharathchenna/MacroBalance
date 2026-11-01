@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 /// A utility class for displaying native iOS statistics screens
 /// This is not a widget but a utility class with static methods
@@ -85,7 +86,8 @@ class NativeStatsScreen {
             context: context,
             builder: (context) => CupertinoAlertDialog(
               title: const Text('Error'),
-              content: Text('Could not show stats: ${e.message}'),
+              content: Text(UserError.describe(e,
+                  where: 'native_stats', fallback: "Couldn't show your stats. Please try again.")),
               actions: [
                 CupertinoDialogAction(
                   child: const Text('OK'),

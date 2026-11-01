@@ -1,10 +1,21 @@
 // ignore_for_file: file_names, avoid_print
 
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:intl/intl.dart';
 
 class HealthService {
-  final health = Health();
+  /// Whether this device reads health data. Only Apple Health is wired up,
+  /// so elsewhere (Android) health features are hidden and every call below
+  /// returns its empty value without touching the plugin.
+  static bool get isSupported => debugIsSupported ?? Platform.isIOS;
+
+  @visibleForTesting
+  static bool? debugIsSupported;
+
+  late final health = Health();
 
   // Add all required health data types
   static final _healthTypes = [
@@ -37,6 +48,7 @@ class HealthService {
 
   // New method to request permissions
   Future<bool> requestPermissions() async {
+    if (!isSupported) return false;
     try {
       // Use _permissions which includes write access for nutrition
       final granted = await health.requestAuthorization(_healthTypes,
@@ -49,6 +61,7 @@ class HealthService {
   }
 
   Future<int> getSteps() async {
+    if (!isSupported) return 0;
     try {
       final now = DateTime.now();
       final midnight = DateTime(now.year, now.month, now.day);
@@ -73,6 +86,7 @@ class HealthService {
 
   // New method to get steps for a specific date range
   Future<int> getStepsForDateRange(DateTime startDate, DateTime endDate) async {
+    if (!isSupported) return 0;
     try {
       final hasPermissions =
           await health.hasPermissions([HealthDataType.STEPS]);
@@ -113,6 +127,7 @@ class HealthService {
 
   // Enhanced method to get steps for the last 7 days
   Future<List<Map<String, dynamic>>> getStepsForLastWeek() async {
+    if (!isSupported) return [];
     final List<Map<String, dynamic>> result = [];
     final now = DateTime.now();
 
@@ -176,6 +191,7 @@ class HealthService {
 
   // Method to check if health data is available
   Future<bool> isHealthDataAvailable() async {
+    if (!isSupported) return false;
     try {
       return await health.hasPermissions([HealthDataType.STEPS]) ?? false;
     } catch (e) {
@@ -185,6 +201,7 @@ class HealthService {
   }
 
   Future<String> getHeightandWeight() async {
+    if (!isSupported) return 'Height or weight data not available';
     try {
       final now = DateTime.now();
       final midnight = DateTime(now.year, now.month, now.day);
@@ -246,6 +263,7 @@ class HealthService {
   }
 
   Future<double> getCalories() async {
+    if (!isSupported) return 0;
     try {
       final now = DateTime.now();
       final midnight = DateTime(now.year, now.month, now.day);
@@ -295,6 +313,7 @@ class HealthService {
   }
 
   Future<int> getStepsForDate(DateTime date) async {
+    if (!isSupported) return 0;
     try {
       // Set the time to start of day and end of day for the given date
       final startTime = DateTime(date.year, date.month, date.day);
@@ -309,6 +328,7 @@ class HealthService {
   }
 
   Future<double> getCaloriesForDate(DateTime date) async {
+    if (!isSupported) return 0;
     try {
       // Set the time to start of day and end of day for the given date
       final startTime = DateTime(date.year, date.month, date.day);
@@ -349,6 +369,7 @@ class HealthService {
 
   // Method to get steps for the last month (30 days)
   Future<List<Map<String, dynamic>>> getStepsForLastMonth() async {
+    if (!isSupported) return [];
     final List<Map<String, dynamic>> result = [];
     final now = DateTime.now();
 
@@ -387,6 +408,7 @@ class HealthService {
   // Method to get weight data for a specific date range
   Future<List<Map<String, dynamic>>> getWeightDataForDateRange(
       DateTime startDate, DateTime endDate) async {
+    if (!isSupported) return [];
     final List<Map<String, dynamic>> weightEntries = [];
     try {
       final hasPermissions =
@@ -453,6 +475,7 @@ class HealthService {
 
   // Method to get steps for the last year (12 months)
   Future<List<Map<String, dynamic>>> getStepsForLastYear() async {
+    if (!isSupported) return [];
     final List<Map<String, dynamic>> result = [];
     final now = DateTime.now();
 
@@ -518,6 +541,7 @@ class HealthService {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
+    if (!isSupported) return false;
     try {
       // Define the types we want to write
       final typesToWrite = [

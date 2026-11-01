@@ -72,7 +72,7 @@ Future<void> main() async {
 
   final photos = PhotoAnalysisService(
     onReady: showPhotoJobBanner,
-    analyzer: (_) async {
+    analyzer: (_, {note}) async {
       await Future<void>.delayed(const Duration(seconds: 7));
       return [
         AIFoodItem(
@@ -91,6 +91,24 @@ Future<void> main() async {
             carbohydrates: [40, 44],
             fat: [7, 7.8],
             fiber: [2, 2.2]),
+      ];
+    },
+    // Renames the food the correction is about (or the first) to the note.
+    reviser: (_, foods, note, {focusFood}) async {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      final i = focusFood == null ? 0 : foods.indexWhere((f) => f.name == focusFood);
+      return [
+        for (final (j, f) in foods.indexed)
+          j == i
+              ? AIFoodItem(
+                  name: note,
+                  servingSizes: f.servingSizes,
+                  calories: [for (final c in f.calories) c + 80],
+                  protein: f.protein,
+                  carbohydrates: f.carbohydrates,
+                  fat: f.fat,
+                  fiber: f.fiber)
+              : f,
       ];
     },
   );

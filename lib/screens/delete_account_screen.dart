@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:macrotracker/services/widget_service.dart';
 import 'package:flutter/material.dart';
 import 'package:macrotracker/providers/saved_food_provider.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,7 @@ import 'package:macrotracker/providers/subscription_provider.dart';
 import 'package:macrotracker/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform;
+import 'package:macrotracker/utils/user_error.dart';
 
 class DeleteAccountScreen extends StatefulWidget {
   const DeleteAccountScreen({Key? key}) : super(key: key);
@@ -165,6 +167,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       await energy.clearUserData();
       await finishReminder.clearUserData();
         await savedFoodProvider.clearUserData();
+        await WidgetService.clear();
 
         // Sign out regardless of outcome
         await _supabase.auth.signOut();
@@ -190,7 +193,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         }
       } catch (e) {
         debugPrint('Error calling delete-user function: ${e.toString()}');
-        throw Exception('Could not delete account. Please contact support.');
+        rethrow;
       }
     } catch (e) {
       if (mounted) setState(() {
@@ -200,7 +203,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text(UserError.describe(e,
+                where: 'delete_account',
+                fallback: "Couldn't delete your account. Please try again or contact support.")),
             backgroundColor: Colors.red,
           ),
         );
@@ -424,8 +429,20 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           );
         }
       }
+    } else if (Platform.isAndroid) {
+      // Google Play's subscriptions page, opened on this app.
+      const url =
+          'https://play.google.com/store/account/subscriptions?package=android.macrobalance.app';
+      if (!await launch(url) && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open subscription settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } else if (mounted) {
-      // Show message for non-iOS platforms
+      // Show message for other platforms
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:

@@ -11,6 +11,14 @@ void main() {
       expect(steps.last, OnboardingStep.summary);
     });
 
+    test('without a health app the Apple Health primer is left out', () {
+      final steps =
+          onboardingStepsFor(recalculateOnly: false, includeHealth: false);
+      expect(steps, isNot(contains(OnboardingStep.appleHealth)));
+      expect(steps.length, OnboardingStep.values.length - 1);
+      expect(steps.last, OnboardingStep.summary);
+    });
+
     test('new users answer every input the maths uses', () {
       final steps = onboardingStepsFor(recalculateOnly: false);
       expect(
