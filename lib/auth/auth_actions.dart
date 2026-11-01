@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:macrotracker/services/test_accounts.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 /// How a sign-in or sign-up attempt ended.
 enum AuthOutcome {
@@ -54,15 +54,11 @@ class AuthActions {
 
   /// Words for the person, never a raw exception.
   static String _messageOf(Object error) {
-    if (error is AuthException) return error.message;
     final text = error.toString();
     if (text.contains('already registered') || text.contains('409')) {
       return 'That email already has an account. Log in instead.';
     }
-    if (text.contains('SocketException') || text.contains('Timeout')) {
-      return 'We couldn’t reach the server. Check your connection and try again.';
-    }
-    return 'Something went wrong. Please try again.';
+    return UserError.describe(error, where: 'auth');
   }
 
   static Future<AuthResult> signInWithGoogle() async {
@@ -88,7 +84,6 @@ class AuthActions {
       );
       return const AuthResult(AuthOutcome.signedIn);
     } catch (error) {
-      debugPrint('Google sign-in error: $error');
       return AuthResult(AuthOutcome.failed, _messageOf(error));
     }
   }
@@ -114,10 +109,8 @@ class AuthActions {
       if (error.code == AuthorizationErrorCode.canceled) {
         return const AuthResult(AuthOutcome.cancelled);
       }
-      debugPrint('Apple sign-in error: $error');
       return AuthResult(AuthOutcome.failed, _messageOf(error));
     } catch (error) {
-      debugPrint('Apple sign-in error: $error');
       return AuthResult(AuthOutcome.failed, _messageOf(error));
     }
   }
@@ -153,7 +146,6 @@ class AuthActions {
       }
       return await signedIn.future;
     } catch (error) {
-      debugPrint('Apple sign-in error: $error');
       return AuthResult(AuthOutcome.failed, _messageOf(error));
     } finally {
       giveUp?.cancel();

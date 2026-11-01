@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -72,7 +73,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error updating profile: ${e.toString()}'),
+            content: Text(UserError.describe(e,
+                where: 'edit_profile', fallback: "Couldn't update your profile. Please try again.")),
             backgroundColor: Colors.red,
           ),
         );

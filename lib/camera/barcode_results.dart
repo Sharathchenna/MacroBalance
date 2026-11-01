@@ -19,6 +19,7 @@ import '../models/foodEntry.dart';
 import 'package:uuid/uuid.dart';
 import '../services/camera_service.dart';
 import 'package:macrotracker/widgets/app_toast.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 // Extension to add withValues method to Color, similar to withOpacity
 extension ColorExtension on Color {
@@ -193,11 +194,11 @@ class _BarcodeResultsState extends State<BarcodeResults>
         });
       }
     } catch (e) {
-      print('Error in barcode search: $e');
-      // Check if mounted before calling setState
+      final message = UserError.describe(e,
+          where: 'barcode_search', fallback: "Couldn't look up this barcode. Please try again.");
       if (!mounted) return;
       setState(() {
-        _error = 'Error: $e';
+        _error = message;
         _isLoading = false;
       });
     }

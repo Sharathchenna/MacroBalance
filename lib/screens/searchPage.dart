@@ -39,6 +39,7 @@ import 'package:lottie/lottie.dart';
 import 'package:macrotracker/services/posthog_service.dart';
 import 'package:macrotracker/services/ai_food_search_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:macrotracker/utils/user_error.dart';
 // import 'package:macrotracker/camera/camera.dart'; // No longer needed
 
 // Define the expected result structure at the top level
@@ -434,7 +435,8 @@ class _FoodSearchPageState extends State<FoodSearchPage>
     } on PlatformException catch (e) {
       print('[Flutter SearchPage] Error showing native camera: ${e.message}');
       if (mounted) {
-        _showErrorSnackbar('Failed to open camera: ${e.message}');
+        _showErrorSnackbar(UserError.describe(e,
+            where: 'camera', fallback: "Couldn't open the camera. Please try again."));
       }
     }
   }

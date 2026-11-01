@@ -46,6 +46,7 @@ import 'package:macrotracker/services/superwall_placements.dart'; // Import Supe
 import 'package:macrotracker/services/posthog_service.dart'; // Import PostHogService
 import 'package:macrotracker/services/superwall_service.dart'; // Import SuperwallService
 import 'package:macrotracker/screens/app_shell.dart';
+import 'package:macrotracker/utils/user_error.dart';
 
 class AccountDashboard extends StatefulWidget {
   const AccountDashboard({super.key, this.showBackButton = true});
@@ -171,7 +172,8 @@ class _AccountDashboardState extends State<AccountDashboard>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading user data: ${e.toString()}'),
+            content: Text(UserError.describe(e,
+                where: 'account', fallback: "Couldn't load your account. Please try again.")),
             backgroundColor: Colors.red,
           ),
         );
@@ -1628,7 +1630,9 @@ class _AccountDashboardState extends State<AccountDashboard>
                     // Show error message
                     messenger.showSnackBar(
                       SnackBar(
-                        content: Text('Sync failed: ${e.toString()}'),
+                        content: Text(UserError.describe(e,
+                            where: 'food_sync',
+                            fallback: "Couldn't sync your food entries. Please try again.")),
                         backgroundColor: Colors.red,
                         behavior: SnackBarBehavior.floating,
                       ),
