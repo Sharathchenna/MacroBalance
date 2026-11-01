@@ -10,25 +10,25 @@ const _replies = {
     Icons.photo_camera_outlined,
     'Snap a photo or describe it in a sentence. No more scrolling a database.'
   ),
-  'static_target': (
-    Icons.autorenew_rounded,
-    'A weekly check-in moves it when your body does, and explains every change.'
+  'restrictive': (
+    Icons.tune_rounded,
+    'No foods are off-limits. A weekly check-in eases the target when it’s too tight, and explains why.'
   ),
-  'distrust_numbers': (
-    Icons.fact_check_outlined,
-    'Your targets come from what you actually burn, and every change comes with its reason.'
+  'routine': (
+    Icons.schedule_rounded,
+    'No meal times or plan to follow, just a daily target and what’s left of it.'
   ),
-  'weekends': (
-    Icons.calendar_today_outlined,
-    'Check-ins look at your whole week, so one big Saturday doesn’t derail the plan.'
+  'eating_out': (
+    Icons.restaurant_outlined,
+    'Photograph the plate or describe the dish. Check-ins read your whole week, so one big dinner doesn’t derail it.'
+  ),
+  'homemade': (
+    Icons.soup_kitchen_outlined,
+    'Photograph your plate or say what went in. No recipe to build.'
   ),
   'plateau': (
     Icons.show_chart_rounded,
     'When your burn drops, your target follows, so progress doesn’t stall.'
-  ),
-  'eating_out': (
-    Icons.restaurant_outlined,
-    'Photograph the plate or describe the dish. A close estimate beats skipping the log.'
   ),
   'motivation': (
     Icons.local_fire_department_outlined,
