@@ -2,7 +2,7 @@ import '../models/foodEntry.dart';
 import '../services/storage_service.dart';
 
 /// "Your usual breakfast": a meal the user has eaten, give or take a food,
-/// on a couple of the last few days, or the foods they keep having in it
+/// on three of the last ten days, or the foods they keep having in it
 /// (coffee with the evening snack) even when the rest of the meal varies.
 class MealRoutine {
   MealRoutine._();
@@ -11,8 +11,9 @@ class MealRoutine {
   static const int windowDays = 10;
 
   /// Days in the window that must look like the usual combination, or that
-  /// a food must turn up on to count as a regular.
-  static const int minMatchingDays = 2;
+  /// a food must turn up on to count as a regular. Two let almost any meal
+  /// through (anything had twice in ten days); three means a habit.
+  static const int minMatchingDays = 3;
 
   /// How alike two days' foods must be to count as the same meal: shared
   /// food names over all food names (Jaccard). 0.5 lets one food in a
