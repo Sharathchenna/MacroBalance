@@ -13,7 +13,7 @@ enum CameraMode: String {
 // Delegate protocol to send results back to AppDelegate
 protocol NativeCameraViewControllerDelegate: AnyObject {
     func nativeCameraDidFinish(withBarcode barcode: String, mode: CameraMode) // Add mode
-    func nativeCameraDidFinish(withPhotoData photoData: Data, mode: CameraMode) // Add mode
+    func nativeCameraDidFinish(withPhotoData photoData: Data, mode: CameraMode, note: String?)
     func nativeCameraDidCancel()
     // Add other necessary delegate methods (e.g., errors)
 }
@@ -43,6 +43,12 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
     private var currentFlashMode: AVCaptureDevice.FlashMode = .off // For photo capture flash
     private var isSessionSetupComplete = false // Flag to prevent race condition
     private var currentMode: CameraMode = .camera // Initialize with default
+
+    /// What the user added about the meal; sent with the photo. One photo only.
+    private var photoNote: String?
+    /// Shows the note once added: tap to edit, x to remove.
+    private let noteChip = UIButton(type: .custom)
+    private let noteChipClear = UIButton(type: .custom)
 
     // Vision Request for Barcodes
     private var barcodeRequest: VNDetectBarcodesRequest?
@@ -253,6 +259,34 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         modeSegmentedControl.layer.shadowRadius = 6
         view.addSubview(modeSegmentedControl) // Add to main view
 
+        // Note chip (above the mode control, hidden until a note is added)
+        noteChip.translatesAutoresizingMaskIntoConstraints = false
+        noteChip.backgroundColor = premiumBackgroundColor
+        noteChip.layer.cornerRadius = 18
+        noteChip.layer.borderWidth = 1
+        noteChip.layer.borderColor = premiumGoldColor.withAlphaComponent(0.6).cgColor
+        noteChip.setImage(UIImage(systemName: "text.bubble",
+                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: 13)), for: .normal)
+        noteChip.tintColor = premiumGoldColor
+        noteChip.setTitleColor(.white, for: .normal)
+        noteChip.titleLabel?.font = UIFont.systemFont(ofSize: 14)
+        noteChip.titleLabel?.lineBreakMode = .byTruncatingTail
+        noteChip.contentHorizontalAlignment = .leading
+        noteChip.contentEdgeInsets = UIEdgeInsets(top: 7, left: 12, bottom: 7, right: 40)
+        noteChip.titleEdgeInsets = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: -8)
+        noteChip.accessibilityLabel = "Edit details"
+        noteChip.isHidden = true
+        noteChip.addTarget(self, action: #selector(noteButtonTapped), for: .touchUpInside)
+        view.addSubview(noteChip)
+
+        noteChipClear.translatesAutoresizingMaskIntoConstraints = false
+        noteChipClear.setImage(UIImage(systemName: "xmark",
+                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)), for: .normal)
+        noteChipClear.tintColor = UIColor.white.withAlphaComponent(0.7)
+        noteChipClear.accessibilityLabel = "Remove details"
+        noteChipClear.addTarget(self, action: #selector(clearNoteTapped), for: .touchUpInside)
+        noteChip.addSubview(noteChipClear)
+
         // Shutter Button (premium floating style)
         shutterButton.translatesAutoresizingMaskIntoConstraints = false
         shutterButton.backgroundColor = .white
@@ -305,7 +339,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         manualEntryButton.layer.shadowOffset = CGSize(width: 0, height: 3)
         manualEntryButton.layer.shadowOpacity = 0.3
         manualEntryButton.layer.shadowRadius = 3
-        manualEntryButton.addTarget(self, action: #selector(manualEntryButtonTapped), for: .touchUpInside)
+        manualEntryButton.addTarget(self, action: #selector(sideButtonTapped), for: .touchUpInside)
         buttonsContainer.addSubview(manualEntryButton)
 
         // Barcode Scan Guide View (enhanced with subtle glow and premium gold color)
@@ -395,6 +429,16 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             manualEntryButton.trailingAnchor.constraint(equalTo: buttonsContainer.trailingAnchor, constant: -10),
             manualEntryButton.widthAnchor.constraint(equalToConstant: 48),
             manualEntryButton.heightAnchor.constraint(equalToConstant: 48),
+
+            // Note chip (above the mode control)
+            noteChip.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            noteChip.bottomAnchor.constraint(equalTo: modeSegmentedControl.topAnchor, constant: -14),
+            noteChip.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, multiplier: 0.8),
+            noteChip.heightAnchor.constraint(equalToConstant: 36),
+            noteChipClear.trailingAnchor.constraint(equalTo: noteChip.trailingAnchor, constant: -4),
+            noteChipClear.centerYAnchor.constraint(equalTo: noteChip.centerYAnchor),
+            noteChipClear.widthAnchor.constraint(equalToConstant: 32),
+            noteChipClear.heightAnchor.constraint(equalToConstant: 32),
 
             // Mode Segmented Control (Above Floating Container)
             modeSegmentedControl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -809,6 +853,48 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
             labelScanGuideView.isHidden = false
             isContinuousBarcodeScanningEnabled = false
         }
+        updateNoteViews()
+    }
+
+    /// Barcode mode: type the number. Photo and label modes: add details.
+    private func updateNoteViews() {
+        let showsNote = currentMode != .barcode
+        noteChip.setTitle(photoNote, for: .normal)
+        noteChip.isHidden = !(showsNote && photoNote != nil)
+        if showsNote {
+            manualEntryButton.setImage(UIImage(systemName: "text.bubble"), for: .normal)
+            manualEntryButton.tintColor = photoNote == nil ? .white : premiumGoldColor
+            manualEntryButton.accessibilityLabel = photoNote == nil ? "Add details" : "Edit details"
+        } else {
+            manualEntryButton.setImage(UIImage(systemName: "keyboard"), for: .normal)
+            manualEntryButton.tintColor = .white
+            manualEntryButton.accessibilityLabel = "Enter barcode"
+        }
+    }
+
+    @objc private func sideButtonTapped() {
+        if currentMode == .barcode {
+            manualEntryButtonTapped()
+        } else {
+            noteButtonTapped()
+        }
+    }
+
+    @objc private func noteButtonTapped() {
+        hapticGenerator.impactOccurred()
+        let noteVC = PhotoNoteViewController(note: photoNote, accentColor: premiumGoldColor)
+        noteVC.onDone = { [weak self] text in
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            self?.photoNote = trimmed.isEmpty ? nil : trimmed
+            self?.updateNoteViews()
+        }
+        present(UINavigationController(rootViewController: noteVC), animated: true)
+    }
+
+    @objc private func clearNoteTapped() {
+        hapticGenerator.impactOccurred()
+        photoNote = nil
+        updateNoteViews()
     }
     
     @objc private func shutterButtonTapped() {
@@ -1204,7 +1290,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         // Dismiss camera and send result
         dismiss(animated: true) { [weak self] in
             guard let self = self else { return }
-            self.delegate?.nativeCameraDidFinish(withPhotoData: imageData, mode: self.currentMode)
+            self.delegate?.nativeCameraDidFinish(withPhotoData: imageData, mode: self.currentMode, note: self.photoNote)
         }
     }
     
@@ -1253,7 +1339,7 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
                  DispatchQueue.main.async {
                      // Dismiss the camera view and send result back
                      self.dismiss(animated: true) {
-                         self.delegate?.nativeCameraDidFinish(withPhotoData: imageData, mode: self.currentMode)
+                         self.delegate?.nativeCameraDidFinish(withPhotoData: imageData, mode: self.currentMode, note: self.photoNote)
                      }
                  }
             }
@@ -1324,5 +1410,140 @@ class NativeCameraViewController: UIViewController, AVCaptureVideoDataOutputSamp
         instructionLabel.layer.shadowOffset = CGSize(width: 0, height: 2)
         instructionLabel.layer.shadowOpacity = 0.5
         instructionLabel.layer.shadowRadius = 3
+    }
+}
+
+
+/// "Add Details": what the photo can't show, sent along with it. Styled like
+/// ManualBarcodeEntryViewController.
+final class PhotoNoteViewController: UIViewController, UITextViewDelegate {
+
+    var onDone: ((String) -> Void)?
+
+    private let initialNote: String?
+    private let accentColor: UIColor
+    private let textView = UITextView()
+    private let placeholder = UILabel()
+
+    init(note: String?, accentColor: UIColor) {
+        self.initialNote = note
+        self.accentColor = accentColor
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        title = "Add Details"
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.titleTextAttributes = [
+            .foregroundColor: UIColor.label,
+            .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+        ]
+        navigationItem.standardAppearance = appearance
+        navigationItem.scrollEdgeAppearance = appearance
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "xmark"), style: .plain, target: self, action: #selector(cancelTapped))
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "checkmark"), style: .plain, target: self, action: #selector(doneTapped))
+        navigationItem.leftBarButtonItem?.tintColor = accentColor
+        navigationItem.rightBarButtonItem?.tintColor = accentColor
+
+        let card = UIView()
+        card.translatesAutoresizingMaskIntoConstraints = false
+        card.backgroundColor = .secondarySystemBackground
+        card.layer.cornerRadius = 16
+        view.addSubview(card)
+
+        let icon = UIImageView(image: UIImage(systemName: "text.bubble"))
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.tintColor = accentColor
+        icon.contentMode = .scaleAspectFit
+
+        let heading = UILabel()
+        heading.text = "Anything the photo might miss?"
+        heading.font = UIFont.systemFont(ofSize: 20, weight: .bold)
+        heading.textAlignment = .center
+        heading.numberOfLines = 0
+
+        let subheading = UILabel()
+        subheading.text = "Optional. Ingredients, cooking oil, portion size, or food that’s hidden or out of frame."
+        subheading.font = UIFont.systemFont(ofSize: 14)
+        subheading.textColor = .secondaryLabel
+        subheading.textAlignment = .center
+        subheading.numberOfLines = 0
+
+        textView.font = UIFont.systemFont(ofSize: 17)
+        textView.text = initialNote
+        textView.delegate = self
+        textView.returnKeyType = .done
+        textView.autocapitalizationType = .sentences
+        textView.backgroundColor = .systemBackground
+        textView.layer.cornerRadius = 12
+        textView.layer.borderWidth = 1
+        textView.layer.borderColor = UIColor.systemGray4.cgColor
+        textView.textContainerInset = UIEdgeInsets(top: 12, left: 8, bottom: 12, right: 8)
+
+        placeholder.text = "Paneer, not tofu. Cooked in ghee."
+        placeholder.font = textView.font
+        placeholder.textColor = .placeholderText
+        placeholder.translatesAutoresizingMaskIntoConstraints = false
+        placeholder.isHidden = !(initialNote ?? "").isEmpty
+        textView.addSubview(placeholder)
+
+        let stack = UIStackView(arrangedSubviews: [icon, heading, subheading, textView])
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.alignment = .fill
+        stack.spacing = 12
+        stack.setCustomSpacing(16, after: icon)
+        stack.setCustomSpacing(24, after: subheading)
+        card.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            card.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 24),
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 24),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            icon.heightAnchor.constraint(equalToConstant: 60),
+            textView.heightAnchor.constraint(equalToConstant: 110),
+            placeholder.topAnchor.constraint(equalTo: textView.topAnchor, constant: 12),
+            placeholder.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 13),
+        ])
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        textView.becomeFirstResponder()
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        placeholder.isHidden = !textView.text.isEmpty
+    }
+
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        // Return is Done; the note is a few words, not paragraphs.
+        if text == "\n" {
+            doneTapped()
+            return false
+        }
+        let current = textView.text as NSString
+        return current.replacingCharacters(in: range, with: text).count <= 500
+    }
+
+    @objc private func cancelTapped() {
+        dismiss(animated: true)
+    }
+
+    @objc private func doneTapped() {
+        let text = textView.text ?? ""
+        dismiss(animated: true) { [onDone] in onDone?(text) }
     }
 }

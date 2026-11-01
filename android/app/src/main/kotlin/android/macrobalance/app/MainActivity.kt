@@ -46,7 +46,7 @@ class MainActivity : FlutterFragmentActivity() {
                 val file = data.getStringExtra(CameraActivity.EXTRA_PHOTO_PATH)?.let(::File)
                 val bytes = file?.takeIf { it.exists() }?.readBytes().also { file?.delete() }
                     ?: return mapOf("type" to "error", "value" to "The photo couldn’t be read")
-                mapOf("type" to "photo", "value" to bytes, "mode" to mode)
+                mapOf("type" to "photo", "value" to bytes, "mode" to mode, "note" to data.getStringExtra(CameraActivity.EXTRA_NOTE))
             }
             else -> mapOf("type" to "cancel")
         }

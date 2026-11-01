@@ -10,8 +10,14 @@ import '../models/ai_food_item.dart';
 import 'notification_service.dart';
 import 'posthog_service.dart';
 
-/// Turns a meal photo into detected foods. Throws [PhotoAnalysisException].
-typedef PhotoAnalyzer = Future<List<AIFoodItem>> Function(Uint8List photo);
+/// Turns a meal photo, and what the user added about it, into detected foods.
+/// Throws [PhotoAnalysisException].
+typedef PhotoAnalyzer = Future<List<AIFoodItem>> Function(Uint8List photo, {String? note});
+
+/// Corrects [foods] found in [photo] with the user's [note], about [focusFood]
+/// alone when given. Returns the whole corrected list.
+typedef PhotoReviser = Future<List<AIFoodItem>> Function(
+    Uint8List photo, List<AIFoodItem> foods, String note, {String? focusFood});
 
 enum PhotoJobStatus { analyzing, ready, failed }
 
@@ -21,6 +27,9 @@ class PhotoJob {
   final String meal;
   final DateTime date;
   final Uint8List photo;
+
+  /// What the user added about the meal in the camera, if anything.
+  final String? note;
   PhotoJobStatus status = PhotoJobStatus.analyzing;
   List<AIFoodItem> foods = const [];
   PhotoAnalysisException? error;
@@ -30,6 +39,7 @@ class PhotoJob {
     required this.meal,
     required this.date,
     required this.photo,
+    this.note,
   });
 }
 
@@ -38,20 +48,36 @@ class PhotoJob {
 /// when a job finishes the user gets a banner (or a notification if the app is
 /// in the background) and reviews the foods before anything is logged.
 class PhotoAnalysisService extends ChangeNotifier with WidgetsBindingObserver {
-  /// [analyzer] defaults to the Gemini analysis; tests pass their own.
-  PhotoAnalysisService({this.onReady, PhotoAnalyzer? analyzer})
-      : _analyze = analyzer ?? _analyzeWithGemini {
+  /// [analyzer] and [reviser] default to Gemini; tests pass their own.
+  PhotoAnalysisService({this.onReady, PhotoAnalyzer? analyzer, PhotoReviser? reviser})
+      : _analyze = analyzer ?? _analyzeWithGemini,
+        reviser = reviser ?? reviseWithGemini {
     WidgetsBinding.instance.addObserver(this);
   }
 
   final PhotoAnalyzer _analyze;
 
-  static Future<List<AIFoodItem>> _analyzeWithGemini(Uint8List photo) async {
+  /// Corrects a job's foods from the review page.
+  final PhotoReviser reviser;
+
+  static Future<List<AIFoodItem>> _analyzeWithGemini(Uint8List photo, {String? note}) =>
+      _withPhotoFile(photo, (path) => analyzeMealPhoto(path, note: note));
+
+  /// The default [PhotoReviser]: sends the photo back with the foods and note.
+  static Future<List<AIFoodItem>> reviseWithGemini(
+          Uint8List photo, List<AIFoodItem> foods, String note, {String? focusFood}) =>
+      _withPhotoFile(
+          photo,
+          (path) => analyzeMealPhoto(path,
+              note: note, currentFoods: foods, focusFood: focusFood));
+
+  static Future<T> _withPhotoFile<T>(
+      Uint8List photo, Future<T> Function(String path) use) async {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/${const Uuid().v4()}.jpg');
     await file.writeAsBytes(photo);
     try {
-      return await analyzeMealPhoto(file.path);
+      return await use(file.path);
     } finally {
       try {
         await file.delete();
@@ -71,12 +97,13 @@ class PhotoAnalysisService extends ChangeNotifier with WidgetsBindingObserver {
       .where((job) => job.meal == meal && DateUtils.isSameDay(job.date, date))
       .toList();
 
-  void start(Uint8List photo, {required String meal, required DateTime date}) {
+  void start(Uint8List photo, {required String meal, required DateTime date, String? note}) {
     final job = PhotoJob(
       id: const Uuid().v4(),
       meal: meal,
       date: DateTime(date.year, date.month, date.day),
       photo: photo,
+      note: note == null || note.trim().isEmpty ? null : note.trim(),
     );
     _jobs.add(job);
     notifyListeners();
@@ -101,7 +128,7 @@ class PhotoAnalysisService extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _run(PhotoJob job) async {
     final stopwatch = Stopwatch()..start();
     try {
-      job.foods = await _analyze(job.photo);
+      job.foods = await _analyze(job.photo, note: job.note);
       job.status = PhotoJobStatus.ready;
       PostHogService.trackEvent('photo_analysis_ready', properties: {
         'food_count': job.foods.length,

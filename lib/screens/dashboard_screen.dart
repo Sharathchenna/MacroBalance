@@ -29,8 +29,6 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   final CameraService _cameraService = CameraService();
   final _scrollController = ScrollController();
-  final _viewportKey = GlobalKey();
-  final _photoJobKeys = {for (final meal in MealTime.meals) meal: GlobalKey()};
 
   @override
   void initState() {
@@ -83,7 +81,7 @@ class _DashboardState extends State<Dashboard> {
           } else if (type == 'photo') {
             final Uint8List photoData = result['value'] as Uint8List;
             print('[Flutter Dashboard] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-            _handlePhotoResult(currentContext, photoData);
+            _handlePhotoResult(currentContext, photoData, note: result['note'] as String?);
           } else if (type == 'cancel') {
             print('[Flutter Dashboard] Post-frame: Handling cancel.');
           } else {
@@ -108,11 +106,11 @@ class _DashboardState extends State<Dashboard> {
 
   /// Analysis runs in the background; a card in the meal shows progress and
   /// a banner says when it's ready to review.
-  void _handlePhotoResult(BuildContext safeContext, Uint8List photoData) {
+  void _handlePhotoResult(BuildContext safeContext, Uint8List photoData, {String? note}) {
     if (!mounted) return;
     final date = Provider.of<DateProvider>(safeContext, listen: false).selectedDate;
     Provider.of<PhotoAnalysisService>(safeContext, listen: false)
-        .start(photoData, meal: MealTime.suggested(), date: date);
+        .start(photoData, meal: MealTime.suggested(), date: date, note: note);
   }
 
   void _showErrorSnackbar(String message) {
@@ -148,7 +146,6 @@ class _DashboardState extends State<Dashboard> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    key: _viewportKey,
                     controller: _scrollController,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.start,
@@ -160,7 +157,7 @@ class _DashboardState extends State<Dashboard> {
                             context,
                             TourTarget.meals,
                             TourTargets.mark(context, TourTarget.moveCopy,
-                                MealSection(photoJobKeys: _photoJobKeys))),
+                                const MealSection())),
                         // Room to scroll past the bottom bar.
                         const SizedBox(height: AppBottomBar.scrollClearance),
                       ],
@@ -174,11 +171,7 @@ class _DashboardState extends State<Dashboard> {
             left: 16,
             right: 16,
             bottom: AppBottomBar.bottomGap(context) + AppBottomBar.height + 12,
-            child: DashboardDock(
-              scrollController: _scrollController,
-              viewportKey: _viewportKey,
-              photoJobKeys: _photoJobKeys,
-            ),
+            child: const DashboardDock(),
           ),
         ],
       ),

@@ -32,6 +32,18 @@ class AIFoodItem {
     );
   }
 
+  /// The shape [AIFoodItem.fromJson] reads, for sending foods back to the
+  /// model when the user corrects them.
+  Map<String, dynamic> toJson() => {
+        'food': name,
+        'serving_size': servingSizes,
+        'calories': calories,
+        'protein': protein,
+        'carbohydrates': carbohydrates,
+        'fat': fat,
+        'fiber': fiber,
+      };
+
   // Get nutrition values for a specific serving size index
   NutritionInfo getNutritionForIndex(int index, double quantity) {
     if (index < 0 || index >= servingSizes.length) {

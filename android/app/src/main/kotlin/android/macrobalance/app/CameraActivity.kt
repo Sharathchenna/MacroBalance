@@ -93,6 +93,7 @@ class CameraActivity : AppCompatActivity() {
         const val EXTRA_VALUE = "value"
         const val EXTRA_PHOTO_PATH = "photoPath"
         const val EXTRA_MODE = "mode"
+        const val EXTRA_NOTE = "note"
 
         private const val MODE_BARCODE = "barcode"
         private const val MODE_CAMERA = "camera"
@@ -114,6 +115,9 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private var mode = MODE_CAMERA
+
+    /** What the user added about the meal; sent with the photo. One photo only. */
+    private var note: String? = null
     private val finished = AtomicBoolean(false)
 
     /** A barcode was seen in the guide; the screen is about to close. */
@@ -125,6 +129,9 @@ class CameraActivity : AppCompatActivity() {
     private lateinit var instruction: TextView
     private lateinit var shutter: View
     private lateinit var flashButton: ImageButton
+    private lateinit var sideButton: ImageButton
+    private lateinit var noteChip: LinearLayout
+    private lateinit var noteChipText: TextView
     private val modeSegments = mutableMapOf<String, ImageView>()
 
     private var camera: Camera? = null
@@ -158,6 +165,7 @@ class CameraActivity : AppCompatActivity() {
         mode = savedInstanceState?.getString(EXTRA_MODE)
             ?: intent.getStringExtra(EXTRA_INITIAL_MODE)?.takeIf { m -> MODES.any { it.first == m } }
             ?: MODE_CAMERA
+        note = savedInstanceState?.getString(EXTRA_NOTE)
         analysisExecutor = Executors.newSingleThreadExecutor()
 
         // Full screen with the status bar hidden, as on iOS.
@@ -187,6 +195,7 @@ class CameraActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(EXTRA_MODE, mode)
+        outState.putString(EXTRA_NOTE, note)
     }
 
     override fun onDestroy() {
@@ -406,6 +415,7 @@ class CameraActivity : AppCompatActivity() {
                 putExtra(EXTRA_MODE, if (type == "barcode") MODE_BARCODE else mode)
                 value?.let { putExtra(EXTRA_VALUE, it) }
                 photoPath?.let { putExtra(EXTRA_PHOTO_PATH, it) }
+                if (type == "photo") note?.let { putExtra(EXTRA_NOTE, it) }
             })
             finish()
         }
@@ -480,6 +490,85 @@ class CameraActivity : AppCompatActivity() {
     /** Full-screen sheet like iOS's ManualBarcodeEntryViewController. */
     private fun showManualEntry() {
         haptic()
+        showEntrySheet(
+            title = "Enter Barcode",
+            icon = R.drawable.ic_camera_mode_barcode,
+            heading = "Manual Barcode Entry",
+            subheading = "Enter the barcode number below",
+            hint = "Enter barcode number",
+            initial = "",
+            allowEmpty = false,
+            configure = {
+                inputType = InputType.TYPE_CLASS_NUMBER
+                imeOptions = EditorInfo.IME_ACTION_DONE
+                typeface = Typeface.MONOSPACE
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+                gravity = Gravity.CENTER
+            },
+        ) { code -> finishWith("barcode", value = code) }
+    }
+
+    /** Photo and label modes: what the photo can't show, sent along with it. */
+    private fun showNoteEntry() {
+        haptic()
+        showEntrySheet(
+            title = "Add Details",
+            icon = R.drawable.ic_camera_note,
+            heading = "Anything the photo might miss?",
+            subheading = "Optional. Ingredients, cooking oil, portion size, or food that’s hidden or out of frame.",
+            hint = "Paneer, not tofu. Cooked in ghee.",
+            initial = note.orEmpty(),
+            allowEmpty = true,
+            configure = {
+                // Wraps over several lines, but the keyboard shows Done, not a newline.
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                imeOptions = EditorInfo.IME_ACTION_DONE
+                setHorizontallyScrolling(false)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+                minLines = 3
+                maxLines = 6
+                gravity = Gravity.TOP or Gravity.START
+                filters = arrayOf(android.text.InputFilter.LengthFilter(500))
+            },
+        ) { text -> setNote(text) }
+    }
+
+    private fun setNote(text: String?) {
+        note = text?.trim()?.takeIf { it.isNotEmpty() }
+        updateNoteViews()
+    }
+
+    private fun updateNoteViews() {
+        val showsNote = mode != MODE_BARCODE
+        noteChipText.text = note
+        noteChip.visibility = if (showsNote && note != null) View.VISIBLE else View.INVISIBLE
+        if (showsNote) {
+            sideButton.setImageResource(R.drawable.ic_camera_note)
+            sideButton.contentDescription = if (note == null) "Add details" else "Edit details"
+            sideButton.imageTintList = ColorStateList.valueOf(if (note == null) Color.WHITE else GOLD)
+        } else {
+            sideButton.setImageResource(R.drawable.ic_camera_keyboard)
+            sideButton.contentDescription = "Enter barcode"
+            sideButton.imageTintList = ColorStateList.valueOf(Color.WHITE)
+        }
+    }
+
+    /**
+     * A full-screen sheet with one field: X closes it, the gold check (or the
+     * keyboard's Done) hands back the text. Manual barcode entry and the
+     * photo note both use it.
+     */
+    private fun showEntrySheet(
+        title: String,
+        icon: Int,
+        heading: String,
+        subheading: String,
+        hint: String,
+        initial: String,
+        allowEmpty: Boolean,
+        configure: EditText.() -> Unit,
+        onDone: (String) -> Unit,
+    ) {
         val dialog = Dialog(this, android.R.style.Theme_DeviceDefault_NoActionBar)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         val dark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
@@ -490,39 +579,37 @@ class CameraActivity : AppCompatActivity() {
         val secondary = if (dark) 0x99EBEBF5.toInt() else 0x993C3C43.toInt()
 
         val field = EditText(this).apply {
-            hint = "Enter barcode number"
-            inputType = InputType.TYPE_CLASS_NUMBER
-            imeOptions = EditorInfo.IME_ACTION_DONE
-            typeface = Typeface.MONOSPACE
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
+            this.hint = hint
             setTextColor(label)
             setHintTextColor(secondary)
-            gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 cornerRadius = dp(12).toFloat()
                 setColor(if (dark) Color.BLACK else Color.WHITE)
                 setStroke(dp(1), if (dark) 0xFF3A3A3C.toInt() else 0xFFD1D1D6.toInt())
             }
             setPadding(dp(12), dp(14), dp(12), dp(14))
+            configure()
+            setText(initial)
+            setSelection(text.length)
         }
         val submit = navIcon(R.drawable.ic_camera_check, "Done")
-        submit.isEnabled = false
-        submit.alpha = 0.4f
+        fun refreshSubmit() {
+            submit.isEnabled = allowEmpty || !field.text.isNullOrBlank()
+            submit.alpha = if (submit.isEnabled) 1f else 0.4f
+        }
+        refreshSubmit()
         fun done() {
-            val code = field.text.toString().trim()
-            if (code.isEmpty()) return
+            val text = field.text.toString().trim()
+            if (text.isEmpty() && !allowEmpty) return
             haptic()
             dialog.dismiss()
-            finishWith("barcode", value = code)
+            onDone(text)
         }
         submit.setOnClickListener { done() }
         field.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                submit.isEnabled = !s.isNullOrBlank()
-                submit.alpha = if (submit.isEnabled) 1f else 0.4f
-            }
+            override fun afterTextChanged(s: Editable?) = refreshSubmit()
         })
         field.setOnEditorActionListener { _, _, _ -> done(); true }
 
@@ -530,7 +617,7 @@ class CameraActivity : AppCompatActivity() {
         val bar = FrameLayout(this).apply {
             addView(close, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.START or Gravity.CENTER_VERTICAL))
             addView(TextView(context).apply {
-                text = "Enter Barcode"
+                text = title
                 setTextColor(label)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
                 setTypeface(typeface, Typeface.BOLD)
@@ -547,18 +634,18 @@ class CameraActivity : AppCompatActivity() {
             elevation = dp(4).toFloat()
             setPadding(dp(16), dp(24), dp(16), dp(24))
             addView(ImageView(context).apply {
-                setImageResource(R.drawable.ic_camera_mode_barcode)
+                setImageResource(icon)
                 imageTintList = ColorStateList.valueOf(GOLD)
             }, LinearLayout.LayoutParams(dp(60), dp(60)))
             addView(TextView(context).apply {
-                text = "Manual Barcode Entry"
+                text = heading
                 setTextColor(label)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
                 setTypeface(typeface, Typeface.BOLD)
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(16) })
             addView(TextView(context).apply {
-                text = "Enter the barcode number below"
+                text = subheading
                 setTextColor(secondary)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 gravity = Gravity.CENTER
@@ -619,6 +706,7 @@ class CameraActivity : AppCompatActivity() {
             MODE_LABEL -> "Scan a nutrition label"
             else -> "Take a photo"
         }
+        updateNoteViews()
     }
 
     private fun buildLayout(): View {
@@ -695,6 +783,34 @@ class CameraActivity : AppCompatActivity() {
             modeSegments[m] = segment
             modes.addView(segment, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
         }
+        // The note, once added: tap to edit, x to remove.
+        noteChipText = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        noteChip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = rounded(PANEL, 18).apply { setStroke(dp(1), withAlpha(GOLD, 0.6f)) }
+            setPadding(dp(12), dp(6), dp(4), dp(6))
+            contentDescription = "Edit details"
+            setOnClickListener { showNoteEntry() }
+            addView(ImageView(context).apply {
+                setImageResource(R.drawable.ic_camera_note)
+                imageTintList = ColorStateList.valueOf(GOLD)
+            }, LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginEnd = dp(8) })
+            addView(noteChipText, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            addView(ImageButton(context).apply {
+                setImageResource(R.drawable.ic_camera_close)
+                imageTintList = ColorStateList.valueOf(withAlpha(Color.WHITE, 0.7f))
+                contentDescription = "Remove details"
+                background = null
+                setOnClickListener { haptic(); setNote(null) }
+            }, LinearLayout.LayoutParams(dp(32), dp(28)))
+        }
+        bottom.addView(noteChip, LinearLayout.LayoutParams((screenW * 0.8f).toInt(), WRAP_CONTENT).apply { bottomMargin = dp(14) })
         bottom.addView(modes, LinearLayout.LayoutParams((screenW * 0.7f).toInt(), dp(40)).apply { bottomMargin = dp(20) })
 
         val controls = FrameLayout(this)
@@ -715,8 +831,12 @@ class CameraActivity : AppCompatActivity() {
             setOnClickListener { onShutter() }
         }
         controls.addView(shutter, FrameLayout.LayoutParams(dp(76), dp(76), Gravity.CENTER))
+        // Barcode mode: type the number. Photo and label modes: add details.
+        sideButton = roundButton(R.drawable.ic_camera_keyboard, "Enter barcode", Color.WHITE, OVERLAY, size = 48) {
+            if (mode == MODE_BARCODE) showManualEntry() else showNoteEntry()
+        }
         controls.addView(
-            roundButton(R.drawable.ic_camera_keyboard, "Enter barcode", Color.WHITE, OVERLAY, size = 48) { showManualEntry() },
+            sideButton,
             FrameLayout.LayoutParams(dp(48), dp(48), Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(10) },
         )
         bottom.addView(controls, LinearLayout.LayoutParams(MATCH_PARENT, dp(80)))

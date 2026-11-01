@@ -6,13 +6,13 @@ import 'package:provider/provider.dart';
 import '../../../models/foodEntry.dart';
 import '../../../providers/dateProvider.dart';
 import '../../../providers/foodEntryProvider.dart';
+import '../../../AI/gemini.dart' show PhotoAnalysisFailure;
 import '../../../services/photo_analysis_service.dart';
 import '../../../services/posthog_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/typography.dart';
 import '../../../utils/food_clipboard.dart';
 import '../../../utils/meal_time.dart';
-import '../../../widgets/app_bottom_bar.dart';
 import '../../../widgets/app_toast.dart';
 import 'photo_job_card.dart';
 
@@ -26,179 +26,88 @@ Color? _floatingSurface(BuildContext context) {
   return Color.lerp(card, Colors.white, 0.08);
 }
 
-/// Floats above the bottom bar on the dashboard: the progress of a meal photo
-/// whose card is scrolled out of view, and the paste bar while foods are
-/// copied.
+/// Floats above the bottom bar on the dashboard: the meal photo being
+/// analysed (or ready, or failed), and the paste bar while foods are copied.
 class DashboardDock extends StatelessWidget {
-  final ScrollController scrollController;
-  final GlobalKey viewportKey;
-  final Map<String, GlobalKey> photoJobKeys;
-
-  const DashboardDock({
-    super.key,
-    required this.scrollController,
-    required this.viewportKey,
-    required this.photoJobKeys,
-  });
+  const DashboardDock({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        PhotoJobPill(
-          scrollController: scrollController,
-          viewportKey: viewportKey,
-          photoJobKeys: photoJobKeys,
-        ),
-        const CopyDropZone(),
-        const PasteBar(),
+        PhotoJobPill(),
+        CopyDropZone(),
+        PasteBar(),
       ],
     );
   }
 }
 
-/// "Analyzing your dinner…" while that meal's photo rows are off screen.
-/// Tapping it scrolls to them (switching day if needed), or opens the review
-/// once the foods are ready.
-class PhotoJobPill extends StatefulWidget {
-  final ScrollController scrollController;
-  final GlobalKey viewportKey;
-  final Map<String, GlobalKey> photoJobKeys;
-
-  const PhotoJobPill({
-    super.key,
-    required this.scrollController,
-    required this.viewportKey,
-    required this.photoJobKeys,
-  });
-
-  @override
-  State<PhotoJobPill> createState() => _PhotoJobPillState();
-}
-
-enum _Where { onScreen, above, below, otherDay }
-
-class _PhotoJobPillState extends State<PhotoJobPill> {
-  _Where _where = _Where.onScreen;
-  PhotoJob? _job;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.scrollController.addListener(_locate);
-  }
-
-  @override
-  void dispose() {
-    widget.scrollController.removeListener(_locate);
-    super.dispose();
-  }
-
-  /// Where [_job]'s rows are relative to the visible part of the dashboard.
-  void _locate() {
-    if (!mounted) return;
-    final where = _whereIs(_job);
-    if (where != _where) setState(() => _where = where);
-  }
-
-  _Where _whereIs(PhotoJob? job) {
-    if (job == null) return _Where.onScreen;
-    final selected = Provider.of<DateProvider>(context, listen: false).selectedDate;
-    if (!DateUtils.isSameDay(job.date, selected)) return _Where.otherDay;
-    final rows = widget.photoJobKeys[job.meal]?.currentContext?.findRenderObject();
-    final viewport = widget.viewportKey.currentContext?.findRenderObject();
-    if (rows is! RenderBox || viewport is! RenderBox) return _Where.onScreen;
-    if (!rows.attached || !viewport.attached) return _Where.onScreen;
-    final top = rows.localToGlobal(Offset.zero).dy;
-    final bottom = top + rows.size.height;
-    final viewTop = viewport.localToGlobal(Offset.zero).dy;
-    // The bottom bar covers the last stretch of the viewport.
-    final viewBottom = viewTop +
-        viewport.size.height -
-        AppBottomBar.bottomGap(context) -
-        AppBottomBar.height;
-    if (bottom <= viewTop) return _Where.above;
-    if (top >= viewBottom) return _Where.below;
-    return _Where.onScreen;
-  }
-
-  void _onTap(PhotoJob job) {
-    HapticFeedback.selectionClick();
-    if (job.status == PhotoJobStatus.ready) {
-      reviewPhotoJob(job);
-      return;
-    }
-    final dates = Provider.of<DateProvider>(context, listen: false);
-    if (!DateUtils.isSameDay(job.date, dates.selectedDate)) dates.setDate(job.date);
-    // After the (possibly new) day has built its meal cards.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final rows = widget.photoJobKeys[job.meal]?.currentContext;
-      if (rows == null || !rows.mounted) return;
-      Scrollable.ensureVisible(rows,
-          alignment: 0.4,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic);
-    });
-  }
+/// The one place a meal photo shows: "Analyzing your dinner…" while it's
+/// analysed, then "ready" until tapped to review, or "couldn't" with a retry.
+/// When there are several, the one still analysing comes first.
+class PhotoJobPill extends StatelessWidget {
+  const PhotoJobPill({super.key});
 
   @override
   Widget build(BuildContext context) {
     final service = Provider.of<PhotoAnalysisService>(context);
-    // Rebuild when the day changes, since that moves the rows.
-    Provider.of<DateProvider>(context);
     final jobs = service.jobs;
     final analyzing = jobs.where((j) => j.status == PhotoJobStatus.analyzing).toList();
-    _job = analyzing.isNotEmpty ? analyzing.first : (jobs.isEmpty ? null : jobs.last);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _locate());
-
-    final job = _job;
-    final show = job != null && _where != _Where.onScreen;
+    final job = analyzing.isNotEmpty ? analyzing.first : (jobs.isEmpty ? null : jobs.last);
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: ScaleTransition(scale: Tween(begin: 0.9, end: 1.0).animate(animation), child: child),
       ),
-      child: show
-          ? Padding(
+      child: job == null
+          ? const SizedBox.shrink()
+          : Padding(
               key: ValueKey('${job.id}-${job.status}'),
               padding: const EdgeInsets.only(bottom: 10),
-              child: _buildPill(job, analyzing.length),
-            )
-          : const SizedBox.shrink(),
+              child: _buildPill(context, service, job, analyzing.length),
+            ),
     );
   }
 
-  Widget _buildPill(PhotoJob job, int analyzingCount) {
+  Widget _buildPill(
+      BuildContext context, PhotoAnalysisService service, PhotoJob job, int analyzingCount) {
     final colors = Theme.of(context).extension<CustomColors>();
     final meal = job.meal.toLowerCase();
-    final (Widget status, String title) = switch (job.status) {
+    final noFood = job.error?.kind == PhotoAnalysisFailure.noFood;
+    final (Widget status, String title, VoidCallback? onTap) = switch (job.status) {
       PhotoJobStatus.analyzing => (
           const SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(strokeWidth: 2, color: _accent)),
           analyzingCount > 1 ? 'Analyzing $analyzingCount photos…' : 'Analyzing your $meal…',
+          null,
         ),
       PhotoJobStatus.ready => (
           const Icon(Icons.check_circle_rounded, size: 16, color: _accent),
           'Your $meal is ready · Review',
+          () => reviewPhotoJob(job),
         ),
       PhotoJobStatus.failed => (
           Icon(Icons.error_outline_rounded, size: 16, color: Colors.red.shade400),
-          "Couldn't analyze your $meal",
+          noFood ? 'No food found · Retake' : "Couldn't analyze your $meal · Retry",
+          () {
+            // A retake starts a new photo; this one has nothing more to give.
+            if (noFood) {
+              service.dismiss(job);
+              retakePhoto();
+            } else {
+              service.retry(job);
+            }
+          },
         ),
     };
-    final arrow = switch (_where) {
-      _Where.above => Icons.arrow_upward_rounded,
-      _Where.otherDay => Icons.chevron_right_rounded,
-      _ => Icons.arrow_downward_rounded,
-    };
     return Semantics(
-      button: true,
+      button: onTap != null,
       label: title,
-      excludeSemantics: true,
       child: Material(
         color: _floatingSurface(context),
         elevation: 6,
@@ -209,9 +118,15 @@ class _PhotoJobPillState extends State<PhotoJobPill> {
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => _onTap(job),
+          onTap: onTap == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  onTap();
+                },
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+            padding: EdgeInsets.fromLTRB(
+                6, 6, job.status == PhotoJobStatus.failed ? 0 : 12, 6),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -226,20 +141,25 @@ class _PhotoJobPillState extends State<PhotoJobPill> {
                 status,
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.body2.copyWith(
-                      color: colors?.textPrimary,
-                      fontWeight: FontWeight.w600,
+                  child: ExcludeSemantics(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.body2.copyWith(
+                        color: colors?.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-                if (job.status != PhotoJobStatus.ready) ...[
-                  const SizedBox(width: 6),
-                  Icon(arrow, size: 16, color: colors?.textSecondary),
-                ],
+                if (job.status == PhotoJobStatus.failed)
+                  IconButton(
+                    tooltip: 'Dismiss',
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(Icons.close_rounded, size: 16, color: colors?.textSecondary),
+                    onPressed: () => service.dismiss(job),
+                  ),
               ],
             ),
           ),

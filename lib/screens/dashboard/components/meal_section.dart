@@ -14,7 +14,6 @@ import '../../../providers/dateProvider.dart';
 import '../../../providers/foodEntryProvider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/typography.dart';
-import '../../../services/photo_analysis_service.dart';
 import '../../../services/posthog_service.dart';
 import '../../../services/storage_service.dart';
 import '../../../utils/food_clipboard.dart';
@@ -22,18 +21,13 @@ import '../../../widgets/app_bottom_bar.dart';
 import '../../../utils/meal_routine.dart';
 import '../../foodDetail.dart';
 import 'finish_day_row.dart';
-import 'photo_job_card.dart';
 import '../../../utils/quick_log.dart';
 import 'package:macrotracker/widgets/app_toast.dart';
 
 /// Widget that displays meal sections (Breakfast, Lunch, Snacks, Dinner).
 /// Each meal can be expanded to show food entries and their nutritional info.
 class MealSection extends StatefulWidget {
-  /// Keys for each meal's photo-analysis rows, so the dashboard can tell
-  /// whether they're on screen and scroll to them.
-  final Map<String, GlobalKey>? photoJobKeys;
-
-  const MealSection({super.key, this.photoJobKeys});
+  const MealSection({super.key});
 
   /// Storage key for whether [meal]'s card is open. Remembered on this
   /// device across days and app launches; meals start open.
@@ -84,12 +78,11 @@ class _MealSectionState extends State<MealSection> {
   }
 
   Widget _buildMealCard(String mealType, {Key? key}) {
-    return Consumer3<FoodEntryProvider, DateProvider, PhotoAnalysisService>(
+    return Consumer2<FoodEntryProvider, DateProvider>(
       key: key,
-      builder: (context, foodEntryProvider, dateProvider, photoService, child) {
+      builder: (context, foodEntryProvider, dateProvider, child) {
         final date = dateProvider.selectedDate;
         final entries = foodEntryProvider.getEntriesForMeal(date, mealType);
-        final photoJobs = photoService.jobsFor(date, mealType);
         final empty = entries.isEmpty;
         final expanded = !empty && _isExpanded(mealType);
 
@@ -278,16 +271,6 @@ class _MealSectionState extends State<MealSection> {
                       ),
                     ),
                   ),
-                  // Photo analysis shows whether or not the meal is open, so a
-                  // closed meal never hides that something is happening.
-                  if (photoJobs.isNotEmpty)
-                    KeyedSubtree(
-                      key: widget.photoJobKeys?[mealType],
-                      child: Column(children: [
-                        for (final job in photoJobs)
-                          PhotoJobCard(key: ValueKey(job.id), job: job),
-                      ]),
-                    ),
                   if (usual != null) _buildUsualMeal(usual, foodEntryProvider),
                   AnimatedCrossFade(
                     firstChild: const SizedBox.shrink(),

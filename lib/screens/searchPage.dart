@@ -399,7 +399,7 @@ class _FoodSearchPageState extends State<FoodSearchPage>
             final Uint8List photoData = result['value'] as Uint8List;
             print(
                 '[Flutter SearchPage] Post-frame: Handling photo data: ${photoData.lengthInBytes} bytes');
-            _handlePhotoResult(currentContext, photoData);
+            _handlePhotoResult(currentContext, photoData, note: result['note'] as String?);
           } else if (type == 'cancel') {
             print('[Flutter SearchPage] Post-frame: Handling cancel.');
           } else {
@@ -452,11 +452,11 @@ class _FoodSearchPageState extends State<FoodSearchPage>
 
   /// Analysis runs in the background; go back to the dashboard, where the
   /// meal shows a progress card and a banner says when it's ready.
-  void _handlePhotoResult(BuildContext safeContext, Uint8List photoData) {
+  void _handlePhotoResult(BuildContext safeContext, Uint8List photoData, {String? note}) {
     if (!mounted) return;
     final date = Provider.of<DateProvider>(safeContext, listen: false).selectedDate;
     Provider.of<PhotoAnalysisService>(safeContext, listen: false).start(photoData,
-        meal: widget.selectedMeal ?? MealTime.suggested(), date: date);
+        meal: widget.selectedMeal ?? MealTime.suggested(), date: date, note: note);
     Navigator.of(safeContext).popUntil((route) => route.isFirst);
   }
 

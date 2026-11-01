@@ -38,7 +38,7 @@ void main() {
     }
     dates = DateProvider();
     calls = [];
-    service = PhotoAnalysisService(analyzer: (_) {
+    service = PhotoAnalysisService(analyzer: (_, {note}) {
       final call = Completer<List<AIFoodItem>>();
       calls.add(call);
       return call.future;
@@ -62,52 +62,27 @@ void main() {
   Finder pill(String text) =>
       find.descendant(of: find.byType(PhotoJobPill), matching: find.text(text));
 
-  testWidgets('a photo whose meal is off screen shows a pill that scrolls to it',
-      (tester) async {
-    // A full breakfast and lunch push dinner below the fold.
-    await tester.runAsync(() async {
-      for (final meal in ['Breakfast', 'Lunch']) {
-        for (var i = 0; i < 6; i++) {
-          await provider.addEntry(testEntry(name: '$meal $i', meal: meal, date: today));
-        }
-      }
-    });
-    await pumpDashboard(tester, height: 2000);
-    expect(find.byType(PhotoJobPill), findsOneWidget);
-    expect(pill('Analyzing your dinner…'), findsNothing);
-
-    service.start(photo, meal: 'Dinner', date: today);
-    await pumpFrames(tester, seconds: 1);
-    expect(pill('Analyzing your dinner…'), findsOneWidget);
-
-    await tester.tap(pill('Analyzing your dinner…'));
-    await pumpFrames(tester, seconds: 2);
-    // The meal's own progress row is on screen now, so the pill goes.
-    expect(find.text('Analyzing your meal…').hitTestable(), findsOneWidget);
-    expect(pill('Analyzing your dinner…'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('no pill while the meal\'s progress is on screen', (tester) async {
+  testWidgets('a photo shows only as the pill, never inside its meal', (tester) async {
     await pumpDashboard(tester);
     service.start(photo, meal: 'Breakfast', date: today);
     await pumpFrames(tester, seconds: 1);
-    expect(find.text('Analyzing your meal…'), findsOneWidget);
-    expect(pill('Analyzing your breakfast…'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+    expect(pill('Analyzing your breakfast…'), findsOneWidget);
+    expect(find.textContaining('Analyzing'), findsOneWidget);
 
-  testWidgets('a photo for another day shows a pill that goes to that day',
-      (tester) async {
-    await pumpDashboard(tester);
-    service.start(photo, meal: 'Lunch', date: yesterday);
+    calls.single.complete([
+      AIFoodItem(
+          name: 'Oats',
+          servingSizes: ['1 bowl'],
+          calories: [300],
+          protein: [10],
+          carbohydrates: [50],
+          fat: [6],
+          fiber: [8]),
+    ]);
     await pumpFrames(tester, seconds: 1);
-    expect(pill('Analyzing your lunch…'), findsOneWidget);
-
-    await tester.tap(pill('Analyzing your lunch…'));
-    await pumpFrames(tester, seconds: 2);
-    expect(DateUtils.isSameDay(dates.selectedDate, yesterday), isTrue);
-    expect(pill('Analyzing your lunch…'), findsNothing);
+    expect(pill('Your breakfast is ready · Review'), findsOneWidget);
+    expect(find.text('Oats'), findsNothing);
+    expect(find.textContaining('ready'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -158,18 +158,20 @@ import AVFoundation  // Added for camera functionality
          }
      }
 
-     func nativeCameraDidFinish(withPhotoData photoData: Data, mode: CameraMode) { // Updated signature
+     func nativeCameraDidFinish(withPhotoData photoData: Data, mode: CameraMode, note: String?) {
          print("DEBUG: [AppDelegate] Native Camera Finished with Photo Data: \(photoData.count) bytes in mode: \(mode.rawValue)")
          
          // Send result back to Flutter, including mode
          print("DEBUG: [AppDelegate] Invoking 'cameraResult' method on nativeCameraViewChannel for photo")
          print("DEBUG: [AppDelegate] Channel exists? \(nativeCameraViewChannel != nil)")
          
-         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: [
+         var arguments: [String: Any] = [
              "type": "photo",
              "value": FlutterStandardTypedData(bytes: photoData),
              "mode": mode.rawValue // Include mode string
-         ]) { (result) in
+         ]
+         if let note = note { arguments["note"] = note } // What the user added about the meal
+         nativeCameraViewChannel?.invokeMethod("cameraResult", arguments: arguments) { (result) in
              if let error = result as? FlutterError {
                  print("DEBUG: [AppDelegate] Error invoking method for photo: \(error.message ?? "unknown error")")
              } else {
